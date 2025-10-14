@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
  * convenience methods for adding events and starting spans.
  */
 class ActivityTracerCache @VisibleForTesting internal constructor(private val tracerFactory: (Activity) -> ActivityTracer) {
-    private val tracersByActivityClassName: MutableMap<String, ActivityTracer> = HashMap()
+    private val tracersByActivityClassName: MutableMap<String, ActivityTracer> = mutableMapOf()
 
     constructor(
         tracer: Tracer,
@@ -66,6 +66,14 @@ class ActivityTracerCache @VisibleForTesting internal constructor(private val tr
 
     fun startActivityCreation(activity: Activity): ActivityTracer {
         return getTracer(activity).startActivityCreation()
+    }
+
+    fun startActivitySession(activity: Activity): ActivityTracer {
+        return getTracer(activity).startActivitySessionSpan()
+    }
+
+    fun stopActivitySession(activity: Activity): ActivityTracer {
+        return getTracer(activity).stopActivitySessionSpan()
     }
 
     private fun getTracer(activity: Activity): ActivityTracer {

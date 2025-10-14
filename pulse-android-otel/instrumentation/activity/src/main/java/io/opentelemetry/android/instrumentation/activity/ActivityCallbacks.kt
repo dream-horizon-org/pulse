@@ -51,6 +51,7 @@ class ActivityCallbacks(
 
     override fun onActivityResumed(activity: Activity) {
         tracers.addEvent(activity, "activityResumed")
+        tracers.startActivitySession(activity)
     }
 
     override fun onActivityPostResumed(activity: Activity) {
@@ -66,6 +67,7 @@ class ActivityCallbacks(
 
     override fun onActivityPaused(activity: Activity) {
         tracers.addEvent(activity, "activityPaused")
+        tracers.stopActivitySession(activity)
     }
 
     override fun onActivityPostPaused(activity: Activity) {

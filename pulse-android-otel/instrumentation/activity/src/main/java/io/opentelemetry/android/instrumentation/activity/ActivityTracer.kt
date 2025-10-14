@@ -22,18 +22,17 @@ class ActivityTracer private constructor(builder: Builder) {
     val screenName: String? = builder.screenName
     private val appStartupTimer: AppStartupTimer = builder.appStartupTimer
     private val activeSpan: ActiveSpan = builder.activeSpan
+    private var sessionSpan: Span? = null
 
-    fun startSpanIfNoneInProgress(spanName: String): ActivityTracer {
+    fun startSpanIfNoneInProgress(spanName: String): ActivityTracer = apply {
         if (activeSpan.spanInProgress()) {
             return this
         }
-        activeSpan.startSpan { createSpan(spanName) }
-        return this
+        activeSpan.startSpanIfNotStarted { createSpanWithParent(spanName, null) }
     }
 
-    fun startActivityCreation(): ActivityTracer {
-        activeSpan.startSpan { this.makeCreationSpan() }
-        return this
+    fun startActivityCreation(): ActivityTracer = apply {
+        activeSpan.startSpanIfNotStarted { this.makeCreationSpan() }
     }
 
     private fun makeCreationSpan(): Span {
@@ -43,19 +42,37 @@ class ActivityTracer private constructor(builder: Builder) {
         // the activity class name as the base of the span name.
         val isColdStart = initialAppActivity.get() == null
         if (isColdStart) {
-            return createSpanWithParent("Created", appStartupTimer.getStartupSpan())
+            return createSpanWithParent("Created", appStartupTimer.startupSpan)
         }
         if (activityName == initialAppActivity.get()) {
             return createAppStartSpan("warm")
         }
-        return createSpan("Created")
+        return createSpanWithParent("Created", null)
+    }
+
+    fun startActivitySessionSpan(): ActivityTracer = apply {
+        val spanBuilder =
+            tracer.spanBuilder("ActivitySession").apply {
+                setAttribute<String?>(ACTIVITY_NAME_KEY, activityName)
+                setNoParent()
+            }
+
+        val span = spanBuilder.startSpan()
+        // do this after the span is started, so we can override the default screen.name set by the
+        // RumAttributeAppender.
+        span.setAttribute(RumConstants.SCREEN_NAME_KEY, screenName)
+        sessionSpan = span
+    }
+
+    fun stopActivitySessionSpan(): ActivityTracer = apply {
+        sessionSpan?.end()
     }
 
     fun initiateRestartSpanIfNecessary(multiActivityApp: Boolean): ActivityTracer {
         if (activeSpan.spanInProgress()) {
             return this
         }
-        activeSpan.startSpan { makeRestartSpan(multiActivityApp) }
+        activeSpan.startSpanIfNotStarted { makeRestartSpan(multiActivityApp) }
         return this
     }
 
@@ -66,17 +83,13 @@ class ActivityTracer private constructor(builder: Builder) {
         if (!multiActivityApp && activityName == initialAppActivity.get()) {
             return createAppStartSpan("hot")
         }
-        return createSpan("Restarted")
+        return createSpanWithParent("Restarted", null)
     }
 
     private fun createAppStartSpan(startType: String?): Span {
-        val span = createSpan(RumConstants.APP_START_SPAN_NAME)
+        val span = createSpanWithParent(RumConstants.APP_START_SPAN_NAME, null)
         span.setAttribute(RumConstants.START_TYPE_KEY, startType)
         return span
-    }
-
-    private fun createSpan(spanName: String): Span {
-        return createSpanWithParent(spanName, null)
     }
 
     private fun createSpanWithParent(spanName: String, parentSpan: Span?): Span {
@@ -106,14 +119,12 @@ class ActivityTracer private constructor(builder: Builder) {
         activeSpan.endActiveSpan()
     }
 
-    fun addPreviousScreenAttribute(): ActivityTracer {
+    fun addPreviousScreenAttribute(): ActivityTracer = apply {
         activeSpan.addPreviousScreenAttribute(activityName)
-        return this
     }
 
-    fun addEvent(eventName: String?): ActivityTracer {
+    fun addEvent(eventName: String?): ActivityTracer = apply {
         activeSpan.addEvent(eventName)
-        return this
     }
 
     internal class Builder(private val activity: Activity) {

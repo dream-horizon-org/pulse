@@ -27,7 +27,7 @@ public class ActiveSpan {
 
     // it's fine to not close the scope here, will be closed in endActiveSpan()
     @SuppressWarnings("MustBeClosedChecker")
-    public void startSpan(Supplier<Span> spanCreator) {
+    public void startSpanIfNotStarted(Supplier<Span> spanCreator) {
         // don't start one if there's already one in progress
         if (span != null) {
             return;
