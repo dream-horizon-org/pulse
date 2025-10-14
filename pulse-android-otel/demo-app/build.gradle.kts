@@ -74,9 +74,13 @@ dependencies {
 
     // These are sourced from local project dirs. See settings.gradle.kts for the
     // configured substitutions.
-    implementation("io.opentelemetry.android:android-agent")    //parent dir
-    implementation("io.opentelemetry.android.instrumentation:compose-click")
-    implementation("io.opentelemetry.android.instrumentation:sessions")
+    implementation(libs.opentelemetry.android.agent)    //parent dir
+    implementation(libs.opentelemetry.instrumentation.compose.click)
+    implementation(libs.opentelemetry.instrumentation.sessions)
+    implementation(libs.opentelemetry.instrumentation.activity)
+    implementation(libs.opentelemetry.instrumentation.fragment)
+    implementation(libs.opentelemetry.instrumentation.view.click)
+    implementation(libs.opentelemetry.instrumentation.slowrendering)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

@@ -28,5 +28,13 @@ includeBuild("..") {
             .using(project(":instrumentation:compose:click"))
         substitute(module("io.opentelemetry.android.instrumentation:sessions"))
             .using(project(":instrumentation:sessions"))
+        substitute(module("io.opentelemetry.android.instrumentation:activity"))
+            .using(project(":instrumentation:activity"))
+        substitute(module("io.opentelemetry.android.instrumentation:fragment"))
+            .using(project(":instrumentation:fragment"))
+        substitute(module("io.opentelemetry.android.instrumentation:view-click"))
+            .using(project(":instrumentation:view-click"))
+        substitute(module("io.opentelemetry.android.instrumentation:slowrendering"))
+            .using(project(":instrumentation:slowrendering"))
     }
 }

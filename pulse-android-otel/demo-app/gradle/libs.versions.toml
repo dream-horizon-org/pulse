@@ -10,6 +10,13 @@ navigation-compose = "2.7.7"
 androidx-appcompat = "androidx.appcompat:appcompat:1.7.1"
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }
 opentelemetry-api-incubator = { module = "io.opentelemetry:opentelemetry-api-incubator", version.ref = "opentelemetry-alpha" }
+opentelemetry-android-agent = { module = "io.opentelemetry.android:android-agent" }
+opentelemetry-instrumentation-activity = { module = "io.opentelemetry.android.instrumentation:activity" }
+opentelemetry-instrumentation-compose-click = { module = "io.opentelemetry.android.instrumentation:compose-click" }
+opentelemetry-instrumentation-fragment = { module = "io.opentelemetry.android.instrumentation:fragment" }
+opentelemetry-instrumentation-sessions = { module = "io.opentelemetry.android.instrumentation:sessions" }
+opentelemetry-instrumentation-slowrendering = { module = "io.opentelemetry.android.instrumentation:slowrendering" }
+opentelemetry-instrumentation-view-click = { module = "io.opentelemetry.android.instrumentation:view-click" }
 gson = "com.google.code.gson:gson:2.13.2"
 
 #Test tools
