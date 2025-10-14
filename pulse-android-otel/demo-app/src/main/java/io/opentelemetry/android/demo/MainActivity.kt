@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.opentelemetry.android.demo.about.AboutActivity
+import io.opentelemetry.android.demo.fragment.FragmentActivity
 import io.opentelemetry.android.demo.theme.DemoAppTheme
 import io.opentelemetry.android.demo.shop.ui.AstronomyShopActivity
 
@@ -78,6 +79,9 @@ class MainActivity : ComponentActivity() {
                             painterResource(id = R.drawable.otel_icon),
                         )
                         val context = LocalContext.current
+                        LauncherButton(text = "Open Fragment activity", onClick = {
+                            context.startActivity(Intent(this@MainActivity, FragmentActivity::class.java))
+                        })
                         LauncherButton(text = "Go shopping", onClick = {
                             context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
                         })
