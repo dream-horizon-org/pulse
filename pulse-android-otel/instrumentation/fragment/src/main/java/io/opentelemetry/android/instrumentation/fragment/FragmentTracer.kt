@@ -10,6 +10,7 @@ import io.opentelemetry.android.instrumentation.common.ActiveSpan
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.context.Scope
 
 internal class FragmentTracer private constructor(builder: Builder) {
     private val fragmentName: String =  builder.getFragmentName()
@@ -17,6 +18,7 @@ internal class FragmentTracer private constructor(builder: Builder) {
     private val tracer: Tracer = builder.tracer
     private val activeSpan: ActiveSpan = builder.activeSpan
     private var sessionSpan: Span? = null
+    private var sessionScope: Scope? = null
 
     fun startSpanIfNoneInProgress(action: String) = apply {
         if (activeSpan.spanInProgress()) {
@@ -40,10 +42,12 @@ internal class FragmentTracer private constructor(builder: Builder) {
         // RumAttributeAppender.
         span.setAttribute(RumConstants.SCREEN_NAME_KEY, screenName)
         sessionSpan = span
+        sessionScope = span.makeCurrent()
     }
 
     fun stopFragmentSessionSpan(): FragmentTracer = apply {
         sessionSpan?.end()
+        sessionScope?.close()
     }
 
     private fun createSpan(spanName: String): Span {

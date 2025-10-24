@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.os.bundleOf
 import io.opentelemetry.android.demo.R
 
 /**
@@ -26,5 +27,11 @@ class DetailFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val textView = view.findViewById<TextView>(R.id.rv_detail_text)
         textView.text = "Hello child fragment opened at " + System.currentTimeMillis()
+    }
+
+    companion object {
+        fun newInstance(type: String) = DetailFragment().apply {
+            arguments = bundleOf("type" to type)
+        }
     }
 }

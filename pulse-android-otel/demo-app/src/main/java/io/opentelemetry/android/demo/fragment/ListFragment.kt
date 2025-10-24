@@ -26,12 +26,24 @@ class ListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         val rvList = view.findViewById<RecyclerView>(R.id.rv_list)
         rvList.layoutManager = LinearLayoutManager(requireContext())
-        rvList.adapter = ListAdapter {
-            requireActivity().supportFragmentManager.commit {
-                replace(R.id.fragment_container, DetailFragment(), DetailFragment::class.java.simpleName)
-                addToBackStack(DetailFragment::class.java.simpleName)
+        rvList.adapter = ListAdapter(
+            object : ListAdapter.ListInterface {
+                override fun onAddClick(index: Int) {
+                    requireActivity().supportFragmentManager.commit {
+                        add(R.id.fragment_container, DetailFragment.newInstance("add"), DetailFragment::class.java.simpleName)
+                        addToBackStack(DetailFragment::class.java.simpleName)
+                    }
+                }
+
+                override fun onReplaceClick(index: Int) {
+                    requireActivity().supportFragmentManager.commit {
+                        replace(R.id.fragment_container, DetailFragment.newInstance("replace"), DetailFragment::class.java.simpleName)
+                        addToBackStack(DetailFragment::class.java.simpleName)
+                    }
+                }
+
             }
-        }.apply {
+        ).apply {
             data = buildList {
                 repeat(50) {
                     add("Item no. ${it + 1}")
@@ -42,12 +54,12 @@ class ListFragment : Fragment() {
     }
 }
 
-class ListAdapter(val onClick: (Int) -> Unit) : RecyclerView.Adapter<ListAdapter.RVViewModel>() {
+class ListAdapter(val listInterface: ListInterface) : RecyclerView.Adapter<ListAdapter.RVViewModel>() {
     override fun onCreateViewHolder(
         parent: ViewGroup,
         viewType: Int
     ): RVViewModel {
-        return RVViewModel(RvListItemBinding.inflate(LayoutInflater.from(parent.context)), onClick)
+        return RVViewModel(RvListItemBinding.inflate(LayoutInflater.from(parent.context)), listInterface)
     }
 
     override fun onBindViewHolder(
@@ -68,7 +80,7 @@ class ListAdapter(val onClick: (Int) -> Unit) : RecyclerView.Adapter<ListAdapter
 
     override fun getItemCount(): Int = data.size
 
-    class RVViewModel(private val binding: RvListItemBinding, private val onClick: (Int) -> Unit) :
+    class RVViewModel(private val binding: RvListItemBinding, private val listeners: ListInterface) :
         RecyclerView.ViewHolder(binding.root) {
         @SuppressLint("SetTextI18n")
         fun bind(position: Int, value: String) {
@@ -77,9 +89,26 @@ class ListAdapter(val onClick: (Int) -> Unit) : RecyclerView.Adapter<ListAdapter
             binding.rvItemTv.setOnClickListener {
                 val pos = bindingAdapterPosition
                 if (pos != RecyclerView.NO_POSITION) {
-                    onClick(pos)
+                    listeners.onAddClick(pos)
+                }
+            }
+            binding.addBtn.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    listeners.onAddClick(pos)
+                }
+            }
+            binding.replaceBtn.setOnClickListener {
+                val pos = bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    listeners.onReplaceClick(pos)
                 }
             }
         }
+    }
+
+    interface ListInterface {
+        fun onAddClick(index: Int)
+        fun onReplaceClick(index: Int)
     }
 }
