@@ -7,6 +7,8 @@ package io.opentelemetry.android
 
 import android.app.Application
 import android.os.Build
+import androidx.annotation.RequiresApi
+import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.common.RumConstants.RUM_SDK_VERSION
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME
@@ -29,16 +31,18 @@ object AndroidResource {
             Resource.getDefault().toBuilder().put(SERVICE_NAME, appName)
         val appVersion = readAppVersion(application)
         appVersion?.let { resourceBuilder.put(SERVICE_VERSION, it) }
+        appVersion?.let { resourceBuilder.put(RumConstants.App.BUILD_ID, it) }
 
         return resourceBuilder
             .put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION)
             .put(DEVICE_MODEL_NAME, Build.MODEL)
-            .put(DEVICE_MODEL_IDENTIFIER, Build.MODEL)
+            .put(DEVICE_MODEL_IDENTIFIER, modelIdentifier)
             .put(DEVICE_MANUFACTURER, Build.MANUFACTURER)
             .put(OS_NAME, "Android")
             .put(OS_TYPE, "linux")
             .put(OS_VERSION, Build.VERSION.RELEASE)
-            .put(OS_DESCRIPTION, oSDescription)
+            .put(OS_DESCRIPTION, Build.DISPLAY)
+            .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
             .build()
     }
 
@@ -65,6 +69,22 @@ object AndroidResource {
         }
     }
 
+    private val modelIdentifier: String
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val modelIdApi31 = modelIdentifierApi31
+            if (modelIdApi31 == UNKNOWN_MODEL_ID) {
+                Build.MODEL
+            } else {
+                modelIdApi31
+            }
+        } else {
+            Build.MODEL
+        }
+
+    @get:RequiresApi(Build.VERSION_CODES.S)
+    private val modelIdentifierApi31: String
+        get() = "${Build.ODM_SKU}_${Build.SKU}"
+
     private val oSDescription: String
         get() {
             val osDescriptionBuilder = StringBuilder()
@@ -78,4 +98,6 @@ object AndroidResource {
                 .append(")")
                 .toString()
         }
+
+    private const val UNKNOWN_MODEL_ID = "unknown_unknown"
 }

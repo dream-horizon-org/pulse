@@ -33,6 +33,28 @@ object RumConstants {
 
     const val APP_START_SPAN_NAME: String = "AppStart"
 
+    object App {
+        /**
+         * See https://opentelemetry.io/docs/specs/semconv/registry/attributes/app/#app-build-id
+         */
+        @JvmField
+        val BUILD_ID: AttributeKey<String> = AttributeKey.stringKey("app.build_id")
+    }
+
+    object Android {
+        /**
+         * See https://opentelemetry.io/docs/specs/semconv/registry/attributes/android/#android-app-state
+         * Can be one of the following `background`, `created` and `foreground`
+         */
+        @JvmField
+        val APP_STATE: AttributeKey<String> = AttributeKey.stringKey("android.app.state")
+        /**
+         * See https://opentelemetry.io/docs/specs/semconv/registry/attributes/android/#android-os-api-leveld
+         */
+        @JvmField
+        val OS_API_LEVEL: AttributeKey<String> = AttributeKey.stringKey("android.os.api_level")
+    }
+
     object Events {
         const val INIT_EVENT_STARTED: String = "rum.sdk.init.started"
         const val INIT_EVENT_CONFIG: String = "rum.sdk.init.config"
