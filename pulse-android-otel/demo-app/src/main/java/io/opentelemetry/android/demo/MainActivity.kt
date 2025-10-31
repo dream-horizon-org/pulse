@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
@@ -50,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     Column(
+                        modifier = Modifier.verticalScroll(state = rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceEvenly,
                     ) {
@@ -87,6 +90,10 @@ class MainActivity : ComponentActivity() {
                         })
                         LauncherButton(text = "Learn more", onClick = {
                             context.startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                        })
+
+                        LauncherButton(text = "Crash here", onClick = {
+                            viewModel.performSomeWork()
                         })
 
                     }

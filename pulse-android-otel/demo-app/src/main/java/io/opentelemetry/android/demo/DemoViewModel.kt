@@ -35,4 +35,8 @@ class DemoViewModel : ViewModel() {
         // A metric should be a better fit, but for now we're using spans.
         tracer.spanBuilder(type).setAttribute("value", value.toDouble()).startSpan().end()
     }
+
+    fun performSomeWork() {
+        DemoWork().startWork()
+    }
 }

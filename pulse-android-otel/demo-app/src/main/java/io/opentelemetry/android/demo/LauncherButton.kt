@@ -30,14 +30,14 @@ fun LauncherButton(
         Button(
             onClick = onClick,
             border = BorderStroke(1.dp, Color.Gray),
-            modifier = Modifier.padding(20.dp).height(90.dp),
+            modifier = Modifier.padding(16.dp).height(75.dp),
             colors =
                 ButtonDefaults.buttonColors(
                     containerColor = Color.Transparent,
                     contentColor = Color(0xFF425CC7),
                 ),
             content = {
-                CenterText(text = text, fontSize = 30.sp)
+                CenterText(text = text, fontSize = 24.sp)
             },
         )
     }
