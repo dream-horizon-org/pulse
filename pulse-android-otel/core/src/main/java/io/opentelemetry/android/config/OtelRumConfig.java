@@ -24,6 +24,7 @@ public class OtelRumConfig {
 
     @Nullable private Supplier<Attributes> globalAttributesSupplier = null;
     private boolean includeNetworkAttributes = true;
+    private boolean includeFrameAttributes = true;
     private boolean generateSdkInitializationEvents = true;
     private boolean includeScreenAttributes = true;
     private boolean discoverInstrumentations = true;
@@ -64,6 +65,18 @@ public class OtelRumConfig {
     public OtelRumConfig disableNetworkAttributes() {
         includeNetworkAttributes = false;
         return this;
+    }
+
+    /**
+     * Disable adding frame attributes in spans about slow and frozen frames
+     */
+    public OtelRumConfig disableFrameAttributes() {
+        includeFrameAttributes = false;
+        return this;
+    }
+
+    public boolean shouldIncludeFrameAttributes() {
+        return includeFrameAttributes;
     }
 
     /** Returns true if runtime network attributes are enabled, false otherwise. */

@@ -22,6 +22,7 @@ import io.opentelemetry.android.features.diskbuffering.scheduler.DefaultExportSc
 import io.opentelemetry.android.features.diskbuffering.scheduler.DefaultExportScheduler;
 import io.opentelemetry.android.features.diskbuffering.scheduler.ExportScheduleHandler;
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation;
+import io.opentelemetry.android.instrumentation.slowrendering.SpanFrameAttributesAppended;
 import io.opentelemetry.android.internal.features.networkattrs.NetworkAttributesLogRecordAppender;
 import io.opentelemetry.android.internal.features.networkattrs.NetworkAttributesSpanAppender;
 import io.opentelemetry.android.internal.features.persistence.DiskManager;
@@ -514,6 +515,14 @@ public final class OpenTelemetryRumBuilder {
                         return builder.addLogRecordProcessor(processor);
                     });
             initializationEvents.currentNetworkProviderInitialized();
+        }
+
+        if (config.shouldIncludeFrameAttributes()) {
+            addTracerProviderCustomizer(
+                    (builder, app) -> {
+                        return builder.addSpanProcessor(new SpanFrameAttributesAppended());
+                    }
+            );
         }
 
         // Add processors that append screen attribute(s)

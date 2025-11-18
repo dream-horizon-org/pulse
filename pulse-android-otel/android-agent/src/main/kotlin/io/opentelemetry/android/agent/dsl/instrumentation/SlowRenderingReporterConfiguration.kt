@@ -26,6 +26,10 @@ class SlowRenderingReporterConfiguration internal constructor(
         slowRenderingInstrumentation.setSlowRenderingDetectionPollInterval(value.toJavaDuration())
     }
 
+    fun disableFrameAttributes() {
+        config.disableFrameAttributes()
+    }
+
     fun enableVerboseDebugLogging() {
         slowRenderingInstrumentation.enableVerboseDebugLogging()
     }

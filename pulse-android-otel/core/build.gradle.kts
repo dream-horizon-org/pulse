@@ -64,6 +64,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":services"))
     implementation(project(":session"))
+    implementation(project(":instrumentation:slowrendering"))
 
     implementation(libs.androidx.core)
 

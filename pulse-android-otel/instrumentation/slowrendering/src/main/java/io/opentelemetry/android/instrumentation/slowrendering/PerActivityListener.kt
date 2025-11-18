@@ -26,7 +26,7 @@ internal class PerActivityListener(
     private val lock = Any()
 
     @GuardedBy("lock")
-    private var drawDurationHistogram: MutableMap<Int, Int> = HashMap<Int, Int>()
+    private var drawDurationHistogram: MutableMap<Int, Int> = HashMap()
 
     fun getActivityName(): String = activity.componentName.flattenToShortString()
 
@@ -40,12 +40,20 @@ internal class PerActivityListener(
             return
         }
 
+        SlowRenderListener.totalDroppedFrames += dropCountSinceLastInvocation
+        SlowRenderListener.totalUndroppedFrames++
+
         val drawDurationsNs = frameMetrics.getMetric(FrameMetrics.DRAW_DURATION)
         // ignore values < 0; something must have gone wrong
         if (drawDurationsNs >= 0) {
             synchronized(lock) {
                 // calculation copied from FrameMetricsAggregator
                 val durationMs = ((drawDurationsNs + NANOS_ROUNDING_VALUE) / NANOS_PER_MS).toInt()
+                if (durationMs > FROZEN_THRESHOLD_MS) {
+                    SlowRenderListener.frozenFrames++
+                } else if (durationMs > SLOW_THRESHOLD_MS) {
+                    SlowRenderListener.slowFrames++
+                }
                 val oldValue: Int = drawDurationHistogram.getOrDefault(durationMs, 0)
                 drawDurationHistogram[durationMs] = (oldValue + 1)
             }
