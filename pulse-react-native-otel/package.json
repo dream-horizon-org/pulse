@@ -1,6 +1,6 @@
 {
-  "name": "react-native-pulse-react-native-otel",
-  "version": "0.1.0",
+  "name": "@d11/pulse-react-native-otel",
+  "version": "0.0.1",
   "description": "react native package for complete observability with otel support",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -79,7 +79,7 @@
     "prettier": "^3.6.2",
     "react": "19.1.0",
     "react-native": "0.81.1",
-    "react-native-builder-bob": "^0.40.13",
+    "react-native-builder-bob": "0.30.2",
     "release-it": "^19.0.4",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
@@ -92,13 +92,6 @@
     "example"
   ],
   "packageManager": "yarn@3.6.1",
-  "jest": {
-    "preset": "react-native",
-    "modulePathIgnorePatterns": [
-      "<rootDir>/example/node_modules",
-      "<rootDir>/lib/"
-    ]
-  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"

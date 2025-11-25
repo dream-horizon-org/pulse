@@ -1,4 +1,8 @@
+@file:Suppress("UnstableApiUsage")
+
 rootProject.name = "opentelemetry-android-demo"
+
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
     repositories {
@@ -36,5 +40,14 @@ includeBuild("..") {
             .using(project(":instrumentation:view-click"))
         substitute(module("io.opentelemetry.android.instrumentation:slowrendering"))
             .using(project(":instrumentation:slowrendering"))
+        // TODO update with final coordinates
+        substitute(module("io.opentelemetry.android.instrumentation:interaction-library"))
+            .using(project(":instrumentation:interaction:interaction-library"))
+        substitute(module("io.opentelemetry.android.instrumentation:interaction-remote"))
+            .using(project(":instrumentation:interaction:interaction-remote"))
+        substitute(module("io.opentelemetry.android.instrumentation:interaction-core"))
+            .using(project(":instrumentation:interaction:interaction-core"))
+        substitute(module("io.opentelemetry.android:pulse-android-sdk"))
+            .using(project(":pulse-android-sdk"))
     }
 }

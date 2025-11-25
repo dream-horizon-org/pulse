@@ -35,6 +35,12 @@ class InstrumentationConfiguration internal constructor(
         )
     }
 
+    private val interaction: InteractionConfiguration by lazy {
+        InteractionConfiguration(
+            config,
+        )
+    }
+
     fun activity(configure: ActivityLifecycleConfiguration.() -> Unit) {
         activity.configure()
     }
@@ -57,5 +63,9 @@ class InstrumentationConfiguration internal constructor(
 
     fun slowRenderingReporter(configure: SlowRenderingReporterConfiguration.() -> Unit) {
         slowRendering.configure()
+    }
+
+    fun interaction(configure: InteractionConfiguration.() -> Unit) {
+        interaction.configure()
     }
 }

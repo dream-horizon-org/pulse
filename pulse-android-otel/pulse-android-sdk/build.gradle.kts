@@ -1,0 +1,28 @@
+plugins {
+    id("otel.android-library-conventions")
+    id("otel.publish-conventions")
+}
+
+
+description = "Pulse SDK for mobile observability"
+
+android {
+    namespace = "com.pulse.android.sdk"
+}
+
+kotlin {
+    explicitApi()
+}
+
+dependencies {
+    api(projects.androidAgent)
+    implementation(projects.common)
+    implementation(projects.pulseSemconv)
+    implementation(projects.pulseUtils)
+    implementation(projects.instrumentation.interaction.interactionLibrary)
+//    implementation(projects.instrumentation.interaction.interactionCore)
+    implementation(platform(libs.opentelemetry.platform.alpha))
+    implementation(libs.opentelemetry.api)
+    implementation(libs.opentelemetry.sdk)
+    implementation(libs.opentelemetry.semconv.incubating)
+}

@@ -79,7 +79,7 @@ dependencies {
 
     // These are sourced from local project dirs. See settings.gradle.kts for the
     // configured substitutions.
-    implementation(libs.opentelemetry.android.agent)    //parent dir
+    implementation(libs.pulse.android.sdk)    //parent dir
     implementation(libs.opentelemetry.instrumentation.compose.click)
     implementation(libs.opentelemetry.instrumentation.sessions)
     implementation(libs.opentelemetry.instrumentation.activity)

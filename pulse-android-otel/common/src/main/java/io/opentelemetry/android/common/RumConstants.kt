@@ -39,6 +39,7 @@ object RumConstants {
          */
         @JvmField
         val BUILD_ID: AttributeKey<String> = AttributeKey.stringKey("app.build_id")
+        val BUILD_NAME: AttributeKey<String> = AttributeKey.stringKey("app.build_name")
     }
 
     object Android {

@@ -30,8 +30,16 @@ object AndroidResource {
         val resourceBuilder =
             Resource.getDefault().toBuilder().put(SERVICE_NAME, appName)
         val appVersion = readAppVersion(application)
-        appVersion?.let { resourceBuilder.put(SERVICE_VERSION, it) }
-        appVersion?.let { resourceBuilder.put(RumConstants.App.BUILD_ID, it) }
+        val appVersionCode = readAppVersionCode(application)
+        val buildName = "${appVersion}_$appVersionCode"
+        appVersion?.let { resourceBuilder.put(SERVICE_VERSION, buildName) }
+        appVersion?.let { resourceBuilder.put(RumConstants.App.BUILD_NAME, buildName) }
+        appVersion?.let {
+            resourceBuilder.put(
+                RumConstants.App.BUILD_ID,
+                appVersionCode.toString()
+            )
+        }
 
         return resourceBuilder
             .put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION)
@@ -67,6 +75,26 @@ object AndroidResource {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun readAppVersionCode(application: Application): Long? {
+        val ctx = application.applicationContext
+        return try {
+            val packageInfo = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                getLongVersionCodeApi28(packageInfo)
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.versionCode.toLong()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
+    private fun getLongVersionCodeApi28(packageInfo: android.content.pm.PackageInfo): Long {
+        return packageInfo.longVersionCode
     }
 
     private val modelIdentifier: String

@@ -86,6 +86,9 @@ class MainActivity : ComponentActivity() {
                             context.startActivity(Intent(this@MainActivity, FragmentActivity::class.java))
                         })
                         LauncherButton(text = "Go shopping", onClick = {
+                            OtelDemoApplication.logEvent("Go shopping") {
+                                setAttribute("shopping", "true")
+                            }
                             context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
                         })
                         LauncherButton(text = "Learn more", onClick = {

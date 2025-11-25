@@ -22,6 +22,7 @@ import io.opentelemetry.android.demo.shop.ui.cart.CartViewModel
 import io.opentelemetry.android.demo.shop.ui.components.UpPressButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
+import io.opentelemetry.android.demo.OtelDemoApplication
 import io.opentelemetry.android.demo.shop.clients.ProductCatalogClient
 import io.opentelemetry.android.demo.shop.clients.RecommendationService
 import io.opentelemetry.android.demo.shop.ui.components.SlowCometAnimation
@@ -134,6 +135,10 @@ fun AddToCartButton(
                 if (product.id == "HQTGWGPNH4") {
                     onSlowRenderChange(true)
                 }
+            }
+            OtelDemoApplication.logEvent("Add to cart") {
+                setAttribute("product.id", product.id)
+                setAttribute("quantity", quantity)
             }
             cartViewModel.addProduct(product, quantity)
         },

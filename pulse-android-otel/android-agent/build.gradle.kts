@@ -26,6 +26,9 @@ dependencies {
     api(project(":instrumentation:startup"))
     api(project(":instrumentation:sessions"))
 
+    // todo move this to pulse SDK
+    api(projects.instrumentation.interaction.interactionLibrary)
+
     testImplementation(libs.robolectric)
 }
 

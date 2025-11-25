@@ -23,6 +23,10 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
+import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
+import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import java.util.function.BiFunction
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
@@ -65,9 +69,11 @@ object OpenTelemetryRumInitializer {
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
+        meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
+        rumConfig: OtelRumConfig = OtelRumConfig(),
     ): OpenTelemetryRum {
-        val rumConfig = OtelRumConfig()
-
         instrumentations?.let { configure ->
             InstrumentationConfiguration(rumConfig).configure()
         }
@@ -81,26 +87,34 @@ object OpenTelemetryRumInitializer {
         }
         return OpenTelemetryRum
             .builder(application, rumConfig)
-            .setSessionProvider(createSessionProvider(application, sessionConfig))
-            .addSpanExporterCustomizer {
-                OtlpHttpSpanExporter
-                    .builder()
-                    .setEndpoint(spanEndpointConnectivity.getUrl())
-                    .setHeaders(spanEndpointConnectivity::getHeaders)
-                    .build()
-            }.addLogRecordExporterCustomizer {
-                OtlpHttpLogRecordExporter
-                    .builder()
-                    .setEndpoint(logEndpointConnectivity.getUrl())
-                    .setHeaders(logEndpointConnectivity::getHeaders)
-                    .build()
-            }.addMetricExporterCustomizer {
-                OtlpHttpMetricExporter
-                    .builder()
-                    .setEndpoint(metricEndpointConnectivity.getUrl())
-                    .setHeaders(metricEndpointConnectivity::getHeaders)
-                    .build()
-            }.build()
+            .apply {
+                setSessionProvider(createSessionProvider(application, sessionConfig))
+                addSpanExporterCustomizer {
+                    OtlpHttpSpanExporter
+                        .builder()
+                        .setEndpoint(spanEndpointConnectivity.getUrl())
+                        .setHeaders(spanEndpointConnectivity::getHeaders)
+                        .build()
+                }
+                addLogRecordExporterCustomizer {
+                    OtlpHttpLogRecordExporter
+                        .builder()
+                        .setEndpoint(logEndpointConnectivity.getUrl())
+                        .setHeaders(logEndpointConnectivity::getHeaders)
+                        .build()
+                }
+                addMetricExporterCustomizer {
+                    OtlpHttpMetricExporter
+                        .builder()
+                        .setEndpoint(metricEndpointConnectivity.getUrl())
+                        .setHeaders(metricEndpointConnectivity::getHeaders)
+                        .build()
+                }
+                tracerProviderCustomizer?.let { addTracerProviderCustomizer(tracerProviderCustomizer) }
+                meterProviderCustomizer?.let { addMeterProviderCustomizer(meterProviderCustomizer) }
+                loggerProviderCustomizer?.let { addLoggerProviderCustomizer(loggerProviderCustomizer) }
+            }
+            .build()
     }
 
     private fun createSessionProvider(

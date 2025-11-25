@@ -9,6 +9,7 @@ import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.pulse.android.sdk.PulseSDK
 
 class MainApplication : Application(), ReactApplication {
 
@@ -33,6 +34,7 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    PulseSDK.INSTANCE.initialize(this, "http://10.0.2.2:4318")
     loadReactNative(this)
   }
 }

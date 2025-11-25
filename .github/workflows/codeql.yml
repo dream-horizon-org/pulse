@@ -22,6 +22,9 @@ jobs:
       actions: read  # for github/codeql-action/init to get workflow details
       security-events: write  # for github/codeql-action/analyze to upload SARIF results
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./pulse-android-otel
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
@@ -35,7 +38,7 @@ jobs:
         uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
 
       - name: touch local props
-        run: touch demo-app/local.properties
+        run: demo-app/local.properties
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8

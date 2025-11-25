@@ -1,5 +1,7 @@
 rootProject.name = "opentelemetry-android"
 
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 plugins {
     id("com.gradle.develocity") version "4.2.2"
 }
@@ -20,21 +22,34 @@ include(":common")
 include(":services")
 include(":session")
 include(":opentelemetry-android-bom")
-includeFromDir("instrumentation")
+include(":pulse-android-sdk")
+include(":pulse-semconv")
+include(":pulse-utils")
+includeFromDir("instrumentation") {
+    if (it.contains(":instrumentation:interaction:")) {
+        val nameWithInteraction = it.split(":").takeLast(2).joinToString("-")
+        println("Name for projectPath = $it is $nameWithInteraction")
+        nameWithInteraction
+    } else {
+        it.substringAfterLast(":")
+    }
+}
 
 fun includeFromDir(
     dirName: String,
     maxDepth: Int = 3,
+    nameProvider: (projectPath: String) -> String = { it.substringAfterLast(":") }
 ) {
     val instrumentationDir = File(rootDir, dirName)
     val separator = Regex("[/\\\\]")
     instrumentationDir.walk().maxDepth(maxDepth).forEach {
         if (it.name.equals("build.gradle.kts")) {
-            include(
-                ":$dirName:${
-                    it.parentFile.toRelativeString(instrumentationDir).replace(separator, ":")
-                }",
-            )
+            val projectPath = ":$dirName:${
+                it.parentFile.toRelativeString(instrumentationDir).replace(separator, ":")
+            }"
+            println("Including projectPath = $projectPath")
+            include(projectPath)
+            project(projectPath).name = nameProvider(projectPath)
         }
     }
 }

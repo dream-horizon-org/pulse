@@ -5,6 +5,8 @@ junit = "6.0.0"
 spotless = "8.0.0"
 kotlin = "2.2.20"
 navigation-compose = "2.7.7"
+okhttp = "5.2.1"
+
 
 [libraries]
 androidx-appcompat = "androidx.appcompat:appcompat:1.7.1"
@@ -17,6 +19,7 @@ opentelemetry-instrumentation-fragment = { module = "io.opentelemetry.android.in
 opentelemetry-instrumentation-sessions = { module = "io.opentelemetry.android.instrumentation:sessions" }
 opentelemetry-instrumentation-slowrendering = { module = "io.opentelemetry.android.instrumentation:slowrendering" }
 opentelemetry-instrumentation-view-click = { module = "io.opentelemetry.android.instrumentation:view-click" }
+pulse-android-sdk = { module = "io.opentelemetry.android:pulse-android-sdk" }
 gson = "com.google.code.gson:gson:2.13.2"
 
 #Test tools
@@ -47,7 +50,7 @@ androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecy
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version = "2.9.4" }
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation-compose" }
 androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigation-compose" }
-androidx-navigation-compose = {group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation-compose"}
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation-compose" }
 [bundles]
 junit = ["junit-jupiter-api", "junit-jupiter-engine", "junit-vintage-engine"]
 

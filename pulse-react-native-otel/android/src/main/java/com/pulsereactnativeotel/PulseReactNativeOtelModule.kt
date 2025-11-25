@@ -1,7 +1,12 @@
 package com.pulsereactnativeotel
 
 import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
+import com.pulse.android.sdk.PulseSDK
+import android.os.Looper
+import android.util.Log
+import android.os.Handler
 
 @ReactModule(name = PulseReactNativeOtelModule.NAME)
 class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
@@ -11,10 +16,67 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return NAME
   }
 
-  // Example method
-  // See https://reactnative.dev/docs/native-modules-android
-  override fun multiply(a: Double, b: Double): Double {
-    return a * b
+  override fun isInitialized(): Boolean {
+    return PulseSDK.INSTANCE.isInitialized()
+  }
+
+  override fun trackEvent(event: String, observedTimeMs: Double, properties: ReadableMap?): Boolean {
+    PulseReactNativeOtelLogger.trackEvent(event, observedTimeMs.toLong(), properties)
+    return true
+  }
+
+  override fun reportException(errorMessage: String, observedTimeMs: Double, stackTrace: String, isFatal: Boolean, errorType: String, attributes: ReadableMap?): Boolean {
+    PulseReactNativeOtelLogger.reportException(errorMessage, observedTimeMs.toLong(), stackTrace, isFatal, errorType, attributes)
+    return true
+  }
+
+  override fun startSpan(name: String, attributes: ReadableMap?): String {
+    return PulseReactNativeOtelTracer.startSpan(name, attributes)
+  }
+
+  override fun endSpan(spanId: String, statusCode: String?): Boolean {
+    PulseReactNativeOtelTracer.endSpan(spanId, statusCode)
+    return true
+  }
+
+  override fun addSpanEvent(spanId: String, name: String, attributes: ReadableMap?): Boolean {
+    PulseReactNativeOtelTracer.addEvent(spanId, name, attributes)
+    return true
+  }
+
+  override fun setSpanAttributes(spanId: String, attributes: ReadableMap?): Boolean {
+    PulseReactNativeOtelTracer.setAttributes(spanId, attributes)
+    return true
+  }
+
+  override fun recordSpanException(spanId: String, errorMessage: String, stackTrace: String?): Boolean {
+    PulseReactNativeOtelTracer.recordException(spanId, errorMessage, stackTrace)
+    return  true
+  }
+
+  override fun setUserId(id: String?) {
+    PulseSDK.INSTANCE.setUserId(id)
+  }
+
+  override fun setUserProperty(name: String, value: String?) {
+    PulseSDK.INSTANCE.setUserProperty(name, value)
+  }
+
+  override fun setUserProperties(properties: ReadableMap?) {
+    properties?.let { props ->
+      PulseSDK.INSTANCE.setUserProperties {
+        props.entryIterator.forEach { (key, value) ->
+          put(key, value)
+        }
+      }
+    }
+  }
+
+  override fun triggerAnr() {
+    Handler(Looper.getMainLooper()).postAtFrontOfQueue {
+      Log.d("[Pulse]", "Now running PostAtFrontQueue: ${Thread.currentThread().name}")
+      Thread.sleep(20_000)
+    }
   }
 
   companion object {

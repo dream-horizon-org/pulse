@@ -6,6 +6,8 @@ buildscript {
   repositories {
     google()
     mavenCentral()
+    // todo: @shubhamguptadream11 remove this after we have a published version
+    mavenLocal()
   }
 
   dependencies {
@@ -67,11 +69,33 @@ android {
 repositories {
   mavenCentral()
   google()
+  // todo: @shubhamguptadream11 remove this after we have a published version
+  mavenLocal()
 }
 
 def kotlin_version = getExtOrDefault("kotlinVersion")
 
 dependencies {
-  implementation "com.facebook.react:react-android"
-  implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  implementation("com.facebook.react:react-android")
+  implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
+  
+  // todo: @shubhamguptadream11 replace this with the published version
+  api("io.opentelemetry.android:android-agent:0.16.0-alpha-SNAPSHOT") {
+    exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
+  }
+  api("io.opentelemetry.android:pulse-android-sdk:0.16.0-alpha-SNAPSHOT") {
+    exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
+  }
+  api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
+}
+
+configurations.all {
+  resolutionStrategy {
+    eachDependency {
+      if (requested.group == "com.squareup.okhttp3" && requested.name == "okhttp-jvm") {
+        useTarget("com.squareup.okhttp3:okhttp:${requested.version}")
+        because("Resolving okhttp-jvm to okhttp for Android compatibility")
+      }
+    }
+  }
 }
