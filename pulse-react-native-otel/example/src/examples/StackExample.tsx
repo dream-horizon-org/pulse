@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 import HomeScreen from '../screens/Home';
 import ProfileScreen from '../screens/Profile';
 import SettingsScreen from '../screens/Settings';

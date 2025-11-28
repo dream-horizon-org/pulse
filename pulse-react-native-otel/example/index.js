@@ -1,4 +1,4 @@
-import '@d11/pulse-react-native-otel';
+import '@horizoneng/pulse-react-native';
 import { AppRegistry } from 'react-native';
 import App from './src/App';
 import { name as appName } from './app.json';

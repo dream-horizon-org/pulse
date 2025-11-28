@@ -1,5 +1,5 @@
 import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
-import {Pulse} from '@d11/pulse-react-native-otel';
+import {Pulse} from '@horizoneng/pulse-react-native';
 
 export default function ErrorHandlerDemo() {
   const triggerUnhandledError = () => {
