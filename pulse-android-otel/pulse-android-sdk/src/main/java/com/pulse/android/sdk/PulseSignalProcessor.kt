@@ -10,9 +10,8 @@ import io.opentelemetry.sdk.logs.LogRecordProcessor
 import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
-import io.opentelemetry.sdk.trace.SpanProcessor
+import io.opentelemetry.sdk.trace.internal.ExtendedSpanProcessor
 import java.util.concurrent.ConcurrentHashMap
-
 internal class PulseSignalProcessor {
     private var recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
 
@@ -74,7 +73,7 @@ internal class PulseSignalProcessor {
         }
     }
 
-    internal inner class PulseSpanTypeAttributesAppender : SpanProcessor {
+    internal inner class PulseSpanTypeAttributesAppender : ExtendedSpanProcessor {
         override fun onStart(
             parentContext: Context,
             span: ReadWriteSpan
@@ -96,9 +95,6 @@ internal class PulseSignalProcessor {
                     }
 
                     PulseOtelUtils.isNetworkSpan(span) -> {
-                        val urlAttribute: AttributeKey<String> = AttributeKey.stringKey("http.url")
-                        val originalUrl = span.attributes.get(urlAttribute)
-                        originalUrl?.let { span.setAttribute(urlAttribute, PulseOtelUtils.normaliseUrl(originalUrl)) }
                         PulseAttributes.PulseTypeValues.NETWORK
                     }
 
@@ -119,6 +115,20 @@ internal class PulseSignalProcessor {
         }
 
         override fun isEndRequired(): Boolean = false
+        
+        override fun onEnding(span: ReadWriteSpan) {
+            if (PulseOtelUtils.isNetworkSpan(span)) {
+                val httpUrlKey: AttributeKey<String> = AttributeKey.stringKey("http.url")
+                val originalUrl = span.attributes.get(httpUrlKey)
+                
+                originalUrl?.let {
+                    val normalizedUrlKey: AttributeKey<String> = AttributeKey.stringKey("http.url.normalized")
+                    span.setAttribute(normalizedUrlKey, PulseOtelUtils.normaliseUrl(it))
+                }
+            }
+        }
+
+        override fun isOnEndingRequired(): Boolean = true
     }
 
     companion object {

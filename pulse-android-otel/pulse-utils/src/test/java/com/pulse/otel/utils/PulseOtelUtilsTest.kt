@@ -60,7 +60,7 @@ class PulseOtelUtilsTest {
         val span = tracer.spanBuilder("test-span")
             .setAttribute(AttributeKey.stringKey("http.method"), "GET")
             .startSpan()
-        
+
         assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
         span.end()
     }
@@ -71,7 +71,7 @@ class PulseOtelUtilsTest {
         val span = tracer.spanBuilder("test-span")
             .setAttribute(AttributeKey.stringKey("other.attribute"), "value")
             .startSpan()
-        
+
         assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
         span.end()
     }
@@ -80,7 +80,7 @@ class PulseOtelUtilsTest {
     fun `isNetworkSpan returns false for span with no attributes`() {
         val tracer = SdkTracerProvider.builder().build().get("test")
         val span = tracer.spanBuilder("test-span").startSpan()
-        
+
         assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
         span.end()
     }
