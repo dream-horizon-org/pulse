@@ -6,10 +6,9 @@ import {
 import classes from "./UserEngagementGraph.module.css";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { useGetDataQuery } from "../../../../hooks";
 import { useMemo } from "react";
 import { UserEngagementGraphProps } from "./UserEngagementGraph.interface";
-import { COLUMN_NAME, SpanType } from "../../../../constants/PulseOtelSemcov";
+import { useGetUserEngagementData } from "../../../../hooks/useGetUserEngagementData";
 
 dayjs.extend(utc);
 
@@ -32,7 +31,6 @@ export function UserEngagementGraph({
     };
   }, []);
 
-  //TODO: check the dates logic for week and monthly users
   // Always use last 1 month for weekly and monthly averages (ignore time filter)
   const { weekStartDate, weekEndDate } = useMemo(() => {
     const end = dayjs().utc().endOf("day");
@@ -52,197 +50,21 @@ export function UserEngagementGraph({
     };
   }, []);
 
-  // Build filters array
-  const buildFilters = useMemo(() => {
-    const filterArray: Array<{
-      field: string;
-      operator: "IN" | "EQ";
-      value: string[];
-    }> = [
-      {
-        field: "SpanType",
-        operator: "EQ",
-        value: [spanType],
-      },
-    ];
-
-    if (screenName) {
-      filterArray.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
-        operator: "IN",
-        value: [screenName],
-      });
-    }
-
-    if (appVersion && appVersion !== "all") {
-      filterArray.push({
-        field: "AppVersionCode",
-        operator: "EQ",
-        value: [appVersion],
-      });
-    }
-
-    if (osVersion && osVersion !== "all") {
-      filterArray.push({
-        field: "OsVersion",
-        operator: "EQ",
-        value: [osVersion],
-      });
-    }
-
-    if (device && device !== "all") {
-      filterArray.push({
-        field: "DeviceModel",
-        operator: "EQ",
-        value: [device],
-      });
-    }
-
-    return filterArray;
-  }, [screenName, appVersion, osVersion, device, spanType]);
-
-  // Fetch daily unique users for the last 7 days (for graph)
-  const { data: dailyData } = useGetDataQuery({
-    requestBody: {
-      dataType: "TRACES",
-      timeRange: {
-        start: dailyStartDate,
-        end: dailyEndDate,
-      },
-      select: [
-        {
-          function: "TIME_BUCKET",
-          param: { bucket: "1d", field: COLUMN_NAME.TIMESTAMP },
-          alias: "t1",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: "uniqCombined(UserId)" },
-          alias: "user_count",
-        },
-      ],
-      filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" }],
-    },
-    enabled: !!dailyStartDate && !!dailyEndDate,
+  const { data, isLoading } = useGetUserEngagementData({
+    screenName,
+    appVersion,
+    osVersion,
+    device,
+    dailyStartDate,
+    dailyEndDate,
+    weekStartDate,
+    weekEndDate,
+    monthStartDate,
+    monthEndDate,
+    spanType,
   });
 
-  // Fetch weekly unique users for the last 1 month
-  const { data: weeklyData } = useGetDataQuery({
-    requestBody: {
-      dataType: "TRACES",
-      timeRange: {
-        start: weekStartDate,
-        end: weekEndDate,
-      },
-      select: [
-        {
-          function: "TIME_BUCKET",
-          param: { bucket: "1w", field: COLUMN_NAME.TIMESTAMP },
-          alias: "t1",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
-          alias: "user_count",
-        },
-      ],
-      filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" }],
-    },
-    enabled: !!dailyStartDate && !!dailyEndDate,
-  });
-
-  // Fetch monthly unique users for the last 1 month
-  const { data: monthlyData } = useGetDataQuery({
-    requestBody: {
-      dataType: "TRACES",
-      timeRange: {
-        start: monthStartDate,
-        end: monthEndDate,
-      },
-      select: [
-        {
-          function: "TIME_BUCKET",
-          param: { bucket: "1M", field: COLUMN_NAME.TIMESTAMP },
-          alias: "t1",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
-          alias: "user_count",
-        },
-      ],
-      filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" }],
-    },
-    enabled: !!dailyStartDate && !!dailyEndDate,
-  });
-
-  // Transform daily data and calculate average
-  const { dailyUsers, trendData } = useMemo(() => {
-    const responseData = dailyData?.data;
-    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return {
-        dailyUsers: 0,
-        trendData: [],
-      };
-    }
-
-    const t1Index = responseData.fields.indexOf("t1");
-    const userCountIndex = responseData.fields.indexOf("user_count");
-
-    const trend = responseData.rows.map((row) => ({
-      timestamp: dayjs(row[t1Index]).valueOf(),
-      dau: parseFloat(row[userCountIndex]) || 0,
-    }));
-
-    // Calculate average daily users
-    const avgDailyUsers =
-      trend.length > 0
-        ? Math.round(trend.reduce((sum, d) => sum + d.dau, 0) / trend.length)
-        : 0;
-
-    return {
-      dailyUsers: avgDailyUsers,
-      trendData: trend,
-    };
-  }, [dailyData]);
-
-  // Calculate weekly active users
-  const weeklyUsers = useMemo(() => {
-    const responseData = weeklyData?.data;
-    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return 0;
-    }
-
-    const userCountIndex = responseData.fields.indexOf("user_count");
-    const total = responseData.rows.reduce(
-      (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-      0,
-    );
-
-    return total;
-  }, [weeklyData]);
-
-  // Calculate monthly active users
-  const monthlyUsers = useMemo(() => {
-    const responseData = monthlyData?.data;
-    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return 0;
-    }
-
-    const userCountIndex = responseData.fields.indexOf("user_count");
-    const total = responseData.rows.reduce(
-      (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-      0,
-    );
-
-    return total;
-  }, [monthlyData]);
+  const { dailyUsers, weeklyUsers, monthlyUsers, trendData } = data;
 
   return (
     <div className={classes.graphCard}>
