@@ -122,8 +122,7 @@ internal class PulseSignalProcessor {
                 val originalUrl = span.attributes.get(httpUrlKey)
                 
                 originalUrl?.let {
-                    val normalizedUrlKey: AttributeKey<String> = AttributeKey.stringKey("http.url.normalized")
-                    span.setAttribute(normalizedUrlKey, PulseOtelUtils.normaliseUrl(it))
+                    span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
                 }
             }
         }
