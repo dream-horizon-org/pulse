@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Button, Alert } from 'react-native';
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 

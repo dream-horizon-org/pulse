@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <code>@d11/pulse-react-native-otel</code>
+  <code>@horizoneng/pulse-react-native</code>
 </p>
 
 ---
@@ -41,9 +41,9 @@
 ### Installation
 
 ```sh
-npm install @d11/pulse-react-native-otel
+npm install @horizoneng/pulse-react-native
 # or
-yarn add @d11/pulse-react-native-otel
+yarn add @horizoneng/pulse-react-native
 ```
 
 ### Initialization
@@ -81,7 +81,7 @@ For custom endpoints, headers, disk buffering, session settings, ANR thresholds,
 Enable automatic instrumentation in your app entry point (e.g., `App.tsx`):
 
 ```typescript
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 // Enable auto-instrumentation features
 Pulse.start();
@@ -164,7 +164,7 @@ Pulse automatically tracks screen navigation and route changes when using [React
 
 ```typescript
 import { NavigationContainer } from '@react-navigation/native';
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 function App() {
   const navigationIntegration = Pulse.createNavigationIntegration();
@@ -253,7 +253,7 @@ Pulse provides a built-in `ErrorBoundary` component that uses [React's Error Bou
 #### Basic Usage
 
 ```typescript
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 import { View, Text } from 'react-native';
 
 function App() {
@@ -310,7 +310,7 @@ Use the `onError` callback for additional error handling logic:
 Wrap individual components using the HOC pattern:
 
 ```typescript
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 const MyComponent = () => {
   // Component code
@@ -362,7 +362,7 @@ Use `Pulse.setGlobalAttribute()` to pass the code bundle ID from your OTA provid
 
 ```typescript
 import codePush from '@d11/dota';
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 // Set on app start
 codePush.getUpdateMetadata().then(update => {
@@ -385,7 +385,7 @@ Global attributes are automatically attached to all telemetry data (events, erro
 #### Basic Usage
 
 ```typescript
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 // Set global attributes
 Pulse.setGlobalAttribute('environment', 'production');
@@ -399,7 +399,7 @@ Pulse.trackEvent('user_login', { userId: '123' });
 
 ```typescript
 import DeviceInfo from 'react-native-device-info';
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 // Set once at app start
 Pulse.setGlobalAttribute('appVersion', DeviceInfo.getVersion());
@@ -466,7 +466,7 @@ The `trackSpan()` function automatically manages the span lifecycle for you. It 
 **Synchronous operation:**
 
 ```typescript
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 const result = Pulse.trackSpan('calculate_total',
   { attributes: { itemCount: 5 } },
@@ -527,7 +527,7 @@ try {
 **Span API:**
 
 ```typescript
-import { Pulse, SpanStatusCode } from '@d11/pulse-react-native-otel';
+import { Pulse, SpanStatusCode } from '@horizoneng/pulse-react-native';
 
 // Add a single event
 span.addEvent('cache_miss');
@@ -568,7 +568,7 @@ You can optionally set a status code when ending a span to indicate the outcome:
 **Example with status codes:**
 
 ```typescript
-import { Pulse, SpanStatusCode } from '@d11/pulse-react-native-otel';
+import { Pulse, SpanStatusCode } from '@horizoneng/pulse-react-native';
 
 const span = Pulse.startSpan('payment_processing');
 
@@ -598,7 +598,7 @@ Track custom business events, user actions, and application milestones to gain i
 #### Basic Usage
 
 ```typescript
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 
 // Simple event without attributes
 Pulse.trackEvent('app_opened');

@@ -63,9 +63,9 @@ afterEvaluate {
                 }
             }
             pom {
-                val repoUrl = "https://github.com/open-telemetry/opentelemetry-android"
-                name.set("OpenTelemetry Android")
-                description.set(project.description)
+                val repoUrl = "https://github.com/ds-horizon/pulse"
+                name.set("Pulse Android SDK")
+                description.set(project.description ?: "Pulse SDK for mobile observability")
                 url.set(repoUrl)
                 licenses {
                     license {
@@ -74,7 +74,7 @@ afterEvaluate {
                     }
                 }
                 scm {
-                    val scmUrl = "scm:git:git@github.com:open-telemetry/opentelemetry-android.git"
+                    val scmUrl = "scm:git:git@github.com:ds-horizon/pulse.git"
                     connection.set(scmUrl)
                     developerConnection.set(scmUrl)
                     url.set(repoUrl)
@@ -82,9 +82,9 @@ afterEvaluate {
                 }
                 developers {
                     developer {
-                        id.set("opentelemetry")
-                        name.set("OpenTelemetry")
-                        url.set("https://github.com/open-telemetry/community")
+                        id.set("horizonos")
+                        name.set("HorizonOS")
+                        url.set("https://horizonos.in")
                     }
                 }
             }

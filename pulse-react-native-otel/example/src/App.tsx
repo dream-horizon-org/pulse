@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Pulse } from '@d11/pulse-react-native-otel';
+import { Pulse } from '@horizoneng/pulse-react-native';
 import ButtonWithTitle from './components/ButtonWithTitle';
 import NavigationExample from './examples/NavigationExample';
 import TraceExample from './examples/TraceExample';
