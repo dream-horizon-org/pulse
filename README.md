@@ -36,8 +36,8 @@ A digital experience platform that helps you understand how users are interactin
 ## 🚀 Quick Start
 
 - **[Setup Guide](https://pulse.horizonos.in/docs/setup)** - Get Pulse up and running locally
-- **[Android SDK](https://pulse.horizonos.in/docs/android/overview)** - Integrate Pulse into your Android app
-- **[React Native SDK](https://pulse.horizonos.in/docs/react-native/overview)** - Integrate Pulse into your React Native app
+- **[Android SDK](http://pulse.horizonos.in/docs/sdk/android/overview)** - Integrate Pulse into your Android app
+- **[React Native SDK](http://pulse.horizonos.in/docs/sdk/react-native/overview)** - Integrate Pulse into your React Native app
 
 ---
 
@@ -50,16 +50,15 @@ Complete documentation is available at **[https://pulse.horizonos.in/docs](https
 - [Setup Guide](https://pulse.horizonos.in/docs/setup) - Platform setup instructions
 
 ### Mobile SDKs
-- [Android SDK](https://pulse.horizonos.in/docs/android/overview) - Installation, Instrumentation, API Reference
-- [React Native SDK](https://pulse.horizonos.in/docs/react-native/overview) - Quick Start, Instrumentation, API Reference
-- [iOS SDK](https://pulse.horizonos.in/docs/ios) - iOS SDK (Coming soon)
+- [Android SDK](http://pulse.horizonos.in/docs/sdk/android/overview) - Installation, Instrumentation, API Reference
+- [React Native SDK](http://pulse.horizonos.in/docs/sdk/react-native/overview) - Quick Start, Instrumentation, API Reference
 
 ### API & Reference
-- [API Documentation](https://pulse.horizonos.in/docs/api/authentication) - Complete API reference
-- [Performance Metrics](https://pulse.horizonos.in/docs/api/performance-metrics) - Performance metrics API
-- [Critical Interactions](https://pulse.horizonos.in/docs/api/critical-interactions) - Interaction tracking API
-- [Filters](https://pulse.horizonos.in/docs/api/filters) - Query filters and parameters
-- [Concepts](https://pulse.horizonos.in/docs/concepts/user-interaction-tracking) - Core concepts and guides
+- [API Documentation](https://pulse.horizonos.in/docs/api-documentation/authentication) - Complete API reference
+- [Performance Metrics](https://pulse.horizonos.in/docs/api-documentation/performance-metrics) - Performance metrics API
+- [Critical Interactions](https://pulse.horizonos.in/docs/api-documentation/interactions) - Interaction tracking API
+- [Filters](https://pulse.horizonos.in/docs/api-documentation/filters) - Query filters and parameters
+- [Concepts](https://pulse.horizonos.in/docs/concepts/interaction-overview) - Core concepts and guides
 
 ### Development
 - [Backend Server](backend/server/README.md) - Backend architecture and development
@@ -82,7 +81,7 @@ For detailed technology information, see the [full documentation](https://pulse.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://pulse.horizonos.in/docs/contributing) for detailed information.
+We welcome contributions! Please see our [Contributing Guide](https://pulse.horizonos.in/docs/contribution) for detailed information.
 
 **Quick Steps:**
 1. Fork the repository
@@ -111,6 +110,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 **Built with ❤️ by the Pulse Team**
 
-**[📖 Documentation](https://pulse.horizonos.in/docs/intro)** • [Contributing](https://pulse.horizonos.in/docs/contributing) • [License](LICENSE)
+**[📖 Documentation](https://pulse.horizonos.in/docs/intro)** • [Contributing](https://pulse.horizonos.in/docs/contribution) • [License](LICENSE)
 
 </div>
