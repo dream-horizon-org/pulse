@@ -78,6 +78,7 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
 mockk = "io.mockk:mockk:1.14.6"
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "6.0.0" }
@@ -105,7 +106,7 @@ kover-plugin = { module = "org.jetbrains.kotlinx.kover:org.jetbrains.kotlinx.kov
 
 [bundles]
 mocking = ["mockito-core", "mockito-junit-jupiter", "mockk"]
-junit = ["junit-jupiter-api", "junit-jupiter-engine", "junit-vintage-engine"]
+junit = ["junit-jupiter-api", "junit-jupiter-params", "junit-jupiter-engine", "junit-vintage-engine"]
 
 [plugins]
 publishPlugin = { id = "io.github.gradle-nexus.publish-plugin", version = "2.0.0" }
