@@ -1,5 +1,6 @@
 package com.pulse.android.sdk
 
+import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import io.opentelemetry.android.common.RumConstants
@@ -92,6 +93,13 @@ internal class PulseSignalProcessor {
 
                     span.name == "Created" -> {
                         PulseAttributes.PulseTypeValues.SCREEN_LOAD
+                    }
+
+                    PulseOtelUtils.isNetworkSpan(span) -> {
+                        val urlAttribute: AttributeKey<String> = AttributeKey.stringKey("http.url")
+                        val originalUrl = span.attributes.get(urlAttribute)
+                        originalUrl?.let { span.setAttribute(urlAttribute, PulseOtelUtils.normaliseUrl(originalUrl)) }
+                        PulseAttributes.PulseTypeValues.NETWORK
                     }
 
                     else -> {

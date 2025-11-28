@@ -16,4 +16,5 @@ kotlin {
 dependencies {
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.api)
+    implementation(libs.opentelemetry.sdk)
 }
