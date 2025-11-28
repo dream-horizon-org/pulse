@@ -1,24 +1,15 @@
-package com.dream11.pulseserver.service.interaction;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import com.dream11.pulseserver.client.chclient.ClickhouseQueryService;
-import com.dream11.pulseserver.dto.response.GetRawUserEventsResponseDto;
-import com.dream11.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
-import com.dream11.pulseserver.model.JobCreationMode;
-import com.dream11.pulseserver.model.QueryConfiguration;
-import com.dream11.pulseserver.resources.performance.models.Functions;
-import com.dream11.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
-import com.dream11.pulseserver.resources.performance.models.QueryRequest;
+package in.horizonos.pulseserver.service.clickhouse;
+import in.horizonos.pulseserver.client.chclient.ClickhouseQueryService;
+import in.horizonos.pulseserver.dto.response.GetRawUserEventsResponseDto;
+import in.horizonos.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
+import in.horizonos.pulseserver.model.JobCreationMode;
+import in.horizonos.pulseserver.model.QueryConfiguration;
+import in.horizonos.pulseserver.resources.performance.models.Functions;
+import in.horizonos.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
+import in.horizonos.pulseserver.resources.performance.models.QueryRequest;
+import in.horizonos.pulseserver.service.interaction.ClickhouseMetricService;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,6 +17,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ClickhouseMetricServiceTest {
@@ -1927,4 +1928,3 @@ class ClickhouseMetricServiceTest {
         }
     }
 }
-
