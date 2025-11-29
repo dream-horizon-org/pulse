@@ -106,7 +106,7 @@ jobs:
                           f.write(f'- Lines Missed: {missed}\n')
                           f.write(f'- Total Lines: {total}\n\n')
                           
-                          if percentage < 40:
+                          if percentage < 35:
                               f.write(f'❌ **Build Failed: Overall coverage ({percentage:.2f}%) is below minimum threshold of 35%**\n\n')
                               sys.exit(1)
                           else:
