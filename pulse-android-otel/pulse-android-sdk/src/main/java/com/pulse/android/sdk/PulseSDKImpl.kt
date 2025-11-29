@@ -96,7 +96,7 @@ internal class PulseSDKImpl : PulseSDK {
         BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>,
     > {
         val tracerProviderCustomizer =
-            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
+            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
                 tracerProviderBuilder.addSpanProcessor(
                     pulseSpanProcessor.PulseSpanTypeAttributesAppender(),
                 )
@@ -115,7 +115,7 @@ internal class PulseSDKImpl : PulseSDK {
             }
 
         val loggerProviderCustomizer =
-            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
+            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, _ ->
                 loggerProviderBuilder.addLogRecordProcessor(
                     pulseSpanProcessor.PulseLogTypeAttributesAppender(),
                 )
@@ -142,15 +142,19 @@ internal class PulseSDKImpl : PulseSDK {
         name: String,
         value: Any?,
     ) {
-        userProps[name] = value
+        if (value != null) {
+            userProps[name] = value
+        } else {
+            userProps.remove(name)
+        }
     }
 
-    fun setUserProperties(properties: Map<String, Any?>) {
+    fun setUserProperties(properties: Map<String, Any>) {
         userProps.putAll(properties)
     }
 
-    override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
-        setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
+    override fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit) {
+        setUserProperties(mutableMapOf<String, Any>().apply(builderAction))
     }
 
     override fun trackEvent(
@@ -265,7 +269,7 @@ internal class PulseSDKImpl : PulseSDK {
     private var otelInstance: OpenTelemetryRum? = null
 
     private var userId: String? = null
-    private var userProps = ConcurrentHashMap<String, Any?>()
+    private var userProps = ConcurrentHashMap<String, Any>()
 
     internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"

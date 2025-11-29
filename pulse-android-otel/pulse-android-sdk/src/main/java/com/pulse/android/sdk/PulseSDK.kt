@@ -67,7 +67,7 @@ public interface PulseSDK {
      * Set user properties for this session
      * Also see [setUserProperty] and [setUserId]
      */
-    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit)
+    public fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit)
 
     public fun trackEvent(
         name: String,
