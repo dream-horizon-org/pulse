@@ -125,25 +125,6 @@ export default function UrlNormalizationExample() {
           />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Custom URL Test</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter URL to test (e.g., https://api.example.com/users/12345)"
-            value={customUrl}
-            onChangeText={setCustomUrl}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <View style={styles.space} />
-          <Button
-            title={loading === 'Custom URL' ? 'Loading...' : 'Test Custom URL'}
-            onPress={testCustomUrl}
-            disabled={loading !== null}
-            color="#9C27B0"
-          />
-        </View>
-
         {lastResult && (
           <View style={styles.resultBox}>
             <Text style={styles.resultTitle}>Last Result:</Text>
