@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, Button, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import axios from 'axios';
+import UrlNormalizationExample from './UrlNormalizationExample';
 
 export default function NetworkInterceptorDemo() {
   const [loading, setLoading] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [showUrlNormalization, setShowUrlNormalization] = useState(false);
 
   const showResult = (message: string, isError = false) => {
     setLastResult(message);
@@ -209,24 +211,19 @@ export default function NetworkInterceptorDemo() {
     }
   };
 
-  // URL Normalization test
-  const testUrlNormalization = async () => {
-    setLoading('url-normalization');
-    try {
-       // Test URL with query parameters and UUID
-      const testUrl = 'https://jsonplaceholder.typicode.com/users/550e8400-e29b-41d4-a716-446655440000/posts?page=1&limit=10&sort=date';
-      const response = await fetch(testUrl);
-
-      console.log('[Pulse Network] Original URL:', testUrl);
-      console.log('[Pulse Network] Expected normalized URL: https://jsonplaceholder.typicode.com/users/{uuid}/posts');
-      
-      showResult('URL Normalization Test');
-    } catch (error: any) {
-      showResult(`URL Normalization Error: ${error.message}`, true);
-    } finally {
-      setLoading(null);
-    }
-  };
+  if (showUrlNormalization) {
+    return (
+      <View style={styles.fullContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setShowUrlNormalization(false)}
+        >
+          <Text style={styles.backButtonText}>← Back to Network Interceptor</Text>
+        </TouchableOpacity>
+        <UrlNormalizationExample />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.fullContainer}>
@@ -326,14 +323,22 @@ export default function NetworkInterceptorDemo() {
             disabled={loading !== null}
             color="#9C27B0"
           />
-          <View style={styles.space} />
+        </View>
+
+        {/* URL Normalization Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>URL Normalization</Text>
           
           <Button
-            title={loading === 'url-normalization' ? 'Loading...' : 'Test URL Normalization'}
-            onPress={testUrlNormalization}
+            title="🔗 Test URL Normalization"
+            onPress={() => setShowUrlNormalization(true)}
             disabled={loading !== null}
-            color="#9C27B0"
+            color="#673AB7"
           />
+          <View style={styles.space} />
+          <Text style={styles.sectionDescription}>
+            Navigate to dedicated URL normalization testing screen
+          </Text>
         </View>
 
         {/* Result Display */}
@@ -393,6 +398,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
     color: '#333',
+  },
+  sectionDescription: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  backButton: {
+    padding: 15,
+    backgroundColor: '#f0f0f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#2196F3',
+    fontWeight: '600',
   },
   space: {
     height: 10,
