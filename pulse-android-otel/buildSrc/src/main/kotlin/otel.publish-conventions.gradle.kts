@@ -69,8 +69,9 @@ afterEvaluate {
                 url.set(repoUrl)
                 licenses {
                     license {
-                        name.set("The Apache Software License, Version 2.0")
-                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                        name.set("LGPL-3.0-only")
+                        url.set("https://spdx.org/licenses/LGPL-3.0-only.html")
+                        distribution.set("repo")
                     }
                 }
                 scm {

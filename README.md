@@ -6,7 +6,7 @@
 
 *Combining behavioral, technical and business insights to drive better user experiences*
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-LGPL--3.0--only-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-4.4-blue.svg)](https://www.typescriptlang.org/)
@@ -89,12 +89,6 @@ We welcome contributions! Please see our [Contributing Guide](https://pulse.hori
 3. Make your changes and write tests
 4. Format code and commit
 5. Create a pull request
-
----
-
-## 📄 License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 

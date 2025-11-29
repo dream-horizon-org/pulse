@@ -891,10 +891,4 @@ try {
 
 ---
 
-## License
-
-MIT
-
----
-
 Made with ❤️ using [create-react-native-library](https://github.com/callstack/react-native-builder-bob)

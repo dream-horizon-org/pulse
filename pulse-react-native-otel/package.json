@@ -58,7 +58,7 @@
     "directory": "pulse-react-native-otel"
   },
   "author": "HorizonOS <https://horizonos.in>",
-  "license": "MIT",
+  "license": "LGPL-3.0-only",
   "bugs": {
     "url": "https://github.com/ds-horizon/pulse/issues"
   },
