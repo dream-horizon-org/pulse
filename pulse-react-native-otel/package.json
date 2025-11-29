@@ -1,7 +1,7 @@
 {
-  "name": "@d11/pulse-react-native-otel",
+  "name": "@horizoneng/pulse-react-native",
   "version": "0.0.1",
-  "description": "react native package for complete observability with otel support",
+  "description": "Production-grade observability SDK for React Native applications with OpenTelemetry support. Real-time monitoring, error tracking, performance insights, and distributed tracing.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -42,19 +42,27 @@
   },
   "keywords": [
     "react-native",
+    "opentelemetry",
+    "observability",
+    "monitoring",
+    "error-tracking",
+    "performance",
+    "tracing",
+    "analytics",
     "ios",
     "android"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shubhamguptadream11/react-native-pulse-react-native-otel.git"
+    "url": "git+https://github.com/ds-horizon/pulse.git",
+    "directory": "pulse-react-native-otel"
   },
-  "author": "shubhamguptadream11 <shubham.gupta@dream11.com> (https://github.com/shubhamguptadream11)",
+  "author": "HorizonOS <https://horizonos.in>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/shubhamguptadream11/react-native-pulse-react-native-otel/issues"
+    "url": "https://github.com/ds-horizon/pulse/issues"
   },
-  "homepage": "https://github.com/shubhamguptadream11/react-native-pulse-react-native-otel#readme",
+  "homepage": "https://github.com/ds-horizon/pulse/tree/main/pulse-react-native-otel#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

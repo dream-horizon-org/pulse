@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { Pulse, type PulseAttributes, type PulseAttributeValue } from '@d11/pulse-react-native-otel';
+import { Pulse, type PulseAttributes, type PulseAttributeValue } from '@horizoneng/pulse-react-native';
 
 export default function EventDemo() {
   const [eventName, setEventName] = useState('');
