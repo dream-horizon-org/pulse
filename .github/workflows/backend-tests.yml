@@ -45,11 +45,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Run tests
-        run: mvn clean test
-
-      - name: Generate code coverage report
-        run: mvn jacoco:report
+      - name: Run tests with coverage
+        run: mvn clean verify
 
       - name: Upload test results
         if: always()
@@ -75,9 +72,6 @@ jobs:
           path: backend/server/target/surefire-reports/*.xml
           reporter: java-junit
           fail-on-error: true
-
-      - name: Check code coverage
-        run: mvn jacoco:check
 
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request'
