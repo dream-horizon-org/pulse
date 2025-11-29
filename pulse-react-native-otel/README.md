@@ -48,12 +48,6 @@ Complete documentation is available at **[pulse.horizonos.in](https://pulse.hori
 
 ---
 
-## 📄 License
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](../LICENSE) file for details.
-
----
-
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](https://pulse.horizonos.in/docs/contribution) for detailed information.
@@ -63,7 +57,5 @@ We welcome contributions! Please see our [Contributing Guide](https://pulse.hori
 <div align="center">
 
 **Built with ❤️ by the Pulse Team**
-
-**[📖 Documentation](https://pulse.horizonos.in/docs/sdk/react-native/overview)** • [npm Package](https://www.npmjs.com/package/@horizoneng/pulse-react-native) • [License](../LICENSE)
 
 </div>
