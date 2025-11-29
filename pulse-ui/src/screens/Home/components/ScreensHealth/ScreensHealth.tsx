@@ -9,10 +9,9 @@ import { ScreensHealthProps } from "./ScreensHealth.interface";
 import classes from "./ScreensHealth.module.css";
 import { ScreenCard } from "../../../ScreenList/components/ScreenCard";
 import { Button } from "@mantine/core";
-import { useGetDataQuery } from "../../../../hooks";
 import { useMemo } from "react";
 import dayjs from "dayjs";
-import { STATUS_CODE, SpanType } from "../../../../constants/PulseOtelSemcov";
+import { useGetScreensHealthData } from "../../../../hooks/useGetScreensHealthData";
 
 export function ScreensHealth({
   startTime,
@@ -20,91 +19,27 @@ export function ScreensHealth({
   onViewAll,
   onCardClick,
 }: ScreensHealthProps) {
-  // Fetch top 5 screens data
-  const { data } = useGetDataQuery({
-    requestBody: {
-      dataType: "TRACES",
-      timeRange: {
-        start: dayjs().utc().subtract(6, "days").startOf("day").toISOString(),
-        end: dayjs().utc().endOf("day").toISOString(),
-      },
-      select: [
-        {
-          function: "COL",
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
-          alias: "screen_name",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: "COUNT()" },
-          alias: "screen_count",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: "sumIf(Duration,SpanType = 'screen_session')" },
-          alias: "total_time_spent",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: "sumIf(Duration,SpanType = 'screen_load')" },
-          alias: "total_load_time",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: "uniqCombined(UserId)" },
-          alias: "user_count",
-        },
-        {
-          function: "CUSTOM",
-          param: { expression: `countIf(StatusCode = '${STATUS_CODE.ERROR}')` },
-          alias: "error_count",
-        },
-      ],
-      groupBy: ["screen_name"],
-      orderBy: [{ field: "screen_count", direction: "DESC" }],
-      filters: [
-        {
-          field: "SpanType",
-          operator: "IN",
-          value: ["screen_session", "screen_load"],
-        },
-      ],
-      limit: 5,
-    },
-    enabled: true,
-  });
-
-  // Transform API response to screen data
-  const screensData = useMemo(() => {
-    const responseData = data?.data;
-    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return [];
-    }
-
-    const fields = responseData.fields;
-    const screenNameIndex = fields.indexOf("screen_name");
-    const screenCountIndex = fields.indexOf("screen_count");
-    const totalTimeSpentIndex = fields.indexOf("total_time_spent");
-    const totalLoadTimeIndex = fields.indexOf("total_load_time");
-    const userCountIndex = fields.indexOf("user_count");
-    const errorCountIndex = fields.indexOf("error_count");
-
-    return responseData.rows.map((row) => {
-      const screenCount = parseFloat(row[screenCountIndex]) || 1;
-      const totalTimeSpent = parseFloat(row[totalTimeSpentIndex]) || 0;
-      const totalLoadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
-
+  // Calculate date range - use provided time range or default to last 7 days
+  const { startDate, endDate } = useMemo(() => {
+    if (startTime && endTime) {
       return {
-        screenName: row[screenNameIndex],
-        avgTimeSpent: Math.round(totalTimeSpent / screenCount), // Average time per session
-        crashRate: (parseFloat(row[errorCountIndex]) / screenCount) * 100 || 0,
-        loadTime: Math.round(totalLoadTime / screenCount), // Average load time
-        users: parseInt(row[userCountIndex]) || 0,
-        screenType: row[screenNameIndex],
-        errorRate: parseFloat(row[errorCountIndex]) || 0,
+        startDate: dayjs.utc(startTime).toISOString(),
+        endDate: dayjs.utc(endTime).toISOString(),
       };
-    });
-  }, [data]);
+    }
+    const end = dayjs().utc().endOf("day");
+    const start = end.subtract(6, "days").startOf("day");
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    };
+  }, [startTime, endTime]);
+
+  const { data: screensData } = useGetScreensHealthData({
+    startTime: startDate,
+    endTime: endDate,
+    limit: 5,
+  });
 
   const getScreenIcon = (screenType: string) => {
     switch (screenType) {

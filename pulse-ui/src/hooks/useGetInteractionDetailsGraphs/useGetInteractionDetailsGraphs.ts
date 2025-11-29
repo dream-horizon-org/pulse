@@ -22,7 +22,7 @@ export const useGetInteractionDetailsGraphs = ({
   // Build filters
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: COLUMN_NAME.SPAN_TYPE, operator: "EQ", value: [SpanType.INTERACTION] },
     ];
 
     if (interactionName) {
