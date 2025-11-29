@@ -355,7 +355,7 @@ export class MockResponseGenerator {
       pathname.includes("/filter-options") &&
       method === "GET"
     ) {
-      // Get unique users and statuses from actual job data
+      // Get unique users from actual job data
       const jobs = this.dataStore.getJobs();
       const uniqueUsers = Array.from(
         new Set(
@@ -364,22 +364,18 @@ export class MockResponseGenerator {
             .filter((user): user is string => Boolean(user)),
         ),
       );
-      const uniqueStatuses = Array.from(
-        new Set(
-          jobs
-            .map((job) => job.status)
-            .filter((status): status is string => Boolean(status)),
-        ),
-      );
 
-      // Always return RUNNING and STOPPED statuses as per contract
-      const finalStatuses = ["RUNNING", "STOPPED"];
+      // Return statuses as per contract: RUNNING, STOPPED, DELETED
+      const statuses = ["RUNNING", "STOPPED", "DELETED"];
 
       return {
         data: {
-          users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@dream11.com"],
-          createdBy: uniqueUsers.length > 0 ? uniqueUsers : ["mock@dream11.com"], // For hook compatibility
-          statuses: finalStatuses,
+          statuses: statuses,
+          createdBy: uniqueUsers.length > 0 ? uniqueUsers : [
+            "user1@dream11.com",
+            "user2@dream11.com",
+            "user3@dream11.com",
+          ],
         },
         status: 200,
       };
