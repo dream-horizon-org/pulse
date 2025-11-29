@@ -14,6 +14,7 @@ class PulseOtelUtilsTest {
     companion object {
         @JvmStatic
         fun urlNormalizationTestCases(): List<Arguments> = listOf(
+            // Query parameter removal
             Arguments.of(
                 "https://api.example.com/users?page=1&limit=10",
                 "https://api.example.com/users",
@@ -35,74 +36,245 @@ class PulseOtelUtilsTest {
                 "handles complex query parameters"
             ),
             Arguments.of(
+                "https://api.example.com?param=value",
+                "https://api.example.com",
+                "removes query from root path"
+            ),
+            Arguments.of(
+                "https://api.example.com/users?",
+                "https://api.example.com/users",
+                "handles trailing question mark"
+            ),
+            
+            // Fragment handling
+            Arguments.of(
                 "https://api.example.com/users#section?page=1",
                 "https://api.example.com/users#section",
                 "handles URL with fragment"
             ),
             Arguments.of(
+                "https://api.example.com/users#section",
+                "https://api.example.com/users#section",
+                "handles URL with fragment only"
+            ),
+            
+            // UUID tests
+            Arguments.of(
                 "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/profile",
-                "https://api.example.com/users/[uuid]/profile",
-                "replaces standard UUID format in path"
-            ),
-            Arguments.of(
-                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000",
-                "https://api.example.com/users/[uuid]",
-                "handles UUID at end of path"
-            ),
-            Arguments.of(
-                "https://api.example.com/550e8400-e29b-41d4-a716-446655440000/users",
-                "https://api.example.com/[uuid]/users",
-                "handles UUID at start of path"
-            ),
-            Arguments.of(
-                "https://api.example.com/api/v1/users/550e8400-e29b-41d4-a716-446655440000/profile/settings",
-                "https://api.example.com/api/v1/users/[uuid]/profile/settings",
-                "handles UUID in middle of path"
+                "https://api.example.com/users/[redacted]/profile",
+                "replaces standard UUID format"
             ),
             Arguments.of(
                 "https://api.example.com/users/550e8400e29b41d4a716446655440000/profile",
-                "https://api.example.com/users/[uuid]/profile",
-                "replaces UUID without hyphens in path"
+                "https://api.example.com/users/[redacted]/profile",
+                "replaces UUID without hyphens"
             ),
             Arguments.of(
-                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/123e4567-e89b-12d3-a456-426614174000",
-                "https://api.example.com/users/[uuid]/posts/[uuid]",
-                "replaces multiple UUIDs in path"
+                "https://api.example.com/550e8400-e29b-41d4-a716-446655440000/users",
+                "https://api.example.com/[redacted]/users",
+                "replaces UUID at path start"
             ),
             Arguments.of(
-                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000?include=profile&fields=name",
-                "https://api.example.com/users/[uuid]",
-                "handles UUID with query parameters"
-            ),
-            Arguments.of(
-                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000?page=1&limit=10",
-                "https://api.example.com/users/[uuid]",
-                "handles URL with both UUID and query parameters"
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000",
+                "https://api.example.com/users/[redacted]",
+                "replaces UUID at path end"
             ),
             Arguments.of(
                 "https://api.example.com/users/550E8400-E29B-41D4-A716-446655440000/profile",
-                "https://api.example.com/users/[uuid]/profile",
-                "handles UUID with uppercase letters"
+                "https://api.example.com/users/[redacted]/profile",
+                "replaces uppercase UUID"
             ),
             Arguments.of(
                 "https://api.example.com/users/550e8400-E29B-41d4-A716-446655440000/profile",
-                "https://api.example.com/users/[uuid]/profile",
-                "handles UUID with mixed case"
+                "https://api.example.com/users/[redacted]/profile",
+                "replaces mixed case UUID"
             ),
             Arguments.of(
-                "https://api.example.com/api/v1/users/550e8400-e29b-41d4-a716-446655440000/posts/123e4567-e89b-12d3-a456-426614174000?page=1&limit=10&sort=date",
-                "https://api.example.com/api/v1/users/[uuid]/posts/[uuid]",
-                "handles complex URL with UUID and query"
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/123e4567-e89b-12d3-a456-426614174000",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces multiple UUIDs"
             ),
             Arguments.of(
-                "https://api.example.com/users/abc123/profile",
-                "https://api.example.com/users/abc123/profile",
-                "does not replace non-UUID hex strings"
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000?page=1",
+                "https://api.example.com/users/[redacted]",
+                "replaces UUID with query params"
+            ),
+            
+            // Numeric ID tests
+            Arguments.of(
+                "https://api.example.com/users/12345",
+                "https://api.example.com/users/[redacted]",
+                "replaces numeric IDs (3+ digits)"
             ),
             Arguments.of(
-                "https://api.example.com/users/123/profile",
-                "https://api.example.com/users/123/profile",
-                "handles URL without UUID"
+                "https://api.example.com/users/12345/posts/987654",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces multiple numeric IDs"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/123",
+                "https://api.example.com/users/[redacted]",
+                "replaces 3-digit numeric ID"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/999999999",
+                "https://api.example.com/users/[redacted]",
+                "replaces long numeric ID"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/12",
+                "https://api.example.com/users/12",
+                "does not replace 2-digit numeric"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/1",
+                "https://api.example.com/users/1",
+                "does not replace single digit"
+            ),
+            Arguments.of(
+                "https://api.example.com:8080/users/12345",
+                "https://api.example.com:8080/users/[redacted]",
+                "replaces numeric ID with port number"
+            ),
+            
+            // MongoDB ObjectId tests
+            Arguments.of(
+                "https://api.example.com/users/507f1f77bcf86cd799439011",
+                "https://api.example.com/users/[redacted]",
+                "replaces MongoDB ObjectId"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/507F1F77BCF86CD799439011",
+                "https://api.example.com/users/[redacted]",
+                "replaces uppercase MongoDB ObjectId"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/507f1f77bcf86cd799439011/posts",
+                "https://api.example.com/users/[redacted]/posts",
+                "replaces MongoDB ObjectId in middle"
+            ),
+            
+            // Git hash tests
+            Arguments.of(
+                "https://api.example.com/commits/abc123def456789012345678901234567890abcd",
+                "https://api.example.com/commits/[redacted]",
+                "replaces 40-char git commit hash"
+            ),
+            Arguments.of(
+                "https://api.example.com/commits/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "https://api.example.com/commits/[redacted]",
+                "replaces 64-char git commit hash"
+            ),
+            Arguments.of(
+                "https://api.example.com/commits/ABC123DEF456789012345678901234567890ABCD",
+                "https://api.example.com/commits/[redacted]",
+                "replaces uppercase git hash"
+            ),
+            
+            // Long alphanumeric tests
+            Arguments.of(
+                "https://api.example.com/users/abc123def456ghi789",
+                "https://api.example.com/users/[redacted]",
+                "replaces 18-char alphanumeric string"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/abc123def456ghi789jkl012mno345",
+                "https://api.example.com/users/[redacted]",
+                "replaces 30-char alphanumeric string"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/ABC123DEF456GHI789",
+                "https://api.example.com/users/[redacted]",
+                "replaces uppercase alphanumeric string"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/abc123def456ghi789/posts",
+                "https://api.example.com/users/[redacted]/posts",
+                "replaces alphanumeric string in middle"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/abc123def456ghi789?page=1",
+                "https://api.example.com/users/[redacted]",
+                "replaces alphanumeric string with query"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/abc123",
+                "https://api.example.com/users/abc123",
+                "does not replace 6-char alphanumeric"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/abc123def456ghi",
+                "https://api.example.com/users/abc123def456ghi",
+                "does not replace 15-char alphanumeric"
+            ),
+            
+            // Combined patterns
+            Arguments.of(
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/12345?page=1",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces UUID and numeric ID"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/507f1f77bcf86cd799439011",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces UUID and MongoDB ObjectId"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/12345/posts/abc123def456ghi789",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces numeric ID and alphanumeric"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/12345/comments/507f1f77bcf86cd799439011",
+                "https://api.example.com/users/[redacted]/posts/[redacted]/comments/[redacted]",
+                "replaces multiple different ID types"
+            ),
+            
+            // Edge cases
+            Arguments.of(
+                "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/12345?page=1&id=550e8400-e29b-41d4-a716-446655440000",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "query params removed before normalization"
+            ),
+            Arguments.of(
+                "http://api.example.com/users/12345",
+                "http://api.example.com/users/[redacted]",
+                "handles HTTP protocol"
+            ),
+            Arguments.of(
+                "https://subdomain.api.example.com/users/12345",
+                "https://subdomain.api.example.com/users/[redacted]",
+                "handles subdomain"
+            ),
+            Arguments.of(
+                "https://api.example.com:443/users/12345",
+                "https://api.example.com:443/users/[redacted]",
+                "handles explicit HTTPS port"
+            ),
+            Arguments.of(
+                "https://api.example.com/api/v1/users/12345",
+                "https://api.example.com/api/v1/users/[redacted]",
+                "handles API version in path"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/12345/posts/98765/comments/111",
+                "https://api.example.com/users/[redacted]/posts/[redacted]/comments/[redacted]",
+                "replaces all numeric IDs 3+ digits"
+            ),
+            Arguments.of(
+                "",
+                "",
+                "handles empty string"
+            ),
+            Arguments.of(
+                "https://api.example.com",
+                "https://api.example.com",
+                "handles root URL"
+            ),
+            Arguments.of(
+                "https://api.example.com/",
+                "https://api.example.com/",
+                "handles root path"
             )
         )
     }
@@ -115,10 +287,87 @@ class PulseOtelUtilsTest {
     }
 
     @Test
-    fun `isNetworkSpan returns true for span with http method attribute`() {
+    fun `isNetworkSpan returns true for span with http method GET`() {
         val tracer = SdkTracerProvider.builder().build().get("test")
         val span = tracer.spanBuilder("test-span")
             .setAttribute(AttributeKey.stringKey("http.method"), "GET")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with http method POST`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "POST")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with http method PUT`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "PUT")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with http method DELETE`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "DELETE")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with http method PATCH`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "PATCH")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with http method HEAD`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "HEAD")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with http method OPTIONS`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "OPTIONS")
+            .startSpan()
+
+        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns true for span with empty http method value`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("http.method"), "")
             .startSpan()
 
         assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
@@ -140,6 +389,19 @@ class PulseOtelUtilsTest {
     fun `isNetworkSpan returns false for span with no attributes`() {
         val tracer = SdkTracerProvider.builder().build().get("test")
         val span = tracer.spanBuilder("test-span").startSpan()
+
+        assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
+        span.end()
+    }
+
+    @Test
+    fun `isNetworkSpan returns false for span with multiple attributes but no http method`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(AttributeKey.stringKey("span.kind"), "server")
+            .setAttribute(AttributeKey.stringKey("service.name"), "test-service")
+            .setAttribute(AttributeKey.longKey("duration"), 100L)
+            .startSpan()
 
         assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
         span.end()
