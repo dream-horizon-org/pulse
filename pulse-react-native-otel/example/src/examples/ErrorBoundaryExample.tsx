@@ -1,22 +1,30 @@
 import { useState } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
-import {Pulse} from '@horizoneng/pulse-react-native';
+import { Pulse } from '@horizoneng/pulse-react-native';
 import type { FallbackRender } from '@horizoneng/pulse-react-native';
 
 const TAG = '[Pulse ErrorBoundaryDemo]';
 
 const ThrowErrorComponent = ({ shouldThrow }: { shouldThrow: boolean }) => {
   if (shouldThrow) {
-    throw new Error('This is a test error from ThrowErrorComponent of ErrorBoundaryExample!');
+    throw new Error(
+      'This is a test error from ThrowErrorComponent of ErrorBoundaryExample!'
+    );
   }
-  return <Text style={styles.successText}>✅ Component rendered successfully</Text>;
+  return (
+    <Text style={styles.successText}>✅ Component rendered successfully</Text>
+  );
 };
 
 const NullErrorComponent = ({ shouldThrow }: { shouldThrow: boolean }) => {
   if (shouldThrow) {
     throw null;
   }
-  return <Text style={styles.successText}>✅ Null error component rendered successfully</Text>;
+  return (
+    <Text style={styles.successText}>
+      ✅ Null error component rendered successfully
+    </Text>
+  );
 };
 
 const wrappedStyles = StyleSheet.create({
@@ -34,14 +42,16 @@ const wrappedStyles = StyleSheet.create({
 });
 
 const WrappedComponent = Pulse.withErrorBoundary(
-  ({ name, shouldThrow }: { name: string, shouldThrow: boolean }) => {
+  ({ name, shouldThrow }: { name: string; shouldThrow: boolean }) => {
     if (shouldThrow) {
       throw new Error('Error in wrapped component!');
     }
-      return <Text>Hello, {name}! 👋</Text>;
+    return <Text>Hello, {name}! 👋</Text>;
   },
   {
-    fallback: <Text style={wrappedStyles.errorText}>⚠️ Wrapped component failed</Text>,
+    fallback: (
+      <Text style={wrappedStyles.errorText}>⚠️ Wrapped component failed</Text>
+    ),
     onError: () => {
       console.log(TAG, 'Wrapped component error');
     },
@@ -75,7 +85,7 @@ const fallbackStyles = StyleSheet.create({
   },
 });
 
-const ErrorFallback: FallbackRender = ({ error, componentStack}) => (
+const ErrorFallback: FallbackRender = ({ error, componentStack }) => (
   <View style={fallbackStyles.fallbackContainer}>
     <Text style={fallbackStyles.fallbackTitle}>❌ Something went wrong</Text>
     <Text style={fallbackStyles.fallbackError}>
@@ -88,30 +98,35 @@ const ErrorFallback: FallbackRender = ({ error, componentStack}) => (
 );
 
 export default function ErrorBoundaryDemo() {
-    const [throwError0, setThrowError0] = useState(false);
+  const [throwError0, setThrowError0] = useState(false);
   const [throwError1, setThrowError1] = useState(false);
   const [throwError2, setThrowError2] = useState(false);
-  const [shouldThrowWrappedComponent, setShouldThrowWrappedComponent] = useState(false);
+  const [shouldThrowWrappedComponent, setShouldThrowWrappedComponent] =
+    useState(false);
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Error Boundary Demo</Text>
 
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>0. Basic Error Boundary no fallback</Text>
-            <Pulse.ErrorBoundary>
-                <ThrowErrorComponent shouldThrow={throwError0} />
-            </Pulse.ErrorBoundary>
-            <Button
-            title={throwError0 ? 'Error Thrown' : 'Throw Error'}
-            onPress={() => setThrowError0(true)}
-            disabled={throwError0}
-            color="#4CAF50"
-            />
-        </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          0. Basic Error Boundary no fallback
+        </Text>
+        <Pulse.ErrorBoundary>
+          <ThrowErrorComponent shouldThrow={throwError0} />
+        </Pulse.ErrorBoundary>
+        <Button
+          title={throwError0 ? 'Error Thrown' : 'Throw Error'}
+          onPress={() => setThrowError0(true)}
+          disabled={throwError0}
+          color="#4CAF50"
+        />
+      </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>1. Error Boundary with Custom Fallback</Text>
+        <Text style={styles.sectionTitle}>
+          1. Error Boundary with Custom Fallback
+        </Text>
         <Pulse.ErrorBoundary fallback={ErrorFallback}>
           <ThrowErrorComponent shouldThrow={throwError1} />
         </Pulse.ErrorBoundary>
@@ -125,7 +140,9 @@ export default function ErrorBoundaryDemo() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>2. Null Error Handling</Text>
-        <Pulse.ErrorBoundary fallback={<Text style={styles.errorText}>⚠️ Null error caught</Text>}>
+        <Pulse.ErrorBoundary
+          fallback={<Text style={styles.errorText}>⚠️ Null error caught</Text>}
+        >
           <NullErrorComponent shouldThrow={throwError2} />
         </Pulse.ErrorBoundary>
         <Button
@@ -138,9 +155,16 @@ export default function ErrorBoundaryDemo() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3. HOC withErrorBoundary</Text>
-        <WrappedComponent name="Test User" shouldThrow={shouldThrowWrappedComponent} />
+        <WrappedComponent
+          name="Test User"
+          shouldThrow={shouldThrowWrappedComponent}
+        />
         <Button
-          title={shouldThrowWrappedComponent ? 'Error Thrown' : 'Throw Error with HOC'}
+          title={
+            shouldThrowWrappedComponent
+              ? 'Error Thrown'
+              : 'Throw Error with HOC'
+          }
           onPress={() => setShouldThrowWrappedComponent(true)}
           disabled={shouldThrowWrappedComponent}
           color="#2196F3"

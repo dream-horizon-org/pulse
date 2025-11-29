@@ -1,5 +1,11 @@
 import React from 'react';
-import { Text, View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  Text,
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { Pulse } from '@horizoneng/pulse-react-native';
 import ButtonWithTitle from './components/ButtonWithTitle';
 import NavigationExample from './examples/NavigationExample';
@@ -95,7 +101,7 @@ type DemoScreenProps = {
 
 function DemoScreen({ demo, onBack }: DemoScreenProps) {
   const DemoComponent = demo.component;
-  
+
   return (
     <View style={styles.fullContainer}>
       <TouchableOpacity style={styles.backButton} onPress={onBack}>
@@ -113,10 +119,7 @@ export default function App() {
 
   if (activeDemoConfig) {
     return (
-      <DemoScreen
-        demo={activeDemoConfig}
-        onBack={() => setActiveDemo(null)}
-      />
+      <DemoScreen demo={activeDemoConfig} onBack={() => setActiveDemo(null)} />
     );
   }
 
