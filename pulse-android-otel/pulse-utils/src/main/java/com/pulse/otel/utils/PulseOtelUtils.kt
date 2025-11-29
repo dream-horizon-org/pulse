@@ -9,10 +9,6 @@ public object PulseOtelUtils {
     private val HTTP_METHOD_KEY: AttributeKey<String> = AttributeKey.stringKey("http.method")
     
     public fun isNetworkSpan(span: ReadableSpan): Boolean {
-        if (span.name.startsWith("HTTP ")) {
-            return true
-        }
-        // Fallback: check http.method attribute
         return span.attributes.get(HTTP_METHOD_KEY) != null
     }
 
@@ -23,7 +19,7 @@ public object PulseOtelUtils {
         // Replace UUIDs with {uuid}
         val allowedCharsInUuid = """[0-9a-fA-F]"""
         val uuidPattern = Regex("""$allowedCharsInUuid{8}-$allowedCharsInUuid{4}-$allowedCharsInUuid{4}-$allowedCharsInUuid{4}-$allowedCharsInUuid{12}|$allowedCharsInUuid{32}""")
-        return uuidPattern.replace(urlWithoutQuery) { "{uuid}" }
+        return uuidPattern.replace(urlWithoutQuery) { "[uuid]" }
     }
 }
 

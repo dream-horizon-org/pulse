@@ -11,7 +11,10 @@ import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.internal.ExtendedSpanProcessor
+import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.String
+
 internal class PulseSignalProcessor {
     private var recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
 
@@ -118,7 +121,9 @@ internal class PulseSignalProcessor {
         
         override fun onEnding(span: ReadWriteSpan) {
             if (PulseOtelUtils.isNetworkSpan(span)) {
-                val httpUrlKey: AttributeKey<String> = AttributeKey.stringKey("http.url")
+                // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
+                //  use the new not deprecated attributes
+                val httpUrlKey: AttributeKey<String> = HttpIncubatingAttributes.HTTP_URL
                 val originalUrl = span.attributes.get(httpUrlKey)
                 
                 originalUrl?.let {

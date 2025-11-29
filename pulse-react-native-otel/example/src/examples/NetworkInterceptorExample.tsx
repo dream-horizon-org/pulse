@@ -213,22 +213,14 @@ export default function NetworkInterceptorDemo() {
   const testUrlNormalization = async () => {
     setLoading('url-normalization');
     try {
-      console.log('[Pulse Network] 🧪 Testing URL normalization...');
-      
-      // Test URL with query parameters and UUID
+       // Test URL with query parameters and UUID
       const testUrl = 'https://jsonplaceholder.typicode.com/users/550e8400-e29b-41d4-a716-446655440000/posts?page=1&limit=10&sort=date';
-      
+      const response = await fetch(testUrl);
+
       console.log('[Pulse Network] Original URL:', testUrl);
       console.log('[Pulse Network] Expected normalized URL: https://jsonplaceholder.typicode.com/users/{uuid}/posts');
       
-      const response = await fetch(testUrl);
-      const data = await response.json();
-      
-      console.log('[Pulse Network] ✅ Request completed');
-      console.log('[Pulse Network] 📝 Check span attributes in Pulse UI or Logcat');
-      console.log('[Pulse Network] 📝 The http.url attribute should show normalized URL without query params and with {uuid}');
-      
-      showResult('URL Normalization Test: Check logs/Pulse UI for normalized URL in span attributes');
+      showResult('URL Normalization Test');
     } catch (error: any) {
       showResult(`URL Normalization Error: ${error.message}`, true);
     } finally {
@@ -361,7 +353,7 @@ export default function NetworkInterceptorDemo() {
             All network requests should be automatically instrumented and tracked
           </Text>
           <Text style={styles.infoText}>
-            🔍 URL Normalization: URLs are normalized (query params removed, UUIDs replaced with {'{uuid}'}) in span attributes
+            🔍 URL Normalization: URLs are normalized (query params removed, UUIDs replaced with {'[uuid]'}) in span attributes
           </Text>
         </View>
       </ScrollView>
