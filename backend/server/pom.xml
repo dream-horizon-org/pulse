@@ -456,6 +456,9 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>
                 <configuration>
+                    <includes>
+                        <include>in/horizonos/pulseserver/**</include>
+                    </includes>
                 </configuration>
                 <executions>
                     <execution>
@@ -480,13 +483,21 @@
                         <configuration>
                             <excludes>
                                 <!-- entire package -->
-                                <exclude>**/AthenaClient*</exclude>
-                                <exclude>com/dream11/pulseserver/config/**</exclude>
-                                <exclude>com/dream11/pulseserver/constant/**</exclude>
-                                <exclude>com/dream11/pulseserver/verticle/**</exclude>
-                                <exclude>com/dream11/pulseserver/module/**</exclude>
-                                <exclude>com/dream11/pulseserver/model/**</exclude>
-                                <exclude>com/dream11/pulseserver/dto/**</exclude>
+                                <exclude>in/horizonos/pulseserver/config/**</exclude>
+                                <exclude>in/horizonos/pulseserver/constant/**</exclude>
+                                <exclude>in/horizonos/pulseserver/verticle/**</exclude>
+                                <exclude>in/horizonos/pulseserver/module/**</exclude>
+                                <exclude>in/horizonos/pulseserver/model/**</exclude>
+                                <exclude>in/horizonos/pulseserver/dto/**</exclude>
+                                <exclude>in/horizonos/pulseserver/healthcheck/**</exclude>
+                                <exclude>in/horizonos/pulseserver/guice/**</exclude>
+                                <exclude>in/horizonos/pulseserver/enums/**</exclude>
+                                <exclude>in/horizonos/pulseserver/error/**</exclude>
+                                <exclude>in/horizonos/pulseserver/resources/**</exclude>
+                                <exclude>in/horizonos/pulseserver/rest/**</exclude>
+                                <exclude>in/horizonos/pulseserver/vertx/**</exclude>
+                                <exclude>in/horizonos/pulseserver/MainApplication.class</exclude>
+                                <exclude>in/horizonos/pulseserver/MainModule.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>
@@ -495,7 +506,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>5.5%</minimum>
+                                            <minimum>80%</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

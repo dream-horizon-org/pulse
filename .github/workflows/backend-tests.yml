@@ -78,11 +78,16 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: madrapps/jacoco-report@v1.6.1
         with:
-          paths: backend/server/target/site/jacoco/jacoco.xml
+          paths: |
+            ${{ github.workspace }}/backend/server/target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}
-          min-coverage-overall: 5.5
-          min-coverage-changed-files: 5.5
+          min-coverage-overall: 80
+          min-coverage-changed-files: 80
           title: Backend Code Coverage Report
+          skip-if-no-changes: false
+          update-comment: true
+          pass-emoji: ':green_circle:'
+          fail-emoji: ':red_circle:'
 
   required-status-check:
     permissions:
