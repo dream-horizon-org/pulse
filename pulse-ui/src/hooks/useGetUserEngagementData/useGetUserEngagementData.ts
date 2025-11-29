@@ -21,7 +21,7 @@ export function useGetUserEngagementData({
   weekEndDate,
   monthStartDate,
   monthEndDate,
-  spanType = "app_start",
+  spanType = SpanType.APP_START,
 }: UseGetUserEngagementDataProps): {
   data: UserEngagementData;
   isLoading: boolean;
@@ -36,7 +36,7 @@ export function useGetUserEngagementData({
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: COLUMN_NAME.SPAN_TYPE,
         operator: "EQ",
         value: [spanType],
       },
@@ -52,7 +52,7 @@ export function useGetUserEngagementData({
 
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION_CODE,
         operator: "EQ",
         value: [appVersion],
       });
@@ -60,7 +60,7 @@ export function useGetUserEngagementData({
 
     if (osVersion && osVersion !== "all") {
       filterArray.push({
-        field: "OsVersion",
+        field: COLUMN_NAME.OS_VERSION,
         operator: "EQ",
         value: [osVersion],
       });
@@ -68,7 +68,7 @@ export function useGetUserEngagementData({
 
     if (device && device !== "all") {
       filterArray.push({
-        field: "DeviceModel",
+        field: COLUMN_NAME.DEVICE_MODEL,
         operator: "EQ",
         value: [device],
       });
@@ -93,7 +93,7 @@ export function useGetUserEngagementData({
         },
         {
           function: "CUSTOM",
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
           alias: "user_count",
         },
       ],

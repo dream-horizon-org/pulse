@@ -68,7 +68,7 @@ export function useGetScreensHealthData({
         {
           field: "SpanType",
           operator: "IN",
-          value: ["screen_session", "screen_load"],
+          value: [SpanType.SCREEN_SESSION, SpanType.SCREEN_LOAD],
         },
       ],
       limit,

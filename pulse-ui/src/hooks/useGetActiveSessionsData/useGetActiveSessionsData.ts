@@ -18,7 +18,7 @@ export function useGetActiveSessionsData({
   startTime,
   endTime,
   bucketSize,
-  spanType = "app_start",
+  spanType = SpanType.APP_START,
 }: UseGetActiveSessionsDataProps): {
   data: ActiveSessionsData;
   isLoading: boolean;
@@ -49,7 +49,7 @@ export function useGetActiveSessionsData({
 
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "ResourceAttributes['app.version']",
+        field: `ResourceAttributes['${COLUMN_NAME.APP_VERSION}']`,
         operator: "EQ",
         value: [appVersion],
       });
@@ -90,7 +90,7 @@ export function useGetActiveSessionsData({
         },
         {
           function: "CUSTOM",
-          param: { expression: "uniqCombined(SessionId)" },
+          param: { expression: `uniqCombined(${COLUMN_NAME.SESSION_ID})` },
           alias: "session_count",
         },
       ],
