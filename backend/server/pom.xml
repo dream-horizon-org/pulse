@@ -473,6 +473,26 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                        <configuration>
+                            <excludes>
+                                <!-- Same exclusions as jacoco-check -->
+                                <exclude>in/horizonos/pulseserver/config/**</exclude>
+                                <exclude>in/horizonos/pulseserver/constant/**</exclude>
+                                <exclude>in/horizonos/pulseserver/verticle/**</exclude>
+                                <exclude>in/horizonos/pulseserver/module/**</exclude>
+                                <exclude>in/horizonos/pulseserver/model/**</exclude>
+                                <exclude>in/horizonos/pulseserver/dto/**</exclude>
+                                <exclude>in/horizonos/pulseserver/healthcheck/**</exclude>
+                                <exclude>in/horizonos/pulseserver/guice/**</exclude>
+                                <exclude>in/horizonos/pulseserver/enums/**</exclude>
+                                <exclude>in/horizonos/pulseserver/error/**</exclude>
+                                <exclude>in/horizonos/pulseserver/resources/**</exclude>
+                                <exclude>in/horizonos/pulseserver/rest/**</exclude>
+                                <exclude>in/horizonos/pulseserver/vertx/**</exclude>
+                                <exclude>in/horizonos/pulseserver/MainApplication.class</exclude>
+                                <exclude>in/horizonos/pulseserver/MainModule.class</exclude>
+                            </excludes>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>jacoco-check</id>
