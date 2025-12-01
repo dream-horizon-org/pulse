@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-check_coverage.py
-------------------
-JaCoCo XML coverage checker that writes a markdown summary to $GITHUB_STEP_SUMMARY.
+check_backend_coverage_overall.py
+---------------------------------
+JaCoCo XML overall coverage checker (no double counting). Writes a markdown
+table to $GITHUB_STEP_SUMMARY and returns non-zero exit when thresholds fail.
 
 Exit codes:
   0 = OK (all thresholds met)
   2 = Coverage below threshold
   3 = Report not found or unreadable
-  4 = Invalid report format
+  4 = Invalid report format (no usable counters)
 """
 import argparse
 import os
@@ -23,10 +24,9 @@ def pct(covered: int, missed: int) -> float:
 
 def load_totals(report_path: str):
     """Return non-double-counted totals per metric.
-
     Strategy:
-      1) If report-level counters exist (direct children of <report>), use ONLY those.
-      2) Else, sum ONLY package-level counters (./package/counter) to avoid class/method duplicates.
+      1) If report-level counters exist (<report>/<counter>), use ONLY those.
+      2) Else, sum ONLY package-level counters (<report>/<package>/<counter>).
     """
     try:
         tree = ET.parse(report_path)
@@ -37,7 +37,7 @@ def load_totals(report_path: str):
 
     totals = {t: {"missed": 0, "covered": 0} for t in VALID_TYPES}
 
-    # 1) Prefer report-level counters
+    # Prefer report-level counters
     report_level = root.findall("./counter")
     if report_level:
         for c in report_level:
@@ -47,7 +47,7 @@ def load_totals(report_path: str):
                 totals[t]["covered"] += int(c.get("covered", 0))
         return totals
 
-    # 2) Fallback: sum package-level counters ONLY (avoid iterating into classes/methods)
+    # Fallback: sum package-level counters ONLY
     seen_any = False
     for pkg in root.findall("./package"):
         for c in pkg.findall("./counter"):
@@ -78,8 +78,7 @@ def get_threshold(name: str, cli_value):
 def write_summary(totals, percentages, thresholds, failures):
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
-        return  # not running in Actions, or summary not requested
-
+        return
     lines = []
     lines.append("### 📊 Code Coverage Report")
     lines.append("")
@@ -102,7 +101,7 @@ def write_summary(totals, percentages, thresholds, failures):
         f.write("\n".join(lines) + "\n")
 
 def main():
-    parser = argparse.ArgumentParser(description="Check JaCoCo coverage thresholds and write step summary.")
+    parser = argparse.ArgumentParser(description="Overall JaCoCo coverage thresholds + summary.")
     parser.add_argument("--report", required=True, help="Path to jacoco.xml")
     parser.add_argument("--min-instruction", type=float, default=None)
     parser.add_argument("--min-branch", type=float, default=None)
@@ -113,7 +112,7 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(args.report):
-        print(f"[ERROR] Report file not found: {args.report}", file=sys.stderr)
+        print(f("[ERROR] Report file not found: {args.report}"), file=sys.stderr)
         sys.exit(3)
 
     totals = load_totals(args.report)

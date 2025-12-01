@@ -1,13 +1,29 @@
 #!/usr/bin/env python3
+"""
+check_backend_coverage_changed.py
+---------------------------------
+Changed-files-only JaCoCo coverage (LINE/BRANCH/INSTRUCTION/METHOD/CLASS) that:
+- Uses sourcefile counters for LINE & BRANCH (or derives from <line> mi/ci/mb/cb),
+- Uses class counters for INSTRUCTION/METHOD/CLASS,
+- Avoids double-counting by not mixing sourcefile + class LINE/BRANCH,
+- Writes a markdown table to $GITHUB_STEP_SUMMARY,
+- Enforces thresholds for all metrics (0 disables each).
+
+Exit codes:
+  0 = OK
+  1 = Threshold failed (changed-files coverage)
+  3 = Report not found or unreadable
+  4 = No coverage data for changed files
+"""
 import argparse, os, sys, xml.etree.ElementTree as ET
 from typing import Dict, Tuple, List
 
 METRICS = ("LINE", "BRANCH", "INSTRUCTION", "METHOD", "CLASS")
 
 def parse_args():
-    ap = argparse.ArgumentParser(description="Changed-files JaCoCo coverage (correct line counting + no double-counts)")
+    ap = argparse.ArgumentParser(description="Changed-files JaCoCo coverage (correct line counts + no double-count).")
     ap.add_argument("--report", required=True, help="Path to jacoco.xml")
-    ap.add_argument("--changed-files", required=True, help="Path to a file listing changed .java paths")
+    ap.add_argument("--changed-files", required=True, help="Path to file with newline-separated changed .java files")
     ap.add_argument("--src-root", required=True, help="Prefix to strip (e.g., backend/server/src/main/java)")
     ap.add_argument("--min-line", type=float, default=0.0)
     ap.add_argument("--min-branch", type=float, default=0.0)
@@ -44,6 +60,9 @@ def build_indexes(root):
             pkg_to_classes[pname].append(c)
     return pkg_to_sf, pkg_to_classes
 
+def add(a: Tuple[int,int], b: Tuple[int,int]) -> Tuple[int,int]:
+    return (a[0]+b[0], a[1]+b[1])
+
 def sf_counter(sf, typ) -> Tuple[int,int]:
     for c in sf.findall("counter"):
         if c.get("type") == typ:
@@ -51,7 +70,8 @@ def sf_counter(sf, typ) -> Tuple[int,int]:
     return 0,0
 
 def sf_line_sums(sf) -> Tuple[int,int,int,int]:
-    """Return (missed_instr, covered_instr, missed_branches, covered_branches) summed across lines."""
+    """Sum per-line instruction and branch counts to use as fallback for BRANCH,
+       and as helper for deriving covered/missed LINES when needed."""
     mi=ci=mb=cb=0
     for ln in sf.findall("line"):
         mi += int(ln.get("mi","0"))
@@ -61,7 +81,7 @@ def sf_line_sums(sf) -> Tuple[int,int,int,int]:
     return mi,ci,mb,cb
 
 def sf_line_to_line_counts(sf) -> Tuple[int,int]:
-    """Convert per-line mi/ci to line counts:
+    """Convert per-line mi/ci to line-counts:
        covered_line if ci>0; missed_line if (ci==0 and mi>0)."""
     covered = missed = 0
     for ln in sf.findall("line"):
@@ -71,14 +91,10 @@ def sf_line_to_line_counts(sf) -> Tuple[int,int]:
             covered += 1
         elif mi > 0:
             missed += 1
-        # lines with mi==0 and ci==0 are non-code lines; ignore
     return missed, covered
 
-def add(a: Tuple[int,int], b: Tuple[int,int]) -> Tuple[int,int]:
-    return (a[0]+b[0], a[1]+b[1])
-
 def cov_for_source(pkg: str, srcfile: str, pkg_to_sf, pkg_to_classes) -> Dict[str, Tuple[int,int]]:
-    """Compute (missed,covered) per metric for one source file without double-counts."""
+    """Compute (missed,covered) per metric for a single source file without double-counts."""
     totals = {m:(0,0) for m in METRICS}
 
     def from_sourcefile(sf):
@@ -88,7 +104,7 @@ def cov_for_source(pkg: str, srcfile: str, pkg_to_sf, pkg_to_classes) -> Dict[st
             lm, lc = sf_line_to_line_counts(sf)
         totals["LINE"] = add(totals["LINE"], (lm, lc))
 
-        # BRANCH: prefer counter; else sum mb/cb from lines
+        # BRANCH: prefer counter; else sum per-line mb/cb
         bm, bc = sf_counter(sf, "BRANCH")
         if bm == 0 and bc == 0:
             _, _, mb, cb = sf_line_sums(sf)
@@ -96,7 +112,7 @@ def cov_for_source(pkg: str, srcfile: str, pkg_to_sf, pkg_to_classes) -> Dict[st
         totals["BRANCH"] = add(totals["BRANCH"], (bm, bc))
 
     def from_classes(package_name):
-        # INSTRUCTION / METHOD / CLASS only from classes (do NOT add LINE/BRANCH here)
+        # INSTRUCTION / METHOD / CLASS only from classes
         im = ic = mm = mc = cm = cc = 0
         for cls in pkg_to_classes.get(package_name, []):
             if cls.get("sourcefilename") == srcfile:
@@ -158,12 +174,12 @@ def main():
             for m in METRICS:
                 totals[m] = add(totals[m], per_file[m])
 
-        # debug
+        # debug line
         lm, lc = per_file["LINE"]; bm, bc = per_file["BRANCH"]
         im, ic = per_file["INSTRUCTION"]; mm, mc = per_file["METHOD"]; cm, cc = per_file["CLASS"]
         print(f"COVERAGE for {rel} -> LINE {lc}/{lm}, BR {bc}/{bm}, INS {ic}/{im}, METH {mc}/{mm}, CLASS {cc}/{cm}", file=sys.stderr)
 
-    # Build summary
+    # Prepare summary
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     lines = []
     lines.append("### 📊 Changed Files Coverage")
