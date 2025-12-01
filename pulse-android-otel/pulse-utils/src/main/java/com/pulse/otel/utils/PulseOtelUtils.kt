@@ -7,40 +7,29 @@ import io.opentelemetry.sdk.trace.ReadableSpan
 
 public object PulseOtelUtils {
     private val HTTP_METHOD_KEY: AttributeKey<String> = AttributeKey.stringKey("http.method")
-    
-    // Regex pattern constants
-    private const val HEX_CHARS = """[0-9a-fA-F]"""
-    private const val DIGITS = """\d"""
-    private const val ALPHANUMERIC = """[A-Za-z0-9]"""
+    private const val HEX_CHARS = "[0-9a-fA-F]"
+    private const val DIGITS = "\\d"
+    private const val ALPHANUMERIC = "[A-Za-z0-9]"
+    private const val REDACTED = "[redacted]"
+
+    private val URL_NORMALIZATION_PATTERNS = listOf(
+        "(?<=/)($HEX_CHARS{64}|$HEX_CHARS{40})(?=/|$)".toRegex(),
+        "(?<=/)($HEX_CHARS{32}|$HEX_CHARS{8}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{12})(?=/|$)".toRegex(),
+        "(?<=/)($HEX_CHARS{24})(?=/|$)".toRegex(),
+        "(?<=/)($DIGITS{3,})(?=/|$)".toRegex(),
+        "(?<=/)($ALPHANUMERIC{16,})(?=/|$)".toRegex()
+    )
     
     public fun isNetworkSpan(span: ReadableSpan): Boolean {
         return span.attributes.get(HTTP_METHOD_KEY) != null
     }
 
     public fun normaliseUrl(originalUrl: String): String {
-        //Removed query-params
         var normalized = originalUrl.substringBefore("?")
-        
-        // Check longer patterns first to avoid partial matches
-        // Git commit hashes (64 or 40 hex chars)
-        val gitHashPattern = Regex("""$HEX_CHARS{64}|$HEX_CHARS{40}""")
-        normalized = gitHashPattern.replace(normalized) { "[redacted]" }
-        
-        // UUIDs (32 hex chars without hyphens, or with hyphens)
-        val uuidPattern = Regex("""$HEX_CHARS{32}|$HEX_CHARS{8}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{12}""")
-        normalized = uuidPattern.replace(normalized) { "[redacted]" }
-        
-        // MongoDB ObjectIds (24 hex chars)
-        val mongoObjectIdPattern = Regex("""$HEX_CHARS{24}""")
-        normalized = mongoObjectIdPattern.replace(normalized) { "[redacted]" }
-        
-        // Numeric IDs (3+ digits in path segments)
-        val numericIdPattern = Regex("""/($DIGITS{3,})""")
-        normalized = numericIdPattern.replace(normalized) { "/[redacted]" }
-        
-        // Long alphanumeric strings (16+ chars, likely IDs)
-        val longAlphanumericPattern = Regex("""/$ALPHANUMERIC{16,}(?=/|$)""")
-        normalized = longAlphanumericPattern.replace(normalized) { "/[redacted]" }
+
+        URL_NORMALIZATION_PATTERNS.forEach { pattern ->
+            normalized = pattern.replace(normalized, REDACTED)
+        }
         
         return normalized
     }
