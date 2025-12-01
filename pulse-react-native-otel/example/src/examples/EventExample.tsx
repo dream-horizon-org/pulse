@@ -6,7 +6,7 @@ import {
   Button,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
 } from 'react-native';
 import { Pulse, type PulseAttributes, type PulseAttributeValue } from '@horizoneng/pulse-react-native';
@@ -122,9 +122,15 @@ export default function EventDemo() {
               value={attributeValue.toString()}
               onChangeText={setAttributeValue}
             />
-            <TouchableOpacity style={styles.addButton} onPress={addAttribute}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.addButton,
+                { opacity: pressed ? 0.6 : 1.0 }
+              ]}
+              onPress={addAttribute}
+            >
               <Text style={styles.addButtonText}>+</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {Object.keys(attributes).length > 0 && (
@@ -135,9 +141,12 @@ export default function EventDemo() {
                   <Text style={styles.attributeText}>
                     {key}: {value}
                   </Text>
-                  <TouchableOpacity onPress={() => removeAttribute(key)}>
+                  <Pressable
+                    style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1.0 })}
+                    onPress={() => removeAttribute(key)}
+                  >
                     <Text style={styles.removeButton}>✕</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               ))}
             </View>

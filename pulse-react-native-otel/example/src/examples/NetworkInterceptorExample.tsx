@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, Button, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
 import axios from 'axios';
 import UrlNormalizationExample from './UrlNormalizationExample';
 
@@ -214,12 +214,15 @@ export default function NetworkInterceptorDemo() {
   if (showUrlNormalization) {
     return (
       <View style={styles.fullContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.backButton,
+            { opacity: pressed ? 0.6 : 1.0 }
+          ]}
           onPress={() => setShowUrlNormalization(false)}
         >
           <Text style={styles.backButtonText}>← Back to Network Interceptor</Text>
-        </TouchableOpacity>
+        </Pressable>
         <UrlNormalizationExample />
       </View>
     );

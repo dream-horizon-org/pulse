@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Pulse } from '@horizoneng/pulse-react-native';
 import ButtonWithTitle from './components/ButtonWithTitle';
 import NavigationExample from './examples/NavigationExample';
@@ -98,9 +98,15 @@ function DemoScreen({ demo, onBack }: DemoScreenProps) {
   
   return (
     <View style={styles.fullContainer}>
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.backButton,
+          { opacity: pressed ? 0.6 : 1.0 }
+        ]}
+        onPress={onBack}
+      >
         <Text style={styles.backButtonText}>← Back to Tests</Text>
-      </TouchableOpacity>
+      </Pressable>
       <DemoComponent />
     </View>
   );
