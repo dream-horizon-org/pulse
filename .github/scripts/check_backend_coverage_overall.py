@@ -2,14 +2,8 @@
 """
 check_coverage.py
 ------------------
-Robust JaCoCo XML coverage checker.
-
-Usage:
-  python check_coverage.py --report path/to/jacoco.xml \
-    --min-line 80 --min-branch 70 --min-instruction 85 --min-method 0 --min-class 0
-
-Threshold flags are optional; defaults are 0 (disabled). You can also set env vars:
-  MIN_LINE=80 MIN_BRANCH=70 python check_coverage.py --report jacoco.xml
+Robust JaCoCo XML coverage checker that ALSO writes a nice markdown
+summary to the GitHub Step Summary panel when GITHUB_STEP_SUMMARY is set.
 
 Exit codes:
   0 = OK (all thresholds met)
@@ -22,13 +16,13 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-VALID_TYPES = {"INSTRUCTION", "BRANCH", "LINE", "METHOD", "CLASS"}
+VALID_TYPES = ("INSTRUCTION", "BRANCH", "LINE", "METHOD", "CLASS")
 
-def pct(covered, missed):
+def pct(covered: int, missed: int) -> float:
     denom = covered + missed
-    return 100.0 * covered / denom if denom else 100.0
+    return (covered * 100.0 / denom) if denom else 100.0
 
-def load_totals(report_path):
+def load_totals(report_path: str):
     try:
         tree = ET.parse(report_path)
         root = tree.getroot()
@@ -40,7 +34,7 @@ def load_totals(report_path):
     seen_any = False
     for counter in root.iter("counter"):
         t = counter.attrib.get("type")
-        if t in VALID_TYPES:
+        if t in totals:
             seen_any = True
             try:
                 totals[t]["missed"] += int(counter.attrib.get("missed", 0))
@@ -53,7 +47,7 @@ def load_totals(report_path):
         sys.exit(4)
     return totals
 
-def get_threshold(name, cli_value):
+def get_threshold(name: str, cli_value):
     # prefer CLI arg; else env var; else default 0
     if cli_value is not None:
         return float(cli_value)
@@ -65,8 +59,35 @@ def get_threshold(name, cli_value):
             print(f"[WARN] Invalid {env_name} value '{os.environ[env_name]}', defaulting to 0")
     return 0.0
 
+def write_summary(totals, percentages, thresholds, failures):
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return  # not running in Actions, or summary not requested
+
+    lines = []
+    lines.append("### 📊 Code Coverage Report")
+    lines.append("")
+    # table header
+    lines.append("| Counter | Covered | Missed | % | Min % |")
+    lines.append("|---|---:|---:|---:|---:|")
+    for t in VALID_TYPES:
+        cov = percentages[t]
+        miss = totals[t]["missed"]
+        covd = totals[t]["covered"]
+        lines.append(f"| {t} | {covd} | {miss} | {cov:.2f}% | {thresholds[t]:.2f}% |")
+    lines.append("")
+    if failures:
+        lines.append("❌ **Build Failed: Coverage below thresholds**")
+        for msg in failures:
+            lines.append(f"- {msg}")
+    else:
+        lines.append("✅ Coverage meets all configured thresholds")
+    lines.append("")
+    with open(path, "a") as f:
+        f.write("\n".join(lines) + "\n")
+
 def main():
-    parser = argparse.ArgumentParser(description="Check JaCoCo coverage thresholds.")
+    parser = argparse.ArgumentParser(description="Check JaCoCo coverage thresholds and write step summary.")
     parser.add_argument("--report", required=True, help="Path to jacoco.xml")
     parser.add_argument("--min-instruction", type=float, default=None)
     parser.add_argument("--min-branch", type=float, default=None)
@@ -81,7 +102,6 @@ def main():
         sys.exit(3)
 
     totals = load_totals(args.report)
-    # compute percentages
     percentages = {t: pct(totals[t]["covered"], totals[t]["missed"]) for t in VALID_TYPES}
 
     thresholds = {
@@ -93,20 +113,23 @@ def main():
     }
 
     print("== JaCoCo Coverage Summary ==")
-    for t in sorted(VALID_TYPES):
+    for t in VALID_TYPES:
         cov = percentages[t]
         miss = totals[t]["missed"]
         covd = totals[t]["covered"]
         print(f"{t:<11} covered={covd:>6} missed={miss:>6} pct={cov:6.2f}%  (min={thresholds[t]:.2f}%)")
 
-    failed = []
+    failures = []
     for t in VALID_TYPES:
-        if thresholds[t] > 0 and percentages[t] + 1e-9 < thresholds[t]:
-            failed.append(f"{t} {percentages[t]:.2f}% < {thresholds[t]:.2f}%")
+        if thresholds[t] and (percentages[t] + 1e-9) < thresholds[t]:
+            failures.append(f"{t} {percentages[t]:.2f}% < {thresholds[t]:.2f}%")
 
-    if failed:
+    # always write to summary if available
+    write_summary(totals, percentages, thresholds, failures)
+
+    if failures:
         print("\n[FAIL] Coverage below thresholds:")
-        for msg in failed:
+        for msg in failures:
             print(" -", msg)
         sys.exit(2)
 
