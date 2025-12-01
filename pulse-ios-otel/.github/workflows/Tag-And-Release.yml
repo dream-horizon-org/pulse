@@ -1,0 +1,105 @@
+name: Tag & Note Release
+on : 
+  pull_request:    
+    branches:
+      - main
+    types:
+      - closed
+      
+concurrency:
+  group: tag-note-release-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  tag:
+    name: Create Tag & Release
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: macos-15
+    permissions:
+      contents: write # required for creating tags and releases
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Parse version from branch name
+        id: parse
+        run: |
+          version=$(echo "${{ github.event.pull_request.head.ref }}" | sed 's/^release\///')
+          echo "version=$version" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: '0'
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.parse.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Create tag
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
+        with:
+          commit_message: version bump to ${{ steps.parse.outputs.version }}
+          tagging_message: '${{ steps.parse.outputs.version }}'
+      - name: Create release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
+        with: 
+          tag: ${{ steps.parse.outputs.version }}
+          prerelease: true
+          generateReleaseNotes: true
+  
+  cocoapods:
+    name: Publish to CocoaPods
+    needs: tag
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Publish to CocoaPods trunk
+        env: 
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          VERSION="${{ needs.tag.outputs.version }}"
+          failed_pods=()
+          
+          # Define all pods to publish
+          pods=(
+            "OpenTelemetry-Swift-BaggagePropagationProcessor"
+            "OpenTelemetry-Swift-Instrumentation-NetworkStatus"
+            "OpenTelemetry-Swift-Instrumentation-URLSession"
+            "OpenTelemetry-Swift-SdkResourceExtension"
+            "OpenTelemetry-Swift-Protocol-Exporter-Common"
+            "OpenTelemetry-Swift-Protocol-Exporter-Http"
+            "OpenTelemetry-Swift-PersistenceExporter"
+          )
+          
+          # Process each pod
+          for pod_name in "${pods[@]}"; do
+            echo "Processing $pod_name..."
+            
+            if pod trunk info "$pod_name" 2>&1 | grep -F " - ${VERSION} (" >/dev/null; then
+              echo "::warning::$pod_name '${VERSION}' already exists on CocoaPods. Skipping."
+            else
+              if ! pod trunk push "${pod_name}.podspec" --allow-warnings --synchronous; then
+                echo "::error::Failed to push $pod_name"
+                failed_pods+=("$pod_name")
+              else
+                echo "Successfully pushed $pod_name"
+              fi
+            fi
+          done
+          
+          # Report results
+          if [ ${#failed_pods[@]} -gt 0 ]; then
+            echo "::error::The following pods failed to publish: ${failed_pods[*]}"
+            exit 1
+          else
+            echo "All pods published successfully!"
+          fi
+        
