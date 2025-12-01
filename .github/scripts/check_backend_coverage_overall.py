@@ -2,8 +2,7 @@
 """
 check_coverage.py
 ------------------
-Robust JaCoCo XML coverage checker that ALSO writes a nice markdown
-summary to the GitHub Step Summary panel when GITHUB_STEP_SUMMARY is set.
+JaCoCo XML coverage checker that writes a markdown summary to $GITHUB_STEP_SUMMARY.
 
 Exit codes:
   0 = OK (all thresholds met)
@@ -23,6 +22,12 @@ def pct(covered: int, missed: int) -> float:
     return (covered * 100.0 / denom) if denom else 100.0
 
 def load_totals(report_path: str):
+    """Return non-double-counted totals per metric.
+
+    Strategy:
+      1) If report-level counters exist (direct children of <report>), use ONLY those.
+      2) Else, sum ONLY package-level counters (./package/counter) to avoid class/method duplicates.
+    """
     try:
         tree = ET.parse(report_path)
         root = tree.getroot()
@@ -31,20 +36,31 @@ def load_totals(report_path: str):
         sys.exit(3)
 
     totals = {t: {"missed": 0, "covered": 0} for t in VALID_TYPES}
-    seen_any = False
-    for counter in root.iter("counter"):
-        t = counter.attrib.get("type")
-        if t in totals:
-            seen_any = True
-            try:
-                totals[t]["missed"] += int(counter.attrib.get("missed", 0))
-                totals[t]["covered"] += int(counter.attrib.get("covered", 0))
-            except ValueError:
-                print(f"[WARN] Non-integer values in counter {counter.attrib}", file=sys.stderr)
 
-    if not seen_any:
+    # 1) Prefer report-level counters
+    report_level = root.findall("./counter")
+    if report_level:
+        for c in report_level:
+            t = c.get("type")
+            if t in totals:
+                totals[t]["missed"] += int(c.get("missed", 0))
+                totals[t]["covered"] += int(c.get("covered", 0))
+        return totals
+
+    # 2) Fallback: sum package-level counters ONLY (avoid iterating into classes/methods)
+    seen_any = False
+    for pkg in root.findall("./package"):
+        for c in pkg.findall("./counter"):
+            t = c.get("type")
+            if t in totals:
+                seen_any = True
+                totals[t]["missed"] += int(c.get("missed", 0))
+                totals[t]["covered"] += int(c.get("covered", 0))
+
+    if not report_level and not seen_any:
         print("[ERROR] No valid <counter> entries found in the JaCoCo report.", file=sys.stderr)
         sys.exit(4)
+
     return totals
 
 def get_threshold(name: str, cli_value):
@@ -67,7 +83,6 @@ def write_summary(totals, percentages, thresholds, failures):
     lines = []
     lines.append("### 📊 Code Coverage Report")
     lines.append("")
-    # table header
     lines.append("| Counter | Covered | Missed | % | Min % |")
     lines.append("|---|---:|---:|---:|---:|")
     for t in VALID_TYPES:
@@ -124,7 +139,6 @@ def main():
         if thresholds[t] and (percentages[t] + 1e-9) < thresholds[t]:
             failures.append(f"{t} {percentages[t]:.2f}% < {thresholds[t]:.2f}%")
 
-    # always write to summary if available
     write_summary(totals, percentages, thresholds, failures)
 
     if failures:
