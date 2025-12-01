@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
+import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
 import axios from 'axios';
-import UrlNormalizationExample from './UrlNormalizationExample';
 
 export default function NetworkInterceptorDemo() {
   const [loading, setLoading] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
-  const [showUrlNormalization, setShowUrlNormalization] = useState(false);
 
   const showResult = (message: string, isError = false) => {
     setLastResult(message);
@@ -211,23 +209,6 @@ export default function NetworkInterceptorDemo() {
     }
   };
 
-  if (showUrlNormalization) {
-    return (
-      <View style={styles.fullContainer}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.backButton,
-            { opacity: pressed ? 0.6 : 1.0 }
-          ]}
-          onPress={() => setShowUrlNormalization(false)}
-        >
-          <Text style={styles.backButtonText}>← Back to Network Interceptor</Text>
-        </Pressable>
-        <UrlNormalizationExample />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.fullContainer}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -328,22 +309,6 @@ export default function NetworkInterceptorDemo() {
           />
         </View>
 
-        {/* URL Normalization Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>URL Normalization</Text>
-          
-          <Button
-            title="🔗 Test URL Normalization"
-            onPress={() => setShowUrlNormalization(true)}
-            disabled={loading !== null}
-            color="#673AB7"
-          />
-          <View style={styles.space} />
-          <Text style={styles.sectionDescription}>
-            Navigate to dedicated URL normalization testing screen
-          </Text>
-        </View>
-
         {/* Result Display */}
         {lastResult && (
           <View style={styles.resultBox}>
@@ -359,9 +324,6 @@ export default function NetworkInterceptorDemo() {
           </Text>
           <Text style={styles.infoText}>
             All network requests should be automatically instrumented and tracked
-          </Text>
-          <Text style={styles.infoText}>
-            🔍 URL Normalization: URLs are normalized (query params removed, UUIDs replaced with {'[uuid]'}) in span attributes
           </Text>
         </View>
       </ScrollView>
@@ -408,17 +370,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     marginTop: 4,
-  },
-  backButton: {
-    padding: 15,
-    backgroundColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#2196F3',
-    fontWeight: '600',
   },
   space: {
     height: 10,
