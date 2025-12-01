@@ -58,14 +58,12 @@ def main():
         failures.append(f"CLASS {perc['CLASS']:.2f}% < {args.min_class:.2f}%")
 
     if failures:
-        print("
-              [FAIL] Coverage below thresholds:")
+        print("[FAIL] Coverage below thresholds:")
         for f in failures:
             print(" -", f)
         sys.exit(2)
 
-        print("
-              [OK] All coverage thresholds met.")
+        print("[OK] All coverage thresholds met.")
         sys.exit(0)
 
         if __name__ == "__main__":
