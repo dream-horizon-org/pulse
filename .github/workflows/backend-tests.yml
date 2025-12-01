@@ -83,30 +83,30 @@ jobs:
                       percentage = (covered / total) * 100
 
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                          f.write('### 📊 Code Coverage Report\n\n')
-                          f.write('#### Overall Coverage\n')
-                          f.write(f'**Coverage:** {percentage:.2f}%\n')
-                          f.write(f'- Lines Covered: {covered}\n')
-                          f.write(f'- Lines Missed: {missed}\n')
-                          f.write(f'- Total Lines: {total}\n\n')
+                          f.write('### 📊 Code Coverage Report\\n\\n')
+                          f.write('#### Overall Coverage\\n')
+                          f.write(f'**Coverage:** {percentage:.2f}%\\n')
+                          f.write(f'- Lines Covered: {covered}\\n')
+                          f.write(f'- Lines Missed: {missed}\\n')
+                          f.write(f'- Total Lines: {total}\\n\\n')
 
                           if percentage < 35:
-                              f.write(f'❌ **Build Failed: Overall coverage ({percentage:.2f}%) is below minimum threshold of 35%**\n\n')
+                              f.write(f'❌ **Build Failed: Overall coverage ({percentage:.2f}%) is below minimum threshold of 35%**\\n\\n')
                               sys.exit(1)
                           else:
-                              f.write('✅ Coverage meets minimum threshold of 35%\n\n')
+                              f.write('✅ Coverage meets minimum threshold of 35%\\n\\n')
                   else:
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                          f.write('### 📊 Code Coverage Report\n\n')
-                          f.write('⚠️ No coverage data available\n\n')
+                          f.write('### 📊 Code Coverage Report\\n\\n')
+                          f.write('⚠️ No coverage data available\\n\\n')
               else:
                   with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                      f.write('### 📊 Code Coverage Report\n\n')
-                      f.write('⚠️ LINE counter not found in report\n\n')
+                      f.write('### 📊 Code Coverage Report\\n\\n')
+                      f.write('⚠️ LINE counter not found in report\\n\\n')
           except Exception as e:
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                  f.write('### 📊 Code Coverage Report\n\n')
-                  f.write(f'⚠️ Unable to parse coverage data: {str(e)}\n\n')
+                  f.write('### 📊 Code Coverage Report\\n\\n')
+                  f.write(f'⚠️ Unable to parse coverage data: {str(e)}\\n\\n')
           EOF
 
       - name: Changed files coverage
@@ -144,7 +144,9 @@ jobs:
           fi
 
           # Detect changed Java files under backend path
-          changed_files=$(git diff --name-only --diff-filter=ACMR ${compare_range} 2>&1             | tee /dev/stderr             | grep -E '^backend/server/src/main/java/.*\.java$' || true)
+          changed_files=$(git diff --name-only --diff-filter=ACMR ${compare_range} 2>&1 \
+            | tee /dev/stderr \
+            | grep -E '^backend/server/src/main/java/.*\.java$' || true)
 
           echo "DEBUG: Changed files detected:" >&2
           echo "${changed_files}" >&2
@@ -169,33 +171,61 @@ jobs:
           total_missed=0
 
           while IFS= read -r file; do
-            [ -z "$file" ] && continue
-
             # Relative path within src/main/java
             rel_path=$(echo "$file" | sed 's|^backend/server/src/main/java/||')
             pkg_dir=$(dirname "$rel_path")
             src_file=$(basename "$rel_path")
+            class_slash=$(echo "$rel_path" | sed 's|\.java$||')   # in/horizonos/.../ErrorGroupingService
 
-            # Execute awk and read its two numbers (missed, covered)
-            read -r pkg_missed pkg_covered <<< "$(awk -v p="$pkg_dir" -v s="$src_file" '
+            # ---- Pass 1: exact package + sourcefilename ----
+            read -r pkg_missed pkg_covered <<< "$(awk -v p=\"$pkg_dir\" -v s=\"$src_file\" '
               BEGIN { inpkg=0; inclass=0; missed=0; covered=0; }
-              /<package / { inpkg=0; if ($0 ~ "name="" p """) inpkg=1 }
-              inpkg && /<class / && $0 ~ "sourcefilename="" s """ { inclass=1; next }
-              inpkg && inclass && /<counter / && /type="LINE"/ {
-                if (match($0, /missed="([0-9]+)"/, m)) missed += m[1]
-                if (match($0, /covered="([0-9]+)"/, c)) covered += c[1]
+              /<package / { inpkg=0; if ($0 ~ "name=\"" p "\"") inpkg=1 }
+              inpkg && /<class / && $0 ~ "sourcefilename=\"" s "\"" { inclass=1; next }
+              inpkg && inclass && /<counter / && /type=\"LINE\"/ {
+                if (match($0, /missed=\"([0-9]+)\"/, m)) missed += m[1]
+                if (match($0, /covered=\"([0-9]+)\"/, c)) covered += c[1]
                 inclass=0
               }
               inpkg && /<\/package>/ { inpkg=0 }
               END { printf "%d %d\n", missed, covered }
             ' target/site/jacoco/jacoco.xml)"
 
+            # ---- Pass 2: fallback by fully-qualified class name anywhere ----
+            if { [ -z "${pkg_missed:-}" ] || [ -z "${pkg_covered:-}" ]; } || { [ "$pkg_missed" -eq 0 ] && [ "$pkg_covered" -eq 0 ]; }; then
+              read -r pkg_missed pkg_covered <<< "$(awk -v c=\"$class_slash\" '
+                BEGIN { inclass=0; missed=0; covered=0; }
+                /<class / && $0 ~ "name=\"" c "\"" { inclass=1; next }
+                inclass && /<counter / && /type=\"LINE\"/ {
+                  if (match($0, /missed=\"([0-9]+)\"/, m)) missed += m[1]
+                  if (match($0, /covered=\"([0-9]+)\"/, c)) covered += c[1]
+                  inclass=0
+                }
+                END { printf "%d %d\n", missed, covered }
+              ' target/site/jacoco/jacoco.xml)"
+            fi
+
+            # ---- Pass 3: fallback by sourcefilename anywhere ----
+            if { [ -z "${pkg_missed:-}" ] || [ -z "${pkg_covered:-}" ]; } || { [ "$pkg_missed" -eq 0 ] && [ "$pkg_covered" -eq 0 ]; }; then
+              read -r pkg_missed pkg_covered <<< "$(awk -v s=\"$src_file\" '
+                BEGIN { inclass=0; missed=0; covered=0; }
+                /<class / && $0 ~ "sourcefilename=\"" s "\"" { inclass=1; next }
+                inclass && /<counter / && /type=\"LINE\"/ {
+                  if (match($0, /missed=\"([0-9]+)\"/, m)) missed += m[1]
+                  if (match($0, /covered=\"([0-9]+)\"/, c)) covered += c[1]
+                  inclass=0
+                }
+                END { printf "%d %d\n", missed, covered }
+              ' target/site/jacoco/jacoco.xml)"
+            fi
+
+            # Aggregate (or log if we still found nothing)
             if [ -n "${pkg_missed:-}" ] && [ -n "${pkg_covered:-}" ]; then
               echo "COVERAGE for ${rel_path}  ->  missed=${pkg_missed} covered=${pkg_covered}" >&2
               total_missed=$((total_missed + pkg_missed))
               total_covered=$((total_covered + pkg_covered))
             else
-              echo "NOTE: No JaCoCo LINE counters found for ${pkg_dir}/${src_file}" >&2
+              echo "NOTE: Class not found in jacoco.xml (package/class/filename probes failed) -> ${class_slash}.java" >&2
             fi
           done <<< "${changed_files}"
 
@@ -206,7 +236,7 @@ jobs:
             exit 0
           fi
 
-          changed_percentage=$(awk "BEGIN {printf "%.2f", (${total_covered} / ${changed_total}) * 100}")
+          changed_percentage=$(awk "BEGIN {printf \"%.2f\", (${total_covered} / ${changed_total}) * 100}")
 
           echo "**Coverage:** ${changed_percentage}%" >> "$GITHUB_STEP_SUMMARY"
           echo "- Lines Covered: ${total_covered}" >> "$GITHUB_STEP_SUMMARY"
