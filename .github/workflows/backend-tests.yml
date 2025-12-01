@@ -83,39 +83,30 @@ jobs:
                       percentage = (covered / total) * 100
 
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                          f.write('### 📊 Code Coverage Report\n')
-                          f.write('\n')
+                          f.write('### 📊 Code Coverage Report\n\n')
                           f.write('#### Overall Coverage\n')
                           f.write(f'**Coverage:** {percentage:.2f}%\n')
                           f.write(f'- Lines Covered: {covered}\n')
                           f.write(f'- Lines Missed: {missed}\n')
-                          f.write(f'- Total Lines: {total}\n')
-                          f.write('\n')
+                          f.write(f'- Total Lines: {total}\n\n')
+
                           if percentage < 35:
-                              f.write(f'❌ **Build Failed: Overall coverage ({percentage:.2f}%) is below minimum threshold of 35%**\n')
-                              f.write('\n')
+                              f.write(f'❌ **Build Failed: Overall coverage ({percentage:.2f}%) is below minimum threshold of 35%**\n\n')
                               sys.exit(1)
                           else:
-                              f.write('✅ Coverage meets minimum threshold of 35%\n')
-                              f.write('\n')
+                              f.write('✅ Coverage meets minimum threshold of 35%\n\n')
                   else:
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                          f.write('### 📊 Code Coverage Report\n')
-                          f.write('\n')
-                          f.write('⚠️ No coverage data available\n')
-                          f.write('\n')
+                          f.write('### 📊 Code Coverage Report\n\n')
+                          f.write('⚠️ No coverage data available\n\n')
               else:
                   with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                      f.write('### 📊 Code Coverage Report\n')
-                      f.write('\n')
-                      f.write('⚠️ LINE counter not found in report\n')
-                      f.write('\n')
+                      f.write('### 📊 Code Coverage Report\n\n')
+                      f.write('⚠️ LINE counter not found in report\n\n')
           except Exception as e:
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                  f.write('### 📊 Code Coverage Report\n')
-                  f.write('\n')
-                  f.write(f'⚠️ Unable to parse coverage data: {str(e)}\n')
-                  f.write('\n')
+                  f.write('### 📊 Code Coverage Report\n\n')
+                  f.write(f'⚠️ Unable to parse coverage data: {str(e)}\n\n')
           EOF
 
       - name: Changed files coverage
@@ -184,11 +175,11 @@ jobs:
             src_file=$(basename "$rel_path")
             class_slash=$(echo "$rel_path" | sed 's|\.java$||')
 
-            # ---- Preferred: sum counters from <sourcefile name="..."> inside the exact <package> ----
+            # ---- Pass 1: <sourcefile> LINE counters under exact <package> ----
             read -r pkg_missed pkg_covered <<< "$(awk -v p="$pkg_dir" -v s="$src_file" '
               BEGIN { inpkg=0; insf=0; missed=0; covered=0; }
               /<package / { inpkg=0; if (index($0, sprintf("name=\"%s\"", p))) inpkg=1 }
-              inpkg && /<sourcefile / { insf= index($0, sprintf("name=\"%s\"", s)) ? 1 : 0; next }
+              inpkg && /<sourcefile / { insf = index($0, sprintf("name=\"%s\"", s)) ? 1 : 0; next }
               inpkg && insf && /<counter / && /type="LINE"/ {
                 if (match($0, /missed="([0-9]+)/, m)) missed += m[1];
                 if (match($0, /covered="([0-9]+)/, c)) covered += c[1];
@@ -198,7 +189,22 @@ jobs:
               END { printf "%d %d\n", missed, covered }
             ' target/site/jacoco/jacoco.xml)"
 
-            # ---- Fallback 1: by fully-qualified class name anywhere ----
+            # ---- Pass 2: if still zero, sum <line mi/ci> under the same <sourcefile> ----
+            if { [ -z "${pkg_missed:-}" ] || [ -z "${pkg_covered:-}" ]; } || { [ "$pkg_missed" -eq 0 ] && [ "$pkg_covered" -eq 0 ]; }; then
+              read -r pkg_missed pkg_covered <<< "$(awk -v p="$pkg_dir" -v s="$src_file" '
+                BEGIN { inpkg=0; insf=0; missed=0; covered=0; }
+                /<package / { inpkg=0; if (index($0, sprintf("name=\"%s\"", p))) inpkg=1 }
+                inpkg && /<sourcefile / { insf = index($0, sprintf("name=\"%s\"", s)) ? 1 : 0; next }
+                inpkg && insf && /<line / {
+                  if (match($0, /mi="([0-9]+)/, m)) missed += m[1];
+                  if (match($0, /ci="([0-9]+)/, c)) covered += c[1];
+                }
+                inpkg && /<\/package>/ { inpkg=0 }
+                END { printf "%d %d\n", missed, covered }
+              ' target/site/jacoco/jacoco.xml)"
+            fi
+
+            # ---- Pass 3: fallback by fully-qualified <class name="..."> anywhere ----
             if { [ -z "${pkg_missed:-}" ] || [ -z "${pkg_covered:-}" ]; } || { [ "$pkg_missed" -eq 0 ] && [ "$pkg_covered" -eq 0 ]; }; then
               read -r pkg_missed pkg_covered <<< "$(awk -v c="$class_slash" '
                 BEGIN { inclass=0; missed=0; covered=0; }
@@ -207,20 +213,6 @@ jobs:
                   if (match($0, /missed="([0-9]+)/, m)) missed += m[1];
                   if (match($0, /covered="([0-9]+)/, c)) covered += c[1];
                   inclass=0
-                }
-                END { printf "%d %d\n", missed, covered }
-              ' target/site/jacoco/jacoco.xml)"
-            fi
-
-            # ---- Fallback 2: by sourcefilename anywhere ----
-            if { [ -z "${pkg_missed:-}" ] || [ -z "${pkg_covered:-}" ]; } || { [ "$pkg_missed" -eq 0 ] && [ "$pkg_covered" -eq 0 ]; }; then
-              read -r pkg_missed pkg_covered <<< "$(awk -v s="$src_file" '
-                BEGIN { insf=0; missed=0; covered=0; }
-                /<sourcefile / && index($0, sprintf("name=\"%s\"", s)) { insf=1; next }
-                insf && /<counter / && /type="LINE"/ {
-                  if (match($0, /missed="([0-9]+)/, m)) missed += m[1];
-                  if (match($0, /covered="([0-9]+)/, c)) covered += c[1];
-                  insf=0
                 }
                 END { printf "%d %d\n", missed, covered }
               ' target/site/jacoco/jacoco.xml)"
@@ -260,6 +252,21 @@ jobs:
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Checkstyle summary
+        if: always()
+        run: |
+          if [ -f target/checkstyle/checkstyle-report.xml ]; then
+            violations=$(grep -c '<error' target/checkstyle/checkstyle-report.xml || echo "0")
+            echo "### 🎨 Checkstyle Report" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "$violations" -eq "0" ]; then
+              echo "✅ No Checkstyle violations found!" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ Found $violations Checkstyle violations" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "📄 Download the full report from the workflow artifacts." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
   required-status-check:
     permissions:
       contents: read
