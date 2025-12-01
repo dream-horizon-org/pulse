@@ -4,9 +4,12 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
+import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 
 public object PulseOtelUtils {
-    private val HTTP_METHOD_KEY: AttributeKey<String> = AttributeKey.stringKey("http.method")
+    // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
+    //  use the new not deprecated attributes
+    private val HTTP_METHOD_KEY: AttributeKey<String> = HttpIncubatingAttributes.HTTP_METHOD
     private const val HEX_CHARS = "[0-9a-fA-F]"
     private const val DIGITS = "\\d"
     private const val ALPHANUMERIC = "[A-Za-z0-9]"

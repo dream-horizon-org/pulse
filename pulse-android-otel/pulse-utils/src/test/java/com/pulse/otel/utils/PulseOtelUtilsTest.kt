@@ -1,9 +1,9 @@
 package com.pulse.otel.utils
 
-import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SdkTracerProvider
-import org.junit.jupiter.api.Assertions.*
+import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -11,10 +11,57 @@ import org.junit.jupiter.params.provider.MethodSource
 
 class PulseOtelUtilsTest {
 
+    @ParameterizedTest(name = "normaliseUrl: {2} - from {0} to {1}")
+    @MethodSource("getUrlNormalizationTestCases")
+    fun `normaliseUrl test cases`(inputUrl: String, expectedOutput: String, description: String) {
+        val result = PulseOtelUtils.normaliseUrl(inputUrl)
+        assertThat(result).describedAs("Failed for: $description").isEqualTo(expectedOutput)
+    }
+
+    @ParameterizedTest(name = "isNetworkSpan returns true for span with http method {0}")
+    @MethodSource("getHttpMethodTestCases")
+    fun `isNetworkSpan returns true for span with http method attribute`(httpMethod: String) {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(HttpIncubatingAttributes.HTTP_METHOD, httpMethod)
+            .startSpan()
+
+        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isTrue
+    }
+
+    @Test
+    fun `isNetworkSpan returns false for span without http method attribute`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("other.attribute"), "value")
+            .startSpan()
+
+        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isFalse
+    }
+
+    @Test
+    fun `isNetworkSpan returns false for span with no attributes`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span").startSpan()
+
+        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isFalse
+    }
+
+    @Test
+    fun `isNetworkSpan returns false for span with multiple attributes but no http method`() {
+        val tracer = SdkTracerProvider.builder().build().get("test")
+        val span = tracer.spanBuilder("test-span")
+            .setAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("span.kind"), "server")
+            .setAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("service.name"), "test-service")
+            .setAttribute(io.opentelemetry.api.common.AttributeKey.longKey("duration"), 100L)
+            .startSpan()
+
+        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isFalse
+    }
+
     companion object {
         @JvmStatic
-        fun urlNormalizationTestCases(): List<Arguments> = listOf(
-            // Query parameter removal
+        fun getUrlNormalizationTestCases(): List<Arguments> = listOf(
             Arguments.of(
                 "https://api.example.com/users?page=1&limit=10",
                 "https://api.example.com/users",
@@ -45,8 +92,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/users",
                 "handles trailing question mark"
             ),
-            
-            // Fragment handling
             Arguments.of(
                 "https://api.example.com/users#section?page=1",
                 "https://api.example.com/users#section",
@@ -57,8 +102,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/users#section",
                 "handles URL with fragment only"
             ),
-            
-            // UUID tests
             Arguments.of(
                 "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/profile",
                 "https://api.example.com/users/[redacted]/profile",
@@ -99,8 +142,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/users/[redacted]",
                 "replaces UUID with query params"
             ),
-            
-            // Numeric ID tests
             Arguments.of(
                 "https://api.example.com/users/12345",
                 "https://api.example.com/users/[redacted]",
@@ -136,8 +177,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com:8080/users/[redacted]",
                 "replaces numeric ID with port number"
             ),
-            
-            // MongoDB ObjectId tests
             Arguments.of(
                 "https://api.example.com/users/507f1f77bcf86cd799439011",
                 "https://api.example.com/users/[redacted]",
@@ -153,8 +192,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/users/[redacted]/posts",
                 "replaces MongoDB ObjectId in middle"
             ),
-            
-            // Git hash tests
             Arguments.of(
                 "https://api.example.com/commits/abc123def456789012345678901234567890abcd",
                 "https://api.example.com/commits/[redacted]",
@@ -170,8 +207,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/commits/[redacted]",
                 "replaces uppercase git hash"
             ),
-            
-            // Long alphanumeric tests
             Arguments.of(
                 "https://api.example.com/users/abc123def456ghi789",
                 "https://api.example.com/users/[redacted]",
@@ -207,8 +242,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/users/abc123def456ghi",
                 "does not replace 15-char alphanumeric"
             ),
-            
-            // Combined patterns
             Arguments.of(
                 "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/12345?page=1",
                 "https://api.example.com/users/[redacted]/posts/[redacted]",
@@ -229,8 +262,6 @@ class PulseOtelUtilsTest {
                 "https://api.example.com/users/[redacted]/posts/[redacted]/comments/[redacted]",
                 "replaces multiple different ID types"
             ),
-            
-            // Edge cases
             Arguments.of(
                 "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/12345?page=1&id=550e8400-e29b-41d4-a716-446655440000",
                 "https://api.example.com/users/[redacted]/posts/[redacted]",
@@ -277,133 +308,12 @@ class PulseOtelUtilsTest {
                 "handles root path"
             )
         )
-    }
 
-    @ParameterizedTest(name = "normaliseUrl: {2} - from {0} to {1}")
-    @MethodSource("urlNormalizationTestCases")
-    fun `normaliseUrl test cases`(inputUrl: String, expectedOutput: String, description: String) {
-        val result = PulseOtelUtils.normaliseUrl(inputUrl)
-        assertEquals(expectedOutput, result, "Failed for: $description")
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method GET`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "GET")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method POST`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "POST")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method PUT`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "PUT")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method DELETE`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "DELETE")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method PATCH`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "PATCH")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method HEAD`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "HEAD")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with http method OPTIONS`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "OPTIONS")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns true for span with empty http method value`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("http.method"), "")
-            .startSpan()
-
-        assertTrue(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns false for span without http method attribute`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("other.attribute"), "value")
-            .startSpan()
-
-        assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns false for span with no attributes`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span").startSpan()
-
-        assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
-    }
-
-    @Test
-    fun `isNetworkSpan returns false for span with multiple attributes but no http method`() {
-        val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
-            .setAttribute(AttributeKey.stringKey("span.kind"), "server")
-            .setAttribute(AttributeKey.stringKey("service.name"), "test-service")
-            .setAttribute(AttributeKey.longKey("duration"), 100L)
-            .startSpan()
-
-        assertFalse(PulseOtelUtils.isNetworkSpan(span as ReadableSpan))
-        span.end()
+        @JvmStatic
+        fun getHttpMethodTestCases(): List<Arguments> = listOf(
+            Arguments.of("GET"),
+            Arguments.of("POST"),
+            Arguments.of("")
+        )
     }
 }
