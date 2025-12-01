@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
@@ -11,6 +13,9 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+    testFixtures {
+        enable = true
     }
 }
 

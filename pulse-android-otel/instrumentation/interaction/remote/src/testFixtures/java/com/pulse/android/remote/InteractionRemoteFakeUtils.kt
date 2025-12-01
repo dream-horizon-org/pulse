@@ -1,4 +1,4 @@
-package com.pulse.android.core.utils
+package com.pulse.android.remote
 
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
@@ -6,8 +6,8 @@ import com.pulse.android.remote.models.InteractionEvent
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-object InteractionFakeUtils {
-    fun createFakeInteractionConfig(
+public object InteractionRemoteFakeUtils {
+    public fun createFakeInteractionConfig(
         id: Int = 1,
         name: String = "fake-interaction_" + UUID.randomUUID().toString(),
         eventSequence: List<InteractionEvent> = listOf(createFakeInteractionEvent()),
@@ -16,6 +16,7 @@ object InteractionFakeUtils {
         uptimeMidLimitInNano: Long = 500L,
         uptimeUpperLimitInNano: Long = 1000L,
         thresholdInNanos: Long = TimeUnit.SECONDS.toNanos(20),
+        shouldThrowOnWrongConfig: Boolean = true,
     ): InteractionConfig =
         InteractionConfig(
             id = id,
@@ -26,20 +27,10 @@ object InteractionFakeUtils {
             uptimeMidLimitInMs = uptimeMidLimitInNano / 1000_000,
             uptimeUpperLimitInMs = uptimeUpperLimitInNano / 1000_000,
             thresholdInMs = thresholdInNanos / 1000_000,
+            shouldThrowOnWrongConfig = shouldThrowOnWrongConfig,
         )
 
-    fun createFakeInteractionEvent(
-        name: String = "fake-event",
-        props: List<InteractionAttrsEntry>? = null,
-        isBlacklisted: Boolean = false,
-    ): InteractionEvent =
-        InteractionEvent(
-            name = name,
-            props = props,
-            isBlacklisted = isBlacklisted,
-        )
-
-    fun createFakeInteractionAttrsEntry(
+    public fun createFakeInteractionAttrsEntry(
         name: String = "fake-attr-name",
         value: String = "fake-attr-value",
         operator: String = "EQUALS",
@@ -48,5 +39,16 @@ object InteractionFakeUtils {
             name = name,
             value = value,
             operator = operator,
+        )
+
+    public fun createFakeInteractionEvent(
+        name: String = "fake-event",
+        props: List<InteractionAttrsEntry>? = null,
+        isBlacklisted: Boolean = false,
+    ): InteractionEvent =
+        InteractionEvent(
+            name = name,
+            props = props,
+            isBlacklisted = isBlacklisted,
         )
 }

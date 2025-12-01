@@ -4,8 +4,7 @@
 package com.pulse.android.core
 
 import com.pulse.android.core.config.InteractionConfigFetcher
-import com.pulse.android.core.utils.InteractionFakeUtils
-import com.pulse.android.remote.models.InteractionAttrsEntry
+import com.pulse.android.remote.InteractionRemoteFakeUtils
 import com.pulse.android.remote.models.InteractionConfig
 import io.mockk.coEvery
 import io.mockk.impl.annotations.MockK
@@ -67,7 +66,7 @@ class InteractionManagerTest {
     @Test
     fun `When interaction is one interaction trackers should be one`() =
         runTest(standardTestDispatcher) {
-            coEvery { mockConfigFetcher.getConfigs() } returns listOf(InteractionFakeUtils.createFakeInteractionConfig())
+            coEvery { mockConfigFetcher.getConfigs() } returns listOf(InteractionRemoteFakeUtils.createFakeInteractionConfig())
             mockInteractionManager.init()
             advanceUntilIdle()
             Assertions.assertThat(mockInteractionManager.interactionTrackers).hasSize(1)
@@ -78,8 +77,8 @@ class InteractionManagerTest {
         runTest(standardTestDispatcher) {
             coEvery { mockConfigFetcher.getConfigs() } returns
                 listOf(
-                    InteractionFakeUtils.createFakeInteractionConfig(),
-                    InteractionFakeUtils.createFakeInteractionConfig(),
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(),
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(),
                 )
             mockInteractionManager.init()
             advanceUntilIdle()
@@ -90,7 +89,7 @@ class InteractionManagerTest {
     fun `When interaction config has no event config throw with assertion`() =
         runTest(standardTestDispatcher) {
             org.junit.jupiter.api.Assertions.assertThrows(NoSuchElementException::class.java) {
-                InteractionFakeUtils.createFakeInteractionConfig(
+                InteractionRemoteFakeUtils.createFakeInteractionConfig(
                     eventSequence = emptyList(),
                 )
             }
@@ -100,10 +99,10 @@ class InteractionManagerTest {
     fun `When interaction config has all blacklisted config throws with exception`() =
         runTest(standardTestDispatcher) {
             org.junit.jupiter.api.Assertions.assertThrows(AssertionError::class.java) {
-                InteractionFakeUtils.createFakeInteractionConfig(
+                InteractionRemoteFakeUtils.createFakeInteractionConfig(
                     eventSequence =
                         listOf(
-                            InteractionFakeUtils.createFakeInteractionEvent(
+                            InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                 "blacklisted",
                                 isBlacklisted = true,
                             ),
@@ -115,19 +114,19 @@ class InteractionManagerTest {
     @Nested
     inner class `With two length interaction config` {
         private val interactionConfigWithTwoEvents =
-            InteractionFakeUtils.createFakeInteractionConfig(
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
                 eventSequence =
                     listOf(
-                        InteractionFakeUtils.createFakeInteractionEvent(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent(
                             name = "event1",
                         ),
-                        InteractionFakeUtils.createFakeInteractionEvent(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent(
                             name = "event2",
                         ),
                     ),
                 globalBlacklistedEvents =
                     listOf(
-                        InteractionFakeUtils.createFakeInteractionEvent(
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent(
                             name = "blacklist1",
                         ),
                     ),
@@ -176,17 +175,17 @@ class InteractionManagerTest {
         fun `With events in same order with props`() =
             runTest(standardTestDispatcher) {
                 val config =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     name = "event1",
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     name = "event2",
                                     props =
                                         listOf(
-                                            InteractionAttrsEntry(
+                                            InteractionRemoteFakeUtils.createFakeInteractionAttrsEntry(
                                                 "key1",
                                                 "value1",
                                                 operator = InteractionConstant.Operators.EQUALS.name,
@@ -449,16 +448,16 @@ class InteractionManagerTest {
     @Nested
     inner class `With global black listed event` {
         private val doubleEventConfig =
-            InteractionFakeUtils.createFakeInteractionConfig(
+            InteractionRemoteFakeUtils.createFakeInteractionConfig(
                 eventSequence =
                     listOf(
-                        InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                        InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                     ),
                 globalBlacklistedEvents =
                     listOf(
-                        InteractionFakeUtils.createFakeInteractionEvent("blacklist1"),
-                        InteractionFakeUtils.createFakeInteractionEvent("blacklist2"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
+                        InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist2"),
                     ),
             )
 
@@ -507,19 +506,19 @@ class InteractionManagerTest {
         fun `with 2 event config and global blacklisted with props, event1, blacklist1 without props, event2 gives final interaction`() =
             runTest(standardTestDispatcher) {
                 initMockInteractionManager(
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         globalBlacklistedEvents =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     props =
                                         listOf(
-                                            InteractionAttrsEntry(
+                                            InteractionRemoteFakeUtils.createFakeInteractionAttrsEntry(
                                                 "key1",
                                                 "value1",
                                                 InteractionConstant.Operators.EQUALS.name,
@@ -541,19 +540,19 @@ class InteractionManagerTest {
         fun `with 2 event config and global blacklisted with props, event1, blacklist1 with props, event2 stopes ongoing interaction`() =
             runTest(standardTestDispatcher) {
                 initMockInteractionManager(
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         globalBlacklistedEvents =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     props =
                                         listOf(
-                                            InteractionAttrsEntry(
+                                            InteractionRemoteFakeUtils.createFakeInteractionAttrsEntry(
                                                 "key1",
                                                 "value1",
                                                 InteractionConstant.Operators.EQUALS.name,
@@ -578,15 +577,15 @@ class InteractionManagerTest {
         fun `when correct event happen without blacklisted event`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -601,15 +600,15 @@ class InteractionManagerTest {
         fun `config with one event and trailing blacklisted events when first event is correct`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
@@ -625,16 +624,16 @@ class InteractionManagerTest {
         fun `config with two event and trailing blacklisted events when first event is correct`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
@@ -650,16 +649,16 @@ class InteractionManagerTest {
         fun `config with two event and trailing blacklisted events when first event is correct and second is incorrect`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
@@ -677,20 +676,20 @@ class InteractionManagerTest {
         fun `config with two event and trailing blacklisted events when first and second event is config first event`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -705,20 +704,20 @@ class InteractionManagerTest {
         fun `config with two event and trailing blacklisted events when first and second event is config second event`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -733,20 +732,20 @@ class InteractionManagerTest {
         fun `config with two events and fron blacklisted event`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event0"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event0"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -769,20 +768,20 @@ class InteractionManagerTest {
         fun `When first event comes to break the ongoing match and then completed the interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist1",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
                                     "blacklist2",
                                     isBlacklisted = true,
                                 ),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -810,21 +809,21 @@ class InteractionManagerTest {
         fun `two config with one longer then the previous one`() =
             runTest(standardTestDispatcher) {
                 val interactionConfigLen2 =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                     )
 
                 val interactionConfigLen3 =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
 
@@ -879,11 +878,11 @@ class InteractionManagerTest {
             fun `event1, event1, event1 after first event1, event2 gives two interaction with two event config`() =
                 runTest(standardTestDispatcher) {
                     val interactionConfig =
-                        InteractionFakeUtils.createFakeInteractionConfig(
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
                             eventSequence =
                                 listOf(
-                                    InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                    InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                                 ),
                         )
                     initMockInteractionManager(interactionConfig)
@@ -928,11 +927,11 @@ class InteractionManagerTest {
             fun `event1, event1, event1 after first event1, event2, gb after first event1 gives one interaction with two event config`() =
                 runTest(standardTestDispatcher) {
                     val interactionConfig =
-                        InteractionFakeUtils.createFakeInteractionConfig(
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
                             eventSequence =
                                 listOf(
-                                    InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                    InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                                 ),
                         )
                     initMockInteractionManager(interactionConfig)
@@ -977,11 +976,11 @@ class InteractionManagerTest {
             fun `event1, event1, event1 after first event1, event2, gb after first event2 gives one interaction with two event config`() =
                 runTest(standardTestDispatcher) {
                     val interactionConfig =
-                        InteractionFakeUtils.createFakeInteractionConfig(
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
                             eventSequence =
                                 listOf(
-                                    InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                    InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                                 ),
                         )
                     initMockInteractionManager(interactionConfig)
@@ -1026,11 +1025,11 @@ class InteractionManagerTest {
             fun `event1, event1, event1 after first event1, event2, gb after e1 before e2 gives one interaction with two event config`() =
                 runTest(standardTestDispatcher) {
                     val interactionConfig =
-                        InteractionFakeUtils.createFakeInteractionConfig(
+                        InteractionRemoteFakeUtils.createFakeInteractionConfig(
                             eventSequence =
                                 listOf(
-                                    InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                    InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                    InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                                 ),
                         )
                     initMockInteractionManager(interactionConfig)
@@ -1072,11 +1071,11 @@ class InteractionManagerTest {
         fun `event1, event2 gives ongoing interaction then goes to final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1096,11 +1095,11 @@ class InteractionManagerTest {
         fun `event1, event2, unknownEvent gives ongoing interaction then final interaction with two event config`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1125,15 +1124,15 @@ class InteractionManagerTest {
         fun `event1, event2, globalBlacklist1 with older than event2 timestamp gives ongoing then no interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         globalBlacklistedEvents =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("blacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1158,15 +1157,15 @@ class InteractionManagerTest {
         fun `event1, event2, globalBlacklist1 gives ongoing then final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         globalBlacklistedEvents =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("blacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1191,15 +1190,15 @@ class InteractionManagerTest {
         fun `event1, event2, globalBlacklist1 before event1 gives ongoing then final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         globalBlacklistedEvents =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("blacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("blacklist1"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1225,13 +1224,13 @@ class InteractionManagerTest {
         fun `event1, event2, localBlacklist1, event3 with localBlacklist1 older than event2 timestamp gives ongoing then no interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("localBlacklist1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("localBlacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1262,13 +1261,13 @@ class InteractionManagerTest {
         fun `event1, event2, globalBlacklist1 with older than event1 timestamp gives ongoing then final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("localBlacklist1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("localBlacklist1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1302,11 +1301,11 @@ class InteractionManagerTest {
         fun `event1, and then 20s delay gives error interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
                     )
@@ -1324,11 +1323,11 @@ class InteractionManagerTest {
         fun `event1, and then 20s delay gives error interaction with event1 and event 2 gives final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
                     )
@@ -1358,11 +1357,11 @@ class InteractionManagerTest {
         fun `event1, event2 with after 20s delay doesn't give final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
                     )
@@ -1383,11 +1382,11 @@ class InteractionManagerTest {
         fun `event1, event2 with after 19s delay does give final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
                     )
@@ -1406,12 +1405,12 @@ class InteractionManagerTest {
         fun `event1, event2 with after 19s delay, event3 after 19s delay does give final interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                         thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
                     )
@@ -1437,11 +1436,11 @@ class InteractionManagerTest {
         fun `event1, eventUnknown doesn't reset the timer`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                         thresholdInNanos = TimeUnit.SECONDS.toNanos(20),
                     )
@@ -1465,11 +1464,11 @@ class InteractionManagerTest {
         fun `with no ongoing match, events contained event doesn't give error interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1482,12 +1481,12 @@ class InteractionManagerTest {
         fun `with ongoing match, event1 event3 gives error interaction`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)
@@ -1519,12 +1518,12 @@ class InteractionManagerTest {
         fun `after error interaction success interaction is made`() =
             runTest(standardTestDispatcher) {
                 val interactionConfig =
-                    InteractionFakeUtils.createFakeInteractionConfig(
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
                         eventSequence =
                             listOf(
-                                InteractionFakeUtils.createFakeInteractionEvent("event1"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event2"),
-                                InteractionFakeUtils.createFakeInteractionEvent("event3"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event1"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event2"),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent("event3"),
                             ),
                     )
                 initMockInteractionManager(interactionConfig)

@@ -43,7 +43,7 @@ object AndroidResource {
 
         return resourceBuilder
             .put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION)
-            .put(DEVICE_MODEL_NAME, Build.MODEL)
+            .put(DEVICE_MODEL_NAME, getDeviceModel())
             .put(DEVICE_MODEL_IDENTIFIER, modelIdentifier)
             .put(DEVICE_MANUFACTURER, Build.MANUFACTURER)
             .put(OS_NAME, "Android")
@@ -100,13 +100,15 @@ object AndroidResource {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val modelIdApi31 = modelIdentifierApi31
                 if (modelIdApi31 == UNKNOWN_MODEL_ID) {
-                    Build.MODEL
+                    getDeviceModel()
                 } else {
                     modelIdApi31
                 }
             } else {
-                Build.MODEL
+                getDeviceModel()
             }
+
+    private fun getDeviceModel(): String = Build.MODEL.orEmpty()
 
     @get:RequiresApi(Build.VERSION_CODES.S)
     private val modelIdentifierApi31: String
