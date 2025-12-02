@@ -1,5 +1,5 @@
 {
-  "name": "@horizoneng/pulse-react-native",
+  "name": "@dreamhorizonorg/pulse-react-native",
   "version": "0.0.1",
   "description": "Production-grade observability SDK for React Native applications with OpenTelemetry support. Real-time monitoring, error tracking, performance insights, and distributed tracing.",
   "main": "./lib/module/index.js",
@@ -54,15 +54,15 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ds-horizon/pulse.git",
+    "url": "git+https://github.com/dream-horizon-org/pulse.git",
     "directory": "pulse-react-native-otel"
   },
-  "author": "HorizonOS <https://horizonos.in>",
+  "author": "DreamHorizon <https://dreamhorizon.org>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ds-horizon/pulse/issues"
+    "url": "https://github.com/dream-horizon-org/pulse/issues"
   },
-  "homepage": "https://github.com/ds-horizon/pulse/tree/main/pulse-react-native-otel#readme",
+  "homepage": "https://github.com/dream-horizon-org/pulse/tree/main/pulse-react-native-otel#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
