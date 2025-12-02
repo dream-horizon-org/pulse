@@ -14,7 +14,7 @@ Exit codes:
 import argparse
 import os
 import sys
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 VALID_TYPES = ("INSTRUCTION", "BRANCH", "LINE", "METHOD", "CLASS")
 
