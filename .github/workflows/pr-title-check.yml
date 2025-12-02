@@ -1,0 +1,50 @@
+name: Enforce PR title format
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate PR title format
+        run: |
+          title="${{ github.event.pull_request.title }}"
+          echo "PR title: '$title'"
+
+          # Required formats:
+          #   type: short description
+          #   type(scope): short description
+          #
+          # where type ∈ {feat, fix, perf, refactor, chore, docs, test, ci, revert}
+          #
+          # Examples:
+          #   feat: add backend coverage check
+          #   fix(ui): handle null pointer in stats
+          #   docs: update contributing guide
+
+          regex='^(feat|fix|perf|refactor|chore|docs|test|ci|revert)(\([^)]+\))?: .+$'
+
+          if ! echo "$title" | grep -Eq "$regex"; then
+            echo "::error::Invalid PR title.
+                  Required format:
+                    type: short description
+                    type(scope): short description
+                  
+                  Where type is one of:
+                    feat, fix, perf, refactor, chore, docs, test, ci, revert
+                  
+                  Examples:
+                    feat: add backend coverage check
+                    fix(ui): handle null pointer in stats
+                    docs: update contributing guide"
+                      exit 1
+                      fi
+                      
+                      echo "PR title format is valid ✅"
