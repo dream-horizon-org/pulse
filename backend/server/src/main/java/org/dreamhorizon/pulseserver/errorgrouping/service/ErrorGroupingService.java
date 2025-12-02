@@ -400,9 +400,6 @@ public class ErrorGroupingService {
     );
   }
 
-  /**
-   * Helper to symbolicate all frames for a given lane
-   */
   private Single<List<String>> symbolicateAllFrames(Lane lane, List<? extends Frame> frames, EventMeta meta) {
     if (frames.isEmpty()) {
       return Single.just(Collections.emptyList());
@@ -410,9 +407,6 @@ public class ErrorGroupingService {
     return symbolicate(lane, new ArrayList<>(frames), meta);
   }
 
-  /**
-   * * Helper record to hold both grouping result and complete symbolication
-   */
   public record ProcessingResult(Group group, CompleteSymbolication completeSymbolication) {
   }
 }

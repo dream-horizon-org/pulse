@@ -21,7 +21,7 @@ public class AlertMapper {
       String jobId = row.getString("job_id");
       String createdByValue = row.getString("created_by");
       String updatedByValue = row.getString("updated_by");
-      String currentStateValue = row.getString("current_state");
+
 
       if (jobId != null && !jobIds.contains(jobId) && !jobId.isEmpty()) {
         jobIds.add(jobId);
@@ -32,6 +32,7 @@ public class AlertMapper {
       if (updatedByValue != null && !updatedBy.contains(updatedByValue) && !updatedByValue.isEmpty()) {
         updatedBy.add(updatedByValue);
       }
+      String currentStateValue = row.getString("current_state");
       if (currentStateValue != null && !currentStateValue.isEmpty() && !currentStates.contains(AlertState.valueOf(currentStateValue))) {
         currentStates.add(AlertState.valueOf(currentStateValue));
       }
