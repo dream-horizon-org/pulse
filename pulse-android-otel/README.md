@@ -48,8 +48,7 @@ Add the Pulse Android SDK dependency to your app's `build.gradle.kts`:
 ```kotlin
 dependencies {
     //...
-    api(platform("io.opentelemetry.android:opentelemetry-android-bom:0.15.0-alpha"))
-    implementation("io.opentelemetry.android:android-agent") // Version is resolved thru bom
+    implementation("org.dreamhorizon:pulse-android-sdk:0.0.1-alpha")
     //...
 }
 ```

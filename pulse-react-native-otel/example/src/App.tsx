@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import ButtonWithTitle from './components/ButtonWithTitle';
 import NavigationExample from './examples/NavigationExample';
 import TraceExample from './examples/TraceExample';

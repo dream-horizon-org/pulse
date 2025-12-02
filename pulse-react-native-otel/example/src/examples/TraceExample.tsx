@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
-import { Pulse, SpanStatusCode } from '@horizoneng/pulse-react-native';
+import { Pulse, SpanStatusCode } from '@dreamhorizonorg/pulse-react-native';
 
 const TAG = 'Pulse Trace Demo';
 const createNestedSpans = async () => {

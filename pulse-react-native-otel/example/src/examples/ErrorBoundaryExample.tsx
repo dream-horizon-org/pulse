@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
-import {Pulse} from '@horizoneng/pulse-react-native';
-import type { FallbackRender } from '@horizoneng/pulse-react-native';
+import {Pulse} from '@dreamhorizonorg/pulse-react-native';
+import type { FallbackRender } from '@dreamhorizonorg/pulse-react-native';
 
 const TAG = '[Pulse ErrorBoundaryDemo]';
 

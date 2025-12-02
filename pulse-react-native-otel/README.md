@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <code>@horizoneng/pulse-react-native</code>
+  <code>@dreamhorizonorg/pulse-react-native</code>
 </p>
 
 ---
@@ -41,9 +41,9 @@
 ### Installation
 
 ```sh
-npm install @horizoneng/pulse-react-native
+npm install @dreamhorizonorg/pulse-react-native
 # or
-yarn add @horizoneng/pulse-react-native
+yarn add @dreamhorizonorg/pulse-react-native
 ```
 
 ### Initialization
@@ -81,7 +81,7 @@ For custom endpoints, headers, disk buffering, session settings, ANR thresholds,
 Enable automatic instrumentation in your app entry point (e.g., `App.tsx`):
 
 ```typescript
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 // Enable auto-instrumentation features
 Pulse.start();
@@ -164,7 +164,7 @@ Pulse automatically tracks screen navigation and route changes when using [React
 
 ```typescript
 import { NavigationContainer } from '@react-navigation/native';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 function App() {
   const navigationIntegration = Pulse.createNavigationIntegration();
@@ -253,7 +253,7 @@ Pulse provides a built-in `ErrorBoundary` component that uses [React's Error Bou
 #### Basic Usage
 
 ```typescript
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import { View, Text } from 'react-native';
 
 function App() {
@@ -310,7 +310,7 @@ Use the `onError` callback for additional error handling logic:
 Wrap individual components using the HOC pattern:
 
 ```typescript
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 const MyComponent = () => {
   // Component code
@@ -347,7 +347,7 @@ ANR and frozen frame detection are enabled by default. To customize thresholds, 
 
 ### Tracking CodePush Deployments
 
-If your app uses over-the-air (OTA) updates like [Microsoft App Center CodePush](https://github.com/microsoft/react-native-code-push) or [Delivr DOTA](https://github.com/ds-horizon/delivr-sdk-ota), you can track which JavaScript bundle version is running by setting a global attribute.
+If your app uses over-the-air (OTA) updates like [Microsoft App Center CodePush](https://github.com/microsoft/react-native-code-push) or [Delivr DOTA](https://github.com/dream-horizon-org/delivr-sdk-ota), you can track which JavaScript bundle version is running by setting a global attribute.
 
 #### Why Track Code Bundle IDs?
 
@@ -362,7 +362,7 @@ Use `Pulse.setGlobalAttribute()` to pass the code bundle ID from your OTA provid
 
 ```typescript
 import codePush from '@d11/dota';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 // Set on app start
 codePush.getUpdateMetadata().then(update => {
@@ -380,12 +380,12 @@ All subsequent events, errors, and spans will automatically include the `codeBun
 
 Global attributes are automatically attached to all telemetry data (events, errors, spans) throughout your application's lifecycle.
 
-> **Note:** Global attributes set via `setGlobalAttribute` only apply to telemetry originating from the React Native side. Native Android events (ANR, frozen frames, activity lifecycle, etc.) are not affected. To set global attributes for native Android telemetry, refer to the [Pulse Android SDK initialization guide](https://github.com/ds-horizon/pulse/tree/feat/interaction-reactive/pulse-android-otel#agent-initialization).
+> **Note:** Global attributes set via `setGlobalAttribute` only apply to telemetry originating from the React Native side. Native Android events (ANR, frozen frames, activity lifecycle, etc.) are not affected. To set global attributes for native Android telemetry, refer to the [Pulse Android SDK initialization guide](https://github.com/dream-horizon-org/pulse/tree/feat/interaction-reactive/pulse-android-otel#agent-initialization).
 
 #### Basic Usage
 
 ```typescript
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 // Set global attributes
 Pulse.setGlobalAttribute('environment', 'production');
@@ -399,7 +399,7 @@ Pulse.trackEvent('user_login', { userId: '123' });
 
 ```typescript
 import DeviceInfo from 'react-native-device-info';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 // Set once at app start
 Pulse.setGlobalAttribute('appVersion', DeviceInfo.getVersion());
@@ -466,7 +466,7 @@ The `trackSpan()` function automatically manages the span lifecycle for you. It 
 **Synchronous operation:**
 
 ```typescript
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 const result = Pulse.trackSpan('calculate_total',
   { attributes: { itemCount: 5 } },
@@ -527,7 +527,7 @@ try {
 **Span API:**
 
 ```typescript
-import { Pulse, SpanStatusCode } from '@horizoneng/pulse-react-native';
+import { Pulse, SpanStatusCode } from '@dreamhorizonorg/pulse-react-native';
 
 // Add a single event
 span.addEvent('cache_miss');
@@ -568,7 +568,7 @@ You can optionally set a status code when ending a span to indicate the outcome:
 **Example with status codes:**
 
 ```typescript
-import { Pulse, SpanStatusCode } from '@horizoneng/pulse-react-native';
+import { Pulse, SpanStatusCode } from '@dreamhorizonorg/pulse-react-native';
 
 const span = Pulse.startSpan('payment_processing');
 
@@ -598,7 +598,7 @@ Track custom business events, user actions, and application milestones to gain i
 #### Basic Usage
 
 ```typescript
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 // Simple event without attributes
 Pulse.trackEvent('app_opened');
