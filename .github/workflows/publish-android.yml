@@ -19,6 +19,8 @@ jobs:
   publish:
     name: "Publish Android SDK to Maven Central"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code

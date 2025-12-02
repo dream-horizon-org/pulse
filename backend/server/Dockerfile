@@ -36,5 +36,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/healthcheck || exit 1
 
 # Run the application
-ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback-docker.xml" , "-jar", "pulse-server.jar", "run", "in.horizonos.pulseserver.verticle.MainVerticle"]
+ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback-docker.xml" , "-jar", "pulse-server.jar", "run", "org.dreamhorizon.pulseserver.verticle.MainVerticle"]
 

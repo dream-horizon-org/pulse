@@ -21,9 +21,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -70,6 +75,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -112,6 +119,8 @@ jobs:
 
   build-library:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -154,6 +163,8 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     env:
       TURBO_CACHE_DIR: .turbo/android
@@ -242,6 +253,8 @@ jobs:
 
   build-ios:
     runs-on: macos-latest
+    permissions:
+      contents: read
 
     env:
       XCODE_VERSION: 16.3

@@ -3,7 +3,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>in.horizonos</groupId>
+    <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
@@ -11,7 +11,7 @@
 
     <properties>
         <app.name>pulse-server</app.name>
-        <main.class>in.horizonos.pulseserver.MainApplication</main.class>
+        <main.class>org.dreamhorizon.pulseserver.MainApplication</main.class>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <app.release.artifact>/target/pulse-server</app.release.artifact>
         <google.guava.version>25.1-jre</google.guava.version>
@@ -387,8 +387,8 @@
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
-                                        <Main-Class>in.horizonos.pulseserver.MainApplication</Main-Class>
-                                        <Main-Verticle>in.horizonos.pulseserver.verticle.MainVerticle</Main-Verticle>
+                                        <Main-Class>org.dreamhorizon.pulseserver.MainApplication</Main-Class>
+                                        <Main-Verticle>org.dreamhorizon.pulseserver.verticle.MainVerticle</Main-Verticle>
                                         <X-Compile-Source-JDK>17</X-Compile-Source-JDK>
                                         <X-Compile-Target-JDK>17</X-Compile-Target-JDK>
                                     </manifestEntries>
@@ -457,7 +457,7 @@
                 <version>0.8.12</version>
                 <configuration>
                     <includes>
-                        <include>in/horizonos/pulseserver/**</include>
+                        <include>org/dreamhorizon/pulseserver/**</include>
                     </includes>
                 </configuration>
                 <executions>
@@ -476,21 +476,21 @@
                         <configuration>
                             <excludes>
                                 <!-- Same exclusions as jacoco-check -->
-                                <exclude>in/horizonos/pulseserver/config/**</exclude>
-                                <exclude>in/horizonos/pulseserver/constant/**</exclude>
-                                <exclude>in/horizonos/pulseserver/verticle/**</exclude>
-                                <exclude>in/horizonos/pulseserver/module/**</exclude>
-                                <exclude>in/horizonos/pulseserver/model/**</exclude>
-                                <exclude>in/horizonos/pulseserver/dto/**</exclude>
-                                <exclude>in/horizonos/pulseserver/healthcheck/**</exclude>
-                                <exclude>in/horizonos/pulseserver/guice/**</exclude>
-                                <exclude>in/horizonos/pulseserver/enums/**</exclude>
-                                <exclude>in/horizonos/pulseserver/error/**</exclude>
-                                <exclude>in/horizonos/pulseserver/resources/**</exclude>
-                                <exclude>in/horizonos/pulseserver/rest/**</exclude>
-                                <exclude>in/horizonos/pulseserver/vertx/**</exclude>
-                                <exclude>in/horizonos/pulseserver/MainApplication.class</exclude>
-                                <exclude>in/horizonos/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/config/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/constant/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/verticle/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/module/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/model/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/healthcheck/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/error/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/resources/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/rest/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -503,21 +503,21 @@
                         <configuration>
                             <excludes>
                                 <!-- entire package -->
-                                <exclude>in/horizonos/pulseserver/config/**</exclude>
-                                <exclude>in/horizonos/pulseserver/constant/**</exclude>
-                                <exclude>in/horizonos/pulseserver/verticle/**</exclude>
-                                <exclude>in/horizonos/pulseserver/module/**</exclude>
-                                <exclude>in/horizonos/pulseserver/model/**</exclude>
-                                <exclude>in/horizonos/pulseserver/dto/**</exclude>
-                                <exclude>in/horizonos/pulseserver/healthcheck/**</exclude>
-                                <exclude>in/horizonos/pulseserver/guice/**</exclude>
-                                <exclude>in/horizonos/pulseserver/enums/**</exclude>
-                                <exclude>in/horizonos/pulseserver/error/**</exclude>
-                                <exclude>in/horizonos/pulseserver/resources/**</exclude>
-                                <exclude>in/horizonos/pulseserver/rest/**</exclude>
-                                <exclude>in/horizonos/pulseserver/vertx/**</exclude>
-                                <exclude>in/horizonos/pulseserver/MainApplication.class</exclude>
-                                <exclude>in/horizonos/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/config/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/constant/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/verticle/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/module/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/model/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/healthcheck/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/error/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/resources/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/rest/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>
