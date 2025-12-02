@@ -53,7 +53,7 @@ jobs:
           REACT_APP_GOOGLE_OAUTH_ENABLED: 'false'
           REACT_APP_GOOGLE_CLIENT_ID: ''
           # Set public URL for /demo subpath
-          PUBLIC_URL: '/demo'
+          PUBLIC_URL: '/'
           # Production mode
           NODE_ENV: 'production'
           # Disable source maps for smaller bundle
