@@ -2,7 +2,13 @@ name: Gradle wrapper validation
 
 on:
   push:
+    paths:
+      - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-gradle-wrapper-validation.yml'
   pull_request:
+    paths:
+      - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-gradle-wrapper-validation.yml'
 
 permissions:
   contents: read

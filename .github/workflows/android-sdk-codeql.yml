@@ -1,4 +1,4 @@
-name: CodeQL
+name: Android SDK CodeQL
 
 on:
   pull_request:
@@ -7,12 +7,14 @@ on:
       - release/*
     paths:
       - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-codeql.yml'
   push:
     branches:
       - main
       - release/*
     paths:
       - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-codeql.yml'
   schedule:
     - cron: "29 13 * * 2"  # weekly at 13:29 UTC on Tuesday
 

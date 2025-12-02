@@ -5,6 +5,14 @@ on:
     branches:
       - main
       - release/*
+    paths:
+      - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-build.yaml'
+  # todo remove this added just for testing
+  pull_request:
+    paths:
+      - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-build.yaml'
   workflow_dispatch:
 
 permissions:
