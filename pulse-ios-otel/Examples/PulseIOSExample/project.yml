@@ -1,0 +1,29 @@
+name: PulseIOSExample
+options:
+  bundleIdPrefix: com.pulse.ios
+  deploymentTarget:
+    iOS: "13.0"
+  developmentLanguage: en
+  xcodeVersion: "15.0"
+
+packages:
+  PulseIOS:
+    path: ../../
+    product: PulseIOSSDK
+
+targets:
+  PulseIOSExample:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pulse.ios.example
+        INFOPLIST_FILE: Sources/Info.plist
+        SWIFT_VERSION: "5.9"
+        DEVELOPMENT_TEAM: ""
+    dependencies:
+      - package: PulseIOS
+        product: PulseIOSSDK
+

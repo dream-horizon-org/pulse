@@ -5,7 +5,7 @@ import Foundation
 import PackageDescription
 
 let package = Package(
-  name: "opentelemetry-swift",
+  name: "pulse-ios",
   platforms: [
     .macOS(.v12),
     .iOS(.v13),
@@ -16,7 +16,6 @@ let package = Package(
   products: [
     .library(name: "SwiftMetricsShim", targets: ["SwiftMetricsShim"]),
     .library(name: "PrometheusExporter", targets: ["PrometheusExporter"]),
-    .library(name: "OpenTelemetryProtocolExporter", targets: ["OpenTelemetryProtocolExporterGrpc"]),
     .library(
       name: "OpenTelemetryProtocolExporterHTTP", targets: ["OpenTelemetryProtocolExporterHttp"]
     ),
@@ -25,13 +24,11 @@ let package = Package(
     .library(name: "OTelSwiftLog", targets: ["OTelSwiftLog"]),
     .library(name: "BaggagePropagationProcessor", targets: ["BaggagePropagationProcessor"]),
     .library(name: "Sessions", targets: ["Sessions"]),
-    .executable(name: "loggingTracer", targets: ["LoggingTracer"]),
-    .executable(name: "StableMetricSample", targets: ["StableMetricSample"])
+    .executable(name: "loggingTracer", targets: ["LoggingTracer"])
   ],
   dependencies: [
     .package(url: "https://github.com/open-telemetry/opentelemetry-swift-core.git", from: "2.2.0"),
     .package(url: "https://github.com/apple/swift-nio.git", from: "2.90.0"),
-    .package(url: "https://github.com/grpc/grpc-swift.git", exact: "1.27.0"),
     .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.33.3"),
     .package(url: "https://github.com/apple/swift-log.git", from: "1.6.4"),
     .package(url: "https://github.com/apple/swift-metrics.git", from: "2.7.1")
@@ -87,15 +84,6 @@ let package = Package(
       path: "Sources/Exporters/OpenTelemetryProtocolHttp"
     ),
     .target(
-      name: "OpenTelemetryProtocolExporterGrpc",
-      dependencies: [
-        .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
-        "OpenTelemetryProtocolExporterCommon",
-        .product(name: "GRPC", package: "grpc-swift")
-      ],
-      path: "Sources/Exporters/OpenTelemetryProtocolGrpc"
-    ),
-    .target(
       name: "InMemoryExporter",
       dependencies: [
         .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
@@ -148,15 +136,6 @@ let package = Package(
       path: "Tests/ExportersTests/Prometheus"
     ),
     .testTarget(
-      name: "OpenTelemetryProtocolExporterTests",
-      dependencies: [
-        "OpenTelemetryProtocolExporterGrpc",
-        "OpenTelemetryProtocolExporterHttp",
-        "SharedTestUtils",
-      ],
-      path: "Tests/ExportersTests/OpenTelemetryProtocol"
-    ),
-    .testTarget(
       name: "InMemoryExporterTests",
       dependencies: ["InMemoryExporter"],
       path: "Tests/ExportersTests/InMemory"
@@ -187,25 +166,6 @@ let package = Package(
         .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core")
       ],
       path: "Examples/Logging Tracer"
-    ),
-    .executableTarget(
-      name: "LogsSample",
-      dependencies: [
-        .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
-        "OpenTelemetryProtocolExporterGrpc",
-        .product(name: "GRPC", package: "grpc-swift")
-      ],
-      path: "Examples/Logs Sample"
-    ),
-    .executableTarget(
-      name: "StableMetricSample",
-      dependencies: [
-        .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
-        "OpenTelemetryProtocolExporterGrpc",
-        .product(name: "StdoutExporter", package: "opentelemetry-swift-core")
-      ],
-      path: "Examples/Stable Metric Sample",
-      exclude: ["README.md"]
     )
   ]
 ).addPlatformSpecific()
@@ -250,11 +210,11 @@ extension Package {
         .library(name: "NetworkStatus", targets: ["NetworkStatus"]),
         .library(name: "URLSessionInstrumentation", targets: ["URLSessionInstrumentation"]),
         .library(name: "ZipkinExporter", targets: ["ZipkinExporter"]),
-        .executable(name: "OTLPExporter", targets: ["OTLPExporter"]),
         .executable(name: "OTLPHTTPExporter", targets: ["OTLPHTTPExporter"]),
         .library(name: "SignPostIntegration", targets: ["SignPostIntegration"]),
         .library(name: "ResourceExtension", targets: ["ResourceExtension"]),
-        .library(name: "MetricKitInstrumentation", targets: ["MetricKitInstrumentation"])
+        .library(name: "MetricKitInstrumentation", targets: ["MetricKitInstrumentation"]),
+        .library(name: "PulseIOSSDK", targets: ["PulseIOSSDK"])
       ])
       targets.append(contentsOf: [
         .target(
@@ -338,17 +298,6 @@ extension Package {
           path: "Tests/ExportersTests/Zipkin"
         ),
         .executableTarget(
-          name: "OTLPExporter",
-          dependencies: [
-            .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
-            "OpenTelemetryProtocolExporterGrpc",
-            .product(name: "StdoutExporter", package: "opentelemetry-swift-core"),
-            "ZipkinExporter", "ResourceExtension", "SignPostIntegration"
-          ],
-          path: "Examples/OTLP Exporter",
-          exclude: ["README.md", "prometheus.yaml", "collector-config.yaml", "docker-compose.yaml", "images"]
-        ),
-        .executableTarget(
           name: "OTLPHTTPExporter",
           dependencies: [
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
@@ -406,6 +355,21 @@ extension Package {
             "PrometheusExporter"],
           path: "Examples/Prometheus Sample",
           exclude: ["README.md"]
+        ),
+        .target(
+          name: "PulseIOSSDK",
+          dependencies: [
+            .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core"),
+            .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
+            .product(name: "StdoutExporter", package: "opentelemetry-swift-core"),
+            "OpenTelemetryProtocolExporterHttp",
+            "ResourceExtension",
+            "Sessions",
+            "URLSessionInstrumentation",
+            "NetworkStatus",
+            "SignPostIntegration"
+          ],
+          path: "Sources/PulseIOSSDK"
         )
       ])
     #endif
