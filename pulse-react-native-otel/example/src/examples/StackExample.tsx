@@ -4,7 +4,7 @@ import {
   type NavigationContainerRef,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import HomeScreen from '../screens/Home';
 import ProfileScreen from '../screens/Profile';
 import SettingsScreen from '../screens/Settings';

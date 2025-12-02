@@ -9,7 +9,7 @@ import HomeScreen from '../screens/Home';
 import ProfileScreen from '../screens/Profile';
 import SettingsScreen from '../screens/Settings';
 import DetailsScreen from '../screens/Details';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 enableScreens(true);
 

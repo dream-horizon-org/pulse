@@ -60,10 +60,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ inputs.final }}" == "true" ]; then
             echo "Artifact will be available at Maven Central in ~2 hours:" >> $GITHUB_STEP_SUMMARY
-            echo "- \`in.horizonos:pulse-android-sdk:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`org.dreamhorizon:pulse-android-sdk:$VERSION\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "SNAPSHOT artifact is available at:" >> $GITHUB_STEP_SUMMARY
-            echo "- \`in.horizonos:pulse-android-sdk:$VERSION-SNAPSHOT\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`org.dreamhorizon:pulse-android-sdk:$VERSION-SNAPSHOT\`" >> $GITHUB_STEP_SUMMARY
             echo "- Repository: https://s01.oss.sonatype.org/content/repositories/snapshots/" >> $GITHUB_STEP_SUMMARY
           fi
 

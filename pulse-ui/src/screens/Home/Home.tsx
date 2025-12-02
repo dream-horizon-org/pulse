@@ -22,11 +22,6 @@ dayjs.extend(utc);
 export function Home(_props: HomeProps) {
   const navigate = useNavigate();
 
-  // Fetch top 4 interactions from API
-  // const { startTime, endTime } = useMemo(() => getDateFilterDetails(), []);
-
-  // Mock Alerts data
-
 
   const quickLinks: QuickLink[] = [
     {
@@ -98,18 +93,12 @@ export function Home(_props: HomeProps) {
         <div className={classes.sessionsGraphsRow}>
           <UserEngagementGraph />
           <ActiveSessionsGraph />
-          {/* <AlertsOverview
-            alertSummary={alertSummary}
-            recentActiveAlerts={recentActiveAlerts}
-          /> */}
         </div>
       </div>
 
       {/* Screens Health Section */}
       <div className={classes.section}>
         <ScreensHealth
-          // startTime={startTime}
-          // endTime={endTime}
           onViewAll={handleViewAllScreens}
           onCardClick={handleScreenCardClick}
         />

@@ -13,7 +13,7 @@ import {
   Pulse,
   type PulseAttributes,
   type PulseAttributeValue,
-} from '@horizoneng/pulse-react-native';
+} from '@dreamhorizonorg/pulse-react-native';
 
 export default function EventDemo() {
   const [eventName, setEventName] = useState('');

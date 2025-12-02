@@ -12,7 +12,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-4.4-blue.svg)](https://www.typescriptlang.org/)
 [![Android](https://img.shields.io/badge/Android-21+-green.svg)](https://developer.android.com/)
 
-**[📖 View Full Documentation →](https://pulse.horizonos.in/docs/intro)**
+**[📖 View Full Documentation →](https://pulse.dreamhorizon.org/docs/intro)**
 
 </div>
 
@@ -35,30 +35,30 @@ A digital experience platform that helps you understand how users are interactin
 
 ## 🚀 Quick Start
 
-- **[Setup Guide](https://pulse.horizonos.in/docs/setup)** - Get Pulse up and running locally
-- **[Android SDK](https://pulse.horizonos.in/docs/sdk/android/overview)** - Integrate Pulse into your Android app
-- **[React Native SDK](https://pulse.horizonos.in/docs/sdk/react-native/overview)** - Integrate Pulse into your React Native app
+- **[Setup Guide](https://pulse.dreamhorizon.org/docs/setup)** - Get Pulse up and running locally
+- **[Android SDK](https://pulse.dreamhorizon.org/docs/sdk/android/overview)** - Integrate Pulse into your Android app
+- **[React Native SDK](https://pulse.dreamhorizon.org/docs/sdk/react-native/overview)** - Integrate Pulse into your React Native app
 
 ---
 
 ## 📚 Documentation
 
-Complete documentation is available at **[https://pulse.horizonos.in/docs](https://pulse.horizonos.in/docs/intro)**.
+Complete documentation is available at **[https://pulse.dreamhorizon.org/docs](https://pulse.dreamhorizon.org/docs/intro)**.
 
 ### Platform & Setup
-- [Introduction](https://pulse.horizonos.in/docs/intro) - Overview of Pulse platform
-- [Setup Guide](https://pulse.horizonos.in/docs/setup) - Platform setup instructions
+- [Introduction](https://pulse.dreamhorizon.org/docs/intro) - Overview of Pulse platform
+- [Setup Guide](https://pulse.dreamhorizon.org/docs/setup) - Platform setup instructions
 
 ### Mobile SDKs
-- [Android SDK](https://pulse.horizonos.in/docs/sdk/android/overview) - Installation, Instrumentation, API Reference
-- [React Native SDK](https://pulse.horizonos.in/docs/sdk/react-native/overview) - Quick Start, Instrumentation, API Reference
+- [Android SDK](https://pulse.dreamhorizon.org/docs/sdk/android/overview) - Installation, Instrumentation, API Reference
+- [React Native SDK](https://pulse.dreamhorizon.org/docs/sdk/react-native/overview) - Quick Start, Instrumentation, API Reference
 
 ### API & Reference
-- [API Documentation](https://pulse.horizonos.in/docs/api-documentation/authentication) - Complete API reference
-- [Performance Metrics](https://pulse.horizonos.in/docs/api-documentation/performance-metrics) - Performance metrics API
-- [Critical Interactions](https://pulse.horizonos.in/docs/api-documentation/interactions) - Interaction tracking API
-- [Filters](https://pulse.horizonos.in/docs/api-documentation/filters) - Query filters and parameters
-- [Concepts](https://pulse.horizonos.in/docs/concepts/interaction-overview) - Core concepts and guides
+- [API Documentation](https://pulse.dreamhorizon.org/docs/api-documentation/authentication) - Complete API reference
+- [Performance Metrics](https://pulse.dreamhorizon.org/docs/api-documentation/performance-metrics) - Performance metrics API
+- [Critical Interactions](https://pulse.dreamhorizon.org/docs/api-documentation/interactions) - Interaction tracking API
+- [Filters](https://pulse.dreamhorizon.org/docs/api-documentation/filters) - Query filters and parameters
+- [Concepts](https://pulse.dreamhorizon.org/docs/concepts/interaction-overview) - Core concepts and guides
 
 ### Development
 - [Backend Server](backend/server/README.md) - Backend architecture and development
@@ -75,13 +75,13 @@ Complete documentation is available at **[https://pulse.horizonos.in/docs](https
 **Mobile**: Kotlin • OpenTelemetry • React Native  
 **Data**: OpenTelemetry Collector • OTLP
 
-For detailed technology information, see the [full documentation](https://pulse.horizonos.in/docs/intro).
+For detailed technology information, see the [full documentation](https://pulse.dreamhorizon.org/docs/intro).
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://pulse.horizonos.in/docs/contribution) for detailed information.
+We welcome contributions! Please see our [Contributing Guide](https://pulse.dreamhorizon.org/docs/contribution) for detailed information.
 
 **Quick Steps:**
 1. Fork the repository
@@ -100,7 +100,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 📞 Support
 
-- **📖 Documentation**: [https://pulse.horizonos.in/docs](https://pulse.horizonos.in/docs/intro)
+- **📖 Documentation**: [https://pulse.dreamhorizon.org/docs](https://pulse.dreamhorizon.org/docs/intro)
 - **🐛 Issues**: Open a GitHub issue
 - **💬 Discussions**: Use GitHub Discussions
 
@@ -110,6 +110,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 **Built with ❤️ by the Pulse Team**
 
-**[📖 Documentation](https://pulse.horizonos.in/docs/intro)** • [Contributing](https://pulse.horizonos.in/docs/contribution) • [License](LICENSE)
+**[📖 Documentation](https://pulse.dreamhorizon.org/docs/intro)** • [Contributing](https://pulse.dreamhorizon.org/docs/contribution) • [License](LICENSE)
 
 </div>
