@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from 'react-native';
 import axios from 'axios';
 
 export default function NetworkInterceptorDemo() {
@@ -21,7 +28,9 @@ export default function NetworkInterceptorDemo() {
     setLoading('fetch-get');
     try {
       console.log('[Pulse Network] 🌐 Testing fetch() GET request...');
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+      const response = await fetch(
+        'https://jsonplaceholder.typicode.com/posts/1'
+      );
       const data = await response.json();
       showResult(`Fetch GET: ${data.title}`);
     } catch (error: any) {
@@ -36,17 +45,20 @@ export default function NetworkInterceptorDemo() {
     setLoading('fetch-post');
     try {
       console.log('[Pulse Network] 🌐 Testing fetch() POST request...');
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: 'Test Post from Pulse SDK',
-          body: 'This is a test POST request from Pulse React Native SDK',
-          userId: 1,
-        }),
-      });
+      const response = await fetch(
+        'https://jsonplaceholder.typicode.com/posts',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: 'Test Post from Pulse SDK',
+            body: 'This is a test POST request from Pulse React Native SDK',
+            userId: 1,
+          }),
+        }
+      );
       const data = await response.json();
       showResult(`Fetch POST: Created post #${data.id}`);
     } catch (error: any) {
@@ -88,7 +100,9 @@ export default function NetworkInterceptorDemo() {
     setLoading('axios-get');
     try {
       console.log('[Pulse Network] 🌐 Testing axios GET request...');
-      const response = await axios.get('https://jsonplaceholder.typicode.com/users/1');
+      const response = await axios.get(
+        'https://jsonplaceholder.typicode.com/users/1'
+      );
       showResult(`Axios GET: ${response.data.name}`);
     } catch (error: any) {
       showResult(`Axios GET Error: ${error.message}`, true);
@@ -128,7 +142,9 @@ export default function NetworkInterceptorDemo() {
     setLoading('fetch-404');
     try {
       console.log('[Pulse Network] 🌐 Testing fetch() with 404 error...');
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts/999999');
+      const response = await fetch(
+        'https://jsonplaceholder.typicode.com/posts/999999'
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -146,7 +162,9 @@ export default function NetworkInterceptorDemo() {
     setLoading('fetch-network-error');
     try {
       console.log('[Pulse Network] 🌐 Testing fetch() with network error...');
-      const response = await fetch('https://this-domain-should-not-exist-12345.com/data');
+      const response = await fetch(
+        'https://this-domain-should-not-exist-12345.com/data'
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -164,7 +182,9 @@ export default function NetworkInterceptorDemo() {
     setLoading('axios-error');
     try {
       console.log('[Pulse Network] 🌐 Testing axios with error...');
-      const response = await axios.get('https://jsonplaceholder.typicode.com/posts/999999');
+      const response = await axios.get(
+        'https://jsonplaceholder.typicode.com/posts/999999'
+      );
       showResult(`Axios Error: ${response.data.title}`);
     } catch (error: any) {
       if (error.response) {
@@ -182,25 +202,39 @@ export default function NetworkInterceptorDemo() {
     setLoading('multiple');
     try {
       console.log('[Pulse Network] 🌐 Testing multiple sequential requests...');
-      
+
       // Request 1: Fetch GET
-      const fetchResponse = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+      const fetchResponse = await fetch(
+        'https://jsonplaceholder.typicode.com/posts/1'
+      );
       const fetchData = await fetchResponse.json();
       console.log('[Pulse Network] Request 1 completed:', fetchData.title);
-      
+
       // Request 2: Axios GET
-      const axiosResponse = await axios.get('https://jsonplaceholder.typicode.com/users/1');
-      console.log('[Pulse Network] Request 2 completed:', axiosResponse.data.name);
-      
+      const axiosResponse = await axios.get(
+        'https://jsonplaceholder.typicode.com/users/1'
+      );
+      console.log(
+        '[Pulse Network] Request 2 completed:',
+        axiosResponse.data.name
+      );
+
       // Request 3: Fetch POST
-      const postResponse = await fetch('https://jsonplaceholder.typicode.com/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Multi-test', body: 'Testing', userId: 1 }),
-      });
+      const postResponse = await fetch(
+        'https://jsonplaceholder.typicode.com/posts',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'Multi-test',
+            body: 'Testing',
+            userId: 1,
+          }),
+        }
+      );
       const postData = await postResponse.json();
       console.log('[Pulse Network] Request 3 completed:', postData.id);
-      
+
       showResult('Multiple requests completed successfully!');
     } catch (error: any) {
       showResult(`Multiple Requests Error: ${error.message}`, true);
@@ -220,7 +254,7 @@ export default function NetworkInterceptorDemo() {
         {/* Fetch Requests Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fetch API</Text>
-          
+
           <Button
             title={loading === 'fetch-get' ? 'Loading...' : 'Fetch GET Request'}
             onPress={testFetchGet}
@@ -228,9 +262,11 @@ export default function NetworkInterceptorDemo() {
             color="#2196F3"
           />
           <View style={styles.space} />
-          
+
           <Button
-            title={loading === 'fetch-post' ? 'Loading...' : 'Fetch POST Request'}
+            title={
+              loading === 'fetch-post' ? 'Loading...' : 'Fetch POST Request'
+            }
             onPress={testFetchPost}
             disabled={loading !== null}
             color="#2196F3"
@@ -240,7 +276,7 @@ export default function NetworkInterceptorDemo() {
         {/* XMLHttpRequest Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>XMLHttpRequest</Text>
-          
+
           <Button
             title={loading === 'xhr-get' ? 'Loading...' : 'XHR GET Request'}
             onPress={testXhrGet}
@@ -252,7 +288,7 @@ export default function NetworkInterceptorDemo() {
         {/* Axios Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Axios</Text>
-          
+
           <Button
             title={loading === 'axios-get' ? 'Loading...' : 'Axios GET Request'}
             onPress={testAxiosGet}
@@ -260,9 +296,11 @@ export default function NetworkInterceptorDemo() {
             color="#4CAF50"
           />
           <View style={styles.space} />
-          
+
           <Button
-            title={loading === 'axios-post' ? 'Loading...' : 'Axios POST Request'}
+            title={
+              loading === 'axios-post' ? 'Loading...' : 'Axios POST Request'
+            }
             onPress={testAxiosPost}
             disabled={loading !== null}
             color="#4CAF50"
@@ -272,7 +310,7 @@ export default function NetworkInterceptorDemo() {
         {/* Error Scenarios Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Error Scenarios</Text>
-          
+
           <Button
             title={loading === 'fetch-404' ? 'Loading...' : 'Fetch 404 Error'}
             onPress={testFetch404}
@@ -280,15 +318,19 @@ export default function NetworkInterceptorDemo() {
             color="#F44336"
           />
           <View style={styles.space} />
-          
+
           <Button
-            title={loading === 'fetch-network-error' ? 'Loading...' : 'Fetch Network Error'}
+            title={
+              loading === 'fetch-network-error'
+                ? 'Loading...'
+                : 'Fetch Network Error'
+            }
             onPress={testFetchNetworkError}
             disabled={loading !== null}
             color="#F44336"
           />
           <View style={styles.space} />
-          
+
           <Button
             title={loading === 'axios-error' ? 'Loading...' : 'Axios Error'}
             onPress={testAxiosError}
@@ -300,9 +342,13 @@ export default function NetworkInterceptorDemo() {
         {/* Advanced Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Advanced</Text>
-          
+
           <Button
-            title={loading === 'multiple' ? 'Loading...' : 'Multiple Sequential Requests'}
+            title={
+              loading === 'multiple'
+                ? 'Loading...'
+                : 'Multiple Sequential Requests'
+            }
             onPress={testMultipleRequests}
             disabled={loading !== null}
             color="#9C27B0"
@@ -320,10 +366,12 @@ export default function NetworkInterceptorDemo() {
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            💡 Check Android Logcat for [Pulse Network] logs and OpenTelemetry telemetry data
+            💡 Check Android Logcat for [Pulse Network] logs and OpenTelemetry
+            telemetry data
           </Text>
           <Text style={styles.infoText}>
-            All network requests should be automatically instrumented and tracked
+            All network requests should be automatically instrumented and
+            tracked
           </Text>
         </View>
       </ScrollView>

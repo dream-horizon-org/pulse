@@ -31,7 +31,11 @@ export default function AndroidFeaturesExample() {
     return (
       <View style={styles.fullScreen}>
         <View style={styles.backButton}>
-          <Button title="← Back" onPress={() => setShowStressTest(false)} color="#666" />
+          <Button
+            title="← Back"
+            onPress={() => setShowStressTest(false)}
+            color="#666"
+          />
         </View>
         <FrozenFrameStressTest />
       </View>
@@ -44,11 +48,7 @@ export default function AndroidFeaturesExample() {
       <Text style={styles.subtitle}>Test Android-specific features</Text>
 
       <View style={styles.buttonContainer}>
-        <Button
-          title="Trigger ANR"
-          onPress={triggerANR}
-          color="#F44336"
-        />
+        <Button title="Trigger ANR" onPress={triggerANR} color="#F44336" />
       </View>
 
       <View style={styles.buttonContainer}>
@@ -96,4 +96,3 @@ const styles = StyleSheet.create({
     maxWidth: 250,
   },
 });
-

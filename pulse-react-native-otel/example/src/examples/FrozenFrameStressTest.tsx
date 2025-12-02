@@ -1,5 +1,12 @@
 import { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  Dimensions,
+} from 'react-native';
 
 const { width } = Dimensions.get('window');
 const GRID_SIZE = 20;
@@ -24,28 +31,63 @@ const AnimatedBox = ({ index }: { index: number }) => {
     const anim = Animated.loop(
       Animated.parallel([
         Animated.sequence([
-          Animated.timing(rotate, { toValue: 1, duration: 2000, useNativeDriver: true }),
-          Animated.timing(rotate, { toValue: 0, duration: 2000, useNativeDriver: true }),
+          Animated.timing(rotate, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(rotate, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
         ]),
         Animated.sequence([
-          Animated.timing(scale, { toValue: 1.5, duration: 1500, useNativeDriver: true }),
-          Animated.timing(scale, { toValue: 1, duration: 1500, useNativeDriver: true }),
+          Animated.timing(scale, {
+            toValue: 1.5,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
         ]),
         Animated.sequence([
-          Animated.timing(translateX, { toValue: 20, duration: 1800, useNativeDriver: true }),
-          Animated.timing(translateX, { toValue: 0, duration: 1800, useNativeDriver: true }),
+          Animated.timing(translateX, {
+            toValue: 20,
+            duration: 1800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateX, {
+            toValue: 0,
+            duration: 1800,
+            useNativeDriver: true,
+          }),
         ]),
         Animated.sequence([
-          Animated.timing(translateY, { toValue: 20, duration: 1700, useNativeDriver: true }),
-          Animated.timing(translateY, { toValue: 0, duration: 1700, useNativeDriver: true }),
+          Animated.timing(translateY, {
+            toValue: 20,
+            duration: 1700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 1700,
+            useNativeDriver: true,
+          }),
         ]),
       ])
     );
     anim.start();
     return () => anim.stop();
-  }, []);
+  }, [rotate, scale, translateX, translateY]);
 
-  const rotation = rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const rotation = rotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   // Heavy computation during render to cause frame drops
   heavyCompute(50000 + index * 1000);
@@ -108,4 +150,3 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
-

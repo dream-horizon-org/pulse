@@ -9,7 +9,11 @@ import {
   Pressable,
   Alert,
 } from 'react-native';
-import { Pulse, type PulseAttributes, type PulseAttributeValue } from '@dreamhorizonorg/pulse-react-native';
+import {
+  Pulse,
+  type PulseAttributes,
+  type PulseAttributeValue,
+} from '@dreamhorizonorg/pulse-react-native';
 
 export default function EventDemo() {
   const [eventName, setEventName] = useState('');
@@ -44,9 +48,10 @@ export default function EventDemo() {
       return;
     }
 
-    const finalAttributes = Object.keys(attributes).length > 0 ? attributes : undefined;
+    const finalAttributes =
+      Object.keys(attributes).length > 0 ? attributes : undefined;
     Pulse.trackEvent(eventName.trim(), finalAttributes);
-    
+
     console.log('[EventDemo] Tracked custom event:', {
       event: eventName.trim(),
       attributes: finalAttributes,
@@ -76,20 +81,23 @@ export default function EventDemo() {
   // Event with active span (for correlation testing)
   const trackEventWithSpan = () => {
     const span = Pulse.startSpan('event_with_span', {
-      attributes: { test: 'event_correlation' }
+      attributes: { test: 'event_correlation' },
     });
-    
+
     Pulse.trackEvent('test_event_with_span', {
       userId: '12345',
       action: 'test',
     });
-    
+
     console.log('[EventDemo] Event tracked with active span');
-    
+
     setTimeout(() => {
       span.end();
       console.log('[EventDemo] Span ended');
-      Alert.alert('Success', 'Event tracked with span - check logs for correlation');
+      Alert.alert(
+        'Success',
+        'Event tracked with span - check logs for correlation'
+      );
     }, 100);
   };
 
@@ -101,7 +109,7 @@ export default function EventDemo() {
         {/* Custom Event Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Custom Event</Text>
-          
+
           <TextInput
             style={styles.input}
             placeholder="Event name (e.g., user_login)"
@@ -162,7 +170,7 @@ export default function EventDemo() {
         {/* Predefined Events Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Test Events</Text>
-          
+
           <Button
             title="Track: user_signup"
             onPress={trackDefaultEvent}
@@ -176,7 +184,7 @@ export default function EventDemo() {
           <Text style={styles.description}>
             Event should be correlated with the span's trace ID and span ID
           </Text>
-          
+
           <Button
             title="Track Event with Active Span"
             onPress={trackEventWithSpan}
@@ -186,7 +194,8 @@ export default function EventDemo() {
 
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            💡 Check your console logs and OpenTelemetry collector to see tracked events
+            💡 Check your console logs and OpenTelemetry collector to see
+            tracked events
           </Text>
         </View>
       </ScrollView>
@@ -296,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  space: { 
+  space: {
     height: 10,
     width: 10,
   },
@@ -314,4 +323,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-
