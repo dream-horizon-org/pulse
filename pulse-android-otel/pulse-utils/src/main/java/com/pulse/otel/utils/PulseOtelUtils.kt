@@ -14,12 +14,14 @@ public object PulseOtelUtils {
     private const val HEX_CHARS = "[0-9a-fA-F]"
     private const val DIGITS = "\\d"
     private const val ALPHANUMERIC = "[A-Za-z0-9]"
+    private const val ULID_CHARS = "[0-9A-HJKMNP-TV-Z]"
     private const val REDACTED = "[redacted]"
 
     private val urlNormalizationPatterns = listOf(
         "(?<=/)($HEX_CHARS{64}|$HEX_CHARS{40})(?=/|$)".toRegex(),
         "(?<=/)($HEX_CHARS{32}|$HEX_CHARS{8}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{12})(?=/|$)".toRegex(),
         "(?<=/)($HEX_CHARS{24})(?=/|$)".toRegex(),
+        "(?<=/)($ULID_CHARS{26})(?=/|$)".toRegex(),
         "(?<=/)($DIGITS{3,})(?=/|$)".toRegex(),
         "(?<=/)($ALPHANUMERIC{16,})(?=/|$)".toRegex()
     )

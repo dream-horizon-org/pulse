@@ -193,6 +193,76 @@ class PulseOtelUtilsTest {
                 "replaces MongoDB ObjectId in middle"
             ),
             Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3",
+                "https://api.example.com/users/[redacted]",
+                "replaces ULID (26 chars)"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3/profile",
+                "https://api.example.com/users/[redacted]/profile",
+                "replaces ULID in middle"
+            ),
+            Arguments.of(
+                "https://api.example.com/01AN4Z07BY79KA1307SR9X4MV3/users",
+                "https://api.example.com/[redacted]/users",
+                "replaces ULID at path start"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3",
+                "https://api.example.com/users/[redacted]",
+                "replaces ULID at path end"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3?page=1",
+                "https://api.example.com/users/[redacted]",
+                "replaces ULID with query params"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3/posts/01BN4Z07BY79KA1307SR9X4MV4",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces multiple ULIDs"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3/posts/12345",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces ULID and numeric ID"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3/posts/550e8400-e29b-41d4-a716-446655440000",
+                "https://api.example.com/users/[redacted]/posts/[redacted]",
+                "replaces ULID and UUID"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV",
+                "https://api.example.com/users/[redacted]",
+                "replaces 25-char alphanumeric string (matches generic pattern)"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV34",
+                "https://api.example.com/users/[redacted]",
+                "replaces 27-char alphanumeric string (matches generic pattern)"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVI",
+                "https://api.example.com/users/[redacted]",
+                "replaces string with invalid ULID character (I) - matches alphanumeric pattern"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVL",
+                "https://api.example.com/users/[redacted]",
+                "replaces string with invalid ULID character (L) - matches alphanumeric pattern"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVO",
+                "https://api.example.com/users/[redacted]",
+                "replaces string with invalid ULID character (O) - matches alphanumeric pattern"
+            ),
+            Arguments.of(
+                "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVU",
+                "https://api.example.com/users/[redacted]",
+                "replaces string with invalid ULID character (U) - matches alphanumeric pattern"
+            ),
+            Arguments.of(
                 "https://api.example.com/commits/abc123def456789012345678901234567890abcd",
                 "https://api.example.com/commits/[redacted]",
                 "replaces 40-char git commit hash"
