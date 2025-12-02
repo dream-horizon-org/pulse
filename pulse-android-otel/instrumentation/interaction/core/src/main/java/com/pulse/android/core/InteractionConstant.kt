@@ -13,22 +13,24 @@ public object InteractionConstant {
     public const val LOCAL_EVENTS: String = "internal_events"
     public const val MARKER_EVENTS: String = "internal_marker"
 
-    internal enum class Operators(internal val operatorName: String) {
+    internal enum class Operators(
+        internal val operatorName: String,
+    ) {
         EQUALS("EQUALS"),
         NOT_EQUALS("NOTEQUALS"),
         CONTAINS("CONTAINS"),
         NOT_CONTAINS("NOTCONTAINS"),
         STARTS_WITH("STARTSWITH"),
         ENDS_WITH("ENDSWITH"),
-        ;
     }
 
-    internal enum class TimeCategory(internal val categoryName: String) {
+    internal enum class TimeCategory(
+        internal val categoryName: String,
+    ) {
         EXCELLENT("Excellent"),
         GOOD("Good"),
         AVERAGE("Average"),
         POOR("Poor"),
-        ;
     }
 
     internal const val LOG_TAG = "InteractionManager"

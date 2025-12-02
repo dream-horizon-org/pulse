@@ -11,18 +11,21 @@ import java.util.concurrent.ConcurrentHashMap
  * `Get` api call
  */
 public class InteractionConfigRestFetcher(
-    private val urlProvider: () -> String
+    private val urlProvider: () -> String,
 ) : InteractionConfigFetcher {
     private val restClients = ConcurrentHashMap<String, InteractionApiService>()
     private var interactionRetrofitClient: InteractionRetrofitClient? = null
+
     override suspend fun getConfigs(): List<InteractionConfig>? {
         val url = urlProvider()
-        val restResponse = restClients.getOrPut(url) {
-            (
-                    interactionRetrofitClient?.newInstance(url)
-                        ?: InteractionRetrofitClient(url)
+        val restResponse =
+            restClients
+                .getOrPut(url) {
+                    (
+                        interactionRetrofitClient?.newInstance(url)
+                            ?: InteractionRetrofitClient(url)
                     ).apiService
-        }.getInteractions()
+                }.getInteractions()
         return if (restResponse.error == null) {
             restResponse.data
         } else {

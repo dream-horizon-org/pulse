@@ -55,6 +55,7 @@ export function CiritcalInteractionDetails() {
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   if (fetchingInteractionDetails) {
     return (

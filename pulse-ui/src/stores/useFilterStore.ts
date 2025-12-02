@@ -24,7 +24,7 @@ const DEFAULT_FILTER_OPTIONS: CriticalInteractionDetailsFilterOptionsResponse =
     OS_VERSION: [],
   };
 
-interface useFilterStore {
+interface FilterStore {
   // Time and filter state
   filterValues?: CriticalInteractionDetailsFilterValues;
   startTime: string;
@@ -112,7 +112,7 @@ const initialState = {
   activeQuickTimeFilter: 1,
 };
 
-export const useFilterStore = create<useFilterStore>()(
+export const useFilterStore = create<FilterStore>()(
   devtools(
     (set, get) => ({
       ...initialState,

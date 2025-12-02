@@ -3,8 +3,8 @@ public abstract interface annotation class io/opentelemetry/android/Incubating :
 
 public final class io/opentelemetry/android/agent/OpenTelemetryRumInitializer {
 	public static final field INSTANCE Lio/opentelemetry/android/agent/OpenTelemetryRumInitializer;
-	public static final fun initialize (Landroid/app/Application;Ljava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/session/SessionConfig;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Lio/opentelemetry/android/OpenTelemetryRum;
-	public static synthetic fun initialize$default (Landroid/app/Application;Ljava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/session/SessionConfig;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lio/opentelemetry/android/OpenTelemetryRum;
+	public static final fun initialize (Landroid/app/Application;Ljava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/session/SessionConfig;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Lio/opentelemetry/android/config/OtelRumConfig;)Lio/opentelemetry/android/OpenTelemetryRum;
+	public static synthetic fun initialize$default (Landroid/app/Application;Ljava/lang/String;Ljava/util/Map;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/connectivity/EndpointConnectivity;Lio/opentelemetry/android/agent/session/SessionConfig;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Ljava/util/function/BiFunction;Lio/opentelemetry/android/config/OtelRumConfig;ILjava/lang/Object;)Lio/opentelemetry/android/OpenTelemetryRum;
 }
 
 public abstract interface class io/opentelemetry/android/agent/connectivity/EndpointConnectivity {
@@ -59,8 +59,16 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Instrument
 	public final fun anrReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun crashReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun fragment (Lkotlin/jvm/functions/Function1;)V
+	public final fun interaction (Lkotlin/jvm/functions/Function1;)V
 	public final fun networkMonitoring (Lkotlin/jvm/functions/Function1;)V
 	public final fun slowRenderingReporter (Lkotlin/jvm/functions/Function1;)V
+}
+
+public final class io/opentelemetry/android/agent/dsl/instrumentation/InteractionConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
+	public final fun addAttributesExtractor (Lio/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor;)V
+	public fun enabled (Z)V
+	public final fun setConfigFetcher (Lcom/pulse/android/core/config/InteractionConfigFetcher;)Lio/opentelemetry/android/agent/dsl/instrumentation/InteractionConfiguration;
+	public final fun setConfigUrl (Lkotlin/jvm/functions/Function0;)Lio/opentelemetry/android/agent/dsl/instrumentation/InteractionConfiguration;
 }
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/NetworkMonitoringConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
@@ -70,6 +78,7 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/NetworkMon
 
 public final class io/opentelemetry/android/agent/dsl/instrumentation/SlowRenderingReporterConfiguration : io/opentelemetry/android/agent/dsl/instrumentation/CanBeEnabledAndDisabled {
 	public final fun detectionPollInterval-LRDsOJo (J)V
+	public final fun disableFrameAttributes ()V
 	public final fun enableVerboseDebugLogging ()V
 	public fun enabled (Z)V
 }

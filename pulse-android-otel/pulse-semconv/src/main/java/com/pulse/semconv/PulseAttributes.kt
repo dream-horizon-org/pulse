@@ -7,8 +7,13 @@ public object PulseAttributes {
     /**
      * Type of signal. For example, `crash`, `arn`, `interaction`. See [PulseTypeValues]
      */
+    @JvmField
     public val PULSE_TYPE: AttributeKey<String> = stringKey("pulse.type")
+
+    @JvmField
     public val PULSE_NAME: AttributeKey<String> = stringKey("pulse.name")
+
+    @JvmField
     public val PULSE_SPAN_ID: AttributeKey<String> = stringKey("pulse.span.id")
 
     public object PulseTypeValues {

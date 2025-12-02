@@ -14,6 +14,9 @@ jobs:
   build:
     name: "build"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./pulse-android-otel
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set up JDK for running Gradle

@@ -36,9 +36,6 @@ export function transformApiResponse(
   }
 
   // Find field indices
-  const traceIdIndex = apiData.fields.findIndex(
-    (f) => f.toLowerCase() === "traceid",
-  );
   const spanIdIndex = apiData.fields.findIndex(
     (f) => f.toLowerCase() === "spanid",
   );

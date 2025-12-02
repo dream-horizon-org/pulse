@@ -521,8 +521,7 @@ public final class OpenTelemetryRumBuilder {
             addTracerProviderCustomizer(
                     (builder, app) -> {
                         return builder.addSpanProcessor(new SpanFrameAttributesAppended());
-                    }
-            );
+                    });
         }
 
         // Add processors that append screen attribute(s)

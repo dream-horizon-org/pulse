@@ -1,5 +1,5 @@
 import { Box, SegmentedControl } from "@mantine/core";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import classes from "./Analysis.module.css";

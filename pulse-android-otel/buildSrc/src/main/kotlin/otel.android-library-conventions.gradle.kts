@@ -85,15 +85,6 @@ apiValidation.validationDisabled = ignoredModules.contains(project.name)
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
-configurations.all {
-    resolutionStrategy {
-        force("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
-        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.0.21")
-        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21")
-        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21")
-    }
-}
-
 dependencies {
     implementation(libs.findLibrary("androidx-annotation").get())
     implementation(libs.findLibrary("findbugs-jsr305").get())
@@ -103,6 +94,7 @@ dependencies {
     testImplementation(libs.findBundle("mocking").get())
     testImplementation(libs.findBundle("junit").get())
     testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
+    testImplementation(platform(libs.findLibrary("opentelemetry-platform-alpha").get()))
     testImplementation(libs.findLibrary("opentelemetry-sdk-testing").get())
     testImplementation(libs.findLibrary("androidx-junit").get())
 }
