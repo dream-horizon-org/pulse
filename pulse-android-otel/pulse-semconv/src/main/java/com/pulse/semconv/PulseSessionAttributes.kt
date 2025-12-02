@@ -13,23 +13,24 @@ public object PulseSessionAttributes {
     private val PULSE_SESSION_FROZEN_FRAMES_COUNT =
         AttributeKey.longKey("pulse.session.jank.slow.count")
 
-    public fun createSessionEndAttributes(logEvents: Map<String, Long>): Attributes {
-        return Attributes.builder().apply {
-            logEvents[PulseTypeValues.ANR]?.let {
-                put(PULSE_SESSION_ANR_COUNT, it)
-            }
-            logEvents[PulseTypeValues.CRASH]?.let {
-                put(PULSE_SESSION_CRASH_COUNT, it)
-            }
-            logEvents[PulseTypeValues.SLOW]?.let {
-                put(PULSE_SESSION_SLOW_FRAMES_COUNT, it)
-            }
-            logEvents[PulseTypeValues.FROZEN]?.let {
-                put(PULSE_SESSION_FROZEN_FRAMES_COUNT, it)
-            }
-            logEvents[PulseTypeValues.NON_FATAL]?.let {
-                put(PULSE_SESSION_CRASH_NON_FATAL, it)
-            }
-        }.build()
-    }
+    public fun createSessionEndAttributes(logEvents: Map<String, Long>): Attributes =
+        Attributes
+            .builder()
+            .apply {
+                logEvents[PulseTypeValues.ANR]?.let {
+                    put(PULSE_SESSION_ANR_COUNT, it)
+                }
+                logEvents[PulseTypeValues.CRASH]?.let {
+                    put(PULSE_SESSION_CRASH_COUNT, it)
+                }
+                logEvents[PulseTypeValues.SLOW]?.let {
+                    put(PULSE_SESSION_SLOW_FRAMES_COUNT, it)
+                }
+                logEvents[PulseTypeValues.FROZEN]?.let {
+                    put(PULSE_SESSION_FROZEN_FRAMES_COUNT, it)
+                }
+                logEvents[PulseTypeValues.NON_FATAL]?.let {
+                    put(PULSE_SESSION_CRASH_NON_FATAL, it)
+                }
+            }.build()
 }

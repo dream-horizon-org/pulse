@@ -11,6 +11,18 @@ public final class io/opentelemetry/android/common/RumConstants {
 	public static final field STORAGE_SPACE_FREE_KEY Lio/opentelemetry/api/common/AttributeKey;
 }
 
+public final class io/opentelemetry/android/common/RumConstants$Android {
+	public static final field APP_STATE Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INSTANCE Lio/opentelemetry/android/common/RumConstants$Android;
+	public static final field OS_API_LEVEL Lio/opentelemetry/api/common/AttributeKey;
+}
+
+public final class io/opentelemetry/android/common/RumConstants$App {
+	public static final field BUILD_ID Lio/opentelemetry/api/common/AttributeKey;
+	public static final field BUILD_NAME Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INSTANCE Lio/opentelemetry/android/common/RumConstants$App;
+}
+
 public final class io/opentelemetry/android/common/RumConstants$Events {
 	public static final field EVENT_SESSION_END Ljava/lang/String;
 	public static final field EVENT_SESSION_START Ljava/lang/String;
@@ -100,5 +112,9 @@ public final class io/opentelemetry/android/common/internal/tools/time/SystemTim
 public final class io/opentelemetry/android/common/internal/tools/time/SystemTime$DefaultSystemTime : io/opentelemetry/android/common/internal/tools/time/SystemTime {
 	public fun <init> ()V
 	public fun getCurrentTimeMillis ()J
+}
+
+public final class io/opentelemetry/android/common/internal/utils/RumAndroidUtilsKt {
+	public static final fun getThreadIdCompat (Ljava/lang/Thread;)J
 }
 

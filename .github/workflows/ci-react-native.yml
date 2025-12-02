@@ -1,0 +1,322 @@
+name: CI - React Native SDK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pulse-react-native-otel/**'
+      - '.github/workflows/ci-react-native.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'pulse-react-native-otel/**'
+      - '.github/workflows/ci-react-native.yml'
+  merge_group:
+    types:
+      - checks_requested
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Lint files
+        working-directory: pulse-react-native-otel
+        run: yarn lint
+
+      - name: Typecheck files
+        working-directory: pulse-react-native-otel
+        run: yarn typecheck
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Run unit tests
+        working-directory: pulse-react-native-otel
+        run: yarn test --maxWorkers=2 --coverage
+
+  build-library:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Build package
+        working-directory: pulse-react-native-otel
+        run: yarn prepare
+
+  build-android:
+    runs-on: ubuntu-latest
+
+    env:
+      TURBO_CACHE_DIR: .turbo/android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Cache turborepo for Android
+        uses: actions/cache@v4
+        with:
+          path: pulse-react-native-otel/${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-android-
+
+      - name: Check turborepo cache for Android
+        working-directory: pulse-react-native-otel
+        run: |
+          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:android --cache-dir=".turbo/android" --dry=json)).tasks.find(t => t.task === 'build:android').cache.status")
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+          fi
+
+      - name: Install JDK
+        if: env.turbo_cache_hit != 1
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Finalize Android SDK
+        if: env.turbo_cache_hit != 1
+        run: |
+          /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
+
+      - name: Cache Gradle
+        if: env.turbo_cache_hit != 1
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('pulse-react-native-otel/example/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Build example for Android
+        working-directory: pulse-react-native-otel
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          yarn turbo run build:android --cache-dir=".turbo/android"
+
+  build-ios:
+    runs-on: macos-latest
+
+    env:
+      XCODE_VERSION: 16.3
+      TURBO_CACHE_DIR: .turbo/ios
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: pulse-react-native-otel/.nvmrc
+
+      - name: Restore dependencies
+        id: yarn-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+            ${{ runner.os }}-yarn-rn-
+
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        working-directory: pulse-react-native-otel
+        run: yarn install --immutable
+
+      - name: Cache dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            pulse-react-native-otel/**/node_modules
+            pulse-react-native-otel/.yarn/install-state.gz
+          key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
+
+      - name: Cache turborepo for iOS
+        uses: actions/cache@v4
+        with:
+          path: pulse-react-native-otel/${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-ios-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-ios-
+
+      - name: Check turborepo cache for iOS
+        working-directory: pulse-react-native-otel
+        run: |
+          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:ios --cache-dir=".turbo/ios" --dry=json)).tasks.find(t => t.task === 'build:ios').cache.status")
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> $GITHUB_ENV
+          fi
+
+      - name: Use appropriate Xcode version
+        if: env.turbo_cache_hit != 1
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Install cocoapods
+        if: env.turbo_cache_hit != 1
+        working-directory: pulse-react-native-otel/example
+        run: |
+          bundle install
+          bundle exec pod repo update --verbose
+          bundle exec pod install --project-directory=ios
+
+      - name: Build example for iOS
+        working-directory: pulse-react-native-otel
+        run: |
+          yarn turbo run build:ios --cache-dir=".turbo/ios"
+

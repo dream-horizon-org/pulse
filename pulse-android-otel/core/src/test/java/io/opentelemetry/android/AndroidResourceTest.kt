@@ -23,14 +23,6 @@ import org.junit.jupiter.api.Test
 internal class AndroidResourceTest {
     private val appName: String = "robotron"
     private val rumSdkVersion: String = BuildConfig.OTEL_ANDROID_VERSION
-    private val osDescription: String =
-        "Android Version " +
-            Build.VERSION.RELEASE +
-            " (Build " +
-            Build.ID +
-            " API level " +
-            Build.VERSION.SDK_INT +
-            ")"
 
     @RelaxedMockK
     private lateinit var app: Application
@@ -58,13 +50,14 @@ internal class AndroidResourceTest {
                         .builder()
                         .put(ServiceAttributes.SERVICE_NAME, appName)
                         .put(RumConstants.RUM_SDK_VERSION, rumSdkVersion)
-                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL)
-                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL)
+                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL.orEmpty())
+                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL.orEmpty())
                         .put(DeviceIncubatingAttributes.DEVICE_MANUFACTURER, Build.MANUFACTURER)
                         .put(OsIncubatingAttributes.OS_NAME, "Android")
                         .put(OsIncubatingAttributes.OS_TYPE, "linux")
                         .put(OsIncubatingAttributes.OS_VERSION, Build.VERSION.RELEASE)
-                        .put(OsIncubatingAttributes.OS_DESCRIPTION, osDescription)
+                        .put(OsIncubatingAttributes.OS_DESCRIPTION, Build.DISPLAY)
+                        .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .build(),
                 )
 
@@ -91,13 +84,14 @@ internal class AndroidResourceTest {
                         .builder()
                         .put(ServiceAttributes.SERVICE_NAME, "shim sham")
                         .put(RumConstants.RUM_SDK_VERSION, rumSdkVersion)
-                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL)
-                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL)
+                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL.orEmpty())
+                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL.orEmpty())
                         .put(DeviceIncubatingAttributes.DEVICE_MANUFACTURER, Build.MANUFACTURER)
                         .put(OsIncubatingAttributes.OS_NAME, "Android")
                         .put(OsIncubatingAttributes.OS_TYPE, "linux")
                         .put(OsIncubatingAttributes.OS_VERSION, Build.VERSION.RELEASE)
-                        .put(OsIncubatingAttributes.OS_DESCRIPTION, osDescription)
+                        .put(OsIncubatingAttributes.OS_DESCRIPTION, Build.DISPLAY)
+                        .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .build(),
                 )
 
@@ -118,13 +112,14 @@ internal class AndroidResourceTest {
                         .builder()
                         .put(ServiceAttributes.SERVICE_NAME, "unknown_service:android")
                         .put(RumConstants.RUM_SDK_VERSION, rumSdkVersion)
-                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL)
-                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL)
+                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL.orEmpty())
+                        .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL.orEmpty())
                         .put(DeviceIncubatingAttributes.DEVICE_MANUFACTURER, Build.MANUFACTURER)
                         .put(OsIncubatingAttributes.OS_NAME, "Android")
                         .put(OsIncubatingAttributes.OS_TYPE, "linux")
                         .put(OsIncubatingAttributes.OS_VERSION, Build.VERSION.RELEASE)
-                        .put(OsIncubatingAttributes.OS_DESCRIPTION, osDescription)
+                        .put(OsIncubatingAttributes.OS_DESCRIPTION, Build.DISPLAY)
+                        .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
                         .build(),
                 )
 

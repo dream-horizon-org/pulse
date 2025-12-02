@@ -1,0 +1,27 @@
+backend:
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**'
+
+ui:
+  - changed-files:
+      - any-glob-to-any-file: 'pulse-ui/**'
+
+android-sdk:
+  - changed-files:
+      - any-glob-to-any-file: 'pulse-android-otel/**'
+
+rn-sdk:
+  - changed-files:
+      - any-glob-to-any-file: 'pulse-react-native-otel/**'
+
+deploy:
+  - changed-files:
+      - any-glob-to-any-file: 'deploy/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.md'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'

@@ -37,5 +37,13 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "codegenConfig": {
+    "name": "NativePulseExampleModuleSpec",
+    "type": "modules",
+    "jsSrcsDir": "src/specs",
+    "android": {
+      "javaPackageName": "pulsereactnativeotel.example"
+    }
   }
 }

@@ -8,7 +8,7 @@ public class io/opentelemetry/android/instrumentation/common/ActiveSpan {
 	public fun addPreviousScreenAttribute (Ljava/lang/String;)V
 	public fun endActiveSpan ()V
 	public fun spanInProgress ()Z
-	public fun startSpan (Ljava/util/function/Supplier;)V
+	public fun startSpanIfNotStarted (Ljava/util/function/Supplier;)V
 }
 
 public final class io/opentelemetry/android/instrumentation/common/Constants {
