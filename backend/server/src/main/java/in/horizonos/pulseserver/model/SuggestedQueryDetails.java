@@ -5,12 +5,12 @@ import lombok.Data;
 
 @Data
 public class SuggestedQueryDetails {
-    @JsonProperty("query")
-    public String query;
+  @JsonProperty("query")
+  public String query;
 
-    @JsonProperty("queryName")
-    public String queryName;
+  @JsonProperty("queryName")
+  public String queryName;
 
-    @JsonProperty("description")
-    public String description;
+  @JsonProperty("description")
+  public String description;
 }

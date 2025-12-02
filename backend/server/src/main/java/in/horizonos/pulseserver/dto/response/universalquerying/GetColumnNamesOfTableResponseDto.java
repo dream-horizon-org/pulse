@@ -2,9 +2,9 @@ package in.horizonos.pulseserver.dto.response.universalquerying;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Builder;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Data
@@ -12,6 +12,6 @@ import lombok.Builder;
 @AllArgsConstructor
 @Builder
 public class GetColumnNamesOfTableResponseDto {
-    private String name;
-    private String type;
+  private String name;
+  private String type;
 }

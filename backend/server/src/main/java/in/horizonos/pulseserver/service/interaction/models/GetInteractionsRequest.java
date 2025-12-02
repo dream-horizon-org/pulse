@@ -9,9 +9,9 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @RequiredArgsConstructor
 public class GetInteractionsRequest {
-    private @NotNull Integer page;
-    private @NotNull Integer size;
-    private String userEmail;
-    private String name;
-    private InteractionStatus status;
+  private @NotNull Integer page;
+  private @NotNull Integer size;
+  private String userEmail;
+  private String name;
+  private InteractionStatus status;
 }

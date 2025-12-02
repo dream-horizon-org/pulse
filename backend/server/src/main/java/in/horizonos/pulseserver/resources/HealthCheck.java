@@ -1,22 +1,20 @@
 package in.horizonos.pulseserver.resources;
 
 
+import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import in.horizonos.pulseserver.dao.HealthCheckDao;
 import in.horizonos.pulseserver.healthcheck.HealthCheckResponse;
 import in.horizonos.pulseserver.healthcheck.HealthCheckUtil;
 import in.horizonos.pulseserver.util.CompletableFutureUtils;
-import in.horizonos.pulseserver.dao.HealthCheckDao;
-import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
-import java.util.concurrent.CompletionStage;
-
-
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;

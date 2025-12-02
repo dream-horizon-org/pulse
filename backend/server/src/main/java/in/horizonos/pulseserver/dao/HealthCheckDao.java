@@ -1,9 +1,9 @@
 package in.horizonos.pulseserver.dao;
 
+import com.google.inject.Inject;
 import in.horizonos.pulseserver.client.mysql.MysqlClient;
 import in.horizonos.pulseserver.util.CompletableUtils;
 import in.horizonos.pulseserver.util.JsonUtils;
-import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;

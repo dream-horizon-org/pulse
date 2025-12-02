@@ -9,9 +9,9 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @RequiredArgsConstructor
 public class DeleteInteractionRequest {
-    @NotBlank(message = "Interaction name cannot be blank")
-    String name;
+  @NotBlank(message = "Interaction name cannot be blank")
+  String name;
 
-    @NotBlank(message = "user email cannot be blank")
-    String userEmail;
+  @NotBlank(message = "user email cannot be blank")
+  String userEmail;
 }

@@ -1,9 +1,9 @@
 package in.horizonos.pulseserver.dto.response.alerts;
 
-import in.horizonos.pulseserver.enums.AlertState;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.sql.Timestamp;
+import in.horizonos.pulseserver.enums.AlertState;
 import jakarta.validation.constraints.NotNull;
+import java.sql.Timestamp;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

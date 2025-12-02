@@ -12,24 +12,24 @@ import lombok.extern.slf4j.Slf4j;
 public final class ConfigUtils {
 
 
-    private static ConfigStoreOptions hoconFile(String path, boolean optional) {
-        return new ConfigStoreOptions()
-                .setType("file")
-                .setFormat("hocon")
-                .setOptional(optional)
-                .setConfig(new JsonObject().put("path", path));
-    }
+  private static ConfigStoreOptions hoconFile(String path, boolean optional) {
+    return new ConfigStoreOptions()
+        .setType("file")
+        .setFormat("hocon")
+        .setOptional(optional)
+        .setConfig(new JsonObject().put("path", path));
+  }
 
-    public static ConfigRetriever getConfigRetriever(Vertx vertx) {
-        return ConfigRetriever.create(
-                vertx,
-                new ConfigRetrieverOptions()
-                        // defaults
-                        .addStore(hoconFile("conf/clickhouse-default.conf", false))
-                        .addStore(hoconFile("conf/mysql-default.conf", false))
-                        .addStore(hoconFile("conf/application-default.conf", false))
-                        .addStore(hoconFile("conf/webclient-default.conf", false))
-                        .setScanPeriod(5000)
-        );
-    }
+  public static ConfigRetriever getConfigRetriever(Vertx vertx) {
+    return ConfigRetriever.create(
+        vertx,
+        new ConfigRetrieverOptions()
+            // defaults
+            .addStore(hoconFile("conf/clickhouse-default.conf", false))
+            .addStore(hoconFile("conf/mysql-default.conf", false))
+            .addStore(hoconFile("conf/application-default.conf", false))
+            .addStore(hoconFile("conf/webclient-default.conf", false))
+            .setScanPeriod(5000)
+    );
+  }
 }

@@ -1,68 +1,67 @@
 package in.horizonos.pulseserver.resources.alert.models;
 
-import in.horizonos.pulseserver.service.alert.core.models.AlertScope;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import in.horizonos.pulseserver.service.alert.core.models.AlertScope;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateAlertRequestDto {
-    @NotNull
-    @JsonProperty("alert_id")
-    Integer alertId;
+  @NotNull
+  @JsonProperty("alert_id")
+  Integer alertId;
 
-    @NotNull(message = "name cannot be null")
-    @JsonProperty("name")
-    String name;
+  @NotNull(message = "name cannot be null")
+  @JsonProperty("name")
+  String name;
 
-    @NotNull
-    @JsonProperty("description")
-    String description;
+  @NotNull
+  @JsonProperty("description")
+  String description;
 
-    @NotNull
-    @JsonProperty("evaluation_period")
-    Integer evaluationPeriod;
+  @NotNull
+  @JsonProperty("evaluation_period")
+  Integer evaluationPeriod;
 
-    @NotNull
-    @JsonProperty("evaluation_interval")
-    Integer evaluationInterval;
+  @NotNull
+  @JsonProperty("evaluation_interval")
+  Integer evaluationInterval;
 
-    @NotNull
-    @JsonProperty("severity_id")
-    Integer severity;
+  @NotNull
+  @JsonProperty("severity_id")
+  Integer severity;
 
-    @NotNull
-    @JsonProperty("notification_channel_id")
-    Integer notificationChannelId;
+  @NotNull
+  @JsonProperty("notification_channel_id")
+  Integer notificationChannelId;
 
-    @NotNull
-    @JsonProperty("updated_by")
-    String updatedBy;
+  @NotNull
+  @JsonProperty("updated_by")
+  String updatedBy;
 
-    @NotNull(message = "scope cannot be null")
-    @JsonProperty("scope")
-    AlertScope scope;
+  @NotNull(message = "scope cannot be null")
+  @JsonProperty("scope")
+  AlertScope scope;
 
-    @NotNull(message = "identifiers cannot be null")
-    @JsonProperty("dimension_filters")
-    List<String> dimensionFilters;
+  @NotNull(message = "identifiers cannot be null")
+  @JsonProperty("dimension_filters")
+  List<String> dimensionFilters;
 
-    @NotNull(message = "condition_expression cannot be null")
-    @JsonProperty("condition_expression")
-    String conditionExpression;
+  @NotNull(message = "condition_expression cannot be null")
+  @JsonProperty("condition_expression")
+  String conditionExpression;
 
-    @NotNull(message = "alerts cannot be null")
-    @Valid
-    @JsonProperty("alerts")
-    List<AlertConditionDto> alerts;
+  @NotNull(message = "alerts cannot be null")
+  @Valid
+  @JsonProperty("alerts")
+  List<AlertConditionDto> alerts;
 }

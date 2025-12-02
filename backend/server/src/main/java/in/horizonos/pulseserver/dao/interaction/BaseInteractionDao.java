@@ -4,9 +4,9 @@ import static in.horizonos.pulseserver.dao.interaction.Queries.ARCHIVE_JOB;
 import static in.horizonos.pulseserver.dao.interaction.Queries.AUDIT_INTERACTION_CHANGES;
 import static in.horizonos.pulseserver.dao.interaction.Queries.GET_COUNT_OF_INTERACTION_NAME_NAME;
 
+import com.google.inject.Inject;
 import in.horizonos.pulseserver.client.mysql.MysqlClient;
 import in.horizonos.pulseserver.dto.response.EmptyResponse;
-import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;

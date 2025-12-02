@@ -1,9 +1,8 @@
 package in.horizonos.pulseserver.error;
 
+import com.dream11.rest.exception.RestError;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
-
-import com.dream11.rest.exception.RestError;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;

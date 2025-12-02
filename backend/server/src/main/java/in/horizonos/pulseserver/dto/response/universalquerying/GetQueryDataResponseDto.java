@@ -14,22 +14,22 @@ import lombok.NoArgsConstructor;
 @Data
 public class GetQueryDataResponseDto<T> {
 
-    @JsonProperty("data")
-    public T data;
+  @JsonProperty("data")
+  public T data;
 
-    @JsonProperty("jobComplete")
-    public boolean jobComplete;
+  @JsonProperty("jobComplete")
+  public boolean jobComplete;
 
-    @JsonProperty("jobReference")
-    public JobReference jobReference;
+  @JsonProperty("jobReference")
+  public JobReference jobReference;
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class JobReference {
-        @JsonProperty("jobId")
-        public String jobId;
-    }
+  @Data
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class JobReference {
+    @JsonProperty("jobId")
+    public String jobId;
+  }
 }

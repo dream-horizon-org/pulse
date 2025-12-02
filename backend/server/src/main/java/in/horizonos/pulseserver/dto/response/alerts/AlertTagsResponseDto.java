@@ -1,23 +1,22 @@
 package in.horizonos.pulseserver.dto.response.alerts;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import jakarta.validation.constraints.NotNull;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 public class AlertTagsResponseDto {
-    @NotNull
-    @JsonProperty("tag_id")
-    Integer tag_id;
+  @NotNull
+  @JsonProperty("tag_id")
+  Integer tag_id;
 
-    @NotNull
-    @JsonProperty("name")
-    String name;
+  @NotNull
+  @JsonProperty("name")
+  String name;
 }

@@ -1,12 +1,10 @@
 package in.horizonos.pulseserver.resources.alert.v1;
 
+import com.google.inject.Inject;
 import in.horizonos.pulseserver.dto.response.alerts.AlertEvaluationHistoryResponseDto;
-import in.horizonos.pulseserver.service.alert.core.AlertService;
 import in.horizonos.pulseserver.rest.io.Response;
 import in.horizonos.pulseserver.rest.io.RestResponse;
-import com.google.inject.Inject;
-import java.util.List;
-import java.util.concurrent.CompletionStage;
+import in.horizonos.pulseserver.service.alert.core.AlertService;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -15,6 +13,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import java.util.List;
+import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,7 +30,7 @@ public class GetAlertEvaluationHistory {
   public CompletionStage<Response<List<AlertEvaluationHistoryResponseDto>>> getAlertEvaluationHistory(
       @NotNull @HeaderParam("authorization") String authorization, @NotNull @PathParam("id") Integer alertId) {
     return alertsService
-            .getAlertEvaluationHistory(alertId)
-            .to(RestResponse.jaxrsRestHandler());
+        .getAlertEvaluationHistory(alertId)
+        .to(RestResponse.jaxrsRestHandler());
   }
 }

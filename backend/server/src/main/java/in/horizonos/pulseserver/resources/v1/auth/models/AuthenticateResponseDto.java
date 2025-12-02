@@ -13,18 +13,18 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AuthenticateResponseDto {
-    @JsonProperty("accessToken")
-    private String accessToken;
+  @JsonProperty("accessToken")
+  private String accessToken;
 
-    @JsonProperty("expiresIn")
-    private Integer expiresIn;
+  @JsonProperty("expiresIn")
+  private Integer expiresIn;
 
-    @JsonProperty("idToken")
-    private String idToken;
+  @JsonProperty("idToken")
+  private String idToken;
 
-    @JsonProperty("refreshToken")
-    private String refreshToken;
+  @JsonProperty("refreshToken")
+  private String refreshToken;
 
-    @JsonProperty("tokenType")
-    private String tokenType;
+  @JsonProperty("tokenType")
+  private String tokenType;
 }

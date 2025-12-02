@@ -4,46 +4,44 @@ import in.horizonos.pulseserver.dto.response.alerts.AlertFiltersResponseDto;
 import in.horizonos.pulseserver.enums.AlertState;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowSet;
-
+import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
-
-import jakarta.validation.constraints.NotNull;
 
 public class AlertMapper {
 
 
-    public static AlertFiltersResponseDto mapRowSetToAlertFilters(@NotNull RowSet<Row> rowSet) {
-        List<String> jobIds = new ArrayList<>();
-        List<String> createdBy = new ArrayList<>();
-        List<String> updatedBy = new ArrayList<>();
-        List<AlertState> currentStates = new ArrayList<>();
+  public static AlertFiltersResponseDto mapRowSetToAlertFilters(@NotNull RowSet<Row> rowSet) {
+    List<String> jobIds = new ArrayList<>();
+    List<String> createdBy = new ArrayList<>();
+    List<String> updatedBy = new ArrayList<>();
+    List<AlertState> currentStates = new ArrayList<>();
 
-        for (Row row : rowSet) {
-            String jobId = row.getString("job_id");
-            String createdByValue = row.getString("created_by");
-            String updatedByValue = row.getString("updated_by");
-            String currentStateValue = row.getString("current_state");
+    for (Row row : rowSet) {
+      String jobId = row.getString("job_id");
+      String createdByValue = row.getString("created_by");
+      String updatedByValue = row.getString("updated_by");
+      String currentStateValue = row.getString("current_state");
 
-            if (jobId != null && !jobIds.contains(jobId) && !jobId.isEmpty()) {
-                jobIds.add(jobId);
-            }
-            if (createdByValue != null && !createdBy.contains(createdByValue) && !createdByValue.isEmpty()) {
-                createdBy.add(createdByValue);
-            }
-            if (updatedByValue != null && !updatedBy.contains(updatedByValue) && !updatedByValue.isEmpty()) {
-                updatedBy.add(updatedByValue);
-            }
-            if (currentStateValue != null && !currentStateValue.isEmpty() && !currentStates.contains(AlertState.valueOf(currentStateValue))) {
-                currentStates.add(AlertState.valueOf(currentStateValue));
-            }
-        }
-
-        return AlertFiltersResponseDto.builder()
-                .job_id(jobIds)
-                .created_by(createdBy)
-                .updated_by(updatedBy)
-                .current_state(currentStates)
-                .build();
+      if (jobId != null && !jobIds.contains(jobId) && !jobId.isEmpty()) {
+        jobIds.add(jobId);
+      }
+      if (createdByValue != null && !createdBy.contains(createdByValue) && !createdByValue.isEmpty()) {
+        createdBy.add(createdByValue);
+      }
+      if (updatedByValue != null && !updatedBy.contains(updatedByValue) && !updatedByValue.isEmpty()) {
+        updatedBy.add(updatedByValue);
+      }
+      if (currentStateValue != null && !currentStateValue.isEmpty() && !currentStates.contains(AlertState.valueOf(currentStateValue))) {
+        currentStates.add(AlertState.valueOf(currentStateValue));
+      }
     }
+
+    return AlertFiltersResponseDto.builder()
+        .job_id(jobIds)
+        .created_by(createdBy)
+        .updated_by(updatedBy)
+        .current_state(currentStates)
+        .build();
+  }
 }

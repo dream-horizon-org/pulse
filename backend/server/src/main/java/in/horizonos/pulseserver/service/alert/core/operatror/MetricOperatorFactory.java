@@ -6,8 +6,8 @@ import static in.horizonos.pulseserver.service.alert.core.models.MetricOperator.
 import static in.horizonos.pulseserver.service.alert.core.models.MetricOperator.LESS_THAN;
 import static in.horizonos.pulseserver.service.alert.core.models.MetricOperator.LESS_THAN_EQUAL;
 
-import in.horizonos.pulseserver.service.alert.core.models.MetricOperator;
 import com.google.inject.Inject;
+import in.horizonos.pulseserver.service.alert.core.models.MetricOperator;
 import java.util.Map;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;

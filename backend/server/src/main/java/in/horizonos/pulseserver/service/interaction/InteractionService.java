@@ -10,23 +10,23 @@ import in.horizonos.pulseserver.service.interaction.models.GetInteractionsRespon
 import in.horizonos.pulseserver.service.interaction.models.InteractionDetails;
 import in.horizonos.pulseserver.service.interaction.models.UpdateInteractionRequest;
 import io.reactivex.rxjava3.core.Single;
-import java.util.List;
 import jakarta.validation.Valid;
+import java.util.List;
 
 public interface InteractionService {
-    Single<InteractionDetails> createInteraction(@Valid CreateInteractionRequest createInteractionRequest);
+  Single<InteractionDetails> createInteraction(@Valid CreateInteractionRequest createInteractionRequest);
 
-    Single<EmptyResponse> updateInteraction(@Valid UpdateInteractionRequest updateInteractionRequest);
+  Single<EmptyResponse> updateInteraction(@Valid UpdateInteractionRequest updateInteractionRequest);
 
-    Single<InteractionDetails> getInteractionDetails(String interactionName);
+  Single<InteractionDetails> getInteractionDetails(String interactionName);
 
-    Single<GetInteractionsResponse> getInteractions(GetInteractionsRequest getInteractionsRequest);
+  Single<GetInteractionsResponse> getInteractions(GetInteractionsRequest getInteractionsRequest);
 
-    Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest);
+  Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest);
 
-    Single<List<InteractionDetails>> getAllActiveAndRunningInteractions();
+  Single<List<InteractionDetails>> getAllActiveAndRunningInteractions();
 
-    Single<InteractionFilterOptionsResponse> getInteractionFilterOptions();
+  Single<InteractionFilterOptionsResponse> getInteractionFilterOptions();
 
-    Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions();
+  Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions();
 }
