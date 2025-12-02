@@ -17,12 +17,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
 class InteractionAttributesSpanAppender(
-    private val interactionManager: InteractionManager
+    private val interactionManager: InteractionManager,
 ) : SpanProcessor,
     CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
     override fun onStart(
         parentContext: Context,
-        span: ReadWriteSpan
+        span: ReadWriteSpan,
     ) {
         createInteractionAttributes(interactionManager.interactionTrackerStatesState.value)?.let {
             span.setAllAttributes(it)
@@ -36,10 +36,11 @@ class InteractionAttributesSpanAppender(
         if (pulseType != null && pulseType in listOfSpanPulseTypeToAddInInteraction) {
             interactionManager.addEvent(
                 eventName = pulseType,
-                params = mapOf(
-                    PulseAttributes.PULSE_SPAN_ID.key to span.spanContext.spanId
-                ),
-                eventTimeInNano = span.toSpanData().endEpochNanos
+                params =
+                    mapOf(
+                        PulseAttributes.PULSE_SPAN_ID.key to span.spanContext.spanId,
+                    ),
+                eventTimeInNano = span.toSpanData().endEpochNanos,
             )
         }
     }
@@ -52,32 +53,34 @@ class InteractionAttributesSpanAppender(
             InteractionAttributesSpanAppender(interactionManager)
 
         @JvmStatic
-        fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor =
-            InteractionLogListener(interactionManager)
+        fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor = InteractionLogListener(interactionManager)
 
         internal fun createInteractionAttributes(value: List<InteractionRunningStatus>): Attributes? {
             val ids = value.runningIds
             return if (ids.isNotEmpty()) {
-                Attributes.builder().apply {
-                    put(
-                        PulseInteractionAttributes.INTERACTION_NAMES,
-                        value.runningNames
-                    )
-                    put(
-                        PulseInteractionAttributes.INTERACTION_IDS,
-                        ids
-                    )
-                }.build()
+                Attributes
+                    .builder()
+                    .apply {
+                        put(
+                            PulseInteractionAttributes.INTERACTION_NAMES,
+                            value.runningNames,
+                        )
+                        put(
+                            PulseInteractionAttributes.INTERACTION_IDS,
+                            ids,
+                        )
+                    }.build()
             } else {
                 null
             }
         }
 
-        private val listOfSpanPulseTypeToAddInInteraction = listOf(
-            PulseAttributes.PulseTypeValues.NETWORK,
-            PulseAttributes.PulseTypeValues.SCREEN_LOAD,
-            PulseAttributes.PulseTypeValues.APP_START,
-            PulseAttributes.PulseTypeValues.SCREEN_SESSION,
-        )
+        private val listOfSpanPulseTypeToAddInInteraction =
+            listOf(
+                PulseAttributes.PulseTypeValues.NETWORK,
+                PulseAttributes.PulseTypeValues.SCREEN_LOAD,
+                PulseAttributes.PulseTypeValues.APP_START,
+                PulseAttributes.PulseTypeValues.SCREEN_SESSION,
+            )
     }
 }

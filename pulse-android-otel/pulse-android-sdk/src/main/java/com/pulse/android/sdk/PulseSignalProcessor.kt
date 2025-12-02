@@ -18,57 +18,59 @@ internal class PulseSignalProcessor {
     private var recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
 
     internal inner class PulseLogTypeAttributesAppender : LogRecordProcessor {
+        @Suppress("CyclomaticComplexMethod")
         override fun onEmit(
             context: Context,
-            logRecord: ReadWriteLogRecord
+            logRecord: ReadWriteLogRecord,
         ) {
             if (logRecord.attributes.get(PulseAttributes.PULSE_TYPE) == null) {
-                val type = when (logRecord.eventName) {
-                    "device.crash" -> {
-                        PulseAttributes.PulseTypeValues.CRASH
-                    }
-
-                    "device.anr" -> {
-                        PulseAttributes.PulseTypeValues.ANR
-                    }
-
-                    "app.jank" -> {
-                        val threshold =
-                            logRecord.attributes.get(AttributeKey.doubleKey("app.jank.threshold"))
-                        when (threshold) {
-                            null -> null
-                            FROZEN_THRESHOLD_MICRO -> {
-                                PulseAttributes.PulseTypeValues.FROZEN
-                            }
-
-                            SLOW_THRESHOLD_MICRO -> {
-                                PulseAttributes.PulseTypeValues.SLOW
-                            }
-
-                            else -> null
+                val type =
+                    when (logRecord.eventName) {
+                        "device.crash" -> {
+                            PulseAttributes.PulseTypeValues.CRASH
                         }
-                    }
 
-                    "app.screen.click", "app.widget.click", "event.app.widget.click" -> PulseAttributes.PulseTypeValues.TOUCH
-                    "network.change" -> PulseAttributes.PulseTypeValues.NETWORK_CHANGE
-                    "session.end" -> {
-                        logRecord.setAllAttributes(
-                            PulseSessionAttributes.createSessionEndAttributes(
-                                recordedRelevantLogEvents
+                        "device.anr" -> {
+                            PulseAttributes.PulseTypeValues.ANR
+                        }
+
+                        "app.jank" -> {
+                            val threshold =
+                                logRecord.attributes.get(AttributeKey.doubleKey("app.jank.threshold"))
+                            when (threshold) {
+                                null -> null
+                                FROZEN_THRESHOLD_MICRO -> {
+                                    PulseAttributes.PulseTypeValues.FROZEN
+                                }
+
+                                SLOW_THRESHOLD_MICRO -> {
+                                    PulseAttributes.PulseTypeValues.SLOW
+                                }
+
+                                else -> null
+                            }
+                        }
+
+                        "app.screen.click", "app.widget.click", "event.app.widget.click" -> PulseAttributes.PulseTypeValues.TOUCH
+                        "network.change" -> PulseAttributes.PulseTypeValues.NETWORK_CHANGE
+                        "session.end" -> {
+                            logRecord.setAllAttributes(
+                                PulseSessionAttributes.createSessionEndAttributes(
+                                    recordedRelevantLogEvents,
+                                ),
                             )
-                        )
-                        recordedRelevantLogEvents.clear()
-                        null
-                    }
+                            recordedRelevantLogEvents.clear()
+                            null
+                        }
 
-                    else -> null
-                }
+                        else -> null
+                    }
                 type?.let {
                     logRecord.setAttribute(PulseAttributes.PULSE_TYPE, it)
                 }
                 logRecord.attributes.get(PulseAttributes.PULSE_TYPE)?.let {
                     recordedRelevantLogEvents.compute(
-                        it
+                        it,
                     ) { _, v -> v?.plus(1) ?: 1 }
                 }
             }
@@ -78,32 +80,29 @@ internal class PulseSignalProcessor {
     internal inner class PulseSpanTypeAttributesAppender : ExtendedSpanProcessor {
         override fun onStart(
             parentContext: Context,
-            span: ReadWriteSpan
+            span: ReadWriteSpan,
         ) {
             if (span.attributes.get(PulseAttributes.PULSE_TYPE) == null) {
-                val type = when {
-                    span.name == RumConstants.APP_START_SPAN_NAME && span.attributes.get(
-                        RumConstants.START_TYPE_KEY
-                    ) == "cold" -> {
-                        PulseAttributes.PulseTypeValues.APP_START
-                    }
+                val type =
+                    when {
+                        span.name == RumConstants.APP_START_SPAN_NAME && span.attributes.get(
+                            RumConstants.START_TYPE_KEY,
+                        ) == "cold" -> {
+                            PulseAttributes.PulseTypeValues.APP_START
+                        }
 
-                    span.name == "ActivitySession" || span.name == "FragmentSession" -> {
-                        PulseAttributes.PulseTypeValues.SCREEN_SESSION
-                    }
+                        span.name == "ActivitySession" || span.name == "FragmentSession" -> {
+                            PulseAttributes.PulseTypeValues.SCREEN_SESSION
+                        }
 
-                    span.name == "Created" -> {
-                        PulseAttributes.PulseTypeValues.SCREEN_LOAD
-                    }
+                        span.name == "Created" -> {
+                            PulseAttributes.PulseTypeValues.SCREEN_LOAD
+                        }
 
-                    PulseOtelUtils.isNetworkSpan(span) -> {
-                        PulseAttributes.PulseTypeValues.NETWORK
+                        else -> {
+                            null
+                        }
                     }
-
-                    else -> {
-                        null
-                    }
-                }
                 type?.let {
                     span.setAttribute(PulseAttributes.PULSE_TYPE, it)
                 }
@@ -113,7 +112,7 @@ internal class PulseSignalProcessor {
         override fun isStartRequired(): Boolean = true
 
         override fun onEnd(span: ReadableSpan) {
-            /* no-op */
+            // no-op
         }
 
         override fun isEndRequired(): Boolean = false

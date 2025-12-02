@@ -1,0 +1,80 @@
+public final class com/pulse/android/core/Interaction {
+	public final fun getId ()Ljava/lang/String;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getProps ()Ljava/util/Map;
+}
+
+public final class com/pulse/android/core/InteractionConstant {
+	public static final field APDEX_SCORE Ljava/lang/String;
+	public static final field CONFIG_ID Ljava/lang/String;
+	public static final field CONFIG_NAME Ljava/lang/String;
+	public static final field ID Ljava/lang/String;
+	public static final field INSTANCE Lcom/pulse/android/core/InteractionConstant;
+	public static final field IS_ERROR Ljava/lang/String;
+	public static final field LAST_EVENT_TIME_IN_NANO Ljava/lang/String;
+	public static final field LOCAL_EVENTS Ljava/lang/String;
+	public static final field MARKER_EVENTS Ljava/lang/String;
+	public static final field NAME Ljava/lang/String;
+	public static final field TIME_TO_COMPLETE_IN_NANO Ljava/lang/String;
+	public static final field USER_CATEGORY Ljava/lang/String;
+}
+
+public final class com/pulse/android/core/InteractionEventsTrackerKt {
+	public static final fun getRunningIds (Ljava/util/List;)Ljava/util/List;
+	public static final fun getRunningNames (Ljava/util/List;)Ljava/util/List;
+}
+
+public final class com/pulse/android/core/InteractionLocalEvent {
+	public final fun getName ()Ljava/lang/String;
+	public final fun getProps ()Ljava/util/Map;
+	public final fun getTimeInNano ()J
+}
+
+public final class com/pulse/android/core/InteractionManager : kotlinx/coroutines/CoroutineScope {
+	public fun <init> (Lcom/pulse/android/core/config/InteractionConfigFetcher;)V
+	public fun <init> (Lcom/pulse/android/core/config/InteractionConfigFetcher;Lkotlinx/coroutines/CoroutineDispatcher;)V
+	public fun <init> (Lcom/pulse/android/core/config/InteractionConfigFetcher;Lkotlinx/coroutines/CoroutineDispatcher;Lkotlinx/coroutines/CoroutineDispatcher;)V
+	public synthetic fun <init> (Lcom/pulse/android/core/config/InteractionConfigFetcher;Lkotlinx/coroutines/CoroutineDispatcher;Lkotlinx/coroutines/CoroutineDispatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun addEvent (Ljava/lang/String;)V
+	public final fun addEvent (Ljava/lang/String;Ljava/util/Map;)V
+	public final fun addEvent (Ljava/lang/String;Ljava/util/Map;J)V
+	public static synthetic fun addEvent$default (Lcom/pulse/android/core/InteractionManager;Ljava/lang/String;Ljava/util/Map;JILjava/lang/Object;)V
+	public final fun addMarkerEvent (Ljava/lang/String;)V
+	public final fun addMarkerEvent (Ljava/lang/String;Ljava/util/Map;)V
+	public final fun addMarkerEvent (Ljava/lang/String;Ljava/util/Map;J)V
+	public static synthetic fun addMarkerEvent$default (Lcom/pulse/android/core/InteractionManager;Ljava/lang/String;Ljava/util/Map;JILjava/lang/Object;)V
+	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
+	public final fun getInteractionTrackerStatesState ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun init ()Lkotlinx/coroutines/Job;
+}
+
+public abstract class com/pulse/android/core/InteractionRunningStatus {
+}
+
+public final class com/pulse/android/core/InteractionRunningStatus$NoOngoingMatch : com/pulse/android/core/InteractionRunningStatus {
+	public final fun getOldOngoingInteractionRunningStatus ()Lcom/pulse/android/core/InteractionRunningStatus;
+}
+
+public final class com/pulse/android/core/InteractionRunningStatus$OngoingMatch : com/pulse/android/core/InteractionRunningStatus {
+	public final fun getIndex ()I
+	public final fun getInteraction ()Lcom/pulse/android/core/Interaction;
+	public final fun getInteractionConfig ()Lcom/pulse/android/remote/models/InteractionConfig;
+	public final fun getInteractionId ()Ljava/lang/String;
+}
+
+public final class com/pulse/android/core/InteractionUtilKt {
+	public static final fun getEvents (Lcom/pulse/android/core/Interaction;)Ljava/util/List;
+	public static final fun getMarkerEvents (Lcom/pulse/android/core/Interaction;)Ljava/util/List;
+	public static final fun getTimeSpanInNanos (Lcom/pulse/android/core/Interaction;)Lkotlin/Pair;
+	public static final fun isErrored (Lcom/pulse/android/core/Interaction;)Z
+}
+
+public abstract interface class com/pulse/android/core/config/InteractionConfigFetcher {
+	public abstract fun getConfigs (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/pulse/android/core/config/InteractionConfigRestFetcher : com/pulse/android/core/config/InteractionConfigFetcher {
+	public fun <init> (Lkotlin/jvm/functions/Function0;)V
+	public fun getConfigs (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+

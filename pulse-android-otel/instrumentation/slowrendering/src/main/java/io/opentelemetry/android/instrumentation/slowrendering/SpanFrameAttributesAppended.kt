@@ -14,7 +14,7 @@ class SpanFrameAttributesAppended : ExtendedSpanProcessor {
 
     override fun onStart(
         parentContext: Context,
-        span: ReadWriteSpan
+        span: ReadWriteSpan,
     ) {
         spanMap[span] = SlowRenderListener.createCumulativeFrameMetric()
     }
@@ -24,42 +24,44 @@ class SpanFrameAttributesAppended : ExtendedSpanProcessor {
     override fun onEnd(span: ReadableSpan) {}
 
     override fun isEndRequired(): Boolean = false
+
     override fun onEnding(span: ReadWriteSpan) {
         spanMap[span]?.let {
             span.setAllAttributes(
                 getFrameAttributes(
                     it,
-                    SlowRenderListener.createCumulativeFrameMetric()
-                )
+                    SlowRenderListener.createCumulativeFrameMetric(),
+                ),
             )
         }
     }
 
     override fun isOnEndingRequired(): Boolean = true
 
-    companion object {
+    internal companion object {
         private fun getFrameAttributes(
             first: SlowRenderListener.Companion.CumulativeFrameData,
-            second: SlowRenderListener.Companion.CumulativeFrameData
-        ): Attributes {
-            return Attributes.builder().apply {
-                put(
-                    "app.interaction.analysed_frame_count",
-                    second.analysedFrameCount - first.analysedFrameCount
-                )
-                put(
-                    "app.interaction.unanalysed_frame_count",
-                    second.unanalysedFrameCount - first.unanalysedFrameCount
-                )
-                put(
-                    "app.interaction.slow_frame_count",
-                    second.slowFrameCount - first.slowFrameCount
-                )
-                put(
-                    "app.interaction.frozen_frame_count",
-                    second.frozenFrameCount - first.frozenFrameCount
-                )
-            }.build()
-        }
+            second: SlowRenderListener.Companion.CumulativeFrameData,
+        ): Attributes =
+            Attributes
+                .builder()
+                .apply {
+                    put(
+                        "app.interaction.analysed_frame_count",
+                        second.analysedFrameCount - first.analysedFrameCount,
+                    )
+                    put(
+                        "app.interaction.unanalysed_frame_count",
+                        second.unanalysedFrameCount - first.unanalysedFrameCount,
+                    )
+                    put(
+                        "app.interaction.slow_frame_count",
+                        second.slowFrameCount - first.slowFrameCount,
+                    )
+                    put(
+                        "app.interaction.frozen_frame_count",
+                        second.frozenFrameCount - first.frozenFrameCount,
+                    )
+                }.build()
     }
 }

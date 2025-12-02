@@ -33,6 +33,7 @@ import java.util.function.BiFunction
 internal class PulseSDKImpl : PulseSDK {
     override fun isInitialized(): Boolean = isInitialised
 
+    @Suppress("LongParameterList")
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
@@ -50,90 +51,110 @@ internal class PulseSDKImpl : PulseSDK {
         }
         pulseSpanProcessor = PulseSignalProcessor()
         val config = OtelRumConfig()
+        val (tracerProviderCustomizer, loggerProviderCustomizer) = createSignalsProcessors(config)
+
+        otelInstance =
+            OpenTelemetryRumInitializer.initialize(
+                application = application,
+                endpointBaseUrl = endpointBaseUrl,
+                endpointHeaders = endpointHeaders,
+                spanEndpointConnectivity = spanEndpointConnectivity,
+                logEndpointConnectivity = logEndpointConnectivity,
+                metricEndpointConnectivity = metricEndpointConnectivity,
+                sessionConfig = sessionConfig,
+                globalAttributes = {
+                    val attributesBuilder = Attributes.builder()
+                    if (userProps.isNotEmpty()) {
+                        for ((key, value) in userProps) {
+                            attributesBuilder.put(
+                                PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
+                                value.toString(),
+                            )
+                        }
+                    }
+                    if (userId != null) {
+                        attributesBuilder.put(UserIncubatingAttributes.USER_ID, userId)
+                    }
+                    if (globalAttributes != null) {
+                        attributesBuilder.putAll(globalAttributes.invoke())
+                    }
+                    attributesBuilder.build()
+                },
+                diskBuffering = diskBuffering,
+                instrumentations = instrumentations,
+                rumConfig = config,
+                tracerProviderCustomizer = tracerProviderCustomizer,
+                loggerProviderCustomizer = loggerProviderCustomizer,
+            )
+        isInitialised = true
+    }
+
+    private fun createSignalsProcessors(
+        config: OtelRumConfig,
+    ): Pair<
+        BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>,
+        BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>,
+    > {
         val tracerProviderCustomizer =
-            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
+            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
                 tracerProviderBuilder.addSpanProcessor(
-                    pulseSpanProcessor.PulseSpanTypeAttributesAppender()
+                    pulseSpanProcessor.PulseSpanTypeAttributesAppender(),
                 )
                 // interaction specific attributed present in other spans
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
                     tracerProviderBuilder.addSpanProcessor(
                         InteractionAttributesSpanAppender.createSpanProcessor(
-                            AndroidInstrumentationLoader.getInstrumentation(
-                                InteractionInstrumentation::class.java
-                            ).interactionManagerInstance
-                        )
+                            AndroidInstrumentationLoader
+                                .getInstrumentation(
+                                    InteractionInstrumentation::class.java,
+                                ).interactionManagerInstance,
+                        ),
                     )
                 }
                 tracerProviderBuilder
             }
 
         val loggerProviderCustomizer =
-            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
+            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, _ ->
                 loggerProviderBuilder.addLogRecordProcessor(
-                    pulseSpanProcessor.PulseLogTypeAttributesAppender()
+                    pulseSpanProcessor.PulseLogTypeAttributesAppender(),
                 )
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
                     loggerProviderBuilder.addLogRecordProcessor(
                         InteractionAttributesSpanAppender.createLogProcessor(
-                            AndroidInstrumentationLoader.getInstrumentation(
-                                InteractionInstrumentation::class.java
-                            ).interactionManagerInstance
-                        )
+                            AndroidInstrumentationLoader
+                                .getInstrumentation(
+                                    InteractionInstrumentation::class.java,
+                                ).interactionManagerInstance,
+                        ),
                     )
                 }
                 loggerProviderBuilder
             }
-
-        otelInstance = OpenTelemetryRumInitializer.initialize(
-            application = application,
-            endpointBaseUrl = endpointBaseUrl,
-            endpointHeaders = endpointHeaders,
-            spanEndpointConnectivity = spanEndpointConnectivity,
-            logEndpointConnectivity = logEndpointConnectivity,
-            metricEndpointConnectivity = metricEndpointConnectivity,
-            sessionConfig = sessionConfig,
-            globalAttributes = {
-                val attributesBuilder = Attributes.builder()
-                if (userProps.isNotEmpty()) {
-                    for ((key, value) in userProps) {
-                        attributesBuilder.put(
-                            PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
-                            value.toString()
-                        )
-                    }
-                }
-                if (userId != null) {
-                    attributesBuilder.put(UserIncubatingAttributes.USER_ID, userId)
-                }
-                if (globalAttributes != null) {
-                    attributesBuilder.putAll(globalAttributes.invoke())
-                }
-                attributesBuilder.build()
-            },
-            diskBuffering = diskBuffering,
-            instrumentations = instrumentations,
-            rumConfig = config,
-            tracerProviderCustomizer = tracerProviderCustomizer,
-            loggerProviderCustomizer = loggerProviderCustomizer,
-        )
-        isInitialised = true
+        return Pair(tracerProviderCustomizer, loggerProviderCustomizer)
     }
 
     override fun setUserId(id: String?) {
         userId = id
     }
 
-    override fun setUserProperty(name: String, value: Any?) {
-        userProps[name] = value
+    override fun setUserProperty(
+        name: String,
+        value: Any?,
+    ) {
+        if (value != null) {
+            userProps[name] = value
+        } else {
+            userProps.remove(name)
+        }
     }
 
-    fun setUserProperties(properties: Map<String, Any?>) {
+    fun setUserProperties(properties: Map<String, Any>) {
         userProps.putAll(properties)
     }
 
-    override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
-        setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
+    override fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit) {
+        setUserProperties(mutableMapOf<String, Any>().apply(builderAction))
     }
 
     override fun trackEvent(
@@ -149,7 +170,7 @@ internal class PulseSDKImpl : PulseSDK {
                 setEventName("pulse.custom_event")
                 setAttribute(
                     PulseAttributes.PULSE_TYPE,
-                    PulseAttributes.PulseTypeValues.CUSTOM_EVENT
+                    PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
                 )
                 setAllAttributes(params.toAttributes())
                 emit()
@@ -202,7 +223,7 @@ internal class PulseSDKImpl : PulseSDK {
     override fun <T> trackSpan(
         spanName: String,
         params: Map<String, Any?>,
-        action: () -> T
+        action: () -> T,
     ) {
         val span = tracer.spanBuilder(spanName).startSpan()
         try {
@@ -223,8 +244,8 @@ internal class PulseSDKImpl : PulseSDK {
     }
 
     override fun getOtelOrNull(): OpenTelemetryRum? = otelInstance
-    override fun getOtelOrThrow(): OpenTelemetryRum =
-        otelInstance ?: error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
+
+    override fun getOtelOrThrow(): OpenTelemetryRum = otelInstance ?: error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
 
     private val logger: Logger by lazy {
         getOtelOrThrow()
@@ -248,9 +269,9 @@ internal class PulseSDKImpl : PulseSDK {
     private var otelInstance: OpenTelemetryRum? = null
 
     private var userId: String? = null
-    private var userProps = ConcurrentHashMap<String, Any?>()
+    private var userProps = ConcurrentHashMap<String, Any>()
 
-    companion object {
+    internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
     }
 }

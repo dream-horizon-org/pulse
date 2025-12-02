@@ -23,6 +23,7 @@ kotlin {
 
 dependencies {
     implementation(projects.instrumentation.interaction.interactionRemote)
+    testImplementation(testFixtures(projects.instrumentation.interaction.interactionRemote))
     implementation(libs.okhttp)
     implementation(libs.kotlin.serialisation)
     implementation(libs.kotlin.coroutines)

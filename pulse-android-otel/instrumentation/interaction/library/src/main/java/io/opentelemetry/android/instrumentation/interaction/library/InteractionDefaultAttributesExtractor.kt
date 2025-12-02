@@ -6,10 +6,10 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseInteractionAttributes
 import io.opentelemetry.api.common.AttributesBuilder
 
-class DefaultInteractionAttributesExtractor : InteractionAttributesExtractor {
+class InteractionDefaultAttributesExtractor : InteractionAttributesExtractor {
     override fun invoke(
         attributesBuilder: AttributesBuilder,
-        interaction: Interaction
+        interaction: Interaction,
     ) {
         with(attributesBuilder) {
             putAttributesFrom(interaction.props)

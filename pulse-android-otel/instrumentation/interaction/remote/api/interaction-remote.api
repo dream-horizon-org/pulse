@@ -1,0 +1,109 @@
+public final class com/pulse/android/remote/BuildConfig {
+	public static final field BUILD_TYPE Ljava/lang/String;
+	public static final field DEBUG Z
+	public static final field LIBRARY_PACKAGE_NAME Ljava/lang/String;
+	public fun <init> ()V
+}
+
+public abstract interface class com/pulse/android/remote/InteractionApiService {
+	public abstract fun getInteractions (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
+public final class com/pulse/android/remote/InteractionRetrofitClient {
+	public fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/Json;Lokhttp3/OkHttpClient;)V
+	public synthetic fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/Json;Lokhttp3/OkHttpClient;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getApiService ()Lcom/pulse/android/remote/InteractionApiService;
+	public final fun newInstance (Ljava/lang/String;)Lcom/pulse/android/remote/InteractionRetrofitClient;
+}
+
+public final class com/pulse/android/remote/models/ApiResponse {
+	public static final field Companion Lcom/pulse/android/remote/models/ApiResponse$Companion;
+	public final fun getData ()Ljava/lang/Object;
+	public final fun getError ()Ljava/lang/String;
+}
+
+public final class com/pulse/android/remote/models/ApiResponse$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public synthetic fun <init> (Lkotlinx/serialization/KSerializer;)V
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/android/remote/models/ApiResponse;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/remote/models/ApiResponse;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/android/remote/models/ApiResponse$Companion {
+	public final fun serializer (Lkotlinx/serialization/KSerializer;)Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/android/remote/models/InteractionAttrsEntry {
+	public static final field Companion Lcom/pulse/android/remote/models/InteractionAttrsEntry$Companion;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getOperator ()Ljava/lang/String;
+	public final fun getValue ()Ljava/lang/String;
+}
+
+public final class com/pulse/android/remote/models/InteractionAttrsEntry$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/android/remote/models/InteractionAttrsEntry$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/android/remote/models/InteractionAttrsEntry;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/remote/models/InteractionAttrsEntry;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/android/remote/models/InteractionAttrsEntry$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/android/remote/models/InteractionConfig {
+	public static final field Companion Lcom/pulse/android/remote/models/InteractionConfig$Companion;
+	public final fun getEvents ()Ljava/util/List;
+	public final fun getEventsSize ()I
+	public final fun getFirstEvent ()Lcom/pulse/android/remote/models/InteractionEvent;
+	public final fun getGlobalBlacklistedEvents ()Ljava/util/List;
+	public final fun getId ()I
+	public final fun getName ()Ljava/lang/String;
+	public final fun getThresholdInMs ()J
+	public final fun getUptimeLowerLimitInMs ()J
+	public final fun getUptimeMidLimitInMs ()J
+	public final fun getUptimeUpperLimitInMs ()J
+}
+
+public final class com/pulse/android/remote/models/InteractionConfig$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/android/remote/models/InteractionConfig$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/android/remote/models/InteractionConfig;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/remote/models/InteractionConfig;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/android/remote/models/InteractionConfig$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/android/remote/models/InteractionEvent {
+	public static final field Companion Lcom/pulse/android/remote/models/InteractionEvent$Companion;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getProps ()Ljava/util/List;
+	public final fun isBlacklisted ()Z
+}
+
+public final class com/pulse/android/remote/models/InteractionEvent$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/android/remote/models/InteractionEvent$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/android/remote/models/InteractionEvent;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/remote/models/InteractionEvent;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/android/remote/models/InteractionEvent$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+

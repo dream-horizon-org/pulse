@@ -49,19 +49,19 @@ class InteractionInstrumentation :
         InteractionManager(
             interactionConfigFetcher ?: InteractionConfigRestFetcher {
                 "http://10.0.2.2:8080/interaction-configs"
-            }
+            },
         )
     }
 
     override fun install(ctx: InstallationContext) {
-        additionalAttributeExtractors.add(DefaultInteractionAttributesExtractor())
+        additionalAttributeExtractors.add(InteractionDefaultAttributesExtractor())
         launch {
             interactionManagerInstance.init()
             interactionManagerInstance.interactionTrackerStatesState.collect { interactionRunningStatuses ->
                 handleSuccessInteraction(
                     ctx.openTelemetry.tracerProvider,
                     additionalAttributeExtractors,
-                    interactionRunningStatuses
+                    interactionRunningStatuses,
                 )
             }
         }
@@ -81,15 +81,16 @@ class InteractionInstrumentation :
         fun handleSuccessInteraction(
             tracerProvider: TracerProvider,
             additionalAttributeExtractors: List<InteractionAttributesExtractor>,
-            interactionStatuses: List<InteractionRunningStatus>
+            interactionStatuses: List<InteractionRunningStatus>,
         ) {
-            val tracer = tracerProvider
-                .tracerBuilder("pulse.otel.interaction")
-                .build()
+            val tracer =
+                tracerProvider
+                    .tracerBuilder("pulse.otel.interaction")
+                    .build()
             interactionStatuses.map { interactionRunningStatus ->
                 when (interactionRunningStatus) {
                     is InteractionRunningStatus.NoOngoingMatch -> {
-                        /* no-op */
+                        // no-op
                     }
 
                     is InteractionRunningStatus.OngoingMatch -> {
@@ -97,17 +98,20 @@ class InteractionInstrumentation :
                             // TODO: Investigate why timeSpanInNanos can be null (empty events list)
                             // This safety check prevents crash but we need to understand root cause
                             val timeSpanInNano = interaction.timeSpanInNanos ?: return@let
-                            val span = tracer.spanBuilder(interaction.name).apply {
-                                setNoParent()
-                                val attributesBuilder = Attributes.builder()
-                                additionalAttributeExtractors.forEach(
-                                    Consumer { extractor: InteractionAttributesExtractor ->
-                                        extractor(attributesBuilder, interaction)
-                                    },
-                                )
-                                setAllAttributes(attributesBuilder.build())
-                                setStartTimestamp(timeSpanInNano.first, TimeUnit.NANOSECONDS)
-                            }.startSpan()
+                            val span =
+                                tracer
+                                    .spanBuilder(interaction.name)
+                                    .apply {
+                                        setNoParent()
+                                        val attributesBuilder = Attributes.builder()
+                                        additionalAttributeExtractors.forEach(
+                                            Consumer { extractor: InteractionAttributesExtractor ->
+                                                extractor(attributesBuilder, interaction)
+                                            },
+                                        )
+                                        setAllAttributes(attributesBuilder.build())
+                                        setStartTimestamp(timeSpanInNano.first, TimeUnit.NANOSECONDS)
+                                    }.startSpan()
                             interaction.events addAsSpanEventsTo span
                             interaction.markerEvents addAsSpanEventsTo span
                             if (interaction.isErrored) {
@@ -126,7 +130,7 @@ class InteractionInstrumentation :
                     localEvent.name,
                     localEvent.props.orEmpty().toAttributes(),
                     localEvent.timeInNano,
-                    TimeUnit.NANOSECONDS
+                    TimeUnit.NANOSECONDS,
                 )
             }
         }
