@@ -22,7 +22,7 @@ class PulseOtelUtilsTest {
     @MethodSource("getHttpMethodTestCases")
     fun `isNetworkSpan returns true for span with http method attribute`(httpMethod: String) {
         val tracer = SdkTracerProvider.builder().build().get("test")
-        val span = tracer.spanBuilder("test-span")
+        @Suppress("DEPRECATION") val span = tracer.spanBuilder("test-span")
             .setAttribute(HttpIncubatingAttributes.HTTP_METHOD, httpMethod)
             .startSpan()
 

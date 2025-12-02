@@ -9,13 +9,14 @@ import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 public object PulseOtelUtils {
     // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
     //  use the new not deprecated attributes
+    @Suppress("DEPRECATION")
     private val HTTP_METHOD_KEY: AttributeKey<String> = HttpIncubatingAttributes.HTTP_METHOD
     private const val HEX_CHARS = "[0-9a-fA-F]"
     private const val DIGITS = "\\d"
     private const val ALPHANUMERIC = "[A-Za-z0-9]"
     private const val REDACTED = "[redacted]"
 
-    private val URL_NORMALIZATION_PATTERNS = listOf(
+    private val urlNormalizationPatterns = listOf(
         "(?<=/)($HEX_CHARS{64}|$HEX_CHARS{40})(?=/|$)".toRegex(),
         "(?<=/)($HEX_CHARS{32}|$HEX_CHARS{8}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{4}-$HEX_CHARS{12})(?=/|$)".toRegex(),
         "(?<=/)($HEX_CHARS{24})(?=/|$)".toRegex(),
@@ -30,7 +31,7 @@ public object PulseOtelUtils {
     public fun normaliseUrl(originalUrl: String): String {
         var normalized = originalUrl.substringBefore("?")
 
-        URL_NORMALIZATION_PATTERNS.forEach { pattern ->
+        urlNormalizationPatterns.forEach { pattern ->
             normalized = pattern.replace(normalized, REDACTED)
         }
         
