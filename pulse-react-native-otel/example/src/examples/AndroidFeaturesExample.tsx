@@ -81,7 +81,11 @@ export default function AndroidFeaturesExample() {
     return (
       <View style={styles.fullScreen}>
         <View style={styles.backButton}>
-          <Button title="← Back" onPress={() => setShowStressTest(false)} color="#666" />
+          <Button
+            title="← Back"
+            onPress={() => setShowStressTest(false)}
+            color="#666"
+          />
         </View>
         <FrozenFrameStressTest />
       </View>
@@ -192,4 +196,3 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
-

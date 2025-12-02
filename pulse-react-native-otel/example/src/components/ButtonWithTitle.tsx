@@ -7,7 +7,12 @@ type Props = {
   onPress: () => void;
 };
 
-export default function ButtonWithTitle({ label, title, color, onPress }: Props) {
+export default function ButtonWithTitle({
+  label,
+  title,
+  color,
+  onPress,
+}: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -29,5 +34,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-
