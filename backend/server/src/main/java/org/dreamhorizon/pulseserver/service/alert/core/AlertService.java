@@ -51,6 +51,35 @@ public class AlertService {
   private final AlertCronService alertCronService;
   private final ApplicationConfig applicationConfig;
 
+  private static void validateSnoozeFrom(LocalDateTime start, int snoozeSecondsThreshold) {
+    if (start.isBefore(LocalDateTime.now(ZoneOffset.UTC).minusMinutes(1))) {
+      throw ServiceError
+          .INVALID_REQUEST_PARAM
+          .getCustomException("Snooze start duration cannot be of past time", "Snooze start duration cannot be of past time", 400);
+    }
+
+    if (start.isAfter(LocalDateTime.now(ZoneOffset.UTC).plusSeconds(snoozeSecondsThreshold))) {
+      throw ServiceError
+          .INVALID_REQUEST_PARAM
+          .getCustomException("Snooze start duration cannot be more than a year later than now",
+              "Snooze start duration cannot be more than a year later than now", 400);
+    }
+  }
+
+  private static void validateSnoozeDuration(long snoozedForSeconds, int snoozeDaysThreshold) {
+    if (snoozedForSeconds > snoozeDaysThreshold) {
+      throw ServiceError
+          .INVALID_REQUEST_PARAM
+          .getCustomException("Cannot snooze for more than 365 days", "Cannot snooze for more than 365 days", 400);
+    }
+
+    if (snoozedForSeconds <= 0) {
+      throw ServiceError
+          .INVALID_REQUEST_PARAM
+          .getCustomException("Snooze duration must be greater than 0", "Snooze duration must be greater than 0", 400);
+    }
+  }
+
   public Single<AlertResponseDto> createAlert(@Valid @NotNull CreateAlertRequest createAlertRequestDto) {
     return alertsDao
         .createAlert(createAlertRequestDto)
@@ -125,35 +154,6 @@ public class AlertService {
             .snoozedFrom(start)
             .snoozedUntil(end)
             .build());
-  }
-
-  private static void validateSnoozeFrom(LocalDateTime start, int snoozeSecondsThreshold) {
-    if (start.isBefore(LocalDateTime.now(ZoneOffset.UTC).minusMinutes(1))) {
-      throw ServiceError
-          .INVALID_REQUEST_PARAM
-          .getCustomException("Snooze start duration cannot be of past time", "Snooze start duration cannot be of past time", 400);
-    }
-
-    if (start.isAfter(LocalDateTime.now(ZoneOffset.UTC).plusSeconds(snoozeSecondsThreshold))) {
-      throw ServiceError
-          .INVALID_REQUEST_PARAM
-          .getCustomException("Snooze start duration cannot be more than a year later than now",
-              "Snooze start duration cannot be more than a year later than now", 400);
-    }
-  }
-
-  private static void validateSnoozeDuration(long snoozedForSeconds, int snoozeDaysThreshold) {
-    if (snoozedForSeconds > snoozeDaysThreshold) {
-      throw ServiceError
-          .INVALID_REQUEST_PARAM
-          .getCustomException("Cannot snooze for more than 365 days", "Cannot snooze for more than 365 days", 400);
-    }
-
-    if (snoozedForSeconds <= 0) {
-      throw ServiceError
-          .INVALID_REQUEST_PARAM
-          .getCustomException("Snooze duration must be greater than 0", "Snooze duration must be greater than 0", 400);
-    }
   }
 
   public Single<EmptyResponse> deleteSnooze(@Valid DeleteSnoozeRequest request) {
@@ -255,7 +255,7 @@ public class AlertService {
   }
 
   public Single<Boolean> createTagAndAlertMapping(@NotNull Integer alertId, @NotNull AlertTagMapRequestDto alertTagMapRequestDto) {
-    return alertsDao.createTagAndAlertMapping(alertId, alertTagMapRequestDto.getTag_id());
+    return alertsDao.createTagAndAlertMapping(alertId, alertTagMapRequestDto.getTagId());
   }
 
   public Single<List<AlertTagsResponseDto>> getTags() {
@@ -267,7 +267,7 @@ public class AlertService {
   }
 
   public Single<Boolean> deleteAlertTagMapping(@NotNull Integer alertId, @NotNull AlertTagMapRequestDto alertTagMapRequestDto) {
-    return alertsDao.deleteAlertTagMapping(alertId, alertTagMapRequestDto.getTag_id());
+    return alertsDao.deleteAlertTagMapping(alertId, alertTagMapRequestDto.getTagId());
   }
 
   public boolean isAlertSnoozed(Alert alert) {

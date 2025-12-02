@@ -38,10 +38,10 @@ public class AlertMapper {
     }
 
     return AlertFiltersResponseDto.builder()
-        .job_id(jobIds)
-        .created_by(createdBy)
-        .updated_by(updatedBy)
-        .current_state(currentStates)
+        .jobId(jobIds)
+        .createdBy(createdBy)
+        .updatedBy(updatedBy)
+        .currentState(currentStates)
         .build();
   }
 }

@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class AlertNotificationChannelResponseDto {
   @NotNull
   @JsonProperty("notification_channel_id")
-  Integer notification_channel_id;
+  Integer notificationChannelId;
 
   @NotNull
   @JsonProperty("name")
@@ -22,5 +22,5 @@ public class AlertNotificationChannelResponseDto {
 
   @NotNull
   @JsonProperty("notification_webhook_url")
-  String notification_webhook_url;
+  String notificationWebhookUrl;
 }
