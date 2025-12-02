@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Button, Alert, Platform, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Button,
+  Alert,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import PulseReactNativeOtel from '../../../src/NativePulseReactNativeOtel';
 import FrozenFrameStressTest from './FrozenFrameStressTest';
 import NativePulseExampleModule from '../specs/NativePulseExampleModule';
@@ -32,16 +40,26 @@ export default function AndroidFeaturesExample() {
   // Native Android OkHttp GET request
   const testNativeGet = async () => {
     if (Platform.OS !== 'android' || !NativePulseExampleModule) {
-      Alert.alert('Not Available', 'Native network module is only available on Android');
+      Alert.alert(
+        'Not Available',
+        'Native network module is only available on Android'
+      );
       return;
     }
 
     setLoading('native-get');
     try {
-      console.log('[Pulse Network] 🤖 [Native Android] Making OkHttp GET request...');
-      const result = await NativePulseExampleModule.makeGetRequest('https://jsonplaceholder.typicode.com/posts/1');
+      console.log(
+        '[Pulse Network] 🤖 [Native Android] Making OkHttp GET request...'
+      );
+      const result = await NativePulseExampleModule.makeGetRequest(
+        'https://jsonplaceholder.typicode.com/posts/1'
+      );
       const data = JSON.parse(result.body);
-      Alert.alert('Success', `Native GET: ${data.title} (Status: ${result.status})`);
+      Alert.alert(
+        'Success',
+        `Native GET: ${data.title} (Status: ${result.status})`
+      );
     } catch (error: any) {
       Alert.alert('Error', `Native GET Error: ${error.message}`);
     } finally {
@@ -51,14 +69,19 @@ export default function AndroidFeaturesExample() {
 
   // Native Android OkHttp POST request
   const testNativePost = async () => {
-    if (Platform.OS !== 'android' || !NativePulseExampleModule  ) {
-      Alert.alert('Not Available', 'Native network module is only available on Android');
+    if (Platform.OS !== 'android' || !NativePulseExampleModule) {
+      Alert.alert(
+        'Not Available',
+        'Native network module is only available on Android'
+      );
       return;
     }
 
     setLoading('native-post');
     try {
-      console.log('[Pulse Network] 🤖 [Native Android] Making OkHttp POST request...');
+      console.log(
+        '[Pulse Network] 🤖 [Native Android] Making OkHttp POST request...'
+      );
       const postBody = JSON.stringify({
         title: 'Test Post from Native Android',
         body: 'This is a test POST request from native OkHttp',
@@ -69,7 +92,10 @@ export default function AndroidFeaturesExample() {
         postBody
       );
       const data = JSON.parse(result.body);
-      Alert.alert('Success', `Native POST: Created post #${data.id} (Status: ${result.status})`);
+      Alert.alert(
+        'Success',
+        `Native POST: Created post #${data.id} (Status: ${result.status})`
+      );
     } catch (error: any) {
       Alert.alert('Error', `Native POST Error: ${error.message}`);
     } finally {
@@ -99,7 +125,7 @@ export default function AndroidFeaturesExample() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Performance Monitoring</Text>
-        
+
         <View style={styles.buttonContainer}>
           <Button
             title="Trigger ANR"
@@ -122,10 +148,12 @@ export default function AndroidFeaturesExample() {
       {Platform.OS === 'android' && NativePulseExampleModule && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Native Network (OkHttp)</Text>
-          
+
           <View style={styles.buttonContainer}>
             <Button
-              title={loading === 'native-get' ? 'Loading...' : 'Native OkHttp GET'}
+              title={
+                loading === 'native-get' ? 'Loading...' : 'Native OkHttp GET'
+              }
               onPress={testNativeGet}
               disabled={loading !== null}
               color="#795548"
@@ -134,7 +162,9 @@ export default function AndroidFeaturesExample() {
 
           <View style={styles.buttonContainer}>
             <Button
-              title={loading === 'native-post' ? 'Loading...' : 'Native OkHttp POST'}
+              title={
+                loading === 'native-post' ? 'Loading...' : 'Native OkHttp POST'
+              }
               onPress={testNativePost}
               disabled={loading !== null}
               color="#795548"
