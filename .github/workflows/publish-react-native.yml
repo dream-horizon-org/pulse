@@ -3,10 +3,15 @@ name: Publish React Native SDK to npm
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: "Publish React Native SDK to npm"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
