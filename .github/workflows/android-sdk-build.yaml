@@ -41,7 +41,7 @@ jobs:
           slug: open-telemetry/opentelemetry-android
 
       - name: build demo app
-        working-directory: ./demo-app
+        working-directory: ./pulse-android-otel/demo-app
         run: ./gradlew check assemble
       # Will start publishing when we have finalized on the coordinates
       # - name: publish snapshot
