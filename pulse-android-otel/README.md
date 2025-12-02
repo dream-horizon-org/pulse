@@ -18,7 +18,6 @@ Real-time monitoring, crash reporting, ANR detection, and performance insights p
 * [Core Features](#core-features)
 * [API Reference](#api-reference)
 * [Advanced Configuration](#advanced-configuration)
-* [Contributing](#contributing)
 
 ---
 
@@ -391,10 +390,6 @@ For guidance on Android StrictMode violations (disk/network I/O warnings) trigge
 The SDK performs asynchronous exporter initialization with in-memory buffering and optional disk buffering. See [Exporter Chain Documentation](./docs/EXPORTER_CHAIN.md) for details.
 
 ---
-
-## Contributing
-
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines on how to contribute to this project.
 
 For more information about roles:
 - [Maintainer Role](https://github.com/open-telemetry/community/blob/main/guides/contributor/membership.md#maintainer)

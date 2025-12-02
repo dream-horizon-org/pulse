@@ -1,10 +1,13 @@
-name: Build
+name: Android SDK - Build
 
 on:
   push:
     branches:
       - main
       - release/*
+    paths:
+      - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-build.yaml'
   workflow_dispatch:
 
 permissions:
@@ -38,20 +41,16 @@ jobs:
           slug: open-telemetry/opentelemetry-android
 
       - name: build demo app
-        working-directory: ./demo-app
+        working-directory: ./pulse-android-otel/demo-app
         run: ./gradlew check assemble
-      - name: publish snapshot
-        run: ./gradlew publishToSonatype
-        env:
-          SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
-          SONATYPE_KEY: ${{ secrets.SONATYPE_KEY }}
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
-
-  markdown-link-check:
-    # release branches are excluded to avoid unnecessary maintenance
-    if: ${{ !startsWith(github.ref_name, 'release/') }}
-    uses: ./.github/workflows/reusable-link-check.yml
+      # Will start publishing when we have finalized on the coordinates
+      # - name: publish snapshot
+      #   run: ./gradlew publishToSonatype
+      #   env:
+      #     SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
+      #     SONATYPE_KEY: ${{ secrets.SONATYPE_KEY }}
+      #     GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      #     GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
 
   workflow-notification:
     permissions: # required by the reusable workflow

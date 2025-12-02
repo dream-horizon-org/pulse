@@ -28,29 +28,23 @@
 
 ## 📚 Documentation
 
-Complete documentation is available at **[dreamhorizon.org](https://dreamhorizon.org/docs/sdk/react-native/overview)**.
+Complete documentation is available at **[dreamhorizon.org](https://pulse.dreamhorizon.org/docs/sdk/react-native/overview)**.
 
 ### Getting Started
-- [Overview](https://dreamhorizon.org/docs/sdk/react-native/overview) - Introduction and key features
-- [Quick Start](https://dreamhorizon.org/docs/sdk/react-native/quick-start) - Installation and setup guide
+- [Overview](https://pulse.dreamhorizon.org/docs/sdk/react-native/overview) - Introduction and key features
+- [Quick Start](https://pulse.dreamhorizon.org/docs/sdk/react-native/installation) - Installation and setup guide
 
 ### Instrumentation
-- [Network Instrumentation](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/network-instrumentation) - Auto-instrument HTTP requests
-- [Error Instrumentation](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/error-instrumentation) - Error tracking and reporting
-- [Navigation Instrumentation](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/navigation-instrumentation) - React Navigation integration
-- [Custom Instrumentation](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/custom-instrumentation) - Custom spans and performance tracing
-- [Custom Events](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/custom-events) - Track business events
-- [Error Boundaries](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/error-boundaries) - React Error Boundary integration
+- [Network Instrumentation](https://pulse.dreamhorizon.org/docs/sdk/react-native/instrumentation/network) - Auto-instrument HTTP requests
+- [Error Instrumentation](https://pulse.dreamhorizon.org/docs/sdk/react-native/instrumentation/errors) - Error tracking and reporting
+<!-- - [Navigation Instrumentation](https://dreamhorizon.org/docs/sdk/react-native/instrumentation/navigation-instrumentation) - React Navigation integration -->
+- [Custom Instrumentation](https://pulse.dreamhorizon.org/docs/sdk/android/instrumentation/custom-spans) - Custom spans and performance tracing
+- [Custom Events](https://pulse.dreamhorizon.org/docs/sdk/react-native/instrumentation/custom-events) - Track business events
+- [Error Boundaries](https://pulse.dreamhorizon.org/docs/sdk/react-native/instrumentation/error-boundaries) - React Error Boundary integration
 
 ### Configuration
-- [Global Attributes](https://dreamhorizon.org/docs/sdk/react-native/global-attributes) - Set attributes for all telemetry
-- [User Identification](https://dreamhorizon.org/docs/sdk/react-native/user-identification) - Associate telemetry with users
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](https://dreamhorizon.org/docs/contribution) for detailed information.
+- [Global Attributes](https://pulse.dreamhorizon.org/docs/sdk/react-native/global-attributes) - Set attributes for all telemetry
+- [User Identification](https://pulse.dreamhorizon.org/docs/sdk/react-native/user-identification) - Associate telemetry with users
 
 ---
 
