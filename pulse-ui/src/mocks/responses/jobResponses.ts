@@ -81,4 +81,45 @@ export const mockJobResponses = {
     data: { success: true },
     status: 200,
   },
+
+  getDashboardFilters: {
+    data: {
+      appVersionCodes: [
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "2.0.0",
+        "2.1.0",
+        "2.2.0",
+      ],
+      networkProviders: [
+        "Jio",
+        "Airtel",
+        "Vodafone",
+        "BSNL",
+        "Idea",
+        "Reliance",
+      ],
+      osVersions: [
+        "Android 12",
+        "Android 13",
+        "Android 14",
+        "iOS 15",
+        "iOS 16",
+        "iOS 17",
+      ],
+      platforms: ["Android", "iOS", "Web"],
+      states: [
+        "Maharashtra",
+        "Delhi",
+        "Karnataka",
+        "Tamil Nadu",
+        "Gujarat",
+        "Rajasthan",
+        "West Bengal",
+        "Uttar Pradesh",
+      ],
+    },
+    status: 200,
+  },
 };

@@ -26,7 +26,7 @@ export function TopInteractionsHealth({
   const { data: topInteractionsData } = useGetTopInteractionsHealthData({
     startTime,
     endTime,
-    limit: 4,
+      limit: 4,
   });
 
   return (

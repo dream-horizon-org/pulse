@@ -259,15 +259,40 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields (aliases)
     const fields: string[] = select.map((s) => s.alias);
 
+    // Get groupBy values if any (for screen_name, etc.)
+    const groupByFields = requestBody.groupBy || [];
+    const groupByValues: Record<string, string> = {};
+    
+    // Extract groupBy field values from filters or use defaults
+    groupByFields.forEach((groupField) => {
+      if (groupField !== "t1") {
+        // Find COL function for this groupBy field
+        const colFunction = select.find(
+          (s) => s.function === "COL" && s.alias === groupField,
+        );
+        if (colFunction) {
+          const actualField = colFunction.param?.field || groupField;
+          const groupValues = this.getGroupValues(actualField, filters);
+          // Use first value or default
+          groupByValues[groupField] = groupValues[0] || "default";
+        }
+      }
+    });
+
     // Generate rows
     const rows: string[][] = timePoints.map((timestamp) => {
       const row: string[] = [];
 
       select.forEach((selectField) => {
+        // Get groupValue for this field if it's a groupBy field
+        const groupValue = groupByValues[selectField.alias] || undefined;
+        
         const value = this.generateValueForFunction(
           selectField.function,
           timestamp,
           filters,
+          groupValue,
+          selectField.param, // Pass param for CUSTOM functions to check expressions
         );
         row.push(value);
       });
@@ -1073,15 +1098,17 @@ export class DataQueryMockGeneratorV2 {
           expression.includes("sumIf(Duration") &&
           expression.includes("screen_session")
         ) {
-          // Generate realistic total time spent (in milliseconds)
-          // Average time per session: 20-60 seconds per view
-          // With 50,000-100,000 views, total = 1,000,000 - 6,000,000 ms
-          return this.randomCount(
-            1000000, // 1M ms = ~16.7 minutes total
-            6000000, // 6M ms = ~100 minutes total
+          // Generate realistic total time spent (in nanoseconds)
+          // Hook calculates: avgTimeSpent = timeSpent / (sessions * 1000000)
+          // To get 20-60 seconds avg per session with 50-200 sessions:
+          // timeSpent = (20-60) * (50-200) * 1000000 = 1,000,000,000 - 12,000,000,000 ns
+          const totalNs = this.randomCount(
+            1000000000, // 1 billion ns = 20s * 50 sessions * 1M
+            12000000000, // 12 billion ns = 60s * 200 sessions * 1M
             interactionName,
             groupValue,
-          ).toString();
+          );
+          return totalNs.toString();
         }
 
         // Handle sumIf(Duration, SpanType = 'screen_load') - total screen load time
@@ -1089,12 +1116,44 @@ export class DataQueryMockGeneratorV2 {
           expression.includes("sumIf(Duration") &&
           expression.includes("screen_load")
         ) {
-          // Generate realistic total load time (in milliseconds)
-          // Average load time per session: 1-3 seconds per view
-          // With 50,000-100,000 views, total = 50,000 - 300,000 ms
+          // Generate realistic total load time (in nanoseconds)
+          // Hook calculates: avgLoadTime = loadTime / (loads * 1000000)
+          // To get 1-3 seconds avg per load with 50-200 loads:
+          // loadTime = (1-3) * (50-200) * 1000000 = 50,000,000 - 600,000,000 ns
+          const totalNs = this.randomCount(
+            50000000, // 50 million ns = 1s * 50 loads * 1M
+            600000000, // 600 million ns = 3s * 200 loads * 1M
+            interactionName,
+            groupValue,
+          );
+          return totalNs.toString();
+        }
+
+        // Handle countIf(SpanType = 'screen_session') - session count
+        if (
+          expression.includes("countIf") &&
+          expression.includes("screen_session")
+        ) {
+          // Generate realistic session count per time bucket
+          // 50-200 sessions per time bucket
           return this.randomCount(
-            50000, // 50K ms = ~50 seconds total
-            300000, // 300K ms = ~5 minutes total
+            50,
+            200,
+            interactionName,
+            groupValue,
+          ).toString();
+        }
+
+        // Handle countIf(SpanType = 'screen_load') - load count
+        if (
+          expression.includes("countIf") &&
+          expression.includes("screen_load")
+        ) {
+          // Generate realistic load count per time bucket
+          // 50-200 loads per time bucket
+          return this.randomCount(
+            50,
+            200,
             interactionName,
             groupValue,
           ).toString();
@@ -1169,6 +1228,51 @@ export class DataQueryMockGeneratorV2 {
     // Extract actual field name from SpanAttributes notation
     if (normalizedField.includes(`spanattributes['${SpanType.SCREEN_NAME}']`)) {
       normalizedField = "screen_name";
+    }
+
+    // Early return for screen_name to use predefined values
+    if (normalizedField === "screen_name") {
+      const screenNames = [
+        "HomeScreen",
+        "ProductListScreen",
+        "ProductDetailScreen",
+        "CheckoutFormScreen",
+        "PaymentScreen",
+        "ProfileScreen",
+        "SearchResultsScreen",
+        "OrderListScreen",
+        "CartScreen",
+        "WishlistScreen",
+        "SettingsScreen",
+        "NotificationsScreen",
+      ];
+      
+      // Check if there's a filter with specific screen names
+      if (filters) {
+        const screenNameFilter = filters.find(
+          (f) =>
+            f.field === groupByField ||
+            f.field?.toLowerCase().includes("screen") ||
+            f.field?.toLowerCase().includes("screen_name"),
+        );
+        
+        if (screenNameFilter && screenNameFilter.value) {
+          const filterValues = Array.isArray(screenNameFilter.value)
+            ? screenNameFilter.value
+            : [screenNameFilter.value];
+          console.log(
+            "[DataQueryMockV2] Using filter values for screen_name:",
+            filterValues,
+          );
+          return filterValues.filter(Boolean);
+        }
+      }
+      
+      console.log(
+        "[DataQueryMockV2] Using predefined screen names:",
+        screenNames,
+      );
+      return screenNames;
     }
 
     // Handle custom attributes like UserAttributes['subscriptionPlan']

@@ -48,7 +48,7 @@ export function ActiveSessionsGraph({
     };
   }, [startTime, endTime]);
 
-  const { data, isLoading } = useGetActiveSessionsData({
+  const { data } = useGetActiveSessionsData({
     screenName,
     appVersion,
     osVersion,

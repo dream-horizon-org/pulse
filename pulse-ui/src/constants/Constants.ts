@@ -477,6 +477,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/interactions/telemetry-filters`,
     method: API_METHODS.GET,
   },
+  GET_INTERACTIONLIST_FILTERS: {
+    key: "GET_INTERACTIONLIST_FILTERS",
+    apiPath: `/v1/interactions/filter-options`,
+    method: API_METHODS.GET,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
