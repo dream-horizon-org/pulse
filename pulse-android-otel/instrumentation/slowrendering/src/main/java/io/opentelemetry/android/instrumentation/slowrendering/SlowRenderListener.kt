@@ -104,12 +104,13 @@ internal class SlowRenderListener(
             val frozenFrameCount: Long,
         )
 
-        internal fun createCumulativeFrameMetric() = CumulativeFrameData(
-            analysedFrameCount = totalUndroppedFrames,
-            unanalysedFrameCount = totalDroppedFrames,
-            slowFrameCount = slowFrames,
-            frozenFrameCount = frozenFrames,
-        )
+        internal fun createCumulativeFrameMetric() =
+            CumulativeFrameData(
+                analysedFrameCount = totalUndroppedFrames,
+                unanalysedFrameCount = totalDroppedFrames,
+                slowFrameCount = slowFrames,
+                frozenFrameCount = frozenFrames,
+            )
 
         private val frameMetricsThread = HandlerThread("FrameMetricsCollector")
 

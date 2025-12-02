@@ -37,13 +37,13 @@ object AndroidResource {
         appVersion?.let {
             resourceBuilder.put(
                 RumConstants.App.BUILD_ID,
-                appVersionCode.toString()
+                appVersionCode.toString(),
             )
         }
 
         return resourceBuilder
             .put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION)
-            .put(DEVICE_MODEL_NAME, Build.MODEL)
+            .put(DEVICE_MODEL_NAME, getDeviceModel())
             .put(DEVICE_MODEL_IDENTIFIER, modelIdentifier)
             .put(DEVICE_MANUFACTURER, Build.MANUFACTURER)
             .put(OS_NAME, "Android")
@@ -92,40 +92,27 @@ object AndroidResource {
         }
     }
 
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
-    private fun getLongVersionCodeApi28(packageInfo: android.content.pm.PackageInfo): Long {
-        return packageInfo.longVersionCode
-    }
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun getLongVersionCodeApi28(packageInfo: android.content.pm.PackageInfo): Long = packageInfo.longVersionCode
 
     private val modelIdentifier: String
-        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val modelIdApi31 = modelIdentifierApi31
-            if (modelIdApi31 == UNKNOWN_MODEL_ID) {
-                Build.MODEL
+        get() =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val modelIdApi31 = modelIdentifierApi31
+                if (modelIdApi31 == UNKNOWN_MODEL_ID) {
+                    getDeviceModel()
+                } else {
+                    modelIdApi31
+                }
             } else {
-                modelIdApi31
+                getDeviceModel()
             }
-        } else {
-            Build.MODEL
-        }
+
+    private fun getDeviceModel(): String = Build.MODEL.orEmpty()
 
     @get:RequiresApi(Build.VERSION_CODES.S)
     private val modelIdentifierApi31: String
         get() = "${Build.ODM_SKU}_${Build.SKU}"
-
-    private val oSDescription: String
-        get() {
-            val osDescriptionBuilder = StringBuilder()
-            return osDescriptionBuilder
-                .append("Android Version ")
-                .append(Build.VERSION.RELEASE)
-                .append(" (Build ")
-                .append(Build.ID)
-                .append(" API level ")
-                .append(Build.VERSION.SDK_INT)
-                .append(")")
-                .toString()
-        }
 
     private const val UNKNOWN_MODEL_ID = "unknown_unknown"
 }

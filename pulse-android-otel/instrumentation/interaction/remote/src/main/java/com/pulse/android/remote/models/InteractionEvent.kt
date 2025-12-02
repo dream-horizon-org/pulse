@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public data class InteractionEvent(
-    val name: String,
-    val props: List<InteractionAttrsEntry>?,
-    val isBlacklisted: Boolean
+public class InteractionEvent internal constructor(
+    public val name: String,
+    public val props: List<InteractionAttrsEntry>?,
+    public val isBlacklisted: Boolean,
 )

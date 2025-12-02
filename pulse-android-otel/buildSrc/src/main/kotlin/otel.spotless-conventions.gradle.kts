@@ -62,9 +62,6 @@ fun configureKotlin(
 ) {
     spotlessExtension.kotlin {
         ktlint()
-        licenseHeaderFile(
-            rootProject.file("gradle/spotless.license.java")
-        )
         target("src/**/*.kt")
     }
 }

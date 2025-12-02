@@ -34,5 +34,4 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
         }
     }
 
-public fun Map<String, Any?>.toAttributes(): Attributes =
-    (Attributes.builder() putAttributesFrom this).build()
+public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()

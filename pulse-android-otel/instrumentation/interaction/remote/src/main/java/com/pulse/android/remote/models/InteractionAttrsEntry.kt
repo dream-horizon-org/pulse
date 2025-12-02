@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public data class InteractionAttrsEntry(
-    val name: String,
-    val value: String,
-    val operator: String,
+public class InteractionAttrsEntry internal constructor(
+    public val name: String,
+    public val value: String,
+    public val operator: String,
 )

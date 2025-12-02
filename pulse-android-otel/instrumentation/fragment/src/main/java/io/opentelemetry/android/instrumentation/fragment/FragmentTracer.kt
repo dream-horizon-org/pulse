@@ -2,6 +2,7 @@
  * Copyright The OpenTelemetry Authors
  * SPDX-License-Identifier: Apache-2.0
  */
+
 package io.opentelemetry.android.instrumentation.fragment
 
 import androidx.fragment.app.Fragment
@@ -12,47 +13,54 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.context.Scope
 
-internal class FragmentTracer private constructor(builder: Builder) {
-    private val fragmentName: String =  builder.getFragmentName()
+internal class FragmentTracer private constructor(
+    builder: Builder,
+) {
+    private val fragmentName: String = builder.getFragmentName()
     private val screenName: String? = builder.screenName
     private val tracer: Tracer = builder.tracer
     private val activeSpan: ActiveSpan = builder.activeSpan
     private var sessionSpan: Span? = null
     private var sessionScope: Scope? = null
 
-    fun startSpanIfNoneInProgress(action: String) = apply {
-        if (activeSpan.spanInProgress()) {
-            return this
-        }
-        activeSpan.startSpanIfNotStarted { createSpan(action) }
-    }
-
-    fun startFragmentCreation() = apply {
-        activeSpan.startSpanIfNotStarted { createSpan("Created") }
-    }
-
-    fun startFragmentSessionSpan(): FragmentTracer = apply {
-        val spanBuilder =
-            tracer.spanBuilder("FragmentSession").apply {
-                setAttribute<String?>(FRAGMENT_NAME_KEY, fragmentName)
+    fun startSpanIfNoneInProgress(action: String) =
+        apply {
+            if (activeSpan.spanInProgress()) {
+                return this
             }
+            activeSpan.startSpanIfNotStarted { createSpan(action) }
+        }
 
-        val span = spanBuilder.startSpan()
-        // do this after the span is started, so we can override the default screen.name set by the
-        // RumAttributeAppender.
-        span.setAttribute(RumConstants.SCREEN_NAME_KEY, screenName)
-        sessionSpan = span
-        sessionScope = span.makeCurrent()
-    }
+    fun startFragmentCreation() =
+        apply {
+            activeSpan.startSpanIfNotStarted { createSpan("Created") }
+        }
 
-    fun stopFragmentSessionSpan(): FragmentTracer = apply {
-        sessionSpan?.end()
-        sessionScope?.close()
-    }
+    fun startFragmentSessionSpan(): FragmentTracer =
+        apply {
+            val spanBuilder =
+                tracer.spanBuilder("FragmentSession").apply {
+                    setAttribute<String?>(FRAGMENT_NAME_KEY, fragmentName)
+                }
+
+            val span = spanBuilder.startSpan()
+            // do this after the span is started, so we can override the default screen.name set by the
+            // RumAttributeAppender.
+            span.setAttribute(RumConstants.SCREEN_NAME_KEY, screenName)
+            sessionSpan = span
+            sessionScope = span.makeCurrent()
+        }
+
+    fun stopFragmentSessionSpan(): FragmentTracer =
+        apply {
+            sessionSpan?.end()
+            sessionScope?.close()
+        }
 
     private fun createSpan(spanName: String): Span {
         val span =
-            tracer.spanBuilder(spanName)
+            tracer
+                .spanBuilder(spanName)
                 .setAttribute<String?>(FRAGMENT_NAME_KEY, fragmentName)
                 .startSpan()
         // do this after the span is started, so we can override the default screen.name set by the
@@ -70,32 +78,36 @@ internal class FragmentTracer private constructor(builder: Builder) {
         return this
     }
 
-    fun addEvent(eventName: String?) = apply {
-        activeSpan.addEvent(eventName)
-    }
+    fun addEvent(eventName: String?) =
+        apply {
+            activeSpan.addEvent(eventName)
+        }
 
-    internal class Builder(private val fragment: Fragment) {
+    internal class Builder(
+        private val fragment: Fragment,
+    ) {
         var screenName: String? = ""
         var tracer: Tracer = INVALID_TRACER
             private set
         var activeSpan: ActiveSpan = INVALID_ACTIVE_SPAN
             private set
 
-        fun setTracer(tracer: Tracer) = apply {
-            this.tracer = tracer
-        }
+        fun setTracer(tracer: Tracer) =
+            apply {
+                this.tracer = tracer
+            }
 
-        fun setScreenName(screenName: String?) = apply {
-            this.screenName = screenName
-        }
+        fun setScreenName(screenName: String?) =
+            apply {
+                this.screenName = screenName
+            }
 
-        fun setActiveSpan(activeSpan: ActiveSpan) = apply {
-            this.activeSpan = activeSpan
-        }
+        fun setActiveSpan(activeSpan: ActiveSpan) =
+            apply {
+                this.activeSpan = activeSpan
+            }
 
-        fun getFragmentName(): String {
-            return fragment.javaClass.getSimpleName()
-        }
+        fun getFragmentName(): String = fragment.javaClass.getSimpleName()
 
         fun build(): FragmentTracer {
             check(activeSpan !== INVALID_ACTIVE_SPAN) { "activeSpan must be configured." }
@@ -113,8 +125,6 @@ internal class FragmentTracer private constructor(builder: Builder) {
         val FRAGMENT_NAME_KEY: AttributeKey<String?> = AttributeKey.stringKey("fragment.name")
 
         @JvmStatic
-        fun builder(fragment: Fragment): Builder {
-            return Builder(fragment)
-        }
+        fun builder(fragment: Fragment): Builder = Builder(fragment)
     }
 }

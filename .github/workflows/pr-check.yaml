@@ -1,6 +1,9 @@
 name: PR build
 
-on: pull_request
+on:
+  pull_request:
+    paths:
+      - 'pulse-android-otel/**'
 
 permissions:
   contents: read
@@ -9,6 +12,11 @@ jobs:
   pr-checks:
     name: "pr-checks"
     runs-on: ubuntu-latest
+    env:
+      ANDROID_PROJECT_DIR: ./pulse-android-otel
+    defaults:
+      run:
+        working-directory: ${{ env.ANDROID_PROJECT_DIR }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Set up JDK for running Gradle
@@ -29,7 +37,7 @@ jobs:
           files: build/reports/kover/report.xml
           slug: open-telemetry/opentelemetry-android
       - name: build demo app
-        working-directory: ./demo-app
+        working-directory: ${{ env.ANDROID_PROJECT_DIR }}/demo-app
         run: ./gradlew assembleRelease
 
   required-status-check:

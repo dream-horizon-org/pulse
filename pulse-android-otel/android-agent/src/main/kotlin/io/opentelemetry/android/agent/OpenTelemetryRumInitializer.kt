@@ -113,8 +113,7 @@ object OpenTelemetryRumInitializer {
                 tracerProviderCustomizer?.let { addTracerProviderCustomizer(tracerProviderCustomizer) }
                 meterProviderCustomizer?.let { addMeterProviderCustomizer(meterProviderCustomizer) }
                 loggerProviderCustomizer?.let { addLoggerProviderCustomizer(loggerProviderCustomizer) }
-            }
-            .build()
+            }.build()
     }
 
     private fun createSessionProvider(

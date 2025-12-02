@@ -2,6 +2,7 @@
  * Copyright The OpenTelemetry Authors
  * SPDX-License-Identifier: Apache-2.0
  */
+
 package io.opentelemetry.android.instrumentation.activity
 
 import android.app.Activity
@@ -16,26 +17,30 @@ import io.opentelemetry.context.Context
 import io.opentelemetry.context.Scope
 import java.util.concurrent.atomic.AtomicReference
 
-class ActivityTracer private constructor(builder: Builder) {
+class ActivityTracer private constructor(
+    builder: Builder,
+) {
     private val initialAppActivity: AtomicReference<String> = builder.initialAppActivity
     private val tracer: Tracer = builder.tracer
     private val activityName: String = builder.activityName
-    val screenName: String? = builder.screenName
+    private val screenName: String = builder.screenName
     private val appStartupTimer: AppStartupTimer = builder.appStartupTimer
     private val activeSpan: ActiveSpan = builder.activeSpan
     private var sessionSpan: Span? = null
     private var sessionScope: Scope? = null
 
-    fun startSpanIfNoneInProgress(spanName: String): ActivityTracer = apply {
-        if (activeSpan.spanInProgress()) {
-            return this
+    internal fun startSpanIfNoneInProgress(spanName: String): ActivityTracer =
+        apply {
+            if (activeSpan.spanInProgress()) {
+                return this
+            }
+            activeSpan.startSpanIfNotStarted { createSpanWithParent(spanName, null) }
         }
-        activeSpan.startSpanIfNotStarted { createSpanWithParent(spanName, null) }
-    }
 
-    fun startActivityCreation(): ActivityTracer = apply {
-        activeSpan.startSpanIfNotStarted { this.makeCreationSpan() }
-    }
+    internal fun startActivityCreation(): ActivityTracer =
+        apply {
+            activeSpan.startSpanIfNotStarted { this.makeCreationSpan() }
+        }
 
     private fun makeCreationSpan(): Span {
         // If the application has never loaded an activity, or this is the initial activity getting
@@ -52,27 +57,29 @@ class ActivityTracer private constructor(builder: Builder) {
         return createSpanWithParent("Created", null)
     }
 
-    fun startActivitySessionSpan(): ActivityTracer = apply {
-        val spanBuilder =
-            tracer.spanBuilder("ActivitySession").apply {
-                setAttribute<String?>(ACTIVITY_NAME_KEY, activityName)
-                setNoParent()
-            }
+    internal fun startActivitySessionSpan(): ActivityTracer =
+        apply {
+            val spanBuilder =
+                tracer.spanBuilder("ActivitySession").apply {
+                    setAttribute<String?>(ACTIVITY_NAME_KEY, activityName)
+                    setNoParent()
+                }
 
-        val span = spanBuilder.startSpan()
-        // do this after the span is started, so we can override the default screen.name set by the
-        // RumAttributeAppender.
-        span.setAttribute(RumConstants.SCREEN_NAME_KEY, screenName)
-        sessionScope = span.makeCurrent()
-        sessionSpan = span
-    }
+            val span = spanBuilder.startSpan()
+            // do this after the span is started, so we can override the default screen.name set by the
+            // RumAttributeAppender.
+            span.setAttribute(RumConstants.SCREEN_NAME_KEY, screenName)
+            sessionScope = span.makeCurrent()
+            sessionSpan = span
+        }
 
-    fun stopActivitySessionSpan(): ActivityTracer = apply {
-        sessionSpan?.end()
-        sessionScope?.close()
-    }
+    internal fun stopActivitySessionSpan(): ActivityTracer =
+        apply {
+            sessionSpan?.end()
+            sessionScope?.close()
+        }
 
-    fun initiateRestartSpanIfNecessary(multiActivityApp: Boolean): ActivityTracer {
+    internal fun initiateRestartSpanIfNecessary(multiActivityApp: Boolean): ActivityTracer {
         if (activeSpan.spanInProgress()) {
             return this
         }
@@ -96,7 +103,10 @@ class ActivityTracer private constructor(builder: Builder) {
         return span
     }
 
-    private fun createSpanWithParent(spanName: String, parentSpan: Span?): Span {
+    private fun createSpanWithParent(
+        spanName: String,
+        parentSpan: Span?,
+    ): Span {
         val spanBuilder =
             tracer.spanBuilder(spanName).setAttribute<String?>(ACTIVITY_NAME_KEY, activityName)
         if (parentSpan != null) {
@@ -123,15 +133,19 @@ class ActivityTracer private constructor(builder: Builder) {
         activeSpan.endActiveSpan()
     }
 
-    fun addPreviousScreenAttribute(): ActivityTracer = apply {
-        activeSpan.addPreviousScreenAttribute(activityName)
-    }
+    fun addPreviousScreenAttribute(): ActivityTracer =
+        apply {
+            activeSpan.addPreviousScreenAttribute(activityName)
+        }
 
-    fun addEvent(eventName: String?): ActivityTracer = apply {
-        activeSpan.addEvent(eventName)
-    }
+    fun addEvent(eventName: String?): ActivityTracer =
+        apply {
+            activeSpan.addEvent(eventName)
+        }
 
-    internal class Builder(private val activity: Activity) {
+    internal class Builder(
+        private val activity: Activity,
+    ) {
         var screenName: String = "unknown_screen"
             private set
 
@@ -147,37 +161,43 @@ class ActivityTracer private constructor(builder: Builder) {
         var activeSpan: ActiveSpan = INVALID_ACTIVE_SPAN
             private set
 
+        fun setVisibleScreenTracker(visibleScreenTracker: VisibleScreenTracker) =
+            apply {
+                this.activeSpan = ActiveSpan(visibleScreenTracker::previouslyVisibleScreen)
+            }
 
-        fun setVisibleScreenTracker(visibleScreenTracker: VisibleScreenTracker) = apply {
-            this.activeSpan = ActiveSpan(visibleScreenTracker::previouslyVisibleScreen)
-        }
+        fun setInitialAppActivity(activityName: String) =
+            apply {
+                initialAppActivity.set(activityName)
+            }
 
-        fun setInitialAppActivity(activityName: String) = apply {
-            initialAppActivity.set(activityName)
-        }
+        fun setInitialAppActivity(initialAppActivity: AtomicReference<String>) =
+            apply {
+                this.initialAppActivity = initialAppActivity
+            }
 
-        fun setInitialAppActivity(initialAppActivity: AtomicReference<String>) = apply {
-            this.initialAppActivity = initialAppActivity
-        }
+        fun setTracer(tracer: Tracer) =
+            apply {
+                this.tracer = tracer
+            }
 
-        fun setTracer(tracer: Tracer) = apply {
-            this.tracer = tracer
-        }
+        fun setAppStartupTimer(appStartupTimer: AppStartupTimer) =
+            apply {
+                this.appStartupTimer = appStartupTimer
+            }
 
-        fun setAppStartupTimer(appStartupTimer: AppStartupTimer) = apply {
-            this.appStartupTimer = appStartupTimer
-        }
-
-        fun setActiveSpan(activeSpan: ActiveSpan) = apply {
-            this.activeSpan = activeSpan
-        }
+        fun setActiveSpan(activeSpan: ActiveSpan) =
+            apply {
+                this.activeSpan = activeSpan
+            }
 
         val activityName: String
             get() = activity.javaClass.simpleName
 
-        fun setScreenName(screenName: String) = apply {
-            this.screenName = screenName
-        }
+        fun setScreenName(screenName: String) =
+            apply {
+                this.screenName = screenName
+            }
 
         fun build(): ActivityTracer {
             check(activeSpan !== INVALID_ACTIVE_SPAN) { "activeSpan must be configured." }
@@ -186,19 +206,17 @@ class ActivityTracer private constructor(builder: Builder) {
             return ActivityTracer(this)
         }
 
-        companion object {
+        private companion object {
             private val INVALID_ACTIVE_SPAN = ActiveSpan { null }
-            private val INVALID_TRACER = Tracer { spanName: String? -> null }
+            private val INVALID_TRACER = Tracer { _: String? -> null }
             private val INVALID_TIMER = AppStartupTimer()
         }
     }
 
-    companion object {
-        @JvmStatic
-        val ACTIVITY_NAME_KEY: AttributeKey<String?> = AttributeKey.stringKey("activity.name")
+    internal companion object {
+        @JvmField
+        internal val ACTIVITY_NAME_KEY: AttributeKey<String?> = AttributeKey.stringKey("activity.name")
 
-        internal fun builder(activity: Activity): Builder {
-            return Builder(activity)
-        }
+        internal fun builder(activity: Activity): Builder = Builder(activity)
     }
 }

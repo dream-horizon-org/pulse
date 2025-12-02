@@ -3,7 +3,6 @@ plugins {
     id("otel.publish-conventions")
 }
 
-
 description = "Pulse SDK for mobile observability"
 
 android {

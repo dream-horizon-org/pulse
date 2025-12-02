@@ -29,9 +29,10 @@ class InteractionConfiguration internal constructor(
      * If not set, defaults to "http://10.0.2.2:8080/interaction-configs"
      * Also see [setConfigFetcher]
      */
-    fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration = apply {
-        interactionInstrumentation.setConfigFetcher(InteractionConfigRestFetcher(urlProvider))
-    }
+    fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration =
+        apply {
+            interactionInstrumentation.setConfigFetcher(InteractionConfigRestFetcher(urlProvider))
+        }
 
     /**
      * Configure the interaction config fetcher.
