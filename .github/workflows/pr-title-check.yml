@@ -1,5 +1,8 @@
 name: Enforce PR title format
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     types:
@@ -14,8 +17,10 @@ jobs:
 
     steps:
       - name: Validate PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          title="${{ github.event.pull_request.title }}"
+          title="$PR_TITLE"
           echo "PR title: '$title'"
 
           # Required formats:
