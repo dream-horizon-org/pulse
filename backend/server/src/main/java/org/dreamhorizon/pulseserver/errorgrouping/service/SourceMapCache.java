@@ -49,12 +49,9 @@ public class SourceMapCache {
     this.r8Cache = Caffeine.newBuilder()
         .maximumSize(200)
         .executor(cmd -> {
-              Objects.requireNonNull(Vertx.currentContext());
-              Vertx.currentContext().runOnContext(v -> cmd.run());
-            }
-
-
-        ).expireAfterAccess(Duration.ofHours(24))
+          Objects.requireNonNull(Vertx.currentContext());
+          Vertx.currentContext().runOnContext(v -> cmd.run());
+        }).expireAfterAccess(Duration.ofHours(24))
         .recordStats()
         .buildAsync((UploadMetadata key, java.util.concurrent.Executor executor) -> {
           // DB -> bytes -> parse

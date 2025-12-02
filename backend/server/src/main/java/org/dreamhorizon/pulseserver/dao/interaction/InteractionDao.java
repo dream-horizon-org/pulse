@@ -292,9 +292,9 @@ public class InteractionDao {
     if (response.data.getRows() != null && !response.data.getRows().isEmpty()) {
       GetRawUserEventsResponseDto.Row firstRow = response.data.getRows().get(0);
 
-      for (int i = 0; i < firstRow.getF().size(); i++) {
+      for (int i = 0; i < firstRow.getRowFields().size(); i++) {
         String fieldName = keyNameForIndexMap.get(i);
-        Object value = firstRow.getF().get(i).getV();
+        Object value = firstRow.getRowFields().get(i).getValue();
 
         if (Objects.nonNull(value)) {
           filterValues.put(fieldName, objectMapper.convertValue(value,

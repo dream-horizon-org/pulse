@@ -15,16 +15,12 @@ import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
 
 /**
  * Tier-0 fingerprinting with pre-normalization symbolication.
- *
- * <p>
  * What it does:
  * 1) Parse raw stack trace into lanes (JS / JAVA / NDK) with rich frame info.
  * 2) Detect minified/obfuscated/unsymbolicated frames.
  * 3) Symbolicate per lane if artifacts are available (JS implemented here).
  * 4) Choose PRIMARY lane (by in-app frames), normalize tokens, build signature.
  * 5) Hash (SHA-1) and construct a display name.
- *
- * <p>
  * To enable JS symbolication, add dependency (Gradle):
  * implementation("com.google.javascript:closure-compiler:v20231002")
  * or a newer version that includes SourceMapConsumerV3.
