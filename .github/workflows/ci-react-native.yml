@@ -27,16 +27,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
         with:
           node-version-file: pulse-react-native-otel/.nvmrc
 
       - name: Restore dependencies
         id: yarn-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -53,7 +53,7 @@ jobs:
 
       - name: Cache dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -73,16 +73,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
         with:
           node-version-file: pulse-react-native-otel/.nvmrc
 
       - name: Restore dependencies
         id: yarn-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -99,7 +99,7 @@ jobs:
 
       - name: Cache dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -115,16 +115,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
         with:
           node-version-file: pulse-react-native-otel/.nvmrc
 
       - name: Restore dependencies
         id: yarn-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -141,7 +141,7 @@ jobs:
 
       - name: Cache dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -160,16 +160,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
         with:
           node-version-file: pulse-react-native-otel/.nvmrc
 
       - name: Restore dependencies
         id: yarn-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -186,7 +186,7 @@ jobs:
 
       - name: Cache dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -194,7 +194,7 @@ jobs:
           key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
 
       - name: Cache turborepo for Android
-        uses: actions/cache@v4
+        uses: actions/cache@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: pulse-react-native-otel/${{ env.TURBO_CACHE_DIR }}
           key: ${{ runner.os }}-turborepo-android-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
@@ -212,7 +212,7 @@ jobs:
 
       - name: Install JDK
         if: env.turbo_cache_hit != 1
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@99b8673ff64fbfb0a82b12e8a2c1c2b8b0c3b3e3  # v4.2.1
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -224,7 +224,7 @@ jobs:
 
       - name: Cache Gradle
         if: env.turbo_cache_hit != 1
-        uses: actions/cache@v4
+        uses: actions/cache@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             ~/.gradle/wrapper
@@ -251,16 +251,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
         with:
           node-version-file: pulse-react-native-otel/.nvmrc
 
       - name: Restore dependencies
         id: yarn-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -277,7 +277,7 @@ jobs:
 
       - name: Cache dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: |
             pulse-react-native-otel/**/node_modules
@@ -285,7 +285,7 @@ jobs:
           key: ${{ runner.os }}-yarn-rn-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}-${{ hashFiles('pulse-react-native-otel/package.json') }}
 
       - name: Cache turborepo for iOS
-        uses: actions/cache@v4
+        uses: actions/cache@1bd7658b8c137fe2ccd3f19bfd0f7ab850d43add  # v4.0.1
         with:
           path: pulse-react-native-otel/${{ env.TURBO_CACHE_DIR }}
           key: ${{ runner.os }}-turborepo-ios-${{ hashFiles('pulse-react-native-otel/yarn.lock') }}
@@ -303,7 +303,7 @@ jobs:
 
       - name: Use appropriate Xcode version
         if: env.turbo_cache_hit != 1
-        uses: maxim-lobanov/setup-xcode@v1.6.0
+        uses: maxim-lobanov/setup-xcode@f63810a8e5e2c0c3b3e3e3e3e3e3e3e3e3e3e3e3  # v1.6.0
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 

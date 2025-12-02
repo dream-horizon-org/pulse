@@ -22,16 +22,16 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@99b8673ff64fbfb0a82b12e8a2c1c2b8b0c3b3e3  # v4.2.1
         with:
           distribution: temurin
           java-version: 17
 
       - name: Configure Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@29c0906b64b8fc82467890bfb7a0a7ef34bda89e  # v3.1.0
 
       - name: Publish to Maven Central
         working-directory: pulse-android-otel
