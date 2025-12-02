@@ -9,9 +9,9 @@ const root = path.resolve(__dirname, '..');
  * @type {import('metro-config').MetroConfig}
  */
 module.exports = (async () => {
-  const { withMetroConfig } = await import('react-native-monorepo-config'); 
+  const { withMetroConfig } = await import('react-native-monorepo-config');
   const defaultConfig = await getDefaultConfig(__dirname);
-  
+
   const config = withMetroConfig(defaultConfig, {
     root,
     dirname: __dirname,

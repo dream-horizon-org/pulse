@@ -22,7 +22,7 @@ export function setNetworkSpanAttributes(
     'platform': Platform.OS as 'android' | 'ios' | 'web',
   };
 
-  // We had implemented our own URL parsing helper to avoid errors on RN < 0.80. Since this is not supported by React Native. 
+  // We had implemented our own URL parsing helper to avoid errors on RN < 0.80. Since this is not supported by React Native.
   // Check here: https://github.com/facebook/react-native/blob/v0.79.0/packages/react-native/Libraries/Blob/URL.js
   const urlAttributes = extractHttpAttributes(startContext.url);
   attributes = { ...attributes, ...urlAttributes };

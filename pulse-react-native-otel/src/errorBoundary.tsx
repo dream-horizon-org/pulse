@@ -30,17 +30,22 @@ const INITIAL_STATE: ErrorBoundaryState = {
   error: null,
 };
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   public state: ErrorBoundaryState = INITIAL_STATE;
 
   public componentDidCatch(error: unknown, errorInfo: React.ErrorInfo): void {
-    const componentStack = errorInfo.componentStack || COMPONENT_STACK_UNAVAILABLE;
+    const componentStack =
+      errorInfo.componentStack || COMPONENT_STACK_UNAVAILABLE;
     const { onError } = this.props;
 
     // Error is handled if a fallback is provided, otherwise it's unhandled (fatal)
     const handled = !!this.props.fallback;
 
-    const errorToReport = error instanceof Error ? error : new Error(String(error));
+    const errorToReport =
+      error instanceof Error ? error : new Error(String(error));
     Pulse.reportException(errorToReport, !handled);
 
     if (onError) {
@@ -76,9 +81,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
 export function withErrorBoundary<P extends Record<string, any>>(
   WrappedComponent: React.ComponentType<P>,
-  errorBoundaryOptions: ErrorBoundaryProps,
+  errorBoundaryOptions: ErrorBoundaryProps
 ): React.FC<P> {
-  const componentDisplayName = WrappedComponent.displayName || WrappedComponent.name || UNKNOWN_COMPONENT;
+  const componentDisplayName =
+    WrappedComponent.displayName || WrappedComponent.name || UNKNOWN_COMPONENT;
 
   const Wrapped = React.memo((props: P) => (
     <ErrorBoundary {...errorBoundaryOptions}>

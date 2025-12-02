@@ -95,7 +95,7 @@ type DemoScreenProps = {
 
 function DemoScreen({ demo, onBack }: DemoScreenProps) {
   const DemoComponent = demo.component;
-  
+
   return (
     <View style={styles.fullContainer}>
       <Pressable
@@ -119,10 +119,7 @@ export default function App() {
 
   if (activeDemoConfig) {
     return (
-      <DemoScreen
-        demo={activeDemoConfig}
-        onBack={() => setActiveDemo(null)}
-      />
+      <DemoScreen demo={activeDemoConfig} onBack={() => setActiveDemo(null)} />
     );
   }
 
