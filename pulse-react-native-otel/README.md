@@ -347,7 +347,7 @@ ANR and frozen frame detection are enabled by default. To customize thresholds, 
 
 ### Tracking CodePush Deployments
 
-If your app uses over-the-air (OTA) updates like [Microsoft App Center CodePush](https://github.com/microsoft/react-native-code-push) or [Delivr DOTA](https://github.com/ds-horizon/delivr-sdk-ota), you can track which JavaScript bundle version is running by setting a global attribute.
+If your app uses over-the-air (OTA) updates like [Microsoft App Center CodePush](https://github.com/microsoft/react-native-code-push) or [Delivr DOTA](https://github.com/dream-horizon-org/delivr-sdk-ota), you can track which JavaScript bundle version is running by setting a global attribute.
 
 #### Why Track Code Bundle IDs?
 
@@ -380,7 +380,7 @@ All subsequent events, errors, and spans will automatically include the `codeBun
 
 Global attributes are automatically attached to all telemetry data (events, errors, spans) throughout your application's lifecycle.
 
-> **Note:** Global attributes set via `setGlobalAttribute` only apply to telemetry originating from the React Native side. Native Android events (ANR, frozen frames, activity lifecycle, etc.) are not affected. To set global attributes for native Android telemetry, refer to the [Pulse Android SDK initialization guide](https://github.com/ds-horizon/pulse/tree/feat/interaction-reactive/pulse-android-otel#agent-initialization).
+> **Note:** Global attributes set via `setGlobalAttribute` only apply to telemetry originating from the React Native side. Native Android events (ANR, frozen frames, activity lifecycle, etc.) are not affected. To set global attributes for native Android telemetry, refer to the [Pulse Android SDK initialization guide](https://github.com/dream-horizon-org/pulse/tree/feat/interaction-reactive/pulse-android-otel#agent-initialization).
 
 #### Basic Usage
 
