@@ -1,4 +1,4 @@
-name: Gradle wrapper validation
+name: Android SDK - Gradle wrapper validation
 
 on:
   push:

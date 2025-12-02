@@ -1,4 +1,4 @@
-name: Build
+name: Android SDK - Build
 
 on:
   push:
@@ -56,11 +56,6 @@ jobs:
       #     SONATYPE_KEY: ${{ secrets.SONATYPE_KEY }}
       #     GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       #     GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
-
-  markdown-link-check:
-    # release branches are excluded to avoid unnecessary maintenance
-    if: ${{ !startsWith(github.ref_name, 'release/') }}
-    uses: ./.github/workflows/reusable-link-check.yml
 
   workflow-notification:
     permissions: # required by the reusable workflow
