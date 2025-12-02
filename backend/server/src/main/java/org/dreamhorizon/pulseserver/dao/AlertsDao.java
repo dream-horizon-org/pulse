@@ -740,7 +740,7 @@ public class AlertsDao {
       List<AlertSeverityResponseDto> severities = new ArrayList<>();
 
       rowSet.forEach(row -> severities.add(
-          AlertSeverityResponseDto.builder().severity_id(row.getInteger("severity_id")).name(row.getInteger("name"))
+          AlertSeverityResponseDto.builder().severityId(row.getInteger("severity_id")).name(row.getInteger("name"))
               .description(row.getString("description")).build()));
 
       return severities;
@@ -785,10 +785,10 @@ public class AlertsDao {
           rowSet.forEach(row -> notificationChannels
               .add(AlertNotificationChannelResponseDto
                   .builder()
-                  .notification_channel_id(row
+                  .notificationChannelId(row
                       .getInteger("notification_channel_id"))
                   .name(row.getString("name"))
-                  .notification_webhook_url(row.getString("notification_webhook_url"))
+                  .notificationWebhookUrl(row.getString("notification_webhook_url"))
                   .build()));
 
           return notificationChannels;
@@ -838,7 +838,7 @@ public class AlertsDao {
 
       List<AlertTagsResponseDto> tags = new ArrayList<>();
 
-      rowSet.forEach(row -> tags.add(AlertTagsResponseDto.builder().tag_id(row.getInteger("tag_id")).name(row.getString("name")).build()));
+      rowSet.forEach(row -> tags.add(AlertTagsResponseDto.builder().tagId(row.getInteger("tag_id")).name(row.getString("name")).build()));
 
       return tags;
     });
@@ -860,7 +860,7 @@ public class AlertsDao {
           List<AlertTagsResponseDto> tags = new ArrayList<>();
 
           rowSet.forEach(
-              row -> tags.add(AlertTagsResponseDto.builder().tag_id(row.getInteger("tag_id")).name(row.getString("name")).build()));
+              row -> tags.add(AlertTagsResponseDto.builder().tagId(row.getInteger("tag_id")).name(row.getString("name")).build()));
 
           return tags;
         });

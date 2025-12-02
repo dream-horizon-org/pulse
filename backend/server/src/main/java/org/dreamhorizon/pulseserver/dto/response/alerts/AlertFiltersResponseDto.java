@@ -16,17 +16,17 @@ import org.dreamhorizon.pulseserver.enums.AlertState;
 public class AlertFiltersResponseDto {
   @NotNull
   @JsonProperty("job_id")
-  public List<String> job_id;
+  public List<String> jobId;
 
   @NotNull
   @JsonProperty("created_by")
-  public List<String> created_by;
+  public List<String> createdBy;
 
   @NotNull
   @JsonProperty("updated_by")
-  public List<String> updated_by;
+  public List<String> updatedBy;
 
   @NotNull
   @JsonProperty("current_state")
-  public List<AlertState> current_state;
+  public List<AlertState> currentState;
 }

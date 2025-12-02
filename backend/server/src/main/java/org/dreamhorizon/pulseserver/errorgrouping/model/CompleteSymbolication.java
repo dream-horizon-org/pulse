@@ -21,7 +21,6 @@ public class CompleteSymbolication {
   /**
    * Reconstructs the complete stack trace with symbolicated frames.
    * PRESERVES ORIGINAL ORDER by sorting frames by their original position.
-   * <p>
    * Note: Java frames from retrace may expand (due to inlining), so they are
    * grouped together at the position of the first original Java frame.
    */
@@ -47,7 +46,7 @@ public class CompleteSymbolication {
 
     // JS frames - preserve exact positions (1-to-1 mapping, no expansion)
     for (int i = 0; i < originalFrames.getJsFrames().size(); i++) {
-      JSFrame frame = originalFrames.getJsFrames().get(i);
+      JsFrame frame = originalFrames.getJsFrames().get(i);
       String symbolicatedFrame = i < symbolicatedJsFrames.size()
           ? symbolicatedJsFrames.get(i)
           : frame.getRawLine();
@@ -77,7 +76,7 @@ public class CompleteSymbolication {
 
     // NDK frames - preserve exact positions (typically 1-to-1, no expansion expected)
     for (int i = 0; i < originalFrames.getNdkFrames().size(); i++) {
-      NDKFrame frame = originalFrames.getNdkFrames().get(i);
+      NdkFrame frame = originalFrames.getNdkFrames().get(i);
       String symbolicatedFrame = i < symbolicatedNdkFrames.size()
           ? symbolicatedNdkFrames.get(i)
           : frame.getRawLine();
