@@ -1,87 +1,86 @@
 package org.dreamhorizon.pulseserver.errorgrouping.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Builder
 @AllArgsConstructor
 @Data
 @NoArgsConstructor
 public class StackTraceEvent {
-    // --- Core ---
-    @JsonProperty("Timestamp")
-    private String timestamp;
+  // --- Core ---
+  @JsonProperty("Timestamp")
+  private String timestamp;
 
-    @JsonProperty("EventName")
-    private String eventName;
+  @JsonProperty("EventName")
+  private String eventName;
 
-    @JsonProperty("Title")
-    private String title;
+  @JsonProperty("Title")
+  private String title;
 
-    // --- Exception details ---
-    @JsonProperty("ExceptionStackTrace")
-    private String exceptionStackTrace;
-    
-    @JsonProperty("ExceptionStackTraceRaw")
-    private String exceptionStackTraceRaw;
+  // --- Exception details ---
+  @JsonProperty("ExceptionStackTrace")
+  private String exceptionStackTrace;
 
-    @JsonProperty("ExceptionMessage")
-    private String exceptionMessage;
+  @JsonProperty("ExceptionStackTraceRaw")
+  private String exceptionStackTraceRaw;
 
-    @JsonProperty("ExceptionType")
-    private String exceptionType;
+  @JsonProperty("ExceptionMessage")
+  private String exceptionMessage;
 
-    // --- App/session context ---
-    @JsonProperty("Interactions")
-    private List<String> interactions;
+  @JsonProperty("ExceptionType")
+  private String exceptionType;
 
-    @JsonProperty("ScreenName")
-    private String screenName;
+  // --- App/session context ---
+  @JsonProperty("Interactions")
+  private List<String> interactions;
 
-    @JsonProperty("UserId")
-    private String userId;
+  @JsonProperty("ScreenName")
+  private String screenName;
 
-    @JsonProperty("SessionId")
-    private String sessionId;
+  @JsonProperty("UserId")
+  private String userId;
 
-    // --- Device/app metadata ---
-    @JsonProperty("Platform")
-    private String platform;
+  @JsonProperty("SessionId")
+  private String sessionId;
 
-    @JsonProperty("OsVersion")
-    private String osVersion;
+  // --- Device/app metadata ---
+  @JsonProperty("Platform")
+  private String platform;
 
-    @JsonProperty("DeviceModel")
-    private String deviceModel;
+  @JsonProperty("OsVersion")
+  private String osVersion;
 
-    @JsonProperty("AppVersionCode")
-    private String appVersionCode;
+  @JsonProperty("DeviceModel")
+  private String deviceModel;
 
-    @JsonProperty("AppVersion")
-    private String appVersion;
+  @JsonProperty("AppVersionCode")
+  private String appVersionCode;
 
-    @JsonProperty("SdkVersion")
-    private String sdkVersion;
+  @JsonProperty("AppVersion")
+  private String appVersion;
 
-    // --- Tracing ---
-    @JsonProperty("TraceId")
-    private String traceId;
+  @JsonProperty("SdkVersion")
+  private String sdkVersion;
 
-    @JsonProperty("SpanId")
-    private String spanId;
+  // --- Tracing ---
+  @JsonProperty("TraceId")
+  private String traceId;
 
-    // --- Grouping keys ---
-    @JsonProperty("GroupId")
-    private String groupId;
+  @JsonProperty("SpanId")
+  private String spanId;
 
-    @JsonProperty("Signature")
-    private String signature;
+  // --- Grouping keys ---
+  @JsonProperty("GroupId")
+  private String groupId;
 
-    @JsonProperty("Fingerprint")
-    private String fingerprint;
+  @JsonProperty("Signature")
+  private String signature;
+
+  @JsonProperty("Fingerprint")
+  private String fingerprint;
 }

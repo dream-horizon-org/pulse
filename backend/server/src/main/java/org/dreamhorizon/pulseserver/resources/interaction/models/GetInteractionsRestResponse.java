@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.interaction.models;
 
 import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

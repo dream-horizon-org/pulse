@@ -4,14 +4,14 @@ import static org.dreamhorizon.pulseserver.dao.interaction.Queries.ARCHIVE_JOB;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.AUDIT_INTERACTION_CHANGES;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_COUNT_OF_INTERACTION_NAME_NAME;
 
-import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))

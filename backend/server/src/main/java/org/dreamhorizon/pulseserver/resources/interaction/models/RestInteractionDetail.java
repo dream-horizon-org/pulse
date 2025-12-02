@@ -1,17 +1,17 @@
 package org.dreamhorizon.pulseserver.resources.interaction.models;
 
-import org.dreamhorizon.pulseserver.resources.interaction.validators.CreateInteractionValidations;
-import org.dreamhorizon.pulseserver.resources.interaction.validators.UpdateInteractionValidations;
-import java.sql.Timestamp;
-import java.util.List;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.DefaultValue;
+import java.sql.Timestamp;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.resources.interaction.validators.CreateInteractionValidations;
+import org.dreamhorizon.pulseserver.resources.interaction.validators.UpdateInteractionValidations;
 
 @Getter
 @Builder
@@ -43,9 +43,9 @@ public class RestInteractionDetail {
 
   @NotNull(message = "Event sequence cannot be null", groups = {CreateInteractionValidations.class})
   @Size(
-          min = 2,
-          message = "Event Sequence must have at least two element",
-          groups = {CreateInteractionValidations.class, UpdateInteractionValidations.class})
+      min = 2,
+      message = "Event Sequence must have at least two element",
+      groups = {CreateInteractionValidations.class, UpdateInteractionValidations.class})
   private List<Event> events;
 
   @NotNull(message = "Global blacklisted events cannot be null", groups = {CreateInteractionValidations.class})

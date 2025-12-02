@@ -1,11 +1,11 @@
 package org.dreamhorizon.pulseserver.service.interaction.impl;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 

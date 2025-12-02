@@ -13,11 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 @AllArgsConstructor
 @Singleton
 public class ClickhouseConfig {
-    private String r2dbcUrl;
-    private String username;
-    private String password;
-    private Integer initsize;
-    private Integer maxsize;
-    private String host;
-    private Integer port;
+  private String r2dbcUrl;
+  private String username;
+  private String password;
+  private Integer initsize;
+  private Integer maxsize;
+  private String host;
+  private Integer port;
 }

@@ -1,25 +1,23 @@
 package org.dreamhorizon.pulseserver.resources;
 
 
-import org.dreamhorizon.pulseserver.healthcheck.HealthCheckResponse;
-import org.dreamhorizon.pulseserver.healthcheck.HealthCheckUtil;
-import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
-import org.dreamhorizon.pulseserver.dao.HealthCheckDao;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
-import java.util.concurrent.CompletionStage;
-
-
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.dreamhorizon.pulseserver.dao.HealthCheckDao;
+import org.dreamhorizon.pulseserver.healthcheck.HealthCheckResponse;
+import org.dreamhorizon.pulseserver.healthcheck.HealthCheckUtil;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))

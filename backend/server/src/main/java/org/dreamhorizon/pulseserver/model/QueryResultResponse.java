@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.model;
 
 import java.util.List;
-
 import lombok.Builder;
 import lombok.Getter;
 

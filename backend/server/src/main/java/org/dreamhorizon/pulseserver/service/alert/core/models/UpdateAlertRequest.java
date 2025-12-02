@@ -1,7 +1,7 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
-import java.util.List;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,39 +11,39 @@ import lombok.experimental.FieldDefaults;
 @Builder(toBuilder = true)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateAlertRequest {
-    @NotNull
-    Integer alertId;
+  @NotNull
+  Integer alertId;
 
-    @NotNull
-    String name;
+  @NotNull
+  String name;
 
-    @NotNull
-    String description;
+  @NotNull
+  String description;
 
-    @NotNull
-    Integer evaluationPeriod;
+  @NotNull
+  Integer evaluationPeriod;
 
-    @NotNull
-    Integer evaluationInterval;
+  @NotNull
+  Integer evaluationInterval;
 
-    @NotNull
-    Integer severity;
+  @NotNull
+  Integer severity;
 
-    @NotNull
-    Integer notificationChannelId;
+  @NotNull
+  Integer notificationChannelId;
 
-    @NotNull
-    String updatedBy;
+  @NotNull
+  String updatedBy;
 
-    @NotNull
-    AlertScope scope;
+  @NotNull
+  AlertScope scope;
 
-    @NotNull
-    List<String> dimensionFilters;
+  @NotNull
+  List<String> dimensionFilters;
 
-    @NotNull
-    String conditionExpression;
+  @NotNull
+  String conditionExpression;
 
-    @NotNull
-    List<AlertCondition> alerts;
+  @NotNull
+  List<AlertCondition> alerts;
 }

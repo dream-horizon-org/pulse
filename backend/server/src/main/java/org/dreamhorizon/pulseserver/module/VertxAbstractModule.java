@@ -5,13 +5,13 @@ import io.vertx.core.Vertx;
 
 public abstract class VertxAbstractModule extends AbstractModule {
 
-    public VertxAbstractModule(Vertx vertx) {
-    }
+  public VertxAbstractModule(Vertx vertx) {
+  }
 
-    @Override
-    protected void configure() {
-        bindConfiguration();
-    }
+  @Override
+  protected void configure() {
+    bindConfiguration();
+  }
 
-    protected abstract void bindConfiguration();
+  protected abstract void bindConfiguration();
 }

@@ -5,11 +5,11 @@ import io.vertx.rxjava3.mysqlclient.MySQLPool;
 
 public interface MysqlClient {
 
-    MySQLPool getWriterPool();
+  MySQLPool getWriterPool();
 
-    MySQLPool getReaderPool();
+  MySQLPool getReaderPool();
 
-    Completable rxConnect();
+  Completable rxConnect();
 
-    Completable rxClose();
+  Completable rxClose();
 }

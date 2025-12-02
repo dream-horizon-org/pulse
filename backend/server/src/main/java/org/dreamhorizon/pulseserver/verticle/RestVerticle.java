@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.verticle;
 
-import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import com.dream11.rest.AbstractRestVerticle;
 import com.dream11.rest.ClassInjector;
 import io.vertx.core.http.HttpMethod;
@@ -10,56 +9,56 @@ import io.vertx.rxjava3.ext.web.handler.BodyHandler;
 import io.vertx.rxjava3.ext.web.handler.CorsHandler;
 import io.vertx.rxjava3.ext.web.handler.ResponseContentTypeHandler;
 import io.vertx.rxjava3.ext.web.handler.StaticHandler;
-
 import java.util.HashSet;
 import java.util.Set;
+import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 
 public class RestVerticle extends AbstractRestVerticle {
-    private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
+  private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
 
 
-    protected RestVerticle(HttpServerOptions httpServerOptions) {
-        super(PACKAGE_NAME, httpServerOptions);
-    }
+  protected RestVerticle(HttpServerOptions httpServerOptions) {
+    super(PACKAGE_NAME, httpServerOptions);
+  }
 
-    @Override
-    protected ClassInjector getInjector() {
-        return GuiceInjector.getGuiceInjector();
-    }
+  @Override
+  protected ClassInjector getInjector() {
+    return GuiceInjector.getGuiceInjector();
+  }
 
-    @Override
-    protected Router getRouter() {
-        Router router = Router.router(vertx);
-        router.route().handler(BodyHandler.create());
-        router.route().handler(ResponseContentTypeHandler.create());
-        router.route().handler(StaticHandler.create());
+  @Override
+  protected Router getRouter() {
+    Router router = Router.router(vertx);
+    router.route().handler(BodyHandler.create());
+    router.route().handler(ResponseContentTypeHandler.create());
+    router.route().handler(StaticHandler.create());
 
 
-        final Set<String> allowedHeaders = new HashSet<>();
-        allowedHeaders.add("x-requested-with");
-        allowedHeaders.add("Access-Control-Allow-Origin");
-        allowedHeaders.add("Access-Control-Allow-Methods");
-        allowedHeaders.add("Access-Control-Allow-Headers");
-        allowedHeaders.add("Access-Control-Allow-Credentials");
-        allowedHeaders.add("origin");
-        allowedHeaders.add("Content-Type");
-        allowedHeaders.add("accept");
-        allowedHeaders.add("X-PINGARUNER");
-        allowedHeaders.add("Authorization");
+    final Set<String> allowedHeaders = new HashSet<>();
+    allowedHeaders.add("x-requested-with");
+    allowedHeaders.add("Access-Control-Allow-Origin");
+    allowedHeaders.add("Access-Control-Allow-Methods");
+    allowedHeaders.add("Access-Control-Allow-Headers");
+    allowedHeaders.add("Access-Control-Allow-Credentials");
+    allowedHeaders.add("origin");
+    allowedHeaders.add("Content-Type");
+    allowedHeaders.add("accept");
+    allowedHeaders.add("X-PINGARUNER");
+    allowedHeaders.add("Authorization");
 
-        final Set<HttpMethod> allowedMethods = new HashSet<>();
-        allowedMethods.add(HttpMethod.GET);
-        allowedMethods.add(HttpMethod.POST);
-        allowedMethods.add(HttpMethod.OPTIONS);
-        allowedMethods.add(HttpMethod.DELETE);
-        allowedMethods.add(HttpMethod.PATCH);
-        allowedMethods.add(HttpMethod.PUT);
-        router.route().handler(CorsHandler.create()
-                .addRelativeOrigin(".*.")
-                .allowCredentials(true)
-                .allowedMethods(allowedMethods)
-                .allowedHeaders(allowedHeaders));
+    final Set<HttpMethod> allowedMethods = new HashSet<>();
+    allowedMethods.add(HttpMethod.GET);
+    allowedMethods.add(HttpMethod.POST);
+    allowedMethods.add(HttpMethod.OPTIONS);
+    allowedMethods.add(HttpMethod.DELETE);
+    allowedMethods.add(HttpMethod.PATCH);
+    allowedMethods.add(HttpMethod.PUT);
+    router.route().handler(CorsHandler.create()
+        .addRelativeOrigin(".*.")
+        .allowCredentials(true)
+        .allowedMethods(allowedMethods)
+        .allowedHeaders(allowedHeaders));
 
-        return router;
-    }
+    return router;
+  }
 }

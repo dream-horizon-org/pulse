@@ -8,25 +8,25 @@ import lombok.Data;
 
 @Data
 public class Error {
-    private final String code;
-    private final String message;
+  private final String code;
+  private final String message;
 
-    @JsonCreator
-    Error(
-            @JsonProperty("code")
-            String code,
-            @JsonProperty("message")
-            String message) {
-        this.code = code;
-        this.message = message;
-    }
+  @JsonCreator
+  Error(
+      @JsonProperty("code")
+      String code,
+      @JsonProperty("message")
+      String message) {
+    this.code = code;
+    this.message = message;
+  }
 
-    public static Error of(String code, String message) {
-        return new Error(code, message);
-    }
+  public static Error of(String code, String message) {
+    return new Error(code, message);
+  }
 
-    @JsonIgnore
-    public String toJsonString() {
-        return new JsonObject().put("error", new JsonObject().put("code", code).put("message", message)).encode();
-    }
+  @JsonIgnore
+  public String toJsonString() {
+    return new JsonObject().put("error", new JsonObject().put("code", code).put("message", message)).encode();
+  }
 }

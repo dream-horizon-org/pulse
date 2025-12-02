@@ -1,44 +1,43 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.Builder;
 import lombok.Data;
-
-import java.util.List;
 
 @Data
 @Builder
 public class CreateAlertRequest {
-    @NotNull(message = "name cannot be null")
-    String name;
+  @NotNull(message = "name cannot be null")
+  String name;
 
-    @NotNull
-    String description;
+  @NotNull
+  String description;
 
-    @NotNull
-    Integer evaluationPeriod;
+  @NotNull
+  Integer evaluationPeriod;
 
-    @NotNull
-    Integer evaluationInterval;
+  @NotNull
+  Integer evaluationInterval;
 
-    @NotNull
-    Integer severity;
+  @NotNull
+  Integer severity;
 
-    @NotNull
-    Integer notificationChannelId;
+  @NotNull
+  Integer notificationChannelId;
 
-    @NotNull
-    String createdBy;
+  @NotNull
+  String createdBy;
 
-    @NotNull
-    AlertScope scope;
+  @NotNull
+  AlertScope scope;
 
-    @NotNull
-    List<String> dimensionFilters;
+  @NotNull
+  List<String> dimensionFilters;
 
-    @NotNull
-    String conditionExpression;
+  @NotNull
+  String conditionExpression;
 
-    @NotNull
-    List<AlertCondition> alerts;
+  @NotNull
+  List<AlertCondition> alerts;
 }

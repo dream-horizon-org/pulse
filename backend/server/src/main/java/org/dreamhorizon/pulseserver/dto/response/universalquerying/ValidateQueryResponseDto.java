@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ValidateQueryResponseDto {
-    public boolean success;
-    public String errorMessage;
+  public boolean success;
+  public String errorMessage;
 }

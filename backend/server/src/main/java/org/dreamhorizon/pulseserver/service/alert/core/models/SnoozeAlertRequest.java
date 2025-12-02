@@ -1,7 +1,7 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
-import java.time.LocalDateTime;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 

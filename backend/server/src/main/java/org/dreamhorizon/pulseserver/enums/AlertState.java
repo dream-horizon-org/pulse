@@ -1,23 +1,24 @@
 package org.dreamhorizon.pulseserver.enums;
+
 import lombok.Getter;
 
 @Getter
 public enum AlertState {
-    NORMAL("NORMAL"),
-    FIRING("FIRING"),
-    SILENCED("SILENCED"),
-    NO_DATA("NO_DATA"),
-    ERRORED("ERRORED"),
-    QUERY_FAILED("QUERY_FAILED");
+  NORMAL("NORMAL"),
+  FIRING("FIRING"),
+  SILENCED("SILENCED"),
+  NO_DATA("NO_DATA"),
+  ERRORED("ERRORED"),
+  QUERY_FAILED("QUERY_FAILED");
 
-    private final String alertState;
+  private final String alertState;
 
-    AlertState(String alertState) {
-        this.alertState = alertState;
-    }
+  AlertState(String alertState) {
+    this.alertState = alertState;
+  }
 
-    @Override
-    public String toString() {
-        return alertState;
-    }
+  @Override
+  public String toString() {
+    return alertState;
+  }
 }
