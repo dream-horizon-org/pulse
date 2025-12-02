@@ -64,6 +64,8 @@ function createXmlHttpRequestTracker(
         url: requestData.url,
       };
 
+      this.setRequestHeader('X-Pulse-RN-Tracked', 'true');
+
       const span = createNetworkSpan(startContext, 'xmlhttprequest');
       trackedSpans.set(this, span);
       const { onRequestEnd } = requestTracker.start(startContext);

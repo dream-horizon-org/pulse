@@ -1,7 +1,10 @@
 import React from 'react';
-import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  type NavigationContainerRef,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import HomeScreen from '../screens/Home';
 import ProfileScreen from '../screens/Profile';
 import SettingsScreen from '../screens/Settings';
@@ -13,7 +16,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationIntegration = Pulse.createNavigationIntegration();
 
 export default function StackDemo() {
-  const navigationRef = React.useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const navigationRef =
+    React.useRef<NavigationContainerRef<RootStackParamList>>(null);
 
   return (
     <NavigationContainer
@@ -23,10 +27,26 @@ export default function StackDemo() {
       }}
     >
       <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home (Stack)' }} />
-        <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
-        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
-        <Stack.Screen name="Details" component={DetailsScreen} options={{ title: 'Details' }} />
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ title: 'Home (Stack)' }}
+        />
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ title: 'Profile' }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: 'Settings' }}
+        />
+        <Stack.Screen
+          name="Details"
+          component={DetailsScreen}
+          options={{ title: 'Details' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,5 +1,12 @@
-import { View, Text, Button, StyleSheet, ScrollView, Alert } from 'react-native';
-import {Pulse} from '@horizoneng/pulse-react-native';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function ErrorHandlerDemo() {
   const triggerUnhandledError = () => {
@@ -33,14 +40,14 @@ export default function ErrorHandlerDemo() {
 
   const triggerHandledErrorWithSpan = () => {
     const span = Pulse.startSpan('handled_error_with_span');
-    
+
     try {
       throw new Error('Handled error with span (demo)');
     } catch (error) {
       Pulse.reportException(error as Error, false);
       console.log('[ErrorDemo] Handled error with span reported');
     }
-    
+
     setTimeout(() => {
       span.end();
       console.log('[ErrorDemo] Span ended');
@@ -49,26 +56,22 @@ export default function ErrorHandlerDemo() {
   };
 
   const triggerUnhandledErrorWithSpan = () => {
-    Alert.alert(
-      'Warning',
-      'This will crash the app with an active span.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Crash',
-          style: 'destructive',
-          onPress: () => {
-            const span = Pulse.startSpan('unhandled_error_with_span');
-            console.log('[ErrorDemo] Span started, will crash in 500ms');
-            
-            setTimeout(() => {
-              throw new Error('Unhandled error with span (demo)');
-              // span.end() won't be reached due to crash
-            }, 500);
-          },
+    Alert.alert('Warning', 'This will crash the app with an active span.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Crash',
+        style: 'destructive',
+        onPress: () => {
+          Pulse.startSpan('unhandled_error_with_span');
+          console.log('[ErrorDemo] Span started, will crash in 500ms');
+
+          setTimeout(() => {
+            throw new Error('Unhandled error with span (demo)');
+            // span.end() won't be reached due to crash
+          }, 500);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (

@@ -67,10 +67,10 @@ jobs:
         run: |
           echo "## ✅ Published Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Package:** \`@horizoneng/pulse-react-native-otel\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Package:** \`@dreamhorizonorg/pulse-react-native-otel\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📦 Package published to npm:" >> $GITHUB_STEP_SUMMARY
-          echo "- \`npm install @horizoneng/pulse-react-native-otel@${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- https://www.npmjs.com/package/@horizoneng/pulse-react-native-otel" >> $GITHUB_STEP_SUMMARY
+          echo "- \`npm install @dreamhorizonorg/pulse-react-native-otel@${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- https://www.npmjs.com/package/@dreamhorizonorg/pulse-react-native-otel" >> $GITHUB_STEP_SUMMARY
 
