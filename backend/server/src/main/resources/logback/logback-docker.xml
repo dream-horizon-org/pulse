@@ -9,7 +9,7 @@
         </encoder>
     </appender>
 
-    <logger name="in.horizonos" level="trace"/>
+    <logger name="org.dreamhorizon" level="trace"/>
     <logger name="io.netty" level="info"/>
     <logger name="org.jboss.resteasy" level="info"/>
 

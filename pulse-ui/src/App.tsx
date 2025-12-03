@@ -24,7 +24,7 @@ export default function App() {
   return (
     <MantineProvider theme={theme}>
       <Notifications position="top-center" />
-      <Router>
+      <Router basename={process.env.PUBLIC_URL || '/'}>
         <PageTracker />
         <QueryClientProvider client={queryClient}>
           <Layout>
