@@ -79,7 +79,7 @@ dependencies {
   implementation("com.facebook.react:react-android")
   implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
 
-  api("in.horizonos:pulse-android-sdk:0.0.1-alpha") {
+  api("org.dreamhorizon:pulse-android-sdk:0.0.1-alpha") {
     exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
   }
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")

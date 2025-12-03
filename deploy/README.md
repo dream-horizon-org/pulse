@@ -19,7 +19,7 @@ This guide explains how to build and run the Pulse platform locally using Docker
 1. **Clone the Repository**
 
 ```bash
-git clone https://github.com/ds-horizon/pulse.git
+git clone https://github.com/dream-horizon-org/pulse.git
 cd pulse
 ```
 

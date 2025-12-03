@@ -26,4 +26,10 @@ export const mockAuthResponses = {
     },
     status: 200,
   },
+  verifyToken: {
+    data: {
+      isAuthTokenValid: true,
+    },
+    status: 200,
+  },
 };

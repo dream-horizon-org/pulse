@@ -15,7 +15,6 @@ import {
   ANRList,
   NonFatalList,
   VitalsFilters,
-  VitalsHeaderFilters,
   CrashTrendGraph,
   ANRTrendGraph,
   NonFatalTrendGraph,
@@ -41,7 +40,7 @@ import { useExceptionListData } from "../AppVitals/components/ExceptionTable/hoo
 import { InteractionDetailsFilters } from "../CriticalInteractionDetails/components/InteractionDetailsFilters";
 
 export function ScreenDetail(_props: ScreenDetailProps) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { screenName } = useParams<{ screenName: string }>();
   const decodedScreenName = screenName ? decodeURIComponent(screenName) : "";
@@ -61,9 +60,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   const [activeTab, setActiveTab] = useState<string | null>("engagement");
 
   // Local filter state (app version, OS version, device)
-  const [appVersion, setAppVersion] = useState("all");
-  const [osVersion, setOsVersion] = useState("all");
-  const [device, setDevice] = useState("all");
+  const [appVersion] = useState("all");
+  const [osVersion] = useState("all");
+  const [device] = useState("all");
 
   // Performance & Stability filters (separate state for issue type)
   const [issueType, setIssueType] = useState<IssueType>(ISSUE_TYPES.CRASHES);
@@ -223,6 +222,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   return (

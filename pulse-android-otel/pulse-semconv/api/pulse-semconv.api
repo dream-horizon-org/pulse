@@ -1,0 +1,45 @@
+public final class com/pulse/semconv/PulseAttributes {
+	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes;
+	public static final field PULSE_NAME Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SPAN_ID Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_TYPE Lio/opentelemetry/api/common/AttributeKey;
+}
+
+public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
+	public static final field ANR Ljava/lang/String;
+	public static final field APP_START Ljava/lang/String;
+	public static final field CRASH Ljava/lang/String;
+	public static final field CUSTOM_EVENT Ljava/lang/String;
+	public static final field FROZEN Ljava/lang/String;
+	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$PulseTypeValues;
+	public static final field INTERACTION Ljava/lang/String;
+	public static final field NETWORK Ljava/lang/String;
+	public static final field NETWORK_CHANGE Ljava/lang/String;
+	public static final field NON_FATAL Ljava/lang/String;
+	public static final field SCREEN_LOAD Ljava/lang/String;
+	public static final field SCREEN_SESSION Ljava/lang/String;
+	public static final field SLOW Ljava/lang/String;
+	public static final field TOUCH Ljava/lang/String;
+}
+
+public final class com/pulse/semconv/PulseInteractionAttributes {
+	public static final field INSTANCE Lcom/pulse/semconv/PulseInteractionAttributes;
+	public static final field INTERACTION_CONFIG_ID Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INTERACTION_ID Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INTERACTION_IDS Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INTERACTION_LAST_EVENT_TIME Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INTERACTION_NAME Lio/opentelemetry/api/common/AttributeKey;
+	public static final field INTERACTION_NAMES Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_TYPE Lio/opentelemetry/api/common/AttributeKey;
+}
+
+public final class com/pulse/semconv/PulseSessionAttributes {
+	public static final field INSTANCE Lcom/pulse/semconv/PulseSessionAttributes;
+	public final fun createSessionEndAttributes (Ljava/util/Map;)Lio/opentelemetry/api/common/Attributes;
+}
+
+public final class com/pulse/semconv/PulseUserAttributes {
+	public static final field INSTANCE Lcom/pulse/semconv/PulseUserAttributes;
+	public static final field PULSE_USER_PARAMETER Lio/opentelemetry/semconv/AttributeKeyTemplate;
+}
+

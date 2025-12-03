@@ -882,12 +882,31 @@ export class MockDataStore {
     }
   }
 
+  updateJobByName(interactionName: string, updates: any): void {
+    const jobIndex = this.data.jobs.findIndex(
+      (job) => job.interactionName === interactionName,
+    );
+    if (jobIndex !== -1) {
+      this.data.jobs[jobIndex] = { ...this.data.jobs[jobIndex], ...updates };
+    }
+  }
+
   addJob(job: any): void {
     this.data.jobs.push(job);
   }
 
   deleteJob(jobId: number): void {
     this.data.jobs = this.data.jobs.filter((job) => job.id !== jobId);
+  }
+
+  deleteJobByName(interactionName: string): void {
+    this.data.jobs = this.data.jobs.filter(
+      (job) => job.interactionName !== interactionName,
+    );
+  }
+
+  findJobByName(interactionName: string): any | undefined {
+    return this.data.jobs.find((job) => job.interactionName === interactionName);
   }
 
   addAlert(alert: any): void {

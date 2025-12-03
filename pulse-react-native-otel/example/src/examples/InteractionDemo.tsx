@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Button, Alert } from 'react-native';
-import { Pulse } from '@horizoneng/pulse-react-native';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 
@@ -13,13 +13,13 @@ function HomeScreen({ navigation }: any) {
 
   const triggerNavigation = () => {
     if (isNavigating) return;
-    
+
     setIsNavigating(true);
     navigationPendingRef.value = true;
     navigationPendingRef.source = 'HomeScreen';
-    Pulse.trackEvent('navigation_start', { 
+    Pulse.trackEvent('navigation_start', {
       screen: 'Detail',
-      source: 'HomeScreen'
+      source: 'HomeScreen',
     });
     navigation.navigate('Detail', { source: 'HomeScreen' });
   };
@@ -30,22 +30,26 @@ function HomeScreen({ navigation }: any) {
 
   const triggerNetworkCall = async () => {
     if (isLoading) return;
-    
+
     setIsLoading(true);
-    Pulse.trackEvent('network_call_start', { url: 'https://jsonplaceholder.typicode.com/posts/1' });
-    
+    Pulse.trackEvent('network_call_start', {
+      url: 'https://jsonplaceholder.typicode.com/posts/1',
+    });
+
     try {
-      const response = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+      const response = await fetch(
+        'https://jsonplaceholder.typicode.com/posts/1'
+      );
       await response.json();
-      Pulse.trackEvent('network_call_end', { 
+      Pulse.trackEvent('network_call_end', {
         url: 'https://jsonplaceholder.typicode.com/posts/1',
-        status: response.status 
+        status: response.status,
       });
       Alert.alert('Success', 'Network call completed');
     } catch (error) {
-      Pulse.trackEvent('network_call_end', { 
+      Pulse.trackEvent('network_call_end', {
         url: 'https://jsonplaceholder.typicode.com/posts/1',
-        error: 'true' 
+        error: 'true',
       });
       Alert.alert('Error', 'Network call failed');
     } finally {
@@ -60,7 +64,7 @@ function HomeScreen({ navigation }: any) {
 
       <View style={styles.buttonContainer}>
         <Button
-          title={isNavigating ? "Navigating..." : "Navigate to Detail"}
+          title={isNavigating ? 'Navigating...' : 'Navigate to Detail'}
           onPress={triggerNavigation}
           disabled={isNavigating}
           color="#2196F3"
@@ -77,7 +81,7 @@ function HomeScreen({ navigation }: any) {
 
       <View style={styles.buttonContainer}>
         <Button
-          title={isLoading ? "Loading..." : "Trigger Network Call"}
+          title={isLoading ? 'Loading...' : 'Trigger Network Call'}
           onPress={triggerNetworkCall}
           disabled={isLoading}
           color="#4CAF50"
@@ -86,10 +90,18 @@ function HomeScreen({ navigation }: any) {
 
       <View style={styles.infoContainer}>
         <Text style={styles.infoTitle}>Events:</Text>
-        <Text style={styles.infoText}>• navigation_start (with source) → navigation_end (with source)</Text>
-        <Text style={styles.infoText}>• network_call_start → network_call_end</Text>
-        <Text style={styles.infoText}>Test: Navigate from HomeScreen and Source2Screen to Detail</Text>
-        <Text style={styles.infoText}>Check logs for source property in events</Text>
+        <Text style={styles.infoText}>
+          • navigation_start (with source) → navigation_end (with source)
+        </Text>
+        <Text style={styles.infoText}>
+          • network_call_start → network_call_end
+        </Text>
+        <Text style={styles.infoText}>
+          Test: Navigate from HomeScreen and Source2Screen to Detail
+        </Text>
+        <Text style={styles.infoText}>
+          Check logs for source property in events
+        </Text>
       </View>
     </View>
   );
@@ -100,13 +112,13 @@ function Source2Screen({ navigation }: any) {
 
   const triggerNavigation = () => {
     if (isNavigating) return;
-    
+
     setIsNavigating(true);
     navigationPendingRef.value = true;
     navigationPendingRef.source = 'Source2Screen';
-    Pulse.trackEvent('navigation_start', { 
+    Pulse.trackEvent('navigation_start', {
       screen: 'Detail',
-      source: 'Source2Screen'
+      source: 'Source2Screen',
     });
     navigation.navigate('Detail', { source: 'Source2Screen' });
   };
@@ -122,7 +134,7 @@ function Source2Screen({ navigation }: any) {
 
       <View style={styles.buttonContainer}>
         <Button
-          title={isNavigating ? "Navigating..." : "Navigate to Detail"}
+          title={isNavigating ? 'Navigating...' : 'Navigate to Detail'}
           onPress={triggerNavigation}
           disabled={isNavigating}
           color="#FF9800"
@@ -143,10 +155,11 @@ function Source2Screen({ navigation }: any) {
 function DetailScreen({ navigation, route }: any) {
   useFocusEffect(() => {
     if (navigationPendingRef.value) {
-      const source = route.params?.source || navigationPendingRef.source || 'unknown';
-      Pulse.trackEvent('navigation_end', { 
+      const source =
+        route.params?.source || navigationPendingRef.source || 'unknown';
+      Pulse.trackEvent('navigation_end', {
         screen: 'Detail',
-        source: source
+        source: source,
       });
       navigationPendingRef.value = false;
       navigationPendingRef.source = '';
@@ -170,9 +183,21 @@ export default function InteractionDemo() {
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Interaction Demo' }} />
-        <Stack.Screen name="Source2" component={Source2Screen} options={{ title: 'Source 2' }} />
-        <Stack.Screen name="Detail" component={DetailScreen} options={{ title: 'Detail' }} />
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ title: 'Interaction Demo' }}
+        />
+        <Stack.Screen
+          name="Source2"
+          component={Source2Screen}
+          options={{ title: 'Source 2' }}
+        />
+        <Stack.Screen
+          name="Detail"
+          component={DetailScreen}
+          options={{ title: 'Detail' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -224,4 +249,3 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 });
-

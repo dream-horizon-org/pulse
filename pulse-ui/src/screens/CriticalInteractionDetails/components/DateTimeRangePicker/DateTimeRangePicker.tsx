@@ -91,6 +91,7 @@ const DateTimeRangePicker = ({
       defaultEndTime,
       subractMinutes,
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultStartTime, defaultEndTime]);
 
   useEffect(() => {

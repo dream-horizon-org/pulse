@@ -8,6 +8,7 @@ import { MockResponse, MockRequest } from "./types";
 import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
+import { mockJobResponses } from "./responses/jobResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -112,6 +113,14 @@ export class MockResponseGenerator {
       method === "POST"
     ) {
       return this.handleDataQueryEndpoint(pathname, method, request);
+    }
+
+    // Dashboard filters endpoint (MUST come before /v1/interactions to avoid being caught by job endpoints)
+    if (
+      (pathname.includes("/telemetry-filters") || pathname.includes("/filter-options")) &&
+      method === "GET"
+    ) {
+      return this.handleDashboardFiltersEndpoint(pathname, method, request);
     }
 
     // Job endpoints
@@ -235,12 +244,27 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    if (pathname.includes("/authenticate")) {
+    // Handle authentication endpoint
+    if (pathname.includes("/authenticate") && method === "POST") {
+      // Parse request body to check for dummy login token
+      let requestBody: any = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+
+      // Handle dummy login token (dev-id-token) or any other identifier
+      const identifier = requestBody.identifier || "";
+      const isDummyLogin = identifier === "dev-id-token" || !identifier;
+
       // Create a mock JWT token that can be decoded
       const mockIdToken = this.createMockJWTToken({
-        email: "mock@dream11.com",
-        firstName: "Mock",
-        lastName: "User",
+        email: isDummyLogin ? "dev@dream11.com" : "mock@dream11.com",
+        firstName: isDummyLogin ? "Dev" : "Mock",
+        lastName: isDummyLogin ? "User" : "User",
         profilePicture: "https://via.placeholder.com/150",
       });
 
@@ -257,7 +281,8 @@ export class MockResponseGenerator {
       };
     }
 
-    if (pathname.includes("/refresh")) {
+    // Handle token refresh endpoint
+    if (pathname.includes("/refresh") && method === "POST") {
       // Create a mock JWT token for refresh
       const mockIdToken = this.createMockJWTToken({
         email: "mock@dream11.com",
@@ -273,6 +298,30 @@ export class MockResponseGenerator {
           idToken: mockIdToken,
           tokenType: "Bearer",
           expiresIn: 3600,
+        },
+        status: 200,
+      };
+    }
+
+    // Handle token verify endpoint
+    if (pathname.includes("/token/verify") && method === "GET") {
+      // Check if authorization header is present
+      const authHeader = request.headers?.["authorization"] || 
+                        request.headers?.["Authorization"] || "";
+      
+      // Extract token from "Bearer <token>" format
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      
+      // Validate token - consider it valid if it's a mock token or starts with "mock_"
+      const isValid = token.length > 0 && (
+        token.startsWith("mock_") || 
+        token.startsWith("Bearer mock_") ||
+        token.includes("access_token")
+      );
+
+      return {
+        data: {
+          isAuthTokenValid: isValid,
         },
         status: 200,
       };
@@ -329,6 +378,55 @@ export class MockResponseGenerator {
     };
   }
 
+  private handleDashboardFiltersEndpoint(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    if (
+      pathname.includes("/telemetry-filters") &&
+      method === "GET"
+    ) {
+      return mockJobResponses.getDashboardFilters;
+    }
+
+    // Handle interaction filter options endpoint (/v1/interactions/filter-options)
+    if (
+      pathname.includes("/filter-options") &&
+      method === "GET"
+    ) {
+      // Get unique users from actual job data
+      const jobs = this.dataStore.getJobs();
+      const uniqueUsers = Array.from(
+        new Set(
+          jobs
+            .map((job) => job.createdBy)
+            .filter((user): user is string => Boolean(user)),
+        ),
+      );
+
+      // Return statuses as per contract: RUNNING, STOPPED, DELETED
+      const statuses = ["RUNNING", "STOPPED", "DELETED"];
+
+      return {
+        data: {
+          statuses: statuses,
+          createdBy: uniqueUsers.length > 0 ? uniqueUsers : [
+            "user1@dream11.com",
+            "user2@dream11.com",
+            "user3@dream11.com",
+          ],
+        },
+        status: 200,
+      };
+    }
+
+    return {
+      data: { message: "Dashboard filters endpoint not found" },
+      status: 404,
+    };
+  }
+
   private handleJobEndpoints(
     pathname: string,
     method: string,
@@ -368,22 +466,45 @@ export class MockResponseGenerator {
           console.log(
             `[Mock Server] Found interaction: ${job.interactionName}`,
           );
+          
+          // Transform eventSequence to match interface (eventName -> name, propName -> name in props)
+          const transformedEvents = (job.eventSequence || []).map((event: any) => ({
+            name: event.eventName || event.name,
+            props: (event.props || []).map((prop: any) => ({
+              name: prop.propName || prop.name,
+              value: prop.propValue || prop.value,
+              operator: prop.operator,
+            })),
+            isBlacklisted: event.isBlacklisted,
+          }));
+
+          // Transform globalBlacklistedEvents similarly
+          const transformedGlobalBlacklistedEvents = (job.globalBlacklistedEvents || []).map((event: any) => ({
+            name: event.eventName || event.name,
+            props: (event.props || []).map((prop: any) => ({
+              name: prop.propName || prop.name,
+              value: prop.propValue || prop.value,
+              operator: prop.operator,
+            })),
+            isBlacklisted: event.isBlacklisted,
+          }));
+
           return {
             data: {
               name: job.interactionName,
-              description: job.description,
+              description: job.description || "",
               id: job.id,
-              uptimeLowerLimitInMs: job.uptimeLowerLimit,
-              uptimeMidLimitInMs: job.uptimeMidLimit,
-              uptimeUpperLimitInMs: job.uptimeUpperLimit,
-              thresholdInMs: job.interactionThreshold,
-              status: job.status,
-              events: job.eventSequence,
-              globalBlacklistedEvents: job.globalBlacklistedEvents,
-              createdAt: job.createdAt,
-              createdBy: job.createdBy,
-              updatedAt: job.updatedAt,
-              updatedBy: job.updatedBy,
+              uptimeLowerLimitInMs: job.uptimeLowerLimit || 100,
+              uptimeMidLimitInMs: job.uptimeMidLimit || 500,
+              uptimeUpperLimitInMs: job.uptimeUpperLimit || 1000,
+              thresholdInMs: job.interactionThreshold || 60000,
+              status: job.status || "STOPPED", // Ensure status is always present
+              events: transformedEvents,
+              globalBlacklistedEvents: transformedGlobalBlacklistedEvents,
+              createdAt: job.createdAt || Date.now(),
+              createdBy: job.createdBy || "mock@dream11.com",
+              updatedAt: job.updatedAt || Date.now(),
+              updatedBy: job.updatedBy || "mock@dream11.com",
             },
             status: 200,
           };
@@ -400,31 +521,248 @@ export class MockResponseGenerator {
 
       // Handle interactions list endpoint (GET /v1/interactions)
       if (
-        pathname === "/v1/interactions" ||
-        pathname.endsWith("/v1/interactions")
+        (pathname === "/v1/interactions" ||
+          pathname.endsWith("/v1/interactions")) &&
+        method === "GET"
       ) {
-        const jobs = this.dataStore.getJobs();
+        const url = new URL(request.url);
+        const statusFilter = url.searchParams.get("status");
+        const userEmailFilter = url.searchParams.get("userEmail");
+        const interactionNameFilter = url.searchParams.get("interactionName");
+        const pageParam = url.searchParams.get("page");
+        const sizeParam = url.searchParams.get("size");
+
+        let jobs = this.dataStore.getJobs();
+
+        // Apply status filter
+        if (statusFilter) {
+          jobs = jobs.filter((job) => job.status === statusFilter);
+        }
+
+        // Apply userEmail filter (filter by createdBy)
+        if (userEmailFilter) {
+          jobs = jobs.filter(
+            (job) => job.createdBy?.toLowerCase() === userEmailFilter.toLowerCase(),
+          );
+        }
+
+        // Apply interactionName filter (search)
+        if (interactionNameFilter) {
+          const searchLower = interactionNameFilter.toLowerCase();
+          jobs = jobs.filter(
+            (job) =>
+              job.interactionName?.toLowerCase().includes(searchLower),
+          );
+        }
 
         // Transform jobs to interaction format
-        const interactions = jobs.map((job) => ({
+        let interactions = jobs.map((job) => ({
           name: job.interactionName,
           interactionName: job.interactionName, // Keep for backward compatibility
-          description: job.description,
+          description: job.description || "",
           id: job.id,
-          status: job.status,
-          events: job.eventSequence,
-          eventSequence: job.eventSequence, // Keep for backward compatibility
-          globalBlacklistedEvents: job.globalBlacklistedEvents,
-          createdAt: job.createdAt,
-          createdBy: job.createdBy,
-          updatedAt: job.updatedAt,
-          updatedBy: job.updatedBy,
+          status: job.status || "STOPPED", // Ensure status is always present
+          events: job.eventSequence || [],
+          eventSequence: job.eventSequence || [], // Keep for backward compatibility
+          globalBlacklistedEvents: job.globalBlacklistedEvents || [],
+          createdAt: job.createdAt || Date.now(),
+          createdBy: job.createdBy || "mock@dream11.com",
+          updatedAt: job.updatedAt || Date.now(),
+          updatedBy: job.updatedBy || "mock@dream11.com",
         }));
+
+        // Apply pagination
+        const totalInteractions = interactions.length;
+        const page = pageParam ? parseInt(pageParam, 10) : 0;
+        const size = sizeParam ? parseInt(sizeParam, 10) : 10;
+
+        if (page >= 0 && size > 0) {
+          const startIndex = page * size;
+          const endIndex = startIndex + size;
+          interactions = interactions.slice(startIndex, endIndex);
+        }
 
         return {
           data: {
             interactions: interactions,
-            totalInteractions: interactions.length,
+            totalInteractions: totalInteractions,
+          },
+          status: 200,
+        };
+      }
+
+      // Handle create interaction endpoint (POST /v1/interactions)
+      if (
+        (pathname === "/v1/interactions" ||
+          pathname.endsWith("/v1/interactions")) &&
+        method === "POST"
+      ) {
+        const requestBody = JSON.parse(request.body || "{}");
+        
+        // Check if interaction with same name already exists
+        const existingJob = this.dataStore.findJobByName(requestBody.name);
+        if (existingJob) {
+          return {
+            data: null,
+            status: 400,
+            error: {
+              code: "INTERACTION_EXISTS",
+              message: "Interaction already exists",
+              cause: `Interaction with name '${requestBody.name}' already exists`,
+            },
+          };
+        }
+
+        // Transform request body to job format
+        const newJob = {
+          id: Date.now(),
+          interactionName: requestBody.name,
+          description: requestBody.description || "",
+          status: requestBody.status || "STOPPED",
+          uptimeLowerLimit: requestBody.uptimeLowerLimitInMs || 100,
+          uptimeMidLimit: requestBody.uptimeMidLimitInMs || 500,
+          uptimeUpperLimit: requestBody.uptimeUpperLimitInMs || 1000,
+          interactionThreshold: requestBody.thresholdInMs || 60000,
+          eventSequence: (requestBody.events || []).map((event: any) => ({
+            eventName: event.name,
+            props: (event.props || []).map((prop: any) => ({
+              propName: prop.name,
+              propValue: prop.value,
+              operator: prop.operator,
+            })),
+            isBlacklisted: event.isBlacklisted,
+          })),
+          globalBlacklistedEvents: (requestBody.globalBlacklistedEvents || []).map((event: any) => ({
+            eventName: event.name,
+            props: (event.props || []).map((prop: any) => ({
+              propName: prop.name,
+              propValue: prop.value,
+              operator: prop.operator,
+            })),
+            isBlacklisted: event.isBlacklisted,
+          })),
+          createdAt: Date.now(),
+          createdBy: requestBody.createdBy || "mock@dream11.com",
+          updatedAt: Date.now(),
+          updatedBy: requestBody.updatedBy || "mock@dream11.com",
+        };
+
+        this.dataStore.addJob(newJob);
+
+        return {
+          data: {
+            name: newJob.interactionName,
+            description: newJob.description,
+            id: newJob.id,
+            status: newJob.status,
+            createdAt: newJob.createdAt,
+            createdBy: newJob.createdBy,
+          },
+          status: 201,
+        };
+      }
+
+      // Handle update interaction endpoint (PUT /v1/interactions/{name})
+      if (
+        pathParts.length >= 3 &&
+        pathParts[0] === "v1" &&
+        pathParts[1] === "interactions" &&
+        pathParts[2] &&
+        method === "PUT"
+      ) {
+        const interactionName = decodeURIComponent(pathParts[2]);
+        const requestBody = JSON.parse(request.body || "{}");
+        const jobDetails = requestBody.jobDetails || requestBody;
+
+        const existingJob = this.dataStore.findJobByName(interactionName);
+        if (!existingJob) {
+          return {
+            data: null,
+            status: 404,
+            error: {
+              code: "INTERACTION_NOT_FOUND",
+              message: "Interaction not found",
+              cause: `Interaction with name '${interactionName}' not found`,
+            },
+          };
+        }
+
+        // Update the job with new data
+        const updates: any = {
+          description: jobDetails.description,
+          uptimeLowerLimit: jobDetails.uptimeLowerLimitInMs,
+          uptimeMidLimit: jobDetails.uptimeMidLimitInMs,
+          uptimeUpperLimit: jobDetails.uptimeUpperLimitInMs,
+          interactionThreshold: jobDetails.thresholdInMs,
+          updatedAt: Date.now(),
+          updatedBy: requestBody.user || existingJob.updatedBy,
+          // Preserve status - use new status if provided, otherwise keep existing
+          status: jobDetails.status || existingJob.status || "STOPPED",
+        };
+
+        if (jobDetails.events) {
+          updates.eventSequence = jobDetails.events.map((event: any) => ({
+            eventName: event.name,
+            props: (event.props || []).map((prop: any) => ({
+              propName: prop.name,
+              propValue: prop.value,
+              operator: prop.operator,
+            })),
+            isBlacklisted: event.isBlacklisted,
+          }));
+        }
+
+        if (jobDetails.globalBlacklistedEvents) {
+          updates.globalBlacklistedEvents = jobDetails.globalBlacklistedEvents.map((event: any) => ({
+            eventName: event.name,
+            props: (event.props || []).map((prop: any) => ({
+              propName: prop.name,
+              propValue: prop.value,
+              operator: prop.operator,
+            })),
+            isBlacklisted: event.isBlacklisted,
+          }));
+        }
+
+        this.dataStore.updateJobByName(interactionName, updates);
+
+        return {
+          data: {
+            jobId: existingJob.id,
+            status: 200,
+          },
+          status: 200,
+        };
+      }
+
+      // Handle delete interaction endpoint (DELETE /v1/interactions/{name})
+      if (
+        pathParts.length >= 3 &&
+        pathParts[0] === "v1" &&
+        pathParts[1] === "interactions" &&
+        pathParts[2] &&
+        method === "DELETE"
+      ) {
+        const interactionName = decodeURIComponent(pathParts[2]);
+
+        const existingJob = this.dataStore.findJobByName(interactionName);
+        if (!existingJob) {
+          return {
+            data: null,
+            status: 404,
+            error: {
+              code: "INTERACTION_NOT_FOUND",
+              message: "Interaction not found",
+              cause: `Interaction with name '${interactionName}' not found`,
+            },
+          };
+        }
+
+        this.dataStore.deleteJobByName(interactionName);
+
+        return {
+          data: {
+            status: 200,
           },
           status: 200,
         };
@@ -563,15 +901,27 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getJobFilters")) {
+      // Get unique users and statuses from actual job data
+      const jobs = this.dataStore.getJobs();
+      const uniqueUsers = Array.from(
+        new Set(
+          jobs
+            .map((job) => job.createdBy)
+            .filter((user): user is string => Boolean(user)),
+        ),
+      );
+      const uniqueStatuses = Array.from(
+        new Set(
+          jobs
+            .map((job) => job.status)
+            .filter((status): status is string => Boolean(status)),
+        ),
+      );
+
       return {
         data: {
-          users: [
-            "user1@example.com",
-            "user2@example.com",
-            "user3@example.com",
-          ],
-          statuses: ["RUNNING", "STOPPED", "FAILED", "COMPLETED"],
-          teams: ["Frontend", "Backend", "DevOps", "QA"],
+          users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@dream11.com"],
+          statuses: uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
         },
         status: 200,
       };
@@ -585,15 +935,15 @@ export class MockResponseGenerator {
         console.log(`[Mock Server] UPDATE_JOB_STATUS - Request:`, requestBody);
       }
 
-      // Find the job by useCaseId
-      const job = this.dataStore
-        .getJobs()
-        .find((j) => j.name === useCaseId || j.useCaseName === useCaseId);
+      // Find the job by useCaseId (interaction name)
+      const job = this.dataStore.findJobByName(useCaseId) ||
+        this.dataStore.getJobs().find((j) => j.name === useCaseId || j.useCaseName === useCaseId);
 
       if (job) {
         // Update the job status
         const newStatus = action === "RUNNING" ? "RUNNING" : "STOPPED";
-        this.dataStore.updateJob(job.id, {
+        const interactionName = job.interactionName || job.name || useCaseId;
+        this.dataStore.updateJobByName(interactionName, {
           status: newStatus,
           updatedAt: Date.now(),
           updatedBy: user || "unknown",
@@ -2729,11 +3079,6 @@ export class MockResponseGenerator {
       const useCaseId = url.searchParams.get("useCaseId");
       const startTime = url.searchParams.get("startTime");
       const endTime = url.searchParams.get("endTime");
-      const _appVersion = url.searchParams.get("appVersion");
-      const _networkProvider = url.searchParams.get("networkProvider");
-      const _osVersion = url.searchParams.get("osVersion");
-      const _platform = url.searchParams.get("platform");
-      const _state = url.searchParams.get("state");
 
       if (this.config.shouldLog()) {
         console.log(

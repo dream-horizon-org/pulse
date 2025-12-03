@@ -2,6 +2,7 @@
  * Copyright The OpenTelemetry Authors
  * SPDX-License-Identifier: Apache-2.0
  */
+
 package io.opentelemetry.android.instrumentation.fragment
 
 import android.content.Context
@@ -18,33 +19,41 @@ import java.util.function.Supplier
 class RumFragmentLifecycleCallbacks(
     private val tracer: Tracer,
     private val lastVisibleScreen: Supplier<String?>,
-    private val screenNameExtractor: ScreenNameExtractor
+    private val screenNameExtractor: ScreenNameExtractor,
 ) : FragmentManager.FragmentLifecycleCallbacks() {
     private val tracersByFragmentClassName: MutableMap<String, FragmentTracer> = mutableMapOf()
 
     override fun onFragmentPreAttached(
-        fm: FragmentManager, f: Fragment, context: Context
+        fm: FragmentManager,
+        f: Fragment,
+        context: Context,
     ) {
         super.onFragmentPreAttached(fm, f, context)
         getTracer(f).startFragmentCreation().addEvent("fragmentPreAttached")
     }
 
     override fun onFragmentAttached(
-        fm: FragmentManager, f: Fragment, context: Context
+        fm: FragmentManager,
+        f: Fragment,
+        context: Context,
     ) {
         super.onFragmentAttached(fm, f, context)
         addEvent(f, "fragmentAttached")
     }
 
     override fun onFragmentPreCreated(
-        fm: FragmentManager, f: Fragment, savedInstanceState: Bundle?
+        fm: FragmentManager,
+        f: Fragment,
+        savedInstanceState: Bundle?,
     ) {
         super.onFragmentPreCreated(fm, f, savedInstanceState)
         addEvent(f, "fragmentPreCreated")
     }
 
     override fun onFragmentCreated(
-        fm: FragmentManager, f: Fragment, savedInstanceState: Bundle?
+        fm: FragmentManager,
+        f: Fragment,
+        savedInstanceState: Bundle?,
     ) {
         super.onFragmentCreated(fm, f, savedInstanceState)
         addEvent(f, "fragmentCreated")
@@ -54,18 +63,24 @@ class RumFragmentLifecycleCallbacks(
         fm: FragmentManager,
         f: Fragment,
         v: View,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ) {
         super.onFragmentViewCreated(fm, f, v, savedInstanceState)
         getTracer(f).startSpanIfNoneInProgress("Restored").addEvent("fragmentViewCreated")
     }
 
-    override fun onFragmentStarted(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentStarted(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentStarted(fm, f)
         addEvent(f, "fragmentStarted")
     }
 
-    override fun onFragmentResumed(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentResumed(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentResumed(fm, f)
         getTracer(f)
             .startSpanIfNoneInProgress("Resumed")
@@ -76,15 +91,23 @@ class RumFragmentLifecycleCallbacks(
             .startFragmentSessionSpan()
     }
 
-    override fun onFragmentPaused(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentPaused(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentPaused(fm, f)
-        getTracer(f).startSpanIfNoneInProgress("Paused").addEvent("fragmentPaused")
+        getTracer(f)
+            .startSpanIfNoneInProgress("Paused")
+            .addEvent("fragmentPaused")
             .endActiveSpan()
         getTracer(f)
             .stopFragmentSessionSpan()
     }
 
-    override fun onFragmentStopped(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentStopped(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentStopped(fm, f)
         getTracer(f)
             .startSpanIfNoneInProgress("Stopped")
@@ -92,7 +115,10 @@ class RumFragmentLifecycleCallbacks(
             .endActiveSpan()
     }
 
-    override fun onFragmentViewDestroyed(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentViewDestroyed(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentViewDestroyed(fm, f)
         getTracer(f)
             .startSpanIfNoneInProgress("ViewDestroyed")
@@ -100,13 +126,19 @@ class RumFragmentLifecycleCallbacks(
             .endActiveSpan()
     }
 
-    override fun onFragmentDestroyed(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentDestroyed(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentDestroyed(fm, f)
         // note: this might not get called if the dev has checked "retainInstance" on the fragment
         getTracer(f).startSpanIfNoneInProgress("Destroyed").addEvent("fragmentDestroyed")
     }
 
-    override fun onFragmentDetached(fm: FragmentManager, f: Fragment) {
+    override fun onFragmentDetached(
+        fm: FragmentManager,
+        f: Fragment,
+    ) {
         super.onFragmentDetached(fm, f)
         // this is a terminal operation, but might also be the only thing we see on app getting
         // killed, so
@@ -116,14 +148,17 @@ class RumFragmentLifecycleCallbacks(
             .endActiveSpan()
     }
 
-    private fun addEvent(fragment: Fragment, eventName: String?) {
+    private fun addEvent(
+        fragment: Fragment,
+        eventName: String?,
+    ) {
         val fragmentTracer =
             tracersByFragmentClassName[fragment.javaClass.name]
         fragmentTracer?.addEvent(eventName)
     }
 
-    private fun getTracer(fragment: Fragment): FragmentTracer {
-        return tracersByFragmentClassName[fragment.javaClass.name] ?: run {
+    private fun getTracer(fragment: Fragment): FragmentTracer =
+        tracersByFragmentClassName[fragment.javaClass.name] ?: run {
             val activityTracer =
                 builder(fragment)
                     .setTracer(tracer)
@@ -133,5 +168,4 @@ class RumFragmentLifecycleCallbacks(
             tracersByFragmentClassName.put(fragment.javaClass.name, activityTracer)
             activityTracer
         }
-    }
 }

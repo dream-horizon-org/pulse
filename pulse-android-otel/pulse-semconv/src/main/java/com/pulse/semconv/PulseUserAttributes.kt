@@ -7,5 +7,6 @@ public object PulseUserAttributes {
     /**
      * All the custom user props will be mapped with this template
      */
+    @JvmField
     public val PULSE_USER_PARAMETER: AttributeKeyTemplate<String> = stringKeyTemplate("pulse.user")
 }

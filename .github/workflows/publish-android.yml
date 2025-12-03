@@ -19,19 +19,21 @@ jobs:
   publish:
     name: "Publish Android SDK to Maven Central"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00  # v4.7.1
         with:
           distribution: temurin
           java-version: 17
 
       - name: Configure Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@ac2d340dc04d9e1113182899e983b5400c17cda1  # v3.5.0
 
       - name: Publish to Maven Central
         working-directory: pulse-android-otel
@@ -60,10 +62,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ inputs.final }}" == "true" ]; then
             echo "Artifact will be available at Maven Central in ~2 hours:" >> $GITHUB_STEP_SUMMARY
-            echo "- \`in.horizonos:pulse-android-sdk:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`org.dreamhorizon:pulse-android-sdk:$VERSION\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "SNAPSHOT artifact is available at:" >> $GITHUB_STEP_SUMMARY
-            echo "- \`in.horizonos:pulse-android-sdk:$VERSION-SNAPSHOT\`" >> $GITHUB_STEP_SUMMARY
+            echo "- \`org.dreamhorizon:pulse-android-sdk:$VERSION-SNAPSHOT\`" >> $GITHUB_STEP_SUMMARY
             echo "- Repository: https://s01.oss.sonatype.org/content/repositories/snapshots/" >> $GITHUB_STEP_SUMMARY
           fi
 

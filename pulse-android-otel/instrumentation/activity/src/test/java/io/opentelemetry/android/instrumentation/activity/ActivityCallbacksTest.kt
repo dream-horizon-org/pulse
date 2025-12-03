@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
-import org.mockito.ArgumentMatchers
 import org.mockito.Mockito
 
 internal class ActivityCallbacksTest {
@@ -309,9 +308,9 @@ internal class ActivityCallbacksTest {
         testHarness.runActivityStoppedFromRunningLifecycle(activity)
 
         val spans = otelTesting.spans
-        assertEquals(2, spans.size)
+        assertEquals(3, spans.size)
 
-        val stoppedSpan = spans[0]
+        val stoppedSpan = spans[1]
 
         assertEquals("Paused", stoppedSpan.name)
         assertEquals(
@@ -331,7 +330,7 @@ internal class ActivityCallbacksTest {
         checkEventExists(events, "activityPaused")
         checkEventExists(events, "activityPostPaused")
 
-        val destroyedSpan = spans[1]
+        val destroyedSpan = spans[2]
 
         assertEquals("Stopped", destroyedSpan.name)
         assertEquals(

@@ -20,6 +20,7 @@ export enum COLUMN_NAME {
   STATE = "GeoState",
   COUNTRY = "GeoCountry",
   APP_VERSION = "AppVersion",
+  APP_VERSION_CODE = "AppVersionCode",
   DURATION = "Duration",
   USER_ID = "UserId",
   TIMESTAMP = "Timestamp",

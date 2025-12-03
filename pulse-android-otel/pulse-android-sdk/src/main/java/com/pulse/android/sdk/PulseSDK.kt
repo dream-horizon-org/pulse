@@ -27,18 +27,21 @@ public interface PulseSDK {
         application: Application,
         endpointBaseUrl: String,
         endpointHeaders: Map<String, String> = emptyMap(),
-        spanEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forTraces(
-            endpointBaseUrl,
-            endpointHeaders,
-        ),
-        logEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forLogs(
-            endpointBaseUrl,
-            endpointHeaders,
-        ),
-        metricEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forMetrics(
-            endpointBaseUrl,
-            endpointHeaders,
-        ),
+        spanEndpointConnectivity: EndpointConnectivity =
+            HttpEndpointConnectivity.forTraces(
+                endpointBaseUrl,
+                endpointHeaders,
+            ),
+        logEndpointConnectivity: EndpointConnectivity =
+            HttpEndpointConnectivity.forLogs(
+                endpointBaseUrl,
+                endpointHeaders,
+            ),
+        metricEndpointConnectivity: EndpointConnectivity =
+            HttpEndpointConnectivity.forMetrics(
+                endpointBaseUrl,
+                endpointHeaders,
+            ),
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
@@ -55,13 +58,16 @@ public interface PulseSDK {
      * Set user property for this session
      * Also see [setUserId]
      */
-    public fun setUserProperty(name: String, value: Any?)
+    public fun setUserProperty(
+        name: String,
+        value: Any?,
+    )
 
     /**
      * Set user properties for this session
      * Also see [setUserProperty] and [setUserId]
      */
-    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit)
+    public fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit)
 
     public fun trackEvent(
         name: String,
@@ -88,7 +94,7 @@ public interface PulseSDK {
     public fun <T> trackSpan(
         spanName: String,
         params: Map<String, Any?> = emptyMap(),
-        action: () -> T
+        action: () -> T,
     )
 
     /**

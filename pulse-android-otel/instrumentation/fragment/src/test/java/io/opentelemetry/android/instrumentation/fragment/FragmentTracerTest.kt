@@ -12,7 +12,6 @@ import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTra
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
 import io.opentelemetry.sdk.trace.data.SpanData
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach

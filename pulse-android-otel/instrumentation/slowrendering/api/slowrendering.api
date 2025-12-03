@@ -8,3 +8,13 @@ public final class io/opentelemetry/android/instrumentation/slowrendering/SlowRe
 	public fun uninstall (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
 }
 
+public final class io/opentelemetry/android/instrumentation/slowrendering/SpanFrameAttributesAppended : io/opentelemetry/sdk/trace/internal/ExtendedSpanProcessor {
+	public fun <init> ()V
+	public fun isEndRequired ()Z
+	public fun isOnEndingRequired ()Z
+	public fun isStartRequired ()Z
+	public fun onEnd (Lio/opentelemetry/sdk/trace/ReadableSpan;)V
+	public fun onEnding (Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
+	public fun onStart (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
+}
+

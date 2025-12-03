@@ -29,6 +29,8 @@ import okhttp3.Response;
  */
 public final class OkHttp3Singletons {
     private static final Interceptor NOOP_INTERCEPTOR = chain -> chain.proceed(chain.request());
+    private static final String RN_TRACKED_HEADER = "x-pulse-rn-tracked";
+
     public static Interceptor CONNECTION_ERROR_INTERCEPTOR = NOOP_INTERCEPTOR;
     public static Interceptor TRACING_INTERCEPTOR = NOOP_INTERCEPTOR;
 
@@ -62,8 +64,14 @@ public final class OkHttp3Singletons {
 
         Instrumenter<Interceptor.Chain, Response> instrumenter = instrumenterBuilder.build();
 
-        CONNECTION_ERROR_INTERCEPTOR = new ConnectionErrorSpanInterceptor(instrumenter);
-        TRACING_INTERCEPTOR = new TracingInterceptor(instrumenter, openTelemetry.getPropagators());
+        ConnectionErrorSpanInterceptor baseConnectionErrorInterceptor =
+                new ConnectionErrorSpanInterceptor(instrumenter);
+        TracingInterceptor baseTracingInterceptor =
+                new TracingInterceptor(instrumenter, openTelemetry.getPropagators());
+
+        CONNECTION_ERROR_INTERCEPTOR =
+                skipInstrumentationIfReactNativeTracked(baseConnectionErrorInterceptor);
+        TRACING_INTERCEPTOR = skipInstrumentationIfReactNativeTracked(baseTracingInterceptor);
     }
 
     public static final Interceptor CALLBACK_CONTEXT_INTERCEPTOR =
@@ -87,6 +95,17 @@ public final class OkHttp3Singletons {
                     return chain.proceed(chain.request());
                 }
             };
+
+    private static Interceptor skipInstrumentationIfReactNativeTracked(
+            Interceptor baseInterceptor) {
+        return chain -> {
+            Request request = chain.request();
+            if (request.header(RN_TRACKED_HEADER) != null) {
+                return chain.proceed(request);
+            }
+            return baseInterceptor.intercept(chain);
+        };
+    }
 
     private OkHttp3Singletons() {}
 }

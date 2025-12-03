@@ -6,13 +6,13 @@
 
 *Combining behavioral, technical and business insights to drive better user experiences*
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)][license]
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-4.4-blue.svg)](https://www.typescriptlang.org/)
 [![Android](https://img.shields.io/badge/Android-21+-green.svg)](https://developer.android.com/)
 
-**[📖 View Full Documentation →](https://pulse.horizonos.in/docs/intro)**
+**[📖 View Full Documentation →][docs-intro]**
 
 </div>
 
@@ -35,30 +35,30 @@ A digital experience platform that helps you understand how users are interactin
 
 ## 🚀 Quick Start
 
-- **[Setup Guide](https://pulse.horizonos.in/docs/setup)** - Get Pulse up and running locally
-- **[Android SDK](https://pulse.horizonos.in/docs/sdk/android/overview)** - Integrate Pulse into your Android app
-- **[React Native SDK](https://pulse.horizonos.in/docs/sdk/react-native/overview)** - Integrate Pulse into your React Native app
+- **[Setup Guide][docs-setup]** - Get Pulse up and running locally
+- **[Android SDK][docs-android]** - Integrate Pulse into your Android app
+- **[React Native SDK][docs-react-native]** - Integrate Pulse into your React Native app
 
 ---
 
 ## 📚 Documentation
 
-Complete documentation is available at **[https://pulse.horizonos.in/docs](https://pulse.horizonos.in/docs/intro)**.
+Complete documentation is available at **[https://pulse.dreamhorizon.org/docs/intro][docs-intro]**.
 
 ### Platform & Setup
-- [Introduction](https://pulse.horizonos.in/docs/intro) - Overview of Pulse platform
-- [Setup Guide](https://pulse.horizonos.in/docs/setup) - Platform setup instructions
+- [Introduction][docs-intro] - Overview of Pulse platform
+- [Setup Guide][docs-setup] - Platform setup instructions
 
 ### Mobile SDKs
-- [Android SDK](https://pulse.horizonos.in/docs/sdk/android/overview) - Installation, Instrumentation, API Reference
-- [React Native SDK](https://pulse.horizonos.in/docs/sdk/react-native/overview) - Quick Start, Instrumentation, API Reference
+- [Android SDK][docs-android] - Installation, Instrumentation, API Reference
+- [React Native SDK][docs-react-native] - Quick Start, Instrumentation, API Reference
 
 ### API & Reference
-- [API Documentation](https://pulse.horizonos.in/docs/api-documentation/authentication) - Complete API reference
-- [Performance Metrics](https://pulse.horizonos.in/docs/api-documentation/performance-metrics) - Performance metrics API
-- [Critical Interactions](https://pulse.horizonos.in/docs/api-documentation/interactions) - Interaction tracking API
-- [Filters](https://pulse.horizonos.in/docs/api-documentation/filters) - Query filters and parameters
-- [Concepts](https://pulse.horizonos.in/docs/concepts/interaction-overview) - Core concepts and guides
+- [API Documentation](https://pulse.dreamhorizon.org/docs/api-documentation/authentication) - Complete API reference
+- [Performance Metrics](https://pulse.dreamhorizon.org/docs/api-documentation/performance-metrics) - Performance metrics API
+- [Critical Interactions](https://pulse.dreamhorizon.org/docs/api-documentation/interactions) - Interaction tracking API
+- [Filters](https://pulse.dreamhorizon.org/docs/api-documentation/filters) - Query filters and parameters
+- [Concepts](https://pulse.dreamhorizon.org/docs/concepts/interaction-overview) - Core concepts and guides
 
 ### Development
 - [Backend Server](backend/server/README.md) - Backend architecture and development
@@ -75,13 +75,13 @@ Complete documentation is available at **[https://pulse.horizonos.in/docs](https
 **Mobile**: Kotlin • OpenTelemetry • React Native  
 **Data**: OpenTelemetry Collector • OTLP
 
-For detailed technology information, see the [full documentation](https://pulse.horizonos.in/docs/intro).
+For detailed technology information, see the [full documentation][docs-intro].
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://pulse.horizonos.in/docs/contribution) for detailed information.
+We welcome contributions! Please see our [Contributing Guide][docs-contribution] for detailed information.
 
 **Quick Steps:**
 1. Fork the repository
@@ -94,13 +94,13 @@ We welcome contributions! Please see our [Contributing Guide](https://pulse.hori
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE][license] file for details.
 
 ---
 
 ## 📞 Support
 
-- **📖 Documentation**: [https://pulse.horizonos.in/docs](https://pulse.horizonos.in/docs/intro)
+- **📖 Documentation**: [https://pulse.dreamhorizon.org/docs/intro][docs-intro]
 - **🐛 Issues**: Open a GitHub issue
 - **💬 Discussions**: Use GitHub Discussions
 
@@ -110,6 +110,13 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 **Built with ❤️ by the Pulse Team**
 
-**[📖 Documentation](https://pulse.horizonos.in/docs/intro)** • [Contributing](https://pulse.horizonos.in/docs/contribution) • [License](LICENSE)
+[Contributing][docs-contribution] • [License][license]
 
 </div>
+
+[docs-intro]: https://pulse.dreamhorizon.org/docs/intro
+[docs-setup]: https://pulse.dreamhorizon.org/docs/setup
+[docs-android]: https://pulse.dreamhorizon.org/docs/sdk/android/overview
+[docs-react-native]: https://pulse.dreamhorizon.org/docs/sdk/react-native/overview
+[docs-contribution]: https://pulse.dreamhorizon.org/docs/contribution
+[license]: LICENSE

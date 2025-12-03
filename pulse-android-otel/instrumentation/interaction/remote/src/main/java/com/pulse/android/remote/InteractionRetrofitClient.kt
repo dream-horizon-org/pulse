@@ -8,19 +8,21 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 public class InteractionRetrofitClient(
     private val url: String,
-    private val json: Json = Json {
-        encodeDefaults = true
-        explicitNulls = false
-        ignoreUnknownKeys = !BuildConfig.DEBUG
-        prettyPrint = BuildConfig.DEBUG
-        isLenient = !BuildConfig.DEBUG
-        allowSpecialFloatingPointValues = true
-        useAlternativeNames = true
-    },
+    private val json: Json =
+        Json {
+            encodeDefaults = true
+            explicitNulls = false
+            ignoreUnknownKeys = !BuildConfig.DEBUG
+            prettyPrint = BuildConfig.DEBUG
+            isLenient = !BuildConfig.DEBUG
+            allowSpecialFloatingPointValues = true
+            useAlternativeNames = true
+        },
     private val okhttpClient: OkHttpClient = OkHttpClient.Builder().build(),
 ) {
     private val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
+        Retrofit
+            .Builder()
             .baseUrl(url)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .client(okhttpClient)
@@ -31,7 +33,5 @@ public class InteractionRetrofitClient(
         retrofit.create(InteractionApiService::class.java)
     }
 
-    public fun newInstance(url: String): InteractionRetrofitClient {
-        return InteractionRetrofitClient(url, json, okhttpClient)
-    }
+    public fun newInstance(url: String): InteractionRetrofitClient = InteractionRetrofitClient(url, json, okhttpClient)
 }
