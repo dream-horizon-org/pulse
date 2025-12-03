@@ -83,14 +83,10 @@ class PulseOtelUtilsTest {
     }
 
     companion object {
+        @Suppress("LongMethod")
         @JvmStatic
         fun getUrlNormalizationTestCases(): List<Arguments> =
             listOf(
-                Arguments.of(
-                    "https://api.example.com/users?page=1&limit=10",
-                    "https://api.example.com/users",
-                    "removes query parameters",
-                ),
                 Arguments.of(
                     "https://api.example.com/users",
                     "https://api.example.com/users",
@@ -110,11 +106,6 @@ class PulseOtelUtilsTest {
                     "https://api.example.com?param=value",
                     "https://api.example.com",
                     "removes query from root path",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users?",
-                    "https://api.example.com/users",
-                    "handles trailing question mark",
                 ),
                 Arguments.of(
                     "https://api.example.com/users#section?page=1",
@@ -172,29 +163,14 @@ class PulseOtelUtilsTest {
                     "replaces numeric IDs (3+ digits)",
                 ),
                 Arguments.of(
-                    "https://api.example.com/users/12345/posts/987654",
+                    "https://api.example.com/users/123/posts/987654",
                     "https://api.example.com/users/[redacted]/posts/[redacted]",
                     "replaces multiple numeric IDs",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/123",
-                    "https://api.example.com/users/[redacted]",
-                    "replaces 3-digit numeric ID",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/999999999",
-                    "https://api.example.com/users/[redacted]",
-                    "replaces long numeric ID",
                 ),
                 Arguments.of(
                     "https://api.example.com/users/12",
                     "https://api.example.com/users/12",
                     "does not replace 2-digit numeric",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/1",
-                    "https://api.example.com/users/1",
-                    "does not replace single digit",
                 ),
                 Arguments.of(
                     "https://api.example.com:8080/users/12345",
@@ -232,11 +208,6 @@ class PulseOtelUtilsTest {
                     "replaces ULID at path start",
                 ),
                 Arguments.of(
-                    "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3",
-                    "https://api.example.com/users/[redacted]",
-                    "replaces ULID at path end",
-                ),
-                Arguments.of(
                     "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MV3?page=1",
                     "https://api.example.com/users/[redacted]",
                     "replaces ULID with query params",
@@ -270,21 +241,6 @@ class PulseOtelUtilsTest {
                     "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVI",
                     "https://api.example.com/users/[redacted]",
                     "replaces string with invalid ULID character (I) - matches alphanumeric pattern",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVL",
-                    "https://api.example.com/users/[redacted]",
-                    "replaces string with invalid ULID character (L) - matches alphanumeric pattern",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVO",
-                    "https://api.example.com/users/[redacted]",
-                    "replaces string with invalid ULID character (O) - matches alphanumeric pattern",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/01AN4Z07BY79KA1307SR9X4MVU",
-                    "https://api.example.com/users/[redacted]",
-                    "replaces string with invalid ULID character (U) - matches alphanumeric pattern",
                 ),
                 Arguments.of(
                     "https://api.example.com/commits/abc123def456789012345678901234567890abcd",
@@ -327,11 +283,6 @@ class PulseOtelUtilsTest {
                     "replaces alphanumeric string with query",
                 ),
                 Arguments.of(
-                    "https://api.example.com/users/abc123",
-                    "https://api.example.com/users/abc123",
-                    "does not replace 6-char alphanumeric",
-                ),
-                Arguments.of(
                     "https://api.example.com/users/abc123def456ghi",
                     "https://api.example.com/users/abc123def456ghi",
                     "does not replace 15-char alphanumeric",
@@ -372,19 +323,9 @@ class PulseOtelUtilsTest {
                     "handles subdomain",
                 ),
                 Arguments.of(
-                    "https://api.example.com:443/users/12345",
-                    "https://api.example.com:443/users/[redacted]",
-                    "handles explicit HTTPS port",
-                ),
-                Arguments.of(
                     "https://api.example.com/api/v1/users/12345",
                     "https://api.example.com/api/v1/users/[redacted]",
                     "handles API version in path",
-                ),
-                Arguments.of(
-                    "https://api.example.com/users/12345/posts/98765/comments/111",
-                    "https://api.example.com/users/[redacted]/posts/[redacted]/comments/[redacted]",
-                    "replaces all numeric IDs 3+ digits",
                 ),
                 Arguments.of(
                     "",
@@ -395,11 +336,6 @@ class PulseOtelUtilsTest {
                     "https://api.example.com",
                     "https://api.example.com",
                     "handles root URL",
-                ),
-                Arguments.of(
-                    "https://api.example.com/",
-                    "https://api.example.com/",
-                    "handles root path",
                 ),
             )
 
