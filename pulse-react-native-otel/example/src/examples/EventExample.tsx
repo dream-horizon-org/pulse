@@ -133,7 +133,7 @@ export default function EventDemo() {
             <Pressable
               style={({ pressed }) => [
                 styles.addButton,
-                { opacity: pressed ? 0.6 : 1.0 }
+                { opacity: pressed ? 0.6 : 1.0 },
               ]}
               onPress={addAttribute}
             >

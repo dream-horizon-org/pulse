@@ -101,7 +101,7 @@ function DemoScreen({ demo, onBack }: DemoScreenProps) {
       <Pressable
         style={({ pressed }) => [
           styles.backButton,
-          { opacity: pressed ? 0.6 : 1.0 }
+          { opacity: pressed ? 0.6 : 1.0 },
         ]}
         onPress={onBack}
       >
