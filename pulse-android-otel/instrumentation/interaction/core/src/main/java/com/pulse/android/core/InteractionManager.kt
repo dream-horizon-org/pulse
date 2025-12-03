@@ -63,7 +63,7 @@ public class InteractionManager
                         }
                         launch(defaultDispatcher + CoroutineName("interactionMarkerTracker=${interactionEventsTracker.name}")) {
                             eventQueue.localMarkerEventsFlow.collect {
-                                logDebug { "calling checkAndAdd with ${it.name}" }
+                                logDebug { "calling addMarker with ${it.name}" }
                                 interactionEventsTracker.addMarker(it)
                             }
                         }

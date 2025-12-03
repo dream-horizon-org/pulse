@@ -80,6 +80,7 @@ internal class SlowRenderListener(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun reportSlowRenders() {
         try {
             activities.forEach { (_: Activity?, listener: PerActivityListener) ->

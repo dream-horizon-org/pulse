@@ -38,7 +38,9 @@ internal class PulseSignalProcessor {
                             val threshold =
                                 logRecord.attributes.get(AttributeKey.doubleKey("app.jank.threshold"))
                             when (threshold) {
-                                null -> null
+                                null -> {
+                                    null
+                                }
                                 FROZEN_THRESHOLD_MICRO -> {
                                     PulseAttributes.PulseTypeValues.FROZEN
                                 }
@@ -47,12 +49,18 @@ internal class PulseSignalProcessor {
                                     PulseAttributes.PulseTypeValues.SLOW
                                 }
 
-                                else -> null
+                                else -> {
+                                    null
+                                }
                             }
                         }
 
-                        "app.screen.click", "app.widget.click", "event.app.widget.click" -> PulseAttributes.PulseTypeValues.TOUCH
-                        "network.change" -> PulseAttributes.PulseTypeValues.NETWORK_CHANGE
+                        "app.screen.click", "app.widget.click", "event.app.widget.click" -> {
+                            PulseAttributes.PulseTypeValues.TOUCH
+                        }
+                        "network.change" -> {
+                            PulseAttributes.PulseTypeValues.NETWORK_CHANGE
+                        }
                         "session.end" -> {
                             logRecord.setAllAttributes(
                                 PulseSessionAttributes.createSessionEndAttributes(
@@ -63,7 +71,9 @@ internal class PulseSignalProcessor {
                             null
                         }
 
-                        else -> null
+                        else -> {
+                            null
+                        }
                     }
                 type?.let {
                     logRecord.setAttribute(PulseAttributes.PULSE_TYPE, it)
@@ -77,7 +87,7 @@ internal class PulseSignalProcessor {
         }
     }
 
-    internal inner class PulseSpanTypeAttributesAppender : ExtendedSpanProcessor {
+    internal class PulseSpanTypeAttributesAppender : ExtendedSpanProcessor {
         override fun onStart(
             parentContext: Context,
             span: ReadWriteSpan,
@@ -128,8 +138,6 @@ internal class PulseSignalProcessor {
                 originalUrl?.let {
                     span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
                 }
-                android.util.Log.d("[Pulse]", "onEnding: $originalUrl")
-                android.util.Log.d("[Pulse]", "onEnding: ${span.attributes.get(httpUrlKey)}")
             }
         }
 

@@ -198,7 +198,7 @@ internal object InteractionUtil {
 
         val (timeDifferenceInNano, timeCategory, upTimeIndex) =
             if (isSuccessInteraction) {
-                val timeDifferenceInNano = (lastEventTimeInNano - events.first().timeInNano)
+                val timeDifferenceInNano = lastEventTimeInNano - events.first().timeInNano
                 val timeDifferenceInMs = timeDifferenceInNano / 1000_000
                 val lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
                 val midLimitInMs = interactionConfig.uptimeMidLimitInMs

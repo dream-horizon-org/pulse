@@ -98,7 +98,7 @@ internal class PulseSDKImpl : PulseSDK {
         val tracerProviderCustomizer =
             BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
                 tracerProviderBuilder.addSpanProcessor(
-                    pulseSpanProcessor.PulseSpanTypeAttributesAppender(),
+                    PulseSignalProcessor.PulseSpanTypeAttributesAppender(),
                 )
                 // interaction specific attributed present in other spans
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
@@ -167,7 +167,7 @@ internal class PulseSDKImpl : PulseSDK {
             .apply {
                 setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
                 setBody(name)
-                setEventName("pulse.custom_event")
+                setEventName(CUSTOM_EVENT_NAME)
                 setAttribute(
                     PulseAttributes.PULSE_TYPE,
                     PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
@@ -187,7 +187,7 @@ internal class PulseSDKImpl : PulseSDK {
             .apply {
                 setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
                 setBody(name)
-                setEventName("pulse.custom_non_fatal")
+                setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
                 setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
                 setAllAttributes(params.toAttributes())
                 emit()
@@ -214,7 +214,7 @@ internal class PulseSDKImpl : PulseSDK {
                         ).put(ExceptionAttributes.EXCEPTION_TYPE, throwable.javaClass.name)
                 attributesBuilder putAttributesFrom params
                 setAllAttributes(attributesBuilder.build())
-                setEventName("pulse.custom_non_fatal")
+                setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
                 setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
                 emit()
             }
@@ -273,5 +273,7 @@ internal class PulseSDKImpl : PulseSDK {
 
     internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
+        private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
+        private const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
     }
 }

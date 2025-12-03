@@ -29,7 +29,7 @@ internal class EventJankReporter(
         var frameCount: Long = 0
         for (entry in durationToCountHistogram) {
             val durationMillis = entry.key
-            if ((durationMillis / 1000.0) > threshold) {
+            if (durationMillis / 1000.0 > threshold) {
                 val count = entry.value
                 if (debugVerbose) {
                     Log.d(

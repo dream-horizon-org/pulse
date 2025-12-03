@@ -55,7 +55,7 @@ internal class PerActivityListener(
                     SlowRenderListener.slowFrames++
                 }
                 val oldValue: Int = drawDurationHistogram.getOrDefault(durationMs, 0)
-                drawDurationHistogram[durationMs] = (oldValue + 1)
+                drawDurationHistogram[durationMs] = oldValue + 1
             }
         }
     }

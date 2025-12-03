@@ -78,7 +78,7 @@ class ViewClickEventGenerator(
     private fun viewToName(view: View): String =
         try {
             view.resources?.getResourceEntryName(view.id) ?: view.id.toString()
-        } catch (throwable: Throwable) {
+        } catch (ignored: Throwable) {
             view.id.toString()
         }
 
