@@ -52,7 +52,10 @@ jobs:
           # Disable Google OAuth (use dummy login)
           REACT_APP_GOOGLE_OAUTH_ENABLED: 'false'
           REACT_APP_GOOGLE_CLIENT_ID: ''
+          # API base URL (empty for mock server, but needed for URL construction)
+          REACT_APP_PULSE_SERVER_URL: ''
           # Set public URL for /pulse subpath
+          # PUBLIC_URL is used by webpack for asset paths and is available in React code
           PUBLIC_URL: '/pulse'
           # Production mode
           NODE_ENV: 'production'

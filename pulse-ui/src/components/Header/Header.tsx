@@ -69,7 +69,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
           )}
           <div className={classes.logoContainer} onClick={onClick}>
             <Image
-              src={window.location.origin + "/logo.svg"}
+              src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
               radius="md"
               className={classes.logo}
               alt=""

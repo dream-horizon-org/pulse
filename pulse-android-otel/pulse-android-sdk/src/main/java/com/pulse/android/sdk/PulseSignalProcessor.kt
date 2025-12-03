@@ -1,5 +1,6 @@
 package com.pulse.android.sdk
 
+import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import io.opentelemetry.android.common.RumConstants
@@ -9,7 +10,8 @@ import io.opentelemetry.sdk.logs.LogRecordProcessor
 import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
-import io.opentelemetry.sdk.trace.SpanProcessor
+import io.opentelemetry.sdk.trace.internal.ExtendedSpanProcessor
+import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 
 internal class PulseSignalProcessor {
@@ -75,7 +77,7 @@ internal class PulseSignalProcessor {
         }
     }
 
-    internal inner class PulseSpanTypeAttributesAppender : SpanProcessor {
+    internal inner class PulseSpanTypeAttributesAppender : ExtendedSpanProcessor {
         override fun onStart(
             parentContext: Context,
             span: ReadWriteSpan,
@@ -114,6 +116,24 @@ internal class PulseSignalProcessor {
         }
 
         override fun isEndRequired(): Boolean = false
+
+        override fun onEnding(span: ReadWriteSpan) {
+            if (PulseOtelUtils.isNetworkSpan(span)) {
+                // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
+                //  use the new not deprecated attributes
+                @Suppress("DEPRECATION")
+                val httpUrlKey: AttributeKey<String> = HttpIncubatingAttributes.HTTP_URL
+                val originalUrl = span.attributes.get(httpUrlKey)
+
+                originalUrl?.let {
+                    span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
+                }
+                android.util.Log.d("[Pulse]", "onEnding: $originalUrl")
+                android.util.Log.d("[Pulse]", "onEnding: ${span.attributes.get(httpUrlKey)}")
+            }
+        }
+
+        override fun isOnEndingRequired(): Boolean = true
     }
 
     companion object {

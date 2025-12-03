@@ -29,10 +29,10 @@ public class MysqlSymbolFileService extends SymbolFileService {
   @Override
   public Single<Boolean> uploadFile(String fileName, InputStream fileInputStream, UploadMetadata metadata) {
     final String sql =
-        "INSERT INTO symbol_files " +
-            "  (app_version, app_version_code, platform, framework, file_content) " +
-            "VALUES (?,?,?,?,?) " +
-            "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content)";
+        "INSERT INTO symbol_files "
+            + "  (app_version, app_version_code, platform, framework, file_content) "
+            + "VALUES (?,?,?,?,?) "
+            + "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content)";
 
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)

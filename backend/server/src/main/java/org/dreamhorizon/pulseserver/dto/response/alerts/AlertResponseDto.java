@@ -14,5 +14,5 @@ import lombok.NoArgsConstructor;
 public class AlertResponseDto {
   @NotNull
   @JsonProperty("alert_id")
-  Integer alert_id;
+  Integer alertId;
 }

@@ -100,7 +100,7 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     }
 
     // From
-    String from = switch (request.getDataType()) {
+    final String from = switch (request.getDataType()) {
       case TRACES -> "otel_traces";
       case LOGS -> "otel_logs";
       case METRICS -> "otel_metrics";
@@ -116,18 +116,20 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     StringBuilder where = new StringBuilder(timeFilter);
     if (!CollectionUtils.isEmpty(request.getFilters())) {
       for (QueryRequest.Filter filter : request.getFilters()) {
-        where.append(switch (filter.getOperator()) {
-          case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
-              format(filter.getValue()));
-          case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
-              format(filter.getValue()));
-          case EQ -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
-              format(List.of(filter.getValue().get(0))));
-          case ADDITIONAL -> String.format(" And (%s)", filter.getValue().get(0));
-        });
+        where.append(
+            switch (filter.getOperator()) {
+              case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
+                  format(filter.getValue()));
+              case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
+                  format(filter.getValue()));
+              case EQ -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
+                  format(List.of(filter.getValue().get(0))));
+              case ADDITIONAL -> String.format(" And (%s)", filter.getValue().get(0));
+            });
       }
     }
-    String whereClause = where.toString();
+
+    final String whereClause = where.toString();
 
     //Group by
     String groupByClause = "";
@@ -166,8 +168,8 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               .map(GetRawUserEventsResponseDto.Field::getName)
               .toList();
           List<List<String>> rows = rawRes.data.getRows().stream()
-              .map(row -> row.getF().stream()
-                  .map(field -> Objects.isNull(field.getV()) ? "" : field.getV().toString())
+              .map(row -> row.getRowFields().stream()
+                  .map(field -> Objects.isNull(field.getValue()) ? "" : field.getValue().toString())
                   .toList())
               .toList();
           return PerformanceMetricDistributionRes.builder()

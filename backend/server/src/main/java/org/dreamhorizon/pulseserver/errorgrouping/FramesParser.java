@@ -6,23 +6,21 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.val;
 import org.apache.commons.lang3.tuple.Pair;
-import org.dreamhorizon.pulseserver.errorgrouping.model.JSFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.JavaFrame;
+import org.dreamhorizon.pulseserver.errorgrouping.model.JsFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
-import org.dreamhorizon.pulseserver.errorgrouping.model.NDKFrame;
+import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
 
 /**
  * Tier-0 fingerprinting with pre-normalization symbolication.
- * <p>
  * What it does:
  * 1) Parse raw stack trace into lanes (JS / JAVA / NDK) with rich frame info.
  * 2) Detect minified/obfuscated/unsymbolicated frames.
  * 3) Symbolicate per lane if artifacts are available (JS implemented here).
  * 4) Choose PRIMARY lane (by in-app frames), normalize tokens, build signature.
  * 5) Hash (SHA-1) and construct a display name.
- * <p>
  * To enable JS symbolication, add dependency (Gradle):
  * implementation("com.google.javascript:closure-compiler:v20231002")
  * or a newer version that includes SourceMapConsumerV3.
@@ -75,9 +73,9 @@ public final class FramesParser {
 
     // JS error line (TypeError, Error, etc.)
     if (!state.sawTopType) {
-      Matcher mJsTop = Regex.JS_ERR_LINE.matcher(trimmed);
-      if (mJsTop.find()) {
-        st.getJsTypes().add(mJsTop.group(1));
+      Matcher jsTop = Regex.JS_ERR_LINE.matcher(trimmed);
+      if (jsTop.find()) {
+        st.getJsTypes().add(jsTop.group(1));
         st.setPrimaryExceptionLane(Lane.JS);  // Track topmost exception
         st.setExceptionHeaderLine(trimmed);   // Store full exception line
         state.sawTopType = true;
@@ -110,9 +108,9 @@ public final class FramesParser {
 
     // Java headline (only if not claimed by JS and not a React Native JS exception)
     if (!state.sawTopType && !state.isReactNativeJsException) {
-      Matcher mJavaTop = Regex.JAVA_TOP_TYPE.matcher(trimmed);
-      if (mJavaTop.find()) {
-        st.getJavaTypes().add(mJavaTop.group(1));
+      Matcher javaTop = Regex.JAVA_TOP_TYPE.matcher(trimmed);
+      if (javaTop.find()) {
+        st.getJavaTypes().add(javaTop.group(1));
         st.setPrimaryExceptionLane(Lane.JAVA);  // Track topmost exception
         st.setExceptionHeaderLine(trimmed);     // Store full exception line
         state.sawTopType = true;
@@ -159,7 +157,7 @@ public final class FramesParser {
     // Offset is character position (column) on line 1
     Matcher rnCompact2 = Regex.RN_COMPACT_FRAME_NO_COL.matcher(trimmed);
     if (rnCompact2.find()) {
-      st.getJsFrames().add(JSFrame.builder()
+      st.getJsFrames().add(JsFrame.builder()
           .jsFunction(ErrorGroupingUtils.normalizeJsFunction(rnCompact2.group(1)))
           .jsFile(ErrorGroupingUtils.sanitizeJsFile(rnCompact2.group(2)))
           .jsLine(1)  // Minified bundles are on line 1
@@ -174,13 +172,13 @@ public final class FramesParser {
   }
 
   private static boolean tryParseJavaFrame(String line, ParsedFrames st, ParserState state) {
-    Matcher jAt = Regex.JAVA_AT_LINE.matcher(line);
-    if (!jAt.find()) {
+    Matcher javaAt = Regex.JAVA_AT_LINE.matcher(line);
+    if (!javaAt.find()) {
       return false;
     }
 
-    val classMethod = parseJavaClassMethod(jAt.group(1));
-    val fileLineParsed = parseJavaFileLine(jAt.group(2));
+    val classMethod = parseJavaClassMethod(javaAt.group(1));
+    val fileLineParsed = parseJavaFileLine(javaAt.group(2));
 
     st.getJavaFrames().add(JavaFrame.builder()
         .javaClass(classMethod.getLeft())
@@ -201,7 +199,7 @@ public final class FramesParser {
 
     String libPath = ndk.group(2);
     String sym = ndk.group(3);
-    st.getNdkFrames().add(NDKFrame.builder()
+    st.getNdkFrames().add(NdkFrame.builder()
         .ndkPc(ndk.group(1))
         .ndkLib(basename(libPath))
         .ndkSymbol((sym == null || sym.isBlank()) ? null : sym.split("\\+", 2)[0])
@@ -211,8 +209,8 @@ public final class FramesParser {
     return true;
   }
 
-  private static JSFrame buildJsFrame(String func, String file, String line, String col, String rawLine, int position) {
-    return JSFrame.builder()
+  private static JsFrame buildJsFrame(String func, String file, String line, String col, String rawLine, int position) {
+    return JsFrame.builder()
         .jsFunction(ErrorGroupingUtils.normalizeJsFunction(func))
         .jsFile(ErrorGroupingUtils.sanitizeJsFile(file))
         .jsLine(ErrorGroupingUtils.safeInt(line))

@@ -7,14 +7,14 @@ import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class JSFrame extends Frame {
+public class JsFrame extends Frame {
   private String jsFile;
   private String jsFunction;
   private Integer jsLine;
   private Integer jsColumn;
 
   @Builder
-  public JSFrame(String jsFile,
+  public JsFrame(String jsFile,
                  String jsFunction,
                  Integer jsLine,
                  Integer jsColumn,

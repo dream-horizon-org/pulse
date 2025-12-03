@@ -108,7 +108,7 @@ export function Login() {
           <Box className={classes.leftSide}>
             <Box className={classes.dashboardPreview}>
               <Image
-                src={window.location.origin + "/landing_page.png"}
+                src={(process.env.PUBLIC_URL || '') + "/landing_page.png"}
                 alt="Dashboard Preview"
                 className={classes.previewImage}
               />
