@@ -1,5 +1,5 @@
 # Multi-stage build for pulse-ui (React)
-FROM node:20-alpine AS builder
+FROM node:20-alpine@sha256:16858294071a56ffd4cce9f17b57136cc39e41507b40e245b4f8e906f7a19463 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -31,7 +31,7 @@ ENV NODE_ENV=production
 RUN yarn build
 
 # Production stage with nginx
-FROM nginx:alpine
+FROM nginx:alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646adcf92441b72f82b14
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl

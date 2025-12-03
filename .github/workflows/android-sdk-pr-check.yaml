@@ -1,9 +1,10 @@
-name: PR build
+name: Android SDK - PR build
 
 on:
   pull_request:
     paths:
       - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-pr-check.yaml'
 
 permissions:
   contents: read

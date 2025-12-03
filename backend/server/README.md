@@ -19,12 +19,10 @@
 - [Features](#-features)
 - [Technology Stack](#-technology-stack)
 - [Getting Started](#-getting-started)
-- [API Documentation](#-api-documentation)
+- [API Documentation](#api-documentation)
 - [Database Schema](#-database-schema)
 - [Configuration](#-configuration)
-- [Development](#-development)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
+- [Testing](#testing)
 
 ## 🌟 Overview
 
@@ -871,10 +869,6 @@ Response:
 ```
 
 ## 🗄️ Database Schema
-
-### MySQL Schema
-
-See [src/main/resources/db/mysql/seed/000_Exampleseedfile.sql](src/main/resources/db/mysql/seed/000_Exampleseedfile.sql) for complete schema.
 
 ### ClickHouse Schema
 

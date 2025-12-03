@@ -78,7 +78,7 @@ export function Navbar({
           {opened ? (
             <Box className={classes.logoExpanded} onClick={onLogoClick}>
               <Image
-                src={window.location.origin + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
                 radius="md"
                 className={classes.logo}
                 alt=""
@@ -94,7 +94,7 @@ export function Navbar({
               withArrow
             >
               <Image
-                src={window.location.origin + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
                 radius="md"
                 className={classes.logoCollapsed}
                 onClick={onLogoClick}

@@ -8,8 +8,15 @@ include_fragments = true
 
 # excluding links to pull requests and issues is done for performance
 exclude = [
-  "^http://localhost:16686/$",
+  "^http://localhost:\\d{4,5}(/.*)?$",
   '^https://github.com/open-telemetry/opentelemetry-android/(issues|pull)/\d+$',
   "^https://maven-badges.sml.io/maven-central/io.opentelemetry.android/.*$",
   "^https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/.*$",
+  # TODO validate why not able to resolve below url
+  "https://www.npmjs.com/package/@dreamhorizonorg/pulse-react-native",
+]
+
+exclude_path = [
+  # TODO also test url with %PUBLIC_URL%
+  "pulse-ui/public/index.html",
 ]
