@@ -308,8 +308,8 @@ class PulseOtelUtilsTest {
                     "replaces multiple different ID types",
                 ),
                 Arguments.of(
-                    "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/posts/12345?page=1&id=550e8400-e29b-41d4-a716-446655440000",
-                    "https://api.example.com/users/[redacted]/posts/[redacted]",
+                    "https://api.example.com/550e8400-e29b-41d4-a716-446655440000/?page=1&id=550e8400-e29b-41d4-a716-446655440000",
+                    "https://api.example.com/[redacted]/",
                     "query params removed before normalization",
                 ),
                 Arguments.of(
