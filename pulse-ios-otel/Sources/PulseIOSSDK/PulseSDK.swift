@@ -214,7 +214,7 @@ public class PulseSDK {
     }
     
     public func trackSpan<T>(
-        spanName: String,
+        name: String,
         params: [String: Any?] = [:],
         action: () throws -> T
     ) rethrows -> T {
@@ -222,7 +222,7 @@ public class PulseSDK {
             return try action()
         }
         
-        let span = tracer.spanBuilder(spanName: spanName).startSpan()
+        let span = tracer.spanBuilder(spanName: name).startSpan()
         defer { span.end() }
         
         for (key, value) in params {
@@ -235,10 +235,10 @@ public class PulseSDK {
     }
     
     public func startSpan(
-        spanName: String,
+        name: String,
         params: [String: Any?] = [:]
     ) -> Span {
-        let span = tracer.spanBuilder(spanName: spanName).startSpan()
+        let span = tracer.spanBuilder(spanName: name).startSpan()
         for (key, value) in params {
             if let attrValue = attributeValue(from: value) {
                 span.setAttribute(key: key, value: attrValue)

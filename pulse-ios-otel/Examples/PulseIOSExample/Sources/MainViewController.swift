@@ -125,36 +125,42 @@ class MainViewController: UIViewController {
         print("trackEventTapped pressed")
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         PulseSDK.shared.trackEvent(
-            name: "tract_custom_event_2",
+            name: "tract_custom_event",
             observedTimeStampInMs: timestamp,
             params: [
                 "button_name": "track_event",
                 "screen": "main"
             ]
         )
-//        showAlert(title: "Event Tracked", message: "Custom event 'button_clicked' has been tracked")
+        showAlert(title: "Event Tracked", message: "Custom event 'button_clicked' has been tracked")
     }
     
     @objc private func trackNonFatalTapped() {
         print("trackNonFatalTapped pressed")
-        let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
-        let error = NSError(domain: "com.pulse.ios.example", code: 1001, userInfo: [
-            NSLocalizedDescriptionKey: "Sample non-fatal error for testing"
-        ])
-        PulseSDK.shared.trackNonFatal(
-            error: error,
-            observedTimeStampInMs: timestamp,
-            params: [
-                "error_source": "manual_test",
-                "screen": "main"
-            ]
-        )
-        showAlert(title: "Non-Fatal Tracked", message: "Non-fatal error has been tracked")
+        
+        do {
+            // Simulate an operation that throws an error
+            let invalidJSON = "{ invalid json }"
+            let data = invalidJSON.data(using: .utf8)!
+            _ = try JSONSerialization.jsonObject(with: data, options: [])
+        } catch {
+            // Track the caught error as a non-fatal error
+            let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
+            PulseSDK.shared.trackNonFatal(
+                error: error,
+                observedTimeStampInMs: timestamp,
+                params: [
+                    "error_source": "json_parsing",
+                    "screen": "main"
+                ]
+            )
+            showAlert(title: "Non-Fatal Tracked", message: "Non-fatal error caught and tracked")
+        }
     }
     
     @objc private func trackSpanTapped() {
         let result = PulseSDK.shared.trackSpan(
-            spanName: "button_action_1",
+            name: "track_span",
             params: [
                 "action": "track_span",
                 "method": "closure_based"
@@ -170,7 +176,7 @@ class MainViewController: UIViewController {
     @objc private func startSpanTapped() {
         print("startSpanTapped")
         let span = PulseSDK.shared.startSpan(
-            spanName: "manual_span_1",
+            name: "manual_created_span",
             params: [
                 "action": "start_span_1",
                 "method": "manual"
@@ -192,24 +198,7 @@ class MainViewController: UIViewController {
     
     @objc private func networkRequestTapped() {
         guard let url = URL(string: "https://httpbin.org/get") else { return }
-        
-        let span = PulseSDK.shared.startSpan(
-            spanName: "http_request",
-            params: [
-                "http.method": "GET",
-                "http.url": url.absoluteString
-            ]
-        )
-        
         let task = URLSession.shared.dataTask(with: url) { data, response, error in
-            defer { span.end() }
-            
-            if let error = error {
-                span.setAttribute(key: "error", value: error.localizedDescription)
-            } else if let httpResponse = response as? HTTPURLResponse {
-                span.setAttribute(key: "http.status_code", value: httpResponse.statusCode)
-            }
-            
             DispatchQueue.main.async {
                 if let error = error {
                     self.showAlert(title: "Network Error", message: error.localizedDescription)
@@ -222,9 +211,10 @@ class MainViewController: UIViewController {
     }
     
     private func showAlert(title: String, message: String) {
-//        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-//        alert.addAction(UIAlertAction(title: "OK", style: .default))
-//        present(alert, animated: true)
+        print(title)
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
 
