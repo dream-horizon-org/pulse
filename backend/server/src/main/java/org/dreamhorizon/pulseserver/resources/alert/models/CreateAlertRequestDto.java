@@ -48,9 +48,8 @@ public class CreateAlertRequestDto {
   @JsonProperty("scope")
   AlertScope scope;
 
-  @NotNull(message = "identifiers cannot be null")
   @JsonProperty("dimension_filters")
-  List<String> dimensionFilters;
+  String dimensionFilters;
 
   @NotNull(message = "condition_expression cannot be null")
   @JsonProperty("condition_expression")

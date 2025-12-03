@@ -39,7 +39,7 @@ public class Alert {
   String scope;
 
   @NotNull
-  List<String> dimensionFilter;
+  String dimensionFilter;
 
   @NotNull
   List<AlertConditionDto> alerts;

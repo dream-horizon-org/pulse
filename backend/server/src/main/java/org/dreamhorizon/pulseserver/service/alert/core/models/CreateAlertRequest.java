@@ -32,8 +32,7 @@ public class CreateAlertRequest {
   @NotNull
   AlertScope scope;
 
-  @NotNull
-  List<String> dimensionFilters;
+  String dimensionFilters;
 
   @NotNull
   String conditionExpression;
