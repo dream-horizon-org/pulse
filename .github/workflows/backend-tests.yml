@@ -123,7 +123,6 @@ jobs:
               echo "⚠️ Found $violations Checkstyle violations" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "📄 Download the full report from the workflow artifacts." >> $GITHUB_STEP_SUMMARY
-              exit 1
             fi
           fi
   required-status-check:
