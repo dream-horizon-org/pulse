@@ -15,7 +15,7 @@ export const authenticateUser = (
         grantType: "id_token",
         identifier: googleCredential,
         idProvider: "google",
-        resources: ["pulse.dream11.com"],
+        resources: [window.location.hostname],
       }),
     },
   });
