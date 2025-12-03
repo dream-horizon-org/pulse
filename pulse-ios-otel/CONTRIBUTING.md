@@ -164,6 +164,107 @@ protoc --swift_opt=Visibility=Public --grpc-swift_opt=Visibility=Public --swift_
 protoc --swift_opt=Visibility=Public --grpc-swift_opt=Visibility=Public --swift_out=./out --grpc-swift_out=./out opentelemetry/proto/collector/logs/v1/logs_service.proto
 ```
 
+## Adding New Instrumentations
+
+The Pulse iOS SDK uses a modular instrumentation system that makes it easy to add new instrumentations. Here's how to add a new instrumentation:
+
+### Step 1: Create Instrumentation Config
+
+Create a new file in `Sources/PulseIOSSDK/Instrumentation/` named `YourInstrumentationConfig.swift`:
+
+```swift
+import Foundation
+
+/// Configuration for YourInstrumentation
+public struct YourInstrumentationConfig {
+    public private(set) var enabled: Bool = true
+    
+    public init(enabled: Bool = true) {
+        self.enabled = enabled
+    }
+    
+    public mutating func enabled(_ value: Bool) {
+        self.enabled = value
+    }
+    
+    // Add any additional configuration properties here
+}
+
+extension YourInstrumentationConfig: InstrumentationInitializer {
+    internal func initialize(ctx: InstallationContext) {
+        guard self.enabled else { return }
+        
+        // Initialize your instrumentation here
+        _ = YourInstrumentation()
+    }
+}
+```
+
+### Step 2: Add to InstrumentationConfiguration
+
+Update `Sources/PulseIOSSDK/Instrumentation/InstrumentationConfiguration.swift`:
+
+```swift
+public struct InstrumentationConfiguration {
+    // ... existing configs ...
+    private var _yourInstrumentation: YourInstrumentationConfig = YourInstrumentationConfig()
+    
+    // Add DSL method
+    public mutating func yourInstrumentation(_ configure: (inout YourInstrumentationConfig) -> Void) {
+        configure(&_yourInstrumentation)
+    }
+    
+    // Add accessor
+    internal var yourInstrumentation: YourInstrumentationConfig { _yourInstrumentation }
+    
+    // Add to initializers array
+    internal var initializers: [InstrumentationInitializer] {
+        [
+            _urlSession,
+            _sessions,
+            _signPost,
+            _yourInstrumentation  // Add here
+        ]
+    }
+}
+```
+
+### Step 3: Special Cases
+
+If your instrumentation needs processors added during provider construction (like Sessions), add a `createProcessors()` method:
+
+```swift
+extension YourInstrumentationConfig {
+    internal func createProcessors(...) -> (spanProcessor: SpanProcessor, logProcessor: LogRecordProcessor)? {
+        guard self.enabled else { return nil }
+        // Create and return processors
+    }
+}
+```
+
+Then update `PulseSDK.buildProcessors()` to handle it.
+
+### Step 4: Usage
+
+Users can now configure your instrumentation:
+
+```swift
+PulseSDK.shared.initialize(endpointBaseUrl: "...") { config in
+    config.yourInstrumentation { yourConfig in
+        yourConfig.enabled(true)
+    }
+}
+```
+
+### Examples
+
+See existing instrumentations for reference:
+- `URLSessionInstrumentationConfig.swift` - Simple instrumentation with custom filter
+- `SessionsInstrumentationConfig.swift` - Instrumentation requiring processors
+- `SignPostInstrumentationConfig.swift` - Instrumentation using InstallationContext
+
+---
+
 Replace the generated files in `Sources/Exporters/OpenTelemetryProtocolCommon/proto` & `Sources/Exporters/OpenTelemetryGrpc/proto`:
 ###### `OpenTelemetryProtocolGrpc/proto` file list
 `logs_service.grpc.swift`

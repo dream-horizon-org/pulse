@@ -12,7 +12,13 @@ import SignPostIntegration
 public class PulseSDK {
     public static let shared = PulseSDK()
     
-    private var isInitialized = false
+    // Thread-safe initialization
+    private let initializationQueue = DispatchQueue(label: "com.pulse.ios.sdk.initialization")
+    private var _isInitialized = false
+    private var isInitialized: Bool {
+        initializationQueue.sync { _isInitialized }
+    }
+    
     private var openTelemetry: OpenTelemetry?
     
     private lazy var logger: Logger = {
@@ -33,17 +39,46 @@ public class PulseSDK {
     
     public func initialize(
         endpointBaseUrl: String,
+        endpointHeaders: [String: String]? = nil,
         globalAttributes: [String: String]? = nil,
-        enableURLSession: Bool = true,
-        enableSessions: Bool = true,
-        enableNetworkStatus: Bool = true,
-        enableSignPost: Bool = true
+        instrumentations: ((inout InstrumentationConfiguration) -> Void)? = nil
     ) {
-        guard !isInitialized else {
-            print("PulseSDK: Already initialized, ignoring duplicate call")
-            return
+        initializationQueue.sync {
+            guard !_isInitialized else {
+                return
+            }
+            
+            // Apply user configured instrumentations
+            var config = InstrumentationConfiguration()
+            instrumentations?(&config)
+            
+            // Build resource
+            let resource = buildResource(globalAttributes: globalAttributes)
+            
+            // Build OpenTelemetry SDK
+            let (tracerProvider, loggerProvider, openTelemetry) = buildOpenTelemetrySDK(
+                endpointBaseUrl: endpointBaseUrl,
+                endpointHeaders: endpointHeaders,
+                resource: resource,
+                sessionsConfig: config.sessions
+            )
+            
+            // Install instrumentations
+            let installationContext = InstallationContext(
+                tracerProvider: tracerProvider,
+                loggerProvider: loggerProvider,
+                openTelemetry: openTelemetry
+            )
+            installInstrumentations(config: config, ctx: installationContext)
+            
+            self.openTelemetry = openTelemetry
+            _isInitialized = true
         }
-        
+    }
+    
+    // MARK: - Private Helper Methods
+    
+    private func buildResource(globalAttributes: [String: String]?) -> Resource {
         let resource = DefaultResources().get()
         var resourceAttributes = resource.attributes
         if let globalAttributes = globalAttributes {
@@ -51,86 +86,88 @@ public class PulseSDK {
                 resourceAttributes[key] = AttributeValue.string(value)
             }
         }
-        let finalResource = Resource(attributes: resourceAttributes)
+        return Resource(attributes: resourceAttributes)
+    }
+    
+    private func buildOpenTelemetrySDK(
+        endpointBaseUrl: String,
+        endpointHeaders: [String: String]?,
+        resource: Resource,
+        sessionsConfig: SessionsInstrumentationConfig
+    ) -> (tracerProvider: TracerProvider, loggerProvider: LoggerProvider, openTelemetry: OpenTelemetry) {
+        // Convert headers to exporter format [(String, String)]?
+        let envVarHeaders: [(String, String)]? = endpointHeaders?.map { ($0.key, $0.value) }
         
+        // Build exporters
         let tracesEndpoint = URL(string: "\(endpointBaseUrl)/v1/traces")!
         let logsEndpoint = URL(string: "\(endpointBaseUrl)/v1/logs")!
-        let otlpHttpTraceExporter = OtlpHttpTraceExporter(endpoint: tracesEndpoint)
-        let otlpHttpLogExporter = OtlpHttpLogExporter(endpoint: logsEndpoint)
+        let otlpHttpTraceExporter = OtlpHttpTraceExporter(endpoint: tracesEndpoint, envVarHeaders: envVarHeaders)
+        let otlpHttpLogExporter = OtlpHttpLogExporter(endpoint: logsEndpoint, envVarHeaders: envVarHeaders)
         let stdoutSpanExporter = StdoutSpanExporter()
         let spanExporter = MultiSpanExporter(spanExporters: [otlpHttpTraceExporter, stdoutSpanExporter])
         
+        // Build base processors
         let spanProcessor = SimpleSpanProcessor(spanExporter: spanExporter)
         let baseLogProcessor = SimpleLogRecordProcessor(logRecordExporter: otlpHttpLogExporter)
         
-        var finalSpanProcessors: [SpanProcessor] = [spanProcessor]
-        var finalLogProcessors: [LogRecordProcessor]
+        // Build processors (including Sessions if enabled)
+        let (spanProcessors, logProcessors) = buildProcessors(
+            baseSpanProcessor: spanProcessor,
+            baseLogProcessor: baseLogProcessor,
+            sessionsConfig: sessionsConfig
+        )
         
-        if enableSessions {
-            let sessionSpanProcessor = SessionSpanProcessor()
-            finalSpanProcessors.append(sessionSpanProcessor)
-            
-            // SessionLogRecordProcessor wraps baseLogProcessor, so we only add the wrapper
-            let sessionLogProcessor = SessionLogRecordProcessor(nextProcessor: baseLogProcessor)
-            finalLogProcessors = [sessionLogProcessor]
-        } else {
-            finalLogProcessors = [baseLogProcessor]
-        }
-        
-        // Step 5: Tracer Provider
+        // Build providers
         var tracerProviderBuilder = TracerProviderBuilder()
-            .with(resource: finalResource)
+            .with(resource: resource)
         
-        for processor in finalSpanProcessors {
+        for processor in spanProcessors {
             tracerProviderBuilder = tracerProviderBuilder.add(spanProcessor: processor)
         }
         
         let tracerProvider = tracerProviderBuilder.build()
         
-        // Step 6: Logger Provider
         let loggerProvider = LoggerProviderBuilder()
-            .with(resource: finalResource)
-            .with(processors: finalLogProcessors)
+            .with(resource: resource)
+            .with(processors: logProcessors)
             .build()
         
-        // Step 7: Register providers
+        // Register providers
         OpenTelemetry.registerTracerProvider(tracerProvider: tracerProvider)
         OpenTelemetry.registerLoggerProvider(loggerProvider: loggerProvider)
         
-        // Step 8: Initialize SessionEventInstrumentation if enabled
-        if enableSessions {
-            _ = SessionEventInstrumentation()
+        let openTelemetry = OpenTelemetry.instance
+        
+        return (tracerProvider, loggerProvider, openTelemetry)
+    }
+    
+    private func buildProcessors(
+        baseSpanProcessor: SpanProcessor,
+        baseLogProcessor: LogRecordProcessor,
+        sessionsConfig: SessionsInstrumentationConfig
+    ) -> (spanProcessors: [SpanProcessor], logProcessors: [LogRecordProcessor]) {
+        var spanProcessors: [SpanProcessor] = [baseSpanProcessor]
+        var logProcessors: [LogRecordProcessor]
+        
+        // Sessions instrumentation requires processors to be added during provider construction
+        // (before providers are built, unlike other instrumentations that use InstallationContext)
+        if let sessionsProcessors = sessionsConfig.createProcessors(baseLogProcessor: baseLogProcessor) {
+            spanProcessors.append(sessionsProcessors.spanProcessor)
+            logProcessors = [sessionsProcessors.logProcessor]
+        } else {
+            logProcessors = [baseLogProcessor]
         }
         
-        // Step 9: Initialize URLSession instrumentation if enabled
-        if enableURLSession {
-            // Exclude OTLP exporter requests to prevent recursive spans
-            let configuration = URLSessionInstrumentationConfiguration(
-                shouldInstrument: { request in
-                    guard let url = request.url?.absoluteString else { return true }
-                    // Don't instrument requests to the OTLP endpoint
-                    if url.contains(endpointBaseUrl) {
-                        return false
-                    }
-                    return true
-                }
-            )
-            _ = URLSessionInstrumentation(configuration: configuration)
+        return (spanProcessors, logProcessors)
+    }
+    
+    private func installInstrumentations(
+        config: InstrumentationConfiguration,
+        ctx: InstallationContext
+    ) {
+        for initializer in config.initializers {
+            initializer.initialize(ctx: ctx)
         }
-        
-        // Step 10: Add SignPost if enabled
-        if enableSignPost {
-            if let tracerProviderSdk = tracerProvider as? TracerProviderSdk {
-                if #available(iOS 15.0, macOS 12.0, *) {
-                    tracerProviderSdk.addSpanProcessor(OSSignposterIntegration())
-                } else {
-                    tracerProviderSdk.addSpanProcessor(SignPostIntegration())
-                }
-            }
-        }
-        
-        self.openTelemetry = OpenTelemetry.instance
-        self.isInitialized = true
     }
     
     public func trackEvent(

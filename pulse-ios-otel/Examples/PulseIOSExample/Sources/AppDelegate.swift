@@ -9,9 +9,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        PulseSDK.shared.initialize(
-            endpointBaseUrl: "http://127.0.0.1:4318"
-        )
+        // Initialize with instrumentation configuration using DSL syntax
+        PulseSDK.shared.initialize(endpointBaseUrl: "http://127.0.0.1:4318") { config in
+            config.urlSession { urlSessionConfig in
+                urlSessionConfig.enabled(false)
+            }
+        }
         
         // Create window and root view controller
         window = UIWindow(frame: UIScreen.main.bounds)

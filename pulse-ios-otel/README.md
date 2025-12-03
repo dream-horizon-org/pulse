@@ -99,11 +99,18 @@ Metrics is implemented using an outdated spec, is fully functional but will chan
 
 ### Instrumentation libraries
 
-* `URLSession`
-* `NetworkStatus`
-* `SDKResourceExtension`
-* `SignPostIntegration`
-* `SessionsEventInstrumentation`
+The Pulse iOS SDK includes the following instrumentations:
+
+* **[URLSession](Sources/Instrumentation/URLSession/README.md)** - Automatically tracks HTTP requests made via `URLSession`
+* **[Sessions](Sources/Instrumentation/Sessions/README.md)** - Tracks user sessions and adds session IDs to all telemetry
+* **[SignPost Integration](Sources/Instrumentation/SignPostIntegration/README.md)** - Integrates with OS Signpost for performance monitoring
+* **NetworkStatus** - Automatically enriches HTTP spans with network connection information (wifi, cellular, carrier info). This is automatically enabled with URLSession instrumentation.
+* **SDKResourceExtension** - Provides default resource attributes for iOS applications
+* **[MetricKit](Sources/Instrumentation/MetricKit/README.md)** - Captures MetricKit performance metrics and diagnostics
+
+For detailed documentation on each instrumentation, see the links above or browse the `Sources/Instrumentation/` directory.
+
+For Pulse SDK API documentation, see [PulseIOSSDK README](Sources/PulseIOSSDK/README.md).
 
 ### Third-party exporters
 In addition to the specified OpenTelemetry exporters, some third-party exporters have been contributed and can be found in the following repos: 
