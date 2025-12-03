@@ -66,7 +66,7 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     properties?.let { props ->
       PulseSDK.INSTANCE.setUserProperties {
         props.entryIterator.forEach { (key, value) ->
-          put(key, value)
+          value?.let { put(key, value) }
         }
       }
     }

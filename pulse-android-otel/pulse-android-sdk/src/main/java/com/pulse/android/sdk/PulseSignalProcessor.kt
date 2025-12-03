@@ -127,6 +127,8 @@ internal class PulseSignalProcessor {
                 originalUrl?.let {
                     span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
                 }
+                android.util.Log.d("[Pulse]", "onEnding: $originalUrl")
+                android.util.Log.d("[Pulse]", "onEnding: ${span.attributes.get(httpUrlKey)}")
             }
         }
 
