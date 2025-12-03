@@ -13,9 +13,6 @@ on:
     paths:
       - 'pulse-react-native-otel/**'
       - '.github/workflows/ci-react-native.yml'
-  merge_group:
-    types:
-      - checks_requested
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
