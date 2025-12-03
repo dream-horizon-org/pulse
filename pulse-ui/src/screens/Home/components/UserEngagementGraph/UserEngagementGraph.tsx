@@ -50,7 +50,7 @@ export function UserEngagementGraph({
     };
   }, []);
 
-  const { data, isLoading } = useGetUserEngagementData({
+  const { data } = useGetUserEngagementData({
     screenName,
     appVersion,
     osVersion,

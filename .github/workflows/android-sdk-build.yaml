@@ -1,0 +1,77 @@
+name: Android SDK - Build
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+    paths:
+      - 'pulse-android-otel/**'
+      - '.github/workflows/android-sdk-build.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: "build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./pulse-android-otel
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Set up JDK for running Gradle
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: touch local props
+        run: touch demo-app/local.properties
+      - name: run gradle check
+        run: ./gradlew check
+      - name: create test coverage report
+        run: ./gradlew check koverXmlReport
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/reports/kover/report.xml
+          slug: open-telemetry/opentelemetry-android
+
+      - name: build demo app
+        working-directory: ./pulse-android-otel/demo-app
+        run: ./gradlew check assemble
+      # Will start publishing when we have finalized on the coordinates
+      # - name: publish snapshot
+      #   run: ./gradlew publishToSonatype
+      #   env:
+      #     SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
+      #     SONATYPE_KEY: ${{ secrets.SONATYPE_KEY }}
+      #     GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      #     GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
+
+  workflow-notification:
+    permissions: # required by the reusable workflow
+      contents: read
+      issues: write
+    needs:
+      - build
+    if: failure() && github.run_attempt == 1
+    uses: ./.github/workflows/reusable-workflow-notification.yml
+    with:
+      success: ${{ needs.build.result == 'success' }}
+
+  required-status-check:
+    permissions:
+      contents: read
+      issues: write
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - if: |
+          needs.build.result != 'success'
+        run: exit 1

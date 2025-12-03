@@ -1,10 +1,6 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import classes from "../InteractionDetailsGraphs/InteractionDetailsGraphs.module.css";
-import {
-  UserCategorisationGraphDataType,
-  UserCategorisationPercentage,
-} from "./UserCategorisationGraph.interface";
 import { GraphDataProps } from "../ApdexGraph/ApdexGraph.interface";
 import { AbsoluteNumbersForGraphs } from "../AbsoluteNumbersForGraphs";
 import { useMantineTheme } from "@mantine/core";
@@ -13,35 +9,6 @@ import { AreaChart } from "../../../../../../components/Charts";
 import { createTooltipFormatter } from "../../../../../../components/Charts/Tooltip";
 
 dayjs.extend(utc);
-
-const getCategoryTotal = (graphData: UserCategorisationGraphDataType) => {
-  return (
-    graphData?.reduce(
-      (acc: UserCategorisationPercentage, item) => {
-        acc.total += item.Excellent + item.Good + item.Average + item.Poor;
-        acc.Excellent += item.Excellent;
-        acc.Good += item.Good;
-        acc.Average += item.Average;
-        acc.Poor += item.Poor;
-        return acc;
-      },
-      {
-        total: 0,
-        Excellent: 0,
-        Good: 0,
-        Average: 0,
-        Poor: 0,
-      } as UserCategorisationPercentage,
-    ) ||
-    ({
-      total: 0,
-      Excellent: 0,
-      Good: 0,
-      Average: 0,
-      Poor: 0,
-    } as UserCategorisationPercentage)
-  );
-};
 
 const getPercentage = (value: number, total: number) => {
   if (total === 0) return 0;
