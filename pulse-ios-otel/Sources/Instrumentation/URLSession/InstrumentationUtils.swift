@@ -20,7 +20,7 @@ enum InstrumentationUtils {
         let allClasses = UnsafeMutablePointer<AnyClass>.allocate(capacity: Int(expectedClassCount))
         let autoreleasingAllClasses = AutoreleasingUnsafeMutablePointer<AnyClass>(allClasses)
         let actualClassCount: Int32 = ObjectiveC.objc_getClassList(autoreleasingAllClasses, expectedClassCount)
-        
+
         var classes = [AnyClass]()
         for i in 0 ..< actualClassCount {
             classes.append(allClasses[Int(i)])
@@ -28,11 +28,11 @@ enum InstrumentationUtils {
         allClasses.deallocate()
         return classes
     }
-    
+
     static func objc_getSafeClassList(ignoredPrefixes: [String]? = nil) -> [AnyClass] {
         let allClasses = objc_getClassList()
         var safeClasses: [AnyClass] = []
-        
+
         for cls in allClasses {
             let className = NSStringFromClass(cls)
             if let ignoredPrefixes = ignoredPrefixes {
@@ -42,13 +42,13 @@ enum InstrumentationUtils {
             }
             safeClasses.append(cls)
         }
-        
+
         if #available(iOS 14, macOS 11, tvOS 14, *) {
           os_log(.info, "failed to initialize network connection status: %ld", safeClasses.count)
         }
         return safeClasses
     }
-    
+
     static func instanceRespondsAndImplements(cls: AnyClass, selector: Selector) -> Bool {
         var implements = false
         if cls.instancesRespond(to: selector) {
@@ -69,7 +69,7 @@ enum InstrumentationUtils {
         }
         return implements
     }
-    
+
     private static func enumerateCArray<T>(array: UnsafePointer<T>, count: UInt32, f: (UInt32, T) -> Void) {
         var ptr = array
         for i in 0 ..< count {

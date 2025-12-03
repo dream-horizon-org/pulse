@@ -9,4 +9,3 @@ import OpenTelemetrySdk
 internal protocol InstrumentationInitializer {
     func initialize(ctx: InstallationContext)
 }
-

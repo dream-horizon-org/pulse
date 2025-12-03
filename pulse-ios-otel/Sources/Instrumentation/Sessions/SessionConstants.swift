@@ -11,7 +11,7 @@
 /// Reference: https://opentelemetry.io/docs/specs/semconv/general/session/
 public class SessionConstants {
   // MARK: - OpenTelemetry Semantic Conventions
-  
+
   /// Event name for session start events
   public static let sessionStartEvent = "session.start"
   /// Event name for session end events  
@@ -22,7 +22,7 @@ public class SessionConstants {
   public static let previousId = "session.previous_id"
 
   // MARK: - Extension Attributes
-  
+
   /// Attribute name for session start timestamp
   public static let startTime = "session.start_time"
   /// Attribute name for session end timestamp
@@ -31,7 +31,7 @@ public class SessionConstants {
   public static let duration = "session.duration"
 
   // MARK: - Internal Constants
-  
+
   /// Notification name for session events
   public static let sessionEventNotification = "SessionEventInstrumentation.SessionEvent"
 }

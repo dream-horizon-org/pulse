@@ -262,7 +262,6 @@ All SDK methods are thread-safe. The SDK uses internal synchronization to ensure
 
 ## See Also
 
-- [Instrumentation Documentation](../Instrumentation/README.md)
 - [URLSession Instrumentation](../Instrumentation/URLSession/README.md)
 - [Sessions Instrumentation](../Instrumentation/Sessions/README.md)
 - [SignPost Instrumentation](../Instrumentation/SignPostIntegration/README.md)

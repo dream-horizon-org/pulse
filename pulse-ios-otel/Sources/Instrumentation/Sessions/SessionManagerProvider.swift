@@ -22,7 +22,7 @@ import Foundation
 public class SessionManagerProvider {
   private static var _instance: SessionManager?
   private static let lock = NSLock()
-  
+
   /// Registers a SessionManager instance as the singleton.
   ///
   /// Call this early in your app lifecycle to ensure consistent session management.
@@ -32,7 +32,7 @@ public class SessionManagerProvider {
       _instance = sessionManager
     }
   }
-  
+
   /// Returns the registered SessionManager instance or creates a default one.
   ///
   /// Thread-safe method that returns the singleton SessionManager instance.

@@ -9,15 +9,15 @@ import OpenTelemetrySdk
 
 public struct SessionsInstrumentationConfig {
     public private(set) var enabled: Bool = true
-    
+
     public init(enabled: Bool = true) {
         self.enabled = enabled
     }
-    
+
     public mutating func enabled(_ value: Bool) {
         self.enabled = value
     }
-    
+
     internal func createProcessors(baseLogProcessor: LogRecordProcessor) -> (spanProcessor: SpanProcessor, logProcessor: LogRecordProcessor)? {
         guard self.enabled else { return nil }
         let sessionSpanProcessor = SessionSpanProcessor()
@@ -32,4 +32,3 @@ extension SessionsInstrumentationConfig: InstrumentationInitializer {
         _ = SessionEventInstrumentation()
     }
 }
-

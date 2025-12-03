@@ -1,0 +1,60 @@
+name: iOS SDK - PR build
+
+on:
+  pull_request:
+    paths:
+      - 'pulse-ios-otel/**'
+      - '.github/workflows/ios-sdk-pr-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pr-checks:
+    name: "pr-checks"
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ./pulse-ios-otel
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: 16.4
+
+      - name: SwiftLint
+        uses: norio-nomura/action-swiftlint@9f4dcd7fd46b4e75d7935cf2f4df406d5cae3684 # 3.2.1
+        env:
+          args: --strict
+          DIFF_BASE: ${{ github.base_ref }}
+
+      - name: Build Swift Package
+        run: swift build
+
+      - name: Test Swift Package
+        run: swift test
+
+      - name: Build Example App
+        working-directory: ./pulse-ios-otel/Examples/PulseIOSExample
+        run: |
+          xcodebuild -project PulseIOSExample.xcodeproj \
+            -scheme PulseIOSExample \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -configuration Debug \
+            build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+  required-status-check:
+    needs:
+      - pr-checks
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - if: |
+          needs.pr-checks.result != 'success'
+        run: exit 1
+

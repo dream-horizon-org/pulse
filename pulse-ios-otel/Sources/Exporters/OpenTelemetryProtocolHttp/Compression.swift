@@ -12,8 +12,7 @@ import Foundation
 fileprivate extension Data {
   func withUnsafeBytes<ResultType, ContentType>(
     _ body: (UnsafePointer<ContentType>) throws -> ResultType
-  ) rethrows -> ResultType
-  {
+  ) rethrows -> ResultType {
     return try self.withUnsafeBytes({ (rawBufferPointer: UnsafeRawBufferPointer) -> ResultType in
       return try body(rawBufferPointer.bindMemory(to: ContentType.self).baseAddress!)
     })
@@ -24,8 +23,7 @@ extension Data {
   /// Compresses the data using the zlib deflate algorithm.
   /// - returns: raw deflated data according to [RFC-1951](https://tools.ietf.org/html/rfc1951).
   /// - note: Fixed at compression level 5 (best trade off between speed and time)
-  func deflate() -> Data?
-  {
+  func deflate() -> Data? {
     return self.withUnsafeBytes { (sourcePtr: UnsafePointer<UInt8>) -> Data? in
       let config = (operation: COMPRESSION_STREAM_ENCODE, algorithm: COMPRESSION_ZLIB)
       return perform(config, source: sourcePtr, sourceSize: count)
@@ -35,8 +33,7 @@ extension Data {
   /// Compresses the data using the deflate algorithm and makes it comply to the gzip stream format.
   /// - returns: deflated data in gzip format [RFC-1952](https://tools.ietf.org/html/rfc1952)
   /// - note: Fixed at compression level 5 (best trade off between speed and time)
-  func gzip() -> Data?
-  {
+  func gzip() -> Data? {
     var header = Data([0x1f, 0x8b, 0x08, 0x00]) // magic, magic, deflate, noflags
 
     var unixtime = UInt32(Date().timeIntervalSince1970).littleEndian
@@ -64,8 +61,7 @@ extension Data {
 
   /// Calculate the Crc32 checksum of the data.
   /// - returns: Crc32 checksum type. Can still be further advanced.
-  func crc32() -> Crc32
-  {
+  func crc32() -> Crc32 {
       var res = Crc32()
       res.advance(withChunk: self)
       return res
@@ -80,8 +76,7 @@ extension Data {
     _ config: DataCompressionConfig,
     source: UnsafePointer<UInt8>,
     sourceSize: Int,
-    preload: Data = Data()) -> Data?
-  {
+    preload: Data = Data()) -> Data? {
     guard config.operation == COMPRESSION_STREAM_ENCODE || sourceSize > 0 else { return nil }
 
     let streamBase = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
@@ -99,7 +94,7 @@ extension Data {
 
     if sourceSize > blockLimit {
       bufferSize = blockLimit
-      if config.algorithm == COMPRESSION_LZFSE && config.operation != COMPRESSION_STREAM_ENCODE   {
+      if config.algorithm == COMPRESSION_LZFSE && config.operation != COMPRESSION_STREAM_ENCODE {
         // This fixes a bug in Apples lzfse decompressor. it will sometimes fail randomly when the input gets
         // splitted into multiple chunks and the flag is not 0. Even though it should always work with FINALIZE...
         flags = 0
@@ -145,9 +140,9 @@ public struct Crc32: CustomStringConvertible {
 
   // C convention function pointer type matching the signature of `libz::crc32`
   private typealias ZLibCrc32FuncPtr = @convention(c) (
-    _ cks:  UInt32,
-    _ buf:  UnsafePointer<UInt8>,
-    _ len:  UInt32
+    _ cks: UInt32,
+    _ buf: UnsafePointer<UInt8>,
+    _ len: UInt32
   ) -> UInt32
 
   /// Raw checksum. Updated after a every call to `advance(withChunk:)`
@@ -155,28 +150,24 @@ public struct Crc32: CustomStringConvertible {
 
   /// Advance the current checksum with a chunk of data. Designed t be called multiple times.
   /// - parameter chunk: data to advance the checksum
-  public mutating func advance(withChunk chunk: Data)
-  {
+  public mutating func advance(withChunk chunk: Data) {
     if let fastCrc32 = Crc32.zLibCrc32 {
       checksum = chunk.withUnsafeBytes({ (ptr: UnsafePointer<UInt8>) -> UInt32 in
         return fastCrc32(checksum, ptr, UInt32(chunk.count))
       })
-    }
-    else {
+    } else {
       checksum = slowCrc32(start: checksum, data: chunk)
     }
   }
 
   /// Formatted checksum.
-  public var description: String
-  {
+  public var description: String {
     return String(format: "%08x", checksum)
   }
 
   /// Load `crc32()` from '/usr/lib/libz.dylib' if libz is installed.
   /// - returns: A function pointer to crc32() of zlib or nil if zlib can't be found
-  private static func loadCrc32fromZLib() -> ZLibCrc32FuncPtr?
-  {
+  private static func loadCrc32fromZLib() -> ZLibCrc32FuncPtr? {
     guard let libz = dlopen("/usr/lib/libz.dylib", RTLD_NOW) else { return nil }
     guard let fptr = dlsym(libz, "crc32") else { return nil }
     return unsafeBitCast(fptr, to: ZLibCrc32FuncPtr.self)
@@ -185,8 +176,7 @@ public struct Crc32: CustomStringConvertible {
   /// Rudimentary fallback implementation of the crc32 checksum. This is only a backup used
   /// when zlib can't be found under '/usr/lib/libz.dylib'.
   /// - returns: crc32 checksum (4 byte)
-  private func slowCrc32(start: UInt32, data: Data) -> UInt32
-  {
+  private func slowCrc32(start: UInt32, data: Data) -> UInt32 {
     return ~data.reduce(~start) { (crc: UInt32, next: UInt8) -> UInt32 in
       let tableOffset = (crc ^ UInt32(next)) & 0xff
       return lookUpTable[Int(tableOffset)] ^ crc >> 8
@@ -227,7 +217,7 @@ public struct Crc32: CustomStringConvertible {
     0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2, 0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db,
     0xaed16a4a, 0xd9d65adc, 0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
     0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693, 0x54de5729, 0x23d967bf,
-    0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d,
+    0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
   ]
 }
 

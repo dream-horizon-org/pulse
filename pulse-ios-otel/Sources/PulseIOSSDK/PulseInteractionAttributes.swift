@@ -10,4 +10,3 @@ public enum PulseInteractionAttributes {
     public static let interactionConfigId = "pulse.interaction.config.id"
     public static let interactionLastEventTime = "pulse.interaction.last_event_time"
 }
-

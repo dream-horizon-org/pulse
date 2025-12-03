@@ -9,11 +9,11 @@ import SignPostIntegration
 
 public struct SignPostInstrumentationConfig {
     public private(set) var enabled: Bool = true
-    
+
     public init(enabled: Bool = true) {
         self.enabled = enabled
     }
-    
+
     public mutating func enabled(_ value: Bool) {
         self.enabled = value
     }
@@ -22,7 +22,7 @@ public struct SignPostInstrumentationConfig {
 extension SignPostInstrumentationConfig: InstrumentationInitializer {
     internal func initialize(ctx: InstallationContext) {
         guard self.enabled else { return }
-        
+
         if let tracerProviderSdk = ctx.tracerProvider as? TracerProviderSdk {
             if #available(iOS 15.0, macOS 12.0, *) {
                 tracerProviderSdk.addSpanProcessor(OSSignposterIntegration())
@@ -32,4 +32,3 @@ extension SignPostInstrumentationConfig: InstrumentationInitializer {
         }
     }
 }
-
