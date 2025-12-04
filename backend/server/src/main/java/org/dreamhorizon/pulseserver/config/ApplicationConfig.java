@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ApplicationConfig {
   public String cronManagerBaseUrl;
   public String serviceUrl;
-  public Integer shutdownGracePeriod;
+  public Integer shutdownGracePeriodLs;
   public String googleOAuthClientId;
   public Boolean googleOAuthEnabled;
   public String jwtSecret;
