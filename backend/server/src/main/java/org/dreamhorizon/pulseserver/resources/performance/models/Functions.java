@@ -16,11 +16,11 @@ public enum Functions {
   DURATION_P95("duration_p95", ClickhouseConstants.CH_DURATION_P95_SELECT_CLAUSE),
   COL("col", "%s"),
   CUSTOM("custom", "%s"),
+
   TIME_BUCKET("time_bucket", ClickhouseConstants.CH_TIME_BUCKET_SELECT_CLAUSE),
   INTERACTION_SUCCESS_COUNT("successInteractionCount", ClickhouseConstants.SUC_IN_CNT),
   INTERACTION_ERROR_COUNT("errorInteractionCount", ClickhouseConstants.ERR_IN_CNT),
   INTERACTION_ERROR_DISTINCT_USERS("distinctUsers", ClickhouseConstants.ERR_DIST_USERS),
-
   USER_CATEGORY_EXCELLENT("lowUptimeUser", ClickhouseConstants.EXCELLENT_CAT),
   USER_CATEGORY_GOOD("midUptimeUser1", ClickhouseConstants.GOOD_CAT),
   USER_CATEGORY_AVERAGE("midUptimeUser2", ClickhouseConstants.AVERAGE_CAT),
@@ -30,14 +30,26 @@ public enum Functions {
   NET_3XX("net3XX", ClickhouseConstants.NET_3XX),
   NET_4XX("net4XX", ClickhouseConstants.NET_4XX),
   NET_5XX("net5XX", ClickhouseConstants.NET_5XX),
-  ARR_TO_STR("arrToString", ClickhouseConstants.ARR_TO_STR),
+  CRASH_RATE("crashRate", ClickhouseConstants.CRASH_RATE),
+  ANR_RATE("anrRate", ClickhouseConstants.ANR_RATE),
+  FROZEN_FRAME_RATE("frozenFrameRate", ClickhouseConstants.FROZEN_FRAME_RATE),
+  ERROR_RATE("errorRate", ClickhouseConstants.ERROR_RATE),
+  POOR_USER_RATE("poorUserRate", ClickhouseConstants.POOR_USER_RATE),
+  AVERAGE_USER_RATE("averageUserRate", ClickhouseConstants.AVERAGE_USER_RATE),
+  GOOD_USER_RATE("goodUserRate", ClickhouseConstants.GOOD_USER_RATE),
+  EXCELLENT_USER_RATE("excellentUserRate", ClickhouseConstants.EXCELLENT_USER_RATE),
+  LOAD_TIME("loadTime", ClickhouseConstants.LOAD_TIME),
+  SCREEN_TIME("screenTime", ClickhouseConstants.SCREEN_TIME),
+  NET_4XX_RATE("net4xxRate", ClickhouseConstants.NET_4XX_RATE),
+  NET_5XX_RATE("net5xxRate", ClickhouseConstants.NET_5XX_RATE),
   ;
 
-  private final String displayName;
-  private final String chSelectClause;
   Functions(String displayName, String chSelectClause) {
     this.displayName = displayName;
     this.chSelectClause = chSelectClause;
   }
+
+  private final String displayName;
+  private final String chSelectClause;
 
 }

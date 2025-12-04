@@ -1,15 +1,12 @@
 package org.dreamhorizon.pulseserver.resources.alert;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertDetailsPaginatedResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertDetailsResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AllAlertDetailsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsPaginatedResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AllAlertDetailsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.SnoozeAlertRestRequest;
 import org.dreamhorizon.pulseserver.resources.alert.models.SnoozeAlertRestResponse;
-import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertRequestDto;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.GetAlertsResponse;
@@ -17,6 +14,9 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsRespon
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 

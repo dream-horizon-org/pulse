@@ -1,53 +1,39 @@
 package org.dreamhorizon.pulseserver.dao;
 
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
+import org.dreamhorizon.pulseserver.service.alert.core.models.*;
+import org.dreamhorizon.pulseserver.util.AlertMapper;
+import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.mysqlclient.MySQLException;
-import io.vertx.rxjava3.mysqlclient.MySQLClient;
-import io.vertx.rxjava3.sqlclient.Pool;
-import io.vertx.rxjava3.sqlclient.Row;
-import io.vertx.rxjava3.sqlclient.SqlConnection;
-import io.vertx.rxjava3.sqlclient.Tuple;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import java.sql.Timestamp;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
+import io.vertx.rxjava3.sqlclient.Pool;
+import io.vertx.rxjava3.sqlclient.Row;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+
+import io.vertx.rxjava3.mysqlclient.MySQLClient;
+import io.vertx.rxjava3.sqlclient.Tuple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
-import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertEvaluationHistoryResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertNotificationChannelResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertSeverityResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertTagsResponseDto;
-import org.dreamhorizon.pulseserver.enums.AlertState;
-import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
-import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
-import org.dreamhorizon.pulseserver.service.alert.core.models.AlertCondition;
-import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
-import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
-import org.dreamhorizon.pulseserver.service.alert.core.models.GetAlertsResponse;
-import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsResponse;
-import org.dreamhorizon.pulseserver.service.alert.core.models.Metric;
-import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
-import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
-import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
-import org.dreamhorizon.pulseserver.util.AlertMapper;
-import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -83,21 +69,64 @@ public class AlertsDao {
     log.error("Error while updating last evaluated at in db for alert id {}: {}", alertId, error.getMessage());
   }
 
-  public Single<Integer> createAlert(@NotNull @Valid CreateAlertRequest req) {
-    final String dimensionFilterJson;
+  private Map<String, Object> mapRowToScopeMap(Row row) {
+    Map<String, Object> scope = new HashMap<>();
+    scope.put("id", row.getInteger("id"));
+    scope.put("name", row.getString("name"));
+    scope.put("conditions", ((JsonArray) row.getValue("conditions")).encode());
+    scope.put("state", row.getString("state"));
+    scope.put("created_at", row.getLocalDateTime("created_at"));
+    scope.put("updated_at", row.getLocalDateTime("updated_at"));
+    return scope;
+  }
 
+  private Single<List<Map<String, Object>>> fetchAlertScopes(Pool pool, Integer alertId) {
+    return pool.preparedQuery(AlertsQuery.GET_ALERT_SCOPES)
+        .rxExecute(Tuple.of(alertId))
+        .map(rowSet -> {
+          List<Map<String, Object>> scopes = new ArrayList<>();
+          for (Row row : rowSet) {
+            scopes.add(mapRowToScopeMap(row));
+          }
+          return scopes;
+        })
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching alert scopes from db for alert id {}: {}", alertId, error.getMessage());
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
+        });
+  }
+
+
+  private Alert enrichAlertWithConditions(Alert alert, List<Map<String, Object>> scopes) {
     try {
-      dimensionFilterJson = objectMapper.writeValueAsString(req.getDimensionFilters());
-    } catch (JsonProcessingException e) {
-      log.error("Error serializing alert data: {}", e.getMessage());
-      return Single.error(new RuntimeException("Failed to create alert: " + e.getMessage()));
+      List<AlertConditionDto> alertConditions = parseAlertConditionsFromScopes(scopes);
+      return alert.toBuilder()
+          .alerts(alertConditions)
+          .build();
+    } catch (Exception e) {
+      log.error("Error parsing alert conditions for alert {}: {}", alert.getAlertId(), e.getMessage());
+      return alert;
+    }
+  }
+
+  public Single<Integer> createAlert(@NotNull @Valid CreateAlertRequest req) {
+    // Extract scope names (identifiers) from threshold map keys
+    Set<String> scopeNames = new HashSet<>();
+    for (AlertCondition alert : req.getAlerts()) {
+      if (alert.getThreshold() != null) {
+        scopeNames.addAll(alert.getThreshold().keySet());
+      }
+    }
+
+    if (scopeNames.isEmpty()) {
+      return Single.error(new RuntimeException("No scope names found in threshold maps"));
     }
 
     List<Object> params = Arrays.asList(
         req.getName(),
         req.getDescription(),
         req.getScope().name(),
-        dimensionFilterJson,
+        req.getDimensionFilters(),
         req.getConditionExpression(),
         req.getSeverity(),
         req.getNotificationChannelId(),
@@ -119,7 +148,7 @@ public class AlertsDao {
                   Integer alertId = Integer.parseInt(
                       Objects.requireNonNull(rowSet.property(MySQLClient.LAST_INSERTED_ID)).toString());
 
-                  return createAlertScopes(conn, alertId, req.getDimensionFilters(), req.getAlerts())
+                  return createAlertScopes(conn, alertId, new ArrayList<>(scopeNames), req.getAlerts())
                       .map(success -> alertId);
                 })
                 .flatMap(alertId -> tx.rxCommit()
@@ -137,24 +166,15 @@ public class AlertsDao {
         });
   }
 
-  private Single<Boolean> createAlertScopes(SqlConnection conn,
-                                            Integer alertId,
-                                            List<String> getDimensionFilters,
-                                            List<AlertCondition> alerts) {
-    return createAlertScopesInternal(conn, alertId, getDimensionFilters, alerts);
-  }
-
-  private Single<Boolean> createAlertScopesInternal(SqlConnection conn,
-                                                    Integer alertId,
-                                                    List<String> identifiers,
-                                                    List<AlertCondition> alerts) {
-    List<Single<Boolean>> scopeCreationOps = identifiers.stream()
-        .map(identifier -> {
+  private Single<Boolean> createAlertScopes(SqlConnection conn, Integer alertId,
+                                            List<String> scopeNames, List<AlertCondition> alerts) {
+    List<Single<Boolean>> scopeCreationOps = scopeNames.stream()
+        .map(scopeName -> {
           try {
-            String scopeConditionsJson = buildScopeSpecificConditions(identifier, alerts);
-            return createSingleAlertScopeInTransaction(conn, alertId, identifier, scopeConditionsJson);
+            String scopeConditionsJson = buildScopeSpecificConditions(scopeName, alerts);
+            return createSingleAlertScopeInTransaction(conn, alertId, scopeName, scopeConditionsJson);
           } catch (JsonProcessingException e) {
-            log.error("Error serializing conditions for identifier {}: {}", identifier, e.getMessage());
+            log.error("Error serializing conditions for scope {}: {}", scopeName, e.getMessage());
             return Single.<Boolean>error(new RuntimeException("Failed to serialize conditions: " + e.getMessage()));
           }
         })
@@ -254,20 +274,23 @@ public class AlertsDao {
   }
 
   public Single<Integer> updateAlert(@NotNull @Valid UpdateAlertRequest req) {
-    final String dimensionFilterJson;
+    // Extract scope names (identifiers) from threshold map keys
+    Set<String> scopeNames = new HashSet<>();
+    for (AlertCondition alert : req.getAlerts()) {
+      if (alert.getThreshold() != null) {
+        scopeNames.addAll(alert.getThreshold().keySet());
+      }
+    }
 
-    try {
-      dimensionFilterJson = objectMapper.writeValueAsString(req.getDimensionFilters());
-    } catch (JsonProcessingException e) {
-      log.error("Error serializing alert data: {}", e.getMessage());
-      return Single.error(new RuntimeException("Failed to update alert: " + e.getMessage()));
+    if (scopeNames.isEmpty()) {
+      return Single.error(new RuntimeException("No scope names found in threshold maps"));
     }
 
     List<Object> params = Arrays.asList(
         req.getName(),
         req.getDescription(),
         req.getScope().name(),
-        dimensionFilterJson,
+        req.getDimensionFilters(),
         req.getConditionExpression(),
         req.getSeverity(),
         req.getNotificationChannelId(),
@@ -299,7 +322,7 @@ public class AlertsDao {
                           log.info("Deleted {} existing scopes for alert_id: {}", deleteResult.rowCount(), req.getAlertId());
 
                           // 3. Create new scopes
-                          return createAlertScopes(conn, req.getAlertId(), req.getDimensionFilters(), req.getAlerts())
+                          return createAlertScopes(conn, req.getAlertId(), new ArrayList<>(scopeNames), req.getAlerts())
                               .map(success -> req.getAlertId());
                         });
                   })
@@ -358,8 +381,7 @@ public class AlertsDao {
         .rxExecute(Tuple.of(alert_id))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert details from db for alert id {}: {}", alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
         })
         .map(rowSet -> {
           if (rowSet.size() > 0) {
@@ -370,41 +392,9 @@ public class AlertsDao {
           }
         });
 
-    Single<List<Map<String, Object>>> scopesSingle = pool.preparedQuery(AlertsQuery.GET_ALERT_SCOPES)
-        .rxExecute(Tuple.of(alert_id))
-        .map(rowSet -> {
-          List<Map<String, Object>> scopes = new ArrayList<>();
-          for (Row row : rowSet) {
-            Map<String, Object> scope = new HashMap<>();
-            scope.put("id", row.getInteger("id"));
-            scope.put("name", row.getString("name"));
+    Single<List<Map<String, Object>>> scopesSingle = fetchAlertScopes(pool, alert_id);
 
-            Object conditionsValue = row.getValue("conditions");
-            scope.put("conditions", ((JsonArray) conditionsValue).encode());
-            scope.put("state", row.getString("state"));
-            scope.put("created_at", row.getLocalDateTime("created_at"));
-            scope.put("updated_at", row.getLocalDateTime("updated_at"));
-            scopes.add(scope);
-          }
-          return scopes;
-        })
-        .onErrorResumeNext(error -> {
-          log.error("Error while fetching alert scopes from db for alert id {}: {}", alert_id, error.getMessage());
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
-        });
-
-    return Single.zip(alertSingle, scopesSingle, (alert, scopes) -> {
-      try {
-        // Parse and combine conditions from all scopes
-        List<AlertConditionDto> alertConditions = parseAlertConditionsFromScopes(scopes);
-        return alert.toBuilder()
-            .alerts(alertConditions)
-            .build();
-      } catch (Exception e) {
-        log.error("Error parsing alert conditions for alert {}: {}", alert_id, e.getMessage());
-        throw new RuntimeException("Failed to parse alert conditions: " + e.getMessage());
-      }
-    });
+    return Single.zip(alertSingle, scopesSingle, this::enrichAlertWithConditions);
   }
 
   private List<AlertConditionDto> parseAlertConditionsFromScopes(List<Map<String, Object>> scopes)
@@ -456,21 +446,13 @@ public class AlertsDao {
   }
 
   private Alert mapRowToAlert(Row row) {
-    List<String> dimensionFilter = null;
-    Object dimensionFilterValue = row.getValue("dimension_filter");
-    if (dimensionFilterValue != null) {
-      JsonArray jsonArray = (JsonArray) dimensionFilterValue;
-      dimensionFilter = jsonArray.stream()
-          .map(Object::toString)
-          .collect(java.util.stream.Collectors.toList());
-    }
 
     return Alert.builder()
         .alertId(row.getInteger("alert_id"))
         .name(row.getString("name"))
         .description(row.getString("description"))
         .scope(row.getString("scope"))
-        .dimensionFilter(dimensionFilter)
+        .dimensionFilter(row.getString("dimension_filter"))
         .conditionExpression(row.getString("condition_expression"))
         .evaluationPeriod(row.getInteger("evaluation_period"))
         .evaluationInterval(row.getInteger("evaluation_interval"))
@@ -525,35 +507,12 @@ public class AlertsDao {
                 Map<Integer, List<Map<String, Object>>> scopesByAlertId = new HashMap<>();
                 for (Row row : scopeRows) {
                   Integer alertId = row.getInteger("alert_id");
-                  Map<String, Object> scope_map = new HashMap<>();
-                  scope_map.put("id", row.getInteger("id"));
-                  scope_map.put("name", row.getString("name"));
-
-                  Object conditionsValue = row.getValue("conditions");
-                  if (conditionsValue != null) {
-                    scope_map.put("conditions", ((JsonArray) conditionsValue).encode());
-                  }
-
-                  scope_map.put("state", row.getString("state"));
-                  scope_map.put("created_at", row.getLocalDateTime("created_at"));
-                  scope_map.put("updated_at", row.getLocalDateTime("updated_at"));
-
-                  scopesByAlertId.computeIfAbsent(alertId, k -> new ArrayList<>()).add(scope_map);
+                  scopesByAlertId.computeIfAbsent(alertId, k -> new ArrayList<>()).add(mapRowToScopeMap(row));
                 }
 
                 List<Alert> enrichedAlerts = alerts.stream()
-                    .map(alert -> {
-                      try {
-                        List<Map<String, Object>> scopes = scopesByAlertId.getOrDefault(alert.getAlertId(), new ArrayList<>());
-                        List<AlertConditionDto> alertConditions = parseAlertConditionsFromScopes(scopes);
-                        return alert.toBuilder()
-                            .alerts(alertConditions)
-                            .build();
-                      } catch (Exception e) {
-                        log.error("Error parsing alert conditions for alert {}: {}", alert.getAlertId(), e.getMessage());
-                        return alert;
-                      }
-                    })
+                    .map(alert -> enrichAlertWithConditions(alert,
+                        scopesByAlertId.getOrDefault(alert.getAlertId(), new ArrayList<>())))
                     .collect(Collectors.toList());
 
                 return new GetAlertsResponse(finalTotalCount, enrichedAlerts, offset, limit);
@@ -571,7 +530,6 @@ public class AlertsDao {
   public Single<GetAllAlertsResponse> getAllAlerts() {
     Pool pool = d11MysqlClient.getWriterPool();
 
-    // Fetch all alerts
     Single<List<Alert>> alertsSingle = pool.preparedQuery(AlertsQuery.GET_ALL_ALERTS)
         .rxExecute()
         .map(rowSet -> {
@@ -592,17 +550,7 @@ public class AlertsDao {
           Map<Integer, List<Map<String, Object>>> scopesByAlertId = new HashMap<>();
           for (Row row : rowSet) {
             Integer alertId = row.getInteger("alert_id");
-            Map<String, Object> scope = new HashMap<>();
-            scope.put("id", row.getInteger("id"));
-            scope.put("name", row.getString("name"));
-            Object conditionsValue = row.getValue("conditions");
-            if (conditionsValue != null) {
-              scope.put("conditions", ((JsonArray) conditionsValue).encode());
-            }
-            scope.put("state", row.getString("state"));
-            scope.put("created_at", row.getLocalDateTime("created_at"));
-            scope.put("updated_at", row.getLocalDateTime("updated_at"));
-            scopesByAlertId.computeIfAbsent(alertId, k -> new ArrayList<>()).add(scope);
+            scopesByAlertId.computeIfAbsent(alertId, k -> new ArrayList<>()).add(mapRowToScopeMap(row));
           }
           return scopesByAlertId;
         })
@@ -611,21 +559,10 @@ public class AlertsDao {
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
         });
 
-    // Combine alerts with their scopes
     return Single.zip(alertsSingle, scopesSingle, (alerts, scopesByAlertId) -> {
       List<Alert> enrichedAlerts = alerts.stream()
-          .map(alert -> {
-            try {
-              List<Map<String, Object>> scopes = scopesByAlertId.getOrDefault(alert.getAlertId(), new ArrayList<>());
-              List<AlertConditionDto> alertConditions = parseAlertConditionsFromScopes(scopes);
-              return alert.toBuilder()
-                  .alerts(alertConditions)
-                  .build();
-            } catch (Exception e) {
-              log.error("Error parsing alert conditions for alert {}: {}", alert.getAlertId(), e.getMessage());
-              return alert;
-            }
-          })
+          .map(alert -> enrichAlertWithConditions(alert,
+              scopesByAlertId.getOrDefault(alert.getAlertId(), new ArrayList<>())))
           .collect(Collectors.toList());
 
       return new GetAllAlertsResponse(enrichedAlerts);

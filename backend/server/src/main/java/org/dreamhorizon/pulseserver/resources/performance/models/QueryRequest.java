@@ -62,7 +62,7 @@ public class QueryRequest {
     LIKE("like"),
     IN("In"),
     EQ("="),
-    ADDITIONAL("");
+    ADD("and");
 
     private final String displayName;
 
@@ -119,7 +119,7 @@ public class QueryRequest {
     /**
      * Values for the filter; JSON shows arrays, so we model as list
      */
-    private List<Object> value;
+    private List<String> value;
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)

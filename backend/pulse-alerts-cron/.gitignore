@@ -1,0 +1,45 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.DS_Store
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+.idea/**
+**/*.iml
+### NetBeans ###
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+### generated ###
+**/generated/*
+**/asciidoc/*
+
+logs/*
+.vscode
+# .secrets is where we keep secrets required for local development
+.secrets
+# .config is generated when mvn config:init is run
+.config
+*.env
+
+#swagger resources
+**/webroot/swagger/
+
+test-output
+TestReport
+src/test/resources/result.txt
+jacoco-output

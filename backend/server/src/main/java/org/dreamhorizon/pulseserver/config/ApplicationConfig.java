@@ -18,4 +18,5 @@ public class ApplicationConfig {
   public String googleOAuthClientId;
   public Boolean googleOAuthEnabled;
   public String jwtSecret;
+  public String webhookUrl;
 }
