@@ -32,7 +32,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v3/alert")
+@Path("/v4/alert")
 public class AlertController {
   private static final AlertMapper mapper = AlertMapper.INSTANCE;
   final AlertService alertsService;
