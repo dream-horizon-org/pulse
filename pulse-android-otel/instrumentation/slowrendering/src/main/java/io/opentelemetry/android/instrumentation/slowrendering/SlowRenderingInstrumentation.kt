@@ -35,11 +35,9 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
         if (interval.toMillis() <= 0) {
             Log.e(
                 RumConstants.OTEL_RUM_LOG_TAG,
-                (
-                    "Invalid slowRenderingDetectionPollInterval: " +
-                        interval +
-                        "; must be positive"
-                ),
+                "Invalid slowRenderingDetectionPollInterval: " +
+                    interval +
+                    "; must be positive",
             )
             return this
         }
@@ -81,8 +79,16 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
         }
 
         val logger = ctx.openTelemetry.logsBridge.get("app.jank")
-        var jankReporter: JankReporter = EventJankReporter(logger, SLOW_THRESHOLD_MS / 1000.0, debugVerbose)
-        jankReporter = jankReporter.combine(EventJankReporter(logger, FROZEN_THRESHOLD_MS / 1000.0, debugVerbose))
+        var jankReporter: JankReporter =
+            EventJankReporter(logger, SLOW_THRESHOLD_MS / 1000.0, debugVerbose)
+        jankReporter =
+            jankReporter.combine(
+                EventJankReporter(
+                    logger,
+                    FROZEN_THRESHOLD_MS / 1000.0,
+                    debugVerbose,
+                ),
+            )
 
         if (useDeprecatedSpan) {
             val tracer = ctx.openTelemetry.getTracer("io.opentelemetry.slow-rendering")

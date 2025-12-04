@@ -15,6 +15,7 @@ import io.opentelemetry.api.common.Attributes
 /**
  * Interface defining the public API for the PulseSDK
  */
+@Suppress("ComplexInterface")
 public interface PulseSDK {
     public fun isInitialized(): Boolean
 

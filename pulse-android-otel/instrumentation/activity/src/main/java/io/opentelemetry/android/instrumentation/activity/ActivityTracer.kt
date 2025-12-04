@@ -49,18 +49,18 @@ class ActivityTracer private constructor(
         // the activity class name as the base of the span name.
         val isColdStart = initialAppActivity.get() == null
         if (isColdStart) {
-            return createSpanWithParent("Created", appStartupTimer.startupSpan)
+            return createSpanWithParent(CREATED_SPAN_NAME, appStartupTimer.startupSpan)
         }
         if (activityName == initialAppActivity.get()) {
-            return createAppStartSpan("warm")
+            return createAppStartSpan(WARM_LAUNCH_TYPE)
         }
-        return createSpanWithParent("Created", null)
+        return createSpanWithParent(CREATED_SPAN_NAME, null)
     }
 
     internal fun startActivitySessionSpan(): ActivityTracer =
         apply {
             val spanBuilder =
-                tracer.spanBuilder("ActivitySession").apply {
+                tracer.spanBuilder(ACTIVITY_SESSION_SPAN_NAME).apply {
                     setAttribute<String?>(ACTIVITY_NAME_KEY, activityName)
                     setNoParent()
                 }
@@ -92,9 +92,9 @@ class ActivityTracer private constructor(
         // Note: in a multi-activity application, navigating back to the first activity can trigger
         // this, so it would not be ideal to call it an AppStart.
         if (!multiActivityApp && activityName == initialAppActivity.get()) {
-            return createAppStartSpan("hot")
+            return createAppStartSpan(HOT_LAUNCH_TYPE)
         }
-        return createSpanWithParent("Restarted", null)
+        return createSpanWithParent(RESTARTED_SPAN_NAME, null)
     }
 
     private fun createAppStartSpan(startType: String?): Span {
@@ -218,5 +218,11 @@ class ActivityTracer private constructor(
         internal val ACTIVITY_NAME_KEY: AttributeKey<String?> = AttributeKey.stringKey("activity.name")
 
         internal fun builder(activity: Activity): Builder = Builder(activity)
+
+        private const val CREATED_SPAN_NAME = "Created"
+        private const val ACTIVITY_SESSION_SPAN_NAME = "ActivitySession"
+        private const val RESTARTED_SPAN_NAME = "Restarted"
+        private const val HOT_LAUNCH_TYPE = "hot"
+        private const val WARM_LAUNCH_TYPE = "warm"
     }
 }

@@ -39,7 +39,7 @@ class DefaultExportScheduler(
         isShutDown = true
     }
 
-    override fun shouldStopRunning(): Boolean = isShutDown || (SignalFromDiskExporter.get() == null)
+    override fun shouldStopRunning(): Boolean = isShutDown || SignalFromDiskExporter.get() == null
 
     override fun minimumDelayUntilNextRunInMillis(): Long = DELAY_BEFORE_NEXT_EXPORT_IN_MILLIS
 }

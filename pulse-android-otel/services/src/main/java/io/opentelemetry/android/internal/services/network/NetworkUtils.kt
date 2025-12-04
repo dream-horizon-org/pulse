@@ -55,7 +55,7 @@ internal fun getNetworkTypeName(networkType: Int): String =
     getGsmNetworkTypeName(networkType)
         ?: getCdmaNetworkTypeName(networkType)
         ?: getLteAndModernNetworkTypeName(networkType)
-        ?: "UNKNOWN"
+        ?: UNKNOWN_STR
 
 /**
  * Checks if a CharSequence is valid (not null or empty).
@@ -87,6 +87,7 @@ private fun getCdmaNetworkTypeName(networkType: Int): String? =
         TelephonyManager.NETWORK_TYPE_EHRPD -> "EHRPD"
         TelephonyManager.NETWORK_TYPE_IDEN,
         -> "IDEN"
+
         else -> null
     }
 
@@ -95,6 +96,8 @@ private fun getLteAndModernNetworkTypeName(networkType: Int): String? =
         TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
         TelephonyManager.NETWORK_TYPE_IWLAN -> "IWLAN"
         TelephonyManager.NETWORK_TYPE_NR -> "NR"
-        TelephonyManager.NETWORK_TYPE_UNKNOWN -> "UNKNOWN"
+        TelephonyManager.NETWORK_TYPE_UNKNOWN -> UNKNOWN_STR
         else -> null
     }
+
+private const val UNKNOWN_STR = "UNKNOWN"

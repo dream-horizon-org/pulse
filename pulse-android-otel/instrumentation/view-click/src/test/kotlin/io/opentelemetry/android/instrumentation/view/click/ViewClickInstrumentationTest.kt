@@ -315,8 +315,8 @@ class ViewClickInstrumentationTest {
         every { mockView.x } returns location[0].toFloat()
         every { mockView.y } returns location[1].toFloat()
 
-        every { mockView.width } returns (location[0] + hitOffset[0])
-        every { mockView.height } returns (location[1] + hitOffset[1])
+        every { mockView.width } returns location[0] + hitOffset[0]
+        every { mockView.height } returns location[1] + hitOffset[1]
         applyOthers.invoke(mockView)
 
         return mockView
