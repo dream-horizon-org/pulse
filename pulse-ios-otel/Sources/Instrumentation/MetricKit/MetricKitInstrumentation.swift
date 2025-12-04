@@ -27,7 +27,7 @@
     func getMetricKitTracer() -> Tracer {
         return OpenTelemetry.instance.tracerProvider.get(
             instrumentationName: metricKitInstrumentationName,
-            instrumentationVersion: metricKitInstrumentationVersion
+            instrumentationVersion: metricKitInstrumentationVersion,
         )
     }
 
@@ -424,7 +424,7 @@
         logForEach(payload.cpuExceptionDiagnostics, "cpu_exception") {
             ([
                 "total_cpu_time": $0.totalCPUTime,
-                "total_sampled_time": $0.totalSampledTime
+                "total_sampled_time": $0.totalSampledTime,
             ], [:])
         }
         logForEach(payload.crashDiagnostics, "crash") {
@@ -520,7 +520,7 @@
         EXC_CRASH: "EXC_CRASH",
         EXC_RESOURCE: "EXC_RESOURCE",
         EXC_GUARD: "EXC_GUARD",
-        EXC_CORPSE_NOTIFY: "EXC_CORPSE_NOTIFY"
+        EXC_CORPSE_NOTIFY: "EXC_CORPSE_NOTIFY",
     ]
     let exceptionDescriptionMap: [Int32: String] = [
         EXC_BAD_ACCESS: "Could not access memory",
@@ -535,7 +535,7 @@
         EXC_CRASH: "Abnormal process exit",
         EXC_RESOURCE: "Hit resource consumption limit",
         EXC_GUARD: "Violated guarded resource protections",
-        EXC_CORPSE_NOTIFY: "Abnormal process exited to corpse state"
+        EXC_CORPSE_NOTIFY: "Abnormal process exited to corpse state",
     ]
 
     // names/descriptions taken from signal.h
@@ -570,7 +570,7 @@
         SIGWINCH: "SIGWINCH",
         SIGINFO: "SIGINFO",
         SIGUSR1: "SIGUSR1",
-        SIGUSR2: "SIGUSR2"
+        SIGUSR2: "SIGUSR2",
     ]
 
     let signalDescriptionMap: [Int32: String] = [
@@ -604,6 +604,6 @@
         SIGWINCH: "window size changes",
         SIGINFO: "information request",
         SIGUSR1: "user defined signal 1",
-        SIGUSR2: "user defined signal 2"
+        SIGUSR2: "user defined signal 2",
     ]
 #endif

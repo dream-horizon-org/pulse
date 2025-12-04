@@ -1,11 +1,13 @@
 # Pulse iOS SDK
 
-The Pulse iOS SDK provides a simple, unified API for instrumenting iOS applications with OpenTelemetry.
+The Pulse iOS SDK provides a simple, unified API for instrumenting iOS applications with OpenTelemetry. This SDK is built on top of [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift) and provides a simplified wrapper around the OpenTelemetry APIs.
+
+> **Note:** The Pulse SDK uses OpenTelemetry under the hood. All telemetry data follows the [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/). If you need direct access to OpenTelemetry APIs, you can use `getOpenTelemetry()` method or import the OpenTelemetry packages directly.
 
 ## Quick Start
 
 ```swift
-import PulseIOSSDK
+import PulseKit
 
 // Initialize the SDK
 PulseSDK.shared.initialize(endpointBaseUrl: "https://your-backend.com")
@@ -203,14 +205,18 @@ if PulseSDK.shared.isSDKInitialized() {
 
 #### `getOpenTelemetry() -> OpenTelemetry?`
 
-Returns the underlying OpenTelemetry instance, or `nil` if not initialized.
+Returns the underlying OpenTelemetry instance, or `nil` if not initialized. This allows you to access OpenTelemetry APIs directly if you need advanced features not exposed by the Pulse SDK wrapper.
 
 **Example:**
 ```swift
 if let otel = PulseSDK.shared.getOpenTelemetry() {
-    // Access OpenTelemetry directly if needed
+    // Access OpenTelemetry APIs directly
+    let tracer = otel.tracerProvider.get(instrumentationName: "my-app")
+    // ... use OpenTelemetry APIs
 }
 ```
+
+> **Note:** Most users should use the Pulse SDK wrapper methods (`trackEvent`, `trackSpan`, etc.) instead of accessing OpenTelemetry directly. The wrapper provides a simpler, more opinionated API.
 
 ---
 

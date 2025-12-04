@@ -9,7 +9,7 @@ options:
 packages:
   PulseIOS:
     path: ../../
-    product: PulseIOSSDK
+    product: PulseKit
 
 targets:
   PulseIOSExample:
@@ -25,5 +25,5 @@ targets:
         DEVELOPMENT_TEAM: ""
     dependencies:
       - package: PulseIOS
-        product: PulseIOSSDK
+        product: PulseKit
 

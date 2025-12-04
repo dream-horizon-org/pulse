@@ -1,6 +1,6 @@
 # Pulse iOS Example App
 
-This is an example iOS app that demonstrates how to use the Pulse iOS SDK (`PulseIOSSDK`) with a local package dependency.
+This is an example iOS app that demonstrates how to use the Pulse iOS SDK (`PulseKit`) with a local package dependency.
 
 ## Setup
 
@@ -36,7 +36,7 @@ This app uses the local `pulse-ios` package via a relative path dependency:
 packages:
   PulseIOS:
     path: ../../
-    product: PulseIOSSDK
+    product: PulseKit
 ```
 
 This allows you to test changes to the SDK locally without publishing to a remote repository.

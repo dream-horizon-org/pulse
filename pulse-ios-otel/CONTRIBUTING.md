@@ -170,7 +170,7 @@ The Pulse iOS SDK uses a modular instrumentation system that makes it easy to ad
 
 ### Step 1: Create Instrumentation Config
 
-Create a new file in `Sources/PulseIOSSDK/Instrumentation/` named `YourInstrumentationConfig.swift`:
+Create a new file in `Sources/PulseKit/Instrumentation/` named `YourInstrumentationConfig.swift`:
 
 ```swift
 import Foundation
@@ -202,7 +202,7 @@ extension YourInstrumentationConfig: InstrumentationInitializer {
 
 ### Step 2: Add to InstrumentationConfiguration
 
-Update `Sources/PulseIOSSDK/Instrumentation/InstrumentationConfiguration.swift`:
+Update `Sources/PulseKit/Instrumentation/InstrumentationConfiguration.swift`:
 
 ```swift
 public struct InstrumentationConfiguration {

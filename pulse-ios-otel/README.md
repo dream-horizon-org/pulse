@@ -1,73 +1,135 @@
-# <img src="https://opentelemetry.io/img/logos/opentelemetry-logo-nav.png" alt="OpenTelemetry Icon" width="45" height=""> opentelemetry-swift
-
-[![CI](https://github.com/open-telemetry/opentelemetry-swift/actions/workflows/BuildAndTest.yml/badge.svg)](https://github.com/open-telemetry/opentelemetry-swift/actions/workflows/BuildAndTest.yml?query=branch%3Amain+)
-[![codecov](https://codecov.io/gh/open-telemetry/opentelemetry-swift/branch/master/graph/badge.svg)](https://codecov.io/gh/open-telemetry/opentelemetry-swift)
+# <img src="https://opentelemetry.io/img/logos/opentelemetry-logo-nav.png" alt="OpenTelemetry Icon" width="45" height=""> Pulse iOS SDK
 
 ## About
 
-The repository contains the Swift [OpenTelemetry](https://opentelemetry.io/) client
+**Pulse iOS SDK** is built on top of [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift) and provides a simplified, production-ready SDK for instrumenting iOS applications with OpenTelemetry.
+
+This repository contains the Pulse iOS SDK implementation, which includes:
+- **PulseKit** - A high-level wrapper API that simplifies OpenTelemetry usage
+- **Instrumentation libraries** - Automatic instrumentation for common iOS frameworks
+- **Exporters** - OTLP HTTP exporters for sending telemetry data
+- **OpenTelemetry-Swift components** - Core OpenTelemetry functionality (built on [opentelemetry-swift-core](https://github.com/open-telemetry/opentelemetry-swift-core))
+
+> **Note:** This SDK is built on OpenTelemetry-Swift and follows the [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/). The underlying OpenTelemetry APIs remain the same, but Pulse provides a simplified, opinionated wrapper for easier integration.
 
 ## Getting Started
 
-This package includes several libraries. The `OpenTelemetryApi` library includes protocols and no-op implementations that comprise the OpenTelemetry API following the [specification](https://github.com/open-telemetry/opentelemetry-specification). The `OpenTelemetrySdk` library is the reference implementation of the API.
+### Using Pulse iOS SDK (Recommended)
 
-Libraries that produce telemetry data should only depend on `OpenTelemetryApi`, and defer the choice of the SDK to the application developer. Applications may depend on `OpenTelemetrySdk` or another package that implements the API.
+For most applications, we recommend using the **PulseKit** wrapper, which provides a simplified API for common telemetry operations.
 
-### Adding the dependency
-
-opentelemetry-swift is designed for Swift 5. To depend on the opentelemetry-swift package, you need to declare your dependencies in your `Package.swift`:
+**Add the dependency in your `Package.swift`:**
 
 ```swift
-.package(url: "https://github.com/open-telemetry/opentelemetry-swift", from: "2.2.0"),
-.package(url: "https://github.com/open-telemetry/opentelemetry-swift-core.git", from: "2.2.0")
+dependencies: [
+    .package(url: "https://github.com/your-org/pulse.git", from: "1.0.0")
+]
 ```
 
-and to your application/library target, add `OpenTelemetryApi` or `OpenTelemetrySdk`to your `dependencies`, e.g. like this:
-
-```swift
-.target(
-    name: "ExampleTelemetryProducerApp",
-    dependencies: [
-        .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core")
-    ])
-```
-
-or
+**Add to your target:**
 
 ```swift
 .target(
-    name: "ExampleApp",
+    name: "YourApp",
     dependencies: [
-        .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core")
+        .product(name: "PulseKit", package: "pulse-ios")
     ])
 ```
 
-### Cocoapods
+**For local development (SDK developers only):**
 
-As of version 1.11.0, OpenTelemetry-Swift support cocoapods. 
-Two pods are provided: 
+If you're developing the SDK itself or testing changes locally, you can reference the package by path using XcodeGen:
 
-- `OpenTelemetry-Swift-Api`
+```yaml
+# project.yml
+packages:
+  PulseIOS:
+    path: ../path/to/pulse-ios-otel
+    product: PulseKit
 
-- `OpenTelemetry-Swift-Sdk`
+targets:
+  YourApp:
+    dependencies:
+      - package: PulseIOS
+        product: PulseKit
+```
 
-`OpenTelemetry-Swift-Api` is a dependency of `OpenTelemetry-Swift-Sdk`. 
+> **Note:** This local setup is only needed when developing the SDK itself. For production apps, use the remote package dependency shown above.
 
-Most users will want to add the following to their pod file:
+**Quick start:**
 
-`pod 'OpenTelemetry-Swift-Sdk'`
+```swift
+import PulseKit
 
-This will add both the API and SDK. If you're only interesting in Adding the API add the following: 
+// Initialize the SDK
+PulseSDK.shared.initialize(endpointBaseUrl: "https://your-backend.com")
 
-`pod 'OpenTelemetry-Swift-Api'`
+// Track events, spans, and errors
+PulseSDK.shared.trackEvent(name: "user_action", ...)
+```
+
+For detailed API documentation, see [PulseKit README](Sources/PulseKit/README.md).
+
+### Using OpenTelemetry Directly
+
+If you need direct access to OpenTelemetry APIs, you can use the underlying OpenTelemetry-Swift components. This package includes the same OpenTelemetry APIs as the upstream [opentelemetry-swift-core](https://github.com/open-telemetry/opentelemetry-swift-core) package.
+
+**Add the dependency:**
+
+```swift
+.package(url: "https://github.com/your-org/pulse.git", from: "1.0.0")
+```
+
+**Use OpenTelemetry APIs directly:**
+
+```swift
+.target(
+    name: "YourApp",
+    dependencies: [
+        .product(name: "OpenTelemetryApi", package: "pulse-ios"),
+        .product(name: "OpenTelemetrySdk", package: "pulse-ios")
+    ])
+```
+
+> **Note:** The OpenTelemetry APIs in this package are the same as the upstream OpenTelemetry-Swift implementation. Pulse SDK is a wrapper on top of these APIs.
+
+### CocoaPods
+
+This package supports CocoaPods. The following pods are available:
+
+**For Pulse SDK (Recommended):**
+- `PulseKit` - The Pulse iOS SDK wrapper
+
+**For OpenTelemetry APIs directly:**
+- `OpenTelemetry-Swift-Api` - OpenTelemetry API protocols
+- `OpenTelemetry-Swift-Sdk` - OpenTelemetry SDK implementation
+
+**Most users should add:**
+
+```ruby
+pod 'PulseKit'
+```
+
+**If you need OpenTelemetry APIs directly:**
+
+```ruby
+pod 'OpenTelemetry-Swift-Sdk'  # Includes both API and SDK
+# or
+pod 'OpenTelemetry-Swift-Api'  # API only
+```
 
 ## Documentation
 
-Official documentation for the library can be found in the official opentelemetry [documentation  page](https://opentelemetry.io/docs/instrumentation/swift/), including:
+### Pulse SDK Documentation
 
-* Documentation about installation and [manual instrumentation](https://opentelemetry.io/docs/instrumentation/swift/manual/)
+- **[PulseKit API Reference](Sources/PulseKit/README.md)** - Complete API documentation for the Pulse iOS SDK wrapper
 
-* [Libraries](https://opentelemetry.io/docs/instrumentation/swift/libraries/) that provide automatic instrumentation
+### OpenTelemetry Documentation
+
+For information about the underlying OpenTelemetry APIs, see the official [OpenTelemetry Swift documentation](https://opentelemetry.io/docs/instrumentation/swift/), including:
+
+* [Manual instrumentation](https://opentelemetry.io/docs/instrumentation/swift/manual/)
+* [Automatic instrumentation libraries](https://opentelemetry.io/docs/instrumentation/swift/libraries/)
 
 ## Current status
 
@@ -110,7 +172,7 @@ The Pulse iOS SDK includes the following instrumentations:
 
 For detailed documentation on each instrumentation, see the links above or browse the `Sources/Instrumentation/` directory.
 
-For Pulse SDK API documentation, see [PulseIOSSDK README](Sources/PulseIOSSDK/README.md).
+For Pulse SDK API documentation, see [PulseKit README](Sources/PulseKit/README.md).
 
 ### Third-party exporters
 In addition to the specified OpenTelemetry exporters, some third-party exporters have been contributed and can be found in the following repos: 
@@ -128,32 +190,7 @@ The package includes some example projects with basic functionality:
 * `OTLP Exporter` - Shows the OTLP exporter reporting traces to Zipkin and metrics to a Prometheus via the otel-collector
 
 ## Contributing
-We'd love your help! Use labels [![help wanted](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-swift?query=is%3Aissue%20is%3Aopen%20label%3A%22help%20wanted%22&label=help%20wanted&color=rgb(0%2C%20134%2C%20114)&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-swift/issues?q=state%3Aopen%20label%3A%22help%20wanted%22) and [![good first issue](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-swift?query=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22&label=good%20first%20issue&color=rgb(112%2C%2087%2C%20255)&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-swift/issues?q=state%3Aopen%20label%3A%22good%20first%20issue%22) 
- to get started with the project. 
-For an overview of how to contribute, see the contributing guide in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-We have a weekly SIG meeting! See the [community page](https://github.com/open-telemetry/community#swift-sdk) for meeting details and notes.
+We welcome contributions! For an overview of how to contribute, see the contributing guide in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-We are also available in the [#otel-swift](https://cloud-native.slack.com/archives/C01NCHR19SB) channel in the [CNCF slack](https://slack.cncf.io/). Please join us there for OTel Swift discussions.
-
-### Maintainers
-
-- [Ariel Demarco](https://github.com/arieldemarco), Embrace
-- [Bryce Buchanan](https://github.com/bryce-b), Elastic
-- [Ignacio Bonafonte](https://github.com/nachobonafonte), Independent
-
-For more information about the maintainer role, see the [community repository](https://github.com/open-telemetry/community/blob/main/guides/contributor/membership.md#maintainer).
-
-### Approvers
-
-- [Austin Emmons](https://github.com/atreat), Embrace
-- [Vinod Vydier](https://github.com/vvydier), Independent
-
-For more information about the approver role, see the [community repository](https://github.com/open-telemetry/community/blob/main/guides/contributor/membership.md#approver).
-
-### Triager ([@open-telemetry/swift-triagers](https://github.com/orgs/open-telemetry/teams/swift-triagers))
-
-- [Alolita Sharma](https://github.com/alolita), Apple
-- [Billy Zhou](https://github.com/williazz), AWS
-
-For more information about the triager role, see the [community repository](https://github.com/open-telemetry/community/blob/main/community-membership.md#triager).
+This project is built on top of [OpenTelemetry-Swift](https://github.com/open-telemetry/opentelemetry-swift). For questions about the underlying OpenTelemetry APIs, you can also refer to the [OpenTelemetry Swift community](https://github.com/open-telemetry/community#swift-sdk) and the [#otel-swift](https://cloud-native.slack.com/archives/C01NCHR19SB) channel in the [CNCF slack](https://slack.cncf.io/).

@@ -1,5 +1,5 @@
 import UIKit
-import PulseIOSSDK
+import PulseKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {

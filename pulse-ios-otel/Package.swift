@@ -214,7 +214,7 @@ extension Package {
         .library(name: "SignPostIntegration", targets: ["SignPostIntegration"]),
         .library(name: "ResourceExtension", targets: ["ResourceExtension"]),
         .library(name: "MetricKitInstrumentation", targets: ["MetricKitInstrumentation"]),
-        .library(name: "PulseIOSSDK", targets: ["PulseIOSSDK"])
+        .library(name: "PulseKit", targets: ["PulseKit"])
       ])
       targets.append(contentsOf: [
         .target(
@@ -357,7 +357,7 @@ extension Package {
           exclude: ["README.md"]
         ),
         .target(
-          name: "PulseIOSSDK",
+          name: "PulseKit",
           dependencies: [
             .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core"),
             .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
@@ -369,7 +369,7 @@ extension Package {
             "NetworkStatus",
             "SignPostIntegration"
           ],
-          path: "Sources/PulseIOSSDK"
+          path: "Sources/PulseKit"
         )
       ])
     #endif

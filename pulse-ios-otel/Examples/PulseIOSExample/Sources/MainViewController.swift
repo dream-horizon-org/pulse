@@ -1,5 +1,5 @@
 import UIKit
-import PulseIOSSDK
+import PulseKit
 import OpenTelemetryApi
 
 class MainViewController: UIViewController {
