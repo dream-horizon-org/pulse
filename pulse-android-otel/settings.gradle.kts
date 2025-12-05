@@ -25,6 +25,12 @@ include(":opentelemetry-android-bom")
 include(":pulse-android-sdk")
 include(":pulse-semconv")
 include(":pulse-utils")
+include(":pulse-sampling-models")
+project(":pulse-sampling-models").projectDir = File("./pulse-sampling/models")
+include(":pulse-sampling-core")
+project(":pulse-sampling-core").projectDir = File("./pulse-sampling/core")
+include(":pulse-sampling-otel")
+project(":pulse-sampling-otel").projectDir = File("./pulse-sampling/otel")
 includeFromDir("instrumentation") {
     if (it.contains(":instrumentation:interaction:")) {
         val nameWithInteraction = it.split(":").takeLast(2).joinToString("-")
