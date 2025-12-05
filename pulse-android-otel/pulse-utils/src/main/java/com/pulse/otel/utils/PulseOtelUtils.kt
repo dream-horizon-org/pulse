@@ -65,7 +65,7 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
                 }
 
                 else -> {
-                    put(key, value.toString())
+                    put(key, value?.toString())
                 }
             }
         }

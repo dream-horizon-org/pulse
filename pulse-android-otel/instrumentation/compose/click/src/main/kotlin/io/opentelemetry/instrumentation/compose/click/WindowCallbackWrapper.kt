@@ -16,7 +16,7 @@ internal class WindowCallbackWrapper(
     private val callback: Callback,
     private val composeClickEventGenerator: ComposeClickEventGenerator,
 ) : Callback by callback {
-    override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         composeClickEventGenerator.generateClick(event)
         return callback.dispatchTouchEvent(event)
     }

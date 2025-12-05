@@ -40,7 +40,8 @@ class Services internal constructor(
     override val currentNetworkProvider: CurrentNetworkProvider by lazy {
         CurrentNetworkProviderImpl(
             NetworkDetector.Companion.create(application),
-            application.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager,
+            application.getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: error("CONNECTIVITY_SERVICE not found"),
         )
     }
 

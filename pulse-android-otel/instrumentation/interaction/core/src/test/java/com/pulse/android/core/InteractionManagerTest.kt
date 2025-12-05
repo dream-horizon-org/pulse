@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.concurrent.TimeUnit
+import kotlin.error
 import kotlin.time.Duration.Companion.seconds
 
 @ExtendWith(MockKExtension::class)
@@ -855,11 +856,15 @@ class InteractionManagerTest {
                     .hasOnlyElementsOfType(InteractionRunningStatus.OngoingMatch::class.java)
                     .allSatisfy(
                         ThrowingConsumer {
-                            Assertions.assertThat((it as InteractionRunningStatus.OngoingMatch).interaction).isNotNull
+                            Assertions
+                                .assertThat(
+                                    (it as? InteractionRunningStatus.OngoingMatch ?: error("it is not of type OngoingMatch")).interaction,
+                                ).isNotNull
                         },
                     ).extracting(
                         ThrowingExtractor {
-                            (it as InteractionRunningStatus.OngoingMatch).interaction!!.id
+                            (it as? InteractionRunningStatus.OngoingMatch ?: error("it is not of type OngoingMatch")).interaction?.id
+                                ?: error("interaction is missing from Ongoing match")
                         },
                     ).doesNotHaveDuplicates()
             }
@@ -1562,8 +1567,10 @@ class InteractionManagerTest {
             .isInstanceOf(InteractionRunningStatus.NoOngoingMatch::class.java)
             .isNotNull
 
-        return (mockInteractionManager.interactionTrackerStatesState.value.first() as InteractionRunningStatus.NoOngoingMatch)
-            .oldOngoingInteractionRunningStatus
+        return (
+            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.NoOngoingMatch
+                ?: error("Not of type OngoingMatch")
+        ).oldOngoingInteractionRunningStatus
     }
 
     private inline fun <reified M : InteractionRunningStatus> TestScope.assertAllInteraction(
@@ -1578,13 +1585,11 @@ class InteractionManagerTest {
 
         if (M::class.java == InteractionRunningStatus.OngoingMatch::class.java) {
             listAssertions
-                .extracting<String> { (it as InteractionRunningStatus.OngoingMatch).interactionId }
+                .extracting<String> { (it as? InteractionRunningStatus.OngoingMatch ?: error("Not of type OngoingMatch")).interactionId }
                 .doesNotHaveDuplicates()
         }
 
-        size?.let {
-            listAssertions.hasSize(size)
-        }
+        if (size != null) listAssertions.hasSize(size)
 
         return mockInteractionManager.interactionTrackerStatesState.value.size
     }
@@ -1599,17 +1604,23 @@ class InteractionManagerTest {
             .hasSize(1)
             .first()
             .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
-            .extracting { (it as InteractionRunningStatus.OngoingMatch).interaction }
+            .extracting { (it as? InteractionRunningStatus.OngoingMatch ?: error("Not of type OngoingMatch")).interaction }
             .isNull()
 
         previousIdToMatch?.let {
             Assertions
                 .assertThat(
-                    (mockInteractionManager.interactionTrackerStatesState.value[0] as InteractionRunningStatus.OngoingMatch).interactionId,
+                    (
+                        mockInteractionManager.interactionTrackerStatesState.value[0] as? InteractionRunningStatus.OngoingMatch
+                            ?: error("Not of type OngoingMatch")
+                    ).interactionId,
                 ).isEqualTo(it)
         }
 
-        return (mockInteractionManager.interactionTrackerStatesState.value.first() as InteractionRunningStatus.OngoingMatch).interactionId
+        return (
+            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
+                ?: error("Not of type OngoingMatch")
+        ).interactionId
     }
 
     private fun TestScope.assertSingleFinalInteraction(
@@ -1623,11 +1634,12 @@ class InteractionManagerTest {
             .hasSize(1)
             .first()
             .isInstanceOf(InteractionRunningStatus.OngoingMatch::class.java)
-            .extracting { (it as InteractionRunningStatus.OngoingMatch).interaction }
+            .extracting { (it as? InteractionRunningStatus.OngoingMatch ?: error("Not of type OngoingMatch")).interaction }
             .isNotNull
 
         val finalInteractionOngoingStatus =
-            mockInteractionManager.interactionTrackerStatesState.value.first() as InteractionRunningStatus.OngoingMatch
+            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
+                ?: error("Not of type OngoingMatch")
         val interaction =
             finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
         Assertions

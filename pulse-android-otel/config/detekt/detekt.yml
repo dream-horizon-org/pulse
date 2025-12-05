@@ -130,7 +130,7 @@ complexity:
     threshold: 6
   NamedArguments:
     active: true
-    threshold: 4
+    threshold: 6
     ignoreArgumentsMatchingNames: true
   NestedBlockDepth:
     active: true
@@ -176,6 +176,7 @@ coroutines:
       - 'IO'
       - 'Default'
       - 'Unconfined'
+    ignoreAnnotated: [ 'AutoService' ]
   RedundantSuspendModifier:
     active: true
   SleepInsteadOfDelay:
@@ -297,6 +298,7 @@ naming:
   BooleanPropertyNaming:
     active: true
     allowedPattern: '^(is|has|are|should)'
+    excludes: *testFolders
   ClassNaming:
     active: true
     classPattern: '[A-Z][a-zA-Z0-9]*'
@@ -439,6 +441,7 @@ potential-bugs:
   ImplicitUnitReturnType:
     active: true
     allowExplicitReturnType: true
+    excludes: *testFolders
   InvalidRange:
     active: true
   IteratorHasNextCallsNextMethod:
@@ -458,6 +461,7 @@ potential-bugs:
     active: true
   NullableToStringCall:
     active: true
+    excludes: *testFolders
   PropertyUsedBeforeDeclaration:
     active: false
   UnconditionalJumpStatementInLoop:
@@ -549,11 +553,9 @@ style:
     active: true
     methods:
       - value: 'kotlin.io.print'
-        reason: 'String.log extension method'
+        reason: 'Use custom logger'
       - value: 'kotlin.io.println'
-        reason: 'String.log() extension method'
-      - value: 'android.view.View.setVisibility'
-        reason: 'Use extension method'
+        reason: 'Use custom logger'
       - value: 'kotlin.collections.elementAt(kotlin.collections.Iterable, kotlin.Int)'
         reason: 'Use elementAtOrNull or elementAtOrElse'
       - value: 'kotlin.text.isEmpty(kotlin.CharSequence)'
@@ -738,6 +740,7 @@ style:
     active: true
   VarCouldBeVal:
     active: true
+    ignoreAnnotated: [ "Mock", "MockK", "RelaxedMockK", "InjectMocks", "Captor" ]
   WildcardImport:
     active: true
     excludes: *testFolders

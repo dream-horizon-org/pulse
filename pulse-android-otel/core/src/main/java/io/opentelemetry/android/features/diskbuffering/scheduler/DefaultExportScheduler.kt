@@ -28,8 +28,8 @@ class DefaultExportScheduler(
 
         try {
             do {
-                val didExport = exporter.exportBatchOfEach()
-            } while (didExport)
+                val isExported = exporter.exportBatchOfEach()
+            } while (isExported)
         } catch (e: IOException) {
             Log.e(OTEL_RUM_LOG_TAG, "Error while exporting signals from disk.", e)
         }

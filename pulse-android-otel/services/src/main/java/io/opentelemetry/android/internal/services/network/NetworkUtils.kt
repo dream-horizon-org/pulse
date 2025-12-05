@@ -60,7 +60,7 @@ internal fun getNetworkTypeName(networkType: Int): String =
 /**
  * Checks if a CharSequence is valid (not null or empty).
  */
-internal fun isValidString(str: CharSequence?): Boolean = !str.isNullOrEmpty()
+internal fun isValidString(str: CharSequence?): Boolean = !str.isNullOrBlank()
 
 private fun getGsmNetworkTypeName(networkType: Int): String? =
     when (networkType) {

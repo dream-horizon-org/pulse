@@ -1,5 +1,6 @@
 package com.pulse.otel.utils
 
+import io.opentelemetry.api.trace.Span
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
@@ -33,7 +34,7 @@ class PulseOtelUtilsTest {
                 .setAttribute(HttpIncubatingAttributes.HTTP_METHOD, httpMethod)
                 .startSpan()
 
-        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isTrue
+        assertIsNetworkSpan(span, true)
     }
 
     @Test
@@ -48,7 +49,7 @@ class PulseOtelUtilsTest {
                     "value",
                 ).startSpan()
 
-        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isFalse
+        assertIsNetworkSpan(span, false)
     }
 
     @Test
@@ -56,7 +57,7 @@ class PulseOtelUtilsTest {
         val tracer = SdkTracerProvider.builder().build().get("test")
         val span = tracer.spanBuilder("test-span").startSpan()
 
-        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isFalse
+        assertIsNetworkSpan(span, false)
     }
 
     @Test
@@ -79,7 +80,14 @@ class PulseOtelUtilsTest {
                     100L,
                 ).startSpan()
 
-        assertThat(PulseOtelUtils.isNetworkSpan(span as ReadableSpan)).isFalse
+        assertIsNetworkSpan(span, false)
+    }
+
+    private fun assertIsNetworkSpan(
+        span: Span,
+        value: Boolean,
+    ) {
+        assertThat(PulseOtelUtils.isNetworkSpan(span as? ReadableSpan ?: error("Not a ReadableSpan"))).isEqualTo(value)
     }
 
     companion object {

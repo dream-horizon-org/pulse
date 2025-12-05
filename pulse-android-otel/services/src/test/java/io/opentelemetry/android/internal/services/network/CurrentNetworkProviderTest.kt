@@ -125,7 +125,7 @@ internal class CurrentNetworkProviderTest {
         every { connectivityManager.registerDefaultNetworkCallback(any<NetworkCallback>()) }
             .answers { a ->
                 run {
-                    val x: NetworkCallback = a.invocation.args[0] as NetworkCallback
+                    val x: NetworkCallback = a.invocation.args[0] as? NetworkCallback ?: error("Should not be null")
                     x.onAvailable(mockk())
                 }
             }

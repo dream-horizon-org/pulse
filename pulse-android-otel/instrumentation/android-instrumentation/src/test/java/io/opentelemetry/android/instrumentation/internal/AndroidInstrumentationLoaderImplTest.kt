@@ -23,11 +23,11 @@ class AndroidInstrumentationLoaderImplTest {
     fun `Find implementations available in the classpath when querying an instrumentation`() {
         val instrumentation = loader.getByType(TestAndroidInstrumentation::class.java)!!
 
-        assertThat(instrumentation.installed).isFalse()
+        assertThat(instrumentation.isInstalled).isFalse()
 
         instrumentation.install(mockk())
 
-        assertThat(loader.getByType(TestAndroidInstrumentation::class.java)!!.installed).isTrue()
+        assertThat(loader.getByType(TestAndroidInstrumentation::class.java)!!.isInstalled).isTrue()
     }
 
     @Test

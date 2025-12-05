@@ -8,6 +8,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,8 +22,8 @@ public class InteractionManager
         private val interactionFetcher: InteractionConfigFetcher,
         private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
         private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    ) : CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
-        private var interactionConfigs: List<InteractionConfig>? = null
+    ) : CoroutineScope by CoroutineScope(SupervisorJob() + defaultDispatcher) {
+        private val interactionConfigs: List<InteractionConfig>? = null
         internal var interactionTrackers: List<InteractionEventsTracker>? = null
         private val eventQueue: InteractionEventQueue = InteractionEventQueue(defaultDispatcher)
 
@@ -30,6 +32,8 @@ public class InteractionManager
         public val interactionTrackerStatesState: StateFlow<List<InteractionRunningStatus>>
             get() = interactionTrackerStatesMutableState.asStateFlow()
 
+        // catching exception using `currentCoroutineContext().ensureActive()`
+        @Suppress("SuspendFunSwallowedCancellation")
         public fun init(): Job {
             return launch(ioDispatcher) {
                 logDebug { "[InteractionManager] Initializing with endpoint: $interactionFetcher" }
@@ -38,7 +42,8 @@ public class InteractionManager
                     interactionConfigs ?: runCatching {
                         interactionFetcher.getConfigs()
                     }.onFailure { error ->
-                        logDebug { "[InteractionManager] Failed to fetch interactions: ${error.message}" }
+                        currentCoroutineContext().ensureActive()
+                        logDebug { "[InteractionManager] Failed to fetch interactions: ${error.message ?: "no-msg"}" }
                         return@launch
                     }.getOrNull() ?: run {
                         logDebug { "[InteractionManager] No interaction configs received" }
@@ -99,7 +104,7 @@ public class InteractionManager
                 InteractionLocalEvent(
                     name = eventName,
                     timeInNano = eventTimeInNano,
-                    props = params.mapValues { it.value.toString() },
+                    props = params.mapValues { it.value?.toString().orEmpty() },
                 )
             eventQueue.addEvent(event)
         }
@@ -118,7 +123,8 @@ public class InteractionManager
                 InteractionLocalEvent(
                     name = eventName,
                     timeInNano = eventTimeInNano,
-                    props = params.mapValues { it.value.toString() },
+                    // todo add convention for null
+                    props = params.mapValues { it.value?.toString().orEmpty() },
                 )
             eventQueue.addMarkerEvent(event)
         }

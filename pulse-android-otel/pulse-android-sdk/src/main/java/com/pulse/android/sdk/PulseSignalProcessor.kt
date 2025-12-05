@@ -15,7 +15,7 @@ import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 
 internal class PulseSignalProcessor {
-    private var recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
+    private val recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
 
     internal inner class PulseLogTypeAttributesAppender : LogRecordProcessor {
         @Suppress("CyclomaticComplexMethod")

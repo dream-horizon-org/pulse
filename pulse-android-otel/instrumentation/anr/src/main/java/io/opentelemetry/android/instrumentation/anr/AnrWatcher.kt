@@ -55,13 +55,13 @@ internal class AnrWatcher(
             // the main thread is probably shutting down. ignore and return.
             return
         }
-        val success: Boolean
+        val isSuccess: Boolean
         try {
-            success = response.await(pollDurationNs, TimeUnit.NANOSECONDS)
+            isSuccess = response.await(pollDurationNs, TimeUnit.NANOSECONDS)
         } catch (e: InterruptedException) {
             return
         }
-        if (success) {
+        if (isSuccess) {
             anrCounter.set(0)
             return
         }

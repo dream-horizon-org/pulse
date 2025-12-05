@@ -8,10 +8,10 @@ package io.opentelemetry.android.instrumentation
 class TestAndroidInstrumentation : AndroidInstrumentation {
     override val name: String = "test"
 
-    var installed = false
+    var isInstalled = false
         private set
 
     override fun install(ctx: InstallationContext) {
-        installed = true
+        isInstalled = true
     }
 }
