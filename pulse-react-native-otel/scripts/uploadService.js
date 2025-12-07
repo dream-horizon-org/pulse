@@ -1,7 +1,7 @@
 const fs = require('fs');
 const { getPlatform, validateFiles } = require('./utils');
 
-function buildMetadata(files, version, versionCode, platform, bundleId) {
+function buildMetadata(files, version, versionCode, platform) {
   const metadata = files.map(file => ({
     type: file.metadataType,
     appVersion: version,
@@ -9,12 +9,6 @@ function buildMetadata(files, version, versionCode, platform, bundleId) {
     platform: platform,
     fileName: file.fileName
   }));
-  
-  if (bundleId) {
-    metadata.forEach(item => {
-      item.bundleId = bundleId;
-    });
-  }
   
   return metadata;
 }
@@ -34,8 +28,7 @@ async function uploadFiles(commandName, options) {
     files,
     version,
     options.versionCode,
-    platform,
-    options.bundleId
+    platform
   );
   
   const formData = new FormData();

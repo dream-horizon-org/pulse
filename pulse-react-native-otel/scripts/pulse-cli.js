@@ -5,6 +5,7 @@ checkNodeVersion();
 
 const { Command } = require('commander');
 const { uploadFiles } = require('./uploadService');
+const TAG_OPTIONAL = '(OPTIONAL)';
 
 const program = new Command();
 
@@ -25,9 +26,9 @@ const androidCommand = uploadCommand
   .requiredOption('--app-version <version>', 'App version from build.gradle (e.g., 1.0.0)')
   .requiredOption('--version-code <code>', 'Version code (e.g., 1)')
   .requiredOption('--js-sourcemap <path>', 'JavaScript source map file path')
-  .option('--bundle-id <id>', '(optional) Bundle ID (e.g., com.example.app)')
-  .option('--java-mapping <path>', '(optional) ProGuard/R8 mapping file path')
-  .option('--debug', '(optional) Show debug information')
+  .option('--bundle-id <id>', `${TAG_OPTIONAL} Bundle ID (e.g., com.example.app)`)
+  .option('--java-mapping <path>', `${TAG_OPTIONAL} ProGuard/R8 mapping file path`)
+  .option('--debug', `${TAG_OPTIONAL} Show debug information`)
   .action(async (options) => {
     try {
       await uploadFiles('react-native-android', options);
@@ -44,8 +45,8 @@ const iosCommand = uploadCommand
   .requiredOption('--bundle-version <version>', 'Bundle version from Info.plist CFBundleShortVersionString (e.g., 1.0.0)')
   .requiredOption('--version-code <code>', 'Version code (e.g., 1)')
   .requiredOption('--js-sourcemap <path>', 'JavaScript source map file path')
-  .option('--bundle-id <id>', '(optional) Bundle ID from Info.plist CFBundleIdentifier (e.g., com.example.app)')
-  .option('--debug', '(optional) Show debug information')
+  .option('--bundle-id <id>', `${TAG_OPTIONAL} Bundle ID from Info.plist CFBundleIdentifier (e.g., com.example.app)`)
+  .option('--debug', `${TAG_OPTIONAL} Show debug information`)
   .action(async (options) => {
     try {
       await uploadFiles('react-native-ios', options);
