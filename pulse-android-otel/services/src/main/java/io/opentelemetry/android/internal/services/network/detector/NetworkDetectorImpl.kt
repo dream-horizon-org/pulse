@@ -30,9 +30,9 @@ internal class NetworkDetectorImpl(
     private val context: Context,
 ) : NetworkDetector {
     private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: error("CONNECTIVITY_SERVICE not found")
     private val telephonyManager =
-        context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager ?: error("TELEPHONY_SERVICE not found")
     private val carrierFinder = CarrierFinder(context, telephonyManager)
 
     override fun detectCurrentNetwork(): CurrentNetwork =

@@ -10,7 +10,7 @@ import io.opentelemetry.sdk.logs.LogRecordProcessor
 import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.semconv.incubating.LogIncubatingAttributes
 
-class InteractionLogListener(
+internal class InteractionLogListener(
     private val interactionManager: InteractionManager,
 ) : LogRecordProcessor {
     override fun onEmit(
@@ -20,7 +20,7 @@ class InteractionLogListener(
         if (logRecord.bodyValue?.type == ValueType.STRING) {
             Log.d(
                 InteractionInstrumentation.LOG_TAG,
-                "onEmit in log processor = ${logRecord.bodyValue?.asString()}",
+                "onEmit in log processor = ${logRecord.bodyValue?.asString() ?: "null"}",
             )
             interactionManager.addEvent(
                 logRecord.bodyValue?.asString() ?: error("Null not possible"),
@@ -36,7 +36,7 @@ class InteractionLogListener(
             interactionManager.addMarkerEvent(
                 eventName =
                     logRecord.attributes[PulseAttributes.PULSE_TYPE]
-                        ?: error("${PulseAttributes.PULSE_TYPE.key} is not defined for eventName = ${logRecord.eventName}"),
+                        ?: error("${PulseAttributes.PULSE_TYPE.key} is not defined for eventName = ${logRecord.eventName ?: "null"}"),
                 eventTimeInNano = logRecord.observedTimestampEpochNanos,
                 params =
                     mapOf(

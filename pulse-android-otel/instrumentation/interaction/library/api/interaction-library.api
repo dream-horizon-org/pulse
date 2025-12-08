@@ -1,34 +1,13 @@
 public abstract interface class io/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor : kotlin/jvm/functions/Function2 {
 }
 
-public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesSpanAppender : io/opentelemetry/sdk/trace/SpanProcessor, kotlinx/coroutines/CoroutineScope {
-	public static final field Companion Lio/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesSpanAppender$Companion;
-	public fun <init> (Lcom/pulse/android/core/InteractionManager;)V
-	public static final fun createLogProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
-	public static final fun createSpanProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/trace/SpanProcessor;
-	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
-	public fun isEndRequired ()Z
-	public fun isStartRequired ()Z
-	public fun onEnd (Lio/opentelemetry/sdk/trace/ReadableSpan;)V
-	public fun onStart (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
-}
-
-public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesSpanAppender$Companion {
-	public final fun createLogProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
-	public final fun createSpanProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/trace/SpanProcessor;
-}
-
-public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionDefaultAttributesExtractor : io/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor {
-	public fun <init> ()V
-	public fun invoke (Lio/opentelemetry/api/common/AttributesBuilder;Lcom/pulse/android/core/Interaction;)V
-	public synthetic fun invoke (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
-}
-
 public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation : io/opentelemetry/android/instrumentation/AndroidInstrumentation, kotlinx/coroutines/CoroutineScope {
 	public static final field Companion Lio/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation$Companion;
 	public static final field INSTRUMENTATION_NAME Ljava/lang/String;
 	public fun <init> ()V
 	public final fun addAttributesExtractor (Lio/opentelemetry/android/instrumentation/interaction/library/InteractionAttributesExtractor;)Lio/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation;
+	public static final fun createLogProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public static final fun createSpanProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/trace/SpanProcessor;
 	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
 	public final fun getInteractionManagerInstance ()Lcom/pulse/android/core/InteractionManager;
 	public fun getName ()Ljava/lang/String;
@@ -37,11 +16,7 @@ public final class io/opentelemetry/android/instrumentation/interaction/library/
 }
 
 public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation$Companion {
-	public final fun handleSuccessInteraction (Lio/opentelemetry/api/trace/TracerProvider;Ljava/util/List;Ljava/util/List;)V
-}
-
-public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionLogListener : io/opentelemetry/sdk/logs/LogRecordProcessor {
-	public fun <init> (Lcom/pulse/android/core/InteractionManager;)V
-	public fun onEmit (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/logs/ReadWriteLogRecord;)V
+	public final fun createLogProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public final fun createSpanProcessor (Lcom/pulse/android/core/InteractionManager;)Lio/opentelemetry/sdk/trace/SpanProcessor;
 }
 

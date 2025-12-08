@@ -26,7 +26,7 @@ internal class PerActivityListener(
     private val lock = Any()
 
     @GuardedBy("lock")
-    private var drawDurationHistogram: MutableMap<Int, Int> = HashMap()
+    private val drawDurationHistogram: MutableMap<Int, Int> = HashMap()
 
     fun getActivityName(): String = activity.componentName.flattenToShortString()
 
@@ -63,7 +63,7 @@ internal class PerActivityListener(
     fun resetMetrics(): Map<Int, Int> {
         synchronized(lock) {
             val metrics = HashMap(drawDurationHistogram)
-            drawDurationHistogram = HashMap()
+            drawDurationHistogram.clear()
             return metrics
         }
     }

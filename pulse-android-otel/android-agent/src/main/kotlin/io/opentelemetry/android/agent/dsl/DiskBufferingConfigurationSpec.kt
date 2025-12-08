@@ -9,9 +9,9 @@ import io.opentelemetry.android.agent.dsl.instrumentation.CanBeEnabledAndDisable
 
 @OpenTelemetryDslMarker
 class DiskBufferingConfigurationSpec internal constructor() : CanBeEnabledAndDisabled {
-    internal var enabled: Boolean = true
+    internal var isEnabled: Boolean = true
 
     override fun enabled(enabled: Boolean) {
-        this.enabled = enabled
+        this.isEnabled = enabled
     }
 }

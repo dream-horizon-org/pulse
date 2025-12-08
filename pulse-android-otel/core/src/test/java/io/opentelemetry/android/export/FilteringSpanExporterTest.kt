@@ -42,14 +42,8 @@ internal class FilteringSpanExporterTest {
         val spans = listOf(span1, span2, span3, span4, span5, span6, span7, span8)
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
-        attrRejects.put(
-            AttributeKey.stringKey("herp"),
-            Predicate { anObject: String -> "derp".equals(anObject) },
-        )
-        attrRejects.put(
-            AttributeKey.stringKey("dig"),
-            Predicate { v: String -> v.startsWith("d") },
-        )
+        attrRejects[AttributeKey.stringKey("herp")] = Predicate { anObject: String -> "derp".equals(anObject) }
+        attrRejects[AttributeKey.stringKey("dig")] = Predicate { v: String -> v.startsWith("d") }
 
         val exporter = Mockito.mock(SpanExporter::class.java)
         val expectedResult = Mockito.mock(CompletableResultCode::class.java)

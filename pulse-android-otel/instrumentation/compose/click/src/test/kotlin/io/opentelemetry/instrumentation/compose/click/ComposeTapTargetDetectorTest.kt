@@ -92,7 +92,7 @@ internal class ComposeTapTargetDetectorTest {
     fun `name from id on null`() {
         val mockNode = mockkClass(LayoutNode::class)
         every { mockNode.semanticsId } returns 41
-        every { mockNode.getModifierInfo() } returns listOf()
+        every { mockNode.getModifierInfo() } returns emptyList()
 
         val name =
             composeTapTargetDetector.nodeToName(

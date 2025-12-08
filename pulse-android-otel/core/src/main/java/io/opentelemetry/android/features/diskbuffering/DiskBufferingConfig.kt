@@ -19,13 +19,13 @@ const val DEFAULT_MAX_FILE_AGE_FOR_READ_MS = 18L
 data class DiskBufferingConfig
     @JvmOverloads
     constructor(
-        val enabled: Boolean = false,
+        val isEnabled: Boolean = false,
         val maxCacheSize: Int = DEFAULT_MAX_CACHE_SIZE,
         val maxFileAgeForWriteMillis: Long = TimeUnit.SECONDS.toMillis(DEFAULT_MAX_FILE_AGE_FOR_WRITE_MS),
         val minFileAgeForReadMillis: Long = TimeUnit.SECONDS.toMillis(DEFAULT_MIN_FILE_AGE_FOR_READ_MS),
         val maxFileAgeForReadMillis: Long = TimeUnit.HOURS.toMillis(DEFAULT_MAX_FILE_AGE_FOR_READ_MS),
         val maxCacheFileSize: Int = MAX_CACHE_FILE_SIZE,
-        val debugEnabled: Boolean = false,
+        val isDebugEnabled: Boolean = false,
         /**
          * The directory where the SDK stores the buffered signals before they are exported. If
          * `null`, a default directory inside the application's cache directory will be used.
@@ -57,13 +57,13 @@ data class DiskBufferingConfig
                     Log.w(OTEL_RUM_LOG_TAG, "overriding minFileAgeForReadMillis from $minFileAgeForReadMillis to $minRead")
                 }
                 return DiskBufferingConfig(
-                    enabled = enabled,
+                    isEnabled = enabled,
                     maxCacheSize = maxCacheSize,
                     maxFileAgeForWriteMillis = maxFileAgeForWriteMillis,
                     minFileAgeForReadMillis = minRead,
                     maxFileAgeForReadMillis = maxFileAgeForReadMillis,
                     maxCacheFileSize = maxCacheFileSize,
-                    debugEnabled = debugEnabled,
+                    isDebugEnabled = debugEnabled,
                     signalsBufferDir = signalsBufferDir,
                 )
             }

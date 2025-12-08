@@ -55,7 +55,7 @@ internal class InteractionEventsTracker(
                             localMarkers,
                             interactionConfig,
                         ).also {
-                            logDebug { "matchSeq result = $it" }
+                            logDebug { "matchSeq result = ${it ?: "null"}" }
                         } ?: return
                 val newInteractionStatus =
                     if (shouldResetList) {
@@ -152,7 +152,7 @@ internal class InteractionEventsTracker(
         localMarkers += event
     }
 
-    private var localEvents: SortedList<InteractionLocalEvent> =
+    private val localEvents: SortedList<InteractionLocalEvent> =
         SortedList { e1, e2 -> e1.timeInNano.compareTo(e2.timeInNano) }
 }
 

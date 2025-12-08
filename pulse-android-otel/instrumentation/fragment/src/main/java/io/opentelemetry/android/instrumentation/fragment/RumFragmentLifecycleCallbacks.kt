@@ -165,7 +165,7 @@ class RumFragmentLifecycleCallbacks(
                     .setScreenName(screenNameExtractor.extract(fragment))
                     .setActiveSpan(ActiveSpan(lastVisibleScreen))
                     .build()
-            tracersByFragmentClassName.put(fragment.javaClass.name, activityTracer)
+            tracersByFragmentClassName[fragment.javaClass.name] = activityTracer
             activityTracer
         }
 }
