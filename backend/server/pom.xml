@@ -109,7 +109,11 @@
             <version>${vertx.version}</version>
         </dependency>
 
-
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-kafka-client</artifactId>
+            <version>4.5.8</version>
+        </dependency>
 
         <dependency>
             <groupId>io.vertx</groupId>

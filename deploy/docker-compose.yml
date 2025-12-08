@@ -63,18 +63,83 @@ services:
         condition: service_healthy
     restart: "no"  # Only run once
 
-  # OpenTelemetry Collector (Data Ingestion Pipeline)
-  otel-collector:
+  kafka:
+    image: apache/kafka:latest
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9094:9094"
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8081:8080"  # host:container (access UI at http://localhost:8081)
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_READONLY: "false"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - pulse-network
+    restart: unless-stopped
+
+    # OpenTelemetry Collector (Data Ingestion Pipeline)
+
+  otel-collector-1:
     image: otel/opentelemetry-collector-contrib:0.137.0
-    container_name: pulse-otel-collector
-    command: ["--config=/etc/otel-collector.yaml"]
+    container_name: pulse-otel-collector-1
+    command: ["--config=/etc/otel-collector-1.yaml"]
     volumes:
-      - ../backend/ingestion/otel-collector.yaml:/etc/otel-collector.yaml:ro
+      - ../backend/ingestion/otel-collector-1.yaml:/etc/otel-collector-1.yaml:ro
+    networks:
+      - pulse-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector-1.yaml"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     ports:
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
       - "8888:8888"   # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
+
+  otel-collector-2:
+    image: otel/opentelemetry-collector-contrib:0.137.0
+    container_name: pulse-otel-collector-2
+    command: [ "--config=/etc/otel-collector-2.yaml" ]
+    volumes:
+      - ../backend/ingestion/otel-collector-2.yaml:/etc/otel-collector-2.yaml:ro
     environment:
       - CLICKHOUSE_ENDPOINT=tcp://clickhouse:9000
       - CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -85,13 +150,19 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector.yaml"]
+      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector-2.yaml" ]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 10s
+    # Optional: expose health/metrics on different host ports than collector-1
+    ports:
+      - "8889:8888"    # internal metrics on 8888 -> host 8889
+      - "13134:13133"  # internal health_check -> host 13134
 
   # Pulse UI Service (React Frontend)
   pulse-ui:
