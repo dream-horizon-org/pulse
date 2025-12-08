@@ -7,9 +7,40 @@
 
 import { MockDataStore as IMockDataStore } from "./types";
 
+// SDK Config types
+interface SDKConfig {
+  id?: string;
+  name?: string;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  filtersConfig: {
+    mode: 'WHITELIST' | 'BLACKLIST';
+    whitelist: any[];
+    blacklist: any[];
+  };
+  samplingConfig: {
+    default: { session_sample_rate: number };
+    rules: any[];
+    criticalEventPolicies: { alwaysSend: any[] };
+  };
+  signalsConfig: {
+    scheduleDurationMs: number;
+    collectorUrl: string;
+    attributesToDrop: string[];
+  };
+  interaction: {
+    collectorUrl: string;
+    configUrl: string;
+    beforeInitQueueSize: number;
+  };
+  featureConfigs: any[];
+}
+
 export class MockDataStore {
   private static instance: MockDataStore;
   private data: IMockDataStore;
+  private sdkConfig: SDKConfig;
 
   private constructor() {
     this.data = {
@@ -20,7 +51,127 @@ export class MockDataStore {
       queries: [],
       events: [],
     };
+    this.sdkConfig = this.getDefaultSdkConfig();
     this.initializeData();
+  }
+
+  private getDefaultSdkConfig(): SDKConfig {
+    return {
+      id: 'sdk-config-1',
+      name: 'Production Config',
+      version: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      filtersConfig: {
+        mode: 'BLACKLIST',
+        whitelist: [
+          {
+            id: 'whitelist-1',
+            name: 'test_event',
+            props: [{ name: 'user_id', value: '.*test.*' }],
+            scope: ['LOGS', 'TRACES'],
+            sdks: ['ANDROID', 'IOS'],
+          },
+        ],
+        blacklist: [
+          {
+            id: 'blacklist-1',
+            name: 'sensitive_event',
+            props: [{ name: 'contains_pii', value: 'true' }],
+            scope: ['LOGS', 'TRACES', 'METRICS'],
+            sdks: ['ANDROID', 'IOS', 'REACT_NATIVE', 'WEB'],
+          },
+          {
+            id: 'blacklist-2',
+            name: 'debug_event',
+            props: [{ name: 'env', value: 'debug' }],
+            scope: ['LOGS'],
+            sdks: ['ANDROID', 'IOS'],
+          },
+        ],
+      },
+      samplingConfig: {
+        default: { session_sample_rate: 0.5 },
+        rules: [
+          {
+            id: 'rule-1',
+            name: 'high_value_users',
+            match: {
+              type: 'APP_VERSION_MIN',
+              sdks: ['ANDROID', 'IOS'],
+              value: '1.0.0',
+            },
+            session_sample_rate: 1.0,
+          },
+          {
+            id: 'rule-2',
+            name: 'low_priority_users',
+            match: {
+              type: 'APP_VERSION_MAX',
+              sdks: ['REACT_NATIVE', 'WEB'],
+              value: '0.9.0',
+            },
+            session_sample_rate: 0.1,
+          },
+        ],
+        criticalEventPolicies: {
+          alwaysSend: [
+            {
+              id: 'critical-1',
+              name: 'crash',
+              props: [{ name: 'severity', value: 'critical' }],
+              scope: ['TRACES', 'LOGS'],
+            },
+            {
+              id: 'critical-2',
+              name: 'payment_error',
+              props: [{ name: 'error_type', value: 'payment.*' }],
+              scope: ['TRACES'],
+            },
+          ],
+        },
+      },
+      signalsConfig: {
+        scheduleDurationMs: 5000,
+        collectorUrl: 'http://localhost:4318/v1/traces',
+        attributesToDrop: ['sensitive_data', 'password', 'credit_card'],
+      },
+      interaction: {
+        collectorUrl: 'http://localhost:4318/v1/interactions',
+        configUrl: 'http://localhost:8080/v1/configs/latest-version',
+        beforeInitQueueSize: 100,
+      },
+      featureConfigs: [
+        {
+          id: 'feature-1',
+          featureName: 'network_monitoring',
+          enabled: true,
+          session_sample_rate: 0.8,
+          sdks: ['ANDROID', 'IOS', 'REACT_NATIVE'],
+        },
+        {
+          id: 'feature-2',
+          featureName: 'crash_reporting',
+          enabled: true,
+          session_sample_rate: 1.0,
+          sdks: ['ANDROID', 'IOS', 'REACT_NATIVE', 'WEB'],
+        },
+        {
+          id: 'feature-3',
+          featureName: 'performance_monitoring',
+          enabled: true,
+          session_sample_rate: 0.6,
+          sdks: ['ANDROID', 'IOS'],
+        },
+        {
+          id: 'feature-4',
+          featureName: 'user_interaction_tracking',
+          enabled: false,
+          session_sample_rate: 0.3,
+          sdks: ['WEB'],
+        },
+      ],
+    };
   }
 
   static getInstance(): MockDataStore {
@@ -929,5 +1080,33 @@ export class MockDataStore {
     this.data.alerts = this.data.alerts.filter(
       (alert) => alert.alert_id !== alertId,
     );
+  }
+
+  // SDK Configuration methods
+  getSdkConfig(): SDKConfig {
+    return { ...this.sdkConfig };
+  }
+
+  updateSdkConfig(updates: Partial<SDKConfig>): SDKConfig {
+    this.sdkConfig = {
+      ...this.sdkConfig,
+      ...updates,
+      version: (this.sdkConfig.version || 0) + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    return { ...this.sdkConfig };
+  }
+
+  createSdkConfig(config: Partial<SDKConfig>): SDKConfig {
+    const defaultConfig = this.getDefaultSdkConfig();
+    this.sdkConfig = {
+      ...defaultConfig,
+      ...config,
+      id: `sdk-config-${Date.now()}`,
+      version: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    return { ...this.sdkConfig };
   }
 }

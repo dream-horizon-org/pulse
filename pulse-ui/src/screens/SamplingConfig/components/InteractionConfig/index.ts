@@ -1,0 +1,2 @@
+export { InteractionConfig } from './InteractionConfig';
+

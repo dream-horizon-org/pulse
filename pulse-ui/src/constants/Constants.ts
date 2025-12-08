@@ -11,6 +11,7 @@ import {
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
+  IconAdjustments,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -39,6 +40,7 @@ import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
+import { SamplingConfig } from "../screens/SamplingConfig";
 
 export const APP_NAME: string = "Pulse";
 
@@ -181,6 +183,12 @@ export const ROUTES: Routes = {
     path: "/coming-soon",
     element: ComingSoon,
   },
+  SDK_CONFIG: {
+    key: "SDK_CONFIG",
+    basePath: "/sdk-config",
+    path: "/sdk-config",
+    element: SamplingConfig,
+  },
 };
 
 export const NAVBAR_ITEMS: NavbarItems = [
@@ -225,7 +233,14 @@ export const NAVBAR_ITEMS: NavbarItems = [
     routeTo: ROUTES.NETWORK_LIST.basePath,
     path: ROUTES.NETWORK_LIST.path,
     iconSize: 25,
-  }
+  },
+  {
+    tabName: "SDK Config",
+    icon: IconAdjustments,
+    routeTo: ROUTES.SDK_CONFIG.basePath,
+    path: ROUTES.SDK_CONFIG.path,
+    iconSize: 25,
+  },
 ];
 
 export const API_METHODS: Record<string, string> = {

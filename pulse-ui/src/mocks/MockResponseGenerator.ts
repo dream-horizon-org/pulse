@@ -239,10 +239,87 @@ export class MockResponseGenerator {
       return this.handleEventEndpoints(pathname, method, request);
     }
 
+    // SDK Configuration endpoints
+    if (pathname.includes("/sdk-config")) {
+      return this.handleSdkConfigEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
       status: 200,
+    };
+  }
+
+  /**
+   * Handle SDK Configuration endpoints
+   */
+  private handleSdkConfigEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/sdk-config - Get current SDK configuration
+    if (method === "GET") {
+      const storedConfig = this.dataStore.getSdkConfig();
+      return {
+        data: storedConfig,
+        status: 200,
+      };
+    }
+
+    // PUT /v1/sdk-config - Update SDK configuration
+    if (method === "PUT") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const updatedConfig = this.dataStore.updateSdkConfig(body);
+        return {
+          data: updatedConfig,
+          status: 200,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    // POST /v1/sdk-config - Create new SDK configuration
+    if (method === "POST") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const newConfig = this.dataStore.createSdkConfig(body);
+        return {
+          data: newConfig,
+          status: 201,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 405,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: `Method ${method} not allowed for SDK config endpoint`,
+        cause: "Invalid HTTP method",
+      },
     };
   }
 
