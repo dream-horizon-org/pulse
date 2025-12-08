@@ -17,6 +17,11 @@ import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudfront.CloudFrontAsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 public class MainModule extends VertxAbstractModule {
 
@@ -40,6 +45,8 @@ public class MainModule extends VertxAbstractModule {
     bind(SourceMapCache.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
     bind(Symbolicator.class).in(Singleton.class);
+    bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
+    bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {
@@ -53,5 +60,22 @@ public class MainModule extends VertxAbstractModule {
       objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
     return objectMapper;
+  }
+
+  private S3AsyncClient loadS3Client() {
+    return S3AsyncClient.builder()
+        .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+        .region(Region.US_EAST_1)
+        .credentialsProvider(DefaultCredentialsProvider.create())
+        .build();
+  }
+
+  private CloudFrontAsyncClient loadCloudFrontClient() {
+    return CloudFrontAsyncClient
+        .builder()
+        .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+        .region(Region.US_EAST_1)
+        .credentialsProvider(DefaultCredentialsProvider.create())
+        .build();
   }
 }
