@@ -17,7 +17,6 @@ import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfigu
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
-import io.opentelemetry.android.instrumentation.interaction.library.InteractionAttributesSpanAppender
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -98,12 +97,12 @@ internal class PulseSDKImpl : PulseSDK {
         val tracerProviderCustomizer =
             BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
                 tracerProviderBuilder.addSpanProcessor(
-                    pulseSpanProcessor.PulseSpanTypeAttributesAppender(),
+                    PulseSignalProcessor.PulseSpanTypeAttributesAppender(),
                 )
                 // interaction specific attributed present in other spans
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
                     tracerProviderBuilder.addSpanProcessor(
-                        InteractionAttributesSpanAppender.createSpanProcessor(
+                        InteractionInstrumentation.createSpanProcessor(
                             AndroidInstrumentationLoader
                                 .getInstrumentation(
                                     InteractionInstrumentation::class.java,
@@ -121,7 +120,7 @@ internal class PulseSDKImpl : PulseSDK {
                 )
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
                     loggerProviderBuilder.addLogRecordProcessor(
-                        InteractionAttributesSpanAppender.createLogProcessor(
+                        InteractionInstrumentation.createLogProcessor(
                             AndroidInstrumentationLoader
                                 .getInstrumentation(
                                     InteractionInstrumentation::class.java,
@@ -131,7 +130,7 @@ internal class PulseSDKImpl : PulseSDK {
                 }
                 loggerProviderBuilder
             }
-        return Pair(tracerProviderCustomizer, loggerProviderCustomizer)
+        return tracerProviderCustomizer to loggerProviderCustomizer
     }
 
     override fun setUserId(id: String?) {
@@ -167,7 +166,7 @@ internal class PulseSDKImpl : PulseSDK {
             .apply {
                 setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
                 setBody(name)
-                setEventName("pulse.custom_event")
+                setEventName(CUSTOM_EVENT_NAME)
                 setAttribute(
                     PulseAttributes.PULSE_TYPE,
                     PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
@@ -187,7 +186,7 @@ internal class PulseSDKImpl : PulseSDK {
             .apply {
                 setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
                 setBody(name)
-                setEventName("pulse.custom_non_fatal")
+                setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
                 setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
                 setAllAttributes(params.toAttributes())
                 emit()
@@ -214,7 +213,7 @@ internal class PulseSDKImpl : PulseSDK {
                         ).put(ExceptionAttributes.EXCEPTION_TYPE, throwable.javaClass.name)
                 attributesBuilder putAttributesFrom params
                 setAllAttributes(attributesBuilder.build())
-                setEventName("pulse.custom_non_fatal")
+                setEventName(CUSTOM_NON_FATAL_EVENT_NAME)
                 setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
                 emit()
             }
@@ -269,9 +268,11 @@ internal class PulseSDKImpl : PulseSDK {
     private var otelInstance: OpenTelemetryRum? = null
 
     private var userId: String? = null
-    private var userProps = ConcurrentHashMap<String, Any>()
+    private val userProps = ConcurrentHashMap<String, Any>()
 
     internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
+        private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
+        private const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
     }
 }

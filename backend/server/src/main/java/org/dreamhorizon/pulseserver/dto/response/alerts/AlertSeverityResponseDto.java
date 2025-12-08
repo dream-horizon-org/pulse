@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class AlertSeverityResponseDto {
   @NotNull
   @JsonProperty("severity_id")
-  Integer severity_id;
+  Integer severityId;
 
   @NotNull
   @JsonProperty("name")

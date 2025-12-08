@@ -174,7 +174,7 @@ public class AlertsQuery {
   public static final String DELETE_ALERT = "UPDATE Alerts SET is_active = FALSE WHERE id = ?;";
   public static final String UPDATE_ALERT_STATE = "UPDATE Alert_Scope SET state = ? WHERE alert_id = ? AND name = ?;";
   public static final String UPDATE_LAST_EVALUATED_AT = "UPDATE Alerts SET last_evaluated_at = CURRENT_TIMESTAMP WHERE id = ?;";
-  
+
   public static final String UPDATE_ALERT = "UPDATE Alerts SET "
       + "name = ?, "
       + "description = ?, "
@@ -190,6 +190,27 @@ public class AlertsQuery {
       + "WHERE id = ?;";
 
   public static final String DELETE_ALERT_SCOPES = "DELETE FROM Alert_Scope WHERE alert_id = ?;";
+
+  public static final String OLD_UPDATE_ALERT = "UPDATE Alerts SET "
+      + "use_case_id = ?, "
+      + "name = ?, "
+      + "description = ?, "
+      + "threshold = ?, "
+      + "evaluation_period = ?, "
+      + "severity_id = ?, "
+      + "notification_channel_id = ?, "
+      + "updated_by = ?, "
+      + "conditions = ?, "
+      + "updated_at = CURRENT_TIMESTAMP, "
+      + "service_name = ?, "
+      + "roster_name = ?, "
+      + "metric = ?, "
+      + "min_total_interactions = ?, "
+      + "min_success_interactions = ?, "
+      + "min_error_interactions = ?, "
+      + "metric_operator = ?, "
+      + "evaluation_interval = ? "
+      + "WHERE alert_id = ?;";
 
   public static final String SNOOZE_ALERT = "UPDATE Alerts "
       + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE alert_id = ?;";

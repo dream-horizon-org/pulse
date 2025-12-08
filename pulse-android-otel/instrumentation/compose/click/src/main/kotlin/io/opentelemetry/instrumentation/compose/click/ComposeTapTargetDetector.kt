@@ -42,7 +42,7 @@ internal class ComposeTapTargetDetector(
                 for (index in 0 until view.childCount) {
                     queue.add(view.getChildAt(index))
                 }
-                (view as? Owner)?.let {
+                if (view is Owner) {
                     try {
                         target =
                             findTapTarget(
@@ -141,12 +141,12 @@ internal class ComposeTapTargetDetector(
         x: Float,
         y: Float,
     ): Boolean {
-        val bounded =
+        val isBounded =
             composeLayoutNodeUtil.getLayoutNodeBoundsInWindow(node)?.let { bounds ->
                 x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
             } == true
 
-        return bounded && isValidClickTarget(node)
+        return isBounded && isValidClickTarget(node)
     }
 
     companion object {

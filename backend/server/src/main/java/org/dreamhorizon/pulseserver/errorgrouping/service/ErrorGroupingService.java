@@ -375,14 +375,13 @@ public class ErrorGroupingService {
   /**
    * Symbolicate ALL frames across ALL lanes (JS, Java, NDK) in parallel.
    * Returns CompleteSymbolication which can reconstruct the full stack trace.
-   * <p>
    * OPTIMIZATION: Skip symbolication if no frames exist for a lane (early return).
    */
   private Single<CompleteSymbolication> symbolicateComplete(ParsedFrames parsedFrames, EventMeta meta) {
     // OPTIMIZATION: Early return if no frames to process
-    if (parsedFrames.getJsFrames().isEmpty() &&
-        parsedFrames.getJavaFrames().isEmpty() &&
-        parsedFrames.getNdkFrames().isEmpty()) {
+    if (parsedFrames.getJsFrames().isEmpty()
+        && parsedFrames.getJavaFrames().isEmpty()
+        && parsedFrames.getNdkFrames().isEmpty()) {
       return Single.just(new CompleteSymbolication(
           parsedFrames,
           Collections.emptyList(),
@@ -401,9 +400,6 @@ public class ErrorGroupingService {
     );
   }
 
-  /**
-   * Helper to symbolicate all frames for a given lane
-   */
   private Single<List<String>> symbolicateAllFrames(Lane lane, List<? extends Frame> frames, EventMeta meta) {
     if (frames.isEmpty()) {
       return Single.just(Collections.emptyList());
@@ -411,9 +407,6 @@ public class ErrorGroupingService {
     return symbolicate(lane, new ArrayList<>(frames), meta);
   }
 
-  /**
-   * Helper record to hold both grouping result and complete symbolication
-   */
   public record ProcessingResult(Group group, CompleteSymbolication completeSymbolication) {
   }
 }

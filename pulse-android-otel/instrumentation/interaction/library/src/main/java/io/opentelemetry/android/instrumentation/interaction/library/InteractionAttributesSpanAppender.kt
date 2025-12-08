@@ -8,18 +8,19 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseInteractionAttributes
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.context.Context
-import io.opentelemetry.sdk.logs.LogRecordProcessor
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SpanProcessor
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-class InteractionAttributesSpanAppender(
+internal class InteractionAttributesSpanAppender(
     private val interactionManager: InteractionManager,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : SpanProcessor,
-    CoroutineScope by CoroutineScope(SupervisorJob() + Dispatchers.Default) {
+    CoroutineScope by CoroutineScope(SupervisorJob() + ioDispatcher) {
     override fun onStart(
         parentContext: Context,
         span: ReadWriteSpan,
@@ -48,13 +49,6 @@ class InteractionAttributesSpanAppender(
     override fun isEndRequired(): Boolean = true
 
     companion object {
-        @JvmStatic
-        fun createSpanProcessor(interactionManager: InteractionManager): SpanProcessor =
-            InteractionAttributesSpanAppender(interactionManager)
-
-        @JvmStatic
-        fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor = InteractionLogListener(interactionManager)
-
         internal fun createInteractionAttributes(value: List<InteractionRunningStatus>): Attributes? {
             val ids = value.runningIds
             return if (ids.isNotEmpty()) {

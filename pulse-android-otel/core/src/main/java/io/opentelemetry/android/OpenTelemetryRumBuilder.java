@@ -369,7 +369,7 @@ public final class OpenTelemetryRumBuilder {
         LogRecordExporter logsExporter = buildLogsExporter();
         MetricExporter metricExporter = buildMetricExporter();
         SignalFromDiskExporter signalFromDiskExporter = null;
-        if (diskBufferingConfig.getEnabled()) {
+        if (diskBufferingConfig.isEnabled()) {
             try {
                 StorageConfiguration storageConfiguration = createStorageConfiguration(services);
                 Storage spanStorage =
@@ -436,7 +436,7 @@ public final class OpenTelemetryRumBuilder {
                 .setMaxFileAgeForWriteMillis(config.getMaxFileAgeForWriteMillis())
                 .setMaxFileAgeForReadMillis(config.getMaxFileAgeForReadMillis())
                 .setMinFileAgeForReadMillis(config.getMinFileAgeForReadMillis())
-                .setDebugEnabled(config.getDebugEnabled())
+                .setDebugEnabled(config.isDebugEnabled())
                 .build();
     }
 

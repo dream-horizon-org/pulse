@@ -49,6 +49,7 @@ internal class AndroidResourceTest {
                     Resource
                         .builder()
                         .put(ServiceAttributes.SERVICE_NAME, appName)
+                        .put(ServiceAttributes.SERVICE_VERSION, "_0")
                         .put(RumConstants.RUM_SDK_VERSION, rumSdkVersion)
                         .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL.orEmpty())
                         .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL.orEmpty())
@@ -58,6 +59,8 @@ internal class AndroidResourceTest {
                         .put(OsIncubatingAttributes.OS_VERSION, Build.VERSION.RELEASE)
                         .put(OsIncubatingAttributes.OS_DESCRIPTION, Build.DISPLAY)
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
+                        .put(RumConstants.App.BUILD_ID, "0")
+                        .put(RumConstants.App.BUILD_NAME, "_0")
                         .build(),
                 )
 
@@ -83,6 +86,7 @@ internal class AndroidResourceTest {
                     Resource
                         .builder()
                         .put(ServiceAttributes.SERVICE_NAME, "shim sham")
+                        .put(ServiceAttributes.SERVICE_VERSION, "_0")
                         .put(RumConstants.RUM_SDK_VERSION, rumSdkVersion)
                         .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL.orEmpty())
                         .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL.orEmpty())
@@ -92,6 +96,8 @@ internal class AndroidResourceTest {
                         .put(OsIncubatingAttributes.OS_VERSION, Build.VERSION.RELEASE)
                         .put(OsIncubatingAttributes.OS_DESCRIPTION, Build.DISPLAY)
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
+                        .put(RumConstants.App.BUILD_ID, "0")
+                        .put(RumConstants.App.BUILD_NAME, "_0")
                         .build(),
                 )
 
@@ -111,6 +117,7 @@ internal class AndroidResourceTest {
                     Resource
                         .builder()
                         .put(ServiceAttributes.SERVICE_NAME, "unknown_service:android")
+                        .put(ServiceAttributes.SERVICE_VERSION, "_0")
                         .put(RumConstants.RUM_SDK_VERSION, rumSdkVersion)
                         .put(DeviceIncubatingAttributes.DEVICE_MODEL_NAME, Build.MODEL.orEmpty())
                         .put(DeviceIncubatingAttributes.DEVICE_MODEL_IDENTIFIER, Build.MODEL.orEmpty())
@@ -120,6 +127,8 @@ internal class AndroidResourceTest {
                         .put(OsIncubatingAttributes.OS_VERSION, Build.VERSION.RELEASE)
                         .put(OsIncubatingAttributes.OS_DESCRIPTION, Build.DISPLAY)
                         .put(RumConstants.Android.OS_API_LEVEL, Build.VERSION.SDK_INT.toString())
+                        .put(RumConstants.App.BUILD_ID, "0")
+                        .put(RumConstants.App.BUILD_NAME, "_0")
                         .build(),
                 )
 

@@ -198,10 +198,16 @@ public class ClickhouseMetricService implements PerformanceMetricService {
         });
   }
 
-  private String format(List<String> filters) {
+  private String format(List<Object> filters) {
     String substitute = "";
     List<String> formattedfilters = filters.stream()
-        .map(id -> String.format("'%s'", id))
+        .map(id -> {
+          boolean check = id instanceof String;
+          if (check) {
+            return String.format("'%s'", id);
+          }
+          return String.format("%s", id);
+        })
         .collect(Collectors.toList());
 
     substitute = StringUtils.join(formattedfilters, ',');

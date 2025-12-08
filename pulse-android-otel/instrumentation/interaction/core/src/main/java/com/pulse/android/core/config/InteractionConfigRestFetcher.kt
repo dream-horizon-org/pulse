@@ -23,7 +23,11 @@ public class InteractionConfigRestFetcher(
                 .getOrPut(url) {
                     (
                         interactionRetrofitClient?.newInstance(url)
-                            ?: InteractionRetrofitClient(url)
+                            ?: run {
+                                InteractionRetrofitClient(url).apply {
+                                    interactionRetrofitClient = this
+                                }
+                            }
                     ).apiService
                 }.getInteractions()
         return if (restResponse.error == null) {

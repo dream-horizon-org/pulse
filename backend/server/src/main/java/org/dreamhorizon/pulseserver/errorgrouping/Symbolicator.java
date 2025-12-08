@@ -17,7 +17,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.JSFrame;
+import org.dreamhorizon.pulseserver.errorgrouping.model.JsFrame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 
@@ -33,7 +33,7 @@ public class Symbolicator {
       .maximumSize(500)
       .build();
 
-  public String symbolicateNames(JSFrame frame, SourceMapConsumerV3 sourceMap) {
+  public String symbolicateNames(JsFrame frame, SourceMapConsumerV3 sourceMap) {
     // RN/Metro/Hermes report 1-based line & column; SourceMap expects 1-based too.
     Integer line = frame.getJsLine();
     Integer col = frame.getJsColumn();
@@ -85,7 +85,7 @@ public class Symbolicator {
         .map(sourcemap -> {
           List<String> out = new ArrayList<>(jsFrames.size());
           for (Frame f : jsFrames) {
-            out.add(symbolicateNames((JSFrame) f, sourcemap));
+            out.add(symbolicateNames((JsFrame) f, sourcemap));
           }
           sourceMapExists.put(cacheKey, true);  // Cache success
           return out;

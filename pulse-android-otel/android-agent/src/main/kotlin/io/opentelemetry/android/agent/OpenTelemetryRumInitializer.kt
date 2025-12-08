@@ -80,7 +80,7 @@ object OpenTelemetryRumInitializer {
 
         val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
         diskBuffering?.invoke(diskBufferingConfigurationSpec)
-        rumConfig.setDiskBufferingConfig(DiskBufferingConfig.create(enabled = diskBufferingConfigurationSpec.enabled))
+        rumConfig.setDiskBufferingConfig(DiskBufferingConfig.create(enabled = diskBufferingConfigurationSpec.isEnabled))
 
         globalAttributes?.let {
             rumConfig.setGlobalAttributes(it::invoke)
@@ -110,9 +110,9 @@ object OpenTelemetryRumInitializer {
                         .setHeaders(metricEndpointConnectivity::getHeaders)
                         .build()
                 }
-                tracerProviderCustomizer?.let { addTracerProviderCustomizer(tracerProviderCustomizer) }
-                meterProviderCustomizer?.let { addMeterProviderCustomizer(meterProviderCustomizer) }
-                loggerProviderCustomizer?.let { addLoggerProviderCustomizer(loggerProviderCustomizer) }
+                if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
+                if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
+                if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
             }.build()
     }
 

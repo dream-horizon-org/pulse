@@ -31,8 +31,8 @@ abstract class PeriodicRunnable(
 
     private fun isReadyToRun(): Boolean =
         lastTimeItRan?.let {
-            getCurrentTimeMillis() >= (it + minimumDelayUntilNextRunInMillis())
-        } ?: true
+            getCurrentTimeMillis() >= it + minimumDelayUntilNextRunInMillis()
+        } != false
 
     private fun enqueueForNextLoop() {
         periodicWorkService.enqueue(this)
