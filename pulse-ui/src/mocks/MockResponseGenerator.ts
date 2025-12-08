@@ -259,7 +259,32 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    // GET /v1/sdk-config - Get current SDK configuration
+    // GET /v1/sdk-config/versions - List all configuration versions
+    if (pathname.includes("/sdk-config/versions") && method === "GET") {
+      // Check if requesting a specific version
+      const versionMatch = pathname.match(/\/versions\/(\d+)$/);
+      if (versionMatch) {
+        const version = parseInt(versionMatch[1], 10);
+        const config = this.dataStore.getSdkConfigByVersion(version);
+        if (config) {
+          return { data: config, status: 200 };
+        }
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: `Configuration version ${version} not found`,
+            cause: "Version does not exist",
+          },
+        };
+      }
+      // Return list of all versions
+      const versions = this.dataStore.getSdkConfigVersions();
+      return { data: { versions }, status: 200 };
+    }
+
+    // GET /v1/sdk-config - Get current (active) SDK configuration
     if (method === "GET") {
       const storedConfig = this.dataStore.getSdkConfig();
       return {
@@ -268,7 +293,7 @@ export class MockResponseGenerator {
       };
     }
 
-    // PUT /v1/sdk-config - Update SDK configuration
+    // PUT /v1/sdk-config - Update SDK configuration (creates new version)
     if (method === "PUT") {
       try {
         const body = request.body ? JSON.parse(request.body) : {};

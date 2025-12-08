@@ -1,2 +1,0 @@
-export { SignalsConfig } from './SignalsConfig';
-

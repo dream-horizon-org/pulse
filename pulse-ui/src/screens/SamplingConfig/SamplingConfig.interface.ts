@@ -1,198 +1,195 @@
 /**
- * Sampling Configuration Types
- * 
- * These types define the structure for managing client-side data sampling,
- * filtering, and feature configurations.
+ * SDK Configuration Interfaces
+ * Matches the PulseConfig JSON Schema
  */
 
-// SDK types supported by the system
-export type SDKType = 'ANDROID' | 'IOS' | 'REACT_NATIVE' | 'WEB';
+// SDK platforms
+export type SdkEnum = 'android_native' | 'android_rn' | 'ios_native' | 'ios_rn';
 
-// Scope types for data collection
-export type ScopeType = 'LOGS' | 'TRACES' | 'METRICS';
+// Telemetry scopes
+export type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
 
-// Filter mode - determines whether to use whitelist or blacklist
-export type FilterMode = 'WHITELIST' | 'BLACKLIST';
+// Filter mode
+export type FilterMode = 'blacklist' | 'whitelist';
 
-// Property filter for events
-export interface PropertyFilter {
+// Sampling match types
+export type SamplingMatchType = 'app_version_min' | 'app_version_max';
+
+// Event property match (for filters and critical events)
+export interface EventPropMatch {
   name: string;
-  value: string; // Regex pattern supported
+  value: string; // Regex pattern
 }
 
-// Filter rule for whitelisting/blacklisting events
-export interface FilterRule {
-  id?: string;
+// Event filter rule
+export interface EventFilter {
+  id?: string; // For UI tracking only
   name: string;
-  props: PropertyFilter[];
-  scope: ScopeType[];
-  sdks: SDKType[];
+  props: EventPropMatch[];
+  scope: ScopeEnum[];
+  sdks: SdkEnum[];
 }
 
-// Filters configuration section
+// Filters configuration
 export interface FiltersConfig {
   mode: FilterMode;
-  whitelist: FilterRule[];
-  blacklist: FilterRule[];
+  whitelist: EventFilter[];
+  blacklist: EventFilter[];
 }
 
-// Match types for sampling rules
-export type MatchType = 
-  | 'APP_VERSION_MIN' 
-  | 'APP_VERSION_MAX' 
-  | 'APP_VERSION_EXACT'
-  | 'OS_VERSION_MIN'
-  | 'OS_VERSION_MAX'
-  | 'DEVICE_MODEL'
-  | 'COUNTRY'
-  | 'USER_SEGMENT';
-
-// Sampling rule match condition
-export interface SamplingMatch {
-  type: MatchType;
-  sdks: SDKType[];
-  value: string;
+// Sampling match condition
+export interface SamplingMatchCondition {
+  type: SamplingMatchType;
+  sdks: SdkEnum[];
+  app_version_min_inclusive?: string; // Required if type is app_version_min
+  app_version_max_inclusive?: string; // Required if type is app_version_max
 }
 
-// Individual sampling rule
+// Sampling rule
 export interface SamplingRule {
-  id?: string;
+  id?: string; // For UI tracking only
   name: string;
-  match: SamplingMatch;
-  session_sample_rate: number;
+  match: SamplingMatchCondition;
+  session_sample_rate: number; // 0.0 - 1.0
 }
 
 // Critical event policy
 export interface CriticalEventPolicy {
-  id?: string;
+  id?: string; // For UI tracking only
   name: string;
-  props: PropertyFilter[];
-  scope: ScopeType[];
+  props: EventPropMatch[];
+  scope: ScopeEnum[];
 }
 
-// Critical event policies configuration
+// Critical event policies container
 export interface CriticalEventPolicies {
   alwaysSend: CriticalEventPolicy[];
 }
 
-// Default sampling configuration
-export interface DefaultSamplingConfig {
-  session_sample_rate: number;
-}
-
-// Complete sampling configuration
+// Sampling configuration
 export interface SamplingConfig {
-  default: DefaultSamplingConfig;
+  default: {
+    session_sample_rate: number; // 0.0 - 1.0
+  };
   rules: SamplingRule[];
   criticalEventPolicies: CriticalEventPolicies;
 }
 
-// Signals/telemetry configuration
+// Signals configuration
 export interface SignalsConfig {
   scheduleDurationMs: number;
   collectorUrl: string;
   attributesToDrop: string[];
 }
 
-// Interaction tracking configuration
+// Interaction configuration
 export interface InteractionConfig {
   collectorUrl: string;
   configUrl: string;
   beforeInitQueueSize: number;
 }
 
-// Feature-level configuration
+// Feature configuration
 export interface FeatureConfig {
-  id?: string;
+  id?: string; // For UI tracking only
   featureName: string;
   enabled: boolean;
-  session_sample_rate: number;
-  sdks: SDKType[];
+  session_sample_rate: number; // 0.0 - 1.0
+  sdks: SdkEnum[];
 }
 
-// Complete SDK configuration
-export interface SDKConfig {
-  id?: string;
-  name?: string;
-  version?: number;
-  createdAt?: string;
-  updatedAt?: string;
+// Complete Pulse Configuration (matches schema)
+export interface PulseConfig {
+  version: number;
   filtersConfig: FiltersConfig;
   samplingConfig: SamplingConfig;
-  signalsConfig: SignalsConfig;
+  signals: SignalsConfig;
   interaction: InteractionConfig;
   featureConfigs: FeatureConfig[];
 }
 
-// API response wrapper
-export interface SDKConfigResponse {
-  data: SDKConfig;
-  error?: {
-    code: string;
-    message: string;
+// Version metadata for listing
+export interface ConfigVersion {
+  version: number;
+  createdAt: string;
+  createdBy: string;
+  description?: string;
+  isActive: boolean; // Currently deployed version
+}
+
+// Version list response
+export interface ConfigVersionListResponse {
+  versions: ConfigVersion[];
+  totalCount: number;
+}
+
+// Full config with version metadata
+export interface PulseConfigWithMeta extends PulseConfig {
+  createdAt?: string;
+  createdBy?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+// UI-specific state (extends PulseConfig with UI metadata)
+export interface PulseConfigState extends PulseConfig {
+  _ui?: {
+    isDirty: boolean;
+    lastSaved?: string;
   };
 }
 
-// Form state for edit mode
-export interface SDKConfigFormState {
-  isDirty: boolean;
-  isSubmitting: boolean;
-  errors: Record<string, string>;
+// Pipeline stats for visualization
+export interface PipelineStats {
+  totalEvents: number;
+  afterFilters: number;
+  afterSampling: number;
+  afterFeatures: number;
+  finalSent: number;
+  filterDropRate: number;
+  samplingDropRate: number;
+  featureDropRate: number;
+  totalSentRate: number;
 }
 
-// Tab identifiers
-export type ConfigTab = 
-  | 'overview'
-  | 'filters'
-  | 'sampling'
-  | 'signals'
-  | 'interaction'
-  | 'features';
-
-// Props for section components
-export interface SectionProps {
-  config: SDKConfig;
-  onUpdate: (updates: Partial<SDKConfig>) => void;
-  isReadOnly?: boolean;
+// Component props
+export interface DataPipelineProps {
+  stats: PipelineStats;
+  isLoading?: boolean;
 }
 
-// Common SDK options for multi-select
-export const SDK_OPTIONS: { value: SDKType; label: string }[] = [
-  { value: 'ANDROID', label: 'Android' },
-  { value: 'IOS', label: 'iOS' },
-  { value: 'REACT_NATIVE', label: 'React Native' },
-  { value: 'WEB', label: 'Web' },
-];
+export interface FiltersConfigProps {
+  config: FiltersConfig;
+  onChange: (config: FiltersConfig) => void;
+}
 
-// Scope options for multi-select
-export const SCOPE_OPTIONS: { value: ScopeType; label: string }[] = [
-  { value: 'LOGS', label: 'Logs' },
-  { value: 'TRACES', label: 'Traces' },
-  { value: 'METRICS', label: 'Metrics' },
-];
+export interface SamplingConfigProps {
+  config: SamplingConfig;
+  onChange: (config: SamplingConfig) => void;
+}
 
-// Match type options
-export const MATCH_TYPE_OPTIONS: { value: MatchType; label: string; description: string }[] = [
-  { value: 'APP_VERSION_MIN', label: 'App Version (Min)', description: 'Match versions >= specified' },
-  { value: 'APP_VERSION_MAX', label: 'App Version (Max)', description: 'Match versions <= specified' },
-  { value: 'APP_VERSION_EXACT', label: 'App Version (Exact)', description: 'Match exact version' },
-  { value: 'OS_VERSION_MIN', label: 'OS Version (Min)', description: 'Match OS versions >= specified' },
-  { value: 'OS_VERSION_MAX', label: 'OS Version (Max)', description: 'Match OS versions <= specified' },
-  { value: 'DEVICE_MODEL', label: 'Device Model', description: 'Match by device model' },
-  { value: 'COUNTRY', label: 'Country', description: 'Match by user country' },
-  { value: 'USER_SEGMENT', label: 'User Segment', description: 'Match by user segment' },
-];
+export interface SignalsConfigProps {
+  config: SignalsConfig;
+  readOnly?: boolean;
+}
 
-// Predefined feature names
-export const FEATURE_NAME_OPTIONS = [
-  'network_monitoring',
-  'crash_reporting',
-  'performance_monitoring',
-  'user_interaction_tracking',
-  'screen_tracking',
-  'anr_detection',
-  'memory_monitoring',
-  'battery_monitoring',
-  'custom_events',
-];
+export interface InteractionConfigProps {
+  config: InteractionConfig;
+  readOnly?: boolean;
+}
 
+export interface FeatureConfigsProps {
+  configs: FeatureConfig[];
+  onChange: (configs: FeatureConfig[]) => void;
+}
+
+// Editor mode
+export type ConfigEditorMode = 'create' | 'edit' | 'view';
+
+// Editor props
+export interface ConfigEditorProps {
+  initialConfig?: PulseConfig;
+  mode: ConfigEditorMode;
+  onSave?: (config: PulseConfig) => void;
+  onCancel?: () => void;
+}

@@ -7,40 +7,106 @@
 
 import { MockDataStore as IMockDataStore } from "./types";
 
-// SDK Config types
-interface SDKConfig {
+// SDK Config types matching the PulseConfig schema
+type SdkEnum = 'android_native' | 'android_rn' | 'ios_native' | 'ios_rn';
+type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
+type FilterMode = 'blacklist' | 'whitelist';
+type SamplingMatchType = 'app_version_min' | 'app_version_max';
+
+interface EventPropMatch {
+  name: string;
+  value: string;
+}
+
+interface EventFilter {
   id?: string;
-  name?: string;
-  version?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  filtersConfig: {
-    mode: 'WHITELIST' | 'BLACKLIST';
-    whitelist: any[];
-    blacklist: any[];
-  };
-  samplingConfig: {
-    default: { session_sample_rate: number };
-    rules: any[];
-    criticalEventPolicies: { alwaysSend: any[] };
-  };
-  signalsConfig: {
-    scheduleDurationMs: number;
-    collectorUrl: string;
-    attributesToDrop: string[];
-  };
-  interaction: {
-    collectorUrl: string;
-    configUrl: string;
-    beforeInitQueueSize: number;
-  };
-  featureConfigs: any[];
+  name: string;
+  props: EventPropMatch[];
+  scope: ScopeEnum[];
+  sdks: SdkEnum[];
+}
+
+interface FiltersConfig {
+  mode: FilterMode;
+  whitelist: EventFilter[];
+  blacklist: EventFilter[];
+}
+
+interface SamplingMatchCondition {
+  type: SamplingMatchType;
+  sdks: SdkEnum[];
+  app_version_min_inclusive?: string;
+  app_version_max_inclusive?: string;
+}
+
+interface SamplingRule {
+  id?: string;
+  name: string;
+  match: SamplingMatchCondition;
+  session_sample_rate: number;
+}
+
+interface CriticalEventPolicy {
+  id?: string;
+  name: string;
+  props: EventPropMatch[];
+  scope: ScopeEnum[];
+}
+
+interface SamplingConfig {
+  default: { session_sample_rate: number };
+  rules: SamplingRule[];
+  criticalEventPolicies: { alwaysSend: CriticalEventPolicy[] };
+}
+
+interface SignalsConfig {
+  scheduleDurationMs: number;
+  collectorUrl: string;
+  attributesToDrop: string[];
+}
+
+interface InteractionConfig {
+  collectorUrl: string;
+  configUrl: string;
+  beforeInitQueueSize: number;
+}
+
+interface FeatureConfig {
+  id?: string;
+  featureName: string;
+  enabled: boolean;
+  session_sample_rate: number;
+  sdks: SdkEnum[];
+}
+
+interface PulseConfig {
+  version: number;
+  filtersConfig: FiltersConfig;
+  samplingConfig: SamplingConfig;
+  signals: SignalsConfig;
+  interaction: InteractionConfig;
+  featureConfigs: FeatureConfig[];
+}
+
+// Version metadata
+interface ConfigVersionMeta {
+  version: number;
+  createdAt: string;
+  createdBy: string;
+  description?: string;
+  isActive: boolean;
+}
+
+// Config with metadata
+interface PulseConfigWithMeta extends PulseConfig {
+  _meta: ConfigVersionMeta;
 }
 
 export class MockDataStore {
   private static instance: MockDataStore;
   private data: IMockDataStore;
-  private sdkConfig: SDKConfig;
+  private sdkConfig: PulseConfig;
+  private configHistory: PulseConfigWithMeta[];
 
   private constructor() {
     this.data = {
@@ -52,41 +118,40 @@ export class MockDataStore {
       events: [],
     };
     this.sdkConfig = this.getDefaultSdkConfig();
+    this.configHistory = this.initializeConfigHistory();
     this.initializeData();
   }
 
-  private getDefaultSdkConfig(): SDKConfig {
+  private getDefaultSdkConfig(): PulseConfig {
+    const generateId = () => Math.random().toString(36).substring(2, 11);
+    
     return {
-      id: 'sdk-config-1',
-      name: 'Production Config',
       version: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       filtersConfig: {
-        mode: 'BLACKLIST',
+        mode: 'blacklist',
         whitelist: [
           {
-            id: 'whitelist-1',
+            id: generateId(),
             name: 'test_event',
             props: [{ name: 'user_id', value: '.*test.*' }],
-            scope: ['LOGS', 'TRACES'],
-            sdks: ['ANDROID', 'IOS'],
+            scope: ['logs', 'traces'],
+            sdks: ['android_native', 'ios_native'],
           },
         ],
         blacklist: [
           {
-            id: 'blacklist-1',
+            id: generateId(),
             name: 'sensitive_event',
             props: [{ name: 'contains_pii', value: 'true' }],
-            scope: ['LOGS', 'TRACES', 'METRICS'],
-            sdks: ['ANDROID', 'IOS', 'REACT_NATIVE', 'WEB'],
+            scope: ['logs', 'traces', 'metrics'],
+            sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
           },
           {
-            id: 'blacklist-2',
-            name: 'debug_event',
-            props: [{ name: 'env', value: 'debug' }],
-            scope: ['LOGS'],
-            sdks: ['ANDROID', 'IOS'],
+            id: generateId(),
+            name: 'debug_log',
+            props: [{ name: 'level', value: 'debug' }],
+            scope: ['logs'],
+            sdks: ['android_native', 'ios_native'],
           },
         ],
       },
@@ -94,22 +159,22 @@ export class MockDataStore {
         default: { session_sample_rate: 0.5 },
         rules: [
           {
-            id: 'rule-1',
+            id: generateId(),
             name: 'high_value_users',
             match: {
-              type: 'APP_VERSION_MIN',
-              sdks: ['ANDROID', 'IOS'],
-              value: '1.0.0',
+              type: 'app_version_min',
+              sdks: ['android_native', 'ios_native'],
+              app_version_min_inclusive: '2.0.0',
             },
             session_sample_rate: 1.0,
           },
           {
-            id: 'rule-2',
-            name: 'low_priority_users',
+            id: generateId(),
+            name: 'legacy_users',
             match: {
-              type: 'APP_VERSION_MAX',
-              sdks: ['REACT_NATIVE', 'WEB'],
-              value: '0.9.0',
+              type: 'app_version_max',
+              sdks: ['android_native', 'android_rn'],
+              app_version_max_inclusive: '1.5.0',
             },
             session_sample_rate: 0.1,
           },
@@ -117,58 +182,64 @@ export class MockDataStore {
         criticalEventPolicies: {
           alwaysSend: [
             {
-              id: 'critical-1',
+              id: generateId(),
               name: 'crash',
               props: [{ name: 'severity', value: 'critical' }],
-              scope: ['TRACES', 'LOGS'],
+              scope: ['traces', 'logs'],
             },
             {
-              id: 'critical-2',
+              id: generateId(),
               name: 'payment_error',
               props: [{ name: 'error_type', value: 'payment.*' }],
-              scope: ['TRACES'],
+              scope: ['traces'],
+            },
+            {
+              id: generateId(),
+              name: 'auth_failure',
+              props: [{ name: 'error_code', value: '401|403' }],
+              scope: ['traces', 'logs'],
             },
           ],
         },
       },
-      signalsConfig: {
+      signals: {
         scheduleDurationMs: 5000,
-        collectorUrl: 'http://localhost:4318/v1/traces',
-        attributesToDrop: ['sensitive_data', 'password', 'credit_card'],
+        collectorUrl: 'https://collector.pulse.io/v1/traces',
+        attributesToDrop: ['password', 'credit_card', 'ssn', 'auth_token'],
       },
       interaction: {
-        collectorUrl: 'http://localhost:4318/v1/interactions',
-        configUrl: 'http://localhost:8080/v1/configs/latest-version',
+        collectorUrl: 'https://collector.pulse.io/v1/interactions',
+        configUrl: 'https://config.pulse.io/v1/configs/latest',
         beforeInitQueueSize: 100,
       },
       featureConfigs: [
         {
-          id: 'feature-1',
-          featureName: 'network_monitoring',
-          enabled: true,
-          session_sample_rate: 0.8,
-          sdks: ['ANDROID', 'IOS', 'REACT_NATIVE'],
-        },
-        {
-          id: 'feature-2',
+          id: generateId(),
           featureName: 'crash_reporting',
           enabled: true,
           session_sample_rate: 1.0,
-          sdks: ['ANDROID', 'IOS', 'REACT_NATIVE', 'WEB'],
+          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
         },
         {
-          id: 'feature-3',
+          id: generateId(),
+          featureName: 'network_monitoring',
+          enabled: true,
+          session_sample_rate: 0.8,
+          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+        },
+        {
+          id: generateId(),
           featureName: 'performance_monitoring',
           enabled: true,
           session_sample_rate: 0.6,
-          sdks: ['ANDROID', 'IOS'],
+          sdks: ['android_native', 'ios_native'],
         },
         {
-          id: 'feature-4',
+          id: generateId(),
           featureName: 'user_interaction_tracking',
           enabled: false,
           session_sample_rate: 0.3,
-          sdks: ['WEB'],
+          sdks: ['android_native', 'ios_native'],
         },
       ],
     };
@@ -264,542 +335,6 @@ export class MockDataStore {
         ],
         globalBlacklistedEvents: [],
       },
-      {
-        id: 2,
-        interactionName: "CreateTeamSuccess",
-        description: "User successfully creates a fantasy team",
-        status: "STOPPED",
-        createdBy: "user2@dream11.com",
-        updatedBy: "user2@dream11.com",
-        createdAt: 1705221000000,
-        updatedAt: 1705246200000,
-        uptimeLowerLimit: 200,
-        uptimeUpperLimit: 2000,
-        uptimeMidLimit: 1000,
-        interactionThreshold: 120000,
-        eventSequence: [
-          {
-            eventName: "team_create_start",
-            props: [
-              { propName: "team_id", propValue: "string", operator: "EQUALS" },
-              {
-                propName: "contest_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "team_save_start",
-            props: [
-              { propName: "team_id", propValue: "string", operator: "EQUALS" },
-              {
-                propName: "contest_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "team_save_success",
-            props: [
-              { propName: "team_id", propValue: "string", operator: "EQUALS" },
-              {
-                propName: "contest_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "team_create_success",
-            props: [
-              { propName: "team_id", propValue: "string", operator: "EQUALS" },
-              { propName: "created", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "error_event",
-            props: [
-              {
-                propName: "error_type",
-                propValue: "critical",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: true,
-          },
-          {
-            eventName: "error_event2",
-            props: [
-              {
-                propName: "error_type",
-                propValue: "more critical",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
-      {
-        id: 3,
-        interactionName: "CreateTeamPageLoaded",
-        description: "Team creation page loads successfully",
-        status: "RUNNING",
-        createdBy: "user1@dream11.com",
-        updatedBy: "user1@dream11.com",
-        createdAt: 1705154400000,
-        updatedAt: 1705154400000,
-        uptimeLowerLimit: 50,
-        uptimeUpperLimit: 500,
-        uptimeMidLimit: 250,
-        interactionThreshold: 15000,
-        eventSequence: [
-          {
-            eventName: "page_load_start",
-            props: [
-              {
-                propName: "page_name",
-                propValue: "team_create",
-                operator: "EQUALS",
-              },
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "page_load_complete",
-            props: [
-              {
-                propName: "page_name",
-                propValue: "team_create",
-                operator: "EQUALS",
-              },
-              {
-                propName: "load_time",
-                propValue: "number",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [],
-      },
-      {
-        id: 4,
-        interactionName: "ContestHomeLanded",
-        description: "User lands on contest home page",
-        status: "RUNNING",
-        createdBy: "user3@dream11.com",
-        updatedBy: "user3@dream11.com",
-        createdAt: 1705064400000,
-        updatedAt: 1705064400000,
-        uptimeLowerLimit: 80,
-        uptimeUpperLimit: 800,
-        uptimeMidLimit: 400,
-        interactionThreshold: 20000,
-        eventSequence: [
-          {
-            eventName: "page_view_start",
-            props: [
-              {
-                propName: "page_name",
-                propValue: "contest_home",
-                operator: "EQUALS",
-              },
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "page_view_complete",
-            props: [
-              {
-                propName: "view_time",
-                propValue: "number",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [],
-      },
-      {
-        id: 5,
-        interactionName: "AddCashLoaded",
-        description: "Add cash page loads successfully",
-        status: "RUNNING",
-        createdBy: "user2@dream11.com",
-        updatedBy: "user2@dream11.com",
-        createdAt: 1704981600000,
-        updatedAt: 1704981600000,
-        uptimeLowerLimit: 60,
-        uptimeUpperLimit: 600,
-        uptimeMidLimit: 300,
-        interactionThreshold: 18000,
-        eventSequence: [
-          {
-            eventName: "add_cash_page_load",
-            props: [
-              {
-                propName: "page_type",
-                propValue: "add_cash",
-                operator: "EQUALS",
-              },
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "add_cash_page_ready",
-            props: [
-              {
-                propName: "load_success",
-                propValue: "true",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "payment_error",
-            props: [
-              {
-                propName: "error_type",
-                propValue: "gateway_failure",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
-      {
-        id: 6,
-        interactionName: "PaymentSuccess",
-        description: "User completes payment successfully",
-        status: "RUNNING",
-        createdBy: "user1@dream11.com",
-        updatedBy: "user1@dream11.com",
-        createdAt: 1704891600000,
-        updatedAt: 1704891600000,
-        uptimeLowerLimit: 300,
-        uptimeUpperLimit: 3000,
-        uptimeMidLimit: 1500,
-        interactionThreshold: 45000,
-        eventSequence: [
-          {
-            eventName: "payment_start",
-            props: [
-              {
-                propName: "payment_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-              { propName: "amount", propValue: "number", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "payment_success",
-            props: [
-              {
-                propName: "payment_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-              { propName: "success", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "payment_failed",
-            props: [
-              {
-                propName: "error_code",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
-      {
-        id: 7,
-        interactionName: "ProfileUpdateSuccess",
-        description: "User updates profile information successfully",
-        status: "STOPPED",
-        createdBy: "user2@dream11.com",
-        updatedBy: "user2@dream11.com",
-        createdAt: 1704806400000,
-        updatedAt: 1704806400000,
-        uptimeLowerLimit: 150,
-        uptimeUpperLimit: 1500,
-        uptimeMidLimit: 750,
-        interactionThreshold: 30000,
-        eventSequence: [
-          {
-            eventName: "profile_edit_start",
-            props: [
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-              { propName: "section", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "profile_update_success",
-            props: [
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-              { propName: "updated", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [],
-      },
-      {
-        id: 8,
-        interactionName: "MatchListLoaded",
-        description: "Match list page loads with all matches",
-        status: "RUNNING",
-        createdBy: "user3@dream11.com",
-        updatedBy: "user3@dream11.com",
-        createdAt: 1704720000000,
-        updatedAt: 1704720000000,
-        uptimeLowerLimit: 200,
-        uptimeUpperLimit: 2000,
-        uptimeMidLimit: 1000,
-        interactionThreshold: 25000,
-        eventSequence: [
-          {
-            eventName: "match_list_request",
-            props: [
-              { propName: "sport", propValue: "string", operator: "EQUALS" },
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "match_list_loaded",
-            props: [
-              {
-                propName: "match_count",
-                propValue: "number",
-                operator: "EQUALS",
-              },
-              { propName: "loaded", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "api_timeout",
-            props: [
-              {
-                propName: "timeout_duration",
-                propValue: "number",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
-      {
-        id: 9,
-        interactionName: "WalletRechargeSuccess",
-        description: "User successfully recharges wallet",
-        status: "RUNNING",
-        createdBy: "user1@dream11.com",
-        updatedBy: "user1@dream11.com",
-        createdAt: 1704638400000,
-        updatedAt: 1704638400000,
-        uptimeLowerLimit: 400,
-        uptimeUpperLimit: 4000,
-        uptimeMidLimit: 2000,
-        interactionThreshold: 60000,
-        eventSequence: [
-          {
-            eventName: "wallet_recharge_start",
-            props: [
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-              { propName: "amount", propValue: "number", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "wallet_recharge_success",
-            props: [
-              {
-                propName: "transaction_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-              { propName: "success", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "payment_gateway_down",
-            props: [
-              { propName: "gateway", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
-      {
-        id: 10,
-        interactionName: "LeaderboardLoaded",
-        description: "Leaderboard page loads with rankings",
-        status: "RUNNING",
-        createdBy: "user2@dream11.com",
-        updatedBy: "user2@dream11.com",
-        createdAt: 1704552000000,
-        updatedAt: 1704552000000,
-        uptimeLowerLimit: 100,
-        uptimeUpperLimit: 1000,
-        uptimeMidLimit: 500,
-        interactionThreshold: 20000,
-        eventSequence: [
-          {
-            eventName: "leaderboard_request",
-            props: [
-              {
-                propName: "contest_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "leaderboard_loaded",
-            props: [
-              {
-                propName: "user_count",
-                propValue: "number",
-                operator: "EQUALS",
-              },
-              { propName: "loaded", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [],
-      },
-      {
-        id: 11,
-        interactionName: "WithdrawRequestSuccess",
-        description: "User successfully requests withdrawal",
-        status: "STOPPED",
-        createdBy: "user3@dream11.com",
-        updatedBy: "user3@dream11.com",
-        createdAt: 1704465600000,
-        updatedAt: 1704465600000,
-        uptimeLowerLimit: 500,
-        uptimeUpperLimit: 5000,
-        uptimeMidLimit: 2500,
-        interactionThreshold: 90000,
-        eventSequence: [
-          {
-            eventName: "withdraw_request_start",
-            props: [
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-              { propName: "amount", propValue: "number", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "withdraw_request_success",
-            props: [
-              {
-                propName: "request_id",
-                propValue: "string",
-                operator: "EQUALS",
-              },
-              { propName: "submitted", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "insufficient_balance",
-            props: [
-              { propName: "balance", propValue: "number", operator: "EQUALS" },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
-      {
-        id: 12,
-        interactionName: "LiveScoreLoaded",
-        description: "Live score updates load successfully",
-        status: "RUNNING",
-        createdBy: "user1@dream11.com",
-        updatedBy: "user1@dream11.com",
-        createdAt: 1704384000000,
-        updatedAt: 1704384000000,
-        uptimeLowerLimit: 50,
-        uptimeUpperLimit: 500,
-        uptimeMidLimit: 250,
-        interactionThreshold: 10000,
-        eventSequence: [
-          {
-            eventName: "live_score_request",
-            props: [
-              { propName: "match_id", propValue: "string", operator: "EQUALS" },
-              { propName: "user_id", propValue: "string", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-          {
-            eventName: "live_score_loaded",
-            props: [
-              {
-                propName: "score_data",
-                propValue: "object",
-                operator: "EQUALS",
-              },
-              { propName: "updated", propValue: "true", operator: "EQUALS" },
-            ],
-            isBlacklisted: false,
-          },
-        ],
-        globalBlacklistedEvents: [
-          {
-            eventName: "score_service_down",
-            props: [
-              {
-                propName: "service",
-                propValue: "live_score",
-                operator: "EQUALS",
-              },
-            ],
-            isBlacklisted: true,
-          },
-        ],
-      },
     ];
   }
 
@@ -833,129 +368,15 @@ export class MockDataStore {
         snoozed_until: 0,
         handleDuplicateAlert: async () => {},
       },
-      {
-        alert_id: 2,
-        job_id: "2",
-        name: "Low Apdex Score Alert",
-        description: "Alert when Apdex score is below 70% threshold",
-        appdex_threshold: 0.7,
-        severity_id: "4",
-        service_name: "CreateTeamSuccess",
-        roster_name: "Backend Team",
-        current_state: "SILENCED",
-        last_evaluated_at: new Date(1705222800000),
-        conditions: "",
-        updated_at: new Date(1705222800000),
-        created_by: "user2@dream11.com",
-        job_name: "CreateTeamSuccess",
-        metric: "APDEX",
-        metric_operator: "LESS_THAN",
-        threshold: 0.7,
-        min_total_interactions: 200,
-        min_success_interactions: 180,
-        min_error_interactions: 20,
-        evaluation_interval: 600,
-        evaluation_period: 1200,
-        is_snoozed: true,
-        snoozed_from: 1705222800000,
-        snoozed_until: 1705309200000,
-        handleDuplicateAlert: async () => {},
-      },
-      {
-        alert_id: 3,
-        job_id: "3",
-        name: "High P95 Response Time Alert",
-        description: "Alert when P95 response time exceeds threshold",
-        appdex_threshold: 2000,
-        severity_id: "2",
-        service_name: "CreateTeamPageLoaded",
-        roster_name: "Frontend Team",
-        current_state: "FIRING",
-        last_evaluated_at: new Date(1705305600000),
-        conditions: "",
-        updated_at: new Date(1705305600000),
-        created_by: "user1@dream11.com",
-        job_name: "CreateTeamPageLoaded",
-        metric: "INTERACTION_TIME_P95",
-        metric_operator: "GREATER_THAN",
-        threshold: 2000,
-        min_total_interactions: 150,
-        min_success_interactions: 140,
-        min_error_interactions: 10,
-        evaluation_interval: 300,
-        evaluation_period: 900,
-        is_snoozed: false,
-        snoozed_from: 0,
-        snoozed_until: 0,
-        handleDuplicateAlert: async () => {},
-      },
-      {
-        alert_id: 4,
-        job_id: "4",
-        name: "Low Excellent Interactions Alert",
-        description:
-          "Alert when excellent interactions percentage is below threshold",
-        appdex_threshold: 0.95,
-        severity_id: "5",
-        service_name: "ContestHomeLanded",
-        roster_name: "Backend Team",
-        current_state: "NORMAL",
-        last_evaluated_at: new Date(1705222800000),
-        conditions: "",
-        updated_at: new Date(1705222800000),
-        created_by: "user3@dream11.com",
-        job_name: "ContestHomeLanded",
-        metric: "INTERACTION_CATEGORY_EXCELLENT",
-        metric_operator: "LESS_THAN",
-        threshold: 0.95,
-        min_total_interactions: 300,
-        min_success_interactions: 285,
-        min_error_interactions: 15,
-        evaluation_interval: 600,
-        evaluation_period: 1800,
-        is_snoozed: false,
-        snoozed_from: 0,
-        snoozed_until: 0,
-        handleDuplicateAlert: async () => {},
-      },
-      {
-        alert_id: 5,
-        job_id: "5",
-        name: "High P99 Response Time Alert",
-        description: "Alert when P99 response time exceeds threshold",
-        appdex_threshold: 0.8,
-        severity_id: "3",
-        service_name: "AddCashLoaded",
-        roster_name: "DevOps Team",
-        current_state: "FIRING",
-        last_evaluated_at: new Date(1705305600000),
-        conditions: "",
-        updated_at: new Date(1705305600000),
-        created_by: "user2@dream11.com",
-        job_name: "AddCashLoaded",
-        metric: "INTERACTION_TIME_P99",
-        metric_operator: "GREATER_THAN",
-        threshold: 5000,
-        min_total_interactions: 80,
-        min_success_interactions: 75,
-        min_error_interactions: 5,
-        evaluation_interval: 300,
-        evaluation_period: 600,
-        is_snoozed: false,
-        snoozed_from: 0,
-        snoozed_until: 0,
-        handleDuplicateAlert: async () => {},
-      },
     ];
   }
 
   private initializeAnalytics(): void {
-    // Generate sample analytics data
     const now = new Date();
     const dataPoints = [];
 
     for (let i = 0; i < 30; i++) {
-      const timestamp = new Date(now.getTime() - i * 60000); // 1 minute intervals
+      const timestamp = new Date(now.getTime() - i * 60000);
       dataPoints.push({
         timestamp: timestamp.toISOString(),
         apdexScore: 0.8 + Math.random() * 0.2,
@@ -984,16 +405,6 @@ export class MockDataStore {
         eventName: "login_complete",
         screenName: "LoginScreen",
         properties: ["user_id", "timestamp", "success"],
-      },
-      {
-        eventName: "checkout_start",
-        screenName: "CheckoutScreen",
-        properties: ["user_id", "timestamp", "amount"],
-      },
-      {
-        eventName: "checkout_complete",
-        screenName: "CheckoutScreen",
-        properties: ["user_id", "timestamp", "amount", "payment_method"],
       },
     ];
   }
@@ -1082,31 +493,162 @@ export class MockDataStore {
     );
   }
 
-  // SDK Configuration methods
-  getSdkConfig(): SDKConfig {
-    return { ...this.sdkConfig };
+  // Initialize config history with mock data
+  private initializeConfigHistory(): PulseConfigWithMeta[] {
+    const now = Date.now();
+    const baseConfig = this.getDefaultSdkConfig();
+    
+    // Create historical versions
+    const history: PulseConfigWithMeta[] = [
+      {
+        ...baseConfig,
+        version: 1,
+        _meta: {
+          version: 1,
+          createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'admin@example.com',
+          description: 'Initial configuration',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 2,
+        samplingConfig: {
+          ...baseConfig.samplingConfig,
+          default: { session_sample_rate: 0.3 },
+        },
+        _meta: {
+          version: 2,
+          createdAt: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'admin@example.com',
+          description: 'Added blacklist filters for sensitive data',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 3,
+        samplingConfig: {
+          ...baseConfig.samplingConfig,
+          default: { session_sample_rate: 0.5 },
+        },
+        _meta: {
+          version: 3,
+          createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'john.doe@example.com',
+          description: 'Reduced default sample rate to 50%',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 4,
+        _meta: {
+          version: 4,
+          createdAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'jane.smith@example.com',
+          description: 'Added payment_error to critical events',
+          isActive: false,
+        },
+      },
+      {
+        ...baseConfig,
+        version: 5,
+        _meta: {
+          version: 5,
+          createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+          createdBy: 'john.doe@example.com',
+          description: 'Increased crash reporting sample rate',
+          isActive: true,
+        },
+      },
+    ];
+    
+    return history;
   }
 
-  updateSdkConfig(updates: Partial<SDKConfig>): SDKConfig {
-    this.sdkConfig = {
+  // SDK Configuration methods
+  getSdkConfig(): PulseConfig {
+    // Return the active version
+    const activeConfig = this.configHistory.find(c => c._meta.isActive);
+    if (activeConfig) {
+      const { _meta, ...config } = activeConfig;
+      return JSON.parse(JSON.stringify(config));
+    }
+    return JSON.parse(JSON.stringify(this.sdkConfig));
+  }
+
+  getSdkConfigVersions(): ConfigVersionMeta[] {
+    return this.configHistory
+      .map(c => c._meta)
+      .sort((a, b) => b.version - a.version);
+  }
+
+  getSdkConfigByVersion(version: number): PulseConfig | null {
+    const config = this.configHistory.find(c => c.version === version);
+    if (config) {
+      const { _meta, ...configWithoutMeta } = config;
+      return JSON.parse(JSON.stringify(configWithoutMeta));
+    }
+    return null;
+  }
+
+  updateSdkConfig(updates: Partial<PulseConfig>): PulseConfig {
+    // Deactivate current active version
+    this.configHistory.forEach(c => {
+      c._meta.isActive = false;
+    });
+    
+    // Calculate new version number
+    const maxVersion = Math.max(...this.configHistory.map(c => c.version));
+    const newVersion = maxVersion + 1;
+    
+    // Create new config
+    const newConfig: PulseConfigWithMeta = {
       ...this.sdkConfig,
       ...updates,
-      version: (this.sdkConfig.version || 0) + 1,
-      updatedAt: new Date().toISOString(),
+      version: newVersion,
+      _meta: {
+        version: newVersion,
+        createdAt: new Date().toISOString(),
+        createdBy: 'current.user@example.com',
+        description: (updates as any).description || `Configuration v${newVersion}`,
+        isActive: true,
+      },
     };
-    return { ...this.sdkConfig };
+    
+    // Add to history
+    this.configHistory.push(newConfig);
+    
+    // Update current config
+    const { _meta, ...configWithoutMeta } = newConfig;
+    this.sdkConfig = configWithoutMeta;
+    
+    return JSON.parse(JSON.stringify(this.sdkConfig));
   }
 
-  createSdkConfig(config: Partial<SDKConfig>): SDKConfig {
+  createSdkConfig(config: Partial<PulseConfig>): PulseConfig {
     const defaultConfig = this.getDefaultSdkConfig();
-    this.sdkConfig = {
+    const newConfig = {
       ...defaultConfig,
       ...config,
-      id: `sdk-config-${Date.now()}`,
       version: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
-    return { ...this.sdkConfig };
+    
+    // Clear history and start fresh
+    this.configHistory = [{
+      ...newConfig,
+      _meta: {
+        version: 1,
+        createdAt: new Date().toISOString(),
+        createdBy: 'current.user@example.com',
+        description: 'New configuration',
+        isActive: true,
+      },
+    }];
+    
+    this.sdkConfig = newConfig;
+    return JSON.parse(JSON.stringify(this.sdkConfig));
   }
 }

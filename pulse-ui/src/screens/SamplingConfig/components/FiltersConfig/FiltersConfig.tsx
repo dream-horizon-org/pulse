@@ -1,409 +1,447 @@
 /**
  * Filters Configuration Component
- * Manages whitelist/blacklist event filtering rules
+ * Manages blacklist/whitelist event filters with props, scope, and SDK selection
  */
 
 import { useState } from 'react';
 import {
   Box,
   Text,
-  Group,
-  ActionIcon,
   Button,
-  Modal,
   TextInput,
-  MultiSelect,
+  ActionIcon,
+  Group,
+  Badge,
+  Modal,
   SegmentedControl,
+  MultiSelect,
   Stack,
-  Tooltip,
+  Paper,
   Collapse,
+  Divider,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
 import {
   IconFilter,
   IconPlus,
-  IconTrash,
-  IconEdit,
-  IconCopy,
   IconChevronDown,
   IconChevronRight,
+  IconX,
 } from '@tabler/icons-react';
-import { v4 as uuid } from 'uuid';
 import {
-  FilterRule,
+  FiltersConfig as FiltersConfigType,
+  EventFilter,
+  EventPropMatch,
+  SdkEnum,
+  ScopeEnum,
   FilterMode,
-  SectionProps,
+} from '../../SamplingConfig.interface';
+import {
   SDK_OPTIONS,
   SCOPE_OPTIONS,
-  PropertyFilter,
-  SDKType,
-  ScopeType,
-} from '../../SamplingConfig.interface';
-import { SAMPLING_CONFIG_CONSTANTS } from '../../SamplingConfig.constants';
-import { SdkTag, ScopeTag, EmptyState } from '../shared';
+  generateId,
+  UI_CONSTANTS,
+} from '../../SamplingConfig.constants';
 import classes from '../../SamplingConfig.module.css';
 
-interface FilterRuleFormData {
-  id?: string;
-  name: string;
-  props: PropertyFilter[];
-  scope: string[];
-  sdks: string[];
+interface FiltersConfigProps {
+  config: FiltersConfigType;
+  onChange: (config: FiltersConfigType) => void;
 }
 
-const defaultFormData: FilterRuleFormData = {
-  name: '',
-  props: [],
-  scope: ['TRACES'],
-  sdks: ['ANDROID'],
-};
+export function FiltersConfig({ config, onChange }: FiltersConfigProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingFilter, setEditingFilter] = useState<EventFilter | null>(null);
+  const [expandedFilters, setExpandedFilters] = useState<Set<string>>(new Set());
+  
+  // Form state for new/editing filter
+  const [filterName, setFilterName] = useState('');
+  const [filterProps, setFilterProps] = useState<EventPropMatch[]>([{ name: '', value: '' }]);
+  const [filterScopes, setFilterScopes] = useState<ScopeEnum[]>([]);
+  const [filterSdks, setFilterSdks] = useState<SdkEnum[]>([]);
+  const [filterListType, setFilterListType] = useState<'whitelist' | 'blacklist'>('blacklist');
 
-export function FiltersConfig({ config, onUpdate }: SectionProps) {
-  const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [expanded, setExpanded] = useState(true);
-  const [editingRule, setEditingRule] = useState<FilterRuleFormData | null>(null);
-  const [formData, setFormData] = useState<FilterRuleFormData>(defaultFormData);
-  const [propName, setPropName] = useState('');
-  const [propValue, setPropValue] = useState('');
+  const resetForm = () => {
+    setFilterName('');
+    setFilterProps([{ name: '', value: '' }]);
+    setFilterScopes([]);
+    setFilterSdks([]);
+    setFilterListType(config.mode);
+    setEditingFilter(null);
+  };
 
-  const { filtersConfig } = config;
-  const activeList = filtersConfig.mode === 'WHITELIST' 
-    ? filtersConfig.whitelist 
-    : filtersConfig.blacklist;
+  // Get the active filter list based on mode
+  const activeListType = config.mode;
+  const activeFilters = config.mode === 'blacklist' ? config.blacklist : config.whitelist;
+
+  const openAddModal = () => {
+    resetForm();
+    setFilterListType(config.mode); // Default to current mode when adding
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (filter: EventFilter, listType: 'whitelist' | 'blacklist') => {
+    setEditingFilter(filter);
+    setFilterName(filter.name);
+    setFilterProps(filter.props.length > 0 ? filter.props : [{ name: '', value: '' }]);
+    setFilterScopes(filter.scope);
+    setFilterSdks(filter.sdks);
+    setFilterListType(listType);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveFilter = () => {
+    const validProps = filterProps.filter(p => p.name.trim() && p.value.trim());
+    const newFilter: EventFilter = {
+      id: editingFilter?.id || generateId(),
+      name: filterName.trim(),
+      props: validProps,
+      scope: filterScopes,
+      sdks: filterSdks,
+    };
+
+    // Use the editing filter's list type if editing, otherwise use current mode
+    const targetListType = editingFilter ? filterListType : config.mode;
+
+    if (editingFilter) {
+      // Update existing filter in its original list
+      const updatedConfig = { ...config };
+      if (targetListType === 'blacklist') {
+        updatedConfig.blacklist = config.blacklist.map(f => 
+          f.id === editingFilter.id ? newFilter : f
+        );
+      } else {
+        updatedConfig.whitelist = config.whitelist.map(f => 
+          f.id === editingFilter.id ? newFilter : f
+        );
+      }
+      onChange(updatedConfig);
+    } else {
+      // Add new filter to current mode's list
+      const updatedConfig = { ...config };
+      if (config.mode === 'blacklist') {
+        updatedConfig.blacklist = [...config.blacklist, newFilter];
+      } else {
+        updatedConfig.whitelist = [...config.whitelist, newFilter];
+      }
+      onChange(updatedConfig);
+    }
+
+    setIsModalOpen(false);
+    resetForm();
+  };
+
+  const handleRemoveFilter = (filterId: string, listType: 'whitelist' | 'blacklist') => {
+    const updatedConfig = { ...config };
+    if (listType === 'blacklist') {
+      updatedConfig.blacklist = config.blacklist.filter(f => f.id !== filterId);
+    } else {
+      updatedConfig.whitelist = config.whitelist.filter(f => f.id !== filterId);
+    }
+    onChange(updatedConfig);
+  };
 
   const handleModeChange = (mode: string) => {
-    onUpdate({
-      filtersConfig: {
-        ...filtersConfig,
-        mode: mode as FilterMode,
-      },
-    });
+    onChange({ ...config, mode: mode as FilterMode });
   };
 
-  const handleAddRule = () => {
-    setEditingRule(null);
-    setFormData(defaultFormData);
-    setPropName('');
-    setPropValue('');
-    openModal();
-  };
-
-  const handleEditRule = (rule: FilterRule) => {
-    setEditingRule({
-      id: rule.id,
-      name: rule.name,
-      props: rule.props,
-      scope: rule.scope,
-      sdks: rule.sdks,
-    });
-    setFormData({
-      id: rule.id,
-      name: rule.name,
-      props: [...rule.props],
-      scope: [...rule.scope],
-      sdks: [...rule.sdks],
-    });
-    openModal();
-  };
-
-  const handleDuplicateRule = (rule: FilterRule) => {
-    const newRule: FilterRule = {
-      ...rule,
-      id: uuid(),
-      name: `${rule.name}_copy`,
-    };
-    
-    const listKey = filtersConfig.mode === 'WHITELIST' ? 'whitelist' : 'blacklist';
-    onUpdate({
-      filtersConfig: {
-        ...filtersConfig,
-        [listKey]: [...filtersConfig[listKey], newRule],
-      },
-    });
-  };
-
-  const handleDeleteRule = (ruleId: string) => {
-    const listKey = filtersConfig.mode === 'WHITELIST' ? 'whitelist' : 'blacklist';
-    onUpdate({
-      filtersConfig: {
-        ...filtersConfig,
-        [listKey]: filtersConfig[listKey].filter(r => r.id !== ruleId),
-      },
-    });
-  };
-
-  const handleAddProp = () => {
-    if (propName && propValue) {
-      setFormData({
-        ...formData,
-        props: [...formData.props, { name: propName, value: propValue }],
-      });
-      setPropName('');
-      setPropValue('');
-    }
-  };
-
-  const handleRemoveProp = (index: number) => {
-    setFormData({
-      ...formData,
-      props: formData.props.filter((_, i) => i !== index),
-    });
-  };
-
-  const handleSaveRule = () => {
-    const newRule: FilterRule = {
-      id: editingRule?.id || uuid(),
-      name: formData.name,
-      props: formData.props,
-      scope: formData.scope as ScopeType[],
-      sdks: formData.sdks as SDKType[],
-    };
-
-    const listKey = filtersConfig.mode === 'WHITELIST' ? 'whitelist' : 'blacklist';
-    
-    if (editingRule?.id) {
-      // Update existing rule
-      onUpdate({
-        filtersConfig: {
-          ...filtersConfig,
-          [listKey]: filtersConfig[listKey].map(r => 
-            r.id === editingRule.id ? newRule : r
-          ),
-        },
-      });
+  const toggleFilterExpand = (filterId: string) => {
+    const newExpanded = new Set(expandedFilters);
+    if (newExpanded.has(filterId)) {
+      newExpanded.delete(filterId);
     } else {
-      // Add new rule
-      onUpdate({
-        filtersConfig: {
-          ...filtersConfig,
-          [listKey]: [...filtersConfig[listKey], newRule],
-        },
-      });
+      newExpanded.add(filterId);
     }
+    setExpandedFilters(newExpanded);
+  };
 
-    closeModal();
+  const addPropField = () => {
+    setFilterProps([...filterProps, { name: '', value: '' }]);
+  };
+
+  const removePropField = (index: number) => {
+    setFilterProps(filterProps.filter((_, i) => i !== index));
+  };
+
+  const updatePropField = (index: number, field: 'name' | 'value', val: string) => {
+    setFilterProps(filterProps.map((p, i) => 
+      i === index ? { ...p, [field]: val } : p
+    ));
+  };
+
+  const renderFilterCard = (filter: EventFilter, listType: 'whitelist' | 'blacklist') => {
+    const isExpanded = expandedFilters.has(filter.id || '');
+    
+    return (
+      <Paper key={filter.id} className={classes.filterCard} withBorder p="sm" mb="xs">
+        <Group justify="space-between" style={{ cursor: 'pointer' }} onClick={() => toggleFilterExpand(filter.id || '')}>
+          <Group gap="sm">
+            {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+            <Text fw={600}>{filter.name}</Text>
+            <Badge size="xs" color={listType === 'blacklist' ? 'red' : 'green'} variant="light">
+              {listType}
+            </Badge>
+          </Group>
+          <Group gap="xs">
+            {filter.sdks.slice(0, 2).map(sdk => (
+              <Badge key={sdk} size="xs" variant="outline">
+                {SDK_OPTIONS.find(s => s.value === sdk)?.label || sdk}
+              </Badge>
+            ))}
+            {filter.sdks.length > 2 && (
+              <Badge size="xs" variant="outline" color="gray">
+                +{filter.sdks.length - 2}
+              </Badge>
+            )}
+          </Group>
+        </Group>
+        
+        <Collapse in={isExpanded}>
+          <Divider my="sm" />
+          <Stack gap="xs">
+            <Group gap="xs">
+              <Text size="xs" c="dimmed" w={60}>Scopes:</Text>
+              {filter.scope.map(scope => (
+                <Badge 
+                  key={scope} 
+                  size="xs" 
+                  color={SCOPE_OPTIONS.find(s => s.value === scope)?.color}
+                  variant="light"
+                >
+                  {scope}
+                </Badge>
+              ))}
+            </Group>
+            
+            <Group gap="xs">
+              <Text size="xs" c="dimmed" w={60}>SDKs:</Text>
+              {filter.sdks.map(sdk => (
+                <Badge key={sdk} size="xs" variant="outline">
+                  {SDK_OPTIONS.find(s => s.value === sdk)?.label || sdk}
+                </Badge>
+              ))}
+            </Group>
+            
+            {filter.props.length > 0 && (
+              <Box>
+                <Text size="xs" c="dimmed" mb="xs">Property Matches:</Text>
+                {filter.props.map((prop, idx) => (
+                  <Text key={idx} size="xs" ff="monospace" ml="md">
+                    {prop.name} = /{prop.value}/
+                  </Text>
+                ))}
+              </Box>
+            )}
+            
+            <Group justify="flex-end" mt="xs">
+              <Button 
+                size="xs" 
+                variant="subtle" 
+                onClick={(e) => { e.stopPropagation(); openEditModal(filter, listType); }}
+              >
+                Edit
+              </Button>
+              <Button 
+                size="xs" 
+                variant="subtle" 
+                color="red"
+                onClick={(e) => { e.stopPropagation(); handleRemoveFilter(filter.id || '', listType); }}
+              >
+                Remove
+              </Button>
+            </Group>
+          </Stack>
+        </Collapse>
+      </Paper>
+    );
   };
 
   return (
-    <Box className={classes.sectionCard}>
-      <Box 
-        className={classes.sectionHeader}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <Group className={classes.sectionTitleGroup}>
-          <Box className={classes.sectionIcon}>
-            <IconFilter size={20} />
+    <>
+      <Box className={classes.card}>
+        <Box className={classes.cardHeader}>
+          <Box className={classes.cardHeaderLeft}>
+            <Box className={`${classes.cardIcon} ${classes.blocked}`}>
+              <IconFilter size={20} />
+            </Box>
+            <Box>
+              <Text className={classes.cardTitle}>{UI_CONSTANTS.SECTIONS.FILTERS.TITLE}</Text>
+              <Text className={classes.cardDescription}>{UI_CONSTANTS.SECTIONS.FILTERS.DESCRIPTION}</Text>
+            </Box>
           </Box>
-          <Box>
-            <Text className={classes.sectionTitle}>Event Filters</Text>
-            <Text className={classes.sectionDescription}>
-              {SAMPLING_CONFIG_CONSTANTS.DESCRIPTIONS.FILTERS}
+          <Button
+            size="xs"
+            leftSection={<IconPlus size={14} />}
+            onClick={openAddModal}
+          >
+            Add Filter
+          </Button>
+        </Box>
+        
+        <Box className={classes.cardContent}>
+          <Box mb="lg" p="md" style={{ backgroundColor: '#f8fafc', borderRadius: 8 }}>
+            <Group mb="xs">
+              <Text size="sm" fw={600}>Filter Mode:</Text>
+              <SegmentedControl
+                size="xs"
+                value={config.mode}
+                onChange={handleModeChange}
+                data={[
+                  { value: 'blacklist', label: '🚫 Blacklist' },
+                  { value: 'whitelist', label: '✅ Whitelist' },
+                ]}
+              />
+            </Group>
+            <Text size="xs" c="dimmed">
+              {config.mode === 'blacklist' 
+                ? 'Blacklist Mode: All events are sent EXCEPT those matching the filters below.'
+                : 'Whitelist Mode: ONLY events matching the filters below will be sent. All others are blocked.'}
             </Text>
+            {config.mode === 'blacklist' && config.whitelist.length > 0 && (
+              <Text size="xs" c="orange.6" mt="xs">
+                ⚠️ You have {config.whitelist.length} whitelist filter(s) that are inactive in blacklist mode
+              </Text>
+            )}
+            {config.mode === 'whitelist' && config.blacklist.length > 0 && (
+              <Text size="xs" c="orange.6" mt="xs">
+                ⚠️ You have {config.blacklist.length} blacklist filter(s) that are inactive in whitelist mode
+              </Text>
+            )}
           </Box>
-        </Group>
-        <Group gap="sm">
-          <Text className={classes.sectionBadge} c="teal" bg="teal.0">
-            {activeList.length} {activeList.length === 1 ? 'rule' : 'rules'}
-          </Text>
-          {expanded ? <IconChevronDown size={18} /> : <IconChevronRight size={18} />}
-        </Group>
-      </Box>
 
-      <Collapse in={expanded}>
-        <Box className={classes.sectionContent}>
-          {/* Mode Toggle */}
-          <Group justify="space-between" mb="md">
-            <Text size="sm" fw={600} c="dark.5">Filter Mode</Text>
-            <SegmentedControl
-              value={filtersConfig.mode}
-              onChange={handleModeChange}
-              data={[
-                { label: 'Blacklist', value: 'BLACKLIST' },
-                { label: 'Whitelist', value: 'WHITELIST' },
-              ]}
-              size="xs"
-              styles={{
-                root: {
-                  background: 'rgba(14, 201, 194, 0.08)',
-                },
-              }}
-            />
-          </Group>
-
-          {/* Rules List */}
-          {activeList.length === 0 ? (
-            <EmptyState
-              icon={<IconFilter size={28} />}
-              title={`No ${filtersConfig.mode.toLowerCase()} rules`}
-              description={`Add rules to ${filtersConfig.mode === 'BLACKLIST' ? 'block specific events from being sent' : 'only allow specific events to be sent'}`}
-              actionLabel="Add Filter Rule"
-              onAction={handleAddRule}
-            />
+          {activeFilters.length === 0 ? (
+            <Box className={classes.emptyState}>
+              <IconFilter size={32} style={{ opacity: 0.3 }} />
+              <Text size="sm" c="dimmed" mt="xs">
+                No {config.mode} filters configured
+              </Text>
+              <Text size="xs" c="dimmed">
+                {config.mode === 'blacklist' 
+                  ? 'Add events that should be blocked from being sent'
+                  : 'Add events that should be allowed (all others will be blocked)'}
+              </Text>
+            </Box>
           ) : (
-            <>
-              {activeList.map((rule) => (
-                <Box key={rule.id || rule.name} className={`${classes.ruleCard} ${classes.fadeIn}`}>
-                  <Box className={classes.ruleHeader}>
-                    <Text className={classes.ruleName}>{rule.name}</Text>
-                    <Group className={classes.ruleActions} gap={4}>
-                      <Tooltip label="Edit">
-                        <ActionIcon 
-                          variant="subtle" 
-                          size="sm"
-                          onClick={() => handleEditRule(rule)}
-                        >
-                          <IconEdit size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Duplicate">
-                        <ActionIcon 
-                          variant="subtle" 
-                          size="sm"
-                          onClick={() => handleDuplicateRule(rule)}
-                        >
-                          <IconCopy size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Delete">
-                        <ActionIcon 
-                          variant="subtle" 
-                          size="sm" 
-                          color="red"
-                          onClick={() => handleDeleteRule(rule.id || '')}
-                        >
-                          <IconTrash size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
-                  </Box>
-
-                  {rule.props.length > 0 && (
-                    <Box mb="xs">
-                      <Text size="xs" c="dimmed" mb={4}>Properties:</Text>
-                      {rule.props.map((prop, idx) => (
-                        <Text key={idx} size="xs" c="dark.5" ml="sm">
-                          <code>{prop.name}</code> = <code>{prop.value}</code>
-                        </Text>
-                      ))}
-                    </Box>
-                  )}
-
-                  <Group className={classes.ruleMeta}>
-                    {rule.sdks.map((sdk) => (
-                      <SdkTag key={sdk} sdk={sdk} />
-                    ))}
-                    {rule.scope.map((scope) => (
-                      <ScopeTag key={scope} scope={scope} />
-                    ))}
-                  </Group>
-                </Box>
-              ))}
-
-              <Button
-                className={classes.addButton}
-                leftSection={<IconPlus size={16} />}
-                variant="default"
-                onClick={handleAddRule}
-              >
-                Add Filter Rule
-              </Button>
-            </>
+            <Box>
+              <Text size="sm" fw={600} mb="xs" c={config.mode === 'blacklist' ? 'red.6' : 'green.6'}>
+                {config.mode === 'blacklist' ? '🚫 Blocked Events' : '✅ Allowed Events'} ({activeFilters.length})
+              </Text>
+              {activeFilters.map(f => renderFilterCard(f, activeListType))}
+            </Box>
           )}
         </Box>
-      </Collapse>
+      </Box>
 
-      {/* Add/Edit Rule Modal */}
+      {/* Add/Edit Filter Modal */}
       <Modal
-        opened={modalOpened}
-        onClose={closeModal}
-        title={editingRule ? 'Edit Filter Rule' : 'Add Filter Rule'}
+        opened={isModalOpen}
+        onClose={() => { setIsModalOpen(false); resetForm(); }}
+        title={editingFilter ? 'Edit Filter' : 'Add Filter'}
         size="lg"
+        centered
       >
         <Stack gap="md">
           <TextInput
-            label="Rule Name"
-            placeholder="e.g., sensitive_event"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            label="Event Name Pattern"
+            description="Name of the event to filter (exact match)"
+            placeholder="e.g., sensitive_event, debug_log"
+            value={filterName}
+            onChange={(e) => setFilterName(e.currentTarget.value)}
+            required
+          />
+
+          {/* Show current mode info - list type is determined by the active mode */}
+          <Box 
+            p="sm" 
+            style={{ 
+              backgroundColor: config.mode === 'blacklist' ? '#fef2f2' : '#f0fdf4',
+              borderRadius: 8,
+              border: `1px solid ${config.mode === 'blacklist' ? '#fecaca' : '#bbf7d0'}`,
+            }}
+          >
+            <Text size="sm" fw={500} c={config.mode === 'blacklist' ? 'red.7' : 'green.7'}>
+              {config.mode === 'blacklist' 
+                ? '🚫 Adding to Blacklist - This event will be blocked'
+                : '✅ Adding to Whitelist - Only these events will be allowed'}
+            </Text>
+          </Box>
+
+          <Box>
+            <Text size="sm" fw={500} mb="xs">Property Matches (Regex)</Text>
+            <Text size="xs" c="dimmed" mb="sm">
+              Only filter events where these properties match the regex patterns
+            </Text>
+            {filterProps.map((prop, index) => (
+              <Group key={index} mb="xs" align="flex-end">
+                <TextInput
+                  placeholder="Property name"
+                  value={prop.name}
+                  onChange={(e) => updatePropField(index, 'name', e.currentTarget.value)}
+                  style={{ flex: 1 }}
+                  size="sm"
+                />
+                <TextInput
+                  placeholder="Regex pattern"
+                  value={prop.value}
+                  onChange={(e) => updatePropField(index, 'value', e.currentTarget.value)}
+                  style={{ flex: 1 }}
+                  size="sm"
+                  leftSection={<Text size="xs" c="dimmed">/</Text>}
+                  rightSection={<Text size="xs" c="dimmed">/</Text>}
+                />
+                <ActionIcon
+                  color="red"
+                  variant="subtle"
+                  onClick={() => removePropField(index)}
+                  disabled={filterProps.length === 1}
+                >
+                  <IconX size={16} />
+                </ActionIcon>
+              </Group>
+            ))}
+            <Button
+              size="xs"
+              variant="subtle"
+              leftSection={<IconPlus size={14} />}
+              onClick={addPropField}
+            >
+              Add Property
+            </Button>
+          </Box>
+
+          <MultiSelect
+            label="Scopes"
+            description="Which telemetry types this filter applies to"
+            placeholder="Select scopes"
+            data={SCOPE_OPTIONS.map(s => ({ value: s.value, label: s.label }))}
+            value={filterScopes}
+            onChange={(v) => setFilterScopes(v as ScopeEnum[])}
             required
           />
 
           <MultiSelect
             label="SDKs"
+            description="Which SDK platforms this filter applies to"
             placeholder="Select SDKs"
-            data={SDK_OPTIONS}
-            value={formData.sdks}
-            onChange={(sdks) => setFormData({ ...formData, sdks })}
+            data={SDK_OPTIONS.map(s => ({ value: s.value, label: s.label }))}
+            value={filterSdks}
+            onChange={(v) => setFilterSdks(v as SdkEnum[])}
+            required
           />
-
-          <MultiSelect
-            label="Scope"
-            placeholder="Select scope"
-            data={SCOPE_OPTIONS}
-            value={formData.scope}
-            onChange={(scope) => setFormData({ ...formData, scope })}
-          />
-
-          <Box>
-            <Text size="sm" fw={500} mb="xs">Property Filters</Text>
-            <Group grow mb="xs">
-              <TextInput
-                placeholder="Property name"
-                value={propName}
-                onChange={(e) => setPropName(e.target.value)}
-                size="sm"
-              />
-              <TextInput
-                placeholder="Value (regex supported)"
-                value={propValue}
-                onChange={(e) => setPropValue(e.target.value)}
-                size="sm"
-              />
-              <Button 
-                size="sm" 
-                variant="light"
-                onClick={handleAddProp}
-                disabled={!propName || !propValue}
-              >
-                Add
-              </Button>
-            </Group>
-
-            {formData.props.length > 0 && (
-              <Stack gap="xs">
-                {formData.props.map((prop, idx) => (
-                  <Group key={idx} justify="space-between" p="xs" bg="gray.0" style={{ borderRadius: 4 }}>
-                    <Text size="sm">
-                      <code>{prop.name}</code> = <code>{prop.value}</code>
-                    </Text>
-                    <ActionIcon 
-                      size="sm" 
-                      variant="subtle" 
-                      color="red"
-                      onClick={() => handleRemoveProp(idx)}
-                    >
-                      <IconTrash size={14} />
-                    </ActionIcon>
-                  </Group>
-                ))}
-              </Stack>
-            )}
-          </Box>
 
           <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={closeModal}>
+            <Button variant="subtle" onClick={() => { setIsModalOpen(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleSaveRule}
-              disabled={!formData.name || formData.sdks.length === 0 || formData.scope.length === 0}
+            <Button
+              onClick={handleSaveFilter}
+              disabled={!filterName.trim() || filterScopes.length === 0 || filterSdks.length === 0}
             >
-              {editingRule ? 'Update Rule' : 'Add Rule'}
+              {editingFilter ? 'Update Filter' : 'Add Filter'}
             </Button>
           </Group>
         </Stack>
       </Modal>
-    </Box>
+    </>
   );
 }
 

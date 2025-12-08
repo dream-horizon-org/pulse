@@ -1,2 +1,0 @@
-export { FeatureConfigs } from './FeatureConfigs';
-
