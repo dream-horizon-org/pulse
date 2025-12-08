@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const FILE_TYPE_TO_BACKEND_TYPE = {
-    'js-sourcemap': 'JS',
-    'java-mapping': 'ANDROID'
+  'js-sourcemap': 'JS',
+  'java-mapping': 'ANDROID',
 };
 
 function checkNodeVersion() {
@@ -29,42 +29,44 @@ function getPlatform(commandName) {
 function validateFiles(options) {
   const files = [];
   const errors = [];
-  
-  Object.keys(FILE_TYPE_TO_BACKEND_TYPE).forEach(fileOption => {
-    const optionKey = fileOption.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+
+  Object.keys(FILE_TYPE_TO_BACKEND_TYPE).forEach((fileOption) => {
+    const optionKey = fileOption.replace(/-([a-z])/g, (_, letter) =>
+      letter.toUpperCase()
+    );
     const optionValue = options[optionKey];
-    
+
     if (!optionValue) {
       return;
     }
-    
+
     const filePath = path.resolve(optionValue);
     if (!fs.existsSync(filePath)) {
       errors.push(`File not found: ${filePath}`);
       return;
     }
-    
+
     files.push({
       optionName: fileOption,
       path: filePath,
       fileName: path.basename(filePath),
-      metadataType: FILE_TYPE_TO_BACKEND_TYPE[fileOption]
+      metadataType: FILE_TYPE_TO_BACKEND_TYPE[fileOption],
     });
   });
-  
+
   if (errors.length > 0) {
     throw new Error(`Validation errors:\n  ${errors.join('\n  ')}`);
   }
-  
+
   if (files.length === 0) {
     throw new Error('No files to upload');
   }
-  
+
   return files;
 }
 
 module.exports = {
   checkNodeVersion,
   getPlatform,
-  validateFiles
+  validateFiles,
 };
