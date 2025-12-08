@@ -11,9 +11,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SamplingRule {
+  @JsonProperty("name")
   private String name;
 
+  @JsonProperty("match")
   private SamplingMatchCondition match;
 
+  @JsonProperty("session_sample_rate")
   private double sessionSampleRate;
 }

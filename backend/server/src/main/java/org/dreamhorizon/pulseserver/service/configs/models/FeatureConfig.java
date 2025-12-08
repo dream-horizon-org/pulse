@@ -14,11 +14,15 @@ import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FeatureConfig {
+  @JsonProperty("featureName")
   private String featureName;
 
+  @JsonProperty("enabled")
   private boolean enabled;
 
+  @JsonProperty("session_sample_rate")
   private Double sessionSampleRate; // nullable (not required in schema)
 
+  @JsonProperty("sdks")
   private List<Sdk> sdks;
 }

@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import org.dreamhorizon.pulseserver.client.CloudFrontClient;
+import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
@@ -16,6 +18,8 @@ import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
+import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
+import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
@@ -47,6 +51,8 @@ public class MainModule extends VertxAbstractModule {
     bind(Symbolicator.class).in(Singleton.class);
     bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
+    bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
+    bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
   }
 
   protected ObjectMapper getObjectMapper() {

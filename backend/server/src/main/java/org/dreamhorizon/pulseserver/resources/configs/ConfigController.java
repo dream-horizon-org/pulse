@@ -40,7 +40,7 @@ public class ConfigController {
   @Path("/latest-version")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Config>> getLatestVersion() {
-    return configService.getConfig()
+    return configService.getActiveConfig()
         .to(RestResponse.jaxrsRestHandler());
   }
 

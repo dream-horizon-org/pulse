@@ -13,9 +13,12 @@ import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CriticalEventPolicy {
+  @JsonProperty("name")
   private String name;
 
+  @JsonProperty("props")
   private List<EventPropMatch> props;
 
+  @JsonProperty("scope")
   private List<Scope> scope;
 }

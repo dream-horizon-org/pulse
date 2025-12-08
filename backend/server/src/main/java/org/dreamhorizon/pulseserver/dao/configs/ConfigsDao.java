@@ -1,16 +1,22 @@
 package org.dreamhorizon.pulseserver.dao.configs;
 
+import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_CONFIG_BY_VERSION;
+import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_LATEST_VERSION;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.INSERT_CONFIG;
 
-import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
-import com.google.inject.Inject;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
+import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 
@@ -18,78 +24,88 @@ import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ConfigsDao {
 
-    private final MysqlClient d11MysqlClient;
-    private final ObjectMapperUtil objectMapper;
-  
-    public Single<Config> getConfig(Integer version) {
-      return d11MysqlClient.getReaderPool()
-          .preparedQuery("SELECT config_json, version FROM pulse_sdk_configs WHERE version = ?")
-          .rxExecute(Tuple.of(version))
-          .map(rows -> {
-            if (rows.size() > 0) {
-                Row row = rows.iterator().next();
-                return Config.builder()
-                    .version(row.getValue("version").toString())
-                    .configData(objectMapper.readValue(row.getValue("config_json").toString(), Config.ConfigData.class))
-                    .build();
-            } else {
-                log.error("No config found for version: {}", version);
-                throw new RuntimeException("No config found for version: " + version);
-            }
+  private final MysqlClient d11MysqlClient;
+  private final ObjectMapperUtil objectMapper;
 
-          })
-          .onErrorResumeNext(error -> {
-            log.error("Error while fetching config from db: {}", error.getMessage());
-            return Single.error(error);
-          });
-    }
-  
-    public Single<Config> getConfig() {
-      return d11MysqlClient.getReaderPool()
-          .preparedQuery("SELECT version FROM pulse_sdk_configs WHERE is_active = 1 LIMIT 1")
-          .rxExecute()
-          .flatMap(rows -> {
+  public Single<Config> getConfig(long version) {
+    return d11MysqlClient.getReaderPool()
+        .preparedQuery(GET_CONFIG_BY_VERSION)
+        .rxExecute(Tuple.of(version))
+        .map(rows -> {
+          if (rows.size() > 0) {
             Row row = rows.iterator().next();
-            return getConfig(Integer.parseInt(row.getValue("version").toString()));
-          })
-          .onErrorResumeNext(error -> {
-            log.error("Error while fetching latest version from db: {}", error.getMessage());
-            return Single.error(error);
-          });
-    }
+            return Config.builder()
+                .version(Long.parseLong(row.getValue("version").toString()))
+                .configData(objectMapper.readValue(row.getValue("config_json").toString(), PulseConfig.class))
+                .build();
+          } else {
+            log.error("No config found for version: {}", version);
+            throw new RuntimeException("No config found for version: " + version);
+          }
 
-    public Single<Config> createConfig(ConfigData createConfig){
-      String configDetailRowStr = objectMapper.writeValueAsString(createConfig);
+        })
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching config from db: {}", error.getMessage());
+          return Single.error(error);
+        });
+  }
 
-      Tuple tuple = Tuple.tuple()
-          .addString(configDetailRowStr)
-          .addBoolean(true)
-          .addString(createConfig.getUser());
+  public Single<Config> getConfig() {
+    return d11MysqlClient.getReaderPool()
+        .preparedQuery(GET_LATEST_VERSION)
+        .rxExecute()
+        .flatMap(rows -> {
+          Row row = rows.iterator().next();
+          return getConfig(Long.parseLong(row.getValue("version").toString()))
+              .map(config -> {
+                if (config.getConfigData().getFiltersConfig() != null) {
+                  FilterMode mode = config.getConfigData().getFiltersConfig().getMode();
+                  if (mode != null && mode.equals(FilterMode.BLACKLIST)) {
+                    config.getConfigData().getFiltersConfig().setWhitelist(List.of());
+                  } else {
+                    config.getConfigData().getFiltersConfig().setBlacklist(List.of());
+                  }
+                }
+                return config;
+              });
+        })
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching latest version from db: {}", error.getMessage());
+          return Single.error(error);
+        });
+  }
 
-      return d11MysqlClient
-          .getWriterPool()
-          .rxGetConnection()
-          .flatMap(conn -> conn.begin()
-              .flatMap(tx -> conn.preparedQuery(INSERT_CONFIG)
-                  .rxExecute(tuple)
-                  .flatMap(rows -> {
-                    Row row = rows.iterator().next();
-                    long insertedId = row.getLong("LAST_INSERT_ID()");
-                    return Single.just(insertedId);
-                  })
-                  .map(configId -> Config.builder()
-                      .version(String.valueOf(configId))
-                      .configData(objectMapper.convertValue(createConfig, Config.ConfigData.class))
-                      .build())
-                  .flatMap(config -> tx.rxCommit().toSingleDefault(config))
-                  .onErrorResumeNext(err -> {
-                    log.error("Error while creating config in DB ", err);
-                    return tx
-                        .rxRollback()
-                        .toSingleDefault(Config.builder().build())
-                        .flatMap(msg -> Single.error(err));
-                  })
-                  .doFinally(conn::close)));
-    }
+  public Single<Config> createConfig(ConfigData createConfig) {
+    String configDetailRowStr = objectMapper.writeValueAsString(createConfig);
+
+    Tuple tuple = Tuple.tuple()
+        .addString(configDetailRowStr)
+        .addBoolean(true)
+        .addString(createConfig.getUser());
+
+    return d11MysqlClient
+        .getWriterPool()
+        .rxGetConnection()
+        .flatMap(conn -> conn.begin()
+            .flatMap(tx -> conn.preparedQuery(INSERT_CONFIG)
+                .rxExecute(tuple)
+                .flatMap(rows -> {
+                  Long insertedId = rows.property(MySQLClient.LAST_INSERTED_ID);
+                  return Single.just(insertedId);
+                })
+                .map(configId -> Config.builder()
+                    .version(configId)
+                    .configData(objectMapper.convertValue(createConfig, PulseConfig.class))
+                    .build())
+                .flatMap(config -> tx.rxCommit().toSingleDefault(config))
+                .onErrorResumeNext(err -> {
+                  log.error("Error while creating config in DB ", err);
+                  return tx
+                      .rxRollback()
+                      .toSingleDefault(Config.builder().build())
+                      .flatMap(msg -> Single.error(err));
+                })
+                .doFinally(conn::close)));
+  }
 
 }

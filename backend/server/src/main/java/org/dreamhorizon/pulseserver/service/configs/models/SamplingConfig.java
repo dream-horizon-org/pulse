@@ -12,10 +12,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SamplingConfig {
+  @JsonProperty("default")
   private DefaultSampling defaultSampling;
 
+  @JsonProperty("rules")
   private List<SamplingRule> rules;
 
+  @JsonProperty("criticalEventPolicies")
   private CriticalEventPolicies criticalEventPolicies;
 
 }

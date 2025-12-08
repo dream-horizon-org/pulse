@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CreateConfigRestResponse {
   @JsonProperty("version")
-  private Integer version;
+  private long version;
 }

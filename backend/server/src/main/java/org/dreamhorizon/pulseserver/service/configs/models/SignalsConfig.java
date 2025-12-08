@@ -12,9 +12,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SignalsConfig {
+  @JsonProperty("scheduleDurationMs")
   private int scheduleDurationMs;
 
+  @JsonProperty("collectorUrl")
   private String collectorUrl;
 
+  @JsonProperty("attributesToDrop")
   private List<String> attributesToDrop;
 }

@@ -11,9 +11,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class InteractionConfig {
+  @JsonProperty("collectorUrl")
   private String collectorUrl;
 
+  @JsonProperty("configUrl")
   private String configUrl;
 
+  @JsonProperty("beforeInitQueueSize")
   private int beforeInitQueueSize;
 }

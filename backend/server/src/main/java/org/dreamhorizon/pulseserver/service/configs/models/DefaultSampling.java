@@ -11,5 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DefaultSampling {
+  @JsonProperty("session_sample_rate")
   private double sessionSampleRate;
 }

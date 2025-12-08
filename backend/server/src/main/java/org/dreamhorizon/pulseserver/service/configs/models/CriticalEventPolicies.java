@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CriticalEventPolicies {
+  @JsonProperty("alwaysSend")
   private List<CriticalEventPolicy> alwaysSend;
 }

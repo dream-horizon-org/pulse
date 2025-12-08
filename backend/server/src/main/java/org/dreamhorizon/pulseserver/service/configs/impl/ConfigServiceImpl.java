@@ -1,12 +1,12 @@
 package org.dreamhorizon.pulseserver.service.configs.impl;
 
-import org.dreamhorizon.pulseserver.service.configs.ConfigService;
-import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
+import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.google.inject.Inject;
+import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
+import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 
@@ -18,18 +18,13 @@ public class ConfigServiceImpl implements ConfigService {
   private final UploadConfigDetailService uploadConfigDetailService;
 
   @Override
-  public Single<Config> getConfig(Integer version) {
+  public Single<Config> getConfig(long version) {
     return configsDao.getConfig(version);
   }
 
   @Override
-  public Single<Config> getConfig() {
+  public Single<Config> getActiveConfig() {
     return configsDao.getConfig();
-  }
-
-  @Override
-  public Single<Config> getActiveConfig(){
-    return null;
   }
 
   @Override
