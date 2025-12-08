@@ -1,14 +1,17 @@
 package org.dreamhorizon.pulseserver.dao.configs;
 
+import static org.dreamhorizon.pulseserver.dao.configs.Queries.INSERT_CONFIG;
+
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
+import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 
 @Slf4j
@@ -16,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ConfigsDao {
 
     private final MysqlClient d11MysqlClient;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapperUtil objectMapper;
   
     public Single<Config> getConfig(Integer version) {
       return d11MysqlClient.getReaderPool()
@@ -54,4 +57,39 @@ public class ConfigsDao {
             return Single.error(error);
           });
     }
+
+    public Single<Config> createConfig(ConfigData createConfig){
+      String configDetailRowStr = objectMapper.writeValueAsString(createConfig);
+
+      Tuple tuple = Tuple.tuple()
+          .addString(configDetailRowStr)
+          .addBoolean(true)
+          .addString(createConfig.getUser());
+
+      return d11MysqlClient
+          .getWriterPool()
+          .rxGetConnection()
+          .flatMap(conn -> conn.begin()
+              .flatMap(tx -> conn.preparedQuery(INSERT_CONFIG)
+                  .rxExecute(tuple)
+                  .flatMap(rows -> {
+                    Row row = rows.iterator().next();
+                    long insertedId = row.getLong("LAST_INSERT_ID()");
+                    return Single.just(insertedId);
+                  })
+                  .map(configId -> Config.builder()
+                      .version(String.valueOf(configId))
+                      .configData(objectMapper.convertValue(createConfig, Config.ConfigData.class))
+                      .build())
+                  .flatMap(config -> tx.rxCommit().toSingleDefault(config))
+                  .onErrorResumeNext(err -> {
+                    log.error("Error while creating config in DB ", err);
+                    return tx
+                        .rxRollback()
+                        .toSingleDefault(Config.builder().build())
+                        .flatMap(msg -> Single.error(err));
+                  })
+                  .doFinally(conn::close)));
+    }
+
 }

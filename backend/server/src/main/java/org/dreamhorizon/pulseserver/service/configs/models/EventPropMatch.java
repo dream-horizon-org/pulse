@@ -1,16 +1,17 @@
-package org.dreamhorizon.pulseserver.resources.configs.models;
+package org.dreamhorizon.pulseserver.service.configs.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Getter
+@Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class CreateConfigRestResponse {
-  @JsonProperty("version")
-  private Integer version;
+public class EventPropMatch {
+  private String name;
+
+  private String value; // regex string
 }
