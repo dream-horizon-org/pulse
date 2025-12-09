@@ -56,7 +56,7 @@ jobs:
           REACT_APP_PULSE_SERVER_URL: ''
           # Set public URL for /pulse subpath
           # PUBLIC_URL is used by webpack for asset paths and is available in React code
-          PUBLIC_URL: '/pulse'
+          PUBLIC_URL: ''
           # Production mode
           NODE_ENV: 'production'
           # Disable source maps for smaller bundle
