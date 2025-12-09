@@ -6,7 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 
 @Data
 @Builder
@@ -21,4 +20,7 @@ public class CriticalEventPolicy {
 
   @JsonProperty("scope")
   private List<Scope> scope;
+
+  @JsonProperty("sdks")
+  private List<Sdk> sdks;
 }

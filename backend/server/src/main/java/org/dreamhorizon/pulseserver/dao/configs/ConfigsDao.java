@@ -58,12 +58,12 @@ public class ConfigsDao {
           Row row = rows.iterator().next();
           return getConfig(Long.parseLong(row.getValue("version").toString()))
               .map(config -> {
-                if (config.getConfigData().getFiltersConfig() != null) {
-                  FilterMode mode = config.getConfigData().getFiltersConfig().getMode();
+                if (config.getConfigData().getFilters() != null) {
+                  FilterMode mode = config.getConfigData().getFilters().getMode();
                   if (mode != null && mode.equals(FilterMode.BLACKLIST)) {
-                    config.getConfigData().getFiltersConfig().setWhitelist(List.of());
+                    config.getConfigData().getFilters().setWhitelist(List.of());
                   } else {
-                    config.getConfigData().getFiltersConfig().setBlacklist(List.of());
+                    config.getConfigData().getFilters().setBlacklist(List.of());
                   }
                 }
                 return config;

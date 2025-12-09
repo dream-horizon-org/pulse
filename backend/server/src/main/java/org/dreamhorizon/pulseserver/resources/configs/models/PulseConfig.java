@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.resources.configs.models;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
@@ -19,21 +18,19 @@ import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PulseConfig {
-  @JsonProperty("filtersConfig")
-  @JsonAlias("filterConfig")
-  private FilterConfig filtersConfig;
+  @JsonProperty("filters")
+  private FilterConfig filters;
 
-  @JsonProperty("samplingConfig")
-  private SamplingConfig samplingConfig;
+  @JsonProperty("sampling")
+  private SamplingConfig sampling;
 
-  @JsonProperty("signalsConfig")
-  private SignalsConfig signalsConfig;
+  @JsonProperty("signals")
+  private SignalsConfig signals;
 
   @JsonProperty("interaction")
-  @JsonAlias("interactionConfig")
-  private InteractionConfig interactionConfig;
+  private InteractionConfig interaction;
 
-  @JsonProperty("featureConfigs")
+  @JsonProperty("features")
   private List<FeatureConfig> featureConfigs;
 
 
@@ -166,6 +163,9 @@ public class PulseConfig {
 
     @JsonProperty("scope")
     private List<Scope> scope;
+
+    @JsonProperty("sdks")
+    private List<Sdk> sdks;
   }
 
 

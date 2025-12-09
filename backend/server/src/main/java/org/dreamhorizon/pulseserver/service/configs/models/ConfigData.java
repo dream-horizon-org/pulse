@@ -11,15 +11,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ConfigData {
-  private FilterConfig filtersConfig;
+  private FilterConfig filters;
 
-  private SamplingConfig samplingConfig;
+  private SamplingConfig sampling;
 
-  private SignalsConfig signalsConfig;
+  private SignalsConfig signals;
 
-  private InteractionConfig interactionConfig;
+  private InteractionConfig interaction;
 
-  private List<FeatureConfig> featureConfigs;
+  private List<FeatureConfig> features;
 
   private String user;
 }
