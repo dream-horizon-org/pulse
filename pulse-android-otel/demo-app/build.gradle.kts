@@ -6,6 +6,7 @@ plugins {
     alias(rootLibs.plugins.androidApp)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.compose.compiler)
+    id("pulse.upload-sourcemaps")
 }
 
 val localProperties = Properties()

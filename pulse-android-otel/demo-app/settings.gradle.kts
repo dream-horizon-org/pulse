@@ -24,6 +24,7 @@ dependencyResolutionManagement {
     }
 }
 
+includeBuild("../pulse-upload-plugin")
 includeBuild("..") {
     dependencySubstitution {
         substitute(module("io.opentelemetry.android:android-agent"))
