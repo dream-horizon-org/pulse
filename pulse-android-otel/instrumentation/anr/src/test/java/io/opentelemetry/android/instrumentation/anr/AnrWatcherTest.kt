@@ -22,7 +22,7 @@ class AnrWatcherTest {
     companion object {
         @JvmField
         @RegisterExtension
-        val testing = OpenTelemetryExtension.create()
+        val testing: OpenTelemetryExtension = OpenTelemetryExtension.create()
     }
 
     private lateinit var handler: Handler
@@ -58,7 +58,7 @@ class AnrWatcherTest {
         val anrWatcher = AnrWatcher(handler, mainThread, logger)
         for (i in 0..4) {
             every { handler.post(any()) } answers {
-                val callback = it.invocation.args[0] as Runnable
+                val callback = it.invocation.args[0] as? Runnable ?: error("Should be not null")
                 callback.run()
                 true
             }
@@ -74,7 +74,7 @@ class AnrWatcherTest {
         for (i in 0..4) {
             val index = i
             every { handler.post(any()) } answers {
-                val callback = it.invocation.args[0] as Runnable
+                val callback = it.invocation.args[0] as? Runnable ?: error("Should be not null")
                 // have it fail once
                 if (index != 3) {
                     callback.run()

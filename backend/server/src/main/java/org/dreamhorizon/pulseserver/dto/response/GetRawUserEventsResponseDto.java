@@ -58,7 +58,7 @@ public class GetRawUserEventsResponseDto {
   @AllArgsConstructor
   public static class Row {
     @JsonProperty("f")
-    private List<RowField> f;
+    private List<RowField> rowFields;
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -67,7 +67,7 @@ public class GetRawUserEventsResponseDto {
   @AllArgsConstructor
   public static class RowField {
     @JsonProperty("v")
-    private Object v;
+    private Object value;
   }
 
 }

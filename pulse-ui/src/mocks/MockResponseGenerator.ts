@@ -33,7 +33,13 @@ export class MockResponseGenerator {
 
   async generateResponse(request: MockRequest): Promise<MockResponse> {
     // Handle both absolute and relative URLs
-    const url = this.parseURL(request.url);
+    let url: URL;
+    try {
+      url = new URL(request.url);
+    } catch {
+      // If URL is relative, create a URL with current origin as base
+      url = new URL(request.url, window.location.origin);
+    }
     const pathname = url.pathname;
     const method = request.method;
 

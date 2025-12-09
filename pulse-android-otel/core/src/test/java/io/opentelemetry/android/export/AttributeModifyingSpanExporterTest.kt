@@ -57,7 +57,7 @@ internal class AttributeModifyingSpanExporterTest {
         val originalSpans = listOf(span1)
 
         val remappers = mutableMapOf<AttributeKey<*>, Function<*, *>>()
-        remappers.put(key, Function { _: Any? -> null })
+        remappers[key] = Function { _: Any? -> null }
 
         val expectedResult = Mockito.mock(CompletableResultCode::class.java)
         `when`(exporter.export(spansCaptor.capture()))
@@ -88,9 +88,9 @@ internal class AttributeModifyingSpanExporterTest {
         val span3 = span("span3", attr3)
         val spans = listOf(span1, span2, span3)
         val modifiers = mutableMapOf<AttributeKey<*>, Function<*, *>>()
-        modifiers.put(AttributeKey.stringKey("foo1"), Function { x: Any? -> "" + x + x })
-        modifiers.put(AttributeKey.stringKey("foo3"), Function { x: Any? -> "3$x$x" })
-        modifiers.put(AttributeKey.stringKey("boop2"), Function { x: Any? -> "2$x$x" })
+        modifiers[AttributeKey.stringKey("foo1")] = Function { x: Any? -> "" + x + x }
+        modifiers[AttributeKey.stringKey("foo3")] = Function { x: Any? -> "3$x$x" }
+        modifiers[AttributeKey.stringKey("boop2")] = Function { x: Any? -> "2$x$x" }
 
         val expectedResult = Mockito.mock(CompletableResultCode::class.java)
         `when`(exporter.export(spansCaptor.capture()))

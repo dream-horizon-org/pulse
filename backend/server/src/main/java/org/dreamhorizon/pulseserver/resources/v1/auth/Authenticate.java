@@ -64,8 +64,7 @@ public class Authenticate {
   @Path("/token/refresh")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<GetAccessTokenFromRefreshTokenResponseDto>>
-  getAccessTokenFromRefreshToken(
+  public CompletionStage<Response<GetAccessTokenFromRefreshTokenResponseDto>> getAccessTokenFromRefreshToken(
       @RequestBody(
           description =
               "Request body to get access token using refresh token from guardian service")

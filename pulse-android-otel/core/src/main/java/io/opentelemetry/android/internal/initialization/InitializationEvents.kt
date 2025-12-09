@@ -43,7 +43,7 @@ interface InitializationEvents {
                 }
             }
 
-            return instance!!
+            return instance ?: error("Instance should be init here")
         }
 
         @JvmStatic

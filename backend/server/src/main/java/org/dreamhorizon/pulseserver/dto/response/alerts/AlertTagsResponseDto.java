@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class AlertTagsResponseDto {
   @NotNull
   @JsonProperty("tag_id")
-  Integer tag_id;
+  Integer tagId;
 
   @NotNull
   @JsonProperty("name")

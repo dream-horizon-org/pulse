@@ -19,6 +19,8 @@ import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.TracerProvider
+import io.opentelemetry.sdk.logs.LogRecordProcessor
+import io.opentelemetry.sdk.trace.SpanProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -78,7 +80,14 @@ class InteractionInstrumentation :
     override val name: String = INSTRUMENTATION_NAME
 
     companion object {
-        fun handleSuccessInteraction(
+        @JvmStatic
+        fun createSpanProcessor(interactionManager: InteractionManager): SpanProcessor =
+            InteractionAttributesSpanAppender(interactionManager)
+
+        @JvmStatic
+        fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor = InteractionLogListener(interactionManager)
+
+        private fun handleSuccessInteraction(
             tracerProvider: TracerProvider,
             additionalAttributeExtractors: List<InteractionAttributesExtractor>,
             interactionStatuses: List<InteractionRunningStatus>,

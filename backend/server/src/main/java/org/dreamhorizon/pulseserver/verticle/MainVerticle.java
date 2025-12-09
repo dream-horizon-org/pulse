@@ -37,7 +37,7 @@ public class MainVerticle extends AbstractVerticle {
         .rxGetConfig()
         .map(config -> {
           JsonObject appConfig = config.getJsonObject("app", new JsonObject());
-          JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
+
           JsonObject mysqlConfig = config.getJsonObject("mysql", new JsonObject());
           JsonObject webClientConfig = config.getJsonObject("webclient", new JsonObject());
 
@@ -45,6 +45,7 @@ public class MainVerticle extends AbstractVerticle {
           this.mysqlClient = new MysqlClientImpl(this.vertx, mysqlConfig);
           this.webClient = WebClient.create(vertx, getWebClientOptions(webClientConfig));
           SharedDataUtils.put(vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
+          JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);

@@ -148,8 +148,6 @@ public final class io/opentelemetry/android/features/diskbuffering/DiskBuffering
 	public static final fun create (ZIJJJIZ)Lio/opentelemetry/android/features/diskbuffering/DiskBufferingConfig;
 	public static final fun create (ZIJJJIZLjava/io/File;)Lio/opentelemetry/android/features/diskbuffering/DiskBufferingConfig;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getDebugEnabled ()Z
-	public final fun getEnabled ()Z
 	public final fun getMaxCacheFileSize ()I
 	public final fun getMaxCacheSize ()I
 	public final fun getMaxFileAgeForReadMillis ()J
@@ -157,6 +155,8 @@ public final class io/opentelemetry/android/features/diskbuffering/DiskBuffering
 	public final fun getMinFileAgeForReadMillis ()J
 	public final fun getSignalsBufferDir ()Ljava/io/File;
 	public fun hashCode ()I
+	public final fun isDebugEnabled ()Z
+	public final fun isEnabled ()Z
 	public fun toString ()Ljava/lang/String;
 }
 

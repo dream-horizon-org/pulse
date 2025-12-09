@@ -412,6 +412,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#333',
   },
+  sectionDescription: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
   space: {
     height: 10,
   },
