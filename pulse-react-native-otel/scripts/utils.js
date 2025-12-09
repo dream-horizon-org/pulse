@@ -84,8 +84,42 @@ function validateFiles(options) {
   return files;
 }
 
+function validateVersionVersionCodeBundleId(options, commandName) {
+  const platform = getPlatform(commandName);
+  const isIOS = platform === 'ios';
+  const version = isIOS ? options.bundleVersion : options.appVersion;
+
+  if (!options.versionCode) {
+    throw new Error('Version code is required');
+  }
+  const versionCodeNum = parseInt(options.versionCode, 10);
+  if (isNaN(versionCodeNum) || versionCodeNum <= 0) {
+    throw new Error(
+      `Invalid version code: "${options.versionCode}". Must be a positive integer.`
+    );
+  }
+
+  if (!version || typeof version !== 'string' || version.trim().length === 0) {
+    throw new Error(
+      !version
+        ? `Missing required option: ${isIOS ? '--bundle-version' : '--app-version'}`
+        : `Invalid ${isIOS ? 'bundle version' : 'app version'}: "${version}". Must be a non-empty string.`
+    );
+  }
+
+  if (options.bundleId) {
+    const bundleIdPattern = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/i;
+    if (!bundleIdPattern.test(options.bundleId)) {
+      throw new Error(
+        `Invalid bundle-id: "${options.bundleId}". Must be in reverse domain notation (e.g., com.example.app).`
+      );
+    }
+  }
+}
+
 module.exports = {
   checkAndAssertNodeVersion,
   getPlatform,
   validateFiles,
+  validateVersionVersionCodeBundleId,
 };

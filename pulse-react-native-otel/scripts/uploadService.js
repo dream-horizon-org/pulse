@@ -1,6 +1,10 @@
 /* global Buffer */
 const fs = require('fs');
-const { getPlatform, validateFiles } = require('./utils');
+const {
+  getPlatform,
+  validateFiles,
+  validateVersionVersionCodeBundleId,
+} = require('./utils');
 
 function buildMetadata(files, appVersion, versionCode, platform) {
   const metadata = files.map((file) => ({
@@ -18,14 +22,6 @@ async function uploadFiles(commandName, options) {
   const files = validateFiles(options);
   const version =
     platform === 'ios' ? options.bundleVersion : options.appVersion;
-
-  if (!version || !options.versionCode) {
-    const versionFlag =
-      platform === 'ios' ? '--bundle-version' : '--app-version';
-    throw new Error(
-      `Missing required options: ${versionFlag} and --version-code`
-    );
-  }
 
   const metadata = buildMetadata(files, version, options.versionCode, platform);
 
@@ -129,6 +125,7 @@ async function uploadFiles(commandName, options) {
 
 async function upload(commandName, options) {
   try {
+    validateVersionVersionCodeBundleId(options, commandName);
     await uploadFiles(commandName, options);
   } catch (error) {
     console.error(`\n✗ Error: ${error.message}`);
