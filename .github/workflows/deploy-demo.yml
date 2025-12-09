@@ -54,6 +54,8 @@ jobs:
           REACT_APP_GOOGLE_CLIENT_ID: ''
           # API base URL (empty for mock server, but needed for URL construction)
           REACT_APP_PULSE_SERVER_URL: ''
+          # Google Analytics
+          REACT_APP_GA_MEASUREMENT_ID: 'G-GYYTZ82DD5'
           # Set public URL for /pulse subpath
           # PUBLIC_URL is used by webpack for asset paths and is available in React code
           PUBLIC_URL: ''

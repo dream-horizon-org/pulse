@@ -48,6 +48,7 @@ import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useGetDataQuery } from "../../hooks";
 import { SpanType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
+import { useAnalytics } from "../../hooks/useAnalytics";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -60,6 +61,7 @@ interface InteractionMetrics {
 export function CriticalInteractionList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { trackClick } = useAnalytics("InteractionList");
   const searchFields = Object.fromEntries(searchParams.entries());
   const [opened, { open, close }] = useDisclosure(false);
   const [checked, setChecked] = useState(
@@ -345,6 +347,7 @@ export function CriticalInteractionList() {
     id: number;
     name: string | undefined;
   }) => {
+    trackClick(`Interaction: ${interaction.name || 'unknown'}`);
     navigate(
       `${ROUTES["CRITICAL_INTERACTION_DETAILS"].basePath}/${interaction.name || ""}`,
     );
