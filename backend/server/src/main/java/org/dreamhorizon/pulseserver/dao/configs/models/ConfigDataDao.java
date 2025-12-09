@@ -16,7 +16,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ConfigDataDao {
-  private FilterConfig filter;
+  private FilterConfig filters;
 
   private SamplingConfig sampling;
 
@@ -24,5 +24,5 @@ public class ConfigDataDao {
 
   private InteractionConfig interaction;
 
-  private List<FeatureConfig> feature;
+  private List<FeatureConfig> features;
 }

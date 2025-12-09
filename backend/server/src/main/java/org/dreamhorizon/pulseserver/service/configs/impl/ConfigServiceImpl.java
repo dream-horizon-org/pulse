@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
@@ -36,5 +37,10 @@ public class ConfigServiceImpl implements ConfigService {
                 .subscribe())
         .flatMap(Single::just)
         .doOnError(err -> log.error("error while creating interaction", err));
+  }
+
+  @Override
+  public Single<AllConfigdetails> getAllConfigDetails() {
+    return configsDao.getAllConfigDetails();
   }
 }

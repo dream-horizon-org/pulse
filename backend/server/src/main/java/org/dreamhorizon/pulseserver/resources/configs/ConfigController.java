@@ -8,6 +8,7 @@ import jakarta.ws.rs.Path;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -53,6 +54,13 @@ public class ConfigController {
     ConfigData createConfigServiceRequest = mapper.toServiceCreateConfigRequest(config, user);
     return configService.createConfig(createConfigServiceRequest)
         .map(resp -> CreateConfigResponse.builder().version(resp.getVersion()).build())
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<AllConfigdetails>> getConfigDescription() {
+    return configService.getAllConfigDetails()
         .to(RestResponse.jaxrsRestHandler());
   }
 }
