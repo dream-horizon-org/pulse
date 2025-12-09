@@ -2,10 +2,10 @@
 const fs = require('fs');
 const { getPlatform, validateFiles } = require('./utils');
 
-function buildMetadata(files, version, versionCode, platform) {
+function buildMetadata(files, appVersion, versionCode, platform) {
   const metadata = files.map((file) => ({
     type: file.metadataType,
-    appVersion: version,
+    appVersion: appVersion,
     versionCode: versionCode,
     platform: platform,
     fileName: file.fileName,
@@ -17,11 +17,11 @@ async function uploadFiles(commandName, options) {
   const platform = getPlatform(commandName);
   const files = validateFiles(options);
   const version =
-    platform === 'iOS' ? options.bundleVersion : options.appVersion;
+    platform === 'ios' ? options.bundleVersion : options.appVersion;
 
   if (!version || !options.versionCode) {
     const versionFlag =
-      platform === 'iOS' ? '--bundle-version' : '--app-version';
+      platform === 'ios' ? '--bundle-version' : '--app-version';
     throw new Error(
       `Missing required options: ${versionFlag} and --version-code`
     );
@@ -60,29 +60,82 @@ async function uploadFiles(commandName, options) {
     console.log(`   - ${file.fileName} (${file.metadataType})`);
   });
 
+  if (options.debug) {
+    console.log('\n🔍 Debug Info:');
+    console.log(`   API URL: ${options.apiUrl}`);
+    console.log(`   App Version: ${version}`);
+    console.log(`   Version Code: ${options.versionCode}`);
+    files.forEach((file) => {
+      const stats = fs.statSync(file.path);
+      console.log(
+        `   File: ${file.fileName} (${(stats.size / 1024).toFixed(2)} KB)`
+      );
+      console.log(`   File Path: ${file.path}`);
+    });
+  }
+
   const response = await fetch(options.apiUrl, {
     method: 'POST',
     body: formData,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Upload failed: ${response.status} ${response.statusText}\n${errorText}`
-    );
-  }
 
   const responseData = await response.json().catch(async () => {
     const text = await response.text();
     return text ? { message: text } : {};
   });
 
+  if (options.debug && responseData && Object.keys(responseData).length > 0) {
+    console.log('\n📥 Backend Response:');
+    console.log(`   Status: ${response.status} ${response.statusText}`);
+    console.log(`   Response: ${JSON.stringify(responseData, null, 2)}`);
+  }
+
+  if (!response.ok) {
+    const errorText =
+      responseData.error || responseData.message || 'Unknown error';
+    throw new Error(
+      `Upload failed: HTTP ${response.status} ${response.statusText}. ${errorText}`
+    );
+  }
+
+  if (responseData.data === false) {
+    const errorMsg = responseData.error || 'Backend processing failed';
+
+    if (options.debug) {
+      console.error('\n✗ Upload failed: Backend returned data: false');
+      console.error(`   Error: ${errorMsg}`);
+      console.error('');
+      console.error('   Possible causes:');
+      console.error(
+        '   - Database schema issue (framework enum may not include your file type)'
+      );
+      console.error('   - Database connection or constraint error');
+      console.error('');
+      console.error('   Debug Info:');
+      console.error(
+        `   - Files: ${files.length} (${files.map((f) => f.fileName).join(', ')})`
+      );
+      console.error(`   - Metadata: ${JSON.stringify(metadata, null, 2)}`);
+      console.error(
+        '   - Check backend logs: docker logs <backend-container> | grep -i error'
+      );
+    }
+
+    throw new Error(`Upload failed: Backend returned data: false. ${errorMsg}`);
+  }
+
   console.log('\n✓ Files uploaded successfully');
-  if (responseData && Object.keys(responseData).length > 0) {
-    console.log('Response:', JSON.stringify(responseData, null, 2));
+}
+
+async function upload(commandName, options) {
+  try {
+    await uploadFiles(commandName, options);
+  } catch (error) {
+    console.error(`\n✗ Error: ${error.message}`);
+    process.exit(1);
   }
 }
 
 module.exports = {
-  uploadFiles,
+  upload,
 };

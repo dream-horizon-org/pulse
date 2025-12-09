@@ -1,16 +1,35 @@
 const fs = require('fs');
 const path = require('path');
+const packageJson = require('../package.json');
+
 const FILE_TYPE_TO_BACKEND_TYPE = {
   'js-sourcemap': 'JS',
-  'java-mapping': 'ANDROID',
+  'mapping': 'mapping',
+  'android-ndk': 'ndk',
 };
 
-function checkNodeVersion() {
+function checkAndAssertNodeVersion() {
   const nodeVersion = process.versions.node.split('.');
   const majorVersion = parseInt(nodeVersion[0], 10);
-  if (majorVersion < 18) {
-    console.error(`✗ Error: Pulse CLI requires Node.js 18.0.0 or higher.`);
+
+  const requiredVersion = packageJson.engines?.node;
+  let minMajorVersion = 18; // fallback
+
+  if (requiredVersion) {
+    const match = requiredVersion.match(/>=(\d+)/);
+    if (match) {
+      minMajorVersion = parseInt(match[1], 10);
+    }
+  }
+
+  if (majorVersion < minMajorVersion) {
+    console.error(
+      `✗ Error: Pulse CLI requires Node.js ${minMajorVersion}.0.0 or higher.`
+    );
     console.error(`  Current version: ${process.versions.node}`);
+    console.error(
+      `  Required: ${requiredVersion || `>=${minMajorVersion}.0.0`}`
+    );
     console.error(`  Please upgrade Node.js: https://nodejs.org/`);
     process.exit(1);
   }
@@ -18,10 +37,10 @@ function checkNodeVersion() {
 
 function getPlatform(commandName) {
   if (commandName.includes('android')) {
-    return 'Android';
+    return 'android';
   }
   if (commandName.includes('ios')) {
-    return 'iOS';
+    return 'ios';
   }
   return 'Unknown';
 }
@@ -42,7 +61,7 @@ function validateFiles(options) {
 
     const filePath = path.resolve(optionValue);
     if (!fs.existsSync(filePath)) {
-      errors.push(`File not found: ${filePath}`);
+      errors.push(`File not found for filepath: ${filePath}`);
       return;
     }
 
@@ -66,7 +85,7 @@ function validateFiles(options) {
 }
 
 module.exports = {
-  checkNodeVersion,
+  checkAndAssertNodeVersion,
   getPlatform,
   validateFiles,
 };

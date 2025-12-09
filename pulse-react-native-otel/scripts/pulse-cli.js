@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-const { checkNodeVersion } = require('./utils');
-checkNodeVersion();
+const { checkAndAssertNodeVersion } = require('./utils');
+checkAndAssertNodeVersion();
 
 const { Command } = require('commander');
-const { uploadFiles } = require('./uploadService');
+const { upload } = require('./uploadService');
 const TAG_OPTIONAL = '(OPTIONAL)';
 
 const program = new Command();
@@ -17,60 +17,62 @@ program
 
 const uploadCommand = new Command('upload')
   .description(
-    'Upload symbol files and source maps. Supports multiple file uploads.'
+    'Upload multiple symbol files to deobfuscate stack traces and improve error debugging.'
   )
   .usage('[subcommand] [options]');
 
 uploadCommand
   .command('react-native-android')
   .description('Upload React Native Android files')
-  .requiredOption('--api-url <url>', 'Backend API endpoint URL')
   .requiredOption(
-    '--app-version <version>',
-    'App version from build.gradle (e.g., 1.0.0)'
+    '-u, --api-url <url>',
+    'Backend API URL for uploading source maps and related build artifacts.'
   )
-  .requiredOption('--version-code <code>', 'Version code (e.g., 1)')
-  .requiredOption('--js-sourcemap <path>', 'JavaScript source map file path')
-  .option(
-    '--bundle-id <id>',
-    `${TAG_OPTIONAL} Bundle ID / Package name from build.gradle applicationId (e.g., pulsereactnativeotel.example)`
+  .requiredOption(
+    '-v, --app-version <version>',
+    'App version of the application (e.g., 1.0.0)'
+  )
+  .requiredOption('-c, --version-code <code>', 'Version code (e.g., 1)')
+  .requiredOption(
+    '-j, --js-sourcemap <path>',
+    'JavaScript source map file path'
   )
   .option(
-    '--java-mapping <path>',
+    '-b, --bundle-id <id>',
+    `${TAG_OPTIONAL} CodePush bundle label for identifying the specific bundle version (e.g., v1)`
+  )
+  .option(
+    '-m, --mapping <path>',
     `${TAG_OPTIONAL} ProGuard/R8 mapping file path`
   )
-  .option('--debug', `${TAG_OPTIONAL} Show debug information`)
+  .option('-d, --debug', `${TAG_OPTIONAL} Show debug information`)
   .action(async (options) => {
-    try {
-      await uploadFiles('react-native-android', options);
-    } catch (error) {
-      console.error(`\n✗ Error: ${error.message}`);
-      process.exit(1);
-    }
+    await upload('react-native-android', options);
   });
 
 uploadCommand
   .command('react-native-ios')
   .description('Upload React Native iOS source maps')
-  .requiredOption('--api-url <url>', 'Backend API endpoint URL')
   .requiredOption(
-    '--bundle-version <version>',
+    '-u, --api-url <url>',
+    'Backend API URL for uploading source maps and related build artifacts.'
+  )
+  .requiredOption(
+    '-v, --bundle-version <version>',
     'Bundle version from Info.plist CFBundleShortVersionString (e.g., 1.0.0)'
   )
-  .requiredOption('--version-code <code>', 'Version code (e.g., 1)')
-  .requiredOption('--js-sourcemap <path>', 'JavaScript source map file path')
-  .option(
-    '--bundle-id <id>',
-    `${TAG_OPTIONAL} Bundle ID from Info.plist CFBundleIdentifier (e.g., pulsereactnativeotel.example)`
+  .requiredOption('-c, --version-code <code>', 'Version code (e.g., 1)')
+  .requiredOption(
+    '-j, --js-sourcemap <path>',
+    'JavaScript source map file path'
   )
-  .option('--debug', `${TAG_OPTIONAL} Show debug information`)
+  .option(
+    '-b, --bundle-id <id>',
+    `${TAG_OPTIONAL} CodePush bundle label for identifying the specific bundle version (e.g., v1)`
+  )
+  .option('-d, --debug', `${TAG_OPTIONAL} Show debug information`)
   .action(async (options) => {
-    try {
-      await uploadFiles('react-native-ios', options);
-    } catch (error) {
-      console.error(`\n✗ Error: ${error.message}`);
-      process.exit(1);
-    }
+    await upload('react-native-ios', options);
   });
 
 program.addCommand(uploadCommand);
