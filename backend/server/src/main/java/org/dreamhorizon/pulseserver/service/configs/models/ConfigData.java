@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ConfigData {
+  private String description;
+
   private FilterConfig filters;
 
   private SamplingConfig sampling;

@@ -16,8 +16,10 @@ import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class PulseConfig {
+  @JsonProperty("description")
+  private String description;
+
   @JsonProperty("filters")
   private FilterConfig filters;
 
@@ -31,7 +33,7 @@ public class PulseConfig {
   private InteractionConfig interaction;
 
   @JsonProperty("features")
-  private List<FeatureConfig> featureConfigs;
+  private List<FeatureConfig> features;
 
 
   @Data

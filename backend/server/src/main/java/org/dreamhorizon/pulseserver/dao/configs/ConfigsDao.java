@@ -5,6 +5,9 @@ import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_LATEST_VERSIO
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.INSERT_CONFIG;
 
 import com.google.inject.Inject;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.configs.models.ConfigDataDao;
+import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Row;
@@ -12,8 +15,6 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
@@ -75,13 +76,22 @@ public class ConfigsDao {
         });
   }
 
-  public Single<Config> createConfig(ConfigData createConfig) {
-    String configDetailRowStr = objectMapper.writeValueAsString(createConfig);
+    public Single<Config> createConfig(ConfigData createConfig){
+      ConfigDataDao configDataDao = ConfigDataDao.builder()
+                                      .feature(createConfig.getFeatures())
+                                      .filter(createConfig.getFilters())
+                                      .interaction(createConfig.getInteraction())
+                                      .sampling(createConfig.getSampling())
+                                      .signals(createConfig.getSignals())
+                                      .build();
 
-    Tuple tuple = Tuple.tuple()
-        .addString(configDetailRowStr)
-        .addBoolean(true)
-        .addString(createConfig.getUser());
+      String configDetailRowStr = objectMapper.writeValueAsString(configDataDao);
+
+      Tuple tuple = Tuple.tuple()
+          .addString(configDetailRowStr)
+          .addBoolean(true)
+          .addString(createConfig.getUser())
+          .addString(createConfig.getDescription());
 
     return d11MysqlClient
         .getWriterPool()
