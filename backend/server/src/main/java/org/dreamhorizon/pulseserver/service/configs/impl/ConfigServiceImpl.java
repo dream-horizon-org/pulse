@@ -2,14 +2,19 @@ package org.dreamhorizon.pulseserver.service.configs.impl;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
+import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
+import org.dreamhorizon.pulseserver.service.configs.models.Scope;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -42,5 +47,13 @@ public class ConfigServiceImpl implements ConfigService {
   @Override
   public Single<AllConfigdetails> getAllConfigDetails() {
     return configsDao.getAllConfigDetails();
+  }
+
+  @Override
+  public Single<GetScopeAndSdksResponse> getScopeAndSdks() {
+    return Single.just(GetScopeAndSdksResponse.builder()
+        .scope(Arrays.stream(Scope.values()).map(Enum::name).collect(Collectors.toList()))
+        .sdks(Arrays.stream(Sdk.values()).map(Enum::name).collect(Collectors.toList()))
+        .build());
   }
 }

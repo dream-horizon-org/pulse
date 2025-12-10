@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
+import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.rest.io.Response;
@@ -61,6 +62,14 @@ public class ConfigController {
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<AllConfigdetails>> getConfigDescription() {
     return configService.getAllConfigDetails()
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @GET
+  @Path("/scopes-sdks")
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletionStage<Response<GetScopeAndSdksResponse>> getScopeAndSdks() {
+    return configService.getScopeAndSdks()
         .to(RestResponse.jaxrsRestHandler());
   }
 }
