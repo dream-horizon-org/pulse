@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.alert.v4;
+package org.dreamhorizon.pulseserver.resources.alert.v1;
 
 import org.dreamhorizon.pulseserver.dto.v1.request.alerts.EvaluateAlertV4RequestDto;
 import org.dreamhorizon.pulseserver.dto.v1.response.alerts.EvaluateAlertV4ResponseDto;
@@ -15,8 +15,8 @@ import java.util.concurrent.CompletionStage;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v1/alert/v4/evaluateAndTriggerAlert")
-public class EvaluateAndTriggerAlertV4 {
+@Path("/v1/alert/evaluateAndTriggerAlert")
+public class EvaluateAndTriggerAlert {
     private final AlertEvaluationServiceV4 alertEvaluationServiceV4;
 
     @GET
@@ -27,6 +27,3 @@ public class EvaluateAndTriggerAlertV4 {
                 .to(RestResponse.jaxrsRestHandler());
     }
 }
-
-
-
