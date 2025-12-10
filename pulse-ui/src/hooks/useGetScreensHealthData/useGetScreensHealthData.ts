@@ -6,7 +6,7 @@ import {
   ScreenHealthData,
 } from "./useGetScreensHealthData.interface";
 
-export function useGetScreensHealthData({
+export function  useGetScreensHealthData({
   startTime,
   endTime,
   limit = 5,
@@ -32,8 +32,17 @@ export function useGetScreensHealthData({
         },
         {
           function: "CUSTOM",
-          param: { expression: "COUNT()" },
-          alias: "screen_count",
+            param: {
+            expression: `countIf(SpanType = '${SpanType.SCREEN_SESSION}')`,
+          },
+          alias: "session_count",
+        },
+        {
+          function: "CUSTOM",
+          param: {
+            expression: `countIf(SpanType = '${SpanType.SCREEN_LOAD}')`,
+          },
+          alias: "load_count",
         },
         {
           function: "CUSTOM",
@@ -63,7 +72,7 @@ export function useGetScreensHealthData({
         },
       ],
       groupBy: ["screen_name"],
-      orderBy: [{ field: "screen_count", direction: "DESC" }],
+      orderBy: [{field: "load_count", direction: "DESC" }, { field: "session_count", direction: "DESC" }],
       filters: [
         {
           field: "SpanType",
@@ -85,25 +94,28 @@ export function useGetScreensHealthData({
 
     const fields = responseData.fields;
     const screenNameIndex = fields.indexOf("screen_name");
-    const screenCountIndex = fields.indexOf("screen_count");
+    const sessionCountIndex = fields.indexOf("session_count");
+    const loadCountIndex = fields.indexOf("load_count");
     const totalTimeSpentIndex = fields.indexOf("total_time_spent");
     const totalLoadTimeIndex = fields.indexOf("total_load_time");
     const userCountIndex = fields.indexOf("user_count");
     const errorCountIndex = fields.indexOf("error_count");
 
     return responseData.rows.map((row) => {
-      const screenCount = parseFloat(row[screenCountIndex]) || 1;
+      const sessionCount = parseFloat(row[sessionCountIndex]) || 1;
+      const loadCount = parseFloat(row[loadCountIndex]) || 1;
       const totalTimeSpent = parseFloat(row[totalTimeSpentIndex]) || 0;
       const totalLoadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
+      const errorCount = parseFloat(row[errorCountIndex]) || 0;
 
       return {
         screenName: row[screenNameIndex],
-        avgTimeSpent: Math.round(totalTimeSpent / screenCount), // Average time per session
-        crashRate: (parseFloat(row[errorCountIndex]) / screenCount) * 100 || 0,
-        loadTime: Math.round(totalLoadTime / screenCount), // Average load time
+        avgTimeSpent: Math.round(totalTimeSpent / sessionCount), // Average time per session
+        crashRate: (errorCount / sessionCount) * 100 || 0, // Crash rate based on sessions
+        loadTime: Math.round(totalLoadTime / loadCount), // Average load time per load
         users: parseInt(row[userCountIndex]) || 0,
         screenType: row[screenNameIndex],
-        errorRate: parseFloat(row[errorCountIndex]) || 0,
+        errorRate: errorCount,
       };
     });
   }, [data]);

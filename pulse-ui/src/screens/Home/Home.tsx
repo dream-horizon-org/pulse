@@ -16,12 +16,13 @@ import { ActiveSessionsGraph } from "./components/ActiveSessionsGraph";
 import { QuickAccessLinks, QuickLink } from "./components/QuickAccessLinks";
 import { ScreensHealth } from "./components/ScreensHealth";
 import { TopInteractionsHealth } from "./components/TopInteractionsHealth";
+import { useAnalytics } from "../../hooks/useAnalytics";
 
 dayjs.extend(utc);
 
 export function Home(_props: HomeProps) {
   const navigate = useNavigate();
-
+  const { trackClick } = useAnalytics("Home");
 
   const quickLinks: QuickLink[] = [
     {
@@ -51,10 +52,13 @@ export function Home(_props: HomeProps) {
   ];
 
   const handleQuickLinkClick = (route: string) => {
+    const linkTitle = quickLinks.find(l => l.route === route)?.title || route;
+    trackClick(`QuickLink: ${linkTitle}`);
     navigate(route);
   };
 
   const handleViewAllInteractions = () => {
+    trackClick("ViewAllInteractions");
     navigate(ROUTES.CRITICAL_INTERACTIONS.basePath);
   };
 
@@ -62,16 +66,19 @@ export function Home(_props: HomeProps) {
     id: number;
     name: string;
   }) => {
+    trackClick(`InteractionCard: ${interaction.name}`);
     navigate(
       `${ROUTES.CRITICAL_INTERACTION_DETAILS.basePath}/${interaction.name}`,
     );
   };
 
   const handleViewAllScreens = () => {
+    trackClick("ViewAllScreens");
     navigate(ROUTES.SCREENS.basePath);
   };
 
   const handleScreenCardClick = (screenName: string) => {
+    trackClick(`ScreenCard: ${screenName}`);
     navigate(
       `${ROUTES.SCREEN_DETAILS.basePath}/${encodeURIComponent(screenName)}`,
     );

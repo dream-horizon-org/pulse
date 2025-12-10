@@ -19,6 +19,18 @@ export class MockResponseGenerator {
     this.config = MockConfigManager.getInstance();
   }
 
+  /**
+   * Safely parse a URL string, handling both absolute and relative URLs
+   */
+  private parseURL(urlString: string): URL {
+    try {
+      return new URL(urlString);
+    } catch {
+      // If URL is relative, create a URL with current origin as base
+      return new URL(urlString, window.location.origin);
+    }
+  }
+
   async generateResponse(request: MockRequest): Promise<MockResponse> {
     // Handle both absolute and relative URLs
     let url: URL;
@@ -269,7 +281,7 @@ export class MockResponseGenerator {
 
       // Create a mock JWT token that can be decoded
       const mockIdToken = this.createMockJWTToken({
-        email: isDummyLogin ? "dev@dream11.com" : "mock@dream11.com",
+        email: isDummyLogin ? "dev@example.com" : "mock@example.com",
         firstName: isDummyLogin ? "Dev" : "Mock",
         lastName: isDummyLogin ? "User" : "User",
         profilePicture: "https://via.placeholder.com/150",
@@ -292,7 +304,7 @@ export class MockResponseGenerator {
     if (pathname.includes("/refresh") && method === "POST") {
       // Create a mock JWT token for refresh
       const mockIdToken = this.createMockJWTToken({
-        email: "mock@dream11.com",
+        email: "mock@example.com",
         firstName: "Mock",
         lastName: "User",
         profilePicture: "https://via.placeholder.com/150",
@@ -419,9 +431,9 @@ export class MockResponseGenerator {
         data: {
           statuses: statuses,
           createdBy: uniqueUsers.length > 0 ? uniqueUsers : [
-            "user1@dream11.com",
-            "user2@dream11.com",
-            "user3@dream11.com",
+            "user1@example.com",
+            "user2@example.com",
+            "user3@example.com",
           ],
         },
         status: 200,
@@ -509,9 +521,9 @@ export class MockResponseGenerator {
               events: transformedEvents,
               globalBlacklistedEvents: transformedGlobalBlacklistedEvents,
               createdAt: job.createdAt || Date.now(),
-              createdBy: job.createdBy || "mock@dream11.com",
+              createdBy: job.createdBy || "mock@example.com",
               updatedAt: job.updatedAt || Date.now(),
-              updatedBy: job.updatedBy || "mock@dream11.com",
+              updatedBy: job.updatedBy || "mock@example.com",
             },
             status: 200,
           };
@@ -532,7 +544,7 @@ export class MockResponseGenerator {
           pathname.endsWith("/v1/interactions")) &&
         method === "GET"
       ) {
-        const url = new URL(request.url);
+        const url = this.parseURL(request.url);
         const statusFilter = url.searchParams.get("status");
         const userEmailFilter = url.searchParams.get("userEmail");
         const interactionNameFilter = url.searchParams.get("interactionName");
@@ -573,9 +585,9 @@ export class MockResponseGenerator {
           eventSequence: job.eventSequence || [], // Keep for backward compatibility
           globalBlacklistedEvents: job.globalBlacklistedEvents || [],
           createdAt: job.createdAt || Date.now(),
-          createdBy: job.createdBy || "mock@dream11.com",
+          createdBy: job.createdBy || "mock@example.com",
           updatedAt: job.updatedAt || Date.now(),
-          updatedBy: job.updatedBy || "mock@dream11.com",
+          updatedBy: job.updatedBy || "mock@example.com",
         }));
 
         // Apply pagination
@@ -649,9 +661,9 @@ export class MockResponseGenerator {
             isBlacklisted: event.isBlacklisted,
           })),
           createdAt: Date.now(),
-          createdBy: requestBody.createdBy || "mock@dream11.com",
+          createdBy: requestBody.createdBy || "mock@example.com",
           updatedAt: Date.now(),
-          updatedBy: requestBody.updatedBy || "mock@dream11.com",
+          updatedBy: requestBody.updatedBy || "mock@example.com",
         };
 
         this.dataStore.addJob(newJob);
@@ -777,7 +789,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getJobDetails")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const jobId = url.searchParams.get("jobId");
       const useCaseId = url.searchParams.get("useCaseId");
 
@@ -870,7 +882,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getJobStatus")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const jobId = url.searchParams.get("jobId");
 
       if (this.config.shouldLog()) {
@@ -927,7 +939,7 @@ export class MockResponseGenerator {
 
       return {
         data: {
-          users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@dream11.com"],
+          users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@example.com"],
           statuses: uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
         },
         status: 200,
@@ -1005,7 +1017,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/deleteJob")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const jobId = url.searchParams.get("jobId");
 
       if (jobId) {
@@ -1034,14 +1046,14 @@ export class MockResponseGenerator {
       return {
         data: {
           created_by: [
-            "user1@dream11.com",
-            "user2@dream11.com",
-            "user3@dream11.com",
+            "user1@example.com",
+            "user2@example.com",
+            "user3@example.com",
           ],
           updated_by: [
-            "user1@dream11.com",
-            "user2@dream11.com",
-            "user3@dream11.com",
+            "user1@example.com",
+            "user2@example.com",
+            "user3@example.com",
           ],
           job_ids: ["1", "2", "3", "4", "5"],
           current_states: [
@@ -1225,7 +1237,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/alert") && method === "DELETE") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const alertId = url.searchParams.get("id");
 
       if (alertId) {
@@ -2080,7 +2092,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getColumnNamesOfTable")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const tableName = url.searchParams.get("tableName");
 
       const columns = {
@@ -2488,7 +2500,7 @@ export class MockResponseGenerator {
 
     // Get query history endpoint
     if (pathname.includes("/getQuery/user") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const emailId = url.searchParams.get("emailId");
 
       if (this.config.shouldLog()) {
@@ -2538,7 +2550,7 @@ export class MockResponseGenerator {
 
     // Get column names of table endpoint
     if (pathname.includes("/getColumnNamesOfTable") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const tableName = url.searchParams.get("table");
 
       if (this.config.shouldLog()) {
@@ -2807,8 +2819,8 @@ export class MockResponseGenerator {
     return {
       teamName: `Team${phoneNo.slice(-4)}`,
       userId: Math.floor(Math.random() * 1000000) + 100000,
-      emailId: `user${phoneNo}@dream11.com`,
-      commEmailId: `comm${phoneNo}@dream11.com`,
+      emailId: `user${phoneNo}@example.com`,
+      commEmailId: `comm${phoneNo}@example.com`,
     };
   }
 
@@ -2825,7 +2837,7 @@ export class MockResponseGenerator {
   ): MockResponse {
     // Get analytics report endpoint
     if (pathname.includes("/analytics-report") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const reportId = url.searchParams.get("reportId");
 
       if (this.config.shouldLog()) {
@@ -3050,7 +3062,7 @@ export class MockResponseGenerator {
 
     // Apdex anomalies endpoint
     if (pathname.includes("/anomaly/apdex") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const useCaseId = url.searchParams.get("useCaseId");
       const startTime = url.searchParams.get("startTime");
       const endTime = url.searchParams.get("endTime");
@@ -3082,7 +3094,7 @@ export class MockResponseGenerator {
 
     // Error rate anomalies endpoint
     if (pathname.includes("/anomaly/error-rate") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const useCaseId = url.searchParams.get("useCaseId");
       const startTime = url.searchParams.get("startTime");
       const endTime = url.searchParams.get("endTime");
@@ -3114,7 +3126,7 @@ export class MockResponseGenerator {
 
     // Anomaly details endpoint
     if (pathname.includes("/anomaly/details") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const useCaseId = url.searchParams.get("useCaseId");
       const timestamp = url.searchParams.get("timestamp");
       const appVersion = url.searchParams.get("appVersion");
@@ -3363,7 +3375,7 @@ export class MockResponseGenerator {
 
     // Get request ID from time endpoint
     if (pathname.includes("/v2/events/queryRequestId") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const fromDate = url.searchParams.get("from_date");
       const toDate = url.searchParams.get("to_date");
       const email = url.searchParams.get("email");
@@ -3403,7 +3415,7 @@ export class MockResponseGenerator {
 
     // Get events by request ID endpoint
     if (pathname.includes("/v2/events/eventsByRequestId") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const requestId = url.searchParams.get("requestId");
       const pageToken = url.searchParams.get("pageToken") || "";
 
@@ -3437,7 +3449,7 @@ export class MockResponseGenerator {
 
     // Get event properties endpoint
     if (pathname.includes("/v2/events/eventname") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const eventName = url.searchParams.get("eventName");
       const eventTimestamp = url.searchParams.get("eventTimestamp");
       const userId = url.searchParams.get("userId");
@@ -3474,7 +3486,7 @@ export class MockResponseGenerator {
 
     // Get screen name to event mapping endpoint
     if (pathname.includes("/v1/events") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const searchString = url.searchParams.get("search_string");
       const limit = url.searchParams.get("limit") || "10";
 
@@ -4231,7 +4243,7 @@ ${
     request: MockRequest,
   ): MockResponse {
     if (method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const searchParams = url.searchParams;
 
       const interactionName = searchParams.get("interactionName") || "";

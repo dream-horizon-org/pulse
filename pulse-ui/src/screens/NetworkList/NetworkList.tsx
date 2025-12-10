@@ -1,5 +1,5 @@
 import { Box, TextInput, Group, ScrollArea, Select } from "@mantine/core";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDebouncedValue } from "@mantine/hooks";
 import { NetworkListProps, NetworkApi } from "./NetworkList.interface";
@@ -22,6 +22,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { encodeNetworkId } from "./utils/networkIdUtils";
 import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { useAnalytics } from "../../hooks/useAnalytics";
 
 dayjs.extend(utc);
 
@@ -36,6 +37,7 @@ export function NetworkList({
   externalFilters = [],
 }: NetworkListProps) {
   const navigate = useNavigate();
+  const { trackClick, trackSearch, trackFilter } = useAnalytics("NetworkList");
   const [searchStr, setSearchStr] = useState<string>("");
   const [debouncedSearchStr] = useDebouncedValue(searchStr, 300);
   const [searchFilterType, setSearchFilterType] =
@@ -224,6 +226,13 @@ export function NetworkList({
     showFilters,
   ]);
 
+  // Track search queries
+  useEffect(() => {
+    if (debouncedSearchStr.trim()) {
+      trackSearch(debouncedSearchStr, undefined);
+    }
+  }, [debouncedSearchStr, trackSearch]);
+
   const { data, isLoading, isError } = useGetDataQuery({
     requestBody,
     enabled: !!startTime && !!endTime,
@@ -287,6 +296,7 @@ export function NetworkList({
   };
 
   const onApiClick = (apiId: string) => {
+    trackClick(`NetworkAPI: ${apiId}`);
     const url = `${ROUTES.NETWORK_DETAIL.basePath}/${apiId}`;
     if (screenName) {
       navigate(`${url}?screenName=${encodeURIComponent(screenName)}`);
@@ -367,7 +377,9 @@ export function NetworkList({
               <Select
                 value={searchFilterType}
                 onChange={(value) => {
-                  setSearchFilterType((value as SearchFilterType) || "url");
+                  const newType = (value as SearchFilterType) || "url";
+                  trackFilter("searchFilterType", newType);
+                  setSearchFilterType(newType);
                   setSearchStr(""); // Clear search value when filter type changes
                 }}
                 data={[

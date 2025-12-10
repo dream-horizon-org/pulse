@@ -23,8 +23,10 @@ export const NetworkApiCard: React.FC<NetworkApiCardProps> = ({
   };
 
   const getPerformanceIndicator = (avgResponseTime: number) => {
-    if (avgResponseTime < 300) return { color: "green", label: "Fast" };
-    if (avgResponseTime < 600) return { color: "orange", label: "Moderate" };
+    // avgResponseTime is in nanoseconds, convert to ms for comparison
+    const responseTimeMs = avgResponseTime / 1_000_000;
+    if (responseTimeMs < 300) return { color: "green", label: "Fast" };
+    if (responseTimeMs < 600) return { color: "orange", label: "Moderate" };
     return { color: "red", label: "Slow" };
   };
 

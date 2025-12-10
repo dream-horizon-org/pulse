@@ -813,9 +813,9 @@ Response:
       "DELETED"
     ],
     "createdBy": [
-      "user1@dream11.com",
-      "user2@dream11.com",
-      "user3@dream11.com"
+      "user1@example.com",
+      "user2@example.com",
+      "user3@example.com"
     ]
   }
 }

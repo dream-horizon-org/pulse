@@ -139,18 +139,100 @@ export class DataQueryMockGeneratorV2 {
       );
       return response;
     } else if (hasGroupBy) {
-      // Check if this is a network error breakdown query (groups by status_code and/or error_type)
-      const isNetworkErrorBreakdown =
-        (groupBy?.includes("status_code") || groupBy?.includes("error_type")) &&
-        filters?.some(
-          (f) =>
-            f.field === "SpanType" &&
+      // Check if this is a network query (has network filter)
+      const hasNetworkFilter = filters?.some(
+        (f) => {
+          const matches = f.field === "SpanType" &&
             f.operator === "LIKE" &&
             Array.isArray(f.value) &&
             f.value
-              .map((v) => String(v))
-              .some((v: string) => v.includes("network.")),
+              .map((v) => String(v).toLowerCase())
+              .some((v: string) => v.includes("network"));
+          if (f.field === "SpanType") {
+            console.log("[DataQueryMockV2] SpanType filter check:", {
+              field: f.field,
+              operator: f.operator,
+              value: f.value,
+              matches,
+            });
+          }
+          return matches;
+        },
+      );
+
+      // Check if this is a network ERROR BREAKDOWN query (groups by status_code/error_type)
+      // This must be checked FIRST because it also has method/url filters
+      const isNetworkErrorBreakdownQuery =
+        hasNetworkFilter &&
+        (groupBy?.includes("status_code") || groupBy?.includes("error_type")) &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("url");
+
+      // Check if this is a network DETAIL query (has specific method and url filters, groups by method/url)
+      const methodFilter = filters?.find(
+        (f) => f.field === "SpanAttributes['http.method']" && f.operator === "EQ",
+      );
+      const urlFilter = filters?.find(
+        (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+      );
+      const isNetworkDetailQuery =
+        hasNetworkFilter &&
+        methodFilter &&
+        urlFilter &&
+        groupBy?.includes("method") &&
+        groupBy?.includes("url");
+
+      // Check if this is a network LIST query (groups by method and url, no specific filters)
+      const isNetworkListQuery =
+        hasNetworkFilter &&
+        groupBy?.includes("method") &&
+        groupBy?.includes("url") &&
+        !isNetworkDetailQuery; // Exclude detail queries
+
+      console.log("[DataQueryMockV2] Network detection:", {
+        hasNetworkFilter,
+        methodFilter: !!methodFilter,
+        urlFilter: !!urlFilter,
+        isNetworkErrorBreakdownQuery,
+        isNetworkDetailQuery,
+        isNetworkListQuery,
+        groupBy,
+      });
+
+      // Handle network error breakdown query FIRST (has method/url filters but groups by status_code)
+      if (isNetworkErrorBreakdownQuery) {
+        const response = this.generateNetworkErrorBreakdownResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated network error breakdown response:",
+          response.rows.length,
+          "rows",
         );
+        return response;
+      }
+
+      if (isNetworkDetailQuery) {
+        const response = this.generateNetworkResponse(requestBody, true);
+        console.log(
+          "[DataQueryMockV2] Generated network detail response:",
+          response.rows.length,
+          "rows",
+          "fields:",
+          response.fields,
+          "first row sample:",
+          response.rows[0]?.slice(0, 5),
+        );
+        return response;
+      }
+
+      if (isNetworkListQuery) {
+        const response = this.generateNetworkResponse(requestBody, false);
+        console.log(
+          "[DataQueryMockV2] Generated network list response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
 
       // Check if this is a network issues by provider query (groups by network_provider)
       const isNetworkIssuesByProvider =
@@ -171,16 +253,7 @@ export class DataQueryMockGeneratorV2 {
                 .some((v: string) => v.includes("network.5"))),
         );
 
-      if (isNetworkErrorBreakdown) {
-        const response =
-          this.generateNetworkErrorBreakdownResponse(requestBody);
-        console.log(
-          "[DataQueryMockV2] Generated network error breakdown response:",
-          response.rows.length,
-          "rows",
-        );
-        return response;
-      } else if (isNetworkIssuesByProvider) {
+      if (isNetworkIssuesByProvider) {
         const response =
           this.generateNetworkIssuesByProviderResponse(requestBody);
         console.log(
@@ -321,6 +394,7 @@ export class DataQueryMockGeneratorV2 {
     );
 
     // Check if this is a network API query
+    // Filter value is "%network%" (SQL LIKE pattern) so we check for "network" substring
     const isNetworkQuery =
       filters?.some(
         (f) =>
@@ -328,8 +402,8 @@ export class DataQueryMockGeneratorV2 {
           f.operator === "LIKE" &&
           Array.isArray(f.value) &&
           f.value
-            .map((v) => String(v))
-            .some((v: string) => v.includes("network.")),
+            .map((v) => String(v).toLowerCase())
+            .some((v: string) => v.includes("network")),
       ) || false;
 
     // Check if grouping by method and url (network list query)
@@ -1041,30 +1115,19 @@ export class DataQueryMockGeneratorV2 {
         return this.randomCount(10, 40, interactionName, groupValue).toString();
 
       case "DURATION_P50":
-        return this.randomLatency(
-          200,
-          800,
-          interactionName,
-          groupValue,
-        ).toString();
+        // Return latency in milliseconds (backend query already divides Duration by 1e6)
+        // P50: 100-400ms
+        return this.randomLatency(100, 400, interactionName, groupValue).toString();
 
       case "DURATION_P95":
-        // Return latency in milliseconds (not nanoseconds)
-        const p95Ms = this.randomLatency(
-          800,
-          2000,
-          interactionName,
-          groupValue,
-        );
-        return p95Ms.toString();
+        // Return latency in milliseconds (backend query already divides Duration by 1e6)
+        // P95: 400-1200ms
+        return this.randomLatency(400, 1200, interactionName, groupValue).toString();
 
       case "DURATION_P99":
-        return this.randomLatency(
-          1500,
-          4000,
-          interactionName,
-          groupValue,
-        ).toString();
+        // Return latency in milliseconds (backend query already divides Duration by 1e6)
+        // P99: 800-2500ms
+        return this.randomLatency(800, 2500, interactionName, groupValue).toString();
 
       case "NET_0":
         return this.randomCount(0, 2, interactionName, groupValue).toString();
@@ -1099,12 +1162,15 @@ export class DataQueryMockGeneratorV2 {
           expression.includes("screen_session")
         ) {
           // Generate realistic total time spent (in nanoseconds)
-          // Hook calculates: avgTimeSpent = timeSpent / (sessions * 1000000)
-          // To get 20-60 seconds avg per session with 50-200 sessions:
-          // timeSpent = (20-60) * (50-200) * 1000000 = 1,000,000,000 - 12,000,000,000 ns
+          // Hook calculates: avgTimeSpent = totalTimeSpent / screenCount (in ns)
+          // Component then converts: nanoseconds / 1,000,000 = milliseconds
+          // Target: 30-180 seconds avg per session
+          // 30s = 30,000,000,000 ns, 180s = 180,000,000,000 ns
+          // With ~100 sessions avg: total = avg * 100
+          // 30s * 100 = 3 trillion, 180s * 100 = 18 trillion
           const totalNs = this.randomCount(
-            1000000000, // 1 billion ns = 20s * 50 sessions * 1M
-            12000000000, // 12 billion ns = 60s * 200 sessions * 1M
+            3000000000000, // 3 trillion ns = 30s avg * 100 sessions
+            18000000000000, // 18 trillion ns = 180s avg * 100 sessions
             interactionName,
             groupValue,
           );
@@ -1117,12 +1183,15 @@ export class DataQueryMockGeneratorV2 {
           expression.includes("screen_load")
         ) {
           // Generate realistic total load time (in nanoseconds)
-          // Hook calculates: avgLoadTime = loadTime / (loads * 1000000)
-          // To get 1-3 seconds avg per load with 50-200 loads:
-          // loadTime = (1-3) * (50-200) * 1000000 = 50,000,000 - 600,000,000 ns
+          // Hook calculates: avgLoadTime = totalLoadTime / screenCount (in ns)
+          // Component then converts: nanoseconds / 1,000,000 = milliseconds
+          // Target: 300ms - 3s avg per load
+          // 300ms = 300,000,000 ns, 3s = 3,000,000,000 ns
+          // With ~100 loads avg: total = avg * 100
+          // 300ms * 100 = 30B, 3s * 100 = 300B
           const totalNs = this.randomCount(
-            50000000, // 50 million ns = 1s * 50 loads * 1M
-            600000000, // 600 million ns = 3s * 200 loads * 1M
+            30000000000, // 30 billion ns = 300ms avg * 100 loads
+            300000000000, // 300 billion ns = 3s avg * 100 loads
             interactionName,
             groupValue,
           );
@@ -1134,11 +1203,12 @@ export class DataQueryMockGeneratorV2 {
           expression.includes("countIf") &&
           expression.includes("screen_session")
         ) {
-          // Generate realistic session count per time bucket
-          // 50-200 sessions per time bucket
+          // Session count should align with total_time_spent
+          // total_time_spent = 3-18 trillion ns (based on ~100 sessions)
+          // avg = total / count → 30-180 seconds
           return this.randomCount(
-            50,
-            200,
+            80,
+            120,
             interactionName,
             groupValue,
           ).toString();
@@ -1149,11 +1219,12 @@ export class DataQueryMockGeneratorV2 {
           expression.includes("countIf") &&
           expression.includes("screen_load")
         ) {
-          // Generate realistic load count per time bucket
-          // 50-200 loads per time bucket
+          // Load count should align with total_load_time
+          // total_load_time = 30-300 billion ns (based on ~100 loads)
+          // avg = total / count → 300ms-3s
           return this.randomCount(
-            50,
-            200,
+            80,
+            120,
             interactionName,
             groupValue,
           ).toString();
@@ -1166,15 +1237,17 @@ export class DataQueryMockGeneratorV2 {
             const isScreenQuery = groupValue.includes("Screen");
 
             if (isScreenQuery) {
-              // Screens get higher counts
+              // Screen counts should be ~100 to align with time totals
+              // total_time_spent / screen_count = avg time per session
+              // E.g., 10 trillion / 100 = 100 billion ns = 100 seconds avg
               return this.randomCount(
-                50000,
-                100000,
+                80,
+                120,
                 interactionName,
                 groupValue,
               ).toString();
             } else {
-              // Interactions get lower counts
+              // Interactions get moderate counts
               return this.randomCount(
                 200,
                 400,
@@ -1185,21 +1258,61 @@ export class DataQueryMockGeneratorV2 {
           }
         }
 
-        // Handle uniqCombined(UserId) and similar
-        if (expression.includes("uniqCombined(UserId)")) {
+        // Handle uniqCombinedIf for crash metrics (CrashMetricsStats component)
+        // These must come BEFORE uniqCombined handlers since they are more specific
+        if (expression.includes("uniqCombinedIf") && expression.includes("device.crash")) {
+          if (expression.includes("UserId")) {
+            // Crash users: 1-2% of total users (80-240 out of 8000-12000)
+            // This gives ~98-99% crash-free users rate
+            return this.randomCount(
+              80,
+              240,
+              "crash_users",
+              groupValue,
+            ).toString();
+          }
+          if (expression.includes("SessionId")) {
+            // Crash sessions: 0.5-1% of total sessions (125-500 out of 25000-50000)
+            // This gives ~99-99.5% crash-free sessions rate
+            return this.randomCount(
+              125,
+              500,
+              "crash_sessions",
+              groupValue,
+            ).toString();
+          }
+        }
+
+        // Handle uniqCombined(UserId) - total unique users (for crash metrics)
+        if (expression.includes("uniqCombined(UserId)") && !expression.includes("If")) {
+          // Total unique users: 8000-12000
+          // When used with crash metrics, this aligns with crash_users for ~98-99% crash-free rate
           return this.randomCount(
-            100000,
-            150000,
-            interactionName,
+            8000,
+            12000,
+            "all_users",
             groupValue,
           ).toString();
         }
 
-        // Handle uniqCombined(SessionId)
-        if (expression.includes("uniqCombined(SessionId)")) {
+        // Handle uniqCombined(SessionId) - total sessions (for crash metrics)
+        if (expression.includes("uniqCombined(SessionId)") && !expression.includes("If")) {
+          // Total sessions: 25000-50000
+          // When used with crash metrics, this aligns with crash_sessions for ~99-99.5% crash-free rate
           return this.randomCount(
-            5000,
-            15000,
+            25000,
+            50000,
+            "all_sessions",
+            groupValue,
+          ).toString();
+        }
+
+        // Handle countIf(StatusCode = 'ERROR') - error count for screens
+        if (expression.includes("countIf") && expression.includes("StatusCode")) {
+          // Realistic error count: 0-5% crash rate of ~100 sessions = 0-5 errors
+          return this.randomCount(
+            0,
+            5,
             interactionName,
             groupValue,
           ).toString();
@@ -1506,38 +1619,63 @@ export class DataQueryMockGeneratorV2 {
       ],
       connectiontype: ["WiFi", "4G", "5G", "3G"],
       spanname: [
-        "LoginSuccess",
-        "PaymentSuccess",
-        "CheckoutComplete",
-        "ProductView",
-        "AddToCart",
-        "CreateAccount",
-        "SearchResults",
-        "ContestJoinSuccess",
+        "JoinContestButtonClick",
+        "SaveTeamButtonClick",
+        "PlayerSelectTap",
+        "ContestListAPIFetch",
+        "PaymentSubmitClick",
+        "WalletBalanceFetch",
+        "MatchScheduleAPICall",
+        "LeaderboardRefreshTap",
+        "ProfileSaveClick",
+        "NotificationTap",
+        "FilterApplyTap",
+        "LiveScoreRefresh",
       ],
       interactionname: [
-        "LoginSuccess",
-        "PaymentSuccess",
-        "CheckoutComplete",
-        "ProductView",
-        "AddToCart",
-        "CreateAccount",
-        "SearchResults",
-        "ContestJoinSuccess",
+        "JoinContestButtonClick",
+        "SaveTeamButtonClick",
+        "PlayerSelectTap",
+        "ContestListAPIFetch",
+        "PaymentSubmitClick",
+        "WalletBalanceFetch",
+        "MatchScheduleAPICall",
+        "LeaderboardRefreshTap",
+        "ProfileSaveClick",
+        "NotificationTap",
+        "FilterApplyTap",
+        "LiveScoreRefresh",
       ],
       interaction_name: [
-        "LoginSuccess",
-        "PaymentSuccess",
-        "CheckoutComplete",
-        "ProductView",
-        "AddToCart",
-        "CreateAccount",
-        "SearchResults",
-        "ContestJoinSuccess",
+        "JoinContestButtonClick",
+        "SaveTeamButtonClick",
+        "PlayerSelectTap",
+        "ContestListAPIFetch",
+        "PaymentSubmitClick",
+        "WalletBalanceFetch",
+        "MatchScheduleAPICall",
+        "LeaderboardRefreshTap",
+        "ProfileSaveClick",
+        "NotificationTap",
+        "FilterApplyTap",
+        "LiveScoreRefresh",
       ],
       screen_name: [
-        "HomeScreen",
-        "ProductListScreen",
+        "ContestHomeScreen",
+        "TeamCreationScreen",
+        "MatchListScreen",
+        "ContestDetailsScreen",
+        "LeaderboardScreen",
+        "AddCashScreen",
+        "WalletScreen",
+        "ProfileScreen",
+        "MyContestsScreen",
+        "LiveScoreScreen",
+        "PlayerStatsScreen",
+        "WithdrawScreen",
+        "TransactionHistoryScreen",
+        "SettingsScreen",
+        "NotificationsScreen",
         "ProductDetailScreen",
         "CheckoutFormScreen",
         "PaymentScreen",
@@ -1608,7 +1746,8 @@ export class DataQueryMockGeneratorV2 {
     const range = max - min;
     const base = min + (hash % range);
     const variance = Math.floor((Math.random() - 0.5) * range * 0.3);
-    return Math.max(0, base + variance);
+    // Ensure we never go below the minimum value
+    return Math.max(min, base + variance);
   }
 
   /**
@@ -1660,16 +1799,26 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Mock network API data
+    // Fantasy sports specific network APIs
     const networkApis = [
-      { method: "GET", url: "/api/v1/users/profile" },
-      { method: "POST", url: "/api/v1/transactions/list" },
-      { method: "POST", url: "/api/v1/auth/refresh" },
-      { method: "GET", url: "/api/v1/products/search" },
-      { method: "POST", url: "/api/v1/orders/create" },
-      { method: "GET", url: "/api/v1/notifications/list" },
-      { method: "GET", url: "/api/v1/teams/list" },
+      { method: "GET", url: "/api/v1/contests/live" },
+      { method: "GET", url: "/api/v1/contests/upcoming" },
       { method: "POST", url: "/api/v1/contests/join" },
+      { method: "GET", url: "/api/v1/teams/my-teams" },
+      { method: "POST", url: "/api/v1/teams/create" },
+      { method: "PUT", url: "/api/v1/teams/update" },
+      { method: "GET", url: "/api/v1/players/list" },
+      { method: "GET", url: "/api/v1/players/stats" },
+      { method: "GET", url: "/api/v1/matches/live-score" },
+      { method: "GET", url: "/api/v1/matches/schedule" },
+      { method: "GET", url: "/api/v1/user/profile" },
+      { method: "GET", url: "/api/v1/user/wallet" },
+      { method: "POST", url: "/api/v1/wallet/deposit" },
+      { method: "POST", url: "/api/v1/wallet/withdraw" },
+      { method: "GET", url: "/api/v1/leaderboard/global" },
+      { method: "GET", url: "/api/v1/leaderboard/contest" },
+      { method: "GET", url: "/api/v1/notifications/list" },
+      { method: "POST", url: "/api/v1/auth/refresh" },
     ];
 
     // For detail query, filter to specific method and url
@@ -1694,14 +1843,24 @@ export class DataQueryMockGeneratorV2 {
           : String(urlFilter.value || "")
         : "";
 
+      console.log("[DataQueryMockV2] Network detail query:", {
+        targetMethod,
+        targetUrl,
+        methodFilter: methodFilter?.value,
+        urlFilter: urlFilter?.value,
+      });
+
       filteredApis = networkApis.filter(
         (api) => api.method === targetMethod && api.url === targetUrl,
       );
 
       // If not found, create a single entry with the requested method and url
       if (filteredApis.length === 0 && targetMethod && targetUrl) {
+        console.log("[DataQueryMockV2] Creating fallback API entry:", targetMethod, targetUrl);
         filteredApis = [{ method: targetMethod, url: targetUrl }];
       }
+
+      console.log("[DataQueryMockV2] Filtered APIs count:", filteredApis.length);
     }
 
     // For list query, we might need to filter by screen name if provided
@@ -1716,9 +1875,40 @@ export class DataQueryMockGeneratorV2 {
       }
     }
 
-    // Generate rows
+    // For demo purposes, show aggregated data per API (not split by status code)
+    // This gives realistic success rates like 96-99%
+
+    // Generate rows - one per API with aggregated metrics
     const rows: string[][] = filteredApis.map((api) => {
       const row: string[] = [];
+
+      // Pre-calculate values ONCE per API to ensure consistency
+      const apiSeed = api.method + api.url;
+      const baseRequestCount =
+        api.method === "GET"
+          ? this.randomCount(5000, 80000, apiSeed)
+          : this.randomCount(1000, 25000, apiSeed);
+      
+      // Success rate: 96-99.5% (realistic for production APIs)
+      const successRate = 0.96 + (this.hashString(apiSeed) % 35) / 1000;
+      const successCount = Math.floor(baseRequestCount * successRate);
+      
+      // Response time in milliseconds
+      const responseTimeMs =
+        api.method === "GET"
+          ? this.randomLatency(80, 400, apiSeed)
+          : this.randomLatency(150, 800, apiSeed);
+      
+      // Sessions: 15-40% of requests
+      const sessionRate = 0.15 + (this.hashString(apiSeed + "session") % 25) / 100;
+      const sessionCount = Math.floor(baseRequestCount * sessionRate);
+
+      console.log("[DataQueryMockV2] Generating row for API:", {
+        method: api.method,
+        url: api.url,
+        responseTimeMs,
+        baseRequestCount,
+      });
 
       select.forEach((selectField) => {
         const alias = selectField.alias;
@@ -1731,87 +1921,55 @@ export class DataQueryMockGeneratorV2 {
             row.push(api.url);
             break;
           case "total_requests":
-            // Generate realistic request count based on API type
-            // GET requests typically have more volume
-            const baseTotal =
-              api.method === "GET"
-                ? this.randomCount(5000, 80000, api.method + api.url)
-                : this.randomCount(1000, 25000, api.method + api.url);
-            row.push(baseTotal.toString());
+            row.push(baseRequestCount.toString());
             break;
           case "success_requests":
-            // 96-99.5% success rate (more realistic)
-            const totalRequests =
-              api.method === "GET"
-                ? this.randomCount(5000, 80000, api.method + api.url)
-                : this.randomCount(1000, 25000, api.method + api.url);
-            const successRate = 0.96 + Math.random() * 0.035; // 96-99.5%
-            row.push(Math.floor(totalRequests * successRate).toString());
+            row.push(successCount.toString());
             break;
           case "response_time":
-            // Average response time in ms
-            // GET requests are typically faster, POST requests slower
-            const avgTime =
-              api.method === "GET"
-                ? this.randomLatency(80, 600, api.method + api.url)
-                : this.randomLatency(150, 1200, api.method + api.url);
-            row.push(avgTime.toString());
+            // Convert ms to nanoseconds for Duration field
+            const avgTimeNs = responseTimeMs * 1_000_000;
+            row.push(avgTimeNs.toString());
             break;
           case "all_sessions":
-            // Unique sessions (15-35% of total requests)
-            // More sessions for GET requests (more users browsing)
-            const total =
-              api.method === "GET"
-                ? this.randomCount(5000, 80000, api.method + api.url)
-                : this.randomCount(1000, 25000, api.method + api.url);
-            const sessionRate =
-              api.method === "GET"
-                ? 0.15 + Math.random() * 0.25 // 15-40% for GET
-                : 0.1 + Math.random() * 0.2; // 10-30% for POST
-            row.push(Math.floor(total * sessionRate).toString());
+            row.push(Math.max(1, sessionCount).toString());
             break;
           case "p50":
-            // P50 latency (50-70% of average response time)
-            const avgResponseTime = this.randomLatency(
-              100,
-              1000,
-              api.method + api.url,
-            );
-            const p50Value = Math.floor(
-              avgResponseTime * (0.5 + Math.random() * 0.2),
-            );
-            row.push(p50Value.toString());
+            // P50 latency in milliseconds (backend already converts Duration/1e6)
+            // P50 is typically 50-70% of average response time
+            const p50Ms = Math.floor(responseTimeMs * (0.5 + (this.hashString(apiSeed + "p50") % 20) / 100));
+            row.push(p50Ms.toString());
             break;
           case "p95":
-            // P95 latency (180-280% of average response time)
-            const avgResponseTimeP95 = this.randomLatency(
-              100,
-              1000,
-              api.method + api.url,
-            );
-            const p95Value = Math.floor(
-              avgResponseTimeP95 * (1.8 + Math.random() * 1.0),
-            );
-            row.push(p95Value.toString());
+            // P95 latency in milliseconds (backend already converts Duration/1e6)
+            // P95 is typically 180-280% of average response time
+            const p95Ms = Math.floor(responseTimeMs * (1.8 + (this.hashString(apiSeed + "p95") % 100) / 100));
+            row.push(p95Ms.toString());
             break;
           case "p99":
-            // P99 latency (250-450% of average response time)
-            const avgResponseTimeP99 = this.randomLatency(
-              100,
-              1000,
-              api.method + api.url,
-            );
-            const p99Value = Math.floor(
-              avgResponseTimeP99 * (2.5 + Math.random() * 2.0),
-            );
-            row.push(p99Value.toString());
+            // P99 latency in milliseconds (backend already converts Duration/1e6)
+            // P99 is typically 250-450% of average response time
+            const p99Ms = Math.floor(responseTimeMs * (2.5 + (this.hashString(apiSeed + "p99") % 200) / 100));
+            row.push(p99Ms.toString());
             break;
           case "status_code":
-            // Most common status codes: 200, 201, 400, 404, 500
-            const statusCodes = ["200", "201", "400", "404", "500"];
-            row.push(
-              statusCodes[Math.floor(Math.random() * statusCodes.length)],
+            // For aggregated view, show "200" as the primary status code
+            row.push("200");
+            break;
+          case "screen_name":
+            // Return the screen name if filtering by it, otherwise empty
+            const screenFilter = filters?.find(
+              (f) => f.field?.includes("screen") && f.operator === "EQ",
             );
+            let screenValue = "";
+            if (screenFilter?.value) {
+              if (Array.isArray(screenFilter.value)) {
+                screenValue = String(screenFilter.value[0] || "");
+              } else {
+                screenValue = String(screenFilter.value);
+              }
+            }
+            row.push(screenValue);
             break;
           default:
             // For other fields, use the standard function generator
@@ -2045,10 +2203,10 @@ export class DataQueryMockGeneratorV2 {
         baseCount = 50;
       }
 
-      // Add variance (±25%)
+      // Add variance (±25%) - ensure count is never negative
       const variance = Math.floor(baseCount * 0.25);
-      const count =
-        baseCount + Math.floor(Math.random() * variance * 2) - variance;
+      const randomVariance = Math.floor(Math.random() * variance * 2) - variance;
+      const count = Math.max(0, baseCount + randomVariance);
 
       select.forEach((selectField) => {
         const alias = selectField.alias;
@@ -2057,7 +2215,7 @@ export class DataQueryMockGeneratorV2 {
           case "conn_error":
           case "4xx":
           case "5xx":
-            row.push(Math.max(0, count).toString());
+            row.push(count.toString());
             break;
           case "network_provider":
             row.push(provider);
@@ -2121,19 +2279,24 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Generate realistic GroupIds and error messages
+    // Generate realistic GroupIds and error messages (fantasy sports app context)
     const numRows = limit && limit > 0 ? Math.min(limit, 100) : 100;
     const errorMessages = [
-      "NullPointerException at MainActivity.onCreate",
-      "OutOfMemoryError: Failed to allocate bitmap",
-      "IllegalStateException: Fragment already added",
-      "IndexOutOfBoundsException: Invalid array index",
-      "ClassCastException: Cannot cast to View",
-      "SQLiteException: database locked",
-      "NetworkOnMainThreadException",
-      "FileNotFoundException: File not found",
-      "IllegalArgumentException: Invalid parameter",
-      "RuntimeException: Unexpected error",
+      "NullPointerException at ContestListFragment.onViewCreated",
+      "OutOfMemoryError: Failed to allocate bitmap in TeamCreationActivity",
+      "IllegalStateException: Fragment already added in MatchDetailsFragment",
+      "IndexOutOfBoundsException: Invalid player list index in TeamSelectionAdapter",
+      "ClassCastException: Cannot cast ContestModel to ContestDetailModel",
+      "SQLiteException: database locked while saving team data",
+      "NetworkOnMainThreadException in PaymentGatewayService",
+      "FileNotFoundException: Player image resource not found",
+      "IllegalArgumentException: Invalid contest ID in JoinContestHandler",
+      "RuntimeException: Unexpected error in LiveScoreRefreshHandler",
+      "TimeoutException: Contest API request timed out",
+      "JSONException: Malformed response from leaderboard endpoint",
+      "IllegalStateException: Cannot join contest - already started",
+      "OutOfMemoryError: Loading too many match images in MatchListFragment",
+      "NullPointerException: User session expired in ProfileActivity",
     ];
 
     const rows: string[][] = Array.from({ length: numRows }, (_, index) => {
@@ -2211,20 +2374,25 @@ export class DataQueryMockGeneratorV2 {
     // Each crash is a different ExceptionMessage/ExceptionType combination
     const numRows = limit && limit > 0 ? Math.min(limit, 10) : 10;
     const errorMessages = [
-      "NullPointerException at MainActivity.onCreate",
-      "OutOfMemoryError: Failed to allocate bitmap",
-      "IllegalStateException: Fragment already added",
-      "IndexOutOfBoundsException: Invalid array index",
-      "ClassCastException: Cannot cast to View",
-      "SQLiteException: database locked",
-      "NetworkOnMainThreadException",
-      "FileNotFoundException: File not found",
-      "IllegalArgumentException: Invalid parameter",
-      "RuntimeException: Unexpected error",
+      "NullPointerException at ContestListFragment.onViewCreated",
+      "OutOfMemoryError: Failed to allocate bitmap in TeamCreationActivity",
+      "IllegalStateException: Fragment already added in MatchDetailsFragment",
+      "IndexOutOfBoundsException: Invalid player list index",
+      "ClassCastException: Cannot cast ContestModel",
+      "SQLiteException: database locked while saving team",
+      "NetworkOnMainThreadException in PaymentGatewayService",
+      "FileNotFoundException: Player image resource",
+      "IllegalArgumentException: Invalid contest ID",
+      "RuntimeException: Unexpected error in LiveScoreRefreshHandler",
     ];
     const errorTypes = [
       "NullPointerException",
       "OutOfMemoryError",
+      "IllegalStateException",
+      "IndexOutOfBoundsException",
+      "NetworkOnMainThreadException",
+      "TimeoutException",
+      "JSONException",
       "IllegalStateException",
       "IndexOutOfBoundsException",
       "ClassCastException",

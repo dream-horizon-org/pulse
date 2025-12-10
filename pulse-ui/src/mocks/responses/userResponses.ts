@@ -7,8 +7,8 @@ export const mockUserResponses = {
     data: {
       teamName: "Frontend",
       userId: 1,
-      emailId: "user@dream11.com",
-      commEmailId: "user@dream11.com",
+      emailId: "user@example.com",
+      commEmailId: "user@example.com",
     },
     status: 200,
   }),

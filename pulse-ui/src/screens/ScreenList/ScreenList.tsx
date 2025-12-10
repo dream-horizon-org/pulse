@@ -14,10 +14,12 @@ import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { SCREEN_LISTING_PAGE_CONSTANTS } from "./ScreenList.constants";
+import { useAnalytics } from "../../hooks/useAnalytics";
 
 export function ScreenList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { trackClick, trackSearch } = useAnalytics("ScreenList");
   const searchFields = Object.fromEntries(searchParams.entries());
   const [searchStr, setSearchStr] = useState<string>(
     searchFields?.screenName || "",
@@ -88,10 +90,13 @@ export function ScreenList() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchStr(searchStr);
+      if (searchStr.trim()) {
+        trackSearch(searchStr);
+      }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchStr]);
+  }, [searchStr, trackSearch]);
 
   // Handle immediate input changes for UI responsiveness
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -153,6 +158,7 @@ export function ScreenList() {
                 staticLoadTime={screenDetails?.loadTime}
                 staticUsers={screenDetails?.users}
                 onClick={() => {
+                  trackClick(`Screen: ${screenName}`);
                   navigate(
                     `${ROUTES.SCREEN_DETAILS.basePath}/${encodeURIComponent(screenName)}`,
                   );

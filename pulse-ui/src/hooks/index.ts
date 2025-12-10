@@ -9,3 +9,4 @@ export * from "./useGetUserEngagementData";
 export * from "./useGetActiveSessionsData";
 export * from "./useGetScreensHealthData";
 export * from "./useGetTopInteractionsHealthData";
+export * from "./useAnalytics";
