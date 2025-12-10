@@ -1,7 +1,10 @@
 package org.dreamhorizon.pulseserver.service.configs.impl;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +26,14 @@ import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ConfigServiceImpl implements ConfigService {
 
+  private static final String LATEST_CONFIG_KEY = "latest-config";
+
   private final ConfigsDao configsDao;
   private final UploadConfigDetailService uploadConfigDetailService;
+  private final Cache<String, Config> latestConfigCache = Caffeine.newBuilder()
+      .maximumSize(1)
+      .expireAfterWrite(Duration.ofHours(1))
+      .build();
 
   @Override
   public Single<Config> getConfig(long version) {
@@ -33,16 +42,28 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<Config> getActiveConfig() {
-    return configsDao.getConfig();
+    Config cached = latestConfigCache.getIfPresent(LATEST_CONFIG_KEY);
+    if (cached != null) {
+      log.info("returning cached config");
+      return Single.just(cached);
+    }
+    return configsDao.getConfig()
+        .doOnSuccess(config -> {
+          log.info("caching config");
+          latestConfigCache.put(LATEST_CONFIG_KEY, config);
+        });
   }
 
   @Override
   public Single<Config> createConfig(ConfigData createConfigRequest) {
     return configsDao.createConfig(createConfigRequest)
-        .doOnSuccess(resp ->
-            uploadConfigDetailService
-                .pushInteractionDetailsToObjectStore()
-                .subscribe())
+        .doOnSuccess(resp -> {
+          
+          latestConfigCache.invalidate(LATEST_CONFIG_KEY);
+          uploadConfigDetailService
+              .pushInteractionDetailsToObjectStore()
+              .subscribe();
+        })
         .flatMap(Single::just)
         .doOnError(err -> log.error("error while creating interaction", err));
   }
