@@ -6,11 +6,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.NotNull;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@NotNull
 public class SignalsConfig {
   @JsonProperty("scheduleDurationMs")
   private int scheduleDurationMs;

@@ -7,8 +7,11 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
+import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
+import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
@@ -47,6 +50,14 @@ public class ConfigServiceImpl implements ConfigService {
   @Override
   public Single<AllConfigdetails> getAllConfigDetails() {
     return configsDao.getAllConfigDetails();
+  }
+
+  @Override
+  public Single<RulesAndFeaturesResponse> getRulesandFeatures() {
+    return Single.just(RulesAndFeaturesResponse.builder()
+        .rules(rules.getRules())
+        .features(Features.getFeatures())
+        .build());
   }
 
   @Override

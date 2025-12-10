@@ -1,37 +1,45 @@
 package org.dreamhorizon.pulseserver.resources.configs.models;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingMatchType;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.rules;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class PulseConfig {
+  @NotNull
   @JsonProperty("description")
   private String description;
 
+  @NotNull
   @JsonProperty("filters")
   private FilterConfig filters;
 
+  @NotNull
   @JsonProperty("sampling")
   private SamplingConfig sampling;
 
+  @NotNull
   @JsonProperty("signals")
   private SignalsConfig signals;
 
+  @NotNull
   @JsonProperty("interaction")
   private InteractionConfig interaction;
 
+  @NotNull
   @JsonProperty("features")
   private List<FeatureConfig> features;
 
@@ -40,6 +48,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class FilterConfig {
 
     @JsonProperty("mode")
@@ -56,6 +65,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class EventFilter {
 
     @JsonProperty("name")
@@ -75,6 +85,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class EventPropMatch {
 
     @JsonProperty("name")
@@ -88,6 +99,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class SamplingConfig {
 
     @JsonProperty("default")
@@ -104,6 +116,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class DefaultSampling {
     @JsonProperty("session_sample_rate")
     private double sessionSampleRate;
@@ -113,10 +126,11 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class SamplingRule {
 
     @JsonProperty("name")
-    private String name;
+    private rules name;
 
     @JsonProperty("match")
     private SamplingMatchCondition match;
@@ -129,6 +143,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class SamplingMatchCondition {
 
     @JsonProperty("type")
@@ -145,6 +160,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class CriticalEventPolicies {
 
     @JsonProperty("alwaysSend")
@@ -155,6 +171,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class CriticalEventPolicy {
 
     @JsonProperty("name")
@@ -175,6 +192,7 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class SignalsConfig {
 
     @JsonProperty("scheduleDurationMs")
@@ -199,7 +217,7 @@ public class PulseConfig {
 
     @JsonProperty("configUrl")
     private String configUrl;
-
+    @NotNull
     @JsonProperty("beforeInitQueueSize")
     private int beforeInitQueueSize;
   }
@@ -208,10 +226,11 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
+  @NotNull
   public static class FeatureConfig {
 
     @JsonProperty("featureName")
-    private String featureName;
+    private Features featureName;
 
     @JsonProperty("enabled")
     private boolean enabled;

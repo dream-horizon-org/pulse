@@ -8,11 +8,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import jakarta.validation.constraints.NotNull;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@NotNull
 public class EventFilter {
   @JsonProperty("name")
   private String name;
