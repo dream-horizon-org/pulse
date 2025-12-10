@@ -1,0 +1,207 @@
+.AlertListPageMainContainer {
+  padding: var(--mantine-spacing-md);
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.pageHeader {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.titleSection {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mantine-spacing-sm);
+  padding-left: 12px;
+  position: relative;
+}
+
+.titleSection::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(180deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 2px;
+}
+
+.pageTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.alertCount {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0ba09a;
+  padding: 2px 10px;
+  background: rgba(14, 201, 194, 0.08);
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+}
+
+.controlsSection {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  padding: 12px;
+  border-radius: var(--mantine-radius-md);
+  margin-bottom: 12px;
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.searchBarContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex-grow: 1;
+  min-width: 300px;
+}
+
+.filterButton {
+  border-radius: var(--mantine-radius-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(14, 201, 194, 0.08);
+}
+
+.filterButton:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 8px rgba(14, 201, 194, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.createButton {
+  border-radius: var(--mantine-radius-md);
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(14, 201, 194, 0.08);
+}
+
+.createButton:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 8px rgba(14, 201, 194, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.AlertListItemContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.AlertListItemInnerContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+}
+
+.scrollArea {
+  height: calc(100vh - 250px);
+  padding-right: var(--mantine-spacing-xs);
+}
+
+.scrollArea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollArea::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 3px;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+  background: rgba(14, 201, 194, 0.15);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.scrollArea::-webkit-scrollbar-thumb:hover {
+  background: rgba(14, 201, 194, 0.25);
+}
+
+.EmptyStateAlert {
+  display: flex;
+  justify-content: center !important;
+  align-items: center;
+  height: calc(100vh - 250px);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: var(--mantine-radius-lg);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.06);
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 250px);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: var(--mantine-radius-lg);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.06);
+}
+
+.PaginationContainer {
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
+  align-items: flex-end;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.useCaseIdTitle {
+  flex-grow: 1;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+}
+
+.alertsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  padding: 4px;
+}
+
+@media (min-width: 1400px) {
+  .alertsGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .alertsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .alertsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .alertsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
