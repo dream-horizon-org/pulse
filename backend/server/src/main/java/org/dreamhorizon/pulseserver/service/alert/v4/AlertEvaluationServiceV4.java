@@ -195,7 +195,7 @@ public class AlertEvaluationServiceV4 {
         } else {
           scopeNameFilter.setOperator(QueryRequest.Operator.IN);
         }
-        scopeNameFilter.setValue(scopeNames);
+        scopeNameFilter.setValue(new ArrayList<>(scopeNames));
         filters.add(scopeNameFilter);
       }
     }
