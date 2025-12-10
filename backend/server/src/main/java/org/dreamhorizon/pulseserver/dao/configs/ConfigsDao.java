@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.configs;
 
+import static org.dreamhorizon.pulseserver.dao.configs.Queries.DEACTIVATE_ACTIVE_CONFIG;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_ALL_CONFIG_DETAILS;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_CONFIG_BY_VERSION;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_LATEST_VERSION;
@@ -9,6 +10,7 @@ import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +84,14 @@ public class ConfigsDao {
         });
   }
 
+  private static Single<Long> getLastInsertedId(RowSet<Row> rowSet) {
+    if (rowSet.rowCount() == 0) {
+      return Single.error(new RuntimeException("Failed to insert config"));
+    }
+
+    return Single.just(Long.parseLong(rowSet.property(MySQLClient.LAST_INSERTED_ID).toString()));
+  }
+
   public Single<Config> createConfig(ConfigData createConfig) {
     ConfigDataDao configDataDao = ConfigDataDao.builder()
         .features(createConfig.getFeatures())
@@ -103,12 +113,10 @@ public class ConfigsDao {
         .getWriterPool()
         .rxGetConnection()
         .flatMap(conn -> conn.begin()
-            .flatMap(tx -> conn.preparedQuery(INSERT_CONFIG)
-                .rxExecute(tuple)
-                .flatMap(rows -> {
-                  Long insertedId = rows.property(MySQLClient.LAST_INSERTED_ID);
-                  return Single.just(insertedId);
-                })
+            .flatMap(tx -> conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
+                .rxExecute()
+                .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
+                .flatMap(ConfigsDao::getLastInsertedId)
                 .map(configId -> {
                   PulseConfig pulseConfig = PulseConfig.builder()
                       .description(createConfig.getDescription())
