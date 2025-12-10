@@ -22,6 +22,7 @@ import { CRITICAL_INTERACTION_QUICK_TIME_FILTERS } from "../../constants";
 import { useExceptionListData } from "./components/ExceptionTable/hooks";
 import { useFilterStore } from "../../stores/useFilterStore";
 import dayjs from "dayjs";
+import { useAnalytics } from "../../hooks/useAnalytics";
 
 export const AppVitals: React.FC = () => {
   const {
@@ -32,6 +33,7 @@ export const AppVitals: React.FC = () => {
     handleTimeFilterChange: storeHandleTimeFilterChange,
     setQuickTimeRange,
   } = useFilterStore();
+  const { trackTabSwitch, trackFilter } = useAnalytics("AppVitals");
 
   const [filters, setFilters] = useState<VitalsFiltersType>({
     issueType: ISSUE_TYPES.CRASHES,
@@ -105,18 +107,22 @@ export const AppVitals: React.FC = () => {
   }, []);
 
   const handleIssueTypeChange = (value: string) => {
+    trackTabSwitch(value);
     setFilters((prev) => ({ ...prev, issueType: value as IssueType }));
   };
 
   const handleAppVersionChange = (value: string | null) => {
+    trackFilter("appVersion", value || "all");
     setFilters((prev) => ({ ...prev, appVersion: value || "all" }));
   };
 
   const handleOsVersionChange = (value: string | null) => {
+    trackFilter("osVersion", value || "all");
     setFilters((prev) => ({ ...prev, osVersion: value || "all" }));
   };
 
   const handleDeviceChange = (value: string | null) => {
+    trackFilter("device", value || "all");
     setFilters((prev) => ({ ...prev, device: value || "all" }));
   };
 

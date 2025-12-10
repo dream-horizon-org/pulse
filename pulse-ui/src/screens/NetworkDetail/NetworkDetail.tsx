@@ -316,12 +316,14 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       totalRequests > 0
         ? ((totalRequests - successRequests) / totalRequests) * 100
         : 0;
-
     return {
-      avgRequestTime: Math.round(parseFloat(row[responseTimeIndex]) || 0),
+      avgRequestTime: Math.round(parseFloat(row[responseTimeIndex]) / 1_000_000 || 0),
       totalRequests: Math.round(totalRequests),
       successRate: Math.round(successRate * 10) / 10,
       failureRate: Math.round(failureRate * 10) / 10,
+
+      // p50, p95, p99 are already in milliseconds from backend
+      // (quantileTDigestIf uses Duration / 1e6)
       p50: Math.round(parseFloat(row[p50Index]) || 0),
       p95: Math.round(parseFloat(row[p95Index]) || 0),
       p99: Math.round(parseFloat(row[p99Index]) || 0),
@@ -356,14 +358,13 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     );
   }
 
-  const responseTimeFormatter = (responseTime: number) => {
-    // response time is in nanoseconds, so we need to convert it to milliseconds.
-    const milliseconds = responseTime / 1000000;
-    // if the response time is greater than 1000, then format it as seconds.
-    if (milliseconds > 1000) {
-      return `${(milliseconds / 1000).toFixed(1)}s`;
+  const responseTimeFormatter = (responseTimeMs: number) => {
+    // responseTimeMs is already in milliseconds (converted from nanoseconds earlier)
+    // if the response time is greater than 1000ms, format as seconds
+    if (responseTimeMs > 1000) {
+      return `${(responseTimeMs / 1000).toFixed(1)}s`;
     }
-    return `${milliseconds.toFixed(1)}ms`;
+    return `${responseTimeMs.toFixed(0)}ms`;
   };
 
   return (

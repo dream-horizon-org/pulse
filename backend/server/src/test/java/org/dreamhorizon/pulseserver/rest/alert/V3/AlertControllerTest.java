@@ -40,7 +40,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith({MockitoExtension.class, VertxExtension.class})
+@ExtendWith({ MockitoExtension.class, VertxExtension.class })
 class AlertControllerTest {
 
     @Mock
@@ -48,7 +48,7 @@ class AlertControllerTest {
 
     AlertController alertController;
 
-    final String userEmail = "test@dream11.com";
+    final String userEmail = "test@example.com";
     final String authorization = "Bearer token";
     final Integer alertId = 123;
 
@@ -56,7 +56,6 @@ class AlertControllerTest {
     void setup() {
         alertController = new AlertController(alertService);
     }
-
 
     @Nested
     public class TestSnoozeAlert {
@@ -77,8 +76,8 @@ class AlertControllerTest {
                 ArgumentCaptor<SnoozeAlertRequest> requestCaptor = ArgumentCaptor.forClass(SnoozeAlertRequest.class);
                 when(alertService.snoozeAlert(requestCaptor.capture())).thenReturn(Single.just(serviceResponse));
 
-                CompletionStage<Response<SnoozeAlertRestResponse>> result =
-                        alertController.snoozeAlert(headers, alertId, restRequest).toCompletableFuture();
+                CompletionStage<Response<SnoozeAlertRestResponse>> result = alertController
+                        .snoozeAlert(headers, alertId, restRequest).toCompletableFuture();
 
                 result.whenComplete((resp, err) -> {
                     testContext.verify(() -> {
@@ -98,7 +97,8 @@ class AlertControllerTest {
         }
 
         @Test
-        void shouldThrowExceptionIfRuntimeExceptionIsThrownFromService(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
+        void shouldThrowExceptionIfRuntimeExceptionIsThrownFromService(io.vertx.core.Vertx vertx,
+                VertxTestContext testContext) {
             vertx.runOnContext(v -> {
                 long snoozeFromEpoch = Instant.now().plusSeconds(60).getEpochSecond();
                 long snoozeUntilEpoch = Instant.now().plusSeconds(3600).getEpochSecond();
@@ -106,10 +106,11 @@ class AlertControllerTest {
                 AuthHeaders headers = new AuthHeaders(authorization, userEmail);
 
                 when(alertService.snoozeAlert(any(SnoozeAlertRequest.class)))
-                        .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException("Message", "Message", 400)));
+                        .thenReturn(Single
+                                .error(ServiceError.DATABASE_ERROR.getCustomException("Message", "Message", 400)));
 
-                CompletionStage<Response<SnoozeAlertRestResponse>> result =
-                        alertController.snoozeAlert(headers, alertId, restRequest).toCompletableFuture();
+                CompletionStage<Response<SnoozeAlertRestResponse>> result = alertController
+                        .snoozeAlert(headers, alertId, restRequest).toCompletableFuture();
 
                 result.whenComplete((resp, err) -> {
                     testContext.verify(() -> {
@@ -136,8 +137,8 @@ class AlertControllerTest {
                 when(alertService.snoozeAlert(any(SnoozeAlertRequest.class)))
                         .thenReturn(Single.error(new RuntimeException("Service failure")));
 
-                Exception exception = assertThrows(Exception.class, () ->
-                        alertController.snoozeAlert(headers, alertId, restRequest).toCompletableFuture().get());
+                Exception exception = assertThrows(Exception.class,
+                        () -> alertController.snoozeAlert(headers, alertId, restRequest).toCompletableFuture().get());
 
                 assertEquals("Service failure", exception.getCause().getMessage());
             });
@@ -152,10 +153,11 @@ class AlertControllerTest {
                 ArgumentCaptor<DeleteSnoozeRequest> requestCaptor = ArgumentCaptor.forClass(DeleteSnoozeRequest.class);
                 AuthHeaders headers = new AuthHeaders(authorization, userEmail);
 
+                when(alertService.deleteSnooze(requestCaptor.capture()))
+                        .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
-                when(alertService.deleteSnooze(requestCaptor.capture())).thenReturn(Single.just(EmptyResponse.emptyResponse));
-
-                CompletionStage<Response<GenericSuccessResponse>> result = alertController.deleteSnooze(headers, alertId);
+                CompletionStage<Response<GenericSuccessResponse>> result = alertController.deleteSnooze(headers,
+                        alertId);
 
                 result.whenComplete((resp, err) -> {
                     testContext.verify(() -> {
@@ -175,10 +177,11 @@ class AlertControllerTest {
             vertx.runOnContext(v -> {
                 AuthHeaders headers = new AuthHeaders(authorization, userEmail);
                 when(alertService.deleteSnooze(any(DeleteSnoozeRequest.class)))
-                        .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException("Message", "Message", 400)));
+                        .thenReturn(Single
+                                .error(ServiceError.DATABASE_ERROR.getCustomException("Message", "Message", 400)));
 
-                CompletionStage<Response<GenericSuccessResponse>> result =
-                        alertController.deleteSnooze(headers, alertId).toCompletableFuture();
+                CompletionStage<Response<GenericSuccessResponse>> result = alertController
+                        .deleteSnooze(headers, alertId).toCompletableFuture();
 
                 result.whenComplete((resp, err) -> {
                     testContext.verify(() -> {
