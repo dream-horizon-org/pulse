@@ -9,6 +9,7 @@ import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
+import { mockNotificationChannels, mockAlertSeverities } from "./responses/alertResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -1030,6 +1031,76 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
+    // GET /v1/alert/scopes - Returns all supported alert scopes
+    if (pathname.includes("/alert/scopes") && method === "GET") {
+      return {
+        data: {
+          scopes: [
+            { id: "interaction", label: "Interactions" },
+            { id: "network_api", label: "Network APIs" },
+            { id: "app_vitals", label: "App Vitals" },
+            { id: "screen", label: "Screen" },
+          ],
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/alert/severity - Returns severity levels
+    // @see backend AlertSeverityResponseDto.java (name is Integer, not String)
+    if (pathname.includes("/alert/severity") && method === "GET") {
+      return {
+        data: mockAlertSeverities,
+        status: 200,
+      };
+    }
+
+    // GET /v1/alert/metrics?scope={scopeId} - Returns metrics for a scope
+    if (pathname.includes("/alert/metrics") && method === "GET") {
+      const url = new URL(request.url, "http://localhost");
+      const scope = url.searchParams.get("scope") || "interaction";
+      
+      const metricsMap: Record<string, string[]> = {
+        interaction: [
+          "INTERACTION_SUCCESS_COUNT", "INTERACTION_ERROR_COUNT",
+          "INTERACTION_ERROR_DISTINCT_USERS", "INTERACTION_CATEGORY_POOR",
+          "INTERACTION_CATEGORY_AVERAGE", "INTERACTION_CATEGORY_GOOD",
+          "INTERACTION_CATEGORY_EXCELLENT", "INTERACTION_TIME_P99",
+        ],
+        network_api: [
+          "API_RESPONSE_TIME_P50", "API_RESPONSE_TIME_P95", "API_RESPONSE_TIME_P99",
+          "API_ERROR_RATE", "API_SUCCESS_RATE", "API_TIMEOUT_COUNT",
+          "API_4XX_COUNT", "API_5XX_COUNT",
+        ],
+        app_vitals: [
+          "CRASH_RATE", "ANR_RATE", "CRASH_FREE_USERS",
+          "APP_START_TIME_COLD", "APP_START_TIME_WARM",
+          "MEMORY_USAGE_AVG", "BATTERY_DRAIN_RATE",
+        ],
+        screen: [
+          "SCREEN_LOAD_TIME_P50", "SCREEN_LOAD_TIME_P95", "SCREEN_LOAD_TIME_P99",
+          "SCREEN_RENDER_TIME", "SCREEN_TTI", "SCREEN_FPS_AVG", "SCREEN_FROZEN_FRAMES",
+        ],
+      };
+
+      return {
+        data: {
+          scope,
+          metrics: metricsMap[scope] || [],
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/alert/notificationChannels - Returns notification channels
+    // @see backend AlertNotificationChannelResponseDto.java
+    if (pathname.includes("/alert/notificationChannels") && method === "GET") {
+      return {
+        data: mockNotificationChannels,
+        status: 200,
+      };
+    }
+
     if (pathname.includes("/alert/filters") && method === "GET") {
       return {
         data: {

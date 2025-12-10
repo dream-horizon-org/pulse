@@ -1,9 +1,10 @@
+/**
+ * Matches backend: AlertNotificationChannelResponseDto.java
+ */
 export type AlertNotificationChannelItem = {
-  id: number;
+  notification_channel_id: number;
   name: string;
-  webhook_url: string;
+  notification_webhook_url: string;
 };
 
 export type GetAlertNotificationChannelsResponse = AlertNotificationChannelItem[];
-
-

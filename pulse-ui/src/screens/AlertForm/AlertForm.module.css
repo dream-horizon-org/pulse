@@ -17,6 +17,7 @@
   flex-grow: 1;
   overflow: hidden;
   display: flex;
+  padding: var(--mantine-spacing-md);
 }
 
 .StepperContainer {
@@ -87,14 +88,15 @@
   border-radius: var(--mantine-radius-md);
   border: 1px solid rgba(14, 201, 194, 0.12);
   margin-bottom: var(--mantine-spacing-md);
+  width: 100%;
 }
 
 .formSectionTitle {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 600 !important;
   color: var(--mantine-color-dark-7);
-  margin-bottom: var(--mantine-spacing-md);
-  padding-bottom: var(--mantine-spacing-sm);
+  /* margin-bottom: var(--mantine-spacing-md) !important; */
+  /* padding-bottom: var(--mantine-spacing-sm) !important; */
   border-bottom: 1px solid rgba(14, 201, 194, 0.12);
 }
 

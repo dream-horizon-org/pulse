@@ -337,11 +337,14 @@ export const AlertForm = ({
     return ["value"];
   };
 
+  // Map severity level (number) to display label
+  const severityLevelLabels: Record<number, string> = { 1: "Critical", 2: "Warning", 3: "Info" };
+  
   const getSeverityOptions = () => {
     if (severitiesData?.data?.severity) {
       return severitiesData.data.severity.map((s) => ({
         value: s.severity_id.toString(),
-        label: `${s.name} - ${s.description}`,
+        label: `${severityLevelLabels[s.name] || `Level ${s.name}`} - ${s.description}`,
       }));
     }
     return [];
@@ -350,7 +353,7 @@ export const AlertForm = ({
   const getChannelOptions = () => {
     if (channelsData?.data) {
       return channelsData.data.map((c) => ({
-        value: c.id.toString(),
+        value: c.notification_channel_id.toString(),
         label: c.name,
       }));
     }
@@ -731,8 +734,8 @@ export const AlertForm = ({
                     background: "rgba(14, 201, 194, 0.02)",
                     overflow: "auto",
                   },
-                  stepBody: { flexGrow: 1, width: "100%" },
-                  step: { paddingRight: "15%" },
+                  stepBody: { flexGrow: 1, width: "100%", alignContent: "center", justifyContent: "center" },
+                  step: { paddingRight: "15%", width: "350px", padding: "var(--mantine-spacing-md)" },
                   stepIcon: { borderColor: "#0ec9c2" },
                 }}
               >

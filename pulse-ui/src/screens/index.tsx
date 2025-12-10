@@ -1,5 +1,5 @@
 export * from "./Home";
 export * from "./UserEngagement";
 export * from "./AlertListingPage";
-export * from "./AlertForm";
+export * from "./AlertFormWizard";
 export * from "./AlertDetail";

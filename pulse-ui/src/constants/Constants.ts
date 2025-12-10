@@ -42,7 +42,7 @@ import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
 import { AlertListingPage } from "../screens/AlertListingPage";
-import { AlertForm } from "../screens/AlertForm";
+import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 
