@@ -348,15 +348,15 @@ public class AlertsDao {
         });
   }
 
-  public Single<Boolean> deleteAlert(@NotNull Integer alert_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT).rxExecute(Tuple.of(alert_id))
+  public Single<Boolean> deleteAlert(@NotNull Integer alertId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT).rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
-          log.error("Error while deleting alert from db for alert id {}: {}", alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          log.error("Error while deleting alert from db for alert id {}: {}", alertId, error.getMessage());
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> {
-          log.info("Alert deleted from database with id: {}", alert_id);
+          log.info("Alert deleted from database with id: {}", alertId);
           return rowSet.rowCount() > 0;
         });
   }

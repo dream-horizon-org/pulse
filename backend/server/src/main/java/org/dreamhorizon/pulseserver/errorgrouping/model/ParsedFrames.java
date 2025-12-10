@@ -21,9 +21,9 @@ public class ParsedFrames {
   @Builder.Default
   private List<JavaFrame> javaFrames = new ArrayList<>();
   @Builder.Default
-  private List<JSFrame> jsFrames = new ArrayList<>();
+  private List<JsFrame> jsFrames = new ArrayList<>();
   @Builder.Default
-  private List<NDKFrame> ndkFrames = new ArrayList<>();
+  private List<NdkFrame> ndkFrames = new ArrayList<>();
   // Flag to indicate if this is a React Native JavaScript exception
   @Builder.Default
   private boolean isReactNativeJsException = false;

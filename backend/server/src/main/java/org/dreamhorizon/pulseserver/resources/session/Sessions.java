@@ -18,7 +18,7 @@ import org.dreamhorizon.pulseserver.service.session.SessionService;
 @Slf4j
 @Path("/api/v1")
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class sessions {
+public class Sessions {
   private final SessionService sessionService;
 
   @POST

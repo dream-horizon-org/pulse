@@ -29,7 +29,7 @@ class HttpUrlInstrumentation : AndroidInstrumentation {
      *
      * @param capturedRequestHeaders A list of HTTP header names.
      */
-    var capturedRequestHeaders: MutableList<String> = mutableListOf()
+    var capturedRequestHeaders: List<String> = emptyList()
         set(requestHeaders) {
             field = requestHeaders.toMutableList()
         }
@@ -44,7 +44,7 @@ class HttpUrlInstrumentation : AndroidInstrumentation {
      *
      * @param capturedResponseHeaders A list of HTTP header names.
      */
-    var capturedResponseHeaders: MutableList<String> = mutableListOf()
+    var capturedResponseHeaders: List<String> = emptyList()
         set(responseHeaders) {
             field = responseHeaders.toMutableList()
         }
@@ -64,13 +64,13 @@ class HttpUrlInstrumentation : AndroidInstrumentation {
      *
      * @param knownMethods A set of recognized HTTP request methods.
      */
-    var knownMethods: MutableSet<String> = HttpConstants.KNOWN_METHODS
+    var knownMethods: Set<String> = HttpConstants.KNOWN_METHODS
         set(knownMethods) {
             field = knownMethods.toMutableSet()
         }
 
-    private var peerServiceMapping: MutableMap<String, String> = mutableMapOf()
-    private var emitExperimentalHttpClientMetrics = false
+    private var peerServiceMapping: Map<String, String> = emptyMap()
+    private var shouldEmitExperimentalHttpClientMetrics = false
 
     /**
      * The interval duration in milli seconds that the runnable from
@@ -103,10 +103,10 @@ class HttpUrlInstrumentation : AndroidInstrumentation {
      * [the experimental HTTP client metrics](https://github.com/open-telemetry/opentelemetry-specification/blob/4f23dce407b6fcaba34a049df7c3d41cdd58cb77/specification/metrics/semantic_conventions/http-metrics.md#http-client).
      */
     fun setEmitExperimentalHttpClientMetrics(emitExperimentalHttpClientMetrics: Boolean) {
-        this.emitExperimentalHttpClientMetrics = emitExperimentalHttpClientMetrics
+        this.shouldEmitExperimentalHttpClientMetrics = emitExperimentalHttpClientMetrics
     }
 
-    fun emitExperimentalHttpClientMetrics(): Boolean = emitExperimentalHttpClientMetrics
+    fun emitExperimentalHttpClientMetrics(): Boolean = shouldEmitExperimentalHttpClientMetrics
 
     override fun install(ctx: InstallationContext) {
         HttpUrlConnectionSingletons.configure(this, ctx.openTelemetry)

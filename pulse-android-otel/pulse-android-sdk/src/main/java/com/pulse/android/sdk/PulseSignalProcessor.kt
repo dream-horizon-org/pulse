@@ -1,5 +1,6 @@
 package com.pulse.android.sdk
 
+import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import io.opentelemetry.android.common.RumConstants
@@ -9,11 +10,12 @@ import io.opentelemetry.sdk.logs.LogRecordProcessor
 import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
-import io.opentelemetry.sdk.trace.SpanProcessor
+import io.opentelemetry.sdk.trace.internal.ExtendedSpanProcessor
+import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 
 internal class PulseSignalProcessor {
-    private var recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
+    private val recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
 
     internal inner class PulseLogTypeAttributesAppender : LogRecordProcessor {
         @Suppress("CyclomaticComplexMethod")
@@ -36,7 +38,9 @@ internal class PulseSignalProcessor {
                             val threshold =
                                 logRecord.attributes.get(AttributeKey.doubleKey("app.jank.threshold"))
                             when (threshold) {
-                                null -> null
+                                null -> {
+                                    null
+                                }
                                 FROZEN_THRESHOLD_MICRO -> {
                                     PulseAttributes.PulseTypeValues.FROZEN
                                 }
@@ -45,12 +49,18 @@ internal class PulseSignalProcessor {
                                     PulseAttributes.PulseTypeValues.SLOW
                                 }
 
-                                else -> null
+                                else -> {
+                                    null
+                                }
                             }
                         }
 
-                        "app.screen.click", "app.widget.click", "event.app.widget.click" -> PulseAttributes.PulseTypeValues.TOUCH
-                        "network.change" -> PulseAttributes.PulseTypeValues.NETWORK_CHANGE
+                        "app.screen.click", "app.widget.click", "event.app.widget.click" -> {
+                            PulseAttributes.PulseTypeValues.TOUCH
+                        }
+                        "network.change" -> {
+                            PulseAttributes.PulseTypeValues.NETWORK_CHANGE
+                        }
                         "session.end" -> {
                             logRecord.setAllAttributes(
                                 PulseSessionAttributes.createSessionEndAttributes(
@@ -61,7 +71,9 @@ internal class PulseSignalProcessor {
                             null
                         }
 
-                        else -> null
+                        else -> {
+                            null
+                        }
                     }
                 type?.let {
                     logRecord.setAttribute(PulseAttributes.PULSE_TYPE, it)
@@ -75,7 +87,7 @@ internal class PulseSignalProcessor {
         }
     }
 
-    internal inner class PulseSpanTypeAttributesAppender : SpanProcessor {
+    internal class PulseSpanTypeAttributesAppender : ExtendedSpanProcessor {
         override fun onStart(
             parentContext: Context,
             span: ReadWriteSpan,
@@ -114,6 +126,22 @@ internal class PulseSignalProcessor {
         }
 
         override fun isEndRequired(): Boolean = false
+
+        override fun onEnding(span: ReadWriteSpan) {
+            if (PulseOtelUtils.isNetworkSpan(span)) {
+                // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
+                //  use the new not deprecated attributes
+                @Suppress("DEPRECATION")
+                val httpUrlKey: AttributeKey<String> = HttpIncubatingAttributes.HTTP_URL
+                val originalUrl = span.attributes.get(httpUrlKey)
+
+                originalUrl?.let {
+                    span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
+                }
+            }
+        }
+
+        override fun isOnEndingRequired(): Boolean = true
     }
 
     companion object {

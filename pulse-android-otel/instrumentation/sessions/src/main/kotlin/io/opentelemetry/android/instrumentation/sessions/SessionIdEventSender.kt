@@ -37,7 +37,7 @@ internal class SessionIdEventSender(
     }
 
     override fun onSessionEnded(session: Session) {
-        if (session.getId().isEmpty()) {
+        if (session.getId().isBlank()) {
             return
         }
         eventLogger

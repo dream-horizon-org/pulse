@@ -49,7 +49,7 @@ class SdkInitializationEventsTest {
                 .setLoggerProvider(loggerProvider)
                 .build()
         every { processor.onEmit(any(), any()) }.answers {
-            seen.add(it.invocation.args[1] as ReadWriteLogRecord)
+            seen.add(it.invocation.args[1] as? ReadWriteLogRecord ?: error("Not of type ReadWriteLogRecord"))
         }
         every { exporter.toString() }.returns("com.cool.Exporter")
 
@@ -88,7 +88,7 @@ class SdkInitializationEventsTest {
         private val timeNs: Long,
     ) : Consumer<ReadWriteLogRecord> {
         private lateinit var name: String
-        private var body: Value<*>? = null
+        private val body: Value<*>? = null
         private var attrs: Attributes? = null
 
         override fun accept(log: ReadWriteLogRecord) {
@@ -100,9 +100,7 @@ class SdkInitializationEventsTest {
             } else {
                 assertThat(logData.bodyValue).isNotNull()
             }
-            if (attrs != null) {
-                assertThat(logData.attributes).isEqualTo(attrs)
-            }
+            attrs?.let { assertThat(logData.attributes).isEqualTo(it) }
         }
 
         fun named(name: String): EventAssert {

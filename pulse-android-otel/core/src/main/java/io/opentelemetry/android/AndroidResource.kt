@@ -31,15 +31,13 @@ object AndroidResource {
             Resource.getDefault().toBuilder().put(SERVICE_NAME, appName)
         val appVersion = readAppVersion(application)
         val appVersionCode = readAppVersionCode(application)
-        val buildName = "${appVersion}_$appVersionCode"
-        appVersion?.let { resourceBuilder.put(SERVICE_VERSION, buildName) }
-        appVersion?.let { resourceBuilder.put(RumConstants.App.BUILD_NAME, buildName) }
-        appVersion?.let {
-            resourceBuilder.put(
-                RumConstants.App.BUILD_ID,
-                appVersionCode.toString(),
-            )
-        }
+        val buildName = "${appVersion.orEmpty()}_${appVersionCode?.toString().orEmpty()}"
+        resourceBuilder.put(SERVICE_VERSION, buildName)
+        resourceBuilder.put(RumConstants.App.BUILD_NAME, buildName)
+        resourceBuilder.put(
+            RumConstants.App.BUILD_ID,
+            appVersionCode?.toString().orEmpty(),
+        )
 
         return resourceBuilder
             .put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION)

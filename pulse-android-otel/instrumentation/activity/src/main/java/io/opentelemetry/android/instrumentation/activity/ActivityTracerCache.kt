@@ -81,7 +81,7 @@ class ActivityTracerCache
         private fun getTracer(activity: Activity): ActivityTracer =
             tracersByActivityClassName.getOrPut(activity.javaClass.name) {
                 val activityTracer = tracerFactory(activity)
-                tracersByActivityClassName.put(activity.javaClass.name, activityTracer)
+                tracersByActivityClassName[activity.javaClass.name] = activityTracer
                 activityTracer
             }
     }

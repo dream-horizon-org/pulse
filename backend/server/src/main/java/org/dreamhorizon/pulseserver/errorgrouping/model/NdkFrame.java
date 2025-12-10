@@ -8,14 +8,14 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class NDKFrame extends Frame {
+public class NdkFrame extends Frame {
   // NDK
   private String ndkLib;
   private String ndkPc;
   private String ndkSymbol;
 
   @Builder
-  public NDKFrame(String ndkLib,
+  public NdkFrame(String ndkLib,
                   String ndkPc,
                   String ndkSymbol,
                   String rawLine,

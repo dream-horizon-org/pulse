@@ -18,8 +18,8 @@ import java.time.Duration
  */
 @AutoService(AndroidInstrumentation::class)
 class SlowRenderingInstrumentation : AndroidInstrumentation {
-    internal var useDeprecatedSpan: Boolean = false
-    internal var debugVerbose: Boolean = false
+    internal var shouldUseDeprecatedSpan: Boolean = false
+    internal var isDebugVerbose: Boolean = false
     internal var slowRenderingDetectionPollInterval: Duration = Duration.ofSeconds(1)
 
     @Volatile
@@ -35,11 +35,9 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
         if (interval.toMillis() <= 0) {
             Log.e(
                 RumConstants.OTEL_RUM_LOG_TAG,
-                (
-                    "Invalid slowRenderingDetectionPollInterval: " +
-                        interval +
-                        "; must be positive"
-                ),
+                "Invalid slowRenderingDetectionPollInterval: " +
+                    interval +
+                    "; must be positive",
             )
             return this
         }
@@ -51,7 +49,7 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
      * Call this to enable verbose debug logging when slow renders are detected.
      */
     fun enableVerboseDebugLogging(): SlowRenderingInstrumentation {
-        debugVerbose = true
+        isDebugVerbose = true
         return this
     }
 
@@ -60,7 +58,7 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
      */
     @Deprecated("Use the default event to report jank")
     fun enableDeprecatedZeroDurationSpan(): SlowRenderingInstrumentation {
-        useDeprecatedSpan = true
+        shouldUseDeprecatedSpan = true
         return this
     }
 
@@ -81,10 +79,18 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
         }
 
         val logger = ctx.openTelemetry.logsBridge.get("app.jank")
-        var jankReporter: JankReporter = EventJankReporter(logger, SLOW_THRESHOLD_MS / 1000.0, debugVerbose)
-        jankReporter = jankReporter.combine(EventJankReporter(logger, FROZEN_THRESHOLD_MS / 1000.0, debugVerbose))
+        var jankReporter: JankReporter =
+            EventJankReporter(logger, SLOW_THRESHOLD_MS / 1000.0, isDebugVerbose)
+        jankReporter =
+            jankReporter.combine(
+                EventJankReporter(
+                    logger,
+                    FROZEN_THRESHOLD_MS / 1000.0,
+                    isDebugVerbose,
+                ),
+            )
 
-        if (useDeprecatedSpan) {
+        if (shouldUseDeprecatedSpan) {
             val tracer = ctx.openTelemetry.getTracer("io.opentelemetry.slow-rendering")
             jankReporter = jankReporter.combine(SpanBasedJankReporter(tracer))
         }
@@ -92,7 +98,7 @@ class SlowRenderingInstrumentation : AndroidInstrumentation {
         detector = SlowRenderListener(jankReporter, slowRenderingDetectionPollInterval)
 
         ctx.application.registerActivityLifecycleCallbacks(detector)
-        detector!!.start()
+        (detector ?: error("detector should not be null")).start()
     }
 
     override fun uninstall(ctx: InstallationContext) {
