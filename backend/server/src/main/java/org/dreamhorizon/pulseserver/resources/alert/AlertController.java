@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v4/alert")
+@Path("/v1/alert")
 public class AlertController {
   private static final AlertMapper mapper = AlertMapper.INSTANCE;
   final AlertService alertsService;

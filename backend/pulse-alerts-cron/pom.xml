@@ -14,7 +14,7 @@
         <main.class>org.dreamhorizon.pulsealertscron.MainApplication</main.class>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <app.release.artifact>/target/pulse-alerts-cron</app.release.artifact>
-        <google.guava.version>25.1-jre</google.guava.version>
+        <google.guava.version>33.0.0-jre</google.guava.version>
         <vertx.version>4.5.10</vertx.version>
         <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
@@ -31,6 +31,31 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${google.guava.version}</version>
+        </dependency>
+
+        <!-- Netty dependencies - explicit versions to fix security vulnerabilities -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec</artifactId>
+            <version>4.1.125.Final</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http</artifactId>
+            <version>4.1.125.Final</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http2</artifactId>
+            <version>4.1.125.Final</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+            <version>4.1.125.Final</version>
         </dependency>
 
         <dependency>
