@@ -1,13 +1,16 @@
 package org.dreamhorizon.pulseserver.service.configs.impl;
 
-import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
@@ -23,17 +26,34 @@ import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 
 @Slf4j
-@RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ConfigServiceImpl implements ConfigService {
 
   private static final String LATEST_CONFIG_KEY = "latest-config";
 
   private final ConfigsDao configsDao;
   private final UploadConfigDetailService uploadConfigDetailService;
-  private final Cache<String, Config> latestConfigCache = Caffeine.newBuilder()
-      .maximumSize(1)
-      .expireAfterWrite(Duration.ofHours(1))
-      .build();
+  private final AsyncLoadingCache<String, Config> latestConfigCache;
+
+  @Inject
+  public ConfigServiceImpl(Vertx vertx, ConfigsDao configsDao, UploadConfigDetailService uploadConfigDetailService) {
+    this.configsDao = configsDao;
+    this.uploadConfigDetailService = uploadConfigDetailService;
+
+    Context ctx = vertx.getOrCreateContext();
+    Objects.requireNonNull(ctx, "ConfigServiceImpl must be created on a Vert.x context thread");
+
+    this.latestConfigCache = Caffeine.newBuilder()
+        .maximumSize(1)
+        .executor(cmd -> ctx.runOnContext(v -> cmd.run()))
+        .expireAfterWrite(Duration.ofHours(1))
+        .recordStats()
+        .buildAsync((String key, java.util.concurrent.Executor executor) -> {
+          log.info("Loading config into cache for key: {}", key);
+          return configsDao.getConfig()
+              .toCompletionStage()
+              .toCompletableFuture();
+        });
+  }
 
   @Override
   public Single<Config> getConfig(long version) {
@@ -42,29 +62,29 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<Config> getActiveConfig() {
-    Config cached = latestConfigCache.getIfPresent(LATEST_CONFIG_KEY);
-    if (cached != null) {
-      log.info("returning cached config");
-      return Single.just(cached);
-    }
-    return configsDao.getConfig()
-        .doOnSuccess(config -> {
-          log.info("caching config");
-          latestConfigCache.put(LATEST_CONFIG_KEY, config);
-        });
+    CompletableFuture<Config> fut = latestConfigCache.get(LATEST_CONFIG_KEY);
+    return Single.create(emitter -> {
+      fut.whenComplete((result, throwable) -> {
+        if (throwable != null) {
+          log.error("Error fetching config from cache", throwable);
+          emitter.onError(throwable);
+        } else {
+          log.debug("Returning config from cache");
+          emitter.onSuccess(result);
+        }
+      });
+    });
   }
 
   @Override
   public Single<Config> createConfig(ConfigData createConfigRequest) {
     return configsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
-          
-          latestConfigCache.invalidate(LATEST_CONFIG_KEY);
+          latestConfigCache.synchronous().invalidate(LATEST_CONFIG_KEY);
           uploadConfigDetailService
               .pushInteractionDetailsToObjectStore()
               .subscribe();
         })
-        .flatMap(Single::just)
         .doOnError(err -> log.error("error while creating interaction", err));
   }
 
