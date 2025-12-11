@@ -94,32 +94,6 @@ async function uploadFiles(commandName, options) {
     );
   }
 
-  if (responseData.data === false) {
-    const errorMsg = responseData.error || 'Backend processing failed';
-
-    if (options.debug) {
-      console.error('\n✗ Upload failed: Backend returned data: false');
-      console.error(`   Error: ${errorMsg}`);
-      console.error('');
-      console.error('   Possible causes:');
-      console.error(
-        '   - Database schema issue (framework enum may not include your file type)'
-      );
-      console.error('   - Database connection or constraint error');
-      console.error('');
-      console.error('   Debug Info:');
-      console.error(
-        `   - Files: ${files.length} (${files.map((f) => f.fileName).join(', ')})`
-      );
-      console.error(`   - Metadata: ${JSON.stringify(metadata, null, 2)}`);
-      console.error(
-        '   - Check backend logs: docker logs <backend-container> | grep -i error'
-      );
-    }
-
-    throw new Error(`Upload failed: Backend returned data: false. ${errorMsg}`);
-  }
-
   console.log('\n✓ Files uploaded successfully');
 }
 

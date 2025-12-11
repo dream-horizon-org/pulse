@@ -26,7 +26,7 @@ uploadCommand
   .description('Upload React Native Android files')
   .requiredOption(
     '-u, --api-url <url>',
-    'Backend API URL for uploading source maps and related build artifacts.'
+    'URL for uploading source maps and related build artifacts.'
   )
   .requiredOption(
     '-v, --app-version <version>',
@@ -55,7 +55,7 @@ uploadCommand
   .description('Upload React Native iOS source maps')
   .requiredOption(
     '-u, --api-url <url>',
-    'Backend API URL for uploading source maps and related build artifacts.'
+    'URL for uploading source maps and related build artifacts.'
   )
   .requiredOption(
     '-v, --bundle-version <version>',
