@@ -1,9 +1,11 @@
 .pageContainer {
   padding: var(--mantine-spacing-md);
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .pageHeader {
@@ -57,6 +59,10 @@
     0 8px 20px rgba(14, 201, 194, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(14, 201, 194, 0.12);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .searchBarContainer {
@@ -64,11 +70,16 @@
   align-items: center;
   gap: var(--mantine-spacing-sm);
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .searchInput {
   flex-grow: 1;
-  min-width: 300px;
+  min-width: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .filterButton {
@@ -102,10 +113,13 @@
   margin-top: var(--mantine-spacing-sm);
   display: grid;
   height: 100%;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(520px, 100%), 1fr));
   width: 100%;
+  max-width: 100%;
   gap: var(--mantine-spacing-md);
   perspective: 1000px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 @media (min-width: 1400px) {
@@ -123,12 +137,75 @@
 @media (max-width: 900px) {
   .criticalInteractionsTableContainer {
     grid-template-columns: repeat(2, 1fr);
+    gap: var(--mantine-spacing-sm);
+  }
+}
+
+@media (max-width: 520px) {
+  .criticalInteractionsTableContainer {
+    grid-template-columns: 1fr;
+    gap: var(--mantine-spacing-sm);
+  }
+  
+  .interactionCard {
+    min-width: 0;
+  }
+  
+  .searchInput {
+    min-width: 0;
+    flex: 1 1 100%;
   }
 }
 
 @media (max-width: 600px) {
-  .criticalInteractionsTableContainer {
-    grid-template-columns: 1fr;
+  .searchInput {
+    min-width: 100%;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+  
+  .controlsSection {
+    padding: 8px;
+  }
+  
+  .pageContainer {
+    padding: var(--mantine-spacing-sm);
+  }
+  
+  .titleSection {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--mantine-spacing-xs);
+  }
+  
+  .pageTitle {
+    font-size: 18px;
+  }
+  
+  .interactionCount {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+  
+  .searchBarContainer {
+    gap: var(--mantine-spacing-xs);
+  }
+  
+  .filterButton,
+  .createButton {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 400px) {
+  .searchInput {
+    font-size: 14px;
+  }
+  
+  .filterButton,
+  .createButton {
+    font-size: 12px;
+    padding: 6px 10px;
   }
 }
 
