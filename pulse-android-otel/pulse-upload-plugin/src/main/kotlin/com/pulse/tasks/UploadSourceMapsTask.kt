@@ -64,7 +64,7 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         logger.debug("   Platform: $platform, Type: $type")
 
         try {
-            val success = uploadFile(
+            uploadFile(
                 apiUrl = apiUrlValue,
                 file = mappingFileObj,
                 appVersion = appVersionValue,
@@ -73,14 +73,7 @@ abstract class UploadSourceMapsTask : DefaultTask() {
                 type = type,
                 fileName = fileName
             )
-
-            if (success) {
-                logger.info("✓ Upload successful")
-            } else {
-                logger.error("✗ Upload failed: Backend returned data: false")
-                logger.debug("   Check backend logs for details")
-                throw GradleException("Upload failed: Backend processing failed (response: data=false)")
-            }
+            logger.info("✓ Upload successful")
         } catch (e: IllegalArgumentException) {
             logger.error("✗ Validation error: ${e.message}")
             throw GradleException("Validation error: ${e.message}", e)
@@ -129,6 +122,10 @@ abstract class UploadSourceMapsTask : DefaultTask() {
             throw GradleException("Path is not a file: ${file.absolutePath}")
         }
 
+        if (file.length() == 0L) {
+            throw GradleException("Mapping file is empty: ${file.absolutePath}")
+        }
+
         return file
     }
 
@@ -151,17 +148,13 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         platform: String,
         type: String,
         fileName: String
-    ): Boolean {
+    ) {
         val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
         
-        val connection = try {
-            URL(apiUrl).openConnection() as HttpURLConnection
-        } catch (e: java.net.MalformedURLException) {
-            throw GradleException("Invalid API URL format: $apiUrl. URL must include protocol (http:// or https://)", e)
-        }
+        val connection = URL(apiUrl).openConnection() as HttpURLConnection
 
-        return try {
+        try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
             connection.doOutput = true
@@ -228,20 +221,16 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         }
     }
 
-    private fun validateResponse(responseCode: Int, response: String): Boolean {
+    private fun validateResponse(responseCode: Int, response: String) {
         if (responseCode !in 200..299) {
             logger.error("   HTTP Status: $responseCode")
             logger.debug("   Response: $response")
             throw GradleException("Upload failed with HTTP $responseCode")
         }
         
-        val success = response.contains("\"data\":true")
         logger.debug("\n📥 Backend Response:")
         logger.debug("   Status: $responseCode")
         logger.debug("   Response: $response")
-        logger.debug("   Success: $success")
-
-        return success
     }
 
     private fun buildMetadata(

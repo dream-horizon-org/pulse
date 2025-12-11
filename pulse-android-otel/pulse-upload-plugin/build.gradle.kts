@@ -3,20 +3,20 @@ plugins {
 }
 
 group = "com.pulse"
-version = "1.0.0"
+version = "0.0.1"
 
 gradlePlugin {
     plugins {
-        create("pulseUploadSourceMaps") {
-            id = "pulse.upload-sourcemaps"
+        create("pulsePlugin") {
+            id = "pulse.plugin"
             implementationClass = "com.pulse.plugins.PulsePlugin"
-            displayName = "Pulse Source Maps Upload Plugin"
-            description = "Upload ProGuard/R8 mapping files to Pulse backend"
+            displayName = "Pulse Gradle Plugin"
+            description = "Pulse Gradle plugin for uploading build artifacts"
         }
     }
 }
 
 dependencies {
-    implementation("com.android.tools.build:gradle:8.7.3")
-    implementation("com.google.code.gson:gson:2.13.2")
+    implementation(libs.android.plugin)
+    implementation(libs.gson)
 }
