@@ -2,6 +2,7 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import PulseReactNativeOtel
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -20,6 +21,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    
+    PulseSDK.initialize(endpointBaseUrl: "http://127.0.0.1:4318")
 
     window = UIWindow(frame: UIScreen.main.bounds)
 

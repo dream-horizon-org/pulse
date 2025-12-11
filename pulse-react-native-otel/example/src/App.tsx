@@ -9,7 +9,7 @@ import EventExample from './examples/EventExample';
 import ErrorHandlerExample from './examples/ErrorHandlerExample';
 import NetworkInterceptorExample from './examples/NetworkInterceptorExample';
 import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
-import AndroidFeaturesExample from './examples/AndroidFeaturesExample';
+import NativeFeaturesExample from './examples/NativeFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
 
 Pulse.start();
@@ -73,11 +73,11 @@ const DEMO_CONFIGS: DemoConfig[] = [
     component: ErrorBoundaryExample,
   },
   {
-    id: 'androidFeatures',
-    label: '🤖 Android Features',
-    title: 'Android Features Testing',
+    id: 'nativeFeatures',
+    label: '🤖 Native Features',
+    title: 'Native Features Testing',
     color: '#795548',
-    component: AndroidFeaturesExample,
+    component: NativeFeaturesExample,
   },
   {
     id: 'interaction',

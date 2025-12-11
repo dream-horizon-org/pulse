@@ -21,7 +21,7 @@
 - **Network Monitoring** - Auto-instrument HTTP requests (fetch and XMLHttpRequest) with zero code changes
 - **Navigation Tracking** - Automatic screen transition monitoring with React Navigation integration
 - **Event Tracking** - Log custom business events and user actions with structured metadata
-- **OpenTelemetry Native** - Built on OpenTelemetry Android SDK. Automatically captures ANR, frozen frames, lifecycle events, and more
+- **OpenTelemetry Native** - Built on Pulse Android SDK and Pulse iOS SDK. Automatically captures ANR, frozen frames, lifecycle events, and more
 - **Architecture Support** - Supports both React Native Old Architecture and New Architecture out of the box
 
 ---

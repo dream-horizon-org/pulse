@@ -14,5 +14,5 @@ export function isInitialized(): boolean {
 }
 
 export function isSupportedPlatform(): boolean {
-  return Platform.OS === 'android';
+  return Platform.OS === 'android' || Platform.OS === 'ios';
 }
