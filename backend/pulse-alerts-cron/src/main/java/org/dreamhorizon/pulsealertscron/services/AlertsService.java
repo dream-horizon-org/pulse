@@ -21,7 +21,7 @@ public class AlertsService {
   final WebClient webClient;
   final ApplicationConfig applicationConfig;
   final ObjectMapper objectMapper;
-  private static final String ALERT_EVALUATION_PATH = "/v1/alert/v4/evaluateAndTriggerAlert?alertId=";
+  private static final String ALERT_EVALUATION_PATH = "/v1/alert/evaluateAndTriggerAlert?alertId=";
   private static final String HEADER_APPLICATION_JSON = "application/json";
 
   public Single<List<Alert>> getAlerts() {

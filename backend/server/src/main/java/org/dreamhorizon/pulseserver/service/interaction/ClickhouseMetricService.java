@@ -114,6 +114,9 @@ public class ClickhouseMetricService implements PerformanceMetricService {
                   DateTimeUtils.toSeconds(selectItem.getParam().get("bucket")),
                   DateTimeUtils.toSeconds(selectItem.getParam().get("bucket"))),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.TIME_BUCKET.getDisplayName()));
+          case ARR_TO_STR ->
+              String.format("%s as %s", String.format(Functions.ARR_TO_STR.getChSelectClause(), selectItem.getParam().get("field")),
+                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.ARR_TO_STR.getDisplayName()));
         };
         clauses.add(clause);
       }
@@ -128,9 +131,9 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       case EXCEPTIONS -> "stack_trace_events";
     };
 
-    // Where Clause
-    String timeFilter = String.format("Timestamp >= toStartOfMinute(toDateTime('%s', 'UTC'))"
-            + " AND Timestamp <= toStartOfMinute(toDateTime('%s', 'UTC'))",
+    // Where Clause toDateTime64('${start_time}', 9, 'UTC')
+    String timeFilter = String.format("Timestamp >= toDateTime64('%s',9,'UTC')"
+            + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
         ZonedDateTime.parse(request.getTimeRange().getStart()).format(output),
         ZonedDateTime.parse(request.getTimeRange().getEnd()).format(output));
 
@@ -142,9 +145,9 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               format(filter.getValue()));
           case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
               format(filter.getValue()));
-          case EQ -> String.format(" And %s %s '%s'", filter.getField(), filter.getOperator().getDisplayName(),
-              filter.getValue().get(0));
-          case ADD -> String.format(" And (%s)", filter.getValue().get(0));
+          case EQ -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
+              format(List.of(filter.getValue().get(0))));
+          case ADDITIONAL -> String.format(" And (%s)", filter.getValue().get(0));
         });
       }
     }
@@ -187,8 +190,8 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               .map(GetRawUserEventsResponseDto.Field::getName)
               .toList();
           List<List<String>> rows = rawRes.data.getRows().stream()
-              .map(row -> row.getRowFields().stream()
-                  .map(field -> field.getValue().toString())
+              .map(row -> row.getF().stream()
+                  .map(field -> Objects.isNull(field.getV()) ? "" : field.getV().toString())
                   .toList())
               .toList();
           return PerformanceMetricDistributionRes.builder()

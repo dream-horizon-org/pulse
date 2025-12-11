@@ -1,35 +1,51 @@
 package org.dreamhorizon.pulsealertscron.guice;
 
+import com.dream11.rest.ClassInjector;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Objects;
 
 @Slf4j
-public class GuiceInjector {
+public class GuiceInjector implements ClassInjector {
 
-    private static Injector injector;
+  private static GuiceInjector guiceInjector;
+  private final Injector injector;
 
-    public static void initialize(List<Module> modules) {
-        if (injector != null) {
-            log.warn("GuiceInjector already initialized");
-            return;
-        }
-        injector = Guice.createInjector(modules);
-        log.info("GuiceInjector initialized with {} modules", modules.size());
+  private GuiceInjector(List<Module> modules) {
+    injector = Guice.createInjector(modules);
+  }
+
+  public static synchronized void initialize(List<Module> modules) {
+    if (guiceInjector != null) {
+      log.warn("GuiceInjector already initialized");
+      return;
     }
+    guiceInjector = new GuiceInjector(modules);
+    log.info("GuiceInjector initialized with {} modules", modules.size());
+  }
 
-    public static Injector getInjector() {
-        if (injector == null) {
-            throw new IllegalStateException("GuiceInjector not initialized");
-        }
-        return injector;
+  public static GuiceInjector getGuiceInjector() {
+    if (guiceInjector == null) {
+      throw new IllegalStateException("GuiceInjector not initialized");
     }
+    return guiceInjector;
+  }
 
-    public static <T> T getInstance(Class<T> clazz) {
-        return getInjector().getInstance(clazz);
+  public static Injector getInjector() {
+    if (guiceInjector == null) {
+      throw new IllegalStateException("GuiceInjector not initialized");
     }
+    return guiceInjector.injector;
+  }
+
+  @Override
+  public <T> T getInstance(Class<T> clazz) {
+    Objects.requireNonNull(injector, "injector is null, initialize first");
+    return injector.getInstance(clazz);
+  }
 }
 

@@ -18,14 +18,9 @@ public class AlertMapper {
     List<AlertState> currentStates = new ArrayList<>();
 
     for (Row row : rowSet) {
-      String jobId = row.getString("job_id");
       String createdByValue = row.getString("created_by");
       String updatedByValue = row.getString("updated_by");
 
-
-      if (jobId != null && !jobIds.contains(jobId) && !jobId.isEmpty()) {
-        jobIds.add(jobId);
-      }
       if (createdByValue != null && !createdBy.contains(createdByValue) && !createdByValue.isEmpty()) {
         createdBy.add(createdByValue);
       }
@@ -39,7 +34,6 @@ public class AlertMapper {
     }
 
     return AlertFiltersResponseDto.builder()
-        .jobId(jobIds)
         .createdBy(createdBy)
         .updatedBy(updatedBy)
         .currentState(currentStates)

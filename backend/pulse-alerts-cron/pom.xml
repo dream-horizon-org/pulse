@@ -20,12 +20,19 @@
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
         <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
         <guice.version>5.1.0</guice.version>
+        <vertx-rest.version>1.1.0</vertx-rest.version>
 
         <!-- Use an older version until https://issues.apache.org/jira/browse/MRESOURCES-237 -->
         <maven.resources.plugin.version>2.7</maven.resources.plugin.version>
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.dream11</groupId>
+            <artifactId>vertx-rest</artifactId>
+            <version>${vertx-rest.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -237,8 +244,12 @@
         <repository>
             <id>central</id>
             <url>https://repo1.maven.org/maven2/</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
@@ -268,7 +279,8 @@
                     </annotationProcessorPaths>
 
                     <annotationProcessors>
-                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</annotationProcessor>
+                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor
+                        </annotationProcessor>
                         <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
                     </annotationProcessors>
                     <generatedSourcesDirectory>${project.basedir}/src/main/generated</generatedSourcesDirectory>
@@ -293,7 +305,8 @@
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
                                         <Main-Class>org.dreamhorizon.pulsealertscron.MainApplication</Main-Class>
-                                        <Main-Verticle>org.dreamhorizon.pulsealertscron.verticle.MainVerticle</Main-Verticle>
+                                        <Main-Verticle>org.dreamhorizon.pulsealertscron.verticle.MainVerticle
+                                        </Main-Verticle>
                                         <X-Compile-Source-JDK>17</X-Compile-Source-JDK>
                                         <X-Compile-Target-JDK>17</X-Compile-Target-JDK>
                                     </manifestEntries>

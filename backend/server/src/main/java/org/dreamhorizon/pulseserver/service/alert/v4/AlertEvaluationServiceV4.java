@@ -1,6 +1,32 @@
 package org.dreamhorizon.pulseserver.service.alert.v4;
 
 import afu.org.checkerframework.checker.nullness.qual.Nullable;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.json.JsonObject;
+import io.vertx.rxjava3.core.Vertx;
+import io.vertx.rxjava3.core.eventbus.Message;
+import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDaoV4;
@@ -17,27 +43,6 @@ import org.dreamhorizon.pulseserver.service.alert.v4.util.MetricToFunctionMapper
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
 import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 import org.dreamhorizon.pulseserver.util.RxObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Single;
-import io.vertx.core.json.JsonObject;
-import io.vertx.rxjava3.core.Vertx;
-import io.vertx.rxjava3.core.eventbus.Message;
-import io.vertx.rxjava3.ext.web.client.WebClient;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
-import java.util.*;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -213,7 +218,7 @@ public class AlertEvaluationServiceV4 {
       if (dimensionFilterSql != null && !dimensionFilterSql.isEmpty()) {
         QueryRequest.Filter additionalFilter = new QueryRequest.Filter();
         additionalFilter.setField("SpanType");
-        additionalFilter.setOperator(QueryRequest.Operator.ADD);
+        additionalFilter.setOperator(QueryRequest.Operator.ADDITIONAL);
         additionalFilter.setValue(List.of(dimensionFilterSql));
         filters.add(additionalFilter);
       }

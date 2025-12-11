@@ -16,11 +16,11 @@ public enum Functions {
   DURATION_P95("duration_p95", ClickhouseConstants.CH_DURATION_P95_SELECT_CLAUSE),
   COL("col", "%s"),
   CUSTOM("custom", "%s"),
-
   TIME_BUCKET("time_bucket", ClickhouseConstants.CH_TIME_BUCKET_SELECT_CLAUSE),
   INTERACTION_SUCCESS_COUNT("successInteractionCount", ClickhouseConstants.SUC_IN_CNT),
   INTERACTION_ERROR_COUNT("errorInteractionCount", ClickhouseConstants.ERR_IN_CNT),
   INTERACTION_ERROR_DISTINCT_USERS("distinctUsers", ClickhouseConstants.ERR_DIST_USERS),
+
   USER_CATEGORY_EXCELLENT("lowUptimeUser", ClickhouseConstants.EXCELLENT_CAT),
   USER_CATEGORY_GOOD("midUptimeUser1", ClickhouseConstants.GOOD_CAT),
   USER_CATEGORY_AVERAGE("midUptimeUser2", ClickhouseConstants.AVERAGE_CAT),
@@ -42,14 +42,14 @@ public enum Functions {
   SCREEN_TIME("screenTime", ClickhouseConstants.SCREEN_TIME),
   NET_4XX_RATE("net4xxRate", ClickhouseConstants.NET_4XX_RATE),
   NET_5XX_RATE("net5xxRate", ClickhouseConstants.NET_5XX_RATE),
-  ;
+  ARR_TO_STR("arrToString", ClickhouseConstants.ARR_TO_STR);
+
+  private final String displayName;
+  private final String chSelectClause;
 
   Functions(String displayName, String chSelectClause) {
     this.displayName = displayName;
     this.chSelectClause = chSelectClause;
   }
-
-  private final String displayName;
-  private final String chSelectClause;
 
 }

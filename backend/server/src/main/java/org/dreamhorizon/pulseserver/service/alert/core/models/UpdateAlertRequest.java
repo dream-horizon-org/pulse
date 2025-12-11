@@ -1,7 +1,7 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
-import java.util.List;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,6 +34,9 @@ public class UpdateAlertRequest {
 
   @NotNull
   String updatedBy;
+
+  @NotNull
+  String createdBy;
 
   @NotNull
   AlertScope scope;
