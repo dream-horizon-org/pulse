@@ -13,7 +13,10 @@ import jakarta.validation.constraints.NotNull;
 @NoArgsConstructor
 @NotNull
 public class EventPropMatch {
+  @JsonProperty("name")
   private String name;
+
+  @JsonProperty("value")
 
   private String value; // regex string
 }

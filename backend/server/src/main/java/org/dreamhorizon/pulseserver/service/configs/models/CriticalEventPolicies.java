@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 @Builder
@@ -13,5 +14,6 @@ import jakarta.validation.constraints.NotNull;
 @NoArgsConstructor
 @NotNull
 public class CriticalEventPolicies {
+  @JsonProperty("alwaysSend")
   private List<CriticalPolicyRule> alwaysSend;
 }

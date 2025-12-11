@@ -16,11 +16,15 @@ import jakarta.validation.constraints.NotNull;
 @NoArgsConstructor
 @NotNull
 public class EventFilter {
+  @JsonProperty("name")
   private String name;
 
+  @JsonProperty("props")
   private List<EventPropMatch> props;
 
+  @JsonProperty("scope")
   private List<Scope> scope;
 
+  @JsonProperty("sdks")
   private List<Sdk> sdks;
 }
