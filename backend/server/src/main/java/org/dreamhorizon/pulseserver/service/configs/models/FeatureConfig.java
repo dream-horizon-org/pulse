@@ -16,11 +16,16 @@ import jakarta.validation.constraints.NotNull;
 @NoArgsConstructor
 @NotNull
 public class FeatureConfig {
+  @JsonProperty("featureName")
   private Features featureName;
 
+  @JsonProperty("enabled")
   private boolean enabled;
 
+  @JsonProperty("sessionSampleRate")
   private Double sessionSampleRate; // nullable (not required in schema)
+
+  @JsonProperty("sdks")
 
   private List<Sdk> sdks;
 }
