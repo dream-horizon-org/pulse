@@ -1,184 +1,173 @@
-import { Text } from "@mantine/core";
+import { Text, Tooltip, Badge, Group, Divider } from "@mantine/core";
 import {
   IconBell,
   IconBellRinging,
   IconBellOff,
-  TablerIcon,
+  IconClock,
+  IconChevronRight,
 } from "@tabler/icons-react";
-import { AlertCardProps } from "./AlertCard.interface";
+import { AlertCardProps, SeverityDisplayConfig, AlertCondition } from "./AlertCard.interface";
 import classes from "./AlertCard.module.css";
 
-// Map scope IDs to display labels
-const SCOPE_LABELS: Record<string, string> = {
-  interaction: "Interactions",
-  network_api: "Network APIs",
-  app_vitals: "App Vitals",
-  screen: "Screen",
+const DEFAULT_SEVERITY: SeverityDisplayConfig = { label: "Unknown", color: "#6b7280" };
+
+const METRIC_LABELS: Record<string, string> = {
+  APDEX: "APDEX", CRASH_RATE: "Crash Rate", ANR_RATE: "ANR Rate",
+  DURATION_P99: "P99", DURATION_P95: "P95", DURATION_P50: "P50",
+  ERROR_RATE: "Error Rate", INTERACTION_ERROR_COUNT: "Errors",
+  SCREEN_LOAD_TIME_P99: "Load P99", SCREEN_LOAD_TIME_P95: "Load P95",
+  SCREEN_LOAD_TIME_P50: "Load P50", NET_5XX_RATE: "5XX Rate", NET_4XX_RATE: "4XX Rate",
 };
 
-const getScopeLabel = (scopeId: string): string => {
-  return SCOPE_LABELS[scopeId] || scopeId;
+const OPERATOR_SYMBOLS: Record<string, string> = {
+  GREATER_THAN: ">", LESS_THAN: "<", GREATER_THAN_OR_EQUAL: "≥",
+  LESS_THAN_OR_EQUAL: "≤", EQUAL: "=",
+};
+
+const formatDuration = (seconds: number): string => {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h`;
+};
+
+const formatThresholdValue = (value: number, metric: string): string => {
+  if (metric.includes("RATE") || metric === "APDEX") {
+    return value < 1 ? `${(value * 100).toFixed(0)}%` : value.toString();
+  }
+  if (metric.includes("DURATION") || metric.includes("TIME")) {
+    return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
+  }
+  return value.toLocaleString();
+};
+
+const getAllScopeNames = (conditions: AlertCondition[]): string[] => {
+  const allNames = new Set<string>();
+  conditions.forEach(c => Object.keys(c.threshold || {}).forEach(n => allNames.add(n)));
+  return Array.from(allNames);
 };
 
 export function AlertCard({
-  name,
-  current_state,
-  scope,
-  alerts,
-  severity_id,
-  is_snoozed,
-  onClick,
+  name, description, current_state, scope, alerts = [], severity_id,
+  is_snoozed, evaluation_period, scopeLabels = {}, severityConfig = {}, onClick,
 }: AlertCardProps) {
-  // Determine alert status and colors
   const isFiring = current_state === "FIRING";
+  const scopeLabel = scopeLabels[scope] || scope;
+  const severity = severityConfig[severity_id] || DEFAULT_SEVERITY;
 
-  const getHealthColor = () => {
-    if (is_snoozed) return "#94a3b8";
-    if (isFiring) return "#ef4444";
-    return "#10b981";
+  const getStatusConfig = () => {
+    if (is_snoozed) return { label: "Snoozed", color: "#94a3b8", bgColor: "rgba(148, 163, 184, 0.1)", icon: IconBellOff };
+    if (isFiring) return { label: "Firing", color: "#ef4444", bgColor: "rgba(239, 68, 68, 0.08)", icon: IconBellRinging };
+    return { label: "Normal", color: "#10b981", bgColor: "rgba(16, 185, 129, 0.08)", icon: IconBell };
   };
 
-  const getMockupGradient = () => {
-    if (is_snoozed)
-      return "linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0%, rgba(148, 163, 184, 0.15) 100%)";
-    if (isFiring)
-      return "linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.15) 100%)";
-    return "linear-gradient(135deg, rgba(14, 201, 194, 0.03) 0%, rgba(14, 201, 194, 0.08) 100%)";
-  };
-
-  const getHoverMockupGradient = () => {
-    if (is_snoozed)
-      return "linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(148, 163, 184, 0.2) 100%)";
-    if (isFiring)
-      return "linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.2) 100%)";
-    return "linear-gradient(135deg, rgba(14, 201, 194, 0.05) 0%, rgba(14, 201, 194, 0.12) 100%)";
-  };
-
-  const getAlertIcon = (): TablerIcon => {
-    if (is_snoozed) return IconBellOff;
-    if (isFiring) return IconBellRinging;
-    return IconBell;
-  };
-
-  const getStateLabel = () => {
-    if (is_snoozed) return "Snoozed";
-    if (isFiring) return "Firing";
-    return "Normal";
-  };
-
-  const getIconBackground = () => {
-    if (is_snoozed)
-      return "linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.2))";
-    if (isFiring)
-      return "linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.2))";
-    return "linear-gradient(135deg, rgba(14, 201, 194, 0.12), rgba(14, 201, 194, 0.2))";
-  };
-
-  const getIconBorder = () => {
-    if (is_snoozed) return "2px solid rgba(148, 163, 184, 0.25)";
-    if (isFiring) return "2px solid rgba(239, 68, 68, 0.25)";
-    return "2px solid rgba(14, 201, 194, 0.25)";
-  };
-
-  const getIconShadow = () => {
-    if (is_snoozed) return "0 4px 12px rgba(148, 163, 184, 0.15)";
-    if (isFiring) return "0 4px 12px rgba(239, 68, 68, 0.15)";
-    return "0 4px 12px rgba(14, 201, 194, 0.15)";
-  };
-
-  const healthColor = getHealthColor();
-  const mockupGradient = getMockupGradient();
-  const hoverMockupGradient = getHoverMockupGradient();
-  const iconBackground = getIconBackground();
-  const iconBorder = getIconBorder();
-  const iconShadow = getIconShadow();
-  const AlertIcon = getAlertIcon();
-
-  // Get first alert condition for display
-  const firstAlert = alerts?.[0];
-  const threshold = firstAlert?.threshold
-    ? Object.values(firstAlert.threshold)[0]
-    : "N/A";
-  const metric = firstAlert?.metric || "N/A";
+  const statusConfig = getStatusConfig();
+  const AlertIcon = statusConfig.icon;
+  const allScopeNames = getAllScopeNames(alerts);
+  const hasMultipleConditions = alerts.length > 1;
 
   return (
     <div
-      className={classes.alertCard}
+      className={`${classes.alertCard} ${isFiring && !is_snoozed ? classes.firing : ""} ${is_snoozed ? classes.snoozed : ""}`}
       onClick={onClick}
-      style={{
-        // @ts-ignore - CSS custom properties
-        "--mockup-gradient": mockupGradient,
-        "--hover-mockup-gradient": hoverMockupGradient,
-        "--health-color": healthColor,
-      }}
+      style={{ "--status-color": statusConfig.color, "--status-bg": statusConfig.bgColor } as React.CSSProperties}
     >
-      {/* Status Badge */}
-      <div
-        className={classes.statusBadge}
-        style={{
-          backgroundColor: healthColor,
-          color: "#ffffff",
-        }}
-      >
-        {getStateLabel()}
+      {/* Snooze Indicator Banner */}
+      {is_snoozed && (
+        <div className={classes.snoozeBanner}>
+          <IconBellOff size={12} />
+          <span>Snoozed</span>
+        </div>
+      )}
+
+      {/* Header: Icon + Scope + Severity + Status */}
+      <div className={classes.cardHeader}>
+        <div className={classes.headerLeft}>
+          <div className={classes.iconWrapper} style={{ color: statusConfig.color }}>
+            <AlertIcon size={20} stroke={1.8} />
+          </div>
+          <Badge size="xs" variant="light" color="gray" className={classes.scopeBadge}>
+            {scopeLabel}
+          </Badge>
+          <Badge size="xs" variant="light" className={classes.severityBadge} style={{ backgroundColor: `${severity.color}18`, color: severity.color }}>
+            {severity.label}
+          </Badge>
+        </div>
+        <Badge size="xs" variant="filled" className={classes.statusBadge} style={{ backgroundColor: statusConfig.color }}>
+          {statusConfig.label}
+        </Badge>
       </div>
 
-      {/* Alert Mockup */}
-      <div
-        className={classes.alertMockup}
-        style={{ background: mockupGradient }}
-      >
-        <div className={classes.alertHeader}></div>
-        <div className={classes.alertContent}>
-          <div
-            className={classes.alertIcon}
-            style={{
-              color: healthColor,
-              background: iconBackground,
-              border: iconBorder,
-              boxShadow: iconShadow,
-            }}
-          >
-            <AlertIcon size={32} stroke={1.8} />
-          </div>
-          <Text className={classes.alertName}>{name}</Text>
-        </div>
-      </div>
-      <div className={classes.healthIndicator} style={{ color: healthColor }} />
+      {/* Alert Name */}
+      <Text className={classes.alertName} lineClamp={2}>{name}</Text>
+      
+      {/* Description */}
+      {description && (
+        <span className={classes.alertDescription}>{description}</span>
+      )}
 
-      {/* Alert Information Grid */}
-      <div className={classes.infoContainer}>
-        {/* Row 1: Metrics Grid */}
-        <div className={classes.metricsGrid}>
-          <div className={classes.metricItem}>
-            <Text className={classes.metricLabel}>Metric</Text>
-            <Text className={classes.metricValue}>{metric}</Text>
-          </div>
-          <div className={classes.metricItem}>
-            <Text className={classes.metricLabel}>Threshold</Text>
-            <Text className={classes.metricValue}>{threshold}</Text>
-          </div>
-          <div className={classes.metricItem}>
-            <Text className={classes.metricLabel}>Severity</Text>
-            <Text className={classes.metricValue}>P{severity_id}</Text>
-          </div>
-          <div className={classes.metricItem}>
-            <Text className={classes.metricLabel}>Conditions</Text>
-            <Text className={classes.metricValue}>{alerts?.length || 0}</Text>
+      {/* Scope Names as Chips */}
+      {allScopeNames.length > 0 && (
+        <Group gap={4} className={classes.scopeNamesRow}>
+          {allScopeNames.slice(0, 3).map((scopeName) => (
+            <Badge key={scopeName} size="xs" variant="outline" color="teal" className={classes.scopeChip}>
+              {scopeName}
+            </Badge>
+          ))}
+          {allScopeNames.length > 3 && (
+            <Badge size="xs" variant="light" color="gray" className={classes.scopeChip}>
+              +{allScopeNames.length - 3}
+            </Badge>
+          )}
+        </Group>
+      )}
+
+      {/* Conditions Display - using spans for full CSS control */}
+      {alerts.length > 0 && (
+        <div className={classes.conditionBox}>
+          <div className={classes.conditionsStack}>
+            {alerts.slice(0, hasMultipleConditions ? 2 : 1).map((condition) => (
+              <div key={condition.alias} className={classes.conditionRow}>
+                {hasMultipleConditions && (
+                  <span className={classes.conditionAlias}>{condition.alias}</span>
+                )}
+                <span className={classes.conditionText}>
+                  {METRIC_LABELS[condition.metric] || condition.metric.replace(/_/g, " ")}
+                  <span className={classes.operator}> {OPERATOR_SYMBOLS[condition.metric_operator] || ">"} </span>
+                  <span className={classes.threshold}>
+                    {formatThresholdValue(Object.values(condition.threshold || {})[0] as number, condition.metric)}
+                  </span>
+                </span>
+              </div>
+            ))}
+            {alerts.length > 2 && (
+              <span className={classes.moreConditions}>+{alerts.length - 2} more</span>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Row 2: Scope */}
-        <div className={classes.infoRowHorizontal}>
-          <div className={classes.infoItem}>
-            <Text className={classes.infoLabel}>Scope</Text>
-            <Text className={classes.infoValue} lineClamp={1}>
-              {getScopeLabel(scope)}
-            </Text>
-          </div>
+      <Divider className={classes.divider} />
+
+      {/* Footer */}
+      <div className={classes.cardFooter}>
+        <div className={classes.footerLeft}>
+          {evaluation_period && (
+            <Tooltip label={`Evaluation: ${formatDuration(evaluation_period)}`}>
+              <div className={classes.evalInfo}>
+                <IconClock size={11} stroke={1.5} />
+                <span>{formatDuration(evaluation_period)}</span>
+              </div>
+            </Tooltip>
+          )}
+          {hasMultipleConditions && (
+            <span className={classes.condCount}>{alerts.length} cond.</span>
+          )}
+        </div>
+        <div className={classes.viewDetails}>
+          <span>View</span>
+          <IconChevronRight size={11} stroke={1.5} />
         </div>
       </div>
     </div>
   );
 }
-

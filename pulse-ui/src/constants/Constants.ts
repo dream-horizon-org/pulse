@@ -516,47 +516,47 @@ export const API_ROUTES: StreamverseRoutes = {
   // Alert API Routes
   GET_ALERTS: {
     key: "GET_ALERTS",
-    apiPath: `/v4/alert`,
+    apiPath: `/v1/alert`,
     method: API_METHODS.GET,
   },
   GET_ALERT_DETAILS: {
     key: "GET_ALERT_DETAILS",
-    apiPath: `/v4/alert`,
+    apiPath: `/v1/alert`,
     method: API_METHODS.GET,
   },
   CREATE_ALERT: {
     key: "CREATE_ALERT",
-    apiPath: `/v4/alert`,
+    apiPath: `/v1/alert`,
     method: API_METHODS.POST,
   },
   UPDATE_ALERT: {
     key: "UPDATE_ALERT",
-    apiPath: `/v4/alert`,
+    apiPath: `/v1/alert`,
     method: API_METHODS.PUT,
   },
   DELETE_ALERT: {
     key: "DELETE_ALERT",
-    apiPath: `/v4/alert`,
+    apiPath: `/v1/alert`,
     method: API_METHODS.DELETE,
   },
   SNOOZE_ALERT: {
     key: "SNOOZE_ALERT",
-    apiPath: `/v4/alert/{id}/snooze`,
+    apiPath: `/v1/alert/{id}/snooze`,
     method: API_METHODS.POST,
   },
   RESUME_ALERT: {
     key: "RESUME_ALERT",
-    apiPath: `/v4/alert/{id}/snooze`,
+    apiPath: `/v1/alert/{id}/snooze`,
     method: API_METHODS.DELETE,
   },
   GET_ALERT_EVALUATION_HISTORY: {
     key: "GET_ALERT_EVALUATION_HISTORY",
-    apiPath: `/v4/alert/{id}/evaluationHistory`,
+    apiPath: `/v1/alert/{id}/evaluationHistory`,
     method: API_METHODS.GET,
   },
   GET_ALERT_FILTERS: {
     key: "GET_ALERT_FILTERS",
-    apiPath: `/v4/alert/filters`,
+    apiPath: `/v1/alert/filters`,
     method: API_METHODS.GET,
   },
   GET_ALERT_SCOPES: {

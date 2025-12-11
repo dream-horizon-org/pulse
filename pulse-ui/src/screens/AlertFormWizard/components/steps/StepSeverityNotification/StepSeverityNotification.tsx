@@ -8,6 +8,7 @@ import { Box, Text, Select, Radio, Group, Card, ThemeIcon } from "@mantine/core"
 import { IconAlertTriangle, IconAlertCircle, IconInfoCircle } from "@tabler/icons-react";
 import { useAlertFormContext } from "../../../context";
 import { useGetAlertSeverities } from "../../../../../hooks/useGetAlertSeverities";
+import { AlertSeverityItem } from "../../../../../hooks/useGetAlertSeverities/useGetAlertSeverities.interface";
 import { useGetAlertNotificationChannels } from "../../../../../hooks/useGetAlertNotificationChannels";
 import { StepHeader } from "../StepHeader";
 import classes from "./StepSeverityNotification.module.css";
@@ -28,7 +29,8 @@ export const StepSeverityNotification: React.FC<StepSeverityNotificationProps> =
   const { data: severitiesResponse } = useGetAlertSeverities();
   const { data: channelsResponse } = useGetAlertNotificationChannels();
 
-  const severities = severitiesResponse?.data?.severity || [];
+  // Backend returns List<AlertSeverityResponseDto> directly
+  const severities: AlertSeverityItem[] = severitiesResponse?.data && Array.isArray(severitiesResponse.data) ? severitiesResponse.data : [];
   const channels = channelsResponse?.data || [];
 
   const handleSeverityChange = useCallback((id: number) => {

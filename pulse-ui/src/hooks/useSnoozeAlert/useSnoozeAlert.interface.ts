@@ -1,6 +1,10 @@
+/**
+ * Request body for snooze - matches backend SnoozeAlertRestRequest.java
+ * Uses camelCase as per backend
+ */
 export type SnoozeAlertRequest = {
-  snoozed_from: number;
-  snoozed_until: number;
+  snoozeFrom: number;  // Unix timestamp in milliseconds
+  snoozeUntil: number; // Unix timestamp in milliseconds
 };
 
 export type SnoozeAlertInput = {
@@ -8,11 +12,11 @@ export type SnoozeAlertInput = {
   snoozeAlertRequest: SnoozeAlertRequest;
 };
 
+/**
+ * Response - matches backend SnoozeAlertRestResponse.java
+ */
 export type SnoozeAlertResponse = {
-  alert_id: number;
-  is_snoozed: boolean;
-  snoozed_from: number;
-  snoozed_until: number;
+  isSnoozed: boolean;
+  snoozedFrom: number;
+  snoozedUntil: number;
 };
-
-

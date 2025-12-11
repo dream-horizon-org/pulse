@@ -341,8 +341,10 @@ export const AlertForm = ({
   const severityLevelLabels: Record<number, string> = { 1: "Critical", 2: "Warning", 3: "Info" };
   
   const getSeverityOptions = () => {
-    if (severitiesData?.data?.severity) {
-      return severitiesData.data.severity.map((s) => ({
+    // Backend returns List<AlertSeverityResponseDto> directly
+    const severities = severitiesData?.data;
+    if (severities && Array.isArray(severities)) {
+      return severities.map((s: { severity_id: number; name: number; description: string }) => ({
         value: s.severity_id.toString(),
         label: `${severityLevelLabels[s.name] || `Level ${s.name}`} - ${s.description}`,
       }));

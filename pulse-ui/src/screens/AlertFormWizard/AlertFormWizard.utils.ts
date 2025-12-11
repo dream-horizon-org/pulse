@@ -93,53 +93,79 @@ export function transformFormDataToPayload(
  * Transform alert details from API to form data
  */
 export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Partial<AlertFormWizardData> {
-  const conditions: MetricCondition[] = alertDetails.alerts.map((alert: AlertCondition, index: number) => ({
-    id: `cond_${index}`,
-    alias: alert.alias,
-    metric: alert.metric,
-    operator: alert.metric_operator as MetricOperator,
-    threshold: alert.threshold,
+  console.log("[transformAlertDetailsToFormData] Input:", alertDetails);
+
+  // Map conditions from API to form format
+  const conditions: MetricCondition[] = (alertDetails.alerts || []).map((alert: AlertCondition, index: number) => ({
+    id: `cond_${Date.now()}_${index}`,
+    alias: alert.alias || String.fromCharCode(65 + index),
+    metric: alert.metric || "",
+    operator: (alert.metric_operator as MetricOperator) || MetricOperator.GREATER_THAN,
+    threshold: alert.threshold || {},
   }));
 
   // Extract unique scope names from all conditions' thresholds
   const scopeNamesSet = new Set<string>();
   conditions.forEach(cond => {
-    Object.keys(cond.threshold).forEach(scopeName => scopeNamesSet.add(scopeName));
+    Object.keys(cond.threshold || {}).forEach(scopeName => scopeNamesSet.add(scopeName));
   });
   const selectedScopeNames = Array.from(scopeNamesSet);
 
-  // Map backend AlertScope enum to frontend
+  console.log("[transformAlertDetailsToFormData] Conditions:", conditions);
+  console.log("[transformAlertDetailsToFormData] Scope names:", selectedScopeNames);
+
+  // Map backend AlertScope enum to frontend (handle various casing)
   // @see backend/server/.../models/AlertScope.java
   const backendToFrontend: Record<string, AlertScopeType> = {
     Interaction: AlertScopeType.Interaction,
+    INTERACTION: AlertScopeType.Interaction,
+    interaction: AlertScopeType.Interaction,
     API: AlertScopeType.NetworkAPI,
+    api: AlertScopeType.NetworkAPI,
+    network_api: AlertScopeType.NetworkAPI,
     SCREEN: AlertScopeType.Screen,
+    Screen: AlertScopeType.Screen,
+    screen: AlertScopeType.Screen,
     APP_VITALS: AlertScopeType.AppVitals,
+    app_vitals: AlertScopeType.AppVitals,
+    AppVitals: AlertScopeType.AppVitals,
   };
 
-  return {
+  const mappedScope = backendToFrontend[alertDetails.scope] || null;
+  console.log("[transformAlertDetailsToFormData] Mapped scope:", alertDetails.scope, "->", mappedScope);
+
+  const result: Partial<AlertFormWizardData> = {
     alertId: alertDetails.alert_id,
     nameDescription: {
-      name: alertDetails.name,
+      name: alertDetails.name || "",
       description: alertDetails.description || "",
     },
     scopeType: {
-      scopeType: backendToFrontend[alertDetails.scope] || null,
+      scopeType: mappedScope,
     },
     evaluationConfig: {
-      evaluationPeriod: alertDetails.evaluation_period,
-      evaluationInterval: alertDetails.evaluation_interval,
+      evaluationPeriod: alertDetails.evaluation_period || 300,
+      evaluationInterval: alertDetails.evaluation_interval || 60,
     },
     severityNotification: {
-      severityId: alertDetails.severity_id,
-      notificationChannelId: alertDetails.notification_channel_id,
+      severityId: alertDetails.severity_id || null,
+      notificationChannelId: alertDetails.notification_channel_id || null,
     },
     metricsConditions: {
       selectedScopeNames,
-      conditions,
+      conditions: conditions.length > 0 ? conditions : [{
+        id: `cond_${Date.now()}`,
+        alias: "A",
+        metric: "",
+        operator: MetricOperator.GREATER_THAN,
+        threshold: {},
+      }],
     },
     conditionExpression: {
-      expression: alertDetails.condition_expression,
+      expression: alertDetails.condition_expression || "A",
     },
   };
+
+  console.log("[transformAlertDetailsToFormData] Result:", result);
+  return result;
 }

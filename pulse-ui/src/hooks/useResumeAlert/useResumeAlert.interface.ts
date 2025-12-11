@@ -1,5 +1,7 @@
+/**
+ * Response - matches backend GenericSuccessResponse
+ * DELETE /{alertId}/snooze returns this
+ */
 export type ResumeAlertResponse = {
-  success: string;
+  message: string;
 };
-
-

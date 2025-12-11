@@ -25,8 +25,11 @@ const ICONS: Record<AlertScopeType, React.ElementType> = {
   [AlertScopeType.NetworkAPI]: IconApi,
 };
 
+// Default icon fallback
+const DefaultIcon = IconClick;
+
 export const ScopeCard: React.FC<ScopeCardProps> = ({ id, label, description, features, color, isSelected, onClick }) => {
-  const Icon = ICONS[id];
+  const Icon = ICONS[id] || DefaultIcon;
 
   return (
     <Box className={`${classes.card} ${isSelected ? classes.selected : ""}`} onClick={onClick} style={{ "--scope-color": color } as React.CSSProperties}>

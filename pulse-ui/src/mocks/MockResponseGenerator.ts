@@ -9,7 +9,14 @@ import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
-import { mockNotificationChannels, mockAlertSeverities } from "./responses/alertResponses";
+import { 
+  mockNotificationChannels, 
+  mockAlertSeverities, 
+  mockAlertScopes,
+  mockAlertMetrics,
+  mockAlertFilters,
+  mockAlertTags,
+} from "./responses/alertResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -1044,99 +1051,41 @@ export class MockResponseGenerator {
     request: MockRequest,
   ): MockResponse {
     // GET /v1/alert/scopes - Returns all supported alert scopes
+    // @see backend AlertScopesResponseDto.java
     if (pathname.includes("/alert/scopes") && method === "GET") {
-      return {
-        data: {
-          scopes: [
-            { id: "interaction", label: "Interactions" },
-            { id: "network_api", label: "Network APIs" },
-            { id: "app_vitals", label: "App Vitals" },
-            { id: "screen", label: "Screen" },
-          ],
-        },
-        status: 200,
-      };
+      return { data: mockAlertScopes, status: 200 };
     }
 
     // GET /v1/alert/severity - Returns severity levels
-    // @see backend AlertSeverityResponseDto.java (name is Integer, not String)
+    // @see backend AlertSeverityResponseDto.java
     if (pathname.includes("/alert/severity") && method === "GET") {
-      return {
-        data: mockAlertSeverities,
-        status: 200,
-      };
+      return { data: mockAlertSeverities, status: 200 };
     }
 
     // GET /v1/alert/metrics?scope={scopeId} - Returns metrics for a scope
+    // @see backend AlertMetricsResponseDto.java
     if (pathname.includes("/alert/metrics") && method === "GET") {
       const url = new URL(request.url, "http://localhost");
       const scope = url.searchParams.get("scope") || "interaction";
-      
-      const metricsMap: Record<string, string[]> = {
-        interaction: [
-          "INTERACTION_SUCCESS_COUNT", "INTERACTION_ERROR_COUNT",
-          "INTERACTION_ERROR_DISTINCT_USERS", "INTERACTION_CATEGORY_POOR",
-          "INTERACTION_CATEGORY_AVERAGE", "INTERACTION_CATEGORY_GOOD",
-          "INTERACTION_CATEGORY_EXCELLENT", "INTERACTION_TIME_P99",
-        ],
-        network_api: [
-          "API_RESPONSE_TIME_P50", "API_RESPONSE_TIME_P95", "API_RESPONSE_TIME_P99",
-          "API_ERROR_RATE", "API_SUCCESS_RATE", "API_TIMEOUT_COUNT",
-          "API_4XX_COUNT", "API_5XX_COUNT",
-        ],
-        app_vitals: [
-          "CRASH_RATE", "ANR_RATE", "CRASH_FREE_USERS",
-          "APP_START_TIME_COLD", "APP_START_TIME_WARM",
-          "MEMORY_USAGE_AVG", "BATTERY_DRAIN_RATE",
-        ],
-        screen: [
-          "SCREEN_LOAD_TIME_P50", "SCREEN_LOAD_TIME_P95", "SCREEN_LOAD_TIME_P99",
-          "SCREEN_RENDER_TIME", "SCREEN_TTI", "SCREEN_FPS_AVG", "SCREEN_FROZEN_FRAMES",
-        ],
-      };
-
-      return {
-        data: {
-          scope,
-          metrics: metricsMap[scope] || [],
-        },
-        status: 200,
-      };
+      const metricsData = mockAlertMetrics[scope] || { scope, metrics: [] };
+      return { data: metricsData, status: 200 };
     }
 
     // GET /v1/alert/notificationChannels - Returns notification channels
     // @see backend AlertNotificationChannelResponseDto.java
     if (pathname.includes("/alert/notificationChannels") && method === "GET") {
-      return {
-        data: mockNotificationChannels,
-        status: 200,
-      };
+      return { data: mockNotificationChannels, status: 200 };
     }
 
+    // GET /v1/alert/filters - Returns filter options
+    // @see backend AlertFiltersResponseDto.java
     if (pathname.includes("/alert/filters") && method === "GET") {
-      return {
-        data: {
-          created_by: [
-            "user1@example.com",
-            "user2@example.com",
-            "user3@example.com",
-          ],
-          updated_by: [
-            "user1@example.com",
-            "user2@example.com",
-            "user3@example.com",
-          ],
-          job_ids: ["1", "2", "3", "4", "5"],
-          current_states: [
-            "FIRING",
-            "NORMAL",
-            "ERRORED",
-            "SILENCED",
-            "NO_DATA",
-          ],
-        },
-        status: 200,
-      };
+      return { data: mockAlertFilters, status: 200 };
+    }
+
+    // GET /v1/alert/tag - Returns all tags
+    if (pathname.endsWith("/alert/tag") && method === "GET") {
+      return { data: mockAlertTags, status: 200 };
     }
 
     if (
@@ -1161,31 +1110,53 @@ export class MockResponseGenerator {
           );
         }
 
-        // Generate mock evaluation history
+        // Generate mock evaluation history matching AlertEvaluationHistoryResponseDto.java
+        // reading field is a JSON string containing per-scope readings (AlertMetricReading[])
         const history = [];
         const now = Date.now();
-        for (let i = 0; i < 10; i++) {
-          const isFiring = i % 3 === 0;
-          const reading = Math.round((0.1 + Math.random() * 0.8) * 100) / 100; // Random value between 0.1 and 0.9, rounded to 2 decimal places
-          const threshold = 0.5;
-          const totalInteractions = 100 + Math.floor(Math.random() * 200);
-          const successInteractions = Math.floor(
-            totalInteractions * (0.7 + Math.random() * 0.3),
-          );
-          const errorInteractions = totalInteractions - successInteractions;
+        const scopeNames = ["PaymentSubmit", "PaymentConfirm", "PaymentOTP"];
+        const threshold = 0.05; // 5% threshold
+
+        for (let i = 0; i < 15; i++) {
+          const isFiring = i % 4 === 0; // Every 4th evaluation is firing
+          const evalTime = new Date(now - i * 3600000);
+          
+          // Generate readings for each scope name
+          const scopeReadings = scopeNames.map(scopeName => {
+            const scopeTotal = 150 + Math.floor(Math.random() * 350);
+            const scopeSuccess = Math.floor(scopeTotal * (0.85 + Math.random() * 0.14));
+            const scopeErrors = scopeTotal - scopeSuccess;
+            // Randomly make some scope readings exceed threshold when firing
+            const scopeReading = isFiring && Math.random() > 0.5
+              ? threshold + 0.01 + Math.random() * 0.03
+              : threshold - 0.02 - Math.random() * 0.02;
+            return {
+              reading: Math.round(scopeReading * 10000) / 10000,
+              useCaseId: scopeName,
+              successInteractionCount: scopeSuccess,
+              errorInteractionCount: scopeErrors,
+              totalInteractionCount: scopeTotal,
+              timestamp: evalTime.toISOString(),
+            };
+          });
+
+          // Aggregate totals
+          const totalInteractions = scopeReadings.reduce((sum, r) => sum + r.totalInteractionCount, 0);
+          const successInteractions = scopeReadings.reduce((sum, r) => sum + r.successInteractionCount, 0);
+          const errorInteractions = scopeReadings.reduce((sum, r) => sum + r.errorInteractionCount, 0);
 
           history.push({
-            reading: reading,
+            reading: JSON.stringify(scopeReadings), // JSON string of ScopeReading[]
             threshold: threshold,
-            evaluated_at: new Date(now - i * 3600000).toISOString(), // Every hour
+            evaluated_at: evalTime.toISOString(),
             current_state: isFiring ? "FIRING" : "NORMAL",
-            evaluation_time: Math.round((2 + Math.random() * 3) * 100) / 100, // 2-5 seconds, rounded to 2 decimal places
+            evaluation_time: Math.round((1.5 + Math.random() * 2.5) * 100) / 100,
             total_interaction_count: totalInteractions,
             error_interaction_count: errorInteractions,
             success_interaction_count: successInteractions,
-            min_interaction_count: 50,
-            min_success_interaction_count: 40,
-            min_error_interaction_count: 5,
+            min_total_interactions: 100,
+            min_success_interactions: 50,
+            min_error_interactions: 10,
           });
         }
 
@@ -1364,7 +1335,7 @@ export class MockResponseGenerator {
       pathname.includes("/snooze") &&
       method === "DELETE"
     ) {
-      // Handle resume alert (remove snooze)
+      // Handle resume alert (remove snooze) - returns GenericSuccessResponse
       const alertIdMatch = pathname.match(/\/alert\/(\d+)\/snooze/);
       if (alertIdMatch) {
         const alertId = parseInt(alertIdMatch[1]);
@@ -1376,16 +1347,15 @@ export class MockResponseGenerator {
         // Update alert to remove snooze
         this.dataStore.updateAlert(alertId, {
           is_snoozed: false,
-          snoozed_from: 0,
-          snoozed_until: 0,
-          current_state: "FIRING", // Resume to firing state
+          snoozed_from: null,
+          snoozed_until: null,
+          current_state: "NORMAL",
         });
 
+        // Backend returns GenericSuccessResponse with message field
         return {
           data: {
-            isSnoozed: false,
-            snoozedFrom: 0,
-            snoozedUntil: 0,
+            message: "success",
           },
           status: 200,
         };

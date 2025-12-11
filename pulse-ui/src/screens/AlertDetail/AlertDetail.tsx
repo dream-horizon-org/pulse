@@ -1,21 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
+import { Button, Badge, Loader, Tooltip, useMantineTheme, Divider } from "@mantine/core";
 import {
-  Button,
-  Box,
-  Text,
-  Badge,
-  Group,
-  Loader,
-  Tooltip,
-  useMantineTheme,
-} from "@mantine/core";
-import {
-  IconArrowLeft,
-  IconEdit,
-  IconBellX,
-  IconBellRinging,
-  IconCircleCheckFilled,
-  IconSquareRoundedX,
+  IconArrowLeft, IconEdit, IconBellX, IconBellRinging, IconCircleCheckFilled,
+  IconSquareRoundedX, IconClock, IconUser, IconCalendar, IconActivity,
+  IconBell, IconBellOff, IconAlertTriangle,
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
@@ -25,18 +13,46 @@ import { useGetAlertEvaluationHistory } from "../../hooks/useGetAlertEvaluationH
 import { useGetAlertDetails } from "../../hooks/useGetAlertDetails";
 import { useSnoozeAlert } from "../../hooks/useSnoozeAlert";
 import { useResumeAlert } from "../../hooks/useResumeAlert";
+import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
+import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { showNotification } from "../../helpers/showNotification";
 
-// Map scope IDs to display labels
-const SCOPE_LABELS: Record<string, string> = {
-  interaction: "Interactions",
-  network_api: "Network APIs",
-  app_vitals: "App Vitals",
-  screen: "Screen",
+const METRIC_LABELS: Record<string, string> = {
+  APDEX: "APDEX Score", CRASH_RATE: "Crash Rate", ANR_RATE: "ANR Rate",
+  DURATION_P99: "P99 Latency", DURATION_P95: "P95 Latency", DURATION_P50: "P50 Latency",
+  ERROR_RATE: "Error Rate", INTERACTION_ERROR_COUNT: "Error Count",
+  SCREEN_LOAD_TIME_P99: "Load Time P99", SCREEN_LOAD_TIME_P95: "Load Time P95",
+  NET_5XX_RATE: "5XX Rate", NET_4XX_RATE: "4XX Rate",
 };
 
-const getScopeLabel = (scopeId: string): string => {
-  return SCOPE_LABELS[scopeId] || scopeId;
+const OPERATOR_SYMBOLS: Record<string, string> = {
+  GREATER_THAN: ">", LESS_THAN: "<", GREATER_THAN_OR_EQUAL: "≥", LESS_THAN_OR_EQUAL: "≤", EQUAL: "=",
+};
+
+const formatDuration = (seconds: number): string => {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+};
+
+const formatThresholdValue = (value: number, metric: string): string => {
+  if (metric.includes("RATE") || metric === "APDEX") return `${(value * 100).toFixed(1)}%`;
+  if (metric.includes("DURATION") || metric.includes("TIME")) return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
+  return value.toLocaleString();
+};
+
+const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const formatTime = (date: string | Date) => new Date(date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+const formatDateTime = (date: string | Date) => `${formatDate(date)} at ${formatTime(date)}`;
+
+// Parse reading JSON string to get per-scope readings
+type ScopeReading = { reading: number; useCaseId: string; totalInteractionCount: number };
+const parseReadings = (readingStr: string): ScopeReading[] => {
+  try {
+    return JSON.parse(readingStr);
+  } catch {
+    return [];
+  }
 };
 
 export function AlertDetail(_props: AlertDetailProps) {
@@ -45,42 +61,31 @@ export function AlertDetail(_props: AlertDetailProps) {
   const { alertId } = useParams<{ alertId: string }>();
   const [showSnoozeLoader, setShowSnoozeLoader] = useState(false);
 
-  const {
-    data: alertData,
-    isLoading: isAlertLoading,
-    refetch: refetchAlert,
-  } = useGetAlertDetails({
-    queryParams: {
-      alert_id: alertId || null,
-    },
-  });
+  const { data: alertData, isLoading: isAlertLoading, refetch: refetchAlert } = useGetAlertDetails({ queryParams: { alert_id: alertId || null } });
+  const { data: evaluationHistoryData, isLoading: isHistoryLoading, refetch: refetchHistory } = useGetAlertEvaluationHistory({ alertId: alertId || "" });
+  const { data: scopesData } = useGetAlertScopes();
+  const { data: severitiesData } = useGetAlertSeverities();
 
-  const {
-    data: evaluationHistoryData,
-    isLoading: isHistoryLoading,
-    refetch: refetchHistory,
-  } = useGetAlertEvaluationHistory({
-    alertId: alertId || "",
+  // Build lookup maps
+  const scopeLabels: Record<string, string> = {};
+  scopesData?.data?.scopes?.forEach((s: { id: string; label: string }) => { scopeLabels[s.id] = s.label; });
+  
+  const severityConfig: Record<number, { label: string; color: string }> = {};
+  const colors = ["#ef4444", "#f59e0b", "#3b82f6"];
+  const labels = ["P1 Critical", "P2 Warning", "P3 Info"];
+  const severities = severitiesData?.data && Array.isArray(severitiesData.data) ? severitiesData.data : [];
+  severities.forEach((s: { severity_id: number; name: number }) => {
+    severityConfig[s.severity_id] = { label: labels[s.name - 1] || `P${s.name}`, color: colors[s.name - 1] || "#6b7280" };
   });
 
   const snoozeAlertMutation = useSnoozeAlert({
     onSettled: (data, error) => {
       setShowSnoozeLoader(false);
       if (error || data?.error) {
-        showNotification(
-          COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
-          data?.error?.message || "Failed to snooze alert",
-          <IconSquareRoundedX />,
-          theme.colors.red[6],
-        );
+        showNotification(COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE, data?.error?.message || "Failed to snooze", <IconSquareRoundedX />, theme.colors.red[6]);
         return;
       }
-      showNotification(
-        COMMON_CONSTANTS.SUCCESS_NOTIFICATION_TITLE,
-        "Alert snoozed successfully",
-        <IconCircleCheckFilled />,
-        theme.colors.teal[6],
-      );
+      showNotification(COMMON_CONSTANTS.SUCCESS_NOTIFICATION_TITLE, "Alert snoozed", <IconCircleCheckFilled />, theme.colors.teal[6]);
       refetchAlert();
     },
   });
@@ -89,346 +94,256 @@ export function AlertDetail(_props: AlertDetailProps) {
     onSettled: (data, error) => {
       setShowSnoozeLoader(false);
       if (error || data?.error) {
-        showNotification(
-          COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
-          data?.error?.message || "Failed to resume alert",
-          <IconSquareRoundedX />,
-          theme.colors.red[6],
-        );
+        showNotification(COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE, data?.error?.message || "Failed to resume", <IconSquareRoundedX />, theme.colors.red[6]);
         return;
       }
-      showNotification(
-        COMMON_CONSTANTS.SUCCESS_NOTIFICATION_TITLE,
-        "Alert resumed successfully",
-        <IconCircleCheckFilled />,
-        theme.colors.teal[6],
-      );
+      showNotification(COMMON_CONSTANTS.SUCCESS_NOTIFICATION_TITLE, "Alert resumed", <IconCircleCheckFilled />, theme.colors.teal[6]);
       refetchAlert();
     },
   });
 
-  // Fetch evaluation history on mount
-  useEffect(() => {
-    if (alertId) {
-      refetchHistory();
-    }
-  }, [alertId, refetchHistory]);
+  useEffect(() => { if (alertId) refetchHistory(); }, [alertId, refetchHistory]);
 
-  const handleBack = () => {
-    navigate(ROUTES.ALERTS.basePath);
-  };
-
-  const handleEdit = () => {
-    navigate(`${ROUTES.ALERTS_FORM.basePath}/${alertId}`);
-  };
-
+  const handleBack = () => navigate(ROUTES.ALERTS.basePath);
+  const handleEdit = () => navigate(`${ROUTES.ALERTS_FORM.basePath}/${alertId}`);
   const handleSnoozeToggle = () => {
     if (!alertId) return;
     setShowSnoozeLoader(true);
-
     if (alertData?.data?.is_snoozed) {
       resumeAlertMutation.mutate(alertId);
     } else {
-      // Snooze for 24 hours by default
       const now = Date.now();
-      const snoozeUntil = now + 24 * 60 * 60 * 1000;
-      snoozeAlertMutation.mutate({
-        alertId,
-        snoozeAlertRequest: {
-          snoozed_from: now,
-          snoozed_until: snoozeUntil,
-        },
-      });
+      snoozeAlertMutation.mutate({ alertId, snoozeAlertRequest: { snoozeFrom: now, snoozeUntil: now + 24 * 60 * 60 * 1000 } });
     }
   };
 
   const alert = alertData?.data;
   const isFiring = alert?.current_state === "FIRING";
+  const severity = severityConfig[alert?.severity_id || 1] || { label: "Unknown", color: "#6b7280" };
 
   if (isAlertLoading) {
-    return (
-      <div className={classes.pageContainer}>
-        <Box
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            height: "50vh",
-          }}
-        >
-          <Loader size="lg" />
-        </Box>
-      </div>
-    );
+    return <div className={classes.pageContainer}><div className={classes.loaderCenter}><Loader size="lg" color="teal" /></div></div>;
   }
 
   if (!alert) {
     return (
       <div className={classes.pageContainer}>
-        <Button
-          variant="subtle"
-          leftSection={<IconArrowLeft size={16} />}
-          onClick={handleBack}
-          className={classes.backButton}
-        >
-          Back
-        </Button>
-        <Box
-          style={{ textAlign: "center", padding: "40px", marginTop: "20px" }}
-        >
-          <Text size="lg" c="dimmed">
-            Alert not found
-          </Text>
-        </Box>
+        <button className={classes.backLink} onClick={handleBack}><IconArrowLeft size={16} /> Back to Alerts</button>
+        <div className={classes.emptyState}><IconAlertTriangle size={48} stroke={1.5} /><span>Alert not found</span></div>
       </div>
     );
   }
 
+  const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
+  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring ? "#ef4444" : "#10b981";
+  const statusLabel = alert.is_snoozed ? "Snoozed" : isFiring ? "Firing" : "Normal";
+
+  // Format snooze end time
+  const formatSnoozeUntil = (timestamp: number | null) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
   return (
     <div className={classes.pageContainer}>
-      {/* Header */}
-      <div className={classes.headerContainer}>
-        <Button
-          variant="subtle"
-          leftSection={<IconArrowLeft size={16} />}
-          onClick={handleBack}
-          className={classes.backButton}
-        >
-          Back
-        </Button>
-        <div className={classes.titleSection}>
-          <div className={classes.titleRow}>
-            <h1 className={classes.pageTitle}>{alert.name}</h1>
-            <Badge
-              size="lg"
-              variant="light"
-              color={
-                alert.is_snoozed ? "gray" : isFiring ? "red" : "green"
-              }
-              className={classes.stateBadge}
-            >
-              {alert.is_snoozed ? "Snoozed" : isFiring ? "Firing" : "Normal"}
-            </Badge>
+      {/* Back Link */}
+      <button className={classes.backLink} onClick={handleBack}>
+        <IconArrowLeft size={16} /> Back to Alerts
+      </button>
+
+      {/* Snooze Banner - shown when alert is snoozed */}
+      {alert.is_snoozed && (
+        <div className={classes.snoozeBanner}>
+          <div className={classes.snoozeBannerContent}>
+            <IconBellOff size={20} />
+            <div className={classes.snoozeBannerText}>
+              <span className={classes.snoozeBannerTitle}>Alert is Snoozed</span>
+              {alert.snoozed_until && (
+                <span className={classes.snoozeBannerUntil}>Until {formatSnoozeUntil(alert.snoozed_until)}</span>
+              )}
+            </div>
           </div>
-          {alert.description && (
-            <Text size="sm" c="dimmed" className={classes.subtitle}>
-              {alert.description}
-            </Text>
+          <Button 
+            variant="white" 
+            size="xs" 
+            onClick={handleSnoozeToggle}
+            loading={showSnoozeLoader}
+            leftSection={<IconBellRinging size={14} />}
+          >
+            Resume Now
+          </Button>
+        </div>
+      )}
+
+      {/* Hero Header */}
+      <div className={classes.heroHeader} style={{ "--status-color": statusColor } as React.CSSProperties}>
+        <div className={classes.heroLeft}>
+          <div className={classes.statusIcon} style={{ background: `${statusColor}15`, color: statusColor }}>
+            <StatusIcon size={28} stroke={1.8} />
+          </div>
+          <div className={classes.heroInfo}>
+            <div className={classes.heroBadges}>
+              <Badge size="sm" variant="light" color="gray">{scopeLabels[alert.scope] || alert.scope}</Badge>
+              <Badge size="sm" variant="light" style={{ backgroundColor: `${severity.color}15`, color: severity.color }}>{severity.label}</Badge>
+              <Badge size="sm" variant="filled" style={{ backgroundColor: statusColor }}>{statusLabel}</Badge>
+            </div>
+            <h1 className={classes.heroTitle}>{alert.name}</h1>
+            {alert.description && <p className={classes.heroDescription}>{alert.description}</p>}
+          </div>
+        </div>
+        <div className={classes.heroActions}>
+          <Tooltip label="Edit Alert">
+            <Button variant="light" color="teal" onClick={handleEdit}><IconEdit size={18} /></Button>
+          </Tooltip>
+          {!alert.is_snoozed && (
+            <Tooltip label="Snooze for 24h">
+              <Button variant="light" color="orange" onClick={handleSnoozeToggle} loading={showSnoozeLoader}>
+                <IconBellX size={18} />
+              </Button>
+            </Tooltip>
           )}
         </div>
-        <Group gap="sm">
-          <Tooltip label="Edit alert">
-            <Button
-              variant="outline"
-              onClick={handleEdit}
-              className={classes.actionButton}
-            >
-              <IconEdit size={16} />
-            </Button>
-          </Tooltip>
-
-          <Tooltip label={alert.is_snoozed ? "Resume alert" : "Snooze alert"}>
-            <Button
-              variant="outline"
-              onClick={handleSnoozeToggle}
-              className={classes.actionButton}
-            >
-              {showSnoozeLoader ? (
-                <Loader size={16} type="bars" />
-              ) : alert.is_snoozed ? (
-                <IconBellRinging size={16} />
-              ) : (
-                <IconBellX size={16} />
-              )}
-            </Button>
-          </Tooltip>
-        </Group>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Main Content */}
       <div className={classes.contentGrid}>
         {/* Left Column */}
-        <div className={classes.leftColumn}>
-          {/* Alert Configuration */}
-          <Box className={classes.detailsSection}>
-            <Text className={classes.sectionTitle}>Alert Configuration</Text>
-            <Box className={classes.detailsGrid}>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Scope</Text>
-                <Text className={classes.detailValue}>{getScopeLabel(alert.scope)}</Text>
-              </Box>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Severity</Text>
-                <Badge
-                  size="md"
-                  variant="light"
-                  color={alert.severity_id <= 3 ? "red" : "orange"}
-                >
-                  P{alert.severity_id}
-                </Badge>
-              </Box>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Eval Interval</Text>
-                <Text className={classes.detailValue}>
-                  {alert.evaluation_interval}s
-                </Text>
-              </Box>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Eval Period</Text>
-                <Text className={classes.detailValue}>
-                  {alert.evaluation_period}s
-                </Text>
-              </Box>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Active</Text>
-                <Text className={classes.detailValue}>
-                  {alert.is_active ? "Yes" : "No"}
-                </Text>
-              </Box>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Condition</Text>
-                <Text className={classes.detailValue}>
-                  {alert.condition_expression}
-                </Text>
-              </Box>
-            </Box>
-          </Box>
+        <div className={classes.mainContent}>
+          {/* Conditions Section */}
+          <section className={classes.section}>
+            <h2 className={classes.sectionTitle}><IconActivity size={18} /> Alert Conditions</h2>
+            <p className={classes.sectionSubtitle}>Expression: <code className={classes.expressionCode}>{alert.condition_expression}</code></p>
+            <div className={classes.conditionsGrid}>
+              {alert.alerts?.map((condition, idx) => (
+                <div key={idx} className={classes.conditionCard}>
+                  <div className={classes.conditionHeader}>
+                    <span className={classes.conditionAlias}>{condition.alias}</span>
+                    <span className={classes.conditionMetric}>{METRIC_LABELS[condition.metric] || condition.metric}</span>
+                    <span className={classes.conditionOperator}>{OPERATOR_SYMBOLS[condition.metric_operator] || condition.metric_operator}</span>
+                  </div>
+                  <Divider my="xs" color="rgba(14,201,194,0.1)" />
+                  <div className={classes.thresholdsList}>
+                    {Object.entries(condition.threshold || {}).map(([name, value]) => (
+                      <div key={name} className={classes.thresholdItem}>
+                        <span className={classes.thresholdName}>{name}</span>
+                        <span className={classes.thresholdValue}>{formatThresholdValue(value as number, condition.metric)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          {/* Alert Conditions */}
-          <Box className={classes.detailsSection}>
-            <Text className={classes.sectionTitle}>Alert Conditions</Text>
-            {alert.alerts?.map((condition, index) => (
-              <Box key={index} className={classes.conditionCard}>
-                <Text className={classes.conditionAlias}>
-                  Condition {condition.alias}
-                </Text>
-                <Box className={classes.detailsGrid}>
-                  <Box className={classes.detailCard}>
-                    <Text className={classes.detailLabel}>Metric</Text>
-                    <Text className={classes.detailValue}>
-                      {condition.metric}
-                    </Text>
-                  </Box>
-                  <Box className={classes.detailCard}>
-                    <Text className={classes.detailLabel}>Operator</Text>
-                    <Text className={classes.detailValue}>
-                      {condition.metric_operator}
-                    </Text>
-                  </Box>
-                  {Object.entries(condition.threshold || {}).map(
-                    ([key, value]) => (
-                      <Box key={key} className={classes.detailCard}>
-                        <Text className={classes.detailLabel}>
-                          Threshold ({key})
-                        </Text>
-                        <Text className={classes.detailValue}>{value}</Text>
-                      </Box>
-                    ),
-                  )}
-                </Box>
-              </Box>
-            ))}
-          </Box>
+          {/* Configuration Section */}
+          <section className={classes.section}>
+            <h2 className={classes.sectionTitle}><IconClock size={18} /> Evaluation Settings</h2>
+            <div className={classes.configGrid}>
+              <div className={classes.configItem}>
+                <span className={classes.configLabel}>Evaluation Period</span>
+                <span className={classes.configValue}>{formatDuration(alert.evaluation_period)}</span>
+              </div>
+              <div className={classes.configItem}>
+                <span className={classes.configLabel}>Check Interval</span>
+                <span className={classes.configValue}>{formatDuration(alert.evaluation_interval)}</span>
+              </div>
+              <div className={classes.configItem}>
+                <span className={classes.configLabel}>Notification Channel</span>
+                <span className={classes.configValue}>Channel #{alert.notification_channel_id}</span>
+              </div>
+              <div className={classes.configItem}>
+                <span className={classes.configLabel}>Status</span>
+                <span className={classes.configValue}>{alert.is_active ? "Active" : "Inactive"}</span>
+              </div>
+            </div>
+          </section>
 
-          {/* Metadata */}
-          <Box className={classes.detailsSection}>
-            <Text className={classes.sectionTitle}>Metadata</Text>
-            <Box className={classes.detailsGrid}>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Created By</Text>
-                <Text className={classes.detailValue}>{alert.created_by}</Text>
-              </Box>
+          {/* Metadata Section */}
+          <section className={classes.section}>
+            <h2 className={classes.sectionTitle}><IconUser size={18} /> Metadata</h2>
+            <div className={classes.metadataGrid}>
+              <div className={classes.metadataItem}>
+                <IconUser size={14} />
+                <span>Created by <strong>{alert.created_by}</strong></span>
+              </div>
+              <div className={classes.metadataItem}>
+                <IconCalendar size={14} />
+                <span>Created {formatDateTime(alert.created_at)}</span>
+              </div>
               {alert.updated_by && (
-                <Box className={classes.detailCard}>
-                  <Text className={classes.detailLabel}>Updated By</Text>
-                  <Text className={classes.detailValue}>{alert.updated_by}</Text>
-                </Box>
+                <div className={classes.metadataItem}>
+                  <IconUser size={14} />
+                  <span>Updated by <strong>{alert.updated_by}</strong></span>
+                </div>
               )}
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Created At</Text>
-                <Text className={classes.detailValue}>
-                  {new Date(alert.created_at).toLocaleString()}
-                </Text>
-              </Box>
-              <Box className={classes.detailCard}>
-                <Text className={classes.detailLabel}>Updated At</Text>
-                <Text className={classes.detailValue}>
-                  {new Date(alert.updated_at).toLocaleString()}
-                </Text>
-              </Box>
-            </Box>
-          </Box>
+              <div className={classes.metadataItem}>
+                <IconCalendar size={14} />
+                <span>Last updated {formatDateTime(alert.updated_at)}</span>
+              </div>
+            </div>
+          </section>
         </div>
 
         {/* Right Column - Evaluation History */}
-        <div className={classes.rightColumn}>
-          <Box className={classes.detailsSection}>
-            <Text className={classes.sectionTitle}>Evaluation History</Text>
-            <Box className={classes.historyContainer}>
+        <aside className={classes.sidebar}>
+          <section className={classes.section}>
+            <h2 className={classes.sectionTitle}><IconClock size={18} /> Evaluation History</h2>
+            <div className={classes.historyContainer}>
               {isHistoryLoading ? (
-                <div className={classes.historyLoader}>
-                  <Loader size="md" />
-                  <Text size="sm" c="dimmed">
-                    Loading evaluation history...
-                  </Text>
-                </div>
+                <div className={classes.historyLoader}><Loader size="sm" color="teal" /><span>Loading...</span></div>
               ) : evaluationHistoryData?.error ? (
-                <div className={classes.historyError}>
-                  <Text size="sm" c="red">
-                    {evaluationHistoryData.error.message}
-                  </Text>
-                </div>
-              ) : evaluationHistoryData?.data &&
-                evaluationHistoryData.data.length > 0 ? (
-                <div className={classes.historyList}>
-                  {evaluationHistoryData.data.map((item, index) => (
-                    <div key={index} className={classes.historyItem}>
-                      <div className={classes.historyItemHeader}>
-                        <Badge
-                          size="sm"
-                          variant="light"
-                          color={
-                            item.current_state === "FIRING" ? "red" : "green"
-                          }
-                        >
-                          {item.current_state}
-                        </Badge>
-                        <Text size="xs" c="dimmed">
-                          {new Date(item.evaluated_at).toLocaleString()}
-                        </Text>
+                <div className={classes.historyError}>{evaluationHistoryData.error.message}</div>
+              ) : evaluationHistoryData?.data?.length ? (
+                <div className={classes.timeline}>
+                  {evaluationHistoryData.data.slice(0, 10).map((item, idx) => {
+                    const isItemFiring = item.current_state === "FIRING";
+                    const scopeReadings = parseReadings(item.reading);
+                    const thresholdPercent = (item.threshold * 100).toFixed(1);
+                    return (
+                      <div key={idx} className={classes.timelineItem}>
+                        <div className={classes.timelineDot} style={{ background: isItemFiring ? "#ef4444" : "#10b981" }} />
+                        <div className={classes.timelineContent}>
+                          <div className={classes.timelineHeader}>
+                            <Badge size="xs" variant="light" color={isItemFiring ? "red" : "green"}>{item.current_state}</Badge>
+                            <span className={classes.timelineTime}>{formatTime(item.evaluated_at)}</span>
+                          </div>
+                          
+                          {/* Per-Scope Readings */}
+                          <div className={classes.scopeReadings}>
+                            <div className={classes.scopeReadingsHeader}>
+                              <span>Scope</span>
+                              <span>Reading</span>
+                              <span>Threshold</span>
+                            </div>
+                            {scopeReadings.map((sr, srIdx) => {
+                              const readingPercent = (sr.reading * 100).toFixed(2);
+                              const isAboveThreshold = sr.reading > item.threshold;
+                              return (
+                                <div key={srIdx} className={classes.scopeReadingRow}>
+                                  <span className={classes.scopeName}>{sr.useCaseId}</span>
+                                  <span className={`${classes.scopeValue} ${isAboveThreshold ? classes.scopeValueFiring : classes.scopeValueNormal}`}>
+                                    {readingPercent}%
+                                  </span>
+                                  <span className={classes.scopeThreshold}>{thresholdPercent}%</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <span className={classes.timelineDate}>{formatDate(item.evaluated_at)}</span>
+                        </div>
                       </div>
-                      <div className={classes.historyDetails}>
-                        {item.reading !== undefined && (
-                          <Text size="sm" className={classes.historyValue}>
-                            Reading: <strong>{item.reading}</strong>
-                          </Text>
-                        )}
-                        {item.threshold !== undefined && (
-                          <Text size="sm" className={classes.historyValue}>
-                            Threshold: <strong>{item.threshold}</strong>
-                          </Text>
-                        )}
-                        {item.metric && (
-                          <Text size="xs" c="dimmed" mt={4}>
-                            Metric: {item.metric}
-                          </Text>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <div className={classes.historyEmpty}>
-                  <Text size="sm" c="dimmed">
-                    No evaluation history available
-                  </Text>
-                </div>
+                <div className={classes.historyEmpty}>No evaluation history yet</div>
               )}
-            </Box>
-          </Box>
-        </div>
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
   );
 }
-
