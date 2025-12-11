@@ -1,16 +1,5 @@
 plugins {
     `kotlin-dsl`
-    `java-gradle-plugin`
-}
-
-repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal()
-}
-
-dependencies {
-    implementation("com.android.tools.build:gradle:8.7.3")
 }
 
 group = "com.pulse"
@@ -20,10 +9,14 @@ gradlePlugin {
     plugins {
         create("pulseUploadSourceMaps") {
             id = "pulse.upload-sourcemaps"
-            implementationClass = "com.pulse.upload.PulseUploadSourceMapsPlugin"
+            implementationClass = "com.pulse.plugins.PulsePlugin"
             displayName = "Pulse Source Maps Upload Plugin"
             description = "Upload ProGuard/R8 mapping files to Pulse backend"
         }
     }
 }
 
+dependencies {
+    implementation("com.android.tools.build:gradle:8.7.3")
+    implementation("com.google.code.gson:gson:2.13.2")
+}
