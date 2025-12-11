@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.service.configs.models;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +12,5 @@ import jakarta.validation.constraints.NotNull;
 @NoArgsConstructor
 @NotNull
 public class DefaultSampling {
-  @JsonProperty("session_sample_rate")
   private double sessionSampleRate;
 }

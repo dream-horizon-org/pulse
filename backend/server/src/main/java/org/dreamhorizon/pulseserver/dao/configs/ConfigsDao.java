@@ -69,7 +69,7 @@ public class ConfigsDao {
               .map(config -> {
                 if (config.getConfigData().getFilters() != null) {
                   FilterMode mode = config.getConfigData().getFilters().getMode();
-                  if (mode != null && mode.equals(FilterMode.BLACKLIST)) {
+                  if (mode != null && mode.equals(FilterMode.blacklist)) {
                     config.getConfigData().getFilters().setWhitelist(List.of());
                   } else {
                     config.getConfigData().getFilters().setBlacklist(List.of());

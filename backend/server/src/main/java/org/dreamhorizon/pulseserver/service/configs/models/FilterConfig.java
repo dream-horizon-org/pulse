@@ -14,12 +14,9 @@ import jakarta.validation.constraints.NotNull;
 @NoArgsConstructor
 @NotNull
 public class FilterConfig {
-  @JsonProperty("mode")
   private FilterMode mode;
 
-  @JsonProperty("whitelist")
   private List<EventFilter> whitelist;
 
-  @JsonProperty("blacklist")
   private List<EventFilter> blacklist;
 }

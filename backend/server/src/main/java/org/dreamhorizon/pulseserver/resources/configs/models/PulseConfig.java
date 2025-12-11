@@ -9,7 +9,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
-import org.dreamhorizon.pulseserver.service.configs.models.SamplingMatchType;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
@@ -110,6 +109,9 @@ public class PulseConfig {
 
     @JsonProperty("criticalEventPolicies")
     private CriticalEventPolicies criticalEventPolicies;
+
+    @JsonProperty("criticalSessionPolicies")
+    private CriticalSessionPolicies criticalSessionPolicies;
   }
 
   @Data
@@ -118,7 +120,7 @@ public class PulseConfig {
   @NoArgsConstructor
   @NotNull
   public static class DefaultSampling {
-    @JsonProperty("session_sample_rate")
+    @JsonProperty("sessionSampleRate")
     private double sessionSampleRate;
   }
 
@@ -132,10 +134,13 @@ public class PulseConfig {
     @JsonProperty("name")
     private rules name;
 
-    @JsonProperty("match")
-    private SamplingMatchCondition match;
+    @JsonProperty("sdks")
+    private List<Sdk> sdks;
 
-    @JsonProperty("session_sample_rate")
+    @JsonProperty("value")
+    private String value;
+
+    @JsonProperty("sessionSampleRate")
     private double sessionSampleRate;
   }
 
@@ -144,27 +149,9 @@ public class PulseConfig {
   @AllArgsConstructor
   @NoArgsConstructor
   @NotNull
-  public static class SamplingMatchCondition {
-
-    @JsonProperty("type")
-    private SamplingMatchType type;
-
-    @JsonProperty("sdks")
-    private List<Sdk> sdks;
-
-    @JsonProperty("value")
-    private String value;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
   public static class CriticalEventPolicies {
-
     @JsonProperty("alwaysSend")
-    private List<CriticalEventPolicy> alwaysSend;
+    private List<CriticalPolicyRule> alwaysSend;
   }
 
   @Data
@@ -172,7 +159,17 @@ public class PulseConfig {
   @AllArgsConstructor
   @NoArgsConstructor
   @NotNull
-  public static class CriticalEventPolicy {
+  public static class CriticalSessionPolicies {
+    @JsonProperty("alwaysSend")
+    private List<CriticalPolicyRule> alwaysSend;
+  }
+
+  @Data
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @NotNull
+  public static class CriticalPolicyRule {
 
     @JsonProperty("name")
     private String name;
@@ -217,6 +214,7 @@ public class PulseConfig {
 
     @JsonProperty("configUrl")
     private String configUrl;
+
     @NotNull
     @JsonProperty("beforeInitQueueSize")
     private int beforeInitQueueSize;
@@ -235,7 +233,7 @@ public class PulseConfig {
     @JsonProperty("enabled")
     private boolean enabled;
 
-    @JsonProperty("session_sample_rate")
+    @JsonProperty("sessionSampleRate")
     private Double sessionSampleRate;
 
     @JsonProperty("sdks")

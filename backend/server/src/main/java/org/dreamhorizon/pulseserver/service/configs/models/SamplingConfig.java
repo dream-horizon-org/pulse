@@ -7,19 +7,19 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.NotNull;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @NotNull
 public class SamplingConfig {
-  @JsonProperty("default")
   private DefaultSampling defaultSampling;
 
-  @JsonProperty("rules")
   private List<SamplingRule> rules;
 
-  @JsonProperty("criticalEventPolicies")
   private CriticalEventPolicies criticalEventPolicies;
 
+  private CriticalSessionPolicies criticalSessionPolicies;
 }
