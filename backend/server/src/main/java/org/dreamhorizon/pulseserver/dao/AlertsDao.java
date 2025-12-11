@@ -1,39 +1,55 @@
 package org.dreamhorizon.pulseserver.dao;
 
-import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
-import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.enums.AlertState;
-import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
-import org.dreamhorizon.pulseserver.service.alert.core.models.*;
-import org.dreamhorizon.pulseserver.util.AlertMapper;
-import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.mysqlclient.MySQLException;
-import java.sql.Timestamp;
-import java.time.ZoneOffset;
-import java.util.*;
-import java.util.stream.Collectors;
-import io.vertx.rxjava3.sqlclient.SqlConnection;
+import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Pool;
 import io.vertx.rxjava3.sqlclient.Row;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
+import io.vertx.rxjava3.sqlclient.Tuple;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-
-import io.vertx.rxjava3.mysqlclient.MySQLClient;
-import io.vertx.rxjava3.sqlclient.Tuple;
+import java.sql.Timestamp;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
+import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
+import org.dreamhorizon.pulseserver.service.alert.core.models.AlertCondition;
+import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
+import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
+import org.dreamhorizon.pulseserver.service.alert.core.models.GetAlertsResponse;
+import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsResponse;
+import org.dreamhorizon.pulseserver.service.alert.core.models.Metric;
+import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
+import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
+import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import org.dreamhorizon.pulseserver.util.AlertMapper;
+import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -191,7 +207,7 @@ public class AlertsDao {
       Map<String, Object> conditionMap = new HashMap<>();
       conditionMap.put("alias", condition.getAlias());
       conditionMap.put("metric", condition.getMetric().name());
-      conditionMap.put("metricOperator", condition.getMetricOperator().name());
+      conditionMap.put("metric_operator", condition.getMetricOperator().name());
       conditionMap.put("threshold", condition.getThreshold().get(identifier));
       scopeSpecificConditions.add(conditionMap);
     }
@@ -315,11 +331,11 @@ public class AlertsDao {
 
                     log.info("Alert updated in database with id: {}", req.getAlertId());
 
-                    // 2. Delete existing scopes
+                    // 2. Soft delete existing scopes (mark as inactive)
                     return conn.preparedQuery(AlertsQuery.DELETE_ALERT_SCOPES)
                         .rxExecute(Tuple.of(req.getAlertId()))
                         .flatMap(deleteResult -> {
-                          log.info("Deleted {} existing scopes for alert_id: {}", deleteResult.rowCount(), req.getAlertId());
+                          log.info("Deactivated {} existing scopes for alert_id: {}", deleteResult.rowCount(), req.getAlertId());
 
                           // 3. Create new scopes
                           return createAlertScopes(conn, req.getAlertId(), new ArrayList<>(scopeNames), req.getAlerts())
@@ -420,7 +436,7 @@ public class AlertsDao {
       for (Map<String, Object> conditionMap : scopeConditions) {
         String alias = (String) conditionMap.get("alias");
         String metricStr = (String) conditionMap.get("metric");
-        String metricOperatorStr = (String) conditionMap.get("metricOperator");
+        String metricOperatorStr = (String) conditionMap.get("metric_operator");
         Object thresholdValue = conditionMap.get("threshold");
 
         AlertConditionDto alertCondition = conditionsByAlias.get(alias);

@@ -37,7 +37,7 @@ public class AlertsQuery {
       "    created_at,\n" +
       "    updated_at\n" +
       "FROM Alert_Scope \n" +
-      "WHERE alert_id = ? \n" +
+      "WHERE alert_id = ? AND is_active = TRUE \n" +
       "ORDER BY name;";
 
   public static final String GET_ALL_ALERT_SCOPES = "SELECT \n" +
@@ -49,7 +49,7 @@ public class AlertsQuery {
       "    created_at,\n" +
       "    updated_at\n" +
       "FROM Alert_Scope \n" +
-      "WHERE alert_id IN (SELECT id FROM Alerts WHERE is_active = TRUE) \n" +
+      "WHERE alert_id IN (SELECT id FROM Alerts WHERE is_active = TRUE) AND is_active = TRUE \n" +
       "ORDER BY alert_id, name;";
 
   public static final String GET_ALERT_SCOPES_FOR_IDS = "SELECT \n" +
@@ -61,7 +61,7 @@ public class AlertsQuery {
       "    created_at,\n" +
       "    updated_at\n" +
       "FROM Alert_Scope \n" +
-      "WHERE alert_id IN (%s) \n" +
+      "WHERE alert_id IN (%s) AND is_active = TRUE \n" +
       "ORDER BY alert_id, name;";
 
   public static final String GET_ALERTS = "WITH FilteredAlerts AS (\n" +
@@ -168,8 +168,9 @@ public class AlertsQuery {
       + "alert_id, "
       + "name, "
       + "conditions, "
-      + "state) "
-      + "VALUES (?,?,?,?);";
+      + "state, "
+      + "is_active) "
+      + "VALUES (?,?,?,?,TRUE);";
 
   public static final String DELETE_ALERT = "UPDATE Alerts SET is_active = FALSE WHERE id = ?;";
   public static final String UPDATE_ALERT_STATE = "UPDATE Alert_Scope SET state = ? WHERE alert_id = ? AND name = ?;";
@@ -189,7 +190,7 @@ public class AlertsQuery {
       + "updated_at = CURRENT_TIMESTAMP "
       + "WHERE id = ?;";
 
-  public static final String DELETE_ALERT_SCOPES = "DELETE FROM Alert_Scope WHERE alert_id = ?;";
+  public static final String DELETE_ALERT_SCOPES = "UPDATE Alert_Scope SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE alert_id = ?;";
 
   public static final String OLD_UPDATE_ALERT = "UPDATE Alerts SET "
       + "use_case_id = ?, "
@@ -221,7 +222,7 @@ public class AlertsQuery {
   public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM Alerts WHERE alert_id = ?;";
   public static final String GET_ALERT_FILTERS =
       "SELECT DISTINCT A.name as name , A.created_by as created_by, A.updated_by as updated_by, S.state AS current_state FROM Alerts A "
-          + "LEFT JOIN Alert_Scope S ON A.id = S.alert_id "
+          + "LEFT JOIN Alert_Scope S ON A.id = S.alert_id AND S.is_active = TRUE "
           + "WHERE A.is_active = TRUE;";
 
   // Alert state change history

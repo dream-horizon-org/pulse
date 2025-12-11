@@ -1,6 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.alert.v1;
 
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -10,7 +10,6 @@ import java.util.concurrent.CompletionStage;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -27,10 +26,9 @@ public class GetAlertEvaluationHistory {
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<List<AlertEvaluationHistoryResponseDto>>> getAlertEvaluationHistory(
-      @NotNull @HeaderParam("authorization") String authorization, @NotNull @PathParam("id") Integer alertId) {
+  public CompletionStage<Response<List<ScopeEvaluationHistoryDto>>> getAlertEvaluationHistory(@NotNull @PathParam("id") Integer alertId) {
     return alertsService
-            .getAlertEvaluationHistory(alertId)
+            .getAlertEvaluationHistoryByScope(alertId)
             .to(RestResponse.jaxrsRestHandler());
   }
 }

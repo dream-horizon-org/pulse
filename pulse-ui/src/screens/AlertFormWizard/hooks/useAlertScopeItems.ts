@@ -53,7 +53,7 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
     groupBy: ["url"],
     orderBy: [{ field: "count", direction: "DESC" }],
     limit,
-    filters: [{ field: "SpanType", operator: "EQ", value: ["http_client"] }],
+    filters: [{ field: "SpanType", operator: "EQ", value: ["network"] }],
   }), [timeRange, limit]);
 
   const { data: networkData, isLoading: loadingNetwork } = useGetDataQuery({

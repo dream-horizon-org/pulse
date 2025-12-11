@@ -2,26 +2,43 @@ package org.dreamhorizon.pulseserver.service.alert.core;
 
 import static org.dreamhorizon.pulseserver.constant.Constants.ALERT_EVALUATE_AND_TRIGGER_ALERT;
 
+import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Single;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
+import org.dreamhorizon.pulseserver.dao.AlertsDaoV4;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
+import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopesResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagMapRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertNotificationChannelRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
 import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopesResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
-import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
@@ -31,22 +48,6 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsRespon
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
-import com.google.inject.Inject;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
-
-import io.reactivex.rxjava3.core.Single;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Data
@@ -54,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AlertService {
 
   private final AlertsDao alertsDao;
+  private final AlertsDaoV4 alertsDaoV4;
   private final AlertCronService alertCronService;
   private final ApplicationConfig applicationConfig;
 
@@ -240,6 +242,10 @@ public class AlertService {
     return alertsDao.getEvaluationHistoryOfAlert(alertId);
   }
 
+  public Single<List<ScopeEvaluationHistoryDto>> getAlertEvaluationHistoryByScope(@NotNull Integer alertId) {
+    return alertsDaoV4.getEvaluationHistoryByAlert(alertId);
+  }
+
   public Single<List<AlertSeverityResponseDto>> getAlertSeverities() {
     return alertsDao.getAlertSeverities();
   }
@@ -308,13 +314,13 @@ public class AlertService {
   private AlertScopeItemDto mapScopeToDto(AlertScope scope) {
     String id = switch (scope) {
       case Interaction -> "interaction";
-      case API -> "network_api";
+      case network -> "network_api";
       case SCREEN -> "screen";
       case APP_VITALS -> "app_vitals";
     };
     String label = switch (scope) {
       case Interaction -> "Interactions";
-      case API -> "Network APIs";
+      case network -> "Network APIs";
       case SCREEN -> "Screen";
       case APP_VITALS -> "App Vitals";
     };
@@ -337,7 +343,7 @@ public class AlertService {
   private AlertScope parseScope(String scope) {
     return switch (scope.toLowerCase()) {
       case "interaction" -> AlertScope.Interaction;
-      case "network_api" -> AlertScope.API;
+      case "network_api" -> AlertScope.network;
       case "screen" -> AlertScope.SCREEN;
       case "app_vitals" -> AlertScope.APP_VITALS;
       default -> throw ServiceError.INVALID_REQUEST_PARAM.getCustomException(
@@ -386,7 +392,7 @@ public class AlertService {
           "EXCELLENT_USER_RATE",
           "LOAD_TIME"
       );
-      case API -> List.of(
+      case network -> List.of(
           "NET_4XX_RATE",
           "NET_5XX_RATE",
           "NET_0",

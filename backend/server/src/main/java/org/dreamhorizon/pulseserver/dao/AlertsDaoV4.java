@@ -20,9 +20,14 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.dreamhorizon.pulseserver.resources.alert.models.EvaluationHistoryEntryDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -198,6 +203,45 @@ public class AlertsDaoV4 {
                         }
                     }
                     return null;
+                });
+    }
+
+    public Single<List<ScopeEvaluationHistoryDto>> getEvaluationHistoryByAlert(Integer alertId) {
+        return d11MysqlClient.getWriterPool()
+                .preparedQuery(AlertsQueryV4.GET_EVALUATION_HISTORY_BY_ALERT)
+                .rxExecute(Tuple.of(alertId))
+                .onErrorResumeNext(error -> {
+                    log.error("Error while fetching evaluation history for alert id {}: {}", alertId, error.getMessage());
+                    MySQLException mySQLException = (MySQLException) error;
+                    return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+                })
+                .map(rowSet -> {
+                    // Group evaluation history by scope
+                    Map<Integer, ScopeEvaluationHistoryDto> scopeMap = new HashMap<>();
+                    
+                    for (Row row : rowSet) {
+                        Integer scopeId = row.getInteger("scope_id");
+                        String scopeName = row.getString("scope_name");
+                        
+                        ScopeEvaluationHistoryDto scopeHistory = scopeMap.computeIfAbsent(scopeId, id -> 
+                            ScopeEvaluationHistoryDto.builder()
+                                    .scopeId(id)
+                                    .scopeName(scopeName)
+                                    .evaluationHistory(new ArrayList<>())
+                                    .build()
+                        );
+                        
+                        EvaluationHistoryEntryDto entry = EvaluationHistoryEntryDto.builder()
+                                .evaluationId(row.getInteger("evaluation_id"))
+                                .evaluationResult(getJsonAsString(row, "evaluation_result"))
+                                .state(AlertState.valueOf(row.getString("state")))
+                                .evaluatedAt(Timestamp.valueOf(row.getLocalDateTime("evaluated_at")))
+                                .build();
+                        
+                        scopeHistory.getEvaluationHistory().add(entry);
+                    }
+                    
+                    return new ArrayList<>(scopeMap.values());
                 });
     }
 

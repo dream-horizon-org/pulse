@@ -77,6 +77,7 @@ CREATE TABLE Alert_Scope (
   name                   VARCHAR(255) NOT NULL,
   conditions             JSON NULL,
   state                  VARCHAR(50) NOT NULL DEFAULT 'NORMAL',
+  is_active              BOOLEAN NOT NULL DEFAULT TRUE,
   created_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_subject_alert FOREIGN KEY (alert_id) REFERENCES Alerts (id)

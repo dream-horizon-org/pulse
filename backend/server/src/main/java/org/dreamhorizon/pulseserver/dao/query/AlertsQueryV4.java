@@ -33,7 +33,7 @@ public class AlertsQueryV4 {
             + "created_at, "
             + "updated_at "
             + "FROM Alert_Scope "
-            + "WHERE alert_id = ?;";
+            + "WHERE alert_id = ? AND is_active = TRUE;";
 
     public static final String UPDATE_SCOPE_STATE = "UPDATE Alert_Scope SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;";
 
@@ -49,6 +49,18 @@ public class AlertsQueryV4 {
 
     public static final String GET_SCOPE_STATE = "SELECT state "
             + "FROM Alert_Scope "
-            + "WHERE id = ?;";
+            + "WHERE id = ? AND is_active = TRUE;";
+
+    public static final String GET_EVALUATION_HISTORY_BY_ALERT = "SELECT "
+            + "eh.evaluation_id, "
+            + "eh.scope_id, "
+            + "eh.evaluation_result, "
+            + "eh.state, "
+            + "eh.evaluated_at, "
+            + "as_scope.name as scope_name "
+            + "FROM Alert_Evaluation_History eh "
+            + "INNER JOIN Alert_Scope as_scope ON eh.scope_id = as_scope.id "
+            + "WHERE as_scope.alert_id = ? AND as_scope.is_active = TRUE "
+            + "ORDER BY as_scope.id, eh.evaluated_at DESC;";
 }
 

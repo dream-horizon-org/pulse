@@ -76,7 +76,7 @@ public class AlertEvaluationServiceV4 {
   private void triggerEvaluation(AlertsDaoV4.AlertV4Details alertDetails) {
     LocalTime startTime = LocalTime.now();
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
-    ZonedDateTime startTimeWindow = endTime.minusMinutes(alertDetails.getEvaluationPeriod());
+    ZonedDateTime startTimeWindow = endTime.minusSeconds(alertDetails.getEvaluationPeriod());
     LocalDateTime evaluationWindowStart = startTimeWindow.toLocalDateTime();
     LocalDateTime evaluationWindowEnd = endTime.toLocalDateTime();
 
@@ -132,7 +132,7 @@ public class AlertEvaluationServiceV4 {
 
     // Calculate time range: end time is current time, start time is end - evaluation period
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
-    ZonedDateTime startTime = endTime.minusMinutes(evaluationPeriod);
+    ZonedDateTime startTime = endTime.minusSeconds(evaluationPeriod);
 
     QueryRequest.TimeRange timeRange = new QueryRequest.TimeRange();
     timeRange.setStart(startTime.toInstant().toString());
@@ -693,6 +693,7 @@ public class AlertEvaluationServiceV4 {
     return switch (scope.toUpperCase()) {
       case "INTERACTION" -> "SpanName";
       case "SCREEN" -> "SpanName";
+      case "NETWORK" -> "SpanAttributes['http.url']";
       default -> "SpanName";
     };
   }

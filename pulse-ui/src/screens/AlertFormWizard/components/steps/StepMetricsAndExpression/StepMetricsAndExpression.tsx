@@ -52,7 +52,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanAttributes['http.url']" }, alias: "url" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "EQ" as const, value: ["http_client"] }, ...baseFilters],
+      filters: [{ field: "SpanType", operator: "EQ" as const, value: ["network"] }, ...baseFilters],
     };
   }
   return null;
