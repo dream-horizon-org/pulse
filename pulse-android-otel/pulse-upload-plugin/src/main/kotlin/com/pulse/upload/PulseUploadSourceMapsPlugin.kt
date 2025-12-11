@@ -6,8 +6,10 @@ import java.net.URL
 import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.options.Option
 import org.gradle.api.tasks.TaskAction
 
@@ -16,6 +18,8 @@ class PulseUploadSourceMapsPlugin : Plugin<Project> {
         project.tasks.register("uploadSourceMaps", UploadSourceMapsTask::class.java) {
             group = "pulse"
             description = "Upload ProGuard/R8 mapping files to Pulse backend"
+            configFile.convention(project.objects.fileProperty())
+            projectDirectory.set(project.layout.projectDirectory.asFile.absolutePath)
         }
     }
 }
@@ -28,7 +32,10 @@ abstract class UploadSourceMapsTask : DefaultTask() {
 
     @get:Option(option = "mapping-file", description = "ProGuard/R8 mapping file path")
     @get:Input
-    abstract val mappingFile: Property<String>
+    abstract val mappingFileString: Property<String>
+
+    @get:Internal
+    abstract val configFile: RegularFileProperty
 
     @get:Option(option = "app-version", description = "App version (e.g., 1.0.0). Required.")
     @get:Input
@@ -42,6 +49,9 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     @get:Input
     abstract val verbose: Property<Boolean>
 
+    @get:Input
+    abstract val projectDirectory: Property<String>
+
     init {
         verbose.convention(false)
     }
@@ -49,20 +59,14 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     @TaskAction
     fun upload() {
         val apiUrlValue = validateAndGetApiUrl()
-        val mappingFilePath = mappingFile.orNull
-            ?: throw IllegalArgumentException("Mapping file path is required. Use --mapping-file=<path>")
-
-        val debugValue = verbose.getOrElse(false)
-
-        val mappingFileObj = resolveMappingFile(mappingFilePath)
-
+        val mappingFileObj = resolveMappingFile()
         val appVersionValue = validateAndGetAppVersion()
         val versionCodeValue = validateAndGetVersionCode()
+        val debugValue = verbose.getOrElse(false)
 
         val platform = "android"
         val type = "mapping"
         val fileName = mappingFileObj.name
-        val fileSize = mappingFileObj.length()
 
         logger.lifecycle("\n📤 Uploading to Pulse backend...")
         logger.lifecycle("   File: ${mappingFileObj.name} (${formatFileSize(mappingFileObj.length())})")
@@ -124,24 +128,6 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         return url
     }
 
-    private fun resolveMappingFile(mappingFilePath: String): File {
-        val file = if (File(mappingFilePath).isAbsolute) {
-            File(mappingFilePath)
-        } else {
-            val projectDir = project.layout.projectDirectory.asFile
-            File(projectDir, mappingFilePath)
-        }
-
-        if (!file.exists()) {
-            throw IllegalArgumentException("Mapping file not found: ${file.absolutePath}")
-        }
-
-        if (!file.isFile) {
-            throw IllegalArgumentException("Path is not a file: ${file.absolutePath}")
-        }
-
-        return file
-    }
 
     private fun validateAndGetAppVersion(): String {
         val version = appVersion.orNull?.trim()
@@ -175,6 +161,34 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         }
 
         return code.toString()
+    }
+
+    private fun resolveMappingFile(): File {
+        val mappingFilePath = mappingFileString.orNull?.trim()
+            ?: throw IllegalArgumentException("Mapping file path is required. Use --mapping-file=<path>")
+
+        if (mappingFilePath.isBlank()) {
+            throw IllegalArgumentException("Mapping file path cannot be blank")
+        }
+
+        val resolvedFile = if (File(mappingFilePath).isAbsolute) {
+            File(mappingFilePath)
+        } else {
+            File(File(projectDirectory.get()), mappingFilePath)
+        }
+
+        configFile.set(resolvedFile)
+        val file = configFile.asFile.get()
+
+        if (!file.exists()) {
+            throw IllegalArgumentException("Mapping file not found: ${file.absolutePath}")
+        }
+
+        if (!file.isFile) {
+            throw IllegalArgumentException("Path is not a file: ${file.absolutePath}")
+        }
+
+        return file
     }
 
     private fun formatFileSize(bytes: Long): String {
