@@ -35,17 +35,18 @@ public class PulseSDK: NSObject {
     
     @objc(setUserId:)
     public static func setUserId(_ userId: String?) {
-        // TODO: Implement when user management is added to PulseKit
+        PulseKit.shared.setUserId(userId)
     }
     
     @objc(setUserProperty:value:)
     public static func setUserProperty(name: String, value: String?) {
-        // TODO: Implement when user management is added to PulseKit
+        PulseKit.shared.setUserProperty(name: name, value: value)
     }
     
     @objc(setUserProperties:)
     public static func setUserProperties(_ properties: NSDictionary?) {
-        // TODO: Implement when user management is added to PulseKit
+        let convertedProperties = convertDictionary(properties)
+        PulseKit.shared.setUserProperties(convertedProperties)
     }
     
     @objc(trackEventWithName:observedTimeStampInMs:params:)
