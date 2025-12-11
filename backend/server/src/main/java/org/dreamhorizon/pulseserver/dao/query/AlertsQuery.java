@@ -220,7 +220,10 @@ public class AlertsQuery {
 
   public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM Alerts WHERE alert_id = ?;";
   public static final String GET_ALERT_FILTERS =
-      "SELECT DISTINCT name, created_by, updated_by, current_state, job_id FROM Alerts WHERE is_active = TRUE;";
+      "SELECT DISTINCT A.name, A.created_by, A.updated_by, S.state AS current_state " +
+      "FROM Alerts A " +
+      "LEFT JOIN Alert_Scope S ON A.id = S.alert_id " +
+      "WHERE A.is_active = TRUE;";
 
   // Alert state change history
   public static final String CREATE_ALERT_STATE_HISTORY =
