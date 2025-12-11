@@ -24,10 +24,10 @@ export function InteractionCard({
   // Use provided metric values or defaults
 
   const getHealthColor = (apdexScore: number) => {
-    if (apdexScore >= 0.85) return "#10b981";
-    if (apdexScore >= 0.7) return "#f59e0b";
-    if (apdexScore >= 0.5) return "#f97316";
-    return "#ef4444";
+    if (apdexScore >= 0.8) return "#10b981";  // Green - matches "Excellent"
+    if (apdexScore >= 0.6) return "#f59e0b";  // Amber - matches "Good"
+    if (apdexScore >= 0.4) return "#f97316";  // Orange - matches "Fair"
+    return "#ef4444";                          // Red - matches "Poor"
   };
 
   const getHealthGradient = (apdexScore: number) => {
@@ -59,7 +59,7 @@ export function InteractionCard({
   };
 
   const formattedErrorRate = (errorRate: number) => {
-    return `${(errorRate * 100).toFixed(2)}%`;
+    return `${(errorRate).toFixed(2)}%`;
   };
 
   const formattedPoorUserPercentage = (poorUserPercentage: number) => {
