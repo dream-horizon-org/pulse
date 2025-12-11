@@ -1,0 +1,27 @@
+name: Backend Server - Upload Jar
+
+on:
+  push:
+    branches: [ test/release ]
+    paths:
+      - 'backend/server/**'
+      - '.github/workflows/**'
+
+jobs:
+  upload-backend-server-jar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.COMMIT_ACCESS_TOKEN }}
+
+      - name: Upload jar
+        id: upload-jar
+        uses: dream11/d11-github-actions/upload-jar@v1
+        with:
+          modules: backend/server
+          github-token: ${{ secrets.COMMIT_ACCESS_TOKEN }}
+          jfrog-artifactory-url: https://dreamsports.jfrog.io/artifactory/d11-groups
+          bump_version: true
