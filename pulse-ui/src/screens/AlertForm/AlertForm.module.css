@@ -1,0 +1,136 @@
+.AlertFormContainerGroup {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+}
+
+.AlertFormHeaderContainer {
+  display: flex;
+  align-items: center;
+  padding: var(--mantine-spacing-md);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  background: #ffffff;
+}
+
+.AlertForm {
+  flex-grow: 1;
+  overflow: hidden;
+  display: flex;
+  padding: var(--mantine-spacing-md);
+}
+
+.StepperContainer {
+  flex-grow: 1;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.AlertStepperRoot {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.StepperWrapper {
+  cursor: pointer;
+}
+
+.StepperItem {
+  padding: var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+  transition: background 0.2s ease;
+}
+
+.AlertFormButtonBox {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: #ffffff;
+  border-top: 2px solid #0ec9c2;
+  box-shadow: 0 -4px 20px rgba(14, 201, 194, 0.25);
+  min-height: 70px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1000;
+}
+
+.AlertFormButtonContainer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.AlertFormButton {
+  min-width: 120px;
+}
+
+.loadingOverlay {
+  z-index: 10;
+}
+
+.modalContainer {
+  display: flex;
+  justify-content: center;
+  gap: var(--mantine-spacing-md);
+  margin-top: var(--mantine-spacing-md);
+}
+
+.closeButton {
+  margin-left: auto;
+}
+
+.formSection {
+  padding: var(--mantine-spacing-lg);
+  background: #ffffff;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  margin-bottom: var(--mantine-spacing-md);
+  width: 100%;
+}
+
+.formSectionTitle {
+  font-size: 16px;
+  font-weight: 600 !important;
+  color: var(--mantine-color-dark-7);
+  /* margin-bottom: var(--mantine-spacing-md) !important; */
+  /* padding-bottom: var(--mantine-spacing-sm) !important; */
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+}
+
+.alertConditionCard {
+  padding: var(--mantine-spacing-md);
+  background: rgba(14, 201, 194, 0.03);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.conditionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.conditionAlias {
+  font-weight: 600;
+  color: #0ec9c2;
+  font-size: 14px;
+}
+
+.thresholdInputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--mantine-spacing-sm);
+}
+
+

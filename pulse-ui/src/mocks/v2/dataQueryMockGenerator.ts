@@ -1342,6 +1342,9 @@ export class DataQueryMockGeneratorV2 {
     if (normalizedField.includes(`spanattributes['${SpanType.SCREEN_NAME}']`)) {
       normalizedField = "screen_name";
     }
+    if (normalizedField.includes("spanattributes['http.url']")) {
+      normalizedField = "url";
+    }
 
     // Early return for screen_name to use predefined values
     if (normalizedField === "screen_name") {
@@ -1682,6 +1685,18 @@ export class DataQueryMockGeneratorV2 {
         "ProfileScreen",
         "SearchResultsScreen",
         "OrderListScreen",
+      ],
+      url: [
+        "https://api.example.com/v1/users",
+        "https://api.example.com/v1/products",
+        "https://api.example.com/v1/orders",
+        "https://api.example.com/v1/payments",
+        "https://api.example.com/v1/auth/login",
+        "https://api.example.com/v1/cart",
+        "https://api.example.com/v1/search",
+        "https://api.example.com/v1/notifications",
+        "https://api.example.com/v1/analytics",
+        "https://api.example.com/v1/profile",
       ],
     };
 

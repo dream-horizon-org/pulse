@@ -1,0 +1,240 @@
+/**
+ * Alert Form Wizard Styles
+ *
+ * Production-grade styles for the main wizard component.
+ */
+
+/* ============================================================================
+   WIZARD CONTAINER
+   ============================================================================ */
+
+.wizardContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+.wizardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.wizardTitle {
+  color: var(--mantine-color-dark-7);
+  font-weight: 600;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+
+.deleteButton {
+  border-color: var(--mantine-color-red-6);
+}
+
+.closeButton {
+  color: var(--mantine-color-gray-6);
+}
+
+.closeButton:hover {
+  color: var(--mantine-color-dark-7);
+  background-color: var(--mantine-color-gray-1);
+}
+
+/* ============================================================================
+   MAIN CONTENT AREA
+   ============================================================================ */
+
+.wizardContent {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   STEPPER SIDEBAR
+   ============================================================================ */
+
+.stepperSidebar {
+  width: 280px;
+  min-width: 280px;
+  background: #ffffff;
+  border-right: 1px solid rgba(14, 201, 194, 0.12);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   STEP CONTENT AREA
+   ============================================================================ */
+
+.stepContentArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--mantine-spacing-lg);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.02) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+/* ============================================================================
+   STEP CONTENT
+   ============================================================================ */
+
+.stepContent {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.stepHeader {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.stepTitle {
+  color: #0ba09a;
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+.stepBody {
+  padding: var(--mantine-spacing-lg);
+  background: #ffffff;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.05);
+}
+
+/* ============================================================================
+   MODAL STYLES
+   ============================================================================ */
+
+.modalContent {
+  padding-top: var(--mantine-spacing-xs);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mantine-spacing-md);
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================ */
+
+@media (max-width: 992px) {
+  .stepperSidebar {
+    width: 220px;
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .wizardContent {
+    flex-direction: column;
+  }
+
+  .stepperSidebar {
+    width: 100%;
+    min-width: 100%;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  }
+
+  .stepContentArea {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .wizardHeader {
+    padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  }
+
+  .wizardTitle {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 576px) {
+  .stepperSidebar {
+    max-height: 120px;
+  }
+
+  .stepContent {
+    max-width: 100%;
+  }
+
+  .stepBody {
+    padding: var(--mantine-spacing-md);
+  }
+}
+
+/* ============================================================================
+   LOADING OVERLAY
+   ============================================================================ */
+
+.wizardContainer :global(.mantine-LoadingOverlay-root) {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(2px);
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+
+.stepperSidebar::-webkit-scrollbar,
+.stepContentArea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.stepperSidebar::-webkit-scrollbar-track,
+.stepContentArea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.stepperSidebar::-webkit-scrollbar-thumb,
+.stepContentArea::-webkit-scrollbar-thumb {
+  background-color: rgba(14, 201, 194, 0.3);
+  border-radius: 3px;
+}
+
+.stepperSidebar::-webkit-scrollbar-thumb:hover,
+.stepContentArea::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(14, 201, 194, 0.5);
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+.closeButton:focus-visible,
+.deleteButton:focus-visible {
+  outline: 2px solid #0ec9c2;
+  outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .wizardContainer,
+  .stepContent,
+  .stepBody {
+    transition: none;
+  }
+}
+

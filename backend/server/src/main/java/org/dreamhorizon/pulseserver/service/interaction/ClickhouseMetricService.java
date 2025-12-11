@@ -187,8 +187,8 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               .map(GetRawUserEventsResponseDto.Field::getName)
               .toList();
           List<List<String>> rows = rawRes.data.getRows().stream()
-              .map(row -> row.getF().stream()
-                  .map(field -> field.getV().toString())
+              .map(row -> row.getRowFields().stream()
+                  .map(field -> field.getValue().toString())
                   .toList())
               .toList();
           return PerformanceMetricDistributionRes.builder()

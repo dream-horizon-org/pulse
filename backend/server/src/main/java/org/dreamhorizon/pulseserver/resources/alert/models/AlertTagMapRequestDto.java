@@ -13,5 +13,5 @@ import jakarta.validation.constraints.NotNull;
 public class AlertTagMapRequestDto {
     @NotNull
     @JsonProperty("tag_id")
-    Integer tag_id;
+    Integer tagId;
 }

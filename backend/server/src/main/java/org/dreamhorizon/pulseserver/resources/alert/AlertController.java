@@ -110,7 +110,7 @@ public class AlertController {
   }
 
   @GET
-  @Path("/{id}")
+  @Path("/{id: \\d+}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<AlertDetailsResponseDto>> getAlertDetails(@NotNull @PathParam("id") Integer alertId) {
@@ -142,7 +142,7 @@ public class AlertController {
   }
 
   @DELETE
-  @Path("/{id}")
+  @Path("/{id: \\d+}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Boolean>> deleteAlert(@NotNull @PathParam("id") Integer alertId) {
@@ -161,7 +161,7 @@ public class AlertController {
   }
 
   @GET
-  @Path("/{id}/evaluationHistory")
+  @Path("/{id: \\d+}/evaluationHistory")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<List<AlertEvaluationHistoryResponseDto>>> getAlertEvaluationHistory(
