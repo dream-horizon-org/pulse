@@ -54,4 +54,5 @@ public class MainModule extends VertxAbstractModule {
     }
     return objectMapper;
   }
+
 }
