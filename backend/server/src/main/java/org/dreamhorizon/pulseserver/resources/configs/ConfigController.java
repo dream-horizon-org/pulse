@@ -41,9 +41,9 @@ public class ConfigController {
   }
 
   @GET
-  @Path("/latest-version")
+  @Path("/active-config")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<Config>> getLatestVersion() {
+  public CompletionStage<Response<Config>> getActiveConfig() {
     return configService.getActiveConfig()
         .to(RestResponse.jaxrsRestHandler());
   }
