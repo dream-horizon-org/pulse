@@ -2,8 +2,11 @@ package com.pulse.tasks
 
 import com.google.gson.Gson
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.MalformedURLException
 import java.net.URL
+import java.util.Locale
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.RegularFileProperty
@@ -17,6 +20,12 @@ import org.gradle.api.tasks.options.Option
 import org.gradle.api.tasks.TaskAction
 
 abstract class UploadSourceMapsTask : DefaultTask() {
+
+    companion object {
+        private const val CRLF = "\r\n"
+        private const val DEBUG_URL_PREFIX = "   URL: "
+        private const val DEBUG_RESPONSE_PREFIX = "   Response: "
+    }
 
     @get:Option(option = "api-url", description = "API URL for uploading source maps")
     @get:Input
@@ -75,14 +84,19 @@ abstract class UploadSourceMapsTask : DefaultTask() {
             )
             logger.info("✓ Upload successful")
         } catch (e: IllegalArgumentException) {
-            logger.error("✗ Validation error: ${e.message}")
-            throw GradleException("Validation error: ${e.message}", e)
-        } catch (e: Exception) {
+            handleUploadError("Validation error", e)
+        } catch (e: MalformedURLException) {
+            handleUploadError("Invalid API URL", e)
+        } catch (e: IOException) {
             logger.error("✗ Upload failed: ${e.message}")
             logger.debug("   Exception: ${e.javaClass.simpleName}")
-            e.printStackTrace()
             throw GradleException("Upload failed: ${e.message}", e)
         }
+    }
+
+    private fun handleUploadError(message: String, e: Exception) {
+        logger.error("✗ $message: ${e.message}")
+        throw GradleException("$message: ${e.message}", e)
     }
 
     private fun validateRequiredString(
@@ -114,12 +128,13 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     private fun resolveMappingFile(): File {
         val file = mappingFile.asFile.get()
 
-        if (!file.exists()) {
-            throw GradleException("Mapping file not found: ${file.absolutePath}")
-        }
-
-        if (!file.isFile) {
-            throw GradleException("Path is not a file: ${file.absolutePath}")
+        if (!file.exists() || !file.isFile) {
+            val message = if (!file.exists()) {
+                "Mapping file not found: ${file.absolutePath}"
+            } else {
+                "Path is not a file: ${file.absolutePath}"
+            }
+            throw GradleException(message)
         }
 
         if (file.length() == 0L) {
@@ -134,8 +149,8 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         val kb = bytes / 1024.0
         val mb = kb / 1024.0
         return when {
-            mb >= 1 -> String.format("%.2f MB", mb)
-            kb >= 1 -> String.format("%.2f KB", kb)
+            mb >= 1 -> String.format(Locale.US, "%.2f MB", mb)
+            kb >= 1 -> String.format(Locale.US, "%.2f KB", kb)
             else -> "$bytes bytes"
         }
     }
@@ -151,7 +166,7 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     ) {
         val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
-        
+
         val connection = URL(apiUrl).openConnection() as HttpURLConnection
 
         try {
@@ -170,9 +185,13 @@ abstract class UploadSourceMapsTask : DefaultTask() {
 
             validateResponse(responseCode, response)
 
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             logger.debug("HTTP request failed: ${e.message}")
-            logger.debug("   URL: $apiUrl")
+            logDebugUrl(apiUrl)
+            throw e
+        } catch (e: MalformedURLException) {
+            logger.debug("Invalid URL: ${e.message}")
+            logDebugUrl(apiUrl)
             throw e
         } finally {
             connection.disconnect()
@@ -186,22 +205,23 @@ abstract class UploadSourceMapsTask : DefaultTask() {
         file: File,
         fileName: String
     ) {
+        val boundaryLine = "--$boundary$CRLF"
         output.apply {
-            write("--$boundary\r\n".toByteArray())
-            write("Content-Disposition: form-data; name=\"metadata\"\r\n".toByteArray())
-            write("Content-Type: application/json\r\n\r\n".toByteArray())
+            write(boundaryLine.toByteArray())
+            write("""Content-Disposition: form-data; name="metadata"$CRLF""".toByteArray())
+            write("""Content-Type: application/json$CRLF$CRLF""".toByteArray())
             write(metadata.toByteArray())
-            write("\r\n".toByteArray())
+            write(CRLF.toByteArray())
 
-            write("--$boundary\r\n".toByteArray())
-            write("Content-Disposition: form-data; name=\"fileContent\"; filename=\"$fileName\"\r\n".toByteArray())
-            write("Content-Type: text/plain\r\n\r\n".toByteArray())
+            write(boundaryLine.toByteArray())
+            write("""Content-Disposition: form-data; name="fileContent"; filename="$fileName"$CRLF""".toByteArray())
+            write("""Content-Type: text/plain$CRLF$CRLF""".toByteArray())
             file.inputStream().use { input ->
                 input.copyTo(this)
             }
-            write("\r\n".toByteArray())
+            write(CRLF.toByteArray())
 
-            write("--$boundary--\r\n".toByteArray())
+            write("--$boundary--$CRLF".toByteArray())
         }
     }
 
@@ -216,7 +236,7 @@ abstract class UploadSourceMapsTask : DefaultTask() {
                     error.bufferedReader().readText()
                 } ?: "No error message available"
             }
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             "Failed to read response: ${e.message}"
         }
     }
@@ -224,13 +244,21 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     private fun validateResponse(responseCode: Int, response: String) {
         if (responseCode !in 200..299) {
             logger.error("   HTTP Status: $responseCode")
-            logger.debug("   Response: $response")
+            logDebugResponse(response)
             throw GradleException("Upload failed with HTTP $responseCode")
         }
-        
+
         logger.debug("\n📥 Backend Response:")
         logger.debug("   Status: $responseCode")
-        logger.debug("   Response: $response")
+        logDebugResponse(response)
+    }
+
+    private fun logDebugUrl(url: String) {
+        logger.debug("$DEBUG_URL_PREFIX$url")
+    }
+
+    private fun logDebugResponse(response: String) {
+        logger.debug("$DEBUG_RESPONSE_PREFIX$response")
     }
 
     private fun buildMetadata(
