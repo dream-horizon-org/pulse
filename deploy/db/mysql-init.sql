@@ -102,7 +102,7 @@ VALUES
 
 INSERT INTO Notification_Channels (name, notification_webhook_url)
 VALUES
-    ('Incident management', 'http://whistlebot.dream11.local/declare-incident');
+    ('Incident management', 'http://whistlebot.local/declare-incident');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';

@@ -140,14 +140,19 @@ public class AlertEvaluationServiceV4 {
 
     List<QueryRequest.SelectItem> selectItems = new ArrayList<>();
 
-    QueryRequest.SelectItem timeBucket = new QueryRequest.SelectItem();
-    timeBucket.setFunction(Functions.TIME_BUCKET);
-    Map<String, String> timeBucketParams = new HashMap<>();
-    timeBucketParams.put("field", "Timestamp");
-    timeBucketParams.put("bucket", bucket);
-    timeBucket.setParam(timeBucketParams);
-    timeBucket.setAlias("t1");
-    selectItems.add(timeBucket);
+    boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(alertDetails.getScope());
+    
+    // For APP_VITALS, don't add time bucket to select (aggregated query)
+    if (!isAppVitals) {
+      QueryRequest.SelectItem timeBucket = new QueryRequest.SelectItem();
+      timeBucket.setFunction(Functions.TIME_BUCKET);
+      Map<String, String> timeBucketParams = new HashMap<>();
+      timeBucketParams.put("field", "Timestamp");
+      timeBucketParams.put("bucket", bucket);
+      timeBucket.setParam(timeBucketParams);
+      timeBucket.setAlias("t1");
+      selectItems.add(timeBucket);
+    }
 
     Set<String> metrics = new HashSet<>();
 
@@ -176,16 +181,21 @@ public class AlertEvaluationServiceV4 {
     String scopeField = getScopeField(alertDetails.getScope());
     String scopeFieldAlias = getScopeFieldAlias(alertDetails.getScope());
 
-    QueryRequest.SelectItem scopeFieldItem = new QueryRequest.SelectItem();
-    scopeFieldItem.setFunction(Functions.COL);
-    Map<String, String> scopeFieldParams = new HashMap<>();
-    scopeFieldParams.put("field", scopeField);
-    scopeFieldItem.setParam(scopeFieldParams);
-    scopeFieldItem.setAlias(scopeFieldAlias);
-    selectItems.add(scopeFieldItem);
+    // For APP_VITALS, we don't need scope field in select (crash metrics are aggregated)
+    if (!isAppVitals) {
+      QueryRequest.SelectItem scopeFieldItem = new QueryRequest.SelectItem();
+      scopeFieldItem.setFunction(Functions.COL);
+      Map<String, String> scopeFieldParams = new HashMap<>();
+      scopeFieldParams.put("field", scopeField);
+      scopeFieldItem.setParam(scopeFieldParams);
+      scopeFieldItem.setAlias(scopeFieldAlias);
+      selectItems.add(scopeFieldItem);
+    }
 
     List<QueryRequest.Filter> filters = new ArrayList<>();
-    if (!scopes.isEmpty()) {
+    
+    // Scope name filter (only for non-APP_VITALS scopes)
+    if (!isAppVitals && !scopes.isEmpty()) {
       List<String> scopeNames = new ArrayList<>();
       for (AlertsDaoV4.AlertScopeDetails scope : scopes) {
         if (scope.getName() != null && !scope.getName().isEmpty()) {
@@ -205,19 +215,30 @@ public class AlertEvaluationServiceV4 {
       }
     }
 
-    if (alertDetails.getScope() != null && !alertDetails.getScope().isEmpty()) {
+    // SpanType filter (only for TRACES dataType, not for APP_VITALS/EXCEPTIONS)
+    if (!isAppVitals && alertDetails.getScope() != null && !alertDetails.getScope().isEmpty()) {
       QueryRequest.Filter spanTypeFilter = new QueryRequest.Filter();
       spanTypeFilter.setField("SpanType");
       spanTypeFilter.setOperator(QueryRequest.Operator.IN);
-      spanTypeFilter.setValue(List.of(alertDetails.getScope()));
+      
+      // For SCREEN scope, use specific span types
+      if ("SCREEN".equalsIgnoreCase(alertDetails.getScope())) {
+        spanTypeFilter.setValue(List.of("screen_session", "screen_load"));
+      } else {
+        spanTypeFilter.setValue(List.of(alertDetails.getScope()));
+      }
+      
       filters.add(spanTypeFilter);
     }
 
+    // Dimension filter (works for both TRACES and EXCEPTIONS)
     if (alertDetails.getDimensionFilter() != null && !alertDetails.getDimensionFilter().isEmpty()) {
       String dimensionFilterSql = extractSqlCondition(alertDetails.getDimensionFilter());
       if (dimensionFilterSql != null && !dimensionFilterSql.isEmpty()) {
         QueryRequest.Filter additionalFilter = new QueryRequest.Filter();
-        additionalFilter.setField("SpanType");
+        // For APP_VITALS/EXCEPTIONS, use a generic field name since it's raw SQL
+        // For other scopes, SpanType is used but ADDITIONAL operator uses raw SQL anyway
+        additionalFilter.setField(isAppVitals ? "Additional" : "SpanType");
         additionalFilter.setOperator(QueryRequest.Operator.ADDITIONAL);
         additionalFilter.setValue(List.of(dimensionFilterSql));
         filters.add(additionalFilter);
@@ -225,11 +246,15 @@ public class AlertEvaluationServiceV4 {
     }
 
     List<String> groupBy = new ArrayList<>();
-    groupBy.add("t1");
-    groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
+    // For APP_VITALS, we don't group by time bucket or scope field (crash metrics are aggregated)
+    if (!isAppVitals) {
+      groupBy.add("t1");
+      groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
+    }
 
     QueryRequest queryRequest = new QueryRequest();
-    queryRequest.setDataType(QueryRequest.DataType.TRACES);
+    // Use EXCEPTIONS dataType for APP_VITALS, TRACES for others
+    queryRequest.setDataType(isAppVitals ? QueryRequest.DataType.EXCEPTIONS : QueryRequest.DataType.TRACES);
     queryRequest.setTimeRange(timeRange);
     queryRequest.setSelect(selectItems);
     queryRequest.setFilters(filters);
@@ -249,6 +274,7 @@ public class AlertEvaluationServiceV4 {
       fieldIndexMap.put(queryResult.getFields().get(i), i);
     }
 
+    boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(alertDetails.getScope());
     String scopeFieldAlias = getScopeFieldAlias(alertDetails.getScope());
 
     for (AlertsDaoV4.AlertScopeDetails scope : scopes) {
@@ -297,24 +323,44 @@ public class AlertEvaluationServiceV4 {
 
         boolean isFiring = false;
         Float metricValue = null;
-        Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
-        if (scopeFieldIndex == null) {
-          log.warn("Scope field {} not found in query results", scopeFieldAlias);
-          variableValues.put(alias, false);
-          continue;
-        }
-
-        for (List<String> row : queryResult.getRows()) {
-          if (row.size() > metricIndex && row.size() > scopeFieldIndex) {
-            String rowScopeName = row.get(scopeFieldIndex);
-            if (interactionName.equals(rowScopeName)) {
+        
+        // For APP_VITALS, there's no scope field in results (aggregated query)
+        // For other scopes, we need to match by scope name
+        if (isAppVitals) {
+          // For APP_VITALS, use the first row (aggregated results)
+          if (!queryResult.getRows().isEmpty()) {
+            List<String> row = queryResult.getRows().get(0);
+            if (row.size() > metricIndex) {
               try {
                 metricValue = Float.parseFloat(row.get(metricIndex));
                 MetricOperator metricOp = MetricOperator.valueOf(operator);
                 isFiring = metricOperatorFactory.getProcessor(metricOp).isFiring(threshold, metricValue);
-                break;
               } catch (NumberFormatException e) {
                 log.warn("Could not parse metric value: {}", row.get(metricIndex));
+              }
+            }
+          }
+        } else {
+          // For other scopes, match by scope name
+          Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
+          if (scopeFieldIndex == null) {
+            log.warn("Scope field {} not found in query results", scopeFieldAlias);
+            variableValues.put(alias, false);
+            continue;
+          }
+
+          for (List<String> row : queryResult.getRows()) {
+            if (row.size() > metricIndex && row.size() > scopeFieldIndex) {
+              String rowScopeName = row.get(scopeFieldIndex);
+              if (interactionName.equals(rowScopeName)) {
+                try {
+                  metricValue = Float.parseFloat(row.get(metricIndex));
+                  MetricOperator metricOp = MetricOperator.valueOf(operator);
+                  isFiring = metricOperatorFactory.getProcessor(metricOp).isFiring(threshold, metricValue);
+                  break;
+                } catch (NumberFormatException e) {
+                  log.warn("Could not parse metric value: {}", row.get(metricIndex));
+                }
               }
             }
           }
@@ -692,8 +738,9 @@ public class AlertEvaluationServiceV4 {
     }
     return switch (scope.toUpperCase()) {
       case "INTERACTION" -> "SpanName";
-      case "SCREEN" -> "SpanName";
+      case "SCREEN" -> "SpanAttributes['screen.name']";
       case "NETWORK" -> "SpanAttributes['http.url']";
+      case "APP_VITALS" -> "GroupId"; // For EXCEPTIONS dataType
       default -> "SpanName";
     };
   }

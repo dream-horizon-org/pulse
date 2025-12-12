@@ -20,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.dao.AlertsDaoV4;
-import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
@@ -38,6 +37,7 @@ import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertNotificati
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
 import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope;
@@ -354,52 +354,66 @@ public class AlertService {
   private List<String> getMetricsForScope(AlertScope scope) {
     return switch (scope) {
       case Interaction -> List.of(
+          "APDEX",
+          "CRASH",
+          "ANR",
+          "FROZEN_FRAME",
+          "ANALYSED_FRAME",
+          "UNANALYSED_FRAME",
+          "DURATION_P99",
+          "DURATION_P95",
+          "DURATION_P50",
+          "ERROR_RATE",
           "INTERACTION_SUCCESS_COUNT",
           "INTERACTION_ERROR_COUNT",
           "INTERACTION_ERROR_DISTINCT_USERS",
-          "INTERACTION_CATEGORY_POOR",
-          "INTERACTION_CATEGORY_AVERAGE",
-          "INTERACTION_CATEGORY_GOOD",
-          "INTERACTION_CATEGORY_EXCELLENT",
-          "INTERACTION_TIME_P99",
-          "INTERACTION_TIME_P95",
-          "INTERACTION_TIME_P50",
-          "APDEX_SCORE",
-          "INTERACTION_TIME",
-          "INTERACTION_CATEGORY",
-          "ERROR_RATE",
           "USER_CATEGORY_EXCELLENT",
           "USER_CATEGORY_GOOD",
           "USER_CATEGORY_AVERAGE",
-          "USER_CATEGORY_POOR"
-      );
-      case SCREEN -> List.of(
-          "SCREEN_LOAD_TIME_P99",
-          "SCREEN_LOAD_TIME_P95",
-          "SCREEN_LOAD_TIME_P50",
-          "SCREEN_DAILY_USERS",
-          "SCREEN_ACTIVE_USERS",
-          "SCREEN_ERROR_RATE",
-          "SCREEN_TIME"
-      );
-      case APP_VITALS -> List.of(
+          "USER_CATEGORY_POOR",
           "CRASH_RATE",
           "ANR_RATE",
           "FROZEN_FRAME_RATE",
           "POOR_USER_RATE",
           "AVERAGE_USER_RATE",
           "GOOD_USER_RATE",
-          "EXCELLENT_USER_RATE",
-          "LOAD_TIME"
+          "EXCELLENT_USER_RATE"
+      );
+      case SCREEN -> List.of(
+          "SCREEN_DAILY_USERS",
+          "SCREEN_ACTIVE_USERS",
+          "SCREEN_ERROR_RATE",
+          "SCREEN_TIME"
+      );
+      case APP_VITALS -> List.of(
+          "APP_VITALS_CRASH_FREE_USERS_PERCENTAGE",
+          "APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE",
+          "APP_VITALS_CRASH_USERS",
+          "APP_VITALS_CRASH_SESSIONS",
+          "APP_VITALS_ALL_USERS",
+          "APP_VITALS_ALL_SESSIONS",
+          "APP_VITALS_ANR_FREE_USERS_PERCENTAGE",
+          "APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE",
+          "APP_VITALS_ANR_USERS",
+          "APP_VITALS_ANR_SESSIONS",
+          "APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE",
+          "APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE",
+          "APP_VITALS_NON_FATAL_USERS",
+          "APP_VITALS_NON_FATAL_SESSIONS"
       );
       case network -> List.of(
-          "NET_4XX_RATE",
-          "NET_5XX_RATE",
           "NET_0",
           "NET_2XX",
           "NET_3XX",
           "NET_4XX",
-          "NET_5XX"
+          "NET_5XX",
+          "NET_4XX_RATE",
+          "NET_5XX_RATE",
+          "DURATION_P99",
+          "DURATION_P95",
+          "DURATION_P50",
+          "ERROR_RATE",
+          "NET_COUNT"
       );
     };
   }
