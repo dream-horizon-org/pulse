@@ -230,9 +230,9 @@ PulseSDK.trackEvent()
 ### Logs (Debug Builds)
 
 ```
-[InteractionManager] Initializing with endpoint: http://10.0.2.2:8080/
-[InteractionManager] Loaded 3 interaction(s)
-[InteractionManager] Initialization complete
+Initializing with endpoint: http://10.0.2.2:8080/v1/interaction-configs
+Loaded 3 interaction(s)
+Initialization complete
 ```
 
 ### Common Issues
