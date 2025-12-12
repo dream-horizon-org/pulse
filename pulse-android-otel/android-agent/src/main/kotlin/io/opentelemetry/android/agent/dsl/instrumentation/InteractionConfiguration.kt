@@ -26,7 +26,7 @@ class InteractionConfiguration internal constructor(
     /**
      * Configure the URL provider for the Interaction rest API. `Get` call will performed in this
      * URL to fetch the list of interaction configs
-     * If not set, defaults to "http://10.0.2.2:8080/interaction-configs"
+     * If not set, defaults to "http://10.0.2.2:8080/v1/interaction-configs"
      * Also see [setConfigFetcher]
      */
     fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration =
@@ -36,7 +36,7 @@ class InteractionConfiguration internal constructor(
 
     /**
      * Configure the interaction config fetcher.
-     * In case not set defaults to "http://10.0.2.2:8080/interaction-configs" with [InteractionConfigRestFetcher]
+     * In case not set defaults to "http://10.0.2.2:8080/v1/interaction-configs" with [InteractionConfigRestFetcher]
      * Also see [setConfigUrl]
      */
     fun setConfigFetcher(configFetcher: InteractionConfigFetcher): InteractionConfiguration =

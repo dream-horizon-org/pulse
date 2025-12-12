@@ -10,12 +10,18 @@ import kotlinx.serialization.Transient
 public class InteractionConfig internal constructor(
     public val id: Int,
     public val name: String,
+    internal val description: String,
     public val events: List<InteractionEvent>,
     public val globalBlacklistedEvents: List<InteractionEvent> = emptyList(),
     public val uptimeLowerLimitInMs: Long,
     public val uptimeMidLimitInMs: Long,
     public val uptimeUpperLimitInMs: Long,
     public val thresholdInMs: Long,
+    internal val status: InteractionStatus,
+    internal val createdAtInMs: Long,
+    internal val updatedAtInMs: Long?,
+    internal val createdBy: String,
+    internal val updatedBy: String?,
     @Transient
     internal val shouldThrowOnWrongConfig: Boolean = BuildConfig.DEBUG,
 ) {

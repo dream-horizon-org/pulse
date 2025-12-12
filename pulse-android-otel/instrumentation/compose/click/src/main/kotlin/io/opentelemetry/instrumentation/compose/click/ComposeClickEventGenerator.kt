@@ -29,8 +29,8 @@ internal class ComposeClickEventGenerator(
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
-        val currentCallback = window.callback
-        window.callback = WindowCallbackWrapper(currentCallback, this)
+        val currentCallback: Window.Callback? = window.callback
+        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
     }
 
     fun generateClick(motionEvent: MotionEvent) {

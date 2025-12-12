@@ -117,7 +117,7 @@ internal class FragmentTracer private constructor(
 
         companion object {
             private val INVALID_ACTIVE_SPAN = ActiveSpan { null }
-            private val INVALID_TRACER = Tracer { spanName: String? -> null }
+            private val INVALID_TRACER = Tracer { _: String? -> null }
         }
     }
 

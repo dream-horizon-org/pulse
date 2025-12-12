@@ -36,21 +36,21 @@ public class InteractionManager
         @Suppress("SuspendFunSwallowedCancellation")
         public fun init(): Job {
             return launch(ioDispatcher) {
-                logDebug { "[InteractionManager] Initializing with endpoint: $interactionFetcher" }
+                logDebug { "Initializing with endpoint: $interactionFetcher" }
 
                 val interactionConfigs =
                     interactionConfigs ?: runCatching {
                         interactionFetcher.getConfigs()
                     }.onFailure { error ->
                         currentCoroutineContext().ensureActive()
-                        logDebug { "[InteractionManager] Failed to fetch interactions: ${error.message ?: "no-msg"}" }
+                        logDebug { "Failed to fetch interactions: ${error.message ?: "no-msg"}" }
                         return@launch
                     }.getOrNull() ?: run {
-                        logDebug { "[InteractionManager] No interaction configs received" }
+                        logDebug { "No interaction configs received" }
                         return@launch
                     }
 
-                logDebug { "[InteractionManager] Loaded ${interactionConfigs.size} interaction(s)" }
+                logDebug { "Loaded ${interactionConfigs.size} interaction(s)" }
 
                 interactionTrackers =
                     interactionConfigs
@@ -87,7 +87,7 @@ public class InteractionManager
                     }
                 }
 
-                logDebug { "[InteractionManager] Initialization complete" }
+                logDebug { "Initialization complete" }
             }
         }
 

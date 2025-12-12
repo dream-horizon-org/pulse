@@ -40,7 +40,7 @@ class InteractionInstrumentation :
 
     /**
      * Configure the interaction config fetcher.
-     * In case not set defaults to "http://10.0.2.2:8080/interaction-configs" with [InteractionConfigRestFetcher]
+     * In case not set defaults to "http://10.0.2.2:8080/v1/interaction-configs" with [InteractionConfigRestFetcher]
      */
     fun setConfigFetcher(configFetcher: InteractionConfigFetcher): InteractionInstrumentation =
         apply {
@@ -50,7 +50,7 @@ class InteractionInstrumentation :
     val interactionManagerInstance by lazy {
         InteractionManager(
             interactionConfigFetcher ?: InteractionConfigRestFetcher {
-                "http://10.0.2.2:8080/interaction-configs"
+                "http://10.0.2.2:8080/v1/interaction-configs"
             },
         )
     }
