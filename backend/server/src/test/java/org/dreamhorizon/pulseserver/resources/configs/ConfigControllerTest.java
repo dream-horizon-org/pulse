@@ -30,6 +30,9 @@ import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.Scope;
+import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -506,6 +509,398 @@ class ConfigControllerTest {
                   .build()
           ))
           .build();
+    }
+
+    /**
+     * Creates a fully populated PulseConfig to exercise all mapper branches
+     */
+    private PulseConfig createFullyPopulatedPulseConfig() {
+      return PulseConfig.builder()
+          .description("Full Config")
+          .filters(PulseConfig.FilterConfig.builder()
+              .mode(FilterMode.whitelist)
+              .whitelist(Arrays.asList(
+                  PulseConfig.EventFilter.builder()
+                      .name("event1")
+                      .props(Arrays.asList(
+                          PulseConfig.EventPropMatch.builder()
+                              .name("propName")
+                              .value("propValue.*")
+                              .build()
+                      ))
+                      .scope(Arrays.asList(Scope.logs, Scope.traces))
+                      .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
+                      .build()
+              ))
+              .blacklist(Arrays.asList(
+                  PulseConfig.EventFilter.builder()
+                      .name("blockedEvent")
+                      .props(Arrays.asList(
+                          PulseConfig.EventPropMatch.builder()
+                              .name("blockProp")
+                              .value("blockValue")
+                              .build()
+                      ))
+                      .scope(Arrays.asList(Scope.metrics))
+                      .sdks(Arrays.asList(Sdk.android_rn))
+                      .build()
+              ))
+              .build())
+          .sampling(PulseConfig.SamplingConfig.builder()
+              .defaultSampling(PulseConfig.DefaultSampling.builder()
+                  .sessionSampleRate(0.5)
+                  .build())
+              .rules(Arrays.asList(
+                  PulseConfig.SamplingRule.builder()
+                      .name(rules.os_version)
+                      .sdks(Arrays.asList(Sdk.android_java))
+                      .value("14")
+                      .sessionSampleRate(1.0)
+                      .build(),
+                  PulseConfig.SamplingRule.builder()
+                      .name(rules.app_version)
+                      .sdks(Arrays.asList(Sdk.ios_native))
+                      .value("2.0.0")
+                      .sessionSampleRate(0.8)
+                      .build()
+              ))
+              .criticalEventPolicies(PulseConfig.CriticalEventPolicies.builder()
+                  .alwaysSend(Arrays.asList(
+                      PulseConfig.CriticalPolicyRule.builder()
+                          .name("crashEvent")
+                          .props(Arrays.asList(
+                              PulseConfig.EventPropMatch.builder()
+                                  .name("severity")
+                                  .value("critical")
+                                  .build()
+                          ))
+                          .scope(Arrays.asList(Scope.logs))
+                          .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
+                          .build()
+                  ))
+                  .build())
+              .criticalSessionPolicies(PulseConfig.CriticalSessionPolicies.builder()
+                  .alwaysSend(Arrays.asList(
+                      PulseConfig.CriticalPolicyRule.builder()
+                          .name("vipUser")
+                          .props(Arrays.asList(
+                              PulseConfig.EventPropMatch.builder()
+                                  .name("userType")
+                                  .value("vip")
+                                  .build()
+                          ))
+                          .scope(Arrays.asList(Scope.traces, Scope.baggage))
+                          .sdks(Arrays.asList(Sdk.ios_rn))
+                          .build()
+                  ))
+                  .build())
+              .build())
+          .signals(PulseConfig.SignalsConfig.builder()
+              .scheduleDurationMs(10000)
+              .collectorUrl("http://signals.example.com")
+              .attributesToDrop(Arrays.asList("sensitiveAttr1", "sensitiveAttr2"))
+              .build())
+          .interaction(PulseConfig.InteractionConfig.builder()
+              .collectorUrl("http://interaction-collector.example.com")
+              .configUrl("http://interaction-config.example.com")
+              .beforeInitQueueSize(200)
+              .build())
+          .features(Arrays.asList(
+              PulseConfig.FeatureConfig.builder()
+                  .featureName(Features.java_crash)
+                  .enabled(true)
+                  .sessionSampleRate(1.0)
+                  .sdks(Arrays.asList(Sdk.android_java))
+                  .build(),
+              PulseConfig.FeatureConfig.builder()
+                  .featureName(Features.java_anr)
+                  .enabled(true)
+                  .sessionSampleRate(0.9)
+                  .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
+                  .build(),
+              PulseConfig.FeatureConfig.builder()
+                  .featureName(Features.interaction)
+                  .enabled(false)
+                  .sessionSampleRate(0.5)
+                  .sdks(Arrays.asList(Sdk.android_rn))
+                  .build()
+          ))
+          .build();
+    }
+
+    @Test
+    void shouldCreateConfigWithNullNestedObjects(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given - Test with null nested objects to cover null-check branches in mapper
+        PulseConfig pulseConfig = PulseConfig.builder()
+            .description("Minimal Config")
+            .filters(null)
+            .sampling(null)
+            .signals(null)
+            .interaction(null)
+            .features(null)
+            .build();
+
+        Config createdConfig = Config.builder()
+            .version(21L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertNotNull(resp.getData());
+            assertEquals(21L, resp.getData().getVersion());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldCreateConfigWithEmptyLists(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given - Test with empty lists to cover list handling branches
+        PulseConfig pulseConfig = PulseConfig.builder()
+            .description("Empty Lists Config")
+            .filters(PulseConfig.FilterConfig.builder()
+                .mode(FilterMode.blacklist)
+                .whitelist(null)
+                .blacklist(null)
+                .build())
+            .sampling(PulseConfig.SamplingConfig.builder()
+                .defaultSampling(null)
+                .rules(null)
+                .criticalEventPolicies(null)
+                .criticalSessionPolicies(null)
+                .build())
+            .signals(PulseConfig.SignalsConfig.builder()
+                .scheduleDurationMs(1000)
+                .collectorUrl("http://collector.example.com")
+                .attributesToDrop(null)
+                .build())
+            .interaction(PulseConfig.InteractionConfig.builder()
+                .collectorUrl("http://interaction.example.com")
+                .configUrl("http://config.example.com")
+                .beforeInitQueueSize(50)
+                .build())
+            .features(List.of())
+            .build();
+
+        Config createdConfig = Config.builder()
+            .version(22L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(22L, resp.getData().getVersion());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldCreateConfigWithPartiallyPopulatedFilterEvents(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given - Test with filter events that have null props/scope/sdks
+        PulseConfig pulseConfig = PulseConfig.builder()
+            .description("Partial Filter Config")
+            .filters(PulseConfig.FilterConfig.builder()
+                .mode(FilterMode.whitelist)
+                .whitelist(Arrays.asList(
+                    PulseConfig.EventFilter.builder()
+                        .name("event1")
+                        .props(null)
+                        .scope(null)
+                        .sdks(null)
+                        .build()
+                ))
+                .blacklist(List.of())
+                .build())
+            .sampling(PulseConfig.SamplingConfig.builder()
+                .defaultSampling(PulseConfig.DefaultSampling.builder()
+                    .sessionSampleRate(1.0)
+                    .build())
+                .rules(List.of())
+                .criticalEventPolicies(PulseConfig.CriticalEventPolicies.builder()
+                    .alwaysSend(Arrays.asList(
+                        PulseConfig.CriticalPolicyRule.builder()
+                            .name("critical1")
+                            .props(null)
+                            .scope(null)
+                            .sdks(null)
+                            .build()
+                    ))
+                    .build())
+                .criticalSessionPolicies(PulseConfig.CriticalSessionPolicies.builder()
+                    .alwaysSend(Arrays.asList(
+                        PulseConfig.CriticalPolicyRule.builder()
+                            .name("session1")
+                            .props(null)
+                            .scope(null)
+                            .sdks(null)
+                            .build()
+                    ))
+                    .build())
+                .build())
+            .signals(PulseConfig.SignalsConfig.builder()
+                .scheduleDurationMs(5000)
+                .collectorUrl("http://signals.example.com")
+                .attributesToDrop(List.of())
+                .build())
+            .interaction(PulseConfig.InteractionConfig.builder()
+                .collectorUrl("http://interaction.example.com")
+                .configUrl("http://config.example.com")
+                .beforeInitQueueSize(100)
+                .build())
+            .features(Arrays.asList(
+                PulseConfig.FeatureConfig.builder()
+                    .featureName(Features.java_crash)
+                    .enabled(true)
+                    .sessionSampleRate(null)
+                    .sdks(null)
+                    .build()
+            ))
+            .build();
+
+        Config createdConfig = Config.builder()
+            .version(23L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(23L, resp.getData().getVersion());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldCreateConfigWithSamplingRulesHavingNullSdks(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given - Test sampling rules with null sdks
+        PulseConfig pulseConfig = PulseConfig.builder()
+            .description("Sampling Rules Config")
+            .filters(PulseConfig.FilterConfig.builder()
+                .mode(FilterMode.blacklist)
+                .whitelist(List.of())
+                .blacklist(List.of())
+                .build())
+            .sampling(PulseConfig.SamplingConfig.builder()
+                .defaultSampling(PulseConfig.DefaultSampling.builder()
+                    .sessionSampleRate(0.5)
+                    .build())
+                .rules(Arrays.asList(
+                    PulseConfig.SamplingRule.builder()
+                        .name(rules.os_version)
+                        .sdks(null)
+                        .value("14")
+                        .sessionSampleRate(1.0)
+                        .build()
+                ))
+                .build())
+            .signals(PulseConfig.SignalsConfig.builder()
+                .scheduleDurationMs(5000)
+                .collectorUrl("http://signals.example.com")
+                .attributesToDrop(List.of())
+                .build())
+            .interaction(PulseConfig.InteractionConfig.builder()
+                .collectorUrl("http://interaction.example.com")
+                .configUrl("http://config.example.com")
+                .beforeInitQueueSize(100)
+                .build())
+            .features(List.of())
+            .build();
+
+        Config createdConfig = Config.builder()
+            .version(24L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(24L, resp.getData().getVersion());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldCreateConfigWithFullyPopulatedData(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given - Use fully populated config to exercise all mapper branches
+        PulseConfig pulseConfig = createFullyPopulatedPulseConfig();
+
+        Config createdConfig = Config.builder()
+            .version(20L)
+            .configData(pulseConfig)
+            .build();
+
+        ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
+        when(configService.createConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertNotNull(resp.getData());
+            assertEquals(20L, resp.getData().getVersion());
+            
+            // Verify the mapper converted all nested objects
+            ConfigData capturedData = configDataCaptor.getValue();
+            assertNotNull(capturedData);
+            assertEquals(userEmail, capturedData.getUser());
+            assertEquals("Full Config", capturedData.getDescription());
+            assertNotNull(capturedData.getFilters());
+            assertNotNull(capturedData.getSampling());
+            assertNotNull(capturedData.getSignals());
+            assertNotNull(capturedData.getInteraction());
+            assertNotNull(capturedData.getFeatures());
+            assertEquals(3, capturedData.getFeatures().size());
+          });
+          testContext.completeNow();
+        });
+      });
     }
   }
 

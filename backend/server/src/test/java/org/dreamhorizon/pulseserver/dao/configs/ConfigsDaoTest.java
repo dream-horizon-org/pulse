@@ -46,6 +46,20 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 class ConfigsDaoTest {
 
+  @Test
+  void shouldHaveCorrectQueryStrings() {
+    // This test ensures the Queries class is instantiated and constants are verified
+    // Instantiate to cover the implicit constructor
+    Queries queries = new Queries();
+    assertThat(queries).isNotNull();
+    
+    assertThat(Queries.INSERT_CONFIG).contains("INSERT INTO pulse_sdk_configs");
+    assertThat(Queries.GET_CONFIG_BY_VERSION).contains("SELECT config_json");
+    assertThat(Queries.GET_LATEST_VERSION).contains("SELECT version");
+    assertThat(Queries.GET_ALL_CONFIG_DETAILS).contains("SELECT version, description");
+    assertThat(Queries.DEACTIVATE_ACTIVE_CONFIG).contains("UPDATE pulse_sdk_configs");
+  }
+
   @Mock
   MysqlClient d11MysqlClient;
 
