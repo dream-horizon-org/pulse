@@ -7,12 +7,12 @@ import javax.inject.Inject
 abstract class PulseExtension @Inject constructor(
     objects: ObjectFactory
 ) {
-    private val _sourcemaps: SourceMapsExtension = objects.newInstance(SourceMapsExtension::class.java)
+    private val _sourcemaps: PulseSourceMapsExtension = objects.newInstance(PulseSourceMapsExtension::class.java)
 
-    val sourcemaps: SourceMapsExtension
+    val sourcemaps: PulseSourceMapsExtension
         get() = _sourcemaps
 
-    fun sourcemaps(action: Action<SourceMapsExtension>) {
+    fun sourcemaps(action: Action<PulseSourceMapsExtension>) {
         action.execute(_sourcemaps)
     }
 }

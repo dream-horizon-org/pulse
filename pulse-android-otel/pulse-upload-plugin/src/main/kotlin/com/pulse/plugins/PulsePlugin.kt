@@ -1,9 +1,10 @@
 package com.pulse.plugins
 
+import com.android.build.gradle.AppPlugin
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import com.pulse.extensions.PulseExtension
-import com.pulse.tasks.UploadSourceMapsTask
+import com.pulse.tasks.PulseUploadSourceMapsTask
 
 class PulsePlugin : Plugin<Project> {
     companion object {
@@ -21,12 +22,11 @@ class PulsePlugin : Plugin<Project> {
         const val TASK_GROUP = PULSE_NAME
 
         private const val UPLOAD_TASK = "uploadSourceMaps"
-        private val TASK_CLASS = UploadSourceMapsTask::class.java
+        private val TASK_CLASS = PulseUploadSourceMapsTask::class.java
     }
 
     override fun apply(project: Project) {
-        // Only register task for Android app projects
-        if (!project.plugins.hasPlugin("com.android.application")) {
+        if (!project.plugins.hasPlugin(AppPlugin::class.java)) {
             return
         }
 

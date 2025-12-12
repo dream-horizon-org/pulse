@@ -5,7 +5,7 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 
-abstract class SourceMapsExtension @Inject constructor(
+abstract class PulseSourceMapsExtension @Inject constructor(
     @Suppress("UnusedPrivateProperty") objects: ObjectFactory
 ) {
     abstract val apiUrl: Property<String>

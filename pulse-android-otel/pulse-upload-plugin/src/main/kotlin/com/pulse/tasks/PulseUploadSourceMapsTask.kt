@@ -9,6 +9,7 @@ import java.net.URL
 import java.util.Locale
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
@@ -19,7 +20,7 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.options.Option
 import org.gradle.api.tasks.TaskAction
 
-abstract class UploadSourceMapsTask : DefaultTask() {
+abstract class PulseUploadSourceMapsTask : DefaultTask() {
 
     companion object {
         private const val CRLF = "\r\n"
@@ -45,12 +46,12 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     abstract val versionCode: Property<Int>
 
     @get:Internal
-    internal abstract val projectDirectoryPath: Property<String>
+    internal abstract val projectDirectory: DirectoryProperty
 
     init {
         description = "Upload ProGuard/R8 mapping files to Pulse backend"
         group = com.pulse.plugins.PulsePlugin.TASK_GROUP
-        projectDirectoryPath.set(project.layout.projectDirectory.asFile.absolutePath)
+        projectDirectory.set(project.layout.projectDirectory)
     }
 
     @TaskAction
@@ -128,11 +129,6 @@ abstract class UploadSourceMapsTask : DefaultTask() {
 
     private fun resolveMappingFile(): File {
         val file = mappingFile.asFile.get()
-
-        // Gradle's @InputFile validates file existence, but not that it's a file (not a directory)
-        if (!file.isFile) {
-            throw GradleException("Path is not a file: ${file.absolutePath}")
-        }
 
         if (file.length() == 0L) {
             throw GradleException("Mapping file is empty: ${file.absolutePath}")

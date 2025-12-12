@@ -1,3 +1,5 @@
+import org.gradle.api.GradleException
+
 plugins {
     `kotlin-dsl`
     alias(libs.plugins.detekt)
@@ -20,16 +22,12 @@ gradlePlugin {
 detekt {
     buildUponDefaultConfig = true
     autoCorrect = true
-    
-    val detektConfig = rootProject.file("../config/detekt/detekt.yml")
-    if (detektConfig.exists()) {
-        config.from(detektConfig)
-    }
-    
-    // Suppress pre-existing issues on a per-project basis
-    val baselineFile = rootProject.file("../config/detekt/baseline.xml")
-    if (baselineFile.exists()) {
-        baseline = baselineFile
+
+    val detektConfigPath = rootProject.file("../config/detekt/detekt.yml")
+    if (detektConfigPath.exists()) {
+        config.from(detektConfigPath)
+    } else {
+        throw GradleException("Detekt config is not found for path $detektConfigPath")
     }
 }
 
