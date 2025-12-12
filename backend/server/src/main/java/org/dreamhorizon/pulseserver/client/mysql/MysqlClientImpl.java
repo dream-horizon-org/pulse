@@ -42,7 +42,6 @@ public class MysqlClientImpl implements MysqlClient {
             .setHost(this.config.getString(MYSQL_WRITER_HOST))
             .setUser(this.config.getString(MYSQL_USER))
             .setPassword(this.config.getString(MYSQL_PASSWORD))
-            .setPort(3307)
             .setDatabase(this.config.getString(MYSQL_DATABASE));
     PoolOptions writerPoolOptions =
         new PoolOptions()
