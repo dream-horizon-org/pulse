@@ -12,9 +12,13 @@
     },
     "./package.json": "./package.json"
   },
+  "bin": {
+    "pulse-cli": "./scripts/pulse-cli.js"
+  },
   "files": [
     "src",
     "lib",
+    "scripts",
     "android",
     "ios",
     "cpp",
@@ -38,7 +42,8 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
-    "release": "release-it --only-version"
+    "release": "release-it --only-version",
+    "pulse-cli": "node scripts/pulse-cli.js"
   },
   "keywords": [
     "react-native",
@@ -161,5 +166,11 @@
     "languages": "kotlin-objc",
     "type": "turbo-module",
     "version": "0.54.8"
+  },
+  "dependencies": {
+    "commander": "^14.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
