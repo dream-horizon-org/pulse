@@ -390,6 +390,40 @@ class ConfigsDaoTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to fetch latest version"));
     }
+
+    @Test
+    void shouldPropagateErrorWhenFetchingConfigByVersionFails() {
+      // Given - Latest version fetched successfully but getConfig(version) fails
+      long version = 5L;
+
+      Row versionRow = mock(Row.class);
+      when(versionRow.getValue("version")).thenReturn(version);
+
+      RowSet<Row> versionRowSet = mock(RowSet.class);
+      RowIterator<Row> versionIterator = mock(RowIterator.class);
+      when(versionRowSet.iterator()).thenReturn(versionIterator);
+      when(versionIterator.next()).thenReturn(versionRow);
+
+      // Config by version will return empty result (0 rows)
+      RowSet<Row> configRowSet = mock(RowSet.class);
+      when(configRowSet.size()).thenReturn(0);
+
+      PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
+
+      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
+      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
+      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
+      when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
+
+      // When
+      var testObserver = configsDao.getConfig().test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage().contains("No config found for version"));
+    }
   }
 
   @Nested
@@ -579,6 +613,93 @@ class ConfigsDaoTest {
       testObserver.assertError(e -> e.getMessage().equals("Deactivate failed"));
 
       verify(transaction, times(1)).rxRollback();
+      verify(sqlConnection, times(1)).close();
+    }
+
+    @Test
+    void shouldRollbackOnCommitFailure() {
+      // Given
+      ConfigData configData = ConfigData.builder()
+          .description("New Config")
+          .user("test_user")
+          .filters(FilterConfig.builder().mode(FilterMode.blacklist).build())
+          .sampling(SamplingConfig.builder().build())
+          .signals(SignalsConfig.builder().build())
+          .interaction(InteractionConfig.builder().build())
+          .features(List.of())
+          .build();
+
+      long insertedId = 10L;
+      RuntimeException commitError = new RuntimeException("Commit failed");
+
+      RowSet<Row> deactivateRowSet = mock(RowSet.class);
+      RowSet<Row> insertRowSet = mock(RowSet.class);
+      when(insertRowSet.rowCount()).thenReturn(1);
+      when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
+
+      PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
+      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
+      when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
+      when(transaction.rxCommit()).thenReturn(Completable.error(commitError));
+      when(transaction.rxRollback()).thenReturn(Completable.complete());
+
+      // When
+      var testObserver = configsDao.createConfig(configData).test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage().equals("Commit failed"));
+
+      verify(transaction, times(1)).rxRollback();
+      verify(sqlConnection, times(1)).close();
+    }
+
+    @Test
+    void shouldCreateConfigWithNullFeatures() {
+      // Given - Test with null features to cover null-handling branches
+      ConfigData configData = ConfigData.builder()
+          .description("New Config")
+          .user("test_user")
+          .filters(null)
+          .sampling(null)
+          .signals(null)
+          .interaction(null)
+          .features(null)
+          .build();
+
+      long insertedId = 11L;
+
+      RowSet<Row> deactivateRowSet = mock(RowSet.class);
+      RowSet<Row> insertRowSet = mock(RowSet.class);
+      when(insertRowSet.rowCount()).thenReturn(1);
+      when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
+
+      PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
+      when(deactivateQuery.rxExecute()).thenReturn(Single.just(deactivateRowSet));
+      when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
+      when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
+      when(transaction.rxCommit()).thenReturn(Completable.complete());
+
+      // When
+      Config result = configsDao.createConfig(configData).blockingGet();
+
+      // Then
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(insertedId);
+
       verify(sqlConnection, times(1)).close();
     }
   }
