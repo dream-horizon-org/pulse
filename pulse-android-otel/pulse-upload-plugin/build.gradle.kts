@@ -1,5 +1,6 @@
 plugins {
     `kotlin-dsl`
+    alias(libs.plugins.detekt)
 }
 
 group = "com.pulse"
@@ -13,6 +14,15 @@ gradlePlugin {
             displayName = "Pulse Gradle Plugin"
             description = "Pulse Gradle plugin for uploading build artifacts"
         }
+    }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    autoCorrect = true
+    val detektConfig = rootProject.file("../config/detekt/detekt.yml")
+    if (detektConfig.exists()) {
+        config.from(detektConfig)
     }
 }
 
