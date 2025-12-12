@@ -18,8 +18,6 @@ public class ApplicationConfig {
   public String googleOAuthClientId;
   public Boolean googleOAuthEnabled;
   public String jwtSecret;
-  public String configS3BucketName;
-  public String configDetailsS3BucketFilePath;
-  public String configDetailCloudFrontDistributionId;
-  public String configDetailCloudFrontAssetPath;
+  public String otelCollectorUrl;
+  public String interactionConfigUrl;
 }

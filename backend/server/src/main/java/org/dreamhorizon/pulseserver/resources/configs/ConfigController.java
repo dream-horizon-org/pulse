@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
@@ -30,6 +31,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
 @Path("/v1/configs")
 public class ConfigController {
   private final ConfigService configService;
+  private final ApplicationConfig applicationConfig;
   private static final RestConfigMapper mapper = RestConfigMapper.INSTANCE;
 
   @GET
@@ -54,10 +56,23 @@ public class ConfigController {
       @NotNull @HeaderParam("user-email") String user,
       @NotNull @Valid PulseConfig config
   ) {
+    applyInteractionConfigDefaults(config);
     ConfigData createConfigServiceRequest = mapper.toServiceCreateConfigRequest(config, user);
     return configService.createConfig(createConfigServiceRequest)
         .map(resp -> CreateConfigResponse.builder().version(resp.getVersion()).build())
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private void applyInteractionConfigDefaults(PulseConfig config) {
+    if (config.getInteraction() != null) {
+      PulseConfig.InteractionConfig interaction = config.getInteraction();
+      if (interaction.getCollectorUrl() == null || interaction.getCollectorUrl().isBlank()) {
+        interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
+      }
+      if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
+        interaction.setConfigUrl(applicationConfig.getInteractionConfigUrl());
+      }
+    }
   }
 
   @GET
