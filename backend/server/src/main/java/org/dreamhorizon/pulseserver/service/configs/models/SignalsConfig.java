@@ -16,8 +16,14 @@ public class SignalsConfig {
   @JsonProperty("scheduleDurationMs")
   private int scheduleDurationMs;
 
-  @JsonProperty("collectorUrl")
-  private String collectorUrl;
+  @JsonProperty("logsCollectorUrl")
+  private String logsCollectorUrl;
+
+  @JsonProperty("metricCollectorUrl")
+  private String metricCollectorUrl;
+
+  @JsonProperty("spanCollectorUrl")
+  private String spanCollectorUrl;
 
   @JsonProperty("attributesToDrop")
   private List<String> attributesToDrop;

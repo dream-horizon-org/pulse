@@ -189,15 +189,22 @@ public class PulseConfig {
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
-  @NotNull
   public static class SignalsConfig {
 
+    @NotNull
     @JsonProperty("scheduleDurationMs")
     private int scheduleDurationMs;
 
-    @JsonProperty("collectorUrl")
-    private String collectorUrl;
+    @JsonProperty("logsCollectorUrl")
+    private String logsCollectorUrl;
 
+    @JsonProperty("metricCollectorUrl")
+    private String metricCollectorUrl;
+
+    @JsonProperty("spanCollectorUrl")
+    private String spanCollectorUrl;
+
+    @NotNull
     @JsonProperty("attributesToDrop")
     private List<String> attributesToDrop;
   }

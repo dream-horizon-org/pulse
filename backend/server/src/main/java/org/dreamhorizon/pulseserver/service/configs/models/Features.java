@@ -10,8 +10,8 @@ public enum Features {
     java_anr,
     network_change,
     network_instrumentation,
-    screen_session;
-
+    screen_session,
+    custom_events;
 
     public static List<String> getFeatures() {
         return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

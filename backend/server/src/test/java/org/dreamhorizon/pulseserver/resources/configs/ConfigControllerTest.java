@@ -448,6 +448,269 @@ class ConfigControllerTest {
     }
 
     @Test
+    void shouldApplyDefaultLogsCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setLogsCollectorUrl(null);
+
+        when(applicationConfig.getLogsCollectorUrl()).thenReturn("http://default-logs.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(30L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(30L, resp.getData().getVersion());
+            assertEquals("http://default-logs.example.com", pulseConfig.getSignals().getLogsCollectorUrl());
+            verify(applicationConfig, times(1)).getLogsCollectorUrl();
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultLogsCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setLogsCollectorUrl("   ");
+
+        when(applicationConfig.getLogsCollectorUrl()).thenReturn("http://default-logs.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(31L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals("http://default-logs.example.com", pulseConfig.getSignals().getLogsCollectorUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultMetricCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setMetricCollectorUrl(null);
+
+        when(applicationConfig.getMetricCollectorUrl()).thenReturn("http://default-metrics.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(32L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(32L, resp.getData().getVersion());
+            assertEquals("http://default-metrics.example.com", pulseConfig.getSignals().getMetricCollectorUrl());
+            verify(applicationConfig, times(1)).getMetricCollectorUrl();
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultMetricCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setMetricCollectorUrl("");
+
+        when(applicationConfig.getMetricCollectorUrl()).thenReturn("http://default-metrics.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(33L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals("http://default-metrics.example.com", pulseConfig.getSignals().getMetricCollectorUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultSpanCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setSpanCollectorUrl(null);
+
+        when(applicationConfig.getSpanCollectorUrl()).thenReturn("http://default-spans.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(34L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(34L, resp.getData().getVersion());
+            assertEquals("http://default-spans.example.com", pulseConfig.getSignals().getSpanCollectorUrl());
+            verify(applicationConfig, times(1)).getSpanCollectorUrl();
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultSpanCollectorUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setSpanCollectorUrl("  ");
+
+        when(applicationConfig.getSpanCollectorUrl()).thenReturn("http://default-spans.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(35L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals("http://default-spans.example.com", pulseConfig.getSignals().getSpanCollectorUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyAllSignalsDefaultsWhenAllNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.getSignals().setLogsCollectorUrl(null);
+        pulseConfig.getSignals().setMetricCollectorUrl(null);
+        pulseConfig.getSignals().setSpanCollectorUrl(null);
+
+        when(applicationConfig.getLogsCollectorUrl()).thenReturn("http://default-logs.example.com");
+        when(applicationConfig.getMetricCollectorUrl()).thenReturn("http://default-metrics.example.com");
+        when(applicationConfig.getSpanCollectorUrl()).thenReturn("http://default-spans.example.com");
+
+        Config createdConfig = Config.builder()
+            .version(36L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals("http://default-logs.example.com", pulseConfig.getSignals().getLogsCollectorUrl());
+            assertEquals("http://default-metrics.example.com", pulseConfig.getSignals().getMetricCollectorUrl());
+            assertEquals("http://default-spans.example.com", pulseConfig.getSignals().getSpanCollectorUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldNotApplySignalsDefaultsWhenSignalsIsNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setSignals(null);
+
+        Config createdConfig = Config.builder()
+            .version(37L)
+            .configData(pulseConfig)
+            .build();
+
+        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(37L, resp.getData().getVersion());
+            assertNull(pulseConfig.getSignals());
+            // Verify signals config methods were not called
+            verify(applicationConfig, times(0)).getLogsCollectorUrl();
+            verify(applicationConfig, times(0)).getMetricCollectorUrl();
+            verify(applicationConfig, times(0)).getSpanCollectorUrl();
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
     void shouldHandleServiceErrorOnCreate(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given
@@ -492,7 +755,9 @@ class ConfigControllerTest {
               .build())
           .signals(PulseConfig.SignalsConfig.builder()
               .scheduleDurationMs(5000)
-              .collectorUrl("http://signals.example.com")
+              .logsCollectorUrl("http://logs.example.com")
+              .metricCollectorUrl("http://metrics.example.com")
+              .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
               .build())
           .interaction(PulseConfig.InteractionConfig.builder()
@@ -597,7 +862,9 @@ class ConfigControllerTest {
               .build())
           .signals(PulseConfig.SignalsConfig.builder()
               .scheduleDurationMs(10000)
-              .collectorUrl("http://signals.example.com")
+              .logsCollectorUrl("http://logs.example.com")
+              .metricCollectorUrl("http://metrics.example.com")
+              .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(Arrays.asList("sensitiveAttr1", "sensitiveAttr2"))
               .build())
           .interaction(PulseConfig.InteractionConfig.builder()
@@ -683,7 +950,9 @@ class ConfigControllerTest {
                 .build())
             .signals(PulseConfig.SignalsConfig.builder()
                 .scheduleDurationMs(1000)
-                .collectorUrl("http://collector.example.com")
+                .logsCollectorUrl("http://logs.example.com")
+                .metricCollectorUrl("http://metrics.example.com")
+                .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(null)
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
@@ -762,7 +1031,9 @@ class ConfigControllerTest {
                 .build())
             .signals(PulseConfig.SignalsConfig.builder()
                 .scheduleDurationMs(5000)
-                .collectorUrl("http://signals.example.com")
+                .logsCollectorUrl("http://logs.example.com")
+                .metricCollectorUrl("http://metrics.example.com")
+                .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(List.of())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
@@ -828,7 +1099,9 @@ class ConfigControllerTest {
                 .build())
             .signals(PulseConfig.SignalsConfig.builder()
                 .scheduleDurationMs(5000)
-                .collectorUrl("http://signals.example.com")
+                .logsCollectorUrl("http://logs.example.com")
+                .metricCollectorUrl("http://metrics.example.com")
+                .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(List.of())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()

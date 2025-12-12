@@ -20,4 +20,7 @@ public class ApplicationConfig {
   public String jwtSecret;
   public String otelCollectorUrl;
   public String interactionConfigUrl;
+  public String logsCollectorUrl;
+  public String metricCollectorUrl;
+  public String spanCollectorUrl;
 }

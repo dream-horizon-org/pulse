@@ -56,11 +56,16 @@ public class ConfigController {
       @NotNull @HeaderParam("user-email") String user,
       @NotNull @Valid PulseConfig config
   ) {
-    applyInteractionConfigDefaults(config);
+    applyConfigDefaults(config);
     ConfigData createConfigServiceRequest = mapper.toServiceCreateConfigRequest(config, user);
     return configService.createConfig(createConfigServiceRequest)
         .map(resp -> CreateConfigResponse.builder().version(resp.getVersion()).build())
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private void applyConfigDefaults(PulseConfig config) {
+    applyInteractionConfigDefaults(config);
+    applySignalsConfigDefaults(config);
   }
 
   private void applyInteractionConfigDefaults(PulseConfig config) {
@@ -71,6 +76,21 @@ public class ConfigController {
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
         interaction.setConfigUrl(applicationConfig.getInteractionConfigUrl());
+      }
+    }
+  }
+
+  private void applySignalsConfigDefaults(PulseConfig config) {
+    if (config.getSignals() != null) {
+      PulseConfig.SignalsConfig signals = config.getSignals();
+      if (signals.getLogsCollectorUrl() == null || signals.getLogsCollectorUrl().isBlank()) {
+        signals.setLogsCollectorUrl(applicationConfig.getLogsCollectorUrl());
+      }
+      if (signals.getMetricCollectorUrl() == null || signals.getMetricCollectorUrl().isBlank()) {
+        signals.setMetricCollectorUrl(applicationConfig.getMetricCollectorUrl());
+      }
+      if (signals.getSpanCollectorUrl() == null || signals.getSpanCollectorUrl().isBlank()) {
+        signals.setSpanCollectorUrl(applicationConfig.getSpanCollectorUrl());
       }
     }
   }
