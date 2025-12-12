@@ -84,15 +84,36 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX.getDisplayName()));
           case NET_5XX -> String.format("%s as %s", Functions.NET_5XX.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX.getDisplayName()));
+          case CRASH_RATE -> String.format("%s as %s", Functions.CRASH_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_RATE.getDisplayName()));
+          case ANR_RATE -> String.format("%s as %s", Functions.ANR_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_RATE.getDisplayName()));
+          case FROZEN_FRAME_RATE -> String.format("%s as %s", Functions.FROZEN_FRAME_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.FROZEN_FRAME_RATE.getDisplayName()));
+          case ERROR_RATE -> String.format("%s as %s", Functions.ERROR_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ERROR_RATE.getDisplayName()));
+          case POOR_USER_RATE -> String.format("%s as %s", Functions.POOR_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.POOR_USER_RATE.getDisplayName()));
+          case AVERAGE_USER_RATE -> String.format("%s as %s", Functions.AVERAGE_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.AVERAGE_USER_RATE.getDisplayName()));
+          case GOOD_USER_RATE -> String.format("%s as %s", Functions.GOOD_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.GOOD_USER_RATE.getDisplayName()));
+          case EXCELLENT_USER_RATE -> String.format("%s as %s", Functions.EXCELLENT_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.EXCELLENT_USER_RATE.getDisplayName()));
+          case LOAD_TIME -> String.format("%s as %s", Functions.LOAD_TIME.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.LOAD_TIME.getDisplayName()));
+          case SCREEN_TIME -> String.format("%s as %s", Functions.SCREEN_TIME.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.SCREEN_TIME.getDisplayName()));
+          case NET_4XX_RATE -> String.format("%s as %s", Functions.NET_4XX_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX_RATE.getDisplayName()));
+          case NET_5XX_RATE -> String.format("%s as %s", Functions.NET_5XX_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_RATE.getDisplayName()));
           case TIME_BUCKET -> String.format("%s as %s",
               String.format(Functions.TIME_BUCKET.getChSelectClause(),
                   selectItem.getParam().get("field"),
                   DateTimeUtils.toSeconds(selectItem.getParam().get("bucket")),
                   DateTimeUtils.toSeconds(selectItem.getParam().get("bucket"))),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.TIME_BUCKET.getDisplayName()));
-          case ARR_TO_STR ->
-              String.format("%s as %s", String.format(Functions.ARR_TO_STR.getChSelectClause(), selectItem.getParam().get("field")),
-                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.ARR_TO_STR.getDisplayName()));
         };
         clauses.add(clause);
       }
@@ -100,36 +121,34 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     }
 
     // From
-    final String from = switch (request.getDataType()) {
+    String from = switch (request.getDataType()) {
       case TRACES -> "otel_traces";
       case LOGS -> "otel_logs";
       case METRICS -> "otel_metrics";
       case EXCEPTIONS -> "stack_trace_events";
     };
 
-    // Where Clause toDateTime64('${start_time}', 9, 'UTC')
-    String timeFilter = String.format("Timestamp >= toDateTime64('%s',9,'UTC')"
-            + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
+    // Where Clause
+    String timeFilter = String.format("Timestamp >= toStartOfMinute(toDateTime('%s', 'UTC'))"
+            + " AND Timestamp <= toStartOfMinute(toDateTime('%s', 'UTC'))",
         ZonedDateTime.parse(request.getTimeRange().getStart()).format(output),
         ZonedDateTime.parse(request.getTimeRange().getEnd()).format(output));
 
     StringBuilder where = new StringBuilder(timeFilter);
     if (!CollectionUtils.isEmpty(request.getFilters())) {
       for (QueryRequest.Filter filter : request.getFilters()) {
-        where.append(
-            switch (filter.getOperator()) {
-              case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
-                  format(filter.getValue()));
-              case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
-                  format(filter.getValue()));
-              case EQ -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
-                  format(List.of(filter.getValue().get(0))));
-              case ADDITIONAL -> String.format(" And (%s)", filter.getValue().get(0));
-            });
+        where.append(switch (filter.getOperator()) {
+          case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
+              format(filter.getValue()));
+          case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
+              format(filter.getValue()));
+          case EQ -> String.format(" And %s %s '%s'", filter.getField(), filter.getOperator().getDisplayName(),
+              filter.getValue().get(0));
+          case ADD -> String.format(" And (%s)", filter.getValue().get(0));
+        });
       }
     }
-
-    final String whereClause = where.toString();
+    String whereClause = where.toString();
 
     //Group by
     String groupByClause = "";
@@ -168,8 +187,8 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               .map(GetRawUserEventsResponseDto.Field::getName)
               .toList();
           List<List<String>> rows = rawRes.data.getRows().stream()
-              .map(row -> row.getRowFields().stream()
-                  .map(field -> Objects.isNull(field.getValue()) ? "" : field.getValue().toString())
+              .map(row -> row.getF().stream()
+                  .map(field -> field.getV().toString())
                   .toList())
               .toList();
           return PerformanceMetricDistributionRes.builder()

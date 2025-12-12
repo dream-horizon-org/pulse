@@ -44,7 +44,7 @@ public class QueryRequest {
     LIKE("like"),
     IN("In"),
     EQ("="),
-    ADDITIONAL("");
+    ADD("and");
 
     private final String displayName;
 

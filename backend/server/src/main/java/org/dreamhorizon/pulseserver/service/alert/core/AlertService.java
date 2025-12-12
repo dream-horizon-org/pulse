@@ -2,38 +2,28 @@ package org.dreamhorizon.pulseserver.service.alert.core;
 
 import static org.dreamhorizon.pulseserver.constant.Constants.ALERT_EVALUATE_AND_TRIGGER_ALERT;
 
-import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Single;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AddAlertToCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AlertTagMapRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertNotificationChannelRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertSeverityRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.DeleteAlertFromCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.GetAlertsListRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.UpdateAlertInCronManager;
-import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertEvaluationHistoryResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertNotificationChannelResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertSeverityResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagMapRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertNotificationChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopesResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
+import org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.GetAlertsResponse;
@@ -41,6 +31,22 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsRespon
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import com.google.inject.Inject;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+
+import io.reactivex.rxjava3.core.Single;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Data
@@ -288,4 +294,108 @@ public class AlertService {
   public Single<AlertFiltersResponseDto> getAlertFilters() {
     return alertsDao.getAlertsFilters();
   }
+
+  public Single<AlertScopesResponseDto> getAlertScopes() {
+    List<AlertScopeItemDto> scopes = Arrays.stream(AlertScope.values())
+        .map(this::mapScopeToDto)
+        .collect(Collectors.toList());
+    AlertScopesResponseDto response = AlertScopesResponseDto.builder()
+        .scopes(scopes)
+        .build();
+    return Single.just(response);
+  }
+
+  private AlertScopeItemDto mapScopeToDto(AlertScope scope) {
+    String id = switch (scope) {
+      case Interaction -> "interaction";
+      case API -> "network_api";
+      case SCREEN -> "screen";
+      case APP_VITALS -> "app_vitals";
+    };
+    String label = switch (scope) {
+      case Interaction -> "Interactions";
+      case API -> "Network APIs";
+      case SCREEN -> "Screen";
+      case APP_VITALS -> "App Vitals";
+    };
+    return AlertScopeItemDto.builder()
+        .id(id)
+        .label(label)
+        .build();
+  }
+
+  public Single<AlertMetricsResponseDto> getAlertMetrics(String scope) {
+    AlertScope alertScope = parseScope(scope);
+    List<String> metrics = getMetricsForScope(alertScope);
+    AlertMetricsResponseDto response = AlertMetricsResponseDto.builder()
+        .scope(scope)
+        .metrics(metrics)
+        .build();
+    return Single.just(response);
+  }
+
+  private AlertScope parseScope(String scope) {
+    return switch (scope.toLowerCase()) {
+      case "interaction" -> AlertScope.Interaction;
+      case "network_api" -> AlertScope.API;
+      case "screen" -> AlertScope.SCREEN;
+      case "app_vitals" -> AlertScope.APP_VITALS;
+      default -> throw ServiceError.INVALID_REQUEST_PARAM.getCustomException(
+          "Invalid scope: {}. Valid scopes are: interaction, network_api, screen, app_vitals", scope);
+    };
+  }
+
+  private List<String> getMetricsForScope(AlertScope scope) {
+    return switch (scope) {
+      case Interaction -> List.of(
+          "INTERACTION_SUCCESS_COUNT",
+          "INTERACTION_ERROR_COUNT",
+          "INTERACTION_ERROR_DISTINCT_USERS",
+          "INTERACTION_CATEGORY_POOR",
+          "INTERACTION_CATEGORY_AVERAGE",
+          "INTERACTION_CATEGORY_GOOD",
+          "INTERACTION_CATEGORY_EXCELLENT",
+          "INTERACTION_TIME_P99",
+          "INTERACTION_TIME_P95",
+          "INTERACTION_TIME_P50",
+          "APDEX_SCORE",
+          "INTERACTION_TIME",
+          "INTERACTION_CATEGORY",
+          "ERROR_RATE",
+          "USER_CATEGORY_EXCELLENT",
+          "USER_CATEGORY_GOOD",
+          "USER_CATEGORY_AVERAGE",
+          "USER_CATEGORY_POOR"
+      );
+      case SCREEN -> List.of(
+          "SCREEN_LOAD_TIME_P99",
+          "SCREEN_LOAD_TIME_P95",
+          "SCREEN_LOAD_TIME_P50",
+          "SCREEN_DAILY_USERS",
+          "SCREEN_ACTIVE_USERS",
+          "SCREEN_ERROR_RATE",
+          "SCREEN_TIME"
+      );
+      case APP_VITALS -> List.of(
+          "CRASH_RATE",
+          "ANR_RATE",
+          "FROZEN_FRAME_RATE",
+          "POOR_USER_RATE",
+          "AVERAGE_USER_RATE",
+          "GOOD_USER_RATE",
+          "EXCELLENT_USER_RATE",
+          "LOAD_TIME"
+      );
+      case API -> List.of(
+          "NET_4XX_RATE",
+          "NET_5XX_RATE",
+          "NET_0",
+          "NET_2XX",
+          "NET_3XX",
+          "NET_4XX",
+          "NET_5XX"
+      );
+    };
+  }
 }
+

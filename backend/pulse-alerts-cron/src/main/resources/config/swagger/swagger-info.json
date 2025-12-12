@@ -1,0 +1,10 @@
+{
+  "prettyPrint": true,
+  "openAPI": {
+    "info": {
+      "version": 1.0,
+      "title": pulse-alerts-cron,
+      "description": "pulse-alerts-cron Service"
+    }
+  }
+}

@@ -38,7 +38,7 @@ public class AlertDetailsResponseDto {
 
   @NotNull
   @JsonProperty("dimension_filter")
-  List<String> dimensionFilter;
+  String dimensionFilter;
 
   @NotNull
   @JsonProperty("alerts")

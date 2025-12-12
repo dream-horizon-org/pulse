@@ -6,11 +6,11 @@ import static org.dreamhorizon.pulseserver.service.alert.core.models.MetricOpera
 import static org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator.LESS_THAN;
 import static org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator.LESS_THAN_EQUAL;
 
+import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import com.google.inject.Inject;
 import java.util.Map;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 
 @Slf4j
 @Data

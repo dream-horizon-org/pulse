@@ -1,15 +1,16 @@
 package org.dreamhorizon.pulseserver.resources.alert.models;
 
+import org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -48,9 +49,8 @@ public class CreateAlertRequestDto {
   @JsonProperty("scope")
   AlertScope scope;
 
-  @NotNull(message = "identifiers cannot be null")
   @JsonProperty("dimension_filters")
-  List<String> dimensionFilters;
+  String dimensionFilters;
 
   @NotNull(message = "condition_expression cannot be null")
   @JsonProperty("condition_expression")
@@ -61,3 +61,4 @@ public class CreateAlertRequestDto {
   @JsonProperty("alerts")
   List<AlertConditionDto> alerts;
 }
+

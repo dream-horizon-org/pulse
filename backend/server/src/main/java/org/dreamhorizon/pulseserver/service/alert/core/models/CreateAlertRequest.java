@@ -1,9 +1,11 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
 import jakarta.validation.constraints.NotNull;
-import java.util.List;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
+
+import java.util.List;
 
 @Data
 @Builder
@@ -32,8 +34,7 @@ public class CreateAlertRequest {
   @NotNull
   AlertScope scope;
 
-  @NotNull
-  List<String> dimensionFilters;
+  String dimensionFilters;
 
   @NotNull
   String conditionExpression;
