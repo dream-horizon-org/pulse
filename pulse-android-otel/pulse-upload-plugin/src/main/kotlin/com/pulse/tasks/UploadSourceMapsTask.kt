@@ -45,11 +45,12 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     abstract val versionCode: Property<Int>
 
     @get:Internal
-    internal abstract val projectDirectory: Property<String>
+    internal abstract val projectDirectoryPath: Property<String>
 
     init {
         description = "Upload ProGuard/R8 mapping files to Pulse backend"
-        projectDirectory.set(project.layout.projectDirectory.asFile.absolutePath)
+        group = com.pulse.plugins.PulsePlugin.TASK_GROUP
+        projectDirectoryPath.set(project.layout.projectDirectory.asFile.absolutePath)
     }
 
     @TaskAction
@@ -128,13 +129,9 @@ abstract class UploadSourceMapsTask : DefaultTask() {
     private fun resolveMappingFile(): File {
         val file = mappingFile.asFile.get()
 
-        if (!file.exists() || !file.isFile) {
-            val message = if (!file.exists()) {
-                "Mapping file not found: ${file.absolutePath}"
-            } else {
-                "Path is not a file: ${file.absolutePath}"
-            }
-            throw GradleException(message)
+        // Gradle's @InputFile validates file existence, but not that it's a file (not a directory)
+        if (!file.isFile) {
+            throw GradleException("Path is not a file: ${file.absolutePath}")
         }
 
         if (file.length() == 0L) {

@@ -40,26 +40,6 @@ tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     }
 }
 
-tasks.register<io.gitlab.arturbosch.detekt.Detekt>("detektDebug") {
-    description = "Run detekt analysis for debug source sets"
-    group = "verification"
-    
-    setSource(files("src/main/kotlin"))
-    val detektConfig = rootProject.file("../config/detekt/detekt.yml")
-    if (detektConfig.exists()) {
-        config.setFrom(files(detektConfig))
-    }
-    val baselineFile = rootProject.file("../config/detekt/baseline.xml")
-    if (baselineFile.exists()) {
-        baseline.set(baselineFile)
-    }
-    
-    buildUponDefaultConfig = true
-    autoCorrect = true
-    
-    debug = true
-}
-
 dependencies {
     implementation(libs.android.plugin)
     implementation(libs.gson)
