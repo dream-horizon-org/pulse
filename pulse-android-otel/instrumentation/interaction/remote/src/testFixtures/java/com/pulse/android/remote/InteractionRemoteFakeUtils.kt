@@ -3,6 +3,7 @@ package com.pulse.android.remote
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
 import com.pulse.android.remote.models.InteractionEvent
+import com.pulse.android.remote.models.InteractionStatus
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -28,6 +29,12 @@ public object InteractionRemoteFakeUtils {
             uptimeUpperLimitInMs = uptimeUpperLimitInNano / 1000_000,
             thresholdInMs = thresholdInNanos / 1000_000,
             shouldThrowOnWrongConfig = shouldThrowOnWrongConfig,
+            description = "fake-description",
+            status = InteractionStatus.RUNNING,
+            createdAtInMs = System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(100),
+            updatedAtInMs = System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(100),
+            createdBy = "fake-user",
+            updatedBy = "fake-user",
         )
 
     public fun createFakeInteractionAttrsEntry(
