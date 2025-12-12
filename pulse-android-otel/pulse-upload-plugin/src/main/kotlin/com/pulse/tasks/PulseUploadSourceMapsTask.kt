@@ -26,6 +26,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         private const val CRLF = "\r\n"
         private const val DEBUG_URL_PREFIX = "   URL: "
         private const val DEBUG_RESPONSE_PREFIX = "   Response: "
+        private const val UNKNOWN_ERROR = "Unknown error"
     }
 
     @get:Option(option = "api-url", description = "API URL for uploading source maps")
@@ -90,15 +91,17 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         } catch (e: MalformedURLException) {
             handleUploadError("Invalid API URL", e)
         } catch (e: IOException) {
-            logger.error("✗ Upload failed: ${e.message}")
+            val errorMessage = e.message ?: UNKNOWN_ERROR
+            logger.error("✗ Upload failed: $errorMessage")
             logger.debug("   Exception: ${e.javaClass.simpleName}")
-            throw GradleException("Upload failed: ${e.message}", e)
+            throw GradleException("Upload failed: $errorMessage", e)
         }
     }
 
     private fun handleUploadError(message: String, e: Exception) {
-        logger.error("✗ $message: ${e.message}")
-        throw GradleException("$message: ${e.message}", e)
+        val errorMessage = e.message ?: UNKNOWN_ERROR
+        logger.error("✗ $message: $errorMessage")
+        throw GradleException("$message: $errorMessage", e)
     }
 
     private fun validateRequiredString(
@@ -160,7 +163,10 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         val metadata = buildMetadata(type, appVersion, versionCode, platform, fileName)
         val boundary = "----WebKitFormBoundary${System.currentTimeMillis()}"
 
-        val connection = URL(apiUrl).openConnection() as HttpURLConnection
+        val connection = (
+            URL(apiUrl).openConnection()
+                ?: throw GradleException("Failed to open connection to $apiUrl")
+        ) as HttpURLConnection
 
         try {
             connection.requestMethod = "POST"
@@ -179,11 +185,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
             validateResponse(responseCode, response)
 
         } catch (e: IOException) {
-            logger.debug("HTTP request failed: ${e.message}")
-            logDebugUrl(apiUrl)
-            throw e
-        } catch (e: MalformedURLException) {
-            logger.debug("Invalid URL: ${e.message}")
+            val errorMessage = e.message ?: UNKNOWN_ERROR
+            logger.debug("HTTP request failed: $errorMessage")
             logDebugUrl(apiUrl)
             throw e
         } finally {
@@ -230,7 +233,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
                 } ?: "No error message available"
             }
         } catch (e: IOException) {
-            "Failed to read response: ${e.message}"
+            val errorMessage = e.message ?: UNKNOWN_ERROR
+            "Failed to read response: $errorMessage"
         }
     }
 

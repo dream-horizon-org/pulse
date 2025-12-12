@@ -30,7 +30,7 @@ jobs:
       - name: touch local props
         run: touch demo-app/local.properties
       - name: run gradle check
-        run: ./gradlew check -x detekt detektDebug detektDebugUnitTest detektDebugAndroidTest :pulse-upload-plugin:detekt :pulse-upload-plugin:detektDebug
+        run: ./gradlew check -x detekt detektDebug detektDebugUnitTest detektDebugAndroidTest :pulse-upload-plugin:detekt :pulse-upload-plugin:detektMain
       - name: create test coverage report
         run: ./gradlew koverXmlReport
       - name: Upload coverage reports to Codecov
