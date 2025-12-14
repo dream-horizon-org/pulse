@@ -331,91 +331,24 @@ public class AlertService {
   }
 
   public Single<AlertMetricsResponseDto> getAlertMetrics(String scope) {
-    AlertScope alertScope = parseScope(scope);
-    List<String> metrics = getMetricsForScope(alertScope);
-    AlertMetricsResponseDto response = AlertMetricsResponseDto.builder()
-        .scope(scope)
-        .metrics(metrics)
-        .build();
-    return Single.just(response);
+    String normalizedScope = normalizeScope(scope);
+    return alertsDao.getMetricsByScope(normalizedScope)
+        .map(metrics -> AlertMetricsResponseDto.builder()
+            .scope(scope)
+            .metrics(metrics)
+            .build());
   }
 
-  private AlertScope parseScope(String scope) {
+  private String normalizeScope(String scope) {
     return switch (scope.toLowerCase()) {
-      case "interaction" -> AlertScope.Interaction;
-      case "network_api" -> AlertScope.network;
-      case "screen" -> AlertScope.SCREEN;
-      case "app_vitals" -> AlertScope.APP_VITALS;
+      case "interaction" -> "interaction";
+      case "network_api" -> "network_api";
+      case "screen" -> "screen";
+      case "app_vitals" -> "app_vitals";
       default -> throw ServiceError.INVALID_REQUEST_PARAM.getCustomException(
           "Invalid scope: {}. Valid scopes are: interaction, network_api, screen, app_vitals", scope);
     };
   }
 
-  private List<String> getMetricsForScope(AlertScope scope) {
-    return switch (scope) {
-      case Interaction -> List.of(
-          "APDEX",
-          "CRASH",
-          "ANR",
-          "FROZEN_FRAME",
-          "ANALYSED_FRAME",
-          "UNANALYSED_FRAME",
-          "DURATION_P99",
-          "DURATION_P95",
-          "DURATION_P50",
-          "ERROR_RATE",
-          "INTERACTION_SUCCESS_COUNT",
-          "INTERACTION_ERROR_COUNT",
-          "INTERACTION_ERROR_DISTINCT_USERS",
-          "USER_CATEGORY_EXCELLENT",
-          "USER_CATEGORY_GOOD",
-          "USER_CATEGORY_AVERAGE",
-          "USER_CATEGORY_POOR",
-          "CRASH_RATE",
-          "ANR_RATE",
-          "FROZEN_FRAME_RATE",
-          "POOR_USER_RATE",
-          "AVERAGE_USER_RATE",
-          "GOOD_USER_RATE",
-          "EXCELLENT_USER_RATE"
-      );
-      case SCREEN -> List.of(
-          "SCREEN_DAILY_USERS",
-          "SCREEN_ACTIVE_USERS",
-          "SCREEN_ERROR_RATE",
-          "SCREEN_TIME"
-      );
-      case APP_VITALS -> List.of(
-          "APP_VITALS_CRASH_FREE_USERS_PERCENTAGE",
-          "APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE",
-          "APP_VITALS_CRASH_USERS",
-          "APP_VITALS_CRASH_SESSIONS",
-          "APP_VITALS_ALL_USERS",
-          "APP_VITALS_ALL_SESSIONS",
-          "APP_VITALS_ANR_FREE_USERS_PERCENTAGE",
-          "APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE",
-          "APP_VITALS_ANR_USERS",
-          "APP_VITALS_ANR_SESSIONS",
-          "APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE",
-          "APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE",
-          "APP_VITALS_NON_FATAL_USERS",
-          "APP_VITALS_NON_FATAL_SESSIONS"
-      );
-      case network -> List.of(
-          "NET_0",
-          "NET_2XX",
-          "NET_3XX",
-          "NET_4XX",
-          "NET_5XX",
-          "NET_4XX_RATE",
-          "NET_5XX_RATE",
-          "DURATION_P99",
-          "DURATION_P95",
-          "DURATION_P50",
-          "ERROR_RATE",
-          "NET_COUNT"
-      );
-    };
-  }
 }
 

@@ -256,4 +256,7 @@ public class AlertsQuery {
   // Alert tag mapping queries
   public static final String CREATE_ALERT_TAG_MAPPING = "INSERT INTO Alert_Tag_Mapping(alert_id, tag_id) VALUES (?,?);";
   public static final String DELETE_ALERT_TAG_MAPPING = "DELETE FROM Alert_Tag_Mapping WHERE alert_id = ? AND tag_id = ?;";
+
+  // Alert metrics queries
+  public static final String GET_METRICS_BY_SCOPE = "SELECT id, name, label FROM Alert_Metrics WHERE scope = ? ORDER BY id;";
 }

@@ -92,6 +92,16 @@ CREATE TABLE Alert_Evaluation_History (
   CONSTRAINT fk_eval_subject FOREIGN KEY (scope_id) REFERENCES Alert_Scope (id)
 );
 
+CREATE TABLE Alert_Metrics (
+  id                  INT PRIMARY KEY AUTO_INCREMENT,
+  name                VARCHAR(255) NOT NULL,
+  label               VARCHAR(500) NOT NULL,
+  scope               VARCHAR(100) NOT NULL,
+  created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_metric_scope (name, scope)
+);
+
 INSERT INTO Severity (name, description)
 VALUES
     (1, 'It is at incident commanders discretion to update the severity of the incident since this is not clubbed now anymore for multiple services.'),
@@ -103,6 +113,67 @@ VALUES
 INSERT INTO Notification_Channels (name, notification_webhook_url)
 VALUES
     ('Incident management', 'http://whistlebot.local/declare-incident');
+
+-- Insert Interaction scope metrics
+INSERT INTO Alert_Metrics (name, label, scope) VALUES
+    ('APDEX', 'APDEX value [0,1]', 'interaction'),
+    ('CRASH', 'CRASH value >= 0', 'interaction'),
+    ('ANR', 'ANR value >= 0', 'interaction'),
+    ('FROZEN_FRAME', 'FROZEN_FRAME value >= 0', 'interaction'),
+    ('ANALYSED_FRAME', 'ANALYSED_FRAME value >= 0', 'interaction'),
+    ('UNANALYSED_FRAME', 'UNANALYSED_FRAME value >= 0', 'interaction'),
+    ('DURATION_P99', 'DURATION_P99 value >= 0', 'interaction'),
+    ('DURATION_P95', 'DURATION_P95 value >= 0', 'interaction'),
+    ('DURATION_P50', 'DURATION_P50 value >= 0', 'interaction'),
+    ('ERROR_RATE', 'ERROR_RATE value [0,1]', 'interaction'),
+    ('INTERACTION_SUCCESS_COUNT', 'INTERACTION_SUCCESS_COUNT value >= 0', 'interaction'),
+    ('INTERACTION_ERROR_COUNT', 'INTERACTION_ERROR_COUNT value >= 0', 'interaction'),
+    ('INTERACTION_ERROR_DISTINCT_USERS', 'INTERACTION_ERROR_DISTINCT_USERS value >= 0', 'interaction'),
+    ('USER_CATEGORY_EXCELLENT', 'USER_CATEGORY_EXCELLENT value >= 0', 'interaction'),
+    ('USER_CATEGORY_GOOD', 'USER_CATEGORY_GOOD value >= 0', 'interaction'),
+    ('USER_CATEGORY_AVERAGE', 'USER_CATEGORY_AVERAGE value >= 0', 'interaction'),
+    ('USER_CATEGORY_POOR', 'USER_CATEGORY_POOR value >= 0', 'interaction'),
+    ('CRASH_RATE', 'CRASH_RATE value [0,1]', 'interaction'),
+    ('ANR_RATE', 'ANR_RATE value [0,1]', 'interaction'),
+    ('FROZEN_FRAME_RATE', 'FROZEN_FRAME_RATE value [0,1]', 'interaction'),
+    ('POOR_USER_RATE', 'POOR_USER_RATE value [0,1]', 'interaction'),
+    ('AVERAGE_USER_RATE', 'AVERAGE_USER_RATE value [0,1]', 'interaction'),
+    ('GOOD_USER_RATE', 'GOOD_USER_RATE value [0,1]', 'interaction'),
+    ('EXCELLENT_USER_RATE', 'EXCELLENT_USER_RATE value [0,1]', 'interaction');
+
+-- Insert Screen scope metrics
+INSERT INTO Alert_Metrics (name, label, scope) VALUES
+    ('SCREEN_DAILY_USERS', 'SCREEN_DAILY_USERS value >= 0', 'screen'),
+    ('SCREEN_ACTIVE_USERS', 'SCREEN_ACTIVE_USERS value >= 0', 'screen'),
+    ('SCREEN_ERROR_RATE', 'SCREEN_ERROR_RATE value [0,1]', 'screen'),
+    ('SCREEN_TIME', 'SCREEN_TIME value >= 0', 'screen');
+
+-- Insert APP_VITALS scope metrics
+INSERT INTO Alert_Metrics (name, label, scope) VALUES
+    ('APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'app_vitals'),
+    ('APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'app_vitals'),
+    ('APP_VITALS_CRASH_USERS', 'APP_VITALS_CRASH_USERS', 'app_vitals'),
+    ('APP_VITALS_CRASH_SESSIONS', 'APP_VITALS_CRASH_SESSIONS', 'app_vitals'),
+    ('APP_VITALS_ALL_USERS', 'APP_VITALS_ALL_USERS', 'app_vitals'),
+    ('APP_VITALS_ALL_SESSIONS', 'APP_VITALS_ALL_SESSIONS', 'app_vitals'),
+    ('APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'app_vitals'),
+    ('APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'app_vitals'),
+    ('APP_VITALS_ANR_USERS', 'APP_VITALS_ANR_USERS', 'app_vitals'),
+    ('APP_VITALS_ANR_SESSIONS', 'APP_VITALS_ANR_SESSIONS', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_USERS', 'APP_VITALS_NON_FATAL_USERS', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_SESSIONS', 'APP_VITALS_NON_FATAL_SESSIONS', 'app_vitals');
+
+-- Insert Network scope metrics
+INSERT INTO Alert_Metrics (name, label, scope) VALUES
+    ('NET_0', 'NET_0', 'network_api'),
+    ('NET_2XX', 'NET_2XX', 'network_api'),
+    ('NET_3XX', 'NET_3XX', 'network_api'),
+    ('NET_4XX', 'NET_4XX', 'network_api'),
+    ('NET_5XX', 'NET_5XX', 'network_api'),
+    ('NET_4XX_RATE', 'NET_4XX_RATE', 'network_api'),
+    ('NET_5XX_RATE', 'NET_5XX_RATE', 'network_api');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';

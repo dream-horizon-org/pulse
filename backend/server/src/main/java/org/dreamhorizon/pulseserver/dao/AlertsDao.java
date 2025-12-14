@@ -837,4 +837,26 @@ public class AlertsDao {
       return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
     }).map(AlertMapper::mapRowSetToAlertFilters);
   }
+
+  public Single<List<org.dreamhorizon.pulseserver.resources.alert.models.MetricItemDto>> getMetricsByScope(@NotNull String scope) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_METRICS_BY_SCOPE)
+        .rxExecute(Tuple.of(scope))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching metrics for scope {} from db: {}", scope, error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          List<org.dreamhorizon.pulseserver.resources.alert.models.MetricItemDto> metrics = new ArrayList<>();
+          for (Row row : rowSet) {
+            metrics.add(org.dreamhorizon.pulseserver.resources.alert.models.MetricItemDto.builder()
+                .id(row.getInteger("id"))
+                .name(row.getString("name"))
+                .label(row.getString("label"))
+                .build());
+          }
+          return metrics;
+        });
+  }
 }

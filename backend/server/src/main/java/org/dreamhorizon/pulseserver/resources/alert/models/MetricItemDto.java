@@ -6,17 +6,18 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AlertMetricsResponseDto {
-    @JsonProperty("scope")
-    private String scope;
+public class MetricItemDto {
+    @JsonProperty("id")
+    private Integer id;
 
-    @JsonProperty("metrics")
-    private List<MetricItemDto> metrics;
+    @JsonProperty("name")
+    private String name;
+
+    @JsonProperty("label")
+    private String label;
 }
 
