@@ -53,7 +53,7 @@ internal class PulseSDKImpl : PulseSDK {
             return
         }
         this.application = application
-        pulseSpanProcessor = PulseSignalProcessor()
+        pulseSpanProcessor = PulseSdkSignalProcessors()
         val config = OtelRumConfig()
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
@@ -122,7 +122,7 @@ internal class PulseSDKImpl : PulseSDK {
         val tracerProviderCustomizer =
             BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
                 tracerProviderBuilder.addSpanProcessor(
-                    PulseSignalProcessor.PulseSpanTypeAttributesAppender(),
+                    PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender(),
                 )
                 // interaction specific attributed present in other spans
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
@@ -312,7 +312,7 @@ internal class PulseSDKImpl : PulseSDK {
 
     private var isInitialised: Boolean = false
 
-    private lateinit var pulseSpanProcessor: PulseSignalProcessor
+    private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
     private var otelInstance: OpenTelemetryRum? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
