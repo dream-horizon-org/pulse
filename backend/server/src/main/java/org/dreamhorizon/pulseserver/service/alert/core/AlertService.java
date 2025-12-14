@@ -304,23 +304,11 @@ public class AlertService {
   }
 
   public Single<AlertMetricsResponseDto> getAlertMetrics(String scope) {
-    String normalizedScope = normalizeScope(scope);
-    return alertsDao.getMetricsByScope(normalizedScope)
+    return alertsDao.getMetricsByScope(scope)
         .map(metrics -> AlertMetricsResponseDto.builder()
             .scope(scope)
             .metrics(metrics)
             .build());
-  }
-
-  private String normalizeScope(String scope) {
-    return switch (scope.toLowerCase()) {
-      case "interaction" -> "interaction";
-      case "network_api" -> "network_api";
-      case "screen" -> "screen";
-      case "app_vitals" -> "app_vitals";
-      default -> throw ServiceError.INVALID_REQUEST_PARAM.getCustomException(
-          "Invalid scope: {}. Valid scopes are: interaction, network_api, screen, app_vitals", scope);
-    };
   }
 
 }

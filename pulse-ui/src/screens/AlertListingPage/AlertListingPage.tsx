@@ -80,8 +80,8 @@ export function AlertListingPage({
   // Create lookup maps from API data
   const scopeLabels = useMemo(() => {
     const map: Record<string, string> = {};
-    scopesData?.data?.scopes?.forEach((s: { id: string; label: string }) => {
-      map[s.id] = s.label;
+    scopesData?.data?.scopes?.forEach((s) => {
+      map[s.name] = s.label;
     });
     return map;
   }, [scopesData]);

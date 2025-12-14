@@ -10,11 +10,12 @@ import { Box, Text, Select, NumberInput, ActionIcon, Group, Badge, Divider } fro
 import { IconTrash } from "@tabler/icons-react";
 import { MetricCondition, MetricOperator } from "../../../types";
 import { METRIC_OPERATOR_OPTIONS } from "../../../constants";
+import { MetricItem } from "../../../../../hooks/useGetAlertMetrics/useGetAlertMetrics.interface";
 import classes from "./StepMetricsAndExpression.module.css";
 
 interface MetricConditionCardProps {
   condition: MetricCondition;
-  metrics: string[];
+  metrics: MetricItem[];
   globalScopeNames: string[];
   isAppVitals: boolean;
   isMetricsLoading: boolean;
@@ -26,7 +27,7 @@ interface MetricConditionCardProps {
 export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
   condition, metrics, globalScopeNames, isAppVitals, isMetricsLoading, onUpdate, onRemove, canRemove,
 }) => {
-  const metricOptions = metrics.map((m) => ({ value: m, label: m.replace(/_/g, " ") }));
+  const metricOptions = metrics.map((m) => ({ value: m.name, label: m.label }));
 
   const handleThresholdChange = useCallback((scopeName: string, value: number) => {
     onUpdate({ threshold: { ...condition.threshold, [scopeName]: value } });

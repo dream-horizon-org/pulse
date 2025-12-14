@@ -324,8 +324,8 @@ export const AlertForm = ({
   const getMetricOptions = () => {
     if (metricsData?.data?.metrics) {
       return metricsData.data.metrics.map((metric) => ({
-        value: metric,
-        label: metric.replace(/_/g, " "),
+        value: metric.name,
+        label: metric.label,
       }));
     }
     return [];

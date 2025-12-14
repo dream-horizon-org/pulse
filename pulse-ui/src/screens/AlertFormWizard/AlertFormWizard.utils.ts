@@ -11,9 +11,9 @@ import { AlertListItem, AlertCondition } from "../../hooks/useGetAlertList/useGe
  */
 const SCOPE_TYPE_TO_BACKEND: Record<string, string> = {
   interaction: "Interaction",
-  network_api: "API",
-  screen: "SCREEN",
-  app_vitals: "APP_VITALS",
+  network_api: "network",
+  screen: "screen",
+  app_vitals: "app_vitals",
 };
 
 /**

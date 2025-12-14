@@ -30,32 +30,62 @@ export const mockAlertSeverities = [
 // =============================================================================
 // GET /v1/alert/metrics?scope={scopeId} - AlertMetricsResponseDto
 // =============================================================================
-// Keys must match scope IDs (lowercase, matches AlertScopeType enum)
-export const mockAlertMetrics: Record<string, { scope: string; metrics: string[] }> = {
+// Keys must match scope names (lowercase, matches AlertScopeType enum)
+export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ id: number; name: string; label: string }> }> = {
   interaction: {
     scope: "interaction",
     metrics: [
-      "APDEX", "INTERACTION_SUCCESS_COUNT", "INTERACTION_ERROR_COUNT",
-      "INTERACTION_ERROR_DISTINCT_USERS", "DURATION_P99", "DURATION_P95",
-      "DURATION_P50", "ERROR_RATE",
+      { id: 1, name: "APDEX", label: "APDEX value [0,1]" },
+      { id: 2, name: "INTERACTION_SUCCESS_COUNT", label: "INTERACTION_SUCCESS_COUNT value >= 0" },
+      { id: 3, name: "INTERACTION_ERROR_COUNT", label: "INTERACTION_ERROR_COUNT value >= 0" },
+      { id: 4, name: "INTERACTION_ERROR_DISTINCT_USERS", label: "INTERACTION_ERROR_DISTINCT_USERS value >= 0" },
+      { id: 5, name: "DURATION_P99", label: "DURATION_P99 value >= 0" },
+      { id: 6, name: "DURATION_P95", label: "DURATION_P95 value >= 0" },
+      { id: 7, name: "DURATION_P50", label: "DURATION_P50 value >= 0" },
+      { id: 8, name: "ERROR_RATE", label: "ERROR_RATE value [0,1]" },
     ],
   },
   network_api: {
     scope: "network_api",
     metrics: [
-      "DURATION_P50", "DURATION_P95", "DURATION_P99", "ERROR_RATE",
-      "NET_4XX_RATE", "NET_5XX_RATE", "NET_4XX", "NET_5XX",
+      { id: 9, name: "DURATION_P50", label: "DURATION_P50 value >= 0" },
+      { id: 10, name: "DURATION_P95", label: "DURATION_P95 value >= 0" },
+      { id: 11, name: "DURATION_P99", label: "DURATION_P99 value >= 0" },
+      { id: 12, name: "ERROR_RATE", label: "ERROR_RATE value [0,1]" },
+      { id: 13, name: "NET_4XX_RATE", label: "NET_4XX_RATE" },
+      { id: 14, name: "NET_5XX_RATE", label: "NET_5XX_RATE" },
+      { id: 15, name: "NET_4XX", label: "NET_4XX" },
+      { id: 16, name: "NET_5XX", label: "NET_5XX" },
     ],
   },
   app_vitals: {
     scope: "app_vitals",
-    metrics: ["CRASH", "ANR", "CRASH_RATE", "ANR_RATE", "FROZEN_FRAME", "FROZEN_FRAME_RATE"],
+    metrics: [
+      { id: 29, name: "APP_VITALS_CRASH_FREE_USERS_PERCENTAGE", label: "APP_VITALS_CRASH_FREE_USERS_PERCENTAGE" },
+      { id: 30, name: "APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE", label: "APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE" },
+      { id: 31, name: "APP_VITALS_CRASH_USERS", label: "APP_VITALS_CRASH_USERS" },
+      { id: 32, name: "APP_VITALS_CRASH_SESSIONS", label: "APP_VITALS_CRASH_SESSIONS" },
+      { id: 33, name: "APP_VITALS_ALL_USERS", label: "APP_VITALS_ALL_USERS" },
+      { id: 34, name: "APP_VITALS_ALL_SESSIONS", label: "APP_VITALS_ALL_SESSIONS" },
+      { id: 35, name: "APP_VITALS_ANR_FREE_USERS_PERCENTAGE", label: "APP_VITALS_ANR_FREE_USERS_PERCENTAGE" },
+      { id: 36, name: "APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE", label: "APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE" },
+      { id: 37, name: "APP_VITALS_ANR_USERS", label: "APP_VITALS_ANR_USERS" },
+      { id: 38, name: "APP_VITALS_ANR_SESSIONS", label: "APP_VITALS_ANR_SESSIONS" },
+      { id: 39, name: "APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE", label: "APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE" },
+      { id: 40, name: "APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE", label: "APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE" },
+      { id: 41, name: "APP_VITALS_NON_FATAL_USERS", label: "APP_VITALS_NON_FATAL_USERS" },
+      { id: 42, name: "APP_VITALS_NON_FATAL_SESSIONS", label: "APP_VITALS_NON_FATAL_SESSIONS" },
+    ],
   },
   screen: {
     scope: "screen",
     metrics: [
-      "SCREEN_LOAD_TIME_P50", "SCREEN_LOAD_TIME_P95", "SCREEN_LOAD_TIME_P99",
-      "SCREEN_ERROR_RATE", "SCREEN_TIME", "LOAD_TIME",
+      { id: 17, name: "SCREEN_LOAD_TIME_P50", label: "SCREEN_LOAD_TIME_P50 value >= 0" },
+      { id: 18, name: "SCREEN_LOAD_TIME_P95", label: "SCREEN_LOAD_TIME_P95 value >= 0" },
+      { id: 19, name: "SCREEN_LOAD_TIME_P99", label: "SCREEN_LOAD_TIME_P99 value >= 0" },
+      { id: 20, name: "SCREEN_ERROR_RATE", label: "SCREEN_ERROR_RATE value [0,1]" },
+      { id: 21, name: "SCREEN_TIME", label: "SCREEN_TIME value >= 0" },
+      { id: 22, name: "LOAD_TIME", label: "LOAD_TIME value >= 0" },
     ],
   },
 };

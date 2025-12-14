@@ -68,7 +68,7 @@ export function AlertDetail(_props: AlertDetailProps) {
 
   // Build lookup maps
   const scopeLabels: Record<string, string> = {};
-  scopesData?.data?.scopes?.forEach((s: { id: string; label: string }) => { scopeLabels[s.id] = s.label; });
+  scopesData?.data?.scopes?.forEach((s) => { scopeLabels[s.name] = s.label; });
   
   const severityConfig: Record<number, { label: string; color: string }> = {};
   const colors = ["#ef4444", "#f59e0b", "#3b82f6"];

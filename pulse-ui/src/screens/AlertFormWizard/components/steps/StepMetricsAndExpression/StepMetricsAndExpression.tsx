@@ -111,13 +111,13 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
   });
 
   const availableScopeNames = useMemo(() => {
-    if (isAppVitals) return metrics;
+    if (isAppVitals) return [];
     if (!scopeNamesData?.data?.rows) return [];
     const fields = scopeNamesData.data.fields;
     const idx = fields.findIndex((f: string) => f === "interaction_name" || f === "screen_name" || f === "url");
     if (idx === -1) return [];
     return scopeNamesData.data.rows.map((row: (string | number)[]) => String(row[idx])).filter((n: string) => n?.trim());
-  }, [isAppVitals, metrics, scopeNamesData]);
+  }, [isAppVitals, scopeNamesData]);
 
   // Combine already selected values with search results
   const multiSelectData = useMemo(() => {

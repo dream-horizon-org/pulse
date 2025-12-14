@@ -6,8 +6,8 @@ CREATE DATABASE IF NOT EXISTS pulse_db CHARACTER SET utf8mb4 COLLATE utf8mb4_uni
 
 USE pulse_db;
 
-CREATE TABLE interaction (
-    interaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE Interaction (
+    Interaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     status VARCHAR(25) NOT NULL,
     details JSON,
@@ -112,11 +112,9 @@ CREATE TABLE Alert_Metrics (
 
 INSERT INTO Severity (name, description)
 VALUES
-    (1, 'It is at incident commanders discretion to update the severity of the incident since this is not clubbed now anymore for multiple services.'),
-    (2, 'It is at incident commanders discretion to update the severity of the incident since this is not clubbed now anymore for multiple services.'),
-    (3, 'SPM of 1 service is impacted'),
-    (3, 'Operator alerts triggered for multiple services'),
-    (3, 'Operator alerts triggered for 1 service');
+    (1, 'Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management.'),
+    (2, 'Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage.'),
+    (3, 'Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes.');
 
 INSERT INTO Notification_Channels (name, notification_webhook_url)
 VALUES
@@ -129,7 +127,7 @@ INSERT INTO Scope_Types (name, label) VALUES
     ('screen', 'Screen'),
     ('app_vitals', 'App Vitals');
 
--- Insert Interaction scope metrics
+-- Insert interaction scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('APDEX', 'APDEX value [0,1]', 'interaction'),
     ('CRASH', 'CRASH value >= 0', 'interaction'),
@@ -141,9 +139,9 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('DURATION_P95', 'DURATION_P95 value >= 0', 'interaction'),
     ('DURATION_P50', 'DURATION_P50 value >= 0', 'interaction'),
     ('ERROR_RATE', 'ERROR_RATE value [0,1]', 'interaction'),
-    ('INTERACTION_SUCCESS_COUNT', 'INTERACTION_SUCCESS_COUNT value >= 0', 'interaction'),
-    ('INTERACTION_ERROR_COUNT', 'INTERACTION_ERROR_COUNT value >= 0', 'interaction'),
-    ('INTERACTION_ERROR_DISTINCT_USERS', 'INTERACTION_ERROR_DISTINCT_USERS value >= 0', 'interaction'),
+    ('Interaction_SUCCESS_COUNT', 'Interaction_SUCCESS_COUNT value >= 0', 'interaction'),
+    ('Interaction_ERROR_COUNT', 'Interaction_ERROR_COUNT value >= 0', 'interaction'),
+    ('Interaction_ERROR_DISTINCT_USERS', 'Interaction_ERROR_DISTINCT_USERS value >= 0', 'interaction'),
     ('USER_CATEGORY_EXCELLENT', 'USER_CATEGORY_EXCELLENT value >= 0', 'interaction'),
     ('USER_CATEGORY_GOOD', 'USER_CATEGORY_GOOD value >= 0', 'interaction'),
     ('USER_CATEGORY_AVERAGE', 'USER_CATEGORY_AVERAGE value >= 0', 'interaction'),
@@ -156,39 +154,32 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('GOOD_USER_RATE', 'GOOD_USER_RATE value [0,1]', 'interaction'),
     ('EXCELLENT_USER_RATE', 'EXCELLENT_USER_RATE value [0,1]', 'interaction');
 
--- Insert Screen scope metrics
-INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('SCREEN_DAILY_USERS', 'SCREEN_DAILY_USERS value >= 0', 'screen'),
-    ('SCREEN_ACTIVE_USERS', 'SCREEN_ACTIVE_USERS value >= 0', 'screen'),
-    ('SCREEN_ERROR_RATE', 'SCREEN_ERROR_RATE value [0,1]', 'screen'),
-    ('SCREEN_TIME', 'SCREEN_TIME value >= 0', 'screen');
-
 -- Insert APP_VITALS scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'app_vitals'),
-    ('APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'app_vitals'),
-    ('APP_VITALS_CRASH_USERS', 'APP_VITALS_CRASH_USERS', 'app_vitals'),
-    ('APP_VITALS_CRASH_SESSIONS', 'APP_VITALS_CRASH_SESSIONS', 'app_vitals'),
-    ('APP_VITALS_ALL_USERS', 'APP_VITALS_ALL_USERS', 'app_vitals'),
-    ('APP_VITALS_ALL_SESSIONS', 'APP_VITALS_ALL_SESSIONS', 'app_vitals'),
-    ('APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'app_vitals'),
-    ('APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'app_vitals'),
-    ('APP_VITALS_ANR_USERS', 'APP_VITALS_ANR_USERS', 'app_vitals'),
-    ('APP_VITALS_ANR_SESSIONS', 'APP_VITALS_ANR_SESSIONS', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_USERS', 'APP_VITALS_NON_FATAL_USERS', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_SESSIONS', 'APP_VITALS_NON_FATAL_SESSIONS', 'app_vitals');
+    ('APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'APP_VITALS_CRASH_FREE_USERS_PERCENTAGE value [0,1]', 'app_vitals'),
+    ('APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE value [0,1]', 'app_vitals'),
+    ('APP_VITALS_CRASH_USERS', 'APP_VITALS_CRASH_USERS value >= 0', 'app_vitals'),
+    ('APP_VITALS_CRASH_SESSIONS', 'APP_VITALS_CRASH_SESSIONS value >= 0', 'app_vitals'),
+    ('APP_VITALS_ALL_USERS', 'APP_VITALS_ALL_USERS value >= 0', 'app_vitals'),
+    ('APP_VITALS_ALL_SESSIONS', 'APP_VITALS_ALL_SESSIONS value >= 0', 'app_vitals'),
+    ('APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'APP_VITALS_ANR_FREE_USERS_PERCENTAGE value [0,1]', 'app_vitals'),
+    ('APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE value [0,1]', 'app_vitals'),
+    ('APP_VITALS_ANR_USERS', 'APP_VITALS_ANR_USERS value >= 0', 'app_vitals'),
+    ('APP_VITALS_ANR_SESSIONS', 'APP_VITALS_ANR_SESSIONS value >= 0', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE value [0,1]', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE value [0,1]', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_USERS', 'APP_VITALS_NON_FATAL_USERS value >= 0', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_SESSIONS', 'APP_VITALS_NON_FATAL_SESSIONS value >= 0', 'app_vitals');
 
--- Insert Network scope metrics
+-- Insert network_api scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('NET_0', 'NET_0', 'network_api'),
-    ('NET_2XX', 'NET_2XX', 'network_api'),
-    ('NET_3XX', 'NET_3XX', 'network_api'),
-    ('NET_4XX', 'NET_4XX', 'network_api'),
-    ('NET_5XX', 'NET_5XX', 'network_api'),
-    ('NET_4XX_RATE', 'NET_4XX_RATE', 'network_api'),
-    ('NET_5XX_RATE', 'NET_5XX_RATE', 'network_api');
+    ('NET_0', 'NET_0 value >= 0', 'network_api'),
+    ('NET_2XX', 'NET_2XX value >= 0', 'network_api'),
+    ('NET_3XX', 'NET_3XX value >= 0', 'network_api'),
+    ('NET_4XX', 'NET_4XX value >= 0', 'network_api'),
+    ('NET_5XX', 'NET_5XX value >= 0', 'network_api'),
+    ('NET_4XX_RATE', 'NET_4XX_RATE value [0,1]', 'network_api'),
+    ('NET_5XX_RATE', 'NET_5XX_RATE value [0,1]', 'network_api');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
