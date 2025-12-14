@@ -45,15 +45,15 @@ const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("e
 const formatTime = (date: string | Date) => new Date(date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 const formatDateTime = (date: string | Date) => `${formatDate(date)} at ${formatTime(date)}`;
 
-// Parse reading JSON string to get per-scope readings
-type ScopeReading = { reading: number; useCaseId: string; totalInteractionCount: number };
-const parseReadings = (readingStr: string): ScopeReading[] => {
+// Parse evaluation_result JSON string to get metric readings
+const parseEvaluationResult = (resultStr: string): Record<string, number> => {
   try {
-    return JSON.parse(readingStr);
+    return JSON.parse(resultStr);
   } catch {
-    return [];
+    return {};
   }
 };
+
 
 export function AlertDetail(_props: AlertDetailProps) {
   const navigate = useNavigate();
@@ -296,46 +296,47 @@ export function AlertDetail(_props: AlertDetailProps) {
                 <div className={classes.historyError}>{evaluationHistoryData.error.message}</div>
               ) : evaluationHistoryData?.data?.length ? (
                 <div className={classes.timeline}>
-                  {evaluationHistoryData.data.slice(0, 10).map((item, idx) => {
-                    const isItemFiring = item.current_state === "FIRING";
-                    const scopeReadings = parseReadings(item.reading);
-                    const thresholdPercent = (item.threshold * 100).toFixed(1);
-                    return (
-                      <div key={idx} className={classes.timelineItem}>
-                        <div className={classes.timelineDot} style={{ background: isItemFiring ? "#ef4444" : "#10b981" }} />
-                        <div className={classes.timelineContent}>
-                          <div className={classes.timelineHeader}>
-                            <Badge size="xs" variant="light" color={isItemFiring ? "red" : "green"}>{item.current_state}</Badge>
-                            <span className={classes.timelineTime}>{formatTime(item.evaluated_at)}</span>
-                          </div>
-                          
-                          {/* Per-Scope Readings */}
-                          <div className={classes.scopeReadings}>
-                            <div className={classes.scopeReadingsHeader}>
-                              <span>Scope</span>
-                              <span>Reading</span>
-                              <span>Threshold</span>
-                            </div>
-                            {scopeReadings.map((sr, srIdx) => {
-                              const readingPercent = (sr.reading * 100).toFixed(2);
-                              const isAboveThreshold = sr.reading > item.threshold;
-                              return (
-                                <div key={srIdx} className={classes.scopeReadingRow}>
-                                  <span className={classes.scopeName}>{sr.useCaseId}</span>
-                                  <span className={`${classes.scopeValue} ${isAboveThreshold ? classes.scopeValueFiring : classes.scopeValueNormal}`}>
-                                    {readingPercent}%
-                                  </span>
-                                  <span className={classes.scopeThreshold}>{thresholdPercent}%</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          <span className={classes.timelineDate}>{formatDate(item.evaluated_at)}</span>
-                        </div>
+                  {evaluationHistoryData.data.map((scopeHistory, scopeIdx) => (
+                    <div key={scopeIdx} className={classes.scopeHistorySection}>
+                      <div className={classes.scopeHistoryHeader}>
+                        <Badge size="sm" variant="light" color="cyan">{scopeHistory.scope_name}</Badge>
+                        <span className={classes.scopeId}>Scope #{scopeHistory.scope_id}</span>
                       </div>
-                    );
-                  })}
+                      {scopeHistory.evaluation_history.slice(0, 5).map((item, idx) => {
+                        const isItemFiring = item.state === "FIRING";
+                        const evaluationResult = parseEvaluationResult(item.evaluation_result);
+                        return (
+                          <div key={idx} className={classes.timelineItem}>
+                            <div className={classes.timelineDot} style={{ background: isItemFiring ? "#ef4444" : "#10b981" }} />
+                            <div className={classes.timelineContent}>
+                              <div className={classes.timelineHeader}>
+                                <Badge size="xs" variant="light" color={isItemFiring ? "red" : "green"}>{item.state}</Badge>
+                                <span className={classes.timelineTime}>{formatTime(new Date(item.evaluated_at))}</span>
+                              </div>
+                              
+                              {/* Metric Readings */}
+                              <div className={classes.scopeReadings}>
+                                <div className={classes.scopeReadingsHeader}>
+                                  <span>Metric</span>
+                                  <span>Value</span>
+                                </div>
+                                {Object.entries(evaluationResult).map(([metricKey, value], mrIdx) => (
+                                    <div key={mrIdx} className={classes.scopeReadingRow}>
+                                      <span className={classes.scopeName}>{metricKey}</span>
+                                      <span className={`${classes.scopeValue} ${isItemFiring ? classes.scopeValueFiring : classes.scopeValueNormal}`}>
+                                        {value}
+                                      </span>
+                                    </div>
+                                ))}
+                              </div>
+
+                              <span className={classes.timelineDate}>{formatDate(new Date(item.evaluated_at))}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className={classes.historyEmpty}>No evaluation history yet</div>
