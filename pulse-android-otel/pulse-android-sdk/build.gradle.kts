@@ -25,7 +25,6 @@ dependencies {
     implementation(projects.pulseSemconv)
     implementation(projects.pulseUtils)
     implementation(projects.instrumentation.interaction.interactionLibrary)
-//    implementation(projects.instrumentation.interaction.interactionCore)
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)

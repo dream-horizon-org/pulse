@@ -12,8 +12,11 @@ internal typealias SamplingRate = Float
 public class PulseSamplingConfig(
     @SerialName("default")
     public val default: PulseDefaultSamplingConfig,
+    /**
+     * Set of rules sorted by descending priority
+     */
     @SerialName("rules")
-    public val rules: List<PulseSamplingRule>,
+    public val rules: List<PulseSessionSamplingRule>,
     @SerialName("criticalEventPolicies")
     public val criticalEventPolicies: PulseCriticalEventPolicies? = null,
     @SerialName("criticalSessionPolicies")
@@ -22,7 +25,7 @@ public class PulseSamplingConfig(
 
 @Keep
 @Serializable
-public class PulseSamplingRule(
+public class PulseSessionSamplingRule(
     @SerialName("name")
     public val name: String,
     @SerialName("match")
@@ -53,9 +56,9 @@ public class PulseCriticalEventPolicy(
     @SerialName("name")
     public val name: String,
     @SerialName("props")
-    public val props: List<PulseProp>,
+    public val props: Set<PulseProp>,
     @SerialName("scopes")
-    public val scopes: List<PulseSignalScope>,
+    public val scopes: Set<PulseSignalScope>,
     @SerialName("sdks")
     public val sdks: Set<PulseSdkName>,
 )

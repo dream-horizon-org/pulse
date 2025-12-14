@@ -14,5 +14,5 @@ public class PulseFeatureConfig(
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate,
     @SerialName("sdks")
-    public val sdks: List<PulseSdkName>,
+    public val sdks: Set<PulseSdkName>,
 )

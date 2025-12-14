@@ -73,3 +73,4 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
     }
 
 public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()
+public fun Attributes.toMap(): Map<String, Any?> = this.asMap().mapKeys { it.key.key }
