@@ -77,7 +77,7 @@ public class AlertEvaluationService {
     LocalDateTime evaluationWindowStart = startTimeWindow.toLocalDateTime();
     LocalDateTime evaluationWindowEnd = endTime.toLocalDateTime();
 
-    alertsDao.getAlertScopesV4(alertDetails.getId())
+    alertsDao.getAlertScopes(alertDetails.getId())
         .flatMap(scopes -> {
           if (scopes.isEmpty()) {
             log.warn("No scopes found for alert id: {}", alertDetails.getId());
@@ -484,7 +484,7 @@ public class AlertEvaluationService {
           .doOnError(error -> logErrorWhileUpdatingScopeState(error, responseDto))
           .subscribe();
 
-      alertsDao.getAlertScopesV4(responseDto.getAlert().getId())
+      alertsDao.getAlertScopes(responseDto.getAlert().getId())
           .flatMap(scopes -> {
             String scopeName = scopes.stream()
                 .filter(scope -> scope.getId().equals(responseDto.getScopeId()))

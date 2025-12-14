@@ -959,7 +959,7 @@ public class AlertsDao {
     }
   }
 
-  public Single<List<AlertScopeDetails>> getAlertScopesV4(Integer alertId) {
+  public Single<List<AlertScopeDetails>> getAlertScopes(Integer alertId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(AlertsQuery.GET_ALERT_SCOPES_V4)
         .rxExecute(Tuple.of(alertId))
