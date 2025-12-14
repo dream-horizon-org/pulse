@@ -15,7 +15,7 @@ import io.opentelemetry.semconv.HttpAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 
-internal class PulseSignalProcessor {
+internal class PulseSdkSignalProcessors {
     private val recordedRelevantLogEvents = ConcurrentHashMap<String, Long>()
 
     internal inner class PulseLogTypeAttributesAppender : LogRecordProcessor {
