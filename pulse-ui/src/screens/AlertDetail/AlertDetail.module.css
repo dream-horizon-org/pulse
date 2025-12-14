@@ -368,6 +368,34 @@
   color: #ef4444;
 }
 
+/* Scope History Section */
+.scopeHistorySection {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.scopeHistorySection:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.scopeHistoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(14, 201, 194, 0.12);
+}
+
+.scopeId {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
 .timeline {
   display: flex;
   flex-direction: column;
@@ -429,7 +457,7 @@
 
 .scopeReadingsHeader {
   display: grid;
-  grid-template-columns: 1fr 70px 70px;
+  grid-template-columns: 1fr 80px;
   gap: 4px;
   padding: 6px 8px;
   background: rgba(14, 201, 194, 0.06);
@@ -442,7 +470,7 @@
 
 .scopeReadingRow {
   display: grid;
-  grid-template-columns: 1fr 70px 70px;
+  grid-template-columns: 1fr 80px;
   gap: 4px;
   padding: 6px 8px;
   border-top: 1px solid rgba(14, 201, 194, 0.06);

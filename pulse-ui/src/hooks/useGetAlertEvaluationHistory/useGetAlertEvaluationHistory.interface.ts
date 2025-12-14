@@ -3,51 +3,32 @@ export type GetAlertEvaluationHistoryParams = {
 };
 
 /**
- * Reading per scope name
- * Matches backend: AlertMetricReading.java
+ * Individual evaluation entry within a scope's history
  */
-export type ScopeReading = {
-  /** The actual reading value */
-  reading: number;
-  /** Scope name (e.g., "PaymentSubmit", "HomeScreen") */
-  useCaseId: string;
-  /** Success interactions for this scope */
-  successInteractionCount: number;
-  /** Error interactions for this scope */
-  errorInteractionCount: number;
-  /** Total interactions for this scope */
-  totalInteractionCount: number;
-  /** Timestamp of reading */
-  timestamp: string;
+export type EvaluationHistoryEntry = {
+  /** Unique identifier for this evaluation */
+  evaluation_id: number;
+  /** JSON string containing metric readings (e.g., {"APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE": 0.6666667}) */
+  evaluation_result: string;
+  /** Current state: FIRING, NORMAL, etc. */
+  state: string;
+  /** Timestamp when the evaluation occurred (milliseconds) */
+  evaluated_at: number;
 };
 
 /**
- * Matches backend: AlertEvaluationHistoryResponseDto.java
- * Note: 'reading' is a JSON string containing array of ScopeReading
+ * Scope-level evaluation history container
  */
-export type AlertEvaluationHistoryItem = {
-  /** JSON string containing array of ScopeReading objects */
-  reading: string;
-  /** Aggregated success interactions */
-  success_interaction_count: number;
-  /** Aggregated error interactions */
-  error_interaction_count: number;
-  /** Aggregated total interactions */
-  total_interaction_count: number;
-  /** Time taken to evaluate (seconds) */
-  evaluation_time: number;
-  /** When the evaluation occurred */
-  evaluated_at: string;
-  /** Current state: FIRING, NORMAL, etc. */
-  current_state: string;
-  /** Minimum success interactions required */
-  min_success_interactions: number;
-  /** Minimum error interactions required */
-  min_error_interactions: number;
-  /** Minimum total interactions required */
-  min_total_interactions: number;
-  /** The threshold value for comparison */
-  threshold: number;
+export type ScopeEvaluationHistory = {
+  /** Unique identifier for this scope */
+  scope_id: number;
+  /** Name of the scope (e.g., "APP_VITALS") */
+  scope_name: string;
+  /** Array of evaluation history entries for this scope */
+  evaluation_history: EvaluationHistoryEntry[];
 };
 
-export type GetAlertEvaluationHistoryResponse = AlertEvaluationHistoryItem[];
+/**
+ * Response type for the alert evaluation history API
+ */
+export type GetAlertEvaluationHistoryResponse = ScopeEvaluationHistory[];
