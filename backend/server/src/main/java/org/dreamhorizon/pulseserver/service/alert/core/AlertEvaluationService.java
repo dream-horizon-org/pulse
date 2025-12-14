@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.alert.v4;
+package org.dreamhorizon.pulseserver.service.alert.core;
 
 import afu.org.checkerframework.checker.nullness.qual.Nullable;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -20,7 +20,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,58 +28,56 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
-import org.dreamhorizon.pulseserver.dao.AlertsDaoV4;
-import org.dreamhorizon.pulseserver.dto.v1.response.alerts.AlertEvaluationV4ResponseDto;
-import org.dreamhorizon.pulseserver.dto.v1.response.alerts.EvaluateAlertV4ResponseDto;
+import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
 import org.dreamhorizon.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
 import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorFactory;
-import org.dreamhorizon.pulseserver.service.alert.v4.util.ExpressionEvaluator;
-import org.dreamhorizon.pulseserver.service.alert.v4.util.MetricToFunctionMapper;
+import org.dreamhorizon.pulseserver.service.alert.core.util.ExpressionEvaluator;
+import org.dreamhorizon.pulseserver.service.alert.core.util.MetricToFunctionMapper;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
 import org.dreamhorizon.pulseserver.util.DateTimeUtil;
 import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class AlertEvaluationServiceV4 {
+public class AlertEvaluationService {
   private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
   private final ApplicationConfig applicationConfig;
-  private final AlertsDaoV4 alertsDaoV4;
+  private final AlertsDao alertsDao;
   private final ClickhouseMetricService clickhouseMetricService;
   private final MetricOperatorFactory metricOperatorFactory;
   private final ObjectMapper objectMapper;
   private final Vertx vertx;
   private final RxObjectMapper rxObjectMapper;
 
-  public Single<EvaluateAlertV4ResponseDto> evaluateAlertById(Integer alertId) {
-    return alertsDaoV4.getAlertDetails(alertId)
+  public Single<EvaluateAlertResponseDto> evaluateAlertById(Integer alertId) {
+    return alertsDao.getAlertDetailsV4(alertId)
         .flatMap(alertDetails -> {
           triggerEvaluation(alertDetails);
-          return Single.just(EvaluateAlertV4ResponseDto.builder()
+          return Single.just(EvaluateAlertResponseDto.builder()
               .alertId(String.valueOf(alertId))
-              .queryId("0")
               .build());
         });
   }
 
   public void registerConsumers() {
-    // registering consumers
     updateScopeStateEventBusConsumer();
     updateEvaluationHistoryEventBusConsumer();
   }
 
-  private void triggerEvaluation(AlertsDaoV4.AlertV4Details alertDetails) {
+  private void triggerEvaluation(AlertsDao.AlertDetails alertDetails) {
     LocalTime startTime = LocalTime.now();
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
     ZonedDateTime startTimeWindow = endTime.minusSeconds(alertDetails.getEvaluationPeriod());
     LocalDateTime evaluationWindowStart = startTimeWindow.toLocalDateTime();
     LocalDateTime evaluationWindowEnd = endTime.toLocalDateTime();
 
-    alertsDaoV4.getAlertScopes(alertDetails.getId())
+    alertsDao.getAlertScopesV4(alertDetails.getId())
         .flatMap(scopes -> {
           if (scopes.isEmpty()) {
             log.warn("No scopes found for alert id: {}", alertDetails.getId());
@@ -95,7 +92,7 @@ public class AlertEvaluationServiceV4 {
           @SuppressWarnings("unchecked")
           List<EvaluationResult> results = (List<EvaluationResult>) evaluationResults;
           for (EvaluationResult result : results) {
-            AlertEvaluationV4ResponseDto responseDto = AlertEvaluationV4ResponseDto
+            AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto
                 .builder()
                 .alert(alertDetails)
                 .scopeId(result.getScopeId())
@@ -112,7 +109,7 @@ public class AlertEvaluationServiceV4 {
         })
         .doOnError(error -> {
           log.error("Error in alert evaluation for alert id: {}", alertDetails.getId(), error);
-          AlertEvaluationV4ResponseDto responseDto = AlertEvaluationV4ResponseDto
+          AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto
               .builder()
               .alert(alertDetails)
               .timeTaken(Duration.between(startTime, LocalTime.now()).toSeconds())
@@ -123,14 +120,9 @@ public class AlertEvaluationServiceV4 {
         .subscribe();
   }
 
-  private QueryRequest buildQueryRequest(AlertsDaoV4.AlertV4Details alertDetails, List<AlertsDaoV4.AlertScopeDetails> scopes) {
-    // Get evaluation period from alert details (in minutes)
+  private QueryRequest buildQueryRequest(AlertsDao.AlertDetails alertDetails, List<AlertsDao.AlertScopeDetails> scopes) {
     Integer evaluationPeriod = alertDetails.getEvaluationPeriod();
-
-    // Convert evaluation period to bucket format (e.g., "15m")
     String bucket = evaluationPeriod + "m";
-
-    // Calculate time range: end time is current time, start time is end - evaluation period
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
     ZonedDateTime startTime = endTime.minusSeconds(evaluationPeriod);
 
@@ -139,10 +131,8 @@ public class AlertEvaluationServiceV4 {
     timeRange.setEnd(endTime.toInstant().toString());
 
     List<QueryRequest.SelectItem> selectItems = new ArrayList<>();
-
     boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(alertDetails.getScope());
-    
-    // For APP_VITALS, don't add time bucket to select (aggregated query)
+
     if (!isAppVitals) {
       QueryRequest.SelectItem timeBucket = new QueryRequest.SelectItem();
       timeBucket.setFunction(Functions.TIME_BUCKET);
@@ -155,8 +145,7 @@ public class AlertEvaluationServiceV4 {
     }
 
     Set<String> metrics = new HashSet<>();
-
-    for (AlertsDaoV4.AlertScopeDetails scope : scopes) {
+    for (AlertsDao.AlertScopeDetails scope : scopes) {
       List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
       if (alerts != null) {
         for (Map<String, Object> alert : alerts) {
@@ -181,7 +170,6 @@ public class AlertEvaluationServiceV4 {
     String scopeField = getScopeField(alertDetails.getScope());
     String scopeFieldAlias = getScopeFieldAlias(alertDetails.getScope());
 
-    // For APP_VITALS, we don't need scope field in select (crash metrics are aggregated)
     if (!isAppVitals) {
       QueryRequest.SelectItem scopeFieldItem = new QueryRequest.SelectItem();
       scopeFieldItem.setFunction(Functions.COL);
@@ -193,11 +181,10 @@ public class AlertEvaluationServiceV4 {
     }
 
     List<QueryRequest.Filter> filters = new ArrayList<>();
-    
-    // Scope name filter (only for non-APP_VITALS scopes)
+
     if (!isAppVitals && !scopes.isEmpty()) {
       List<String> scopeNames = new ArrayList<>();
-      for (AlertsDaoV4.AlertScopeDetails scope : scopes) {
+      for (AlertsDao.AlertScopeDetails scope : scopes) {
         if (scope.getName() != null && !scope.getName().isEmpty()) {
           scopeNames.add(scope.getName());
         }
@@ -215,29 +202,24 @@ public class AlertEvaluationServiceV4 {
       }
     }
 
-    // SpanType filter (only for TRACES dataType, not for APP_VITALS/EXCEPTIONS)
     if (!isAppVitals && alertDetails.getScope() != null && !alertDetails.getScope().isEmpty()) {
       QueryRequest.Filter spanTypeFilter = new QueryRequest.Filter();
       spanTypeFilter.setField("SpanType");
       spanTypeFilter.setOperator(QueryRequest.Operator.IN);
-      
-      // For SCREEN scope, use specific span types
+
       if ("SCREEN".equalsIgnoreCase(alertDetails.getScope())) {
         spanTypeFilter.setValue(List.of("screen_session", "screen_load"));
       } else {
         spanTypeFilter.setValue(List.of(alertDetails.getScope()));
       }
-      
+
       filters.add(spanTypeFilter);
     }
 
-    // Dimension filter (works for both TRACES and EXCEPTIONS)
     if (alertDetails.getDimensionFilter() != null && !alertDetails.getDimensionFilter().isEmpty()) {
       String dimensionFilterSql = extractSqlCondition(alertDetails.getDimensionFilter());
       if (dimensionFilterSql != null && !dimensionFilterSql.isEmpty()) {
         QueryRequest.Filter additionalFilter = new QueryRequest.Filter();
-        // For APP_VITALS/EXCEPTIONS, use a generic field name since it's raw SQL
-        // For other scopes, SpanType is used but ADDITIONAL operator uses raw SQL anyway
         additionalFilter.setField(isAppVitals ? "Additional" : "SpanType");
         additionalFilter.setOperator(QueryRequest.Operator.ADDITIONAL);
         additionalFilter.setValue(List.of(dimensionFilterSql));
@@ -246,14 +228,12 @@ public class AlertEvaluationServiceV4 {
     }
 
     List<String> groupBy = new ArrayList<>();
-    // For APP_VITALS, we don't group by time bucket or scope field (crash metrics are aggregated)
     if (!isAppVitals) {
       groupBy.add("t1");
       groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
     }
 
     QueryRequest queryRequest = new QueryRequest();
-    // Use EXCEPTIONS dataType for APP_VITALS, TRACES for others
     queryRequest.setDataType(isAppVitals ? QueryRequest.DataType.EXCEPTIONS : QueryRequest.DataType.TRACES);
     queryRequest.setTimeRange(timeRange);
     queryRequest.setSelect(selectItems);
@@ -264,8 +244,8 @@ public class AlertEvaluationServiceV4 {
     return queryRequest;
   }
 
-  private List<EvaluationResult> evaluateMetrics(AlertsDaoV4.AlertV4Details alertDetails,
-                                                 List<AlertsDaoV4.AlertScopeDetails> scopes,
+  private List<EvaluationResult> evaluateMetrics(AlertsDao.AlertDetails alertDetails,
+                                                 List<AlertsDao.AlertScopeDetails> scopes,
                                                  PerformanceMetricDistributionRes queryResult) {
     List<EvaluationResult> results = new ArrayList<>();
 
@@ -277,7 +257,7 @@ public class AlertEvaluationServiceV4 {
     boolean isAppVitals = "APP_VITALS".equalsIgnoreCase(alertDetails.getScope());
     String scopeFieldAlias = getScopeFieldAlias(alertDetails.getScope());
 
-    for (AlertsDaoV4.AlertScopeDetails scope : scopes) {
+    for (AlertsDao.AlertScopeDetails scope : scopes) {
       List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
       if (alerts == null || alerts.isEmpty()) {
         continue;
@@ -323,11 +303,8 @@ public class AlertEvaluationServiceV4 {
 
         boolean isFiring = false;
         Float metricValue = null;
-        
-        // For APP_VITALS, there's no scope field in results (aggregated query)
-        // For other scopes, we need to match by scope name
+
         if (isAppVitals) {
-          // For APP_VITALS, use the first row (aggregated results)
           if (!queryResult.getRows().isEmpty()) {
             List<String> row = queryResult.getRows().get(0);
             if (row.size() > metricIndex) {
@@ -341,7 +318,6 @@ public class AlertEvaluationServiceV4 {
             }
           }
         } else {
-          // For other scopes, match by scope name
           Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
           if (scopeFieldIndex == null) {
             log.warn("Scope field {} not found in query results", scopeFieldAlias);
@@ -383,15 +359,9 @@ public class AlertEvaluationServiceV4 {
       result.setEvaluationResult(buildEvaluationResultJson(metricReadings, variableValues, expressionResult));
       results.add(result);
     }
-    List<Integer> a = new ArrayList<>();
-    a.add(1);
-    Iterator<Integer> i = a.iterator();
-    i.hasNext();
-    i.next();
 
     return results;
   }
-
 
   private List<Map<String, Object>> parseConditionsArray(String json) {
     try {
@@ -462,7 +432,7 @@ public class AlertEvaluationServiceV4 {
     }
   }
 
-  private void triggerSuccessEvent(AlertEvaluationV4ResponseDto responseDto) {
+  private void triggerSuccessEvent(AlertEvaluationResponseDto responseDto) {
     toHashMap(responseDto)
         .doOnSuccess(responseDtoJson -> {
           JsonObject message = new JsonObject(responseDtoJson);
@@ -473,7 +443,7 @@ public class AlertEvaluationServiceV4 {
         .subscribe();
   }
 
-  private void triggerErrorEvent(AlertEvaluationV4ResponseDto responseDto) {
+  private void triggerErrorEvent(AlertEvaluationResponseDto responseDto) {
     toHashMap(responseDto)
         .doOnSuccess(responseDtoJson -> {
           JsonObject message = new JsonObject(responseDtoJson);
@@ -484,7 +454,7 @@ public class AlertEvaluationServiceV4 {
         .subscribe();
   }
 
-  private Single<Map<String, Object>> toHashMap(AlertEvaluationV4ResponseDto responseDto) {
+  private Single<Map<String, Object>> toHashMap(AlertEvaluationResponseDto responseDto) {
     return rxObjectMapper.convertValue(responseDto, new TypeReference<Map<String, Object>>() {
     });
   }
@@ -494,7 +464,7 @@ public class AlertEvaluationServiceV4 {
   }
 
   private void updateScopeState(Message<Object> message) {
-    AlertEvaluationV4ResponseDto responseDto = getAlertEvaluationV4ResponseDto(message);
+    AlertEvaluationResponseDto responseDto = getAlertEvaluationResponseDto(message);
     if (responseDto == null) {
       return;
     }
@@ -514,21 +484,18 @@ public class AlertEvaluationServiceV4 {
           .doOnError(error -> logErrorWhileUpdatingScopeState(error, responseDto))
           .subscribe();
 
-      // Get scope name, current state, and metric reading for incident creation
-      alertsDaoV4.getAlertScopes(responseDto.getAlert().getId())
+      alertsDao.getAlertScopesV4(responseDto.getAlert().getId())
           .flatMap(scopes -> {
             String scopeName = scopes.stream()
                 .filter(scope -> scope.getId().equals(responseDto.getScopeId()))
-                .map(AlertsDaoV4.AlertScopeDetails::getName)
+                .map(AlertsDao.AlertScopeDetails::getName)
                 .findFirst()
                 .orElse("Unknown Scope");
 
             Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
 
-            // Get current scope state before update
-            return alertsDaoV4.getScopeState(responseDto.getScopeId())
+            return alertsDao.getScopeState(responseDto.getScopeId())
                 .map(currentState -> {
-                  // Trigger incident if required
                   createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, currentState);
                   return true;
                 });
@@ -540,7 +507,7 @@ public class AlertEvaluationServiceV4 {
 
   private void createIncidentIfRequired(
       AlertState alertState,
-      AlertEvaluationV4ResponseDto responseDto,
+      AlertEvaluationResponseDto responseDto,
       Float metricReading,
       String scopeName,
       AlertState currentScopeState
@@ -553,8 +520,7 @@ public class AlertEvaluationServiceV4 {
     sendNotification(message);
   }
 
-  private boolean shouldCreateIncident(AlertState alertState, AlertEvaluationV4ResponseDto responseDto, AlertState currentScopeState) {
-    // Check if alert is snoozed
+  private boolean shouldCreateIncident(AlertState alertState, AlertEvaluationResponseDto responseDto, AlertState currentScopeState) {
     if (isAlertSnoozed(responseDto.getAlert())) {
       return false;
     }
@@ -566,7 +532,7 @@ public class AlertEvaluationServiceV4 {
     return alertState == AlertState.FIRING && !alertState.equals(currentScopeState);
   }
 
-  private boolean isAlertSnoozed(AlertsDaoV4.AlertV4Details alert) {
+  private boolean isAlertSnoozed(AlertsDao.AlertDetails alert) {
     if (alert == null) {
       return false;
     }
@@ -593,7 +559,6 @@ public class AlertEvaluationServiceV4 {
           evaluationResult,
           new TypeReference<Map<String, Object>>() {
           });
-      // Get the first metric value as a representative reading
       return result.values().stream()
           .filter(value -> value instanceof Number)
           .map(value -> ((Number) value).floatValue())
@@ -605,7 +570,7 @@ public class AlertEvaluationServiceV4 {
     }
   }
 
-  private String buildNotificationMessage(AlertEvaluationV4ResponseDto responseDto, String scopeName, Float metricReading) {
+  private String buildNotificationMessage(AlertEvaluationResponseDto responseDto, String scopeName, Float metricReading) {
     StringBuilder message = new StringBuilder();
     message.append(String.format("Alert threshold breached for alert '%s' for scope '%s'. ",
         responseDto.getAlert().getName(), scopeName));
@@ -628,7 +593,6 @@ public class AlertEvaluationServiceV4 {
           evaluationResult.forEach((metric, value) -> {
             message.append(String.format("%s = %s, ", metric, value));
           });
-          // Remove trailing comma and space
           if (message.length() > 2) {
             message.setLength(message.length() - 2);
           }
@@ -663,7 +627,7 @@ public class AlertEvaluationServiceV4 {
   }
 
   private void updateEvaluationHistory(Message<Object> message) {
-    AlertEvaluationV4ResponseDto responseDto = getAlertEvaluationV4ResponseDto(message);
+    AlertEvaluationResponseDto responseDto = getAlertEvaluationResponseDto(message);
     if (responseDto == null) {
       return;
     }
@@ -695,17 +659,17 @@ public class AlertEvaluationServiceV4 {
   }
 
   private Single<Boolean> updateScopeState(Integer scopeId, AlertState state) {
-    return alertsDaoV4.updateScopeState(scopeId, state);
+    return alertsDao.updateScopeState(scopeId, state);
   }
 
   private Single<Boolean> createEvaluationHistory(Integer scopeId, String evaluationResult, AlertState state) {
-    return alertsDaoV4.createEvaluationHistory(scopeId, evaluationResult, state);
+    return alertsDao.createEvaluationHistory(scopeId, evaluationResult, state);
   }
 
-  private @Nullable AlertEvaluationV4ResponseDto getAlertEvaluationV4ResponseDto(Message<Object> message) {
-    AlertEvaluationV4ResponseDto responseDto;
+  private @Nullable AlertEvaluationResponseDto getAlertEvaluationResponseDto(Message<Object> message) {
+    AlertEvaluationResponseDto responseDto;
     try {
-      responseDto = objectMapper.readValue(message.body().toString(), AlertEvaluationV4ResponseDto.class);
+      responseDto = objectMapper.readValue(message.body().toString(), AlertEvaluationResponseDto.class);
     } catch (JsonProcessingException e) {
       logParsingError(e);
       return null;
@@ -713,17 +677,17 @@ public class AlertEvaluationServiceV4 {
     return responseDto;
   }
 
-  private void logError(AlertEvaluationV4ResponseDto responseDto) {
+  private void logError(AlertEvaluationResponseDto responseDto) {
     log.error("Query execution failed for alert: {}, scope: {} with error: {}",
         responseDto.getAlert().getId(), responseDto.getScopeId(), responseDto.getError());
   }
 
-  private void logErrorWhileUpdatingScopeState(Throwable error, AlertEvaluationV4ResponseDto responseDto) {
+  private void logErrorWhileUpdatingScopeState(Throwable error, AlertEvaluationResponseDto responseDto) {
     log.error("Error while updating scope state: {} for scope id: {}",
         error.getMessage(), responseDto.getScopeId());
   }
 
-  private void logErrorWhileUpdatingEvaluationHistory(Throwable error, AlertEvaluationV4ResponseDto responseDto) {
+  private void logErrorWhileUpdatingEvaluationHistory(Throwable error, AlertEvaluationResponseDto responseDto) {
     log.error("Error while updating evaluation history: {} for scope id: {}",
         error.getMessage(), responseDto.getScopeId());
   }
@@ -740,7 +704,7 @@ public class AlertEvaluationServiceV4 {
       case "INTERACTION" -> "SpanName";
       case "SCREEN" -> "SpanAttributes['screen.name']";
       case "NETWORK" -> "SpanAttributes['http.url']";
-      case "APP_VITALS" -> "GroupId"; // For EXCEPTIONS dataType
+      case "APP_VITALS" -> "GroupId";
       default -> "SpanName";
     };
   }

@@ -9,7 +9,6 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.dao.AlertsDaoV4;
 import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
@@ -28,7 +26,6 @@ import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseD
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopesResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagMapRequestDto;
@@ -40,7 +37,6 @@ import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestD
 import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
-import org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.GetAlertsResponse;
@@ -55,7 +51,6 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest
 public class AlertService {
 
   private final AlertsDao alertsDao;
-  private final AlertsDaoV4 alertsDaoV4;
   private final AlertCronService alertCronService;
   private final ApplicationConfig applicationConfig;
 
@@ -243,7 +238,7 @@ public class AlertService {
   }
 
   public Single<List<ScopeEvaluationHistoryDto>> getAlertEvaluationHistoryByScope(@NotNull Integer alertId) {
-    return alertsDaoV4.getEvaluationHistoryByAlert(alertId);
+    return alertsDao.getEvaluationHistoryByAlert(alertId);
   }
 
   public Single<List<AlertSeverityResponseDto>> getAlertSeverities() {
@@ -302,32 +297,10 @@ public class AlertService {
   }
 
   public Single<AlertScopesResponseDto> getAlertScopes() {
-    List<AlertScopeItemDto> scopes = Arrays.stream(AlertScope.values())
-        .map(this::mapScopeToDto)
-        .collect(Collectors.toList());
-    AlertScopesResponseDto response = AlertScopesResponseDto.builder()
-        .scopes(scopes)
-        .build();
-    return Single.just(response);
-  }
-
-  private AlertScopeItemDto mapScopeToDto(AlertScope scope) {
-    String id = switch (scope) {
-      case Interaction -> "interaction";
-      case network -> "network_api";
-      case SCREEN -> "screen";
-      case APP_VITALS -> "app_vitals";
-    };
-    String label = switch (scope) {
-      case Interaction -> "Interactions";
-      case network -> "Network APIs";
-      case SCREEN -> "Screen";
-      case APP_VITALS -> "App Vitals";
-    };
-    return AlertScopeItemDto.builder()
-        .id(id)
-        .label(label)
-        .build();
+    return alertsDao.getAlertScopes()
+        .map(scopes -> AlertScopesResponseDto.builder()
+            .scopes(scopes)
+            .build());
   }
 
   public Single<AlertMetricsResponseDto> getAlertMetrics(String scope) {

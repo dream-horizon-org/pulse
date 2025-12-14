@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.mysqlclient.MySQLException;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Pool;
@@ -14,6 +15,7 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,6 +31,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
+import org.dreamhorizon.pulseserver.resources.alert.models.EvaluationHistoryEntryDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.enums.AlertState;
 import org.dreamhorizon.pulseserver.error.ServiceError;
@@ -858,5 +862,267 @@ public class AlertsDao {
           }
           return metrics;
         });
+  }
+
+  public Single<List<org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto>> getAlertScopes() {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_ALL_ALERT_SCOPE_TYPES)
+        .rxExecute()
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching alert scopes from db: {}", error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          List<org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto> scopes = new ArrayList<>();
+          for (Row row : rowSet) {
+            scopes.add(org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto.builder()
+                .id(row.getInteger("id"))
+                .name(row.getString("name"))
+                .label(row.getString("label"))
+                .build());
+          }
+          return scopes;
+        });
+  }
+
+  public Single<AlertDetails> getAlertDetailsV4(Integer alertId) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_ALERT_DETAILS_V4)
+        .rxExecute(Tuple.of(alertId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          if (rowSet.size() > 0) {
+            Row row = rowSet.iterator().next();
+            return AlertDetails.builder()
+                .id(row.getInteger("id"))
+                .name(row.getString("name"))
+                .description(row.getString("description"))
+                .scope(row.getString("scope"))
+                .dimensionFilter(getJsonAsStringV4(row, "dimension_filter"))
+                .conditionExpression(row.getString("condition_expression"))
+                .severityId(row.getInteger("severity_id"))
+                .notificationChannelId(row.getInteger("notification_channel_id"))
+                .evaluationPeriod(row.getInteger("evaluation_period"))
+                .evaluationInterval(row.getInteger("evaluation_interval"))
+                .createdBy(row.getString("created_by"))
+                .updatedBy(row.getString("updated_by"))
+                .isActive(row.getBoolean("is_active"))
+                .snoozedFrom(getLocalDateTimeV4(row, "snoozed_from"))
+                .snoozedUntil(getLocalDateTimeV4(row, "snoozed_until"))
+                .build();
+          } else {
+            logAlertNotFound(alertId);
+            throw ServiceError.NOT_FOUND.getCustomException("Alert not found");
+          }
+        });
+  }
+
+  private static String getJsonAsStringV4(Row row, String columnName) {
+    try {
+      Object value = row.getValue(columnName);
+      if (value == null) {
+        return null;
+      }
+
+      if (value instanceof JsonObject) {
+        return ((JsonObject) value).encode();
+      } else if (value instanceof JsonArray) {
+        return ((JsonArray) value).encode();
+      } else if (value instanceof String) {
+        return (String) value;
+      } else {
+        log.warn("Unexpected type for column {}: {}", columnName, value.getClass().getName());
+        return value.toString();
+      }
+    } catch (Exception e) {
+      log.warn("Could not get JSON value for column {}: {}", columnName, e.getMessage());
+      try {
+        return row.getString(columnName);
+      } catch (Exception ex) {
+        log.warn("Could not get String value for column {}: {}", columnName, ex.getMessage());
+        return null;
+      }
+    }
+  }
+
+  private static LocalDateTime getLocalDateTimeV4(Row row, String columnName) {
+    try {
+      return row.getLocalDateTime(columnName);
+    } catch (Exception e) {
+      log.warn("Could not get LocalDateTime value for column {}: {}", columnName, e.getMessage());
+      return null;
+    }
+  }
+
+  public Single<List<AlertScopeDetails>> getAlertScopesV4(Integer alertId) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_ALERT_SCOPES_V4)
+        .rxExecute(Tuple.of(alertId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching alert scopes: {}", error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          List<AlertScopeDetails> scopes = new ArrayList<>();
+          for (Row row : rowSet) {
+            scopes.add(AlertScopeDetails.builder()
+                .id(row.getInteger("id"))
+                .alertId(row.getInteger("alert_id"))
+                .name(row.getString("name"))
+                .conditions(getJsonAsStringV4(row, "conditions"))
+                .state(AlertState.valueOf(row.getString("state")))
+                .build());
+          }
+          return scopes;
+        });
+  }
+
+  public Single<Boolean> updateScopeState(Integer scopeId, AlertState state) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.UPDATE_SCOPE_STATE)
+        .rxExecute(Tuple.of(state.toString(), scopeId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while updating scope state: {}", error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public Single<Boolean> createEvaluationHistory(Integer scopeId, String evaluationResult, AlertState state) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.CREATE_EVALUATION_HISTORY)
+        .rxExecute(Tuple.of(scopeId, evaluationResult, state.toString()))
+        .onErrorResumeNext(error -> {
+          log.error("Error while creating evaluation history: {}", error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> rowSet.rowCount() > 0);
+  }
+
+  public Single<String> getNotificationWebhookUrl(Integer notificationChannelId) {
+    if (notificationChannelId == null) {
+      return Single.just(null);
+    }
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_NOTIFICATION_WEBHOOK_URL)
+        .rxExecute(Tuple.of(notificationChannelId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching notification webhook URL: {}", error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          if (rowSet.size() > 0) {
+            Row row = rowSet.iterator().next();
+            return row.getString("notification_webhook_url");
+          }
+          return null;
+        });
+  }
+
+  public Single<AlertState> getScopeState(Integer scopeId) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_SCOPE_STATE)
+        .rxExecute(Tuple.of(scopeId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching scope state: {}", error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          if (rowSet.size() > 0) {
+            Row row = rowSet.iterator().next();
+            String stateStr = row.getString("state");
+            if (stateStr != null) {
+              try {
+                return AlertState.valueOf(stateStr);
+              } catch (IllegalArgumentException e) {
+                log.warn("Invalid alert state: {}", stateStr);
+                return null;
+              }
+            }
+          }
+          return null;
+        });
+  }
+
+  public Single<List<ScopeEvaluationHistoryDto>> getEvaluationHistoryByAlert(Integer alertId) {
+    return d11MysqlClient.getWriterPool()
+        .preparedQuery(AlertsQuery.GET_EVALUATION_HISTORY_BY_ALERT)
+        .rxExecute(Tuple.of(alertId))
+        .onErrorResumeNext(error -> {
+          log.error("Error while fetching evaluation history for alert id {}: {}", alertId, error.getMessage());
+          MySQLException mySQLException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+        })
+        .map(rowSet -> {
+          Map<Integer, ScopeEvaluationHistoryDto> scopeMap = new HashMap<>();
+
+          for (Row row : rowSet) {
+            Integer scopeId = row.getInteger("scope_id");
+            String scopeName = row.getString("scope_name");
+
+            ScopeEvaluationHistoryDto scopeHistory = scopeMap.computeIfAbsent(scopeId, id ->
+                ScopeEvaluationHistoryDto.builder()
+                    .scopeId(id)
+                    .scopeName(scopeName)
+                    .evaluationHistory(new ArrayList<>())
+                    .build()
+            );
+
+            EvaluationHistoryEntryDto entry = EvaluationHistoryEntryDto.builder()
+                .evaluationId(row.getInteger("evaluation_id"))
+                .evaluationResult(getJsonAsStringV4(row, "evaluation_result"))
+                .state(AlertState.valueOf(row.getString("state")))
+                .evaluatedAt(Timestamp.valueOf(row.getLocalDateTime("evaluated_at")))
+                .build();
+
+            scopeHistory.getEvaluationHistory().add(entry);
+          }
+
+          return new ArrayList<>(scopeMap.values());
+        });
+  }
+
+  @lombok.Data
+  @lombok.Builder
+  @lombok.NoArgsConstructor
+  @lombok.AllArgsConstructor
+  @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+  @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+  public static class AlertDetails {
+    private Integer id;
+    private String name;
+    private String description;
+    private String scope;
+    private String dimensionFilter;
+    private String conditionExpression;
+    private Integer severityId;
+    private Integer notificationChannelId;
+    private Integer evaluationPeriod;
+    private Integer evaluationInterval;
+    private String createdBy;
+    private String updatedBy;
+    private Boolean isActive;
+    private LocalDateTime snoozedFrom;
+    private LocalDateTime snoozedUntil;
+  }
+
+  @lombok.Data
+  @lombok.Builder
+  public static class AlertScopeDetails {
+    private Integer id;
+    private Integer alertId;
+    private String name;
+    private String conditions;
+    private AlertState state;
   }
 }

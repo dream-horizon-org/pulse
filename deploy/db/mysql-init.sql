@@ -92,6 +92,14 @@ CREATE TABLE Alert_Evaluation_History (
   CONSTRAINT fk_eval_subject FOREIGN KEY (scope_id) REFERENCES Alert_Scope (id)
 );
 
+CREATE TABLE Scope_Types (
+  id                  INT PRIMARY KEY AUTO_INCREMENT,
+  name                VARCHAR(255) NOT NULL UNIQUE,
+  label               VARCHAR(500) NOT NULL,
+  created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE Alert_Metrics (
   id                  INT PRIMARY KEY AUTO_INCREMENT,
   name                VARCHAR(255) NOT NULL,
@@ -113,6 +121,13 @@ VALUES
 INSERT INTO Notification_Channels (name, notification_webhook_url)
 VALUES
     ('Incident management', 'http://whistlebot.local/declare-incident');
+
+-- Insert Scope Types
+INSERT INTO Scope_Types (name, label) VALUES
+    ('interaction', 'Interactions'),
+    ('network_api', 'Network APIs'),
+    ('screen', 'Screen'),
+    ('app_vitals', 'App Vitals');
 
 -- Insert Interaction scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES

@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.alert.v4.util;
+package org.dreamhorizon.pulseserver.service.alert.core.util;
 
 import java.util.Map;
 import java.util.Stack;
@@ -28,7 +28,6 @@ public class ExpressionEvaluator {
         continue;
       }
 
-      // variable / identifier (A, B, C_1, etc.)
       if (Character.isLetterOrDigit(c) || c == '_') {
         StringBuilder sb = new StringBuilder();
         while (i < expr.length()
@@ -54,7 +53,7 @@ public class ExpressionEvaluator {
           values.push(applyOp(ops.pop(), values.pop(), values.pop()));
         }
         if (!ops.isEmpty()) {
-          ops.pop(); // pop '('
+          ops.pop();
         }
 
       } else if (c == '&' && i + 1 < expr.length() && expr.charAt(i + 1) == '&') {
@@ -62,14 +61,14 @@ public class ExpressionEvaluator {
           values.push(applyOp(ops.pop(), values.pop(), values.pop()));
         }
         ops.push('&');
-        i++; // skip second '&'
+        i++;
 
       } else if (c == '|' && i + 1 < expr.length() && expr.charAt(i + 1) == '|') {
         while (!ops.isEmpty() && hasPrecedence('|', ops.peek())) {
           values.push(applyOp(ops.pop(), values.pop(), values.pop()));
         }
         ops.push('|');
-        i++; // skip second '|'
+        i++;
 
       } else if (c == '!') {
         ops.push('!');
@@ -118,3 +117,4 @@ public class ExpressionEvaluator {
     };
   }
 }
+

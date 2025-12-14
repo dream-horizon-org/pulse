@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dto.v1.request.alerts;
+package org.dreamhorizon.pulseserver.resources.alert.models;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.QueryParam;
@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class EvaluateAlertV4RequestDto {
+public class EvaluateAlertRequestDto {
     @NotNull
     @QueryParam("alertId")
     private Integer alertId;

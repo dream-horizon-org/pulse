@@ -1,17 +1,15 @@
 package org.dreamhorizon.pulseserver.resources.alert.models;
 
-import org.dreamhorizon.pulseserver.constant.Constants;
-import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
-import org.dreamhorizon.pulseserver.service.alert.core.models.AlertMetricReading;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.dao.AlertsDao;
+import org.dreamhorizon.pulseserver.enums.AlertState;
 
 @Data
 @Builder
@@ -21,10 +19,13 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AlertEvaluationResponseDto {
 
-  Alert alert;
+  AlertsDao.AlertDetails alert;
 
-  @JsonProperty(Constants.RESULT_SET_KEY)
-  List<AlertMetricReading> resultSet;
+  @JsonProperty("scopeId")
+  Integer scopeId;
+
+  @JsonProperty("evaluationResult")
+  String evaluationResult;
 
   @JsonProperty(Constants.ALERT_EVALUATION_QUERY_TIME)
   Long timeTaken;
@@ -40,5 +41,8 @@ public class AlertEvaluationResponseDto {
 
   @JsonProperty(Constants.ERROR_KEY)
   String error;
+
+  @JsonProperty("state")
+  AlertState state;
 }
 

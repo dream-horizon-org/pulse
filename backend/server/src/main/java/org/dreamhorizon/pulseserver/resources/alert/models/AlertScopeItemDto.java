@@ -12,7 +12,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AlertScopeItemDto {
     @JsonProperty("id")
-    private String id;
+    private Integer id;
+
+    @JsonProperty("name")
+    private String name;
 
     @JsonProperty("label")
     private String label;
