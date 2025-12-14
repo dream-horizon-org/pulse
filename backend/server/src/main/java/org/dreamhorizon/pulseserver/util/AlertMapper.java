@@ -5,7 +5,7 @@ import io.vertx.rxjava3.sqlclient.RowSet;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
-import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
 
 public class AlertMapper {

@@ -18,10 +18,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
@@ -231,10 +230,6 @@ public class AlertService {
         .toBuilder()
         .isSnoozed(isAlertSnoozed(alert))
         .build();
-  }
-
-  public Single<List<AlertEvaluationHistoryResponseDto>> getAlertEvaluationHistory(@NotNull Integer alertId) {
-    return alertsDao.getEvaluationHistoryOfAlert(alertId);
   }
 
   public Single<List<ScopeEvaluationHistoryDto>> getAlertEvaluationHistoryByScope(@NotNull Integer alertId) {

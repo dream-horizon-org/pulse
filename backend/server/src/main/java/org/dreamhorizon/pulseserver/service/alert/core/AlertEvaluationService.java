@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
 import org.dreamhorizon.pulseserver.resources.performance.models.Functions;

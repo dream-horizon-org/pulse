@@ -6,23 +6,23 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 public class EvaluationHistoryEntryDto {
-    @JsonProperty("evaluation_id")
-    private Integer evaluationId;
+  @JsonProperty("evaluation_id")
+  private Integer evaluationId;
 
-    @JsonProperty("evaluation_result")
-    private String evaluationResult;
+  @JsonProperty("evaluation_result")
+  private String evaluationResult;
 
-    @JsonProperty("state")
-    private AlertState state;
+  @JsonProperty("state")
+  private AlertState state;
 
-    @JsonProperty("evaluated_at")
-    private Timestamp evaluatedAt;
+  @JsonProperty("evaluated_at")
+  private Timestamp evaluatedAt;
 }
 

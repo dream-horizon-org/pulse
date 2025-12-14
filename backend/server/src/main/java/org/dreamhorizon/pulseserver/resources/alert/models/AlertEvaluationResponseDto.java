@@ -9,7 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 
 @Data
 @Builder

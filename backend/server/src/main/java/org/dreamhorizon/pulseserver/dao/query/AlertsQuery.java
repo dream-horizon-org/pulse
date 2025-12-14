@@ -172,8 +172,8 @@ public class AlertsQuery {
       + "VALUES (?,?,?,?,TRUE);";
 
   public static final String DELETE_ALERT = "UPDATE Alerts SET is_active = FALSE WHERE id = ?;";
+
   public static final String UPDATE_ALERT_STATE = "UPDATE Alert_Scope SET state = ? WHERE alert_id = ? AND name = ?;";
-  public static final String UPDATE_LAST_EVALUATED_AT = "UPDATE Alerts SET last_evaluated_at = CURRENT_TIMESTAMP WHERE id = ?;";
 
   public static final String UPDATE_ALERT = "UPDATE Alerts SET "
       + "name = ?, "
@@ -189,51 +189,21 @@ public class AlertsQuery {
       + "updated_at = CURRENT_TIMESTAMP "
       + "WHERE id = ?;";
 
-  public static final String DELETE_ALERT_SCOPES = "UPDATE Alert_Scope SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE alert_id = ?;";
-
-  public static final String OLD_UPDATE_ALERT = "UPDATE Alerts SET "
-      + "use_case_id = ?, "
-      + "name = ?, "
-      + "description = ?, "
-      + "threshold = ?, "
-      + "evaluation_period = ?, "
-      + "severity_id = ?, "
-      + "notification_channel_id = ?, "
-      + "updated_by = ?, "
-      + "conditions = ?, "
-      + "updated_at = CURRENT_TIMESTAMP, "
-      + "service_name = ?, "
-      + "roster_name = ?, "
-      + "metric = ?, "
-      + "min_total_interactions = ?, "
-      + "min_success_interactions = ?, "
-      + "min_error_interactions = ?, "
-      + "metric_operator = ?, "
-      + "evaluation_interval = ? "
-      + "WHERE alert_id = ?;";
+  public static final String DELETE_ALERT_SCOPES =
+      "UPDATE Alert_Scope SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE alert_id = ?;";
 
   public static final String SNOOZE_ALERT = "UPDATE Alerts "
-      + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE alert_id = ?;";
+      + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE id = ?;";
 
   public static final String DELETE_SNOOZE = "UPDATE Alerts "
-      + "set snoozed_from = null, snoozed_until = null, updated_by = ? WHERE alert_id = ?;";
+      + "set snoozed_from = null, snoozed_until = null, updated_by = ? WHERE id = ?;";
 
-  public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM Alerts WHERE alert_id = ?;";
+  public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM Alerts WHERE id = ?;";
+
   public static final String GET_ALERT_FILTERS =
       "SELECT DISTINCT A.name as name , A.created_by as created_by, A.updated_by as updated_by, S.state AS current_state FROM Alerts A "
           + "LEFT JOIN Alert_Scope S ON A.id = S.alert_id AND S.is_active = TRUE "
           + "WHERE A.is_active = TRUE;";
-
-  public static final String CREATE_ALERT_STATE_HISTORY =
-      "INSERT INTO Alert_State_History(alert_id, previous_state, new_state) VALUES (?,?,?);";
-  public static final String GET_ALERT_STATE_HISTORY = "SELECT * FROM Alert_State_History WHERE alert_id = ? ORDER BY changed_at DESC;";
-
-  public static final String CREATE_ALERT_EVALUATION_HISTORY =
-      "INSERT INTO Alert_Evaluation_History(alert_id, reading, success_interaction_count, error_interaction_count, total_interaction_count,"
-          + " evaluation_time, threshold, min_success_interactions, min_error_interactions, min_total_interactions,"
-          + " current_state) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
-  public static final String GET_ALERT_EVALUATION_HISTORY =
-      "SELECT * FROM Alert_Evaluation_History WHERE alert_id = ? ORDER BY evaluated_at DESC LIMIT 200;";
 
   public static final String GET_SEVERITIES = "SELECT * FROM Severity;";
   public static final String CREATE_SEVERITY = "INSERT INTO Severity(name, description) VALUES (?,?);";
@@ -302,5 +272,5 @@ public class AlertsQuery {
       + "FROM Alert_Evaluation_History eh "
       + "INNER JOIN Alert_Scope as_scope ON eh.scope_id = as_scope.id "
       + "WHERE as_scope.alert_id = ? AND as_scope.is_active = TRUE "
-      + "ORDER BY as_scope.id, eh.evaluated_at DESC;";
+      + "ORDER BY as_scope.id, eh.evaluated_at DESC LIMIT 200;";
 }

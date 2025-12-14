@@ -31,17 +31,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.query.AlertsQuery;
-import org.dreamhorizon.pulseserver.resources.alert.models.EvaluationHistoryEntryDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
-import org.dreamhorizon.pulseserver.dto.v2.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationHistoryResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.EvaluationHistoryEntryDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.AlertCondition;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
@@ -83,10 +82,6 @@ public class AlertsDao {
     parameters.add(limit == null ? 10 : limit);
     parameters.add(offset == null ? 0 : offset);
     return parameters;
-  }
-
-  private static void logError(@NotNull Integer alertId, Throwable error) {
-    log.error("Error while updating last evaluated at in db for alert id {}: {}", alertId, error.getMessage());
   }
 
   private Map<String, Object> mapRowToScopeMap(Row row) {
@@ -381,19 +376,6 @@ public class AlertsDao {
         });
   }
 
-  public Single<Boolean> updateAlertState(@NotNull Integer alert_id, @NotNull AlertState state) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.UPDATE_ALERT_STATE)
-        .rxExecute(Tuple.of(state.toString(), alert_id)).onErrorResumeNext(error -> {
-          log.error("Error while updating alert state in db for alert id {}: {}", alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        }).map(rowSet -> {
-          log.info("Alert state updated in database with id: {}", alert_id);
-          return rowSet.rowCount() > 0;
-        });
-  }
-
   public Single<Alert> getAlertDetails(@NotNull Integer alert_id) {
     Pool pool = d11MysqlClient.getWriterPool();
 
@@ -589,98 +571,6 @@ public class AlertsDao {
     });
   }
 
-  public Single<AlertState> getAlertState(@NotNull Integer alert_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_CURRENT_STATE_OF_ALERT).rxExecute(Tuple.of(alert_id))
-        .onErrorResumeNext(error -> {
-          log.error("Error while fetching alert state from db for alert id {}: {}", alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        }).map(rowSet -> {
-          if (rowSet.size() > 0) {
-            return AlertState.valueOf(rowSet.iterator().next().getString("current_state"));
-          } else {
-            logAlertNotFound(alert_id);
-            throw ServiceError.NOT_FOUND.getCustomException("Alert not found");
-          }
-        });
-  }
-
-  public Single<Boolean> createAlertStateChangeLog(@NotNull Integer alert_id, @NotNull AlertState currentState,
-                                                   @NotNull AlertState newState) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_ALERT_STATE_HISTORY)
-        .rxExecute(Tuple.of(alert_id, currentState.getAlertState(), newState.getAlertState())).onErrorResumeNext(error -> {
-          log.error("Error while inserting alert state change log in db for alert id {}: {}", alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        }).map(rowSet -> rowSet.rowCount() > 0);
-  }
-
-  public Single<Boolean> createAlertEvaluationHistoryLog(@NotNull Integer alert_id, @NotNull String reading,
-                                                         @NotNull Integer successInteractionCount, @NotNull Integer errorInteractionCount,
-                                                         @NotNull Integer totalInteractionCount, @NotNull Long evaluationTime,
-                                                         @NotNull Float threshold, Integer minSuccessInteractions,
-                                                         Integer minErrorInteractions, Integer minTotalInteractions,
-                                                         @NotNull AlertState currentState) {
-
-    Tuple tuple = Tuple.tuple();
-    tuple.addInteger(alert_id);
-    tuple.addString(reading);
-    tuple.addInteger(successInteractionCount);
-    tuple.addInteger(errorInteractionCount);
-    tuple.addInteger(totalInteractionCount);
-    tuple.addLong(evaluationTime);
-    tuple.addFloat(threshold);
-    tuple.addInteger(minSuccessInteractions == null ? 0 : minSuccessInteractions);
-    tuple.addInteger(minErrorInteractions == null ? 0 : minErrorInteractions);
-    tuple.addInteger(minTotalInteractions == null ? 0 : minTotalInteractions);
-    tuple.addString(currentState.toString());
-
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_ALERT_EVALUATION_HISTORY)
-        .rxExecute(tuple)
-        .onErrorResumeNext(error -> {
-          log.error("Error while inserting alert evaluation history log with tuples {} in db for alert id {}: {}",
-              tuple.deepToString(), alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        }).map(rowSet -> rowSet.rowCount() > 0);
-  }
-
-  public Single<List<AlertEvaluationHistoryResponseDto>> getEvaluationHistoryOfAlert(@NotNull Integer alert_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_ALERT_EVALUATION_HISTORY).rxExecute(Tuple.of(alert_id))
-        .onErrorResumeNext(error -> {
-          log.error("Error while fetching alert evaluation history from db for alert id {}: {}", alert_id, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        }).map(rowSet -> {
-          if (rowSet.size() == 0) {
-            log.error("No evaluation history found for alert id: {}", alert_id);
-            throw ServiceError.NOT_FOUND.getCustomException("No evaluation history found");
-          }
-
-          List<AlertEvaluationHistoryResponseDto> evaluationHistory = new ArrayList<>();
-
-          rowSet.forEach(row -> evaluationHistory
-              .add(AlertEvaluationHistoryResponseDto.builder()
-                  .reading(row.getString("reading"))
-                  .successInteractionCount(row.getInteger("success_interaction_count"))
-                  .errorInteractionCount(row.getInteger("error_interaction_count"))
-                  .totalInteractionCount(row.getInteger("total_interaction_count"))
-                  .evaluationTime(row.getFloat("evaluation_time"))
-                  .evaluatedAt(Timestamp.valueOf(row.getLocalDateTime("evaluated_at")))
-                  .threshold(row.getFloat("threshold"))
-                  .minSuccessInteractions(row.getInteger("min_success_interactions"))
-                  .minErrorInteractions(row.getInteger("min_error_interactions"))
-                  .minTotalInteractions(row.getInteger("min_total_interactions"))
-                  .currentState(AlertState.valueOf(row.getString("current_state")))
-                  .build()));
-
-          return evaluationHistory;
-        });
-  }
 
   public Single<List<AlertSeverityResponseDto>> getAlertSeverities() {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_SEVERITIES).rxExecute().onErrorResumeNext(error -> {
@@ -702,16 +592,6 @@ public class AlertsDao {
 
       return severities;
     });
-  }
-
-  public Single<Boolean> updateAlertLastEvaluatedAt(@NotNull Integer alert_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.UPDATE_LAST_EVALUATED_AT).rxExecute(Tuple.of(alert_id))
-        .onErrorResumeNext(error -> {
-          logError(alert_id, error);
-          MySQLException mySQLException = (MySQLException) error;
-
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
   public Single<Boolean> createAlertSeverity(@NotNull Integer name, @NotNull String description) {
@@ -1005,27 +885,6 @@ public class AlertsDao {
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
         })
         .map(rowSet -> rowSet.rowCount() > 0);
-  }
-
-  public Single<String> getNotificationWebhookUrl(Integer notificationChannelId) {
-    if (notificationChannelId == null) {
-      return Single.just(null);
-    }
-    return d11MysqlClient.getWriterPool()
-        .preparedQuery(AlertsQuery.GET_NOTIFICATION_WEBHOOK_URL)
-        .rxExecute(Tuple.of(notificationChannelId))
-        .onErrorResumeNext(error -> {
-          log.error("Error while fetching notification webhook URL: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
-        })
-        .map(rowSet -> {
-          if (rowSet.size() > 0) {
-            Row row = rowSet.iterator().next();
-            return row.getString("notification_webhook_url");
-          }
-          return null;
-        });
   }
 
   public Single<AlertState> getScopeState(Integer scopeId) {

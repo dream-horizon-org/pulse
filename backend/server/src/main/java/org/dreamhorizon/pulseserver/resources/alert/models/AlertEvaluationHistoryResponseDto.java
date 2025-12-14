@@ -1,13 +1,13 @@
 package org.dreamhorizon.pulseserver.resources.alert.models;
 
-import org.dreamhorizon.pulseserver.enums.AlertState;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.sql.Timestamp;
 import jakarta.validation.constraints.NotNull;
+import java.sql.Timestamp;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 
 @Data
 @AllArgsConstructor

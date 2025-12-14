@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.alert;
+package org.dreamhorizon.pulseserver.resources.alert.v1;
 
 import com.google.inject.Inject;
 import jakarta.validation.Valid;
@@ -15,6 +15,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.resources.alert.AlertMapper;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertRequestDto;

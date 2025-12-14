@@ -51,10 +51,10 @@ public abstract class AlertMapper {
   }
 
   public LocalDateTime epochToLocalDateTime(Long epoch) {
-    return epoch == null ? null : LocalDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC);
+    return epoch == null ? null : LocalDateTime.ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC);
   }
 
   public Long localDateTimeToEpoch(LocalDateTime localDateTime) {
-    return localDateTime == null ? null : localDateTime.toEpochSecond(ZoneOffset.UTC);
+    return localDateTime == null ? null : localDateTime.toInstant(ZoneOffset.UTC).toEpochMilli();
   }
 }

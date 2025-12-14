@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.enums;
+package org.dreamhorizon.pulseserver.resources.alert.enums;
 
 import lombok.Getter;
 
