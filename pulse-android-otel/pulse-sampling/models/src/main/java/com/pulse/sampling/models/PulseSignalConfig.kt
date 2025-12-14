@@ -48,5 +48,5 @@ public class PulseProp(
     @SerialName("name")
     public val name: String,
     @SerialName("value")
-    public val value: String,
+    public val value: String?,
 )

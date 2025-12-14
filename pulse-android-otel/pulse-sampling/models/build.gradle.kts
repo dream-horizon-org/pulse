@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 plugins {
     id("otel.android-library-conventions")
     alias(libs.plugins.kotlinSerialisation)
@@ -5,6 +7,11 @@ plugins {
 
 android {
     namespace = "com.pulse.sampling.models"
+
+
+    testFixtures {
+        enable = true
+    }
 }
 
 kotlin {

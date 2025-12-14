@@ -13,7 +13,7 @@ public sealed class PulseDeviceMatchCondition {
         @SerialName("type")
         public val type: String,
         @SerialName("sdks")
-        public val sdks: List<PulseSdkName>,
+        public val sdks: Set<PulseSdkName>,
         @SerialName("value")
         public val value: String,
     ) : PulseDeviceMatchCondition()
