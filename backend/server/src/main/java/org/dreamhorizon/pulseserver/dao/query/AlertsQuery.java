@@ -254,7 +254,7 @@ public class AlertsQuery {
 
   public static final String GET_ALL_ALERT_SCOPE_TYPES = "SELECT id, name, label FROM Scope_Types ORDER BY id;";
 
-  public static final String GET_ALERT_DETAILS_V4 = "SELECT "
+  public static final String GET_ALERT_DETAILS_FOR_EVALUATION = "SELECT "
       + "id, "
       + "name, "
       + "description, "
@@ -275,16 +275,6 @@ public class AlertsQuery {
       + "FROM Alerts "
       + "WHERE id = ? AND is_active = TRUE;";
 
-  public static final String GET_ALERT_SCOPES_V4 = "SELECT "
-      + "id, "
-      + "alert_id, "
-      + "name, "
-      + "conditions, "
-      + "state, "
-      + "created_at, "
-      + "updated_at "
-      + "FROM Alert_Scope "
-      + "WHERE alert_id = ? AND is_active = TRUE;";
 
   public static final String UPDATE_SCOPE_STATE = "UPDATE Alert_Scope SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;";
 

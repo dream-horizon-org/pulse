@@ -56,7 +56,7 @@ public class AlertEvaluationService {
   private final RxObjectMapper rxObjectMapper;
 
   public Single<EvaluateAlertResponseDto> evaluateAlertById(Integer alertId) {
-    return alertsDao.getAlertDetailsV4(alertId)
+    return alertsDao.getAlertDetailsForEvaluation(alertId)
         .flatMap(alertDetails -> {
           triggerEvaluation(alertDetails);
           return Single.just(EvaluateAlertResponseDto.builder()
@@ -77,7 +77,7 @@ public class AlertEvaluationService {
     LocalDateTime evaluationWindowStart = startTimeWindow.toLocalDateTime();
     LocalDateTime evaluationWindowEnd = endTime.toLocalDateTime();
 
-    alertsDao.getAlertScopes(alertDetails.getId())
+    alertsDao.getAlertScopesForEvaluation(alertDetails.getId())
         .flatMap(scopes -> {
           if (scopes.isEmpty()) {
             log.warn("No scopes found for alert id: {}", alertDetails.getId());
@@ -484,7 +484,7 @@ public class AlertEvaluationService {
           .doOnError(error -> logErrorWhileUpdatingScopeState(error, responseDto))
           .subscribe();
 
-      alertsDao.getAlertScopes(responseDto.getAlert().getId())
+      alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId())
           .flatMap(scopes -> {
             String scopeName = scopes.stream()
                 .filter(scope -> scope.getId().equals(responseDto.getScopeId()))

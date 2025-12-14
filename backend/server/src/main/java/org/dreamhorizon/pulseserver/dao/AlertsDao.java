@@ -886,9 +886,9 @@ public class AlertsDao {
         });
   }
 
-  public Single<AlertDetails> getAlertDetailsV4(Integer alertId) {
+  public Single<AlertDetails> getAlertDetailsForEvaluation(Integer alertId) {
     return d11MysqlClient.getWriterPool()
-        .preparedQuery(AlertsQuery.GET_ALERT_DETAILS_V4)
+        .preparedQuery(AlertsQuery.GET_ALERT_DETAILS_FOR_EVALUATION)
         .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
@@ -903,7 +903,7 @@ public class AlertsDao {
                 .name(row.getString("name"))
                 .description(row.getString("description"))
                 .scope(row.getString("scope"))
-                .dimensionFilter(getJsonAsStringV4(row, "dimension_filter"))
+                .dimensionFilter(getJsonAsString(row, "dimension_filter"))
                 .conditionExpression(row.getString("condition_expression"))
                 .severityId(row.getInteger("severity_id"))
                 .notificationChannelId(row.getInteger("notification_channel_id"))
@@ -912,8 +912,8 @@ public class AlertsDao {
                 .createdBy(row.getString("created_by"))
                 .updatedBy(row.getString("updated_by"))
                 .isActive(row.getBoolean("is_active"))
-                .snoozedFrom(getLocalDateTimeV4(row, "snoozed_from"))
-                .snoozedUntil(getLocalDateTimeV4(row, "snoozed_until"))
+                .snoozedFrom(getLocalDateTime(row, "snoozed_from"))
+                .snoozedUntil(getLocalDateTime(row, "snoozed_until"))
                 .build();
           } else {
             logAlertNotFound(alertId);
@@ -922,7 +922,7 @@ public class AlertsDao {
         });
   }
 
-  private static String getJsonAsStringV4(Row row, String columnName) {
+  private static String getJsonAsString(Row row, String columnName) {
     try {
       Object value = row.getValue(columnName);
       if (value == null) {
@@ -950,7 +950,7 @@ public class AlertsDao {
     }
   }
 
-  private static LocalDateTime getLocalDateTimeV4(Row row, String columnName) {
+  private static LocalDateTime getLocalDateTime(Row row, String columnName) {
     try {
       return row.getLocalDateTime(columnName);
     } catch (Exception e) {
@@ -959,9 +959,9 @@ public class AlertsDao {
     }
   }
 
-  public Single<List<AlertScopeDetails>> getAlertScopes(Integer alertId) {
+  public Single<List<AlertScopeDetails>> getAlertScopesForEvaluation(Integer alertId) {
     return d11MysqlClient.getWriterPool()
-        .preparedQuery(AlertsQuery.GET_ALERT_SCOPES_V4)
+        .preparedQuery(AlertsQuery.GET_ALERT_SCOPES)
         .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert scopes: {}", error.getMessage());
@@ -975,7 +975,7 @@ public class AlertsDao {
                 .id(row.getInteger("id"))
                 .alertId(row.getInteger("alert_id"))
                 .name(row.getString("name"))
-                .conditions(getJsonAsStringV4(row, "conditions"))
+                .conditions(getJsonAsString(row, "conditions"))
                 .state(AlertState.valueOf(row.getString("state")))
                 .build());
           }
@@ -1080,7 +1080,7 @@ public class AlertsDao {
 
             EvaluationHistoryEntryDto entry = EvaluationHistoryEntryDto.builder()
                 .evaluationId(row.getInteger("evaluation_id"))
-                .evaluationResult(getJsonAsStringV4(row, "evaluation_result"))
+                .evaluationResult(getJsonAsString(row, "evaluation_result"))
                 .state(AlertState.valueOf(row.getString("state")))
                 .evaluatedAt(Timestamp.valueOf(row.getLocalDateTime("evaluated_at")))
                 .build();
