@@ -1,3 +1,5 @@
+@file:Suppress("RedundantVisibilityModifier", "unused") // explicit api requires public modifier mentioned
+
 package com.pulse.android.remote
 
 import com.pulse.android.remote.models.InteractionAttrsEntry

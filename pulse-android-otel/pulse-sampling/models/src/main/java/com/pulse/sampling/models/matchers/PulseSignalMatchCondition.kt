@@ -13,9 +13,9 @@ public class PulseSignalMatchCondition(
     @SerialName("name")
     public val name: String,
     @SerialName("props")
-    public val props: List<PulseProp>,
+    public val props: Set<PulseProp>,
     @SerialName("scopes")
-    public val scopes: List<PulseSignalScope>,
+    public val scopes: Set<PulseSignalScope>,
     @SerialName("sdks")
-    public val sdks: List<PulseSdkName>,
+    public val sdks: Set<PulseSdkName>,
 )
