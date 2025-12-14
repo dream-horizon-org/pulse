@@ -63,17 +63,17 @@ export const StepSelectScope: React.FC<StepSelectScopeProps> = ({ className }) =
 
       <Box className={classes.grid}>
         {scopes.map((scope) => {
-          const config = SCOPE_DISPLAY_CONFIG[scope.id] || { color: "#868e96", features: [] };
+          const config = SCOPE_DISPLAY_CONFIG[scope.name] || { color: "#868e96", features: [] };
           return (
             <ScopeCard
               key={scope.id}
-              id={scope.id as AlertScopeType}
+              id={scope.name as AlertScopeType}
               label={scope.label}
               description={`Monitor ${scope.label.toLowerCase()} metrics`}
               features={config.features}
               color={config.color}
-              isSelected={selectedScope === scope.id}
-              onClick={() => handleSelect(scope.id as AlertScopeType)}
+              isSelected={selectedScope === scope.name}
+              onClick={() => handleSelect(scope.name as AlertScopeType)}
             />
           );
         })}

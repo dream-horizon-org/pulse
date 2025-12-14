@@ -1,5 +1,6 @@
 export type AlertScopeItem = {
-  id: string;
+  id: number;
+  name: string;
   label: string;
 };
 

@@ -314,7 +314,7 @@ export const AlertForm = ({
   const getScopeOptions = () => {
     if (scopesData?.data?.scopes) {
       return scopesData.data.scopes.map((s) => ({
-        value: s.id,
+        value: s.name,
         label: s.label,
       }));
     }
