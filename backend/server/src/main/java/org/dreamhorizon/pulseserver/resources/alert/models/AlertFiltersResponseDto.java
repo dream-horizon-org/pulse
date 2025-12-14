@@ -15,10 +15,6 @@ import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 @Builder
 public class AlertFiltersResponseDto {
   @NotNull
-  @JsonProperty("job_id")
-  public List<String> jobId;
-
-  @NotNull
   @JsonProperty("created_by")
   public List<String> createdBy;
 

@@ -312,30 +312,75 @@ Response:
 
 #### Available Functions
 
+**Duration & Performance Metrics:**
 - **APDEX**: Calculates average APDEX score from span attributes, excluding error status codes
 - **DURATION_P99**: 99th percentile duration in seconds, excluding errors
 - **DURATION_P95**: 95th percentile duration in seconds, excluding errors
 - **DURATION_P50**: 50th percentile (median) duration in seconds, excluding errors
-- **CRASH**: Count of crash events (device.crash)
-- **ANR**: Count of Application Not Responding events (device.anr)
+
+**Frame Metrics:**
 - **FROZEN_FRAME**: Sum of frozen frame counts from span attributes
 - **ANALYSED_FRAME**: Sum of analysed frame counts from span attributes
 - **UNANALYSED_FRAME**: Sum of unanalysed frame counts from span attributes
-- **COL**: Selects a column directly. Requires `param.field` with column name
-- **TIME_BUCKET**: Groups timestamps into time buckets. Requires `param.bucket` (e.g., "1d", "1h") and `param.field` (timestamp column)
-- **CUSTOM**: Executes custom ClickHouse expression. Requires `param.expression` with SQL expression
+- **FROZEN_FRAME_RATE**: Ratio of frozen frames to total frames
+
+**Error & Crash Metrics:**
+- **CRASH**: Count of crash events (device.crash)
+- **ANR**: Count of Application Not Responding events (device.anr)
+- **CRASH_RATE**: Ratio of crash events to total events
+- **ANR_RATE**: Ratio of ANR events to total events
+- **ERROR_RATE**: Ratio of error status codes to total interactions
+
+**Interaction Metrics:**
 - **INTERACTION_SUCCESS_COUNT**: Count of successful interactions (non-error status codes)
 - **INTERACTION_ERROR_COUNT**: Count of failed interactions (error status codes)
 - **INTERACTION_ERROR_DISTINCT_USERS**: Count of distinct users who encountered errors
+
+**User Category Metrics:**
 - **USER_CATEGORY_EXCELLENT**: Count of users in EXCELLENT category
 - **USER_CATEGORY_GOOD**: Count of users in GOOD category
 - **USER_CATEGORY_AVERAGE**: Count of users in AVERAGE category
 - **USER_CATEGORY_POOR**: Count of users in POOR category
+- **EXCELLENT_USER_RATE**: Ratio of excellent users to total users
+- **GOOD_USER_RATE**: Ratio of good users to total users
+- **AVERAGE_USER_RATE**: Ratio of average users to total users
+- **POOR_USER_RATE**: Ratio of poor users to total users
+
+**Network Metrics:**
 - **NET_0**: Sum of network connection errors (network.0 events)
 - **NET_2XX**: Sum of successful HTTP responses (2xx status codes)
 - **NET_3XX**: Sum of redirect responses (3xx status codes)
 - **NET_4XX**: Sum of client error responses (4xx status codes)
 - **NET_5XX**: Sum of server error responses (5xx status codes)
+- **NET_4XX_RATE**: Ratio of 4xx responses to total network requests
+- **NET_5XX_RATE**: Ratio of 5xx responses to total network requests
+- **NET_COUNT**: Total count of network requests
+
+**Screen Metrics:**
+- **SCREEN_DAILY_USERS**: Count of distinct daily users for screen events
+- **SCREEN_TIME**: Average time spent on screen sessions
+- **LOAD_TIME**: Average time for screen load events
+
+**App Vitals Metrics (EXCEPTIONS data type):**
+- **APP_VITALS_CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events
+- **APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events
+- **APP_VITALS_CRASH_USERS**: Count of distinct users with crash events
+- **APP_VITALS_CRASH_SESSIONS**: Count of distinct sessions with crash events
+- **APP_VITALS_ALL_USERS**: Total count of distinct users
+- **APP_VITALS_ALL_SESSIONS**: Total count of distinct sessions
+- **APP_VITALS_ANR_FREE_USERS_PERCENTAGE**: Percentage of users without ANR events
+- **APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without ANR events
+- **APP_VITALS_ANR_USERS**: Count of distinct users with ANR events
+- **APP_VITALS_ANR_SESSIONS**: Count of distinct sessions with ANR events
+- **APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE**: Percentage of users without non-fatal errors
+- **APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without non-fatal errors
+- **APP_VITALS_NON_FATAL_USERS**: Count of distinct users with non-fatal errors
+- **APP_VITALS_NON_FATAL_SESSIONS**: Count of distinct sessions with non-fatal errors
+
+**Utility Functions:**
+- **COL**: Selects a column directly. Requires `param.field` with column name
+- **TIME_BUCKET**: Groups timestamps into time buckets. Requires `param.bucket` (e.g., "1d", "1h") and `param.field` (timestamp column)
+- **CUSTOM**: Executes custom ClickHouse expression. Requires `param.expression` with SQL expression
 - **ARR_TO_STR**: Converts array to comma-separated string. Requires `param.field` with array column name
 
 #### Example Request
@@ -865,6 +910,613 @@ Response:
       "IN-TN"
     ]
   }
+}
+```
+
+## Alerts
+
+Complete API reference for managing alerts, alert scopes, metrics, evaluation history, and alert-related configurations.
+
+All alert endpoints require authentication using JWT tokens. Include the token in the Authorization header:
+```
+Authorization: Bearer {token}
+```
+
+### Get Alerts (Paginated)
+
+**Description:** Retrieves a paginated list of alerts with optional filtering by name, scope, created_by, or updated_by.
+
+```http
+GET /v1/alert?name=alert_name&scope=interaction&created_by=user@example.com&limit=10&offset=0
+```
+
+**Query Parameters:**
+- `name` (optional): Filter by alert name
+- `scope` (optional): Filter by scope (interaction, screen, app_vitals, network_api)
+- `created_by` (optional): Filter by creator email
+- `updated_by` (optional): Filter by last updater email
+- `limit` (optional, default: 10): Number of results per page
+- `offset` (optional, default: 0): Pagination offset
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "alerts": [
+      {
+        "id": 1,
+        "name": "High Error Rate Alert",
+        "description": "Alert for high error rates",
+        "scope": "interaction",
+        "evaluation_period": 1000,
+        "evaluation_interval": 60,
+        "severity_id": 4,
+        "notification_channel_id": 1,
+        "created_by": "user@example.com",
+        "updated_by": "user@example.com",
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "total": 100
+  },
+  "error": null
+}
+```
+
+### Get All Alerts
+
+**Description:** Returns complete list of all alerts without pagination. Used for dropdown selection or bulk operations.
+
+```http
+GET /v1/alerts
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "alerts": [
+      {
+        "id": 1,
+        "name": "High Error Rate Alert",
+        "description": "Alert for high error rates",
+        "scope": "interaction"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+### Get Alert Details
+
+**Description:** Fetches complete alert configuration including scopes, conditions, and evaluation settings.
+
+```http
+GET /v1/alert/{id}
+```
+
+**Path Parameters:**
+- `id` (required): Alert ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "id": 1,
+    "name": "High Error Rate Alert",
+    "description": "Alert for high error rates",
+    "scope": {
+      "name": "interaction",
+      "conditions": {
+        "interactionNames": ["page_load", "checkout"]
+      }
+    },
+    "dimension_filters": "AppVersion = '1.0.0'",
+    "condition_expression": "A AND B",
+    "alerts": [
+      {
+        "alias": "A",
+        "metric": "ERROR_RATE",
+        "metric_operator": "GREATER_THAN",
+        "threshold": {
+          "interaction": 0.05
+        }
+      }
+    ],
+    "evaluation_period": 1000,
+    "evaluation_interval": 60,
+    "severity_id": 4,
+    "notification_channel_id": 1,
+    "created_by": "user@example.com",
+    "updated_by": "user@example.com",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  },
+  "error": null
+}
+```
+
+### Create Alert
+
+**Description:** Creates a new alert with specified scope, conditions, metrics, and evaluation settings.
+
+```http
+POST /v1/alert
+Content-Type: application/json
+
+{
+  "name": "High Error Rate Alert",
+  "description": "Alert for high error rates",
+  "scope": {
+    "name": "interaction",
+    "conditions": {
+      "interactionNames": ["page_load", "checkout"]
+    }
+  },
+  "dimension_filters": "AppVersion = '1.0.0'",
+  "condition_expression": "A AND B",
+  "alerts": [
+    {
+      "alias": "A",
+      "metric": "ERROR_RATE",
+      "metric_operator": "GREATER_THAN",
+      "threshold": {
+        "interaction": 0.05
+      }
+    }
+  ],
+  "evaluation_period": 1000,
+  "evaluation_interval": 60,
+  "severity_id": 4,
+  "notification_channel_id": 1,
+  "created_by": "user@example.com",
+  "updated_by": "user@example.com"
+}
+```
+
+**Request Fields:**
+- `name` (required): Alert name
+- `description` (required): Alert description
+- `scope` (required): Alert scope object with name and conditions
+- `dimension_filters` (optional): Additional dimension filters as SQL-like string
+- `condition_expression` (required): Boolean expression combining alert conditions (e.g., "A AND B")
+- `alerts` (required): Array of alert conditions with alias, metric, operator, and threshold
+- `evaluation_period` (required): Evaluation period in milliseconds
+- `evaluation_interval` (required): Evaluation interval in seconds
+- `severity_id` (required): Severity level ID
+- `notification_channel_id` (required): Notification channel ID
+- `created_by` (required): Creator email
+- `updated_by` (required): Updater email
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "id": 1
+  },
+  "error": null
+}
+```
+
+### Update Alert
+
+**Description:** Updates an existing alert configuration. Same request structure as Create Alert, but requires alert ID in the request body.
+
+```http
+PUT /v1/alert
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "Updated Alert Name",
+  "description": "Updated description",
+  "scope": {
+    "name": "interaction",
+    "conditions": {
+      "interactionNames": ["page_load"]
+    }
+  },
+  "condition_expression": "A",
+  "alerts": [
+    {
+      "alias": "A",
+      "metric": "ERROR_RATE",
+      "metric_operator": "GREATER_THAN",
+      "threshold": {
+        "interaction": 0.1
+      }
+    }
+  ],
+  "evaluation_period": 2000,
+  "evaluation_interval": 120,
+  "severity_id": 4,
+  "notification_channel_id": 1,
+  "updated_by": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "id": 1
+  },
+  "error": null
+}
+```
+
+### Delete Alert
+
+**Description:** Deletes an alert permanently from the system.
+
+```http
+DELETE /v1/alert/{id}
+```
+
+**Path Parameters:**
+- `id` (required): Alert ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+### Get Alert Scopes
+
+**Description:** Returns available alert scopes with their IDs, names, and labels.
+
+```http
+GET /v1/alert/scopes
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "scopes": [
+      {
+        "id": 1,
+        "name": "interaction",
+        "label": "Interactions"
+      },
+      {
+        "id": 2,
+        "name": "network_api",
+        "label": "Network APIs"
+      },
+      {
+        "id": 3,
+        "name": "screen",
+        "label": "Screen"
+      },
+      {
+        "id": 4,
+        "name": "app_vitals",
+        "label": "App Vitals"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+### Get Alert Metrics
+
+**Description:** Returns available metrics for a specific scope.
+
+```http
+GET /v1/alert/metrics?scope=interaction
+```
+
+**Query Parameters:**
+- `scope` (required): Scope name (interaction, screen, app_vitals, network_api)
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "scope": "interaction",
+    "metrics": [
+      {
+        "id": 1,
+        "name": "APDEX",
+        "label": "APDEX value [0,1]"
+      },
+      {
+        "id": 2,
+        "name": "CRASH",
+        "label": "CRASH value >= 0"
+      },
+      {
+        "id": 3,
+        "name": "ERROR_RATE",
+        "label": "ERROR_RATE value [0,1]"
+      }
+    ]
+  },
+  "error": null
+}
+```
+
+### Get Alert Evaluation History
+
+**Description:** Returns evaluation history for all scopes associated with an alert, grouped by scope.
+
+```http
+GET /v1/alert/{id}/evaluationHistory
+```
+
+**Path Parameters:**
+- `id` (required): Alert ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "scope_id": 1,
+      "scope_name": "interaction",
+      "evaluation_history": [
+        {
+          "evaluation_id": 100,
+          "evaluation_result": "TRIGGERED",
+          "state": "ALERT",
+          "evaluated_at": "2025-01-01T12:00:00Z"
+        },
+        {
+          "evaluation_id": 99,
+          "evaluation_result": "NORMAL",
+          "state": "NORMAL",
+          "evaluated_at": "2025-01-01T11:00:00Z"
+        }
+      ]
+    }
+  ],
+  "error": null
+}
+```
+
+### Evaluate and Trigger Alert
+
+**Description:** Manually triggers evaluation of an alert. The evaluation is performed asynchronously, and this endpoint returns immediately with the alert ID. The actual evaluation results are processed in the background and stored in the evaluation history.
+
+```http
+GET /v1/alert/evaluateAndTriggerAlert?alertId=1
+```
+
+**Query Parameters:**
+- `alertId` (required): Alert ID to evaluate
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "alert_id": "1"
+  },
+  "error": null
+}
+```
+
+**Note:** To view the evaluation results, use the [Get Alert Evaluation History](#get-alert-evaluation-history) endpoint after the evaluation completes.
+
+### Snooze Alert
+
+**Description:** Snoozes an alert for a specified time period. During the snooze period, the alert will not trigger notifications.
+
+```http
+POST /v1/alert/{id}/snooze
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+  "snoozeFrom": 1765751323047,
+  "snoozeUntil": 1765837723047
+}
+```
+
+**Path Parameters:**
+- `id` (required): Alert ID
+
+**Request Body:**
+- `snoozeFrom` (required): Start time in milliseconds (epoch timestamp)
+- `snoozeUntil` (required): End time in milliseconds (epoch timestamp)
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "isSnoozed": true,
+    "snoozedFrom": 1765751323047,
+    "snoozedUntil": 1765837723047
+  },
+  "error": null
+}
+```
+
+### Delete Snooze
+
+**Description:** Removes the snooze period from an alert, allowing it to trigger notifications again.
+
+```http
+DELETE /v1/alert/{id}/snooze
+Authorization: Bearer {token}
+```
+
+**Path Parameters:**
+- `id` (required): Alert ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "message": "success"
+  },
+  "error": null
+}
+```
+
+### Get Alert Filters
+
+**Description:** Returns available filter options for alert queries, including creators, updaters, and alert states.
+
+```http
+GET /v1/alert/filters
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": {
+    "job_id": null,
+    "created_by": ["user1@example.com", "user2@example.com"],
+    "updated_by": ["user1@example.com", "user2@example.com"],
+    "current_state": ["NORMAL", "FIRING", "NO_DATA"]
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+- `job_id`: List of job IDs (currently not populated, returns null)
+- `created_by`: List of unique creator email addresses
+- `updated_by`: List of unique updater email addresses
+- `current_state`: List of unique alert states (NORMAL, FIRING, NO_DATA, etc.)
+
+### Get Alert Severity List
+
+**Description:** Returns list of available alert severity levels.
+
+```http
+GET /v1/alert/severity
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "severity_id": 1,
+      "name": 1,
+      "description": "Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management."
+    },
+    {
+      "severity_id": 2,
+      "name": 2,
+      "description": "Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage."
+    },
+    {
+      "severity_id": 3,
+      "name": 3,
+      "description": "Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes."
+    }
+  ],
+  "error": null
+}
+```
+
+**Response Fields:**
+- `severity_id`: Unique identifier for the severity level
+- `name`: Severity level number (1, 2, 3, etc.)
+- `description`: Detailed description of the severity level
+
+### Create Alert Severity
+
+**Description:** Creates a new alert severity level.
+
+```http
+POST /v1/alert/severity
+Content-Type: application/json
+
+{
+  "name": 4,
+  "description": "Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management."
+}
+```
+
+**Request Body:**
+- `name` (required): Severity level number (Integer, e.g., 1, 2, 3, 4)
+- `description` (required): Detailed description of the severity level
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
+}
+```
+
+### Get Alert Notification Channels
+
+**Description:** Returns list of available notification channels for alerts.
+
+```http
+GET /v1/alert/notificationChannels
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "notification_channel_id": 1,
+      "name": "Incident management",
+      "notification_webhook_url": "http://whistlebot.local/declare-incident"
+    }
+  ],
+  "error": null
+}
+```
+
+**Response Fields:**
+- `notification_channel_id`: Unique identifier for the notification channel
+- `name`: Name of the notification channel
+- `notification_webhook_url`: Webhook URL for sending notifications
+
+### Create Alert Notification Channel
+
+**Description:** Creates a new notification channel for alerts.
+
+```http
+POST /v1/alert/notificationChannels
+Content-Type: application/json
+
+{
+  "name": "PagerDuty",
+  "config": "http://whistlebot.local/declare-incident"
+}
+```
+
+**Request Body:**
+- `name` (required): Channel name
+- `config` (required): Notification webhook URL (stored as `notification_webhook_url` in the database)
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": true,
+  "error": null
 }
 ```
 
