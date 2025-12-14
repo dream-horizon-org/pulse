@@ -50,7 +50,15 @@ export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
           placeholder={isMetricsLoading ? "Loading..." : "Select metric"}
           data={metricOptions}
           value={condition.metric || null}
-          onChange={(v) => onUpdate({ metric: v || "" })}
+          onChange={(v) => {
+            const newMetric = v || "";
+            // For App Vitals, also initialize threshold with "value" key
+            if (isAppVitals && newMetric) {
+              onUpdate({ metric: newMetric, threshold: { value: condition.threshold["value"] ?? 0 } });
+            } else {
+              onUpdate({ metric: newMetric });
+            }
+          }}
           disabled={isMetricsLoading}
           searchable
         />
@@ -95,7 +103,7 @@ export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
         <NumberInput
           label="Threshold"
           placeholder="Enter value"
-          value={Object.values(condition.threshold)[0] ?? 0}
+          value={condition.threshold["value"] ?? 0}
           onChange={(v) => onUpdate({ threshold: { value: Number(v) || 0 } })}
           decimalScale={2}
         />
