@@ -1,0 +1,45 @@
+public final class com/pulse/sampling/core/PulseSamplingSignalProcessors {
+	public fun <init> (Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/core/PulseSignalMatcher;)V
+	public synthetic fun <init> (Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/core/PulseSignalMatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class com/pulse/sampling/core/PulseSamplingSignalProcessors$FilteredLogExporter : io/opentelemetry/sdk/logs/export/LogRecordExporter {
+	public fun <init> (Lcom/pulse/sampling/core/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/logs/export/LogRecordExporter;)V
+	public fun close ()V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public final class com/pulse/sampling/core/PulseSamplingSignalProcessors$FilteredSpanExporter : io/opentelemetry/sdk/trace/export/SpanExporter {
+	public fun <init> (Lcom/pulse/sampling/core/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/trace/export/SpanExporter;)V
+	public fun close ()V
+	public fun export (Ljava/util/Collection;)Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun flush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public final class com/pulse/sampling/core/PulseSamplingSignalProcessors$SampledLogsProcessor : io/opentelemetry/sdk/logs/LogRecordProcessor {
+	public fun <init> (Lcom/pulse/sampling/core/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/logs/LogRecordProcessor;)V
+	public fun onEmit (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/logs/ReadWriteLogRecord;)V
+}
+
+public final class com/pulse/sampling/core/PulseSamplingSignalProcessors$SampledSpanProcessor : io/opentelemetry/sdk/trace/SpanProcessor {
+	public fun <init> (Lcom/pulse/sampling/core/PulseSamplingSignalProcessors;Lio/opentelemetry/sdk/trace/SpanProcessor;)V
+	public fun close ()V
+	public fun forceFlush ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+	public fun isEndRequired ()Z
+	public fun isStartRequired ()Z
+	public fun onEnd (Lio/opentelemetry/sdk/trace/ReadableSpan;)V
+	public fun onStart (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
+	public fun shutdown ()Lio/opentelemetry/sdk/common/CompletableResultCode;
+}
+
+public abstract interface class com/pulse/sampling/core/PulseSessionParser {
+	public abstract fun parses (Landroid/content/Context;Lcom/pulse/sampling/models/PulseSamplingConfig;)F
+}
+
+public abstract interface class com/pulse/sampling/core/PulseSignalMatcher {
+	public abstract fun matches (Lcom/pulse/sampling/models/PulseSignalScope;Ljava/lang/String;Ljava/util/Map;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;)Z
+}
+

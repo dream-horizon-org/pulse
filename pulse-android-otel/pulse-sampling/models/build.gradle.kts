@@ -8,9 +8,11 @@ plugins {
 android {
     namespace = "com.pulse.sampling.models"
 
-
     testFixtures {
         enable = true
+    }
+    buildFeatures {
+        buildConfig = true
     }
 }
 

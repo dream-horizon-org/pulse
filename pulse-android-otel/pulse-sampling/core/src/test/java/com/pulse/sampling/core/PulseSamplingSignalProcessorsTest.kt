@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.pulse.sampling.core
 
 import com.pulse.otel.utils.toAttributes
@@ -35,13 +37,12 @@ import org.junit.jupiter.api.extension.RegisterExtension
 
 @ExtendWith(MockKExtension::class)
 class PulseSamplingSignalProcessorsTest {
-
     private companion object {
         @RegisterExtension
         val otelTesting: OpenTelemetryExtension = OpenTelemetryExtension.create()
     }
 
-    private val matcher: PulseMatcher = PulseSignalsAttrMatcher()
+    private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher()
 
     private val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create()
     private val logExporter: InMemoryLogRecordExporter = InMemoryLogRecordExporter.create()
@@ -57,25 +58,27 @@ class PulseSamplingSignalProcessorsTest {
         logExporter.reset()
         spanProcessor = SimpleSpanProcessor.create(spanExporter)
         logProcessor = SimpleLogRecordProcessor.create(logExporter)
-        tracerProvider = SdkTracerProvider.builder()
-            .setResource(Resource.getDefault())
-            .addSpanProcessor(spanProcessor)
-            .build()
+        tracerProvider =
+            SdkTracerProvider
+                .builder()
+                .setResource(Resource.getDefault())
+                .addSpanProcessor(spanProcessor)
+                .build()
         whitelistAllAllowedConfig = PulseSdkConfigFakeUtils.createFakeConfig()
-        whitelistAllAllowedProcessors = PulseSamplingSignalProcessors(whitelistAllAllowedConfig, matcher)
+        whitelistAllAllowedProcessors = PulseSamplingSignalProcessors(whitelistAllAllowedConfig, signalMatcher)
     }
 
     @Nested
     inner class `With whitelist` {
-        val whitelistWithRegexWithOneCharAndProp = PulseSdkConfigFakeUtils.createFakeConfig(
-            filterMode = PulseSignalFilterMode.WHITELIST,
-            signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1")))),
-        )
-
+        val whitelistWithRegexWithOneCharAndProp =
+            PulseSdkConfigFakeUtils.createFakeConfig(
+                filterMode = PulseSignalFilterMode.WHITELIST,
+                signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1")))),
+            )
 
         @Test
         fun `in span, filters the span only matching the regex and prop`() {
-            val processors = PulseSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp, matcher)
+            val processors = PulseSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp, signalMatcher)
             val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
             sampledSpanProcessor.onEnd(createSpan("abc", emptyMap()))
@@ -93,7 +96,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in log, filters the span only matching the regex and prop`() {
-            val processors = PulseSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp, matcher)
+            val processors = PulseSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp, signalMatcher)
             val sampledLogProcessor = processors.SampledLogsProcessor(logProcessor)
 
             sampledLogProcessor.onEmit(Context.root(), createLogRecord("abc", emptyMap()))
@@ -110,7 +113,6 @@ class PulseSamplingSignalProcessorsTest {
                 .extracting { it!!.asString() }
                 .isEqualTo("abc1")
         }
-
 
         @Nested
         inner class `With all allowed` {
@@ -137,7 +139,8 @@ class PulseSamplingSignalProcessorsTest {
 
                 assertThat(spanExporter.finishedSpanItems).hasSize(1)
                 assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
-                OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes)
+                OpenTelemetryAssertions
+                    .assertThat(spanExporter.finishedSpanItems[0].attributes)
                     .containsEntry("key1", "value1")
             }
 
@@ -149,7 +152,8 @@ class PulseSamplingSignalProcessorsTest {
 
                 assertThat(logExporter.finishedLogRecordItems).hasSize(1)
                 assertThat(logExporter.finishedLogRecordItems[0].body?.asString()).isEqualTo("test-log")
-                OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                OpenTelemetryAssertions
+                    .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                     .containsEntry("key1", "value1")
             }
 
@@ -168,25 +172,27 @@ class PulseSamplingSignalProcessorsTest {
 
     @Nested
     inner class `With blacklist` {
-        val blackListWithRegexWithOneChar = PulseSdkConfigFakeUtils.createFakeConfig(
-            filterMode = PulseSignalFilterMode.BLACKLIST,
-            signalFilters = listOf(createFakeSignalMatchCondition("abc.")),
-        )
+        val blackListWithRegexWithOneChar =
+            PulseSdkConfigFakeUtils.createFakeConfig(
+                filterMode = PulseSignalFilterMode.BLACKLIST,
+                signalFilters = listOf(createFakeSignalMatchCondition("abc.")),
+            )
 
-        val blackListWithRegexWithOneCharAndProp = PulseSdkConfigFakeUtils.createFakeConfig(
-            filterMode = PulseSignalFilterMode.BLACKLIST,
-            signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1")))),
-        )
+        val blackListWithRegexWithOneCharAndProp =
+            PulseSdkConfigFakeUtils.createFakeConfig(
+                filterMode = PulseSignalFilterMode.BLACKLIST,
+                signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1")))),
+            )
 
-        val blackListWithRegexWithOneCharAndPropRegex = PulseSdkConfigFakeUtils.createFakeConfig(
-            filterMode = PulseSignalFilterMode.BLACKLIST,
-            signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1.")))),
-        )
-
+        val blackListWithRegexWithOneCharAndPropRegex =
+            PulseSdkConfigFakeUtils.createFakeConfig(
+                filterMode = PulseSignalFilterMode.BLACKLIST,
+                signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1.")))),
+            )
 
         @Test
         fun `in span, filters the span only matching the regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneChar, matcher)
+            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneChar, signalMatcher)
             val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
             sampledSpanProcessor.onEnd(createSpan("abc", emptyMap()))
@@ -202,7 +208,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, filters the span only matching the regex and prop`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp, matcher)
+            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp, signalMatcher)
             val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
             sampledSpanProcessor.onEnd(createSpan("abc1", mapOf("key1" to "value1")))
@@ -214,7 +220,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, does not filters the span matching the name but not the prop`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp, matcher)
+            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp, signalMatcher)
             val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
             sampledSpanProcessor.onEnd(createSpan("abc1", mapOf("key1" to "value2")))
@@ -229,7 +235,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, filters the span only matching the regex and prop regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex, matcher)
+            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex, signalMatcher)
             val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
             sampledSpanProcessor.onEnd(createSpan("abc1", mapOf("key1" to "value12")))
@@ -241,7 +247,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, does not filters the span matching the name but not the prop regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex, matcher)
+            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex, signalMatcher)
             val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
             sampledSpanProcessor.onEnd(createSpan("abc1", mapOf("key1" to "value1")))
@@ -256,7 +262,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in log, filers the log only matching the regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneChar, matcher)
+            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneChar, signalMatcher)
             val sampledLogProcessor = processors.SampledLogsProcessor(logProcessor)
             sampledLogProcessor.onEmit(Context.root(), createLogRecord("abc", emptyMap()))
             sampledLogProcessor.onEmit(Context.root(), createLogRecord("abc1", emptyMap()))
@@ -276,7 +282,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in span, filters the span without any props`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, matcher)
+                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
                 val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
                 sampledSpanProcessor.onEnd(createSpan("test-span", emptyMap()))
@@ -287,7 +293,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in span, filters the span with a prop`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, matcher)
+                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
                 val sampledSpanProcessor = processors.SampledSpanProcessor(spanProcessor)
 
                 sampledSpanProcessor.onEnd(createSpan("test-span", mapOf("key1" to "value1")))
@@ -298,7 +304,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in log, filers the log without a prop`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, matcher)
+                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
                 val sampledLogProcessor = processors.SampledLogsProcessor(logProcessor)
                 val mockLogRecord = createLogRecord("test-log", emptyMap())
                 sampledLogProcessor.onEmit(Context.root(), mockLogRecord)
@@ -308,7 +314,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in log, filers the log with a prop`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, matcher)
+                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
                 val sampledLogProcessor = processors.SampledLogsProcessor(logProcessor)
                 val mockLogRecord = createLogRecord("test-log", mapOf("key1" to "value1"))
                 sampledLogProcessor.onEmit(Context.root(), mockLogRecord)
@@ -320,14 +326,15 @@ class PulseSamplingSignalProcessorsTest {
 
     @Nested
     inner class `With attributes to drop` {
-        private val attributesToDrop = listOf(
-            createFakeSignalMatchCondition(
-                name = "test-span",
-                props = setOf(PulseProp("key1", "value1")),
-            ),
-        )
+        private val attributesToDrop =
+            listOf(
+                createFakeSignalMatchCondition(
+                    name = "test-span",
+                    props = setOf(PulseProp("key1", "value1")),
+                ),
+            )
         private val attributesDroppingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToDrop = attributesToDrop)
-        val attributesDroppingProcessors = PulseSamplingSignalProcessors(attributesDroppingConfig, matcher)
+        val attributesDroppingProcessors = PulseSamplingSignalProcessors(attributesDroppingConfig, signalMatcher)
         val attributesDroppingSpanExporter = attributesDroppingProcessors.FilteredSpanExporter(spanExporter)
         val attributesDroppingSpanProcessor: SpanProcessor = SimpleSpanProcessor.create(attributesDroppingSpanExporter)
 
@@ -346,7 +353,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.name }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
                 .doesNotContainKey("key1")
         }
 
@@ -361,7 +369,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.name }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
                 .containsEntry("otherKey", "value1")
         }
 
@@ -376,7 +385,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.name }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
                 .containsEntry("key1", "value2")
         }
 
@@ -391,7 +401,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.name }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
                 .containsEntry("key2", "value1")
         }
 
@@ -406,7 +417,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.name }
                 .isEqualTo("test-span2")
-            OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
                 .containsEntry("key1", "value1")
         }
 
@@ -421,7 +433,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.bodyValue!!.asString() }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .doesNotContainKey("key1")
         }
 
@@ -436,7 +449,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.bodyValue!!.asString() }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("otherKey", "value1")
         }
 
@@ -451,7 +465,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.bodyValue!!.asString() }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("key1", "value2")
         }
 
@@ -466,7 +481,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.bodyValue!!.asString() }
                 .isEqualTo("test-span")
-            OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("key2", "value1")
         }
 
@@ -481,7 +497,8 @@ class PulseSamplingSignalProcessorsTest {
                 .first()
                 .extracting { it.bodyValue!!.asString() }
                 .isEqualTo("test-span2")
-            OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("key1", "value1")
         }
     }
@@ -512,28 +529,31 @@ class PulseSamplingSignalProcessorsTest {
         assertThat(result.isSuccess).isTrue
     }
 
-    private fun createSpan(name: String = "test-span", attributes: Map<String, Any?> = emptyMap()): ReadWriteSpan {
-        return otelTesting
+    private fun createSpan(
+        name: String = "test-span",
+        attributes: Map<String, Any?> = emptyMap(),
+    ): ReadWriteSpan =
+        otelTesting
             .openTelemetry
             .getTracer("testTracer")
             .spanBuilder(name)
             .startSpan()
             .setAllAttributes(attributes.toAttributes()) as ReadWriteSpan
-    }
 
     private fun createLogRecord(
         body: String,
         attributes: Map<String, Any?>,
         eventName: String? = null,
     ): ReadWriteLogRecord {
-        val logRecordData = mockk<LogRecordData>()
-            .apply {
-                every { this@apply.attributes } returns attributes.toAttributes()
-                every { this@apply.bodyValue } returns Value.of(body)
-                @Suppress("DEPRECATION")
-                every { this@apply.body } returns Body.string(body)
-                every { this@apply.eventName } returns eventName
-            }
+        val logRecordData =
+            mockk<LogRecordData>()
+                .apply {
+                    every { this@apply.attributes } returns attributes.toAttributes()
+                    every { this@apply.bodyValue } returns Value.of(body)
+                    @Suppress("DEPRECATION")
+                    every { this@apply.body } returns Body.string(body)
+                    every { this@apply.eventName } returns eventName
+                }
         return spyk<ReadWriteLogRecord>()
             .apply {
                 every { this@apply.attributes } returns attributes.toAttributes()
@@ -543,4 +563,3 @@ class PulseSamplingSignalProcessorsTest {
             }
     }
 }
-

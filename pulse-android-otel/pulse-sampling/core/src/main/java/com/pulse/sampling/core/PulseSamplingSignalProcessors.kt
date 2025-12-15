@@ -23,13 +23,13 @@ import kotlin.experimental.ExperimentalTypeInference
 
 public class PulseSamplingSignalProcessors(
     private val sdkConfig: PulseSdkConfig,
-    private val sampler: PulseMatcher = PulseSignalsAttrMatcher(),
+    private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
 ) {
-    private fun getDroppedAttributesConfig(scope: PulseSignalScope): List<PulseSignalMatchCondition> = sdkConfig
-        .signals
-        .attributesToDrop
-        .filter { it.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.sdks }
-
+    private fun getDroppedAttributesConfig(scope: PulseSignalScope): List<PulseSignalMatchCondition> =
+        sdkConfig
+            .signals
+            .attributesToDrop
+            .filter { it.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.sdks }
 
     public inner class SampledSpanProcessor(
         private val delegateProcessor: SpanProcessor,
@@ -44,13 +44,9 @@ public class PulseSamplingSignalProcessors(
 
         override fun isEndRequired(): Boolean = true
 
-        override fun shutdown(): CompletableResultCode {
-            return delegateProcessor.shutdown()
-        }
+        override fun shutdown(): CompletableResultCode = delegateProcessor.shutdown()
 
-        override fun forceFlush(): CompletableResultCode {
-            return delegateProcessor.forceFlush()
-        }
+        override fun forceFlush(): CompletableResultCode = delegateProcessor.forceFlush()
 
         override fun close() {
             delegateProcessor.close()
@@ -69,14 +65,14 @@ public class PulseSamplingSignalProcessors(
                 return delegateExporter.export(spans)
             }
 
-            val newSpans = spans
-                .asSequence()
-                .map { spanData ->
-                    filterAttributes(spanData.name, spanData.attributes, attributesToDrop) { newAttributes ->
-                        ModifiedSpanData(spanData, newAttributes)
-                    } ?: spanData
-                }
-                .toList()
+            val newSpans =
+                spans
+                    .asSequence()
+                    .map { spanData ->
+                        filterAttributes(spanData.name, spanData.attributes, attributesToDrop) { newAttributes ->
+                            ModifiedSpanData(spanData, newAttributes)
+                        } ?: spanData
+                    }.toList()
             return delegateExporter.export(newSpans)
         }
 
@@ -88,7 +84,10 @@ public class PulseSamplingSignalProcessors(
     public inner class SampledLogsProcessor(
         private val delegateLogProcessor: LogRecordProcessor,
     ) : LogRecordProcessor {
-        override fun onEmit(context: Context, logRecord: ReadWriteLogRecord) {
+        override fun onEmit(
+            context: Context,
+            logRecord: ReadWriteLogRecord,
+        ) {
             val spanPropsMap = logRecord.attributes.toMap()
             val logName = logRecord.bodyValue?.asString()
             sampleWithFilterMode(PulseSignalScope.LOGS, logName, spanPropsMap) {
@@ -109,19 +108,19 @@ public class PulseSamplingSignalProcessors(
                 return delegateExporter.export(logs)
             }
 
-            val newLogs = logs
-                .asSequence()
-                .map { logRecord: LogRecordData ->
-                    filterAttributes(
-                        // todo handle null
-                        logRecord.bodyValue?.asString().orEmpty(),
-                        logRecord.attributes,
-                        attributesToDrop,
-                    ) { newAttributes ->
-                        ModifiedLAttributeRecordData(newAttributes, logRecord)
-                    } ?: logRecord
-                }
-                .toList()
+            val newLogs =
+                logs
+                    .asSequence()
+                    .map { logRecord: LogRecordData ->
+                        filterAttributes(
+                            // todo handle null
+                            logRecord.bodyValue?.asString().orEmpty(),
+                            logRecord.attributes,
+                            attributesToDrop,
+                        ) { newAttributes ->
+                            ModifiedLAttributeRecordData(newAttributes, logRecord)
+                        } ?: logRecord
+                    }.toList()
             return delegateExporter.export(newLogs)
         }
 
@@ -135,28 +134,23 @@ public class PulseSamplingSignalProcessors(
             private val attributes: Attributes,
             private val oldLogRecordData: LogRecordData,
         ) : LogRecordData by oldLogRecordData {
-            override fun getAttributes(): Attributes {
-                return attributes
-            }
+            override fun getAttributes(): Attributes = attributes
 
-            override fun getBodyValue(): Value<*>? {
-                return oldLogRecordData.getBodyValue()
-            }
+            override fun getBodyValue(): Value<*>? = oldLogRecordData.getBodyValue()
 
-            override fun getEventName(): String? {
-                return oldLogRecordData.eventName
-            }
-
+            override fun getEventName(): String? = oldLogRecordData.eventName
         }
     }
 
-    private inline fun <E> List<E>.anyOrNone(shouldMatchAny: Boolean, predicate: (E) -> Boolean): Boolean {
-        return if (shouldMatchAny) {
+    private inline fun <E> List<E>.anyOrNone(
+        shouldMatchAny: Boolean,
+        predicate: (E) -> Boolean,
+    ): Boolean =
+        if (shouldMatchAny) {
             this.any(predicate)
         } else {
             this.none(predicate)
         }
-    }
 
     private inline fun sampleWithFilterMode(
         scope: PulseSignalScope,
@@ -169,7 +163,7 @@ public class PulseSamplingSignalProcessors(
             sdkConfig.signals.filters.values.anyOrNone(
                 sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
             ) { matchCondition ->
-                sampler.matches(
+                signalMatcher.matches(
                     scope,
                     signalName,
                     signalMap,
@@ -189,11 +183,12 @@ public class PulseSamplingSignalProcessors(
         attributesToDrop: List<PulseSignalMatchCondition>,
         updateAttributes: (newAttributes: Attributes) -> S,
     ): S? {
-        val finalAttributesToDrop = attributesToDrop
-            .filter {
-                signalName.matchesFromRegexCache(it.name)
-            }.flatMap { it.props }
-            .groupBy({ it.name }) { it.value }
+        val finalAttributesToDrop =
+            attributesToDrop
+                .filter {
+                    signalName.matchesFromRegexCache(it.name)
+                }.flatMap { it.props }
+                .groupBy({ it.name }) { it.value }
 
         if (finalAttributesToDrop.isEmpty()) {
             return null
@@ -204,21 +199,24 @@ public class PulseSamplingSignalProcessors(
             return null
         }
 
-        val newAttributes = signalAttributes.toBuilder().apply {
+        val newAttributes =
             signalAttributes
-                .forEach { key, value ->
-                    val keyString = key.toString()
-                    if (
-                        keyString in finalAttributesToDrop.keys &&
-                        finalAttributesToDrop[keyString]?.any {
-                            (it == null && value == null) ||
-                                (it != null && it == value.toString())
-                        } == true
-                    ) {
-                        remove(key)
-                    }
-                }
-        }.build()
+                .toBuilder()
+                .apply {
+                    signalAttributes
+                        .forEach { key, value ->
+                            val keyString = key.toString()
+                            if (
+                                keyString in finalAttributesToDrop.keys &&
+                                finalAttributesToDrop[keyString]?.any {
+                                    (it == null && value == null) ||
+                                        (it != null && it == value.toString())
+                                } == true
+                            ) {
+                                remove(key)
+                            }
+                        }
+                }.build()
         return updateAttributes(newAttributes)
     }
 }
