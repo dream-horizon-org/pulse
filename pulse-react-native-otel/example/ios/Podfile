@@ -27,11 +27,17 @@ target 'PulseReactNativeOtelExample' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
   # TODO-ios: Remove this once we have a proper PulseSDK podspec
-  pod 'OpenTelemetry-Swift-Instrumentation-URLSession', :path => "#{PULSE_SDK_PATH}"
+  # Core dependencies (required by PulseKit)
+  pod 'Pulse-Swift-Protocol-Exporter-Common', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Protocol-Exporter-Http', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-SdkResourceExtension', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Instrumentation-NetworkStatus', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Instrumentation-URLSession', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Instrumentation-Interaction', :path => "#{PULSE_SDK_PATH}"
   pod 'Pulse-Swift-Sessions', :path => "#{PULSE_SDK_PATH}"
   pod 'Pulse-Swift-SignPostIntegration', :path => "#{PULSE_SDK_PATH}"
-  pod 'Pulse-Swift-Instrumentation-Interaction', :path => "#{PULSE_SDK_PATH}"
   
+  # Main PulseKit SDK
   pod 'PulseKit', :path => "#{PULSE_SDK_PATH}"
 
   post_install do |installer|

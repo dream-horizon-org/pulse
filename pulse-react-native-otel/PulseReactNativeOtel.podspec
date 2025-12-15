@@ -22,7 +22,7 @@ Pod::Spec.new do |s|
     'SWIFT_INSTALL_OBJC_HEADER' => 'YES'
   }
 
-  s.dependency 'PulseKit', '~> 1.0'
+  s.dependency 'PulseKit', '0.0.1'
 
   install_modules_dependencies(s)
 end
