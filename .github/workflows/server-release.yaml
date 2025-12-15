@@ -19,7 +19,7 @@ jobs:
 
       - name: Upload jar
         id: upload-jar
-        uses: dream-horizon-org/dh-github-actions/upload-jar@v1
+        uses: dream-horizon-org/dh-github-actions/upload-artifacts@main
         with:
           modules: backend/server
           github-token: ${{ secrets.COMMIT_ACCESS_TOKEN }}
