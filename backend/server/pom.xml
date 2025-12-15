@@ -491,7 +491,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
-                                <!-- Exclude untestable classes -->
+                                <!-- Exclude untestable classes we will have integration testing for it-->
                                 <exclude>org/dreamhorizon/pulseserver/service/alert/core/AlertEvaluationService.class</exclude>
                             </excludes>
                         </configuration>
