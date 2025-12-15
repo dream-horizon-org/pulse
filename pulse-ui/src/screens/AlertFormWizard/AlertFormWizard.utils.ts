@@ -10,7 +10,7 @@ import { AlertListItem, AlertCondition } from "../../hooks/useGetAlertList/useGe
  * @see backend/server/.../models/AlertScope.java
  */
 const SCOPE_TYPE_TO_BACKEND: Record<string, string> = {
-  interaction: "Interaction",
+  interaction: "interaction",
   network_api: "network",
   screen: "screen",
   app_vitals: "app_vitals",
