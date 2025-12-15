@@ -40,3 +40,15 @@ index ec75330..95580bf 100644
        valuesSet.add(option.value);
      }
    }
+diff --git a/node_modules/@mantine/core/lib/components/Modal/use-modals-stack.d.ts b/node_modules/@mantine/core/lib/components/Modal/use-modals-stack.d.ts
+index 84a3418..ef747d4 100644
+--- a/node_modules/@mantine/core/lib/components/Modal/use-modals-stack.d.ts
++++ b/node_modules/@mantine/core/lib/components/Modal/use-modals-stack.d.ts
+@@ -10,6 +10,6 @@ interface ModalStackReturnType<T extends string> {
+         stackId: T;
+     };
+ }
+-export declare function useModalsStack<const T extends string>(modals: T[]): ModalStackReturnType<T>;
++export declare function useModalsStack<T extends string>(modals: T[]): ModalStackReturnType<T>;
+ export declare const useDrawersStack: typeof useModalsStack;
+ export {};
