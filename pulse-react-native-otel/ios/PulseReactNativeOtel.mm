@@ -1,5 +1,11 @@
 #import "PulseReactNativeOtel.h"
 
+#if __has_include(<PulseReactNativeOtel/PulseReactNativeOtel-Swift.h>)
+#import <PulseReactNativeOtel/PulseReactNativeOtel-Swift.h>
+#elif __has_include("PulseReactNativeOtel-Swift.h")
+#import "PulseReactNativeOtel-Swift.h"
+#endif
+
 @implementation PulseReactNativeOtel
 
 RCT_EXPORT_MODULE()
@@ -9,87 +15,89 @@ RCT_EXPORT_MODULE()
   return NO;
 }
 
-- (instancetype)init
-{
-  self = [super init];
-  if (self) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-      NSLog(@"[Pulse] iOS support coming soon. All operations will be no-ops.");
-    });
-  }
-  return self;
-}
-
-// Check if native SDK is initialized (always false on iOS)
 - (NSNumber *)isInitialized
 {
-  return @NO;
+  return @([PulseSDK isSDKInitialized]);
 }
 
-// Track event (no-op)
 - (NSNumber *)trackEvent:(NSString *)event
           observedTimeMs:(double)observedTimeMs
               properties:(NSDictionary *)properties
 {
-  return @NO;
+  [PulseReactNativeOtelLogger trackEvent:event
+                        observedTimeMs:observedTimeMs
+                            properties:properties];
+  return @YES;
 }
 
-// Start span (returns no-op span ID)
 - (NSString *)startSpan:(NSString *)name
              attributes:(NSDictionary *)attributes
 {
-  return [NSString stringWithFormat:@"noop-ios-%@", [[NSUUID UUID] UUIDString]];
+  return [PulseReactNativeOtelTracer startSpan:name attributes:attributes];
 }
 
-// End span (no-op)
 - (NSNumber *)endSpan:(NSString *)spanId
+           statusCode:(NSString *)statusCode
 {
-  return @NO;
+  [PulseReactNativeOtelTracer endSpan:spanId statusCode:statusCode];
+  return @YES;
 }
 
-// Add span event (no-op)
 - (NSNumber *)addSpanEvent:(NSString *)spanId
                 name:(NSString *)name
           attributes:(NSDictionary *)attributes
 {
-  return @NO;
+  [PulseReactNativeOtelTracer addEvent:spanId name:name attributes:attributes];
+  return @YES;
 }
 
-// Set span attributes (no-op)
 - (NSNumber *)setSpanAttributes:(NSString *)spanId
                attributes:(NSDictionary *)attributes
 {
-  return @NO;
+  [PulseReactNativeOtelTracer setAttributes:spanId attributes:attributes];
+  return @YES;
 }
 
-// Record span exception (no-op)
 - (NSNumber *)recordSpanException:(NSString *)spanId
                errorMessage:(NSString *)errorMessage
                  stackTrace:(NSString *)stackTrace
 {
-  return @NO;
+  [PulseReactNativeOtelTracer recordException:spanId errorMessage:errorMessage stackTrace:stackTrace];
+  return @YES;
 }
 
-- (nonnull NSNumber *)reportException:(nonnull NSString *)errorMessage observedTimeMs:(double)observedTimeMs stackTrace:(nonnull NSString *)stackTrace isFatal:(BOOL)isFatal errorType:(nonnull NSString *)errorType attributes:(nonnull NSDictionary *)attributes { 
-  return @NO;
+- (nonnull NSNumber *)reportException:(nonnull NSString *)errorMessage 
+                        observedTimeMs:(double)observedTimeMs 
+                            stackTrace:(nonnull NSString *)stackTrace 
+                              isFatal:(BOOL)isFatal 
+                            errorType:(nonnull NSString *)errorType 
+                           attributes:(nonnull NSDictionary *)attributes
+{ 
+  [PulseReactNativeOtelLogger reportException:errorMessage
+                                observedTimeMs:observedTimeMs
+                                    stackTrace:stackTrace
+                                      isFatal:isFatal
+                                    errorType:errorType
+                                   attributes:attributes];
+  return @YES;
 }
-
 
 - (void)setUserId:(NSString * _Nullable)id { 
-  // No op
+  [PulseSDK setUserId:id];
 }
-
 
 - (void)setUserProperties:(nonnull NSDictionary *)properties { 
-  // No op
+  NSDictionary<NSString *, PulseAttributeValue *> *convertedProperties = [AttributeValueConverter convertFromDictionary:properties];
+  [PulseSDK setUserProperties:convertedProperties];
 }
-
 
 - (void)setUserProperty:(nonnull NSString *)name value:(NSString * _Nullable)value { 
-  // No op
+  PulseAttributeValue *attrValue = value ? [PulseAttributeValue attributeValueFromValue:value] : nil;
+  [PulseSDK setUserProperty:name value:attrValue];
 }
 
+- (void)triggerAnr {
+}
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params

@@ -9,6 +9,8 @@ require Pod::Executable.execute_command('node', ['-p',
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
+# TODO-ios: Remove this once we have a proper PulseSDK podspec
+PULSE_SDK_PATH = '/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk'
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
@@ -24,6 +26,19 @@ target 'PulseReactNativeOtelExample' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
+  # TODO-ios: Remove this once we have a proper PulseSDK podspec
+  # Core dependencies (required by PulseKit)
+  pod 'Pulse-Swift-Protocol-Exporter-Common', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Protocol-Exporter-Http', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-SdkResourceExtension', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Instrumentation-NetworkStatus', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Instrumentation-URLSession', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Instrumentation-Interaction', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-Sessions', :path => "#{PULSE_SDK_PATH}"
+  pod 'Pulse-Swift-SignPostIntegration', :path => "#{PULSE_SDK_PATH}"
+  
+  # Main PulseKit SDK
+  pod 'PulseKit', :path => "#{PULSE_SDK_PATH}"
 
   post_install do |installer|
     # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202

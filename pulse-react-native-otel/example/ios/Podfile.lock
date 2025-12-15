@@ -8,6 +8,44 @@ PODS:
   - hermes-engine (0.81.1):
     - hermes-engine/Pre-built (= 0.81.1)
   - hermes-engine/Pre-built (0.81.1)
+  - OpenTelemetry-Swift-Api (2.3.0)
+  - OpenTelemetry-Swift-Sdk (2.3.0):
+    - OpenTelemetry-Swift-Api (= 2.3.0)
+  - Pulse-Swift-Instrumentation-Interaction (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+  - Pulse-Swift-Instrumentation-NetworkStatus (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+  - Pulse-Swift-Instrumentation-URLSession (0.0.1):
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+    - Pulse-Swift-Instrumentation-NetworkStatus (= 0.0.1)
+  - Pulse-Swift-Protocol-Exporter-Common (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+    - SwiftProtobuf (~> 1.28)
+  - Pulse-Swift-Protocol-Exporter-Http (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+    - Pulse-Swift-Protocol-Exporter-Common (= 0.0.1)
+    - SwiftProtobuf (~> 1.28)
+  - Pulse-Swift-SdkResourceExtension (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+  - Pulse-Swift-Sessions (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+  - Pulse-Swift-SignPostIntegration (0.0.1):
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+  - PulseKit (0.0.1):
+    - OpenTelemetry-Swift-Api (~> 2.2)
+    - OpenTelemetry-Swift-Sdk (~> 2.2)
+    - Pulse-Swift-Instrumentation-Interaction (= 0.0.1)
+    - Pulse-Swift-Instrumentation-NetworkStatus (= 0.0.1)
+    - Pulse-Swift-Instrumentation-URLSession (= 0.0.1)
+    - Pulse-Swift-Protocol-Exporter-Http (= 0.0.1)
+    - Pulse-Swift-SdkResourceExtension (= 0.0.1)
+    - Pulse-Swift-Sessions (= 0.0.1)
+    - Pulse-Swift-SignPostIntegration (= 0.0.1)
   - PulseReactNativeOtel (0.0.1):
     - boost
     - DoubleConversion
@@ -15,6 +53,7 @@ PODS:
     - fmt
     - glog
     - hermes-engine
+    - PulseKit (= 0.0.1)
     - RCT-Folly
     - RCT-Folly/Fabric
     - RCTRequired
@@ -2456,6 +2495,7 @@ PODS:
     - SocketRocket
     - Yoga
   - SocketRocket (0.7.1)
+  - SwiftProtobuf (1.33.3)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2466,6 +2506,15 @@ DEPENDENCIES:
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - Pulse-Swift-Instrumentation-Interaction (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-Instrumentation-NetworkStatus (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-Instrumentation-URLSession (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-Protocol-Exporter-Common (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-Protocol-Exporter-Http (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-SdkResourceExtension (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-Sessions (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - Pulse-Swift-SignPostIntegration (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
+  - PulseKit (from `/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk`)
   - PulseReactNativeOtel (from `../..`)
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -2539,7 +2588,10 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - OpenTelemetry-Swift-Api
+    - OpenTelemetry-Swift-Sdk
     - SocketRocket
+    - SwiftProtobuf
 
 EXTERNAL SOURCES:
   boost:
@@ -2557,6 +2609,24 @@ EXTERNAL SOURCES:
   hermes-engine:
     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782
+  Pulse-Swift-Instrumentation-Interaction:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-Instrumentation-NetworkStatus:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-Instrumentation-URLSession:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-Protocol-Exporter-Common:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-Protocol-Exporter-Http:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-SdkResourceExtension:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-Sessions:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  Pulse-Swift-SignPostIntegration:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
+  PulseKit:
+    :path: "/Users/shubhamgupta/D11Repo/temps/main-pulse/pulse-ios-sdk"
   PulseReactNativeOtel:
     :path: "../.."
   RCT-Folly:
@@ -2702,7 +2772,18 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 4f8246b1f6d79f625e0d99472d1f3a71da4d28ca
-  PulseReactNativeOtel: 25b8dec3f73745fed353ec48f196a04a436407ef
+  OpenTelemetry-Swift-Api: 3d77582ab6837a63b65bf7d2eacc57d8f2595edd
+  OpenTelemetry-Swift-Sdk: 69d60f0242e830366e359481edd575d6776eb983
+  Pulse-Swift-Instrumentation-Interaction: d479d86b8919d15db31524d629b8082fa49d6916
+  Pulse-Swift-Instrumentation-NetworkStatus: 17091f93447a0fd31ce2ab52aa0d451f57c50fe3
+  Pulse-Swift-Instrumentation-URLSession: ff1c35dc1959666357bce53ef07b99e449661515
+  Pulse-Swift-Protocol-Exporter-Common: 00973fab6822b36c3ef5dbc3b683abd6378d4aab
+  Pulse-Swift-Protocol-Exporter-Http: 1ddbae80eedd39f21df3d4f463698419b7f3e26b
+  Pulse-Swift-SdkResourceExtension: ea505f24192cdb5c78d173296e13e158f7919e55
+  Pulse-Swift-Sessions: 9e73325dd15a33acb66cbd33a7f8e3832f9521de
+  Pulse-Swift-SignPostIntegration: 8f8f602b0bf1c9b90f006c27c8773005210c4347
+  PulseKit: 6adb820053705fe665cfb921a077059246998e18
+  PulseReactNativeOtel: 6a6847f533b222607b188d8f9780cf0a107c9faf
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
   RCTRequired: e97dd5dafc1db8094e63bc5031e0371f092ae92a
@@ -2765,13 +2846,14 @@ SPEC CHECKSUMS:
   React-timing: 97ada2c47b4c5932e7f773c7d239c52b90d6ca68
   React-utils: f0949d247a46b4c09f03e5a3cb1167602d0b729a
   ReactAppDependencyProvider: 3eb9096cb139eb433965693bbe541d96eb3d3ec9
-  ReactCodegen: 4d203eddf6f977caa324640a20f92e70408d648b
+  ReactCodegen: df3910a269f7ac2f6e8d4dd2ced3ff6b30d0d647
   ReactCommon: ce5d4226dfaf9d5dacbef57b4528819e39d3a120
   RNGestureHandler: 29bbca60c881e5243e219e3fe0016060002ed389
   RNScreens: d821082c6dd1cb397cc0c98b026eeafaa68be479
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
+  SwiftProtobuf: e1b437c8e31a4c5577b643249a0bb62ed4f02153
   Yoga: 11c9686a21e2cd82a094a723649d9f4507200fb0
 
-PODFILE CHECKSUM: 6a5a7feac9b6bc899f8bb29f22e83497f607c3f8
+PODFILE CHECKSUM: 665a0c5767a07816ba2a39e8e49a5d97008ba923
 
 COCOAPODS: 1.15.2

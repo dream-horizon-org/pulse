@@ -12,6 +12,7 @@
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		B5DC1E99E1C77E017E1EFCB4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		D8E33F902EE83801002BB130 /* RCTNativePulseExampleModule.mm in Sources */ = {isa = PBXBuildFile; fileRef = D8E33F8F2EE83801002BB130 /* RCTNativePulseExampleModule.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,8 @@
 		5DCACB8F33CDC322A6C60F78 /* libPods-PulseReactNativeOtelExample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PulseReactNativeOtelExample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PulseReactNativeOtelExample/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = PulseReactNativeOtelExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		D8E33F8E2EE83801002BB130 /* RCTNativePulseExampleModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RCTNativePulseExampleModule.h; sourceTree = "<group>"; };
+		D8E33F8F2EE83801002BB130 /* RCTNativePulseExampleModule.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = RCTNativePulseExampleModule.mm; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -42,6 +45,7 @@
 		13B07FAE1A68108700A75B9A /* PulseReactNativeOtelExample */ = {
 			isa = PBXGroup;
 			children = (
+				D8E33F8B2EE83775002BB130 /* NativePulseExampleModule */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -98,6 +102,15 @@
 			path = Pods;
 			sourceTree = "<group>";
 		};
+		D8E33F8B2EE83775002BB130 /* NativePulseExampleModule */ = {
+			isa = PBXGroup;
+			children = (
+				D8E33F8E2EE83801002BB130 /* RCTNativePulseExampleModule.h */,
+				D8E33F8F2EE83801002BB130 /* RCTNativePulseExampleModule.mm */,
+			);
+			path = NativePulseExampleModule;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -131,7 +144,7 @@
 				LastUpgradeCheck = 1210;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						LastSwiftMigration = 1120;
+						LastSwiftMigration = 1630;
 					};
 				};
 			};
@@ -247,6 +260,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				D8E33F902EE83801002BB130 /* RCTNativePulseExampleModule.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

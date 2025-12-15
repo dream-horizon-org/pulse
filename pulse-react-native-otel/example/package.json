@@ -44,6 +44,11 @@
     "jsSrcsDir": "src/specs",
     "android": {
       "javaPackageName": "pulsereactnativeotel.example"
+    },
+    "ios": {
+      "modulesProvider": {
+        "NativePulseExampleModule": "RCTNativePulseExampleModule"
+      }
     }
   }
 }

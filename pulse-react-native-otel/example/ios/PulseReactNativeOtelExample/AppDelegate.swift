@@ -2,6 +2,8 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import PulseReactNativeOtel
+import PulseKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -20,6 +22,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    
+    let globalAttributes: [String: PulseAttributeValue] = [
+      "global.string": PulseAttributeValue.string("test_string_value"),
+      "global.number": PulseAttributeValue.int(42),
+      "global.bool": PulseAttributeValue.bool(true),
+    ]
+    
+    PulseSDK.initialize(
+      endpointBaseUrl: "http://127.0.0.1:4318",
+      endpointHeaders: nil,
+      globalAttributes: globalAttributes
+    )
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
