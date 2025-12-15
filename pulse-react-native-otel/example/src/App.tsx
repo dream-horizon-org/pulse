@@ -11,6 +11,7 @@ import NetworkInterceptorExample from './examples/NetworkInterceptorExample';
 import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
 import NativeFeaturesExample from './examples/NativeFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
+import UserManagementExample from './examples/UserManagementExample';
 
 Pulse.start();
 
@@ -85,6 +86,13 @@ const DEMO_CONFIGS: DemoConfig[] = [
     title: 'Interaction Event Tracking',
     color: '#9C27B0',
     component: InteractionDemo,
+  },
+  {
+    id: 'userManagement',
+    label: '👤 User Management',
+    title: 'User ID & Properties',
+    color: '#607D8B',
+    component: UserManagementExample,
   },
 ];
 
