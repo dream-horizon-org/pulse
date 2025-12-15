@@ -1,7 +1,8 @@
-- name: Upload artifacts
-  id: upload-artifacts
-  uses: dream-horizon-org/dh-github-actions/upload-artifacts@v1
-  with:
-    github_token: ${{ secrets.GITHUB_ACCESS_TOKEN}}
-    bump_version: true
-    artifacts_to_upload: ../backend/server
+name: Upload artifacts
+
+id: upload-artifacts
+uses: dream-horizon-org/dh-github-actions/upload-artifacts@v1
+with:
+  github_token: ${{ secrets.GITHUB_ACCESS_TOKEN}}
+  bump_version: true
+  artifacts_to_upload: ../backend/server
