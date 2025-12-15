@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 @Keep
 @Serializable
 public enum class PulseSdkName {
-    @SerialName("android_java")
+    @SerialName(ANDROID_JAVA_SDK_NAME_STR)
     ANDROID_JAVA,
 
     @SerialName("android_rn")
@@ -28,5 +28,6 @@ public enum class PulseSdkName {
 
     public companion object {
         public val CURRENT_SDK_NAME: PulseSdkName = ANDROID_JAVA
+        internal const val ANDROID_JAVA_SDK_NAME_STR = "android_java"
     }
 }
