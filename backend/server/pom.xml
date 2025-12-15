@@ -486,6 +486,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/error/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/resources/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/rest/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
