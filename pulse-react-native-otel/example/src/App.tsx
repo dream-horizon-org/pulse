@@ -12,6 +12,7 @@ import ErrorBoundaryExample from './examples/ErrorBoundaryExample';
 import NativeFeaturesExample from './examples/NativeFeaturesExample';
 import InteractionDemo from './examples/InteractionDemo';
 import UserManagementExample from './examples/UserManagementExample';
+import PulseAttributesExample from './examples/PulseAttributesExample';
 
 Pulse.start();
 
@@ -93,6 +94,13 @@ const DEMO_CONFIGS: DemoConfig[] = [
     title: 'User ID & Properties',
     color: '#607D8B',
     component: UserManagementExample,
+  },
+  {
+    id: 'pulseAttributes',
+    label: '🧪 PulseAttributes Testing',
+    title: 'PulseAttributes Testing',
+    color: '#E91E63',
+    component: PulseAttributesExample,
   },
 ];
 

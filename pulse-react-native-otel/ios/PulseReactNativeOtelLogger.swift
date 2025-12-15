@@ -13,7 +13,7 @@ public class PulseReactNativeOtelLogger: NSObject {
         PulseSDK.trackEvent(
             name: event,
             observedTimeStampInMs: observedTimeMs,
-            params: properties
+            params: AttributeValueConverter.convert(properties)
         )
     }
     
@@ -26,21 +26,15 @@ public class PulseReactNativeOtelLogger: NSObject {
         errorType: String,
         attributes: NSDictionary?
     ) {
-        let params = NSMutableDictionary()
+        var params = AttributeValueConverter.convert(attributes)
         
-        if let attributes = attributes {
-            for (key, value) in attributes {
-                params[key] = value
-            }
-        }
-        
-        params[PulseOtelConstants.ATTR_ERROR_TYPE] = errorType.isEmpty ? PulseOtelConstants.DEFAULT_ERROR_TYPE : errorType
-        params[PulseOtelConstants.ATTR_ERROR_FATAL] = isFatal
-        params[PulseOtelConstants.ATTR_ERROR_MESSAGE] = errorMessage
-        params[PulseOtelConstants.ATTR_ERROR_STACK] = stackTrace
-        params[PulseOtelConstants.ATTR_THREAD_ID] = getCurrentThreadId()
-        params[PulseOtelConstants.ATTR_THREAD_NAME] = Thread.current.name ?? "unknown"
-        params[PulseOtelConstants.ATTR_ERROR_SOURCE] = PulseOtelConstants.ERROR_SOURCE_JS
+        params[PulseOtelConstants.ATTR_ERROR_TYPE] = PulseAttributeValue.string(errorType.isEmpty ? PulseOtelConstants.DEFAULT_ERROR_TYPE : errorType)
+        params[PulseOtelConstants.ATTR_ERROR_FATAL] = PulseAttributeValue.bool(isFatal)
+        params[PulseOtelConstants.ATTR_ERROR_MESSAGE] = PulseAttributeValue.string(errorMessage)
+        params[PulseOtelConstants.ATTR_ERROR_STACK] = PulseAttributeValue.string(stackTrace)
+        params[PulseOtelConstants.ATTR_THREAD_ID] = PulseAttributeValue.string(getCurrentThreadId())
+        params[PulseOtelConstants.ATTR_THREAD_NAME] = PulseAttributeValue.string(Thread.current.name ?? "unknown")
+        params[PulseOtelConstants.ATTR_ERROR_SOURCE] = PulseAttributeValue.string(PulseOtelConstants.ERROR_SOURCE_JS)
         
         PulseSDK.trackNonFatal(
             name: errorMessage,

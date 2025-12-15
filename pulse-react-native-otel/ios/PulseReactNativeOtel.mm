@@ -87,11 +87,13 @@ RCT_EXPORT_MODULE()
 }
 
 - (void)setUserProperties:(nonnull NSDictionary *)properties { 
-  [PulseSDK setUserProperties:properties];
+  NSDictionary<NSString *, PulseAttributeValue *> *convertedProperties = [AttributeValueConverter convertFromDictionary:properties];
+  [PulseSDK setUserProperties:convertedProperties];
 }
 
 - (void)setUserProperty:(nonnull NSString *)name value:(NSString * _Nullable)value { 
-  [PulseSDK setUserProperty:name value:value];
+  PulseAttributeValue *attrValue = value ? [PulseAttributeValue attributeValueFromValue:value] : nil;
+  [PulseSDK setUserProperty:name value:attrValue];
 }
 
 - (void)triggerAnr {

@@ -9,12 +9,13 @@ public class PulseSDK: NSObject {
     public static func initialize(
         endpointBaseUrl: String,
         endpointHeaders: [String: String]?,
-        globalAttributes: [String: String]?
+        globalAttributes: [String: PulseAttributeValue]?
     ) {
+        let convertedAttributes: [String: AttributeValue]? = globalAttributes?.toSwiftAttributes()
         PulseKit.shared.initialize(
             endpointBaseUrl: endpointBaseUrl,
             endpointHeaders: endpointHeaders,
-            globalAttributes: globalAttributes,
+            globalAttributes: convertedAttributes,
             instrumentations: nil
         )
     }
@@ -39,27 +40,25 @@ public class PulseSDK: NSObject {
     }
     
     @objc(setUserProperty:value:)
-    public static func setUserProperty(name: String, value: String?) {
-        PulseKit.shared.setUserProperty(name: name, value: value)
+    public static func setUserProperty(name: String, value: PulseAttributeValue?) {
+        PulseKit.shared.setUserProperty(name: name, value: value?.swiftValue)
     }
     
     @objc(setUserProperties:)
-    public static func setUserProperties(_ properties: NSDictionary?) {
-        let convertedProperties = convertDictionary(properties)
-        PulseKit.shared.setUserProperties(convertedProperties)
+    public static func setUserProperties(_ properties: [String: PulseAttributeValue]) {
+        PulseKit.shared.setUserProperties(properties.toSwiftAttributes())
     }
     
     @objc(trackEventWithName:observedTimeStampInMs:params:)
     public static func trackEvent(
         name: String,
         observedTimeStampInMs: Double,
-        params: NSDictionary?
+        params: [String: PulseAttributeValue]
     ) {
-        let convertedParams = convertDictionary(params)
         PulseKit.shared.trackEvent(
             name: name,
             observedTimeStampInMs: observedTimeStampInMs,
-            params: convertedParams
+            params: params.toSwiftAttributes()
         )
     }
     
@@ -67,32 +66,16 @@ public class PulseSDK: NSObject {
     public static func trackNonFatal(
         name: String,
         observedTimeStampInMs: Int64,
-        params: NSDictionary?
+        params: [String: PulseAttributeValue]
     ) {
-        let convertedParams = convertDictionary(params)
         PulseKit.shared.trackNonFatal(
             name: name,
             observedTimeStampInMs: observedTimeStampInMs,
-            params: convertedParams
+            params: params.toSwiftAttributes()
         )
     }
     
     static func getOtelOrThrow() -> OpenTelemetry {
         return PulseKit.shared.getOtelOrThrow()
-    }
-    
-    private static func convertDictionary(_ dict: NSDictionary?) -> [String: Any?] {
-        guard let dict = dict else { return [:] }
-        var result: [String: Any?] = [:]
-        for (key, value) in dict {
-            if let keyString = key as? String {
-                if value is NSNull {
-                    result[keyString] = nil
-                } else {
-                    result[keyString] = value
-                }
-            }
-        }
-        return result
     }
 }

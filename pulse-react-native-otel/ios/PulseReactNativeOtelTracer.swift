@@ -29,7 +29,10 @@ public class PulseReactNativeOtelTracer: NSObject {
             .startSpan()
         
         if let attributes = attributes {
-            applyAttributes(span: span, attributes: attributes)
+            let swiftAttributes = AttributeValueConverter.convertToSwift(attributes)
+            if !swiftAttributes.isEmpty {
+                span.setAttributes(swiftAttributes)
+            }
         }
         
         let spanId = UUID().uuidString
@@ -69,7 +72,10 @@ public class PulseReactNativeOtelTracer: NSObject {
             guard let span = spanStore[spanId] as? Span else { return }
             
             if let attributes = attributes {
-                applyAttributes(span: span, attributes: attributes)
+                let swiftAttributes = AttributeValueConverter.convertToSwift(attributes)
+                if !swiftAttributes.isEmpty {
+                    span.setAttributes(swiftAttributes)
+                }
             }
             
             span.addEvent(name: name)
@@ -82,7 +88,10 @@ public class PulseReactNativeOtelTracer: NSObject {
             guard let span = spanStore[spanId] as? Span else { return }
             
             if let attributes = attributes {
-                applyAttributes(span: span, attributes: attributes)
+                let swiftAttributes = AttributeValueConverter.convertToSwift(attributes)
+                if !swiftAttributes.isEmpty {
+                    span.setAttributes(swiftAttributes)
+                }
             }
         }
     }
@@ -97,62 +106,12 @@ public class PulseReactNativeOtelTracer: NSObject {
             ])
             
             span.recordException(error, attributes: [:])
-            span.setAttribute(key: PulseOtelConstants.ATTR_ERROR_MESSAGE, value: AttributeValue.string(errorMessage))
+            span.setAttribute(key: PulseOtelConstants.ATTR_ERROR_MESSAGE, value: OpenTelemetryApi.AttributeValue.string(errorMessage))
             
             if let stackTrace = stackTrace, !stackTrace.isEmpty {
-                span.setAttribute(key: PulseOtelConstants.ATTR_ERROR_STACK, value: AttributeValue.string(stackTrace))
+                span.setAttribute(key: PulseOtelConstants.ATTR_ERROR_STACK, value: OpenTelemetryApi.AttributeValue.string(stackTrace))
             }
         }
     }
     
-    private static func applyAttributes(span: Span, attributes: NSDictionary) {
-        for (key, value) in attributes {
-            guard let keyString = key as? String else { continue }
-            
-            if let stringValue = value as? String {
-                span.setAttribute(key: keyString, value: AttributeValue.string(stringValue))
-            } else if let boolValue = value as? Bool {
-                span.setAttribute(key: keyString, value: AttributeValue.bool(boolValue))
-            } else if let numberValue = value as? NSNumber {
-                if CFGetTypeID(numberValue) == CFBooleanGetTypeID() {
-                    span.setAttribute(key: keyString, value: AttributeValue.bool(numberValue.boolValue))
-                } else {
-                    span.setAttribute(key: keyString, value: AttributeValue.double(numberValue.doubleValue))
-                }
-            } else if let arrayValue = value as? NSArray {
-                applyArrayAttribute(span: span, key: keyString, array: arrayValue)
-            } else {
-                span.setAttribute(key: keyString, value: AttributeValue.string(String(describing: value)))
-            }
-        }
-    }
-    
-    private static func applyArrayAttribute(span: Span, key: String, array: NSArray) {
-        if array.count == 0 {
-          span.setAttribute(key: key, value: AttributeValue.array(AttributeArray(values: [])))
-            return
-        }
-        
-        if let firstElement = array.firstObject {
-            if firstElement is String {
-                let stringArray = array.compactMap { $0 as? String }
-              let attrArray = AttributeArray(values: stringArray.map { AttributeValue.string($0) })
-                span.setAttribute(key: key, value: AttributeValue.array(attrArray))
-            } else if firstElement is NSNumber {
-                let numberArray = array.compactMap { ($0 as? NSNumber)?.doubleValue }
-              let attrArray = AttributeArray(values: numberArray.map { AttributeValue.double($0) })
-                span.setAttribute(key: key, value: AttributeValue.array(attrArray))
-            } else if firstElement is Bool || (firstElement as? NSNumber)?.boolValue != nil {
-                let boolArray = array.compactMap { element -> Bool? in
-                    if let bool = element as? Bool { return bool }
-                    if let number = element as? NSNumber { return number.boolValue }
-                    return nil
-                }
-              let attrArray = AttributeArray(values: boolArray.map { AttributeValue.bool($0) })
-                span.setAttribute(key: key, value: AttributeValue.array(attrArray))
-            } else {
-                span.setAttribute(key: key, value: AttributeValue.string(array.description))
-            }
-        }
-    }
 }
