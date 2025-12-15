@@ -10,7 +10,7 @@ public class PulseFeatureConfig(
     @SerialName("featureName")
     public val featureName: String,
     @SerialName("enabled")
-    public val enabled: Boolean,
+    public val isEnabled: Boolean,
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate,
     @SerialName("sdks")

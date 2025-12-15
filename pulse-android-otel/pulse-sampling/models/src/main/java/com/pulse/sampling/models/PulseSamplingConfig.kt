@@ -1,11 +1,11 @@
 package com.pulse.sampling.models
 
+import android.content.Context
 import androidx.annotation.Keep
-import com.pulse.sampling.models.matchers.PulseDeviceMatchCondition
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-internal typealias SamplingRate = Float
+public typealias SamplingRate = Float
 
 @Keep
 @Serializable
@@ -27,14 +27,16 @@ public class PulseSamplingConfig(
 @Serializable
 public class PulseSessionSamplingRule(
     @SerialName("name")
-    public val name: String,
-    @SerialName("match")
-    public val match: PulseDeviceMatchCondition,
+    public val name: PulseDeviceAttributeName,
+    @SerialName("value")
+    public val value: String,
     @SerialName("sdks")
     public val sdks: Set<PulseSdkName>,
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate,
-)
+) {
+    public fun matches(context: Context): Boolean = name.matches(context, value)
+}
 
 @Keep
 @Serializable
@@ -47,7 +49,7 @@ public class PulseDefaultSamplingConfig(
 @Serializable
 public class PulseCriticalEventPolicies(
     @SerialName("alwaysSend")
-    public val alwaysSend: List<PulseCriticalEventPolicy>
+    public val alwaysSend: List<PulseCriticalEventPolicy>,
 )
 
 @Keep

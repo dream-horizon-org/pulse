@@ -39,7 +39,6 @@ public enum class PulseSignalFilterMode {
 
     @SerialName("whitelist")
     WHITELIST,
-    ;
 }
 
 @Keep

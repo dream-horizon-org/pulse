@@ -8,22 +8,22 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 
 class PulseSignalsAttrSamplerTest {
-
-    private val pulseMatcher: PulseMatcher = PulseSignalsAttrMatcher()
+    private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher()
 
     @Test
     fun `matches returns true when all conditions are met`() {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value1", "key2" to "value2")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isTrue
     }
@@ -33,14 +33,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value1", "key2" to "value2")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = emptySet(),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = emptySet(),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
@@ -50,14 +51,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value1", "key2" to "value2")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = emptySet(),
-            props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = emptySet(),
+                props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
@@ -67,14 +69,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value1", "key2" to "value2")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "other_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "other_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
@@ -84,14 +87,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value1")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
@@ -101,14 +105,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value1", "key2" to "value3")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value1"), PulseProp("key2", "value2")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
@@ -118,14 +123,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal_123"
         val signalProps = mapOf("key1" to "value1")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal_.*",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value1"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal_.*",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value1")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isTrue
     }
@@ -135,14 +141,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value_123")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value_.*"))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value_.*")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isTrue
     }
@@ -152,14 +159,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value_1", "key2" to null)
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value_1"), PulseProp("key2", null))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value_1"), PulseProp("key2", null)),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isTrue
     }
@@ -169,14 +177,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value_1", "key2" to null)
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value_1"), PulseProp("key2", ""))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value_1"), PulseProp("key2", "")),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
@@ -186,14 +195,15 @@ class PulseSignalsAttrSamplerTest {
         val signalScope = PulseSignalScope.TRACES
         val signalName = "test_signal"
         val signalProps = mapOf("key1" to "value_1", "key2" to "")
-        val signalMatchConfig = PulseSignalMatchCondition(
-            name = "test_signal",
-            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
-            scopes = setOf(PulseSignalScope.TRACES),
-            props = setOf(PulseProp("key1", "value_1"), PulseProp("key2", null))
-        )
+        val signalMatchConfig =
+            PulseSignalMatchCondition(
+                name = "test_signal",
+                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                scopes = setOf(PulseSignalScope.TRACES),
+                props = setOf(PulseProp("key1", "value_1"), PulseProp("key2", null)),
+            )
 
-        val result = pulseMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
 
         assertThat(result).isFalse
     }
