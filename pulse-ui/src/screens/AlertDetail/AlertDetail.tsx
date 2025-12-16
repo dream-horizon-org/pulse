@@ -1,9 +1,10 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Badge, Loader, Tooltip, useMantineTheme, Divider, Collapse } from "@mantine/core";
+import { Button, Badge, Loader, Tooltip, useMantineTheme, Divider, Collapse, Menu } from "@mantine/core";
 import {
   IconArrowLeft, IconEdit, IconBellX, IconBellRinging, IconCircleCheckFilled,
   IconSquareRoundedX, IconClock, IconUser, IconCalendar, IconActivity,
   IconBell, IconBellOff, IconAlertTriangle, IconChevronDown, IconChevronRight,
+  IconClock2, IconClockHour4, IconClockHour8, IconCalendarTime, IconCalendarWeek,
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
@@ -44,6 +45,16 @@ const formatThresholdValue = (value: number, metric: string): string => {
 const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const formatTime = (date: string | Date) => new Date(date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 const formatDateTime = (date: string | Date) => `${formatDate(date)} at ${formatTime(date)}`;
+
+// Snooze duration options in milliseconds
+const SNOOZE_OPTIONS = [
+  { label: "1 hour", duration: 60 * 60 * 1000, icon: IconClock2 },
+  { label: "4 hours", duration: 4 * 60 * 60 * 1000, icon: IconClockHour4 },
+  { label: "8 hours", duration: 8 * 60 * 60 * 1000, icon: IconClockHour8 },
+  { label: "24 hours", duration: 24 * 60 * 60 * 1000, icon: IconClock },
+  { label: "2 days", duration: 2 * 24 * 60 * 60 * 1000, icon: IconCalendarTime },
+  { label: "1 week", duration: 7 * 24 * 60 * 60 * 1000, icon: IconCalendarWeek },
+];
 
 // Parse evaluation_result JSON string to get metric readings
 const parseEvaluationResult = (resultStr: string): Record<string, number> => {
@@ -133,15 +144,18 @@ export function AlertDetail(_props: AlertDetailProps) {
 
   const handleBack = () => navigate(ROUTES.ALERTS.basePath);
   const handleEdit = () => navigate(`${ROUTES.ALERTS_FORM.basePath}/${alertId}`);
-  const handleSnoozeToggle = () => {
+  
+  const handleSnooze = (durationMs: number) => {
     if (!alertId) return;
     setShowSnoozeLoader(true);
-    if (alertData?.data?.is_snoozed) {
-      resumeAlertMutation.mutate(alertId);
-    } else {
-      const now = Date.now();
-      snoozeAlertMutation.mutate({ alertId, snoozeAlertRequest: { snoozeFrom: now, snoozeUntil: now + 24 * 60 * 60 * 1000 } });
-    }
+    const now = Date.now();
+    snoozeAlertMutation.mutate({ alertId, snoozeAlertRequest: { snoozeFrom: now, snoozeUntil: now + durationMs } });
+  };
+
+  const handleResume = () => {
+    if (!alertId) return;
+    setShowSnoozeLoader(true);
+    resumeAlertMutation.mutate(alertId);
   };
 
   const alert = alertData?.data;
@@ -194,7 +208,7 @@ export function AlertDetail(_props: AlertDetailProps) {
           <Button 
             variant="white" 
             size="xs" 
-            onClick={handleSnoozeToggle}
+            onClick={handleResume}
             loading={showSnoozeLoader}
             leftSection={<IconBellRinging size={14} />}
           >
@@ -224,11 +238,26 @@ export function AlertDetail(_props: AlertDetailProps) {
             <Button variant="light" color="teal" onClick={handleEdit}><IconEdit size={18} /></Button>
           </Tooltip>
           {!alert.is_snoozed && (
-            <Tooltip label="Snooze for 24h">
-              <Button variant="light" color="orange" onClick={handleSnoozeToggle} loading={showSnoozeLoader}>
-                <IconBellX size={18} />
-              </Button>
-            </Tooltip>
+            <Menu shadow="md" width={200} position="bottom-end" withArrow>
+              <Menu.Target>
+                <Button variant="light" color="orange" loading={showSnoozeLoader} rightSection={<IconChevronDown size={14} />}>
+                  <IconBellX size={18} style={{ marginRight: 6 }} />
+                  Snooze
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Snooze for...</Menu.Label>
+                {SNOOZE_OPTIONS.map((option) => (
+                  <Menu.Item
+                    key={option.label}
+                    leftSection={<option.icon size={16} />}
+                    onClick={() => handleSnooze(option.duration)}
+                  >
+                    {option.label}
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
           )}
         </div>
       </div>

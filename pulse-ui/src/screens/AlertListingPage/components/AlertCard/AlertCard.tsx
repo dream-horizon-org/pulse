@@ -71,14 +71,6 @@ export function AlertCard({
       onClick={onClick}
       style={{ "--status-color": statusConfig.color, "--status-bg": statusConfig.bgColor } as React.CSSProperties}
     >
-      {/* Snooze Indicator Banner */}
-      {is_snoozed && (
-        <div className={classes.snoozeBanner}>
-          <IconBellOff size={12} />
-          <span>Snoozed</span>
-        </div>
-      )}
-
       {/* Header: Icon + Scope + Severity + Status */}
       <div className={classes.cardHeader}>
         <div className={classes.headerLeft}>
