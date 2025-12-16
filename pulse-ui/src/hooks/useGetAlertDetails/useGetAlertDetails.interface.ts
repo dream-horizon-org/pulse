@@ -9,3 +9,4 @@ export type GetAlertDetailsParams = {
 export type AlertDetailsResponse = AlertListItem;
 
 
+

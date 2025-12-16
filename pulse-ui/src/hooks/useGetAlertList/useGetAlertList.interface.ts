@@ -40,7 +40,7 @@ export type AlertListItem = {
   snoozed_from: number | null;
   snoozed_until: number | null;
   is_snoozed: boolean;
-  current_state?: AlertState;
+  status?: AlertState;
 };
 
 export type GetAlertListResponse = {
@@ -49,5 +49,6 @@ export type GetAlertListResponse = {
   limit: number;
   offset: number;
 };
+
 
 

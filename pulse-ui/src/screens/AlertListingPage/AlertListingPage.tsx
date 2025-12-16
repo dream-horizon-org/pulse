@@ -126,18 +126,18 @@ export function AlertListingPage({
   // Filter rows based on status tab
   const filteredRows = useMemo(() => {
     if (statusTab === "all") return rows;
-    if (statusTab === "firing") return rows.filter(r => r.current_state === "FIRING" && !r.is_snoozed);
+    if (statusTab === "firing") return rows.filter(r => r.status === "FIRING" && !r.is_snoozed);
     if (statusTab === "snoozed") return rows.filter(r => r.is_snoozed);
-    if (statusTab === "normal") return rows.filter(r => r.current_state !== "FIRING" && !r.is_snoozed);
+    if (statusTab === "normal") return rows.filter(r => r.status !== "FIRING" && !r.is_snoozed);
     return rows;
   }, [rows, statusTab]);
 
   // Calculate stats
   const stats = useMemo(() => {
     const total = rows.length;
-    const firing = rows.filter(r => r.current_state === "FIRING" && !r.is_snoozed).length;
+    const firing = rows.filter(r => r.status === "FIRING" && !r.is_snoozed).length;
     const snoozed = rows.filter(r => r.is_snoozed).length;
-    const normal = rows.filter(r => r.current_state !== "FIRING" && !r.is_snoozed).length;
+    const normal = rows.filter(r => r.status !== "FIRING" && !r.is_snoozed).length;
     return { total, firing, snoozed, normal };
   }, [rows]);
 
@@ -203,7 +203,7 @@ export function AlertListingPage({
             alert_id={element.alert_id}
             name={element.name}
             description={element.description}
-            current_state={element.current_state}
+            current_state={element.status}
             scope={element.scope}
             alerts={element.alerts}
             severity_id={element.severity_id}
@@ -355,6 +355,7 @@ export function AlertListingPage({
                           updated_by: [],
                         }
                       }
+                      scopeLabels={scopeLabels}
                       onFilterSave={handleFilter}
                       onFilterReset={handleReset}
                       created_by={filters?.created_by || null}

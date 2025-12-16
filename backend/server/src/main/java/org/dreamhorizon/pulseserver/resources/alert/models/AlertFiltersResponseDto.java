@@ -23,6 +23,10 @@ public class AlertFiltersResponseDto {
   public List<String> updatedBy;
 
   @NotNull
+  @JsonProperty("scope")
+  public List<String> scope;
+
+  @NotNull
   @JsonProperty("current_state")
   public List<AlertState> currentState;
 }

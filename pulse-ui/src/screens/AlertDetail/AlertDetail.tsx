@@ -159,7 +159,7 @@ export function AlertDetail(_props: AlertDetailProps) {
   };
 
   const alert = alertData?.data;
-  const isFiring = alert?.current_state === "FIRING";
+  const isFiring = alert?.status === "FIRING";
   const severity = severityConfig[alert?.severity_id || 1] || { label: "Unknown", color: "#6b7280" };
 
   if (isAlertLoading) {
@@ -175,9 +175,10 @@ export function AlertDetail(_props: AlertDetailProps) {
     );
   }
 
+  console.log(alert.status);
   const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
-  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring ? "#ef4444" : "#10b981";
-  const statusLabel = alert.is_snoozed ? "Snoozed" : isFiring ? "Firing" : "Normal";
+  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring || alert.status === "NO_DATA" ? "#ef4444" : "#10b981";
+  const statusLabel = alert.is_snoozed ? "Snoozed" : alert.status;
 
   // Format snooze end time
   const formatSnoozeUntil = (timestamp: number | null) => {

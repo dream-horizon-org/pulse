@@ -6,11 +6,11 @@ export type AlertFiltersProps = {
     scope: string[];
     updated_by: string[];
   };
+  scopeLabels: Record<string, string>;
   onFilterSave: (filters: FiltersType) => void;
   onFilterReset: () => void;
   created_by: string | null;
   scope: string | null;
   updated_by: string | null;
 };
-
 
