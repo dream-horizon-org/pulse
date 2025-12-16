@@ -998,14 +998,14 @@ class AlertModelsTest {
       dto.setNotificationChannelId(2);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
-      dto.setScope(org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.network);
+      dto.setScope(org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.network_api);
       dto.setDimensionFilters("{}");
       dto.setConditionExpression("A || B");
       dto.setAlerts(new ArrayList<>());
 
       assertEquals("New Alert", dto.getName());
       assertEquals(120, dto.getEvaluationPeriod());
-      assertEquals(org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.network, dto.getScope());
+      assertEquals(org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.network_api, dto.getScope());
     }
   }
 

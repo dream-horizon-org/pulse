@@ -1,9 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Badge, Loader, Tooltip, useMantineTheme, Divider } from "@mantine/core";
+import { Button, Badge, Loader, Tooltip, useMantineTheme, Divider, Collapse } from "@mantine/core";
 import {
   IconArrowLeft, IconEdit, IconBellX, IconBellRinging, IconCircleCheckFilled,
   IconSquareRoundedX, IconClock, IconUser, IconCalendar, IconActivity,
-  IconBell, IconBellOff, IconAlertTriangle,
+  IconBell, IconBellOff, IconAlertTriangle, IconChevronDown, IconChevronRight,
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
@@ -60,11 +60,38 @@ export function AlertDetail(_props: AlertDetailProps) {
   const theme = useMantineTheme();
   const { alertId } = useParams<{ alertId: string }>();
   const [showSnoozeLoader, setShowSnoozeLoader] = useState(false);
+  const [expandedScopes, setExpandedScopes] = useState<Set<number>>(new Set());
 
   const { data: alertData, isLoading: isAlertLoading, refetch: refetchAlert } = useGetAlertDetails({ queryParams: { alert_id: alertId || null } });
   const { data: evaluationHistoryData, isLoading: isHistoryLoading, refetch: refetchHistory } = useGetAlertEvaluationHistory({ alertId: alertId || "" });
   const { data: scopesData } = useGetAlertScopes();
   const { data: severitiesData } = useGetAlertSeverities();
+
+  const toggleScopeExpanded = (scopeId: number) => {
+    setExpandedScopes(prev => {
+      const next = new Set(prev);
+      if (next.has(scopeId)) {
+        next.delete(scopeId);
+      } else {
+        next.add(scopeId);
+      }
+      return next;
+    });
+  };
+
+  // Helper to get latest status for a scope
+  const getLatestStatus = (history: { state: string }[]) => {
+    if (!history || history.length === 0) return "NO_DATA";
+    return history[0].state;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "FIRING": return "#ef4444";
+      case "NORMAL": return "#10b981";
+      default: return "#9ca3af";
+    }
+  };
 
   // Build lookup maps
   const scopeLabels: Record<string, string> = {};
@@ -295,48 +322,99 @@ export function AlertDetail(_props: AlertDetailProps) {
               ) : evaluationHistoryData?.error ? (
                 <div className={classes.historyError}>{evaluationHistoryData.error.message}</div>
               ) : evaluationHistoryData?.data?.length ? (
-                <div className={classes.timeline}>
-                  {evaluationHistoryData.data.map((scopeHistory, scopeIdx) => (
-                    <div key={scopeIdx} className={classes.scopeHistorySection}>
-                      <div className={classes.scopeHistoryHeader}>
-                        <Badge size="sm" variant="light" color="cyan">{scopeHistory.scope_name}</Badge>
-                        <span className={classes.scopeId}>Scope #{scopeHistory.scope_id}</span>
-                      </div>
-                      {scopeHistory.evaluation_history.slice(0, 5).map((item, idx) => {
-                        const isItemFiring = item.state === "FIRING";
-                        const evaluationResult = parseEvaluationResult(item.evaluation_result);
-                        return (
-                          <div key={idx} className={classes.timelineItem}>
-                            <div className={classes.timelineDot} style={{ background: isItemFiring ? "#ef4444" : "#10b981" }} />
-                            <div className={classes.timelineContent}>
-                              <div className={classes.timelineHeader}>
-                                <Badge size="xs" variant="light" color={isItemFiring ? "red" : "green"}>{item.state}</Badge>
-                                <span className={classes.timelineTime}>{formatTime(new Date(item.evaluated_at))}</span>
-                              </div>
-                              
-                              {/* Metric Readings */}
-                              <div className={classes.scopeReadings}>
-                                <div className={classes.scopeReadingsHeader}>
-                                  <span>Metric</span>
-                                  <span>Value</span>
-                                </div>
-                                {Object.entries(evaluationResult).map(([metricKey, value], mrIdx) => (
-                                    <div key={mrIdx} className={classes.scopeReadingRow}>
-                                      <span className={classes.scopeName}>{metricKey}</span>
-                                      <span className={`${classes.scopeValue} ${isItemFiring ? classes.scopeValueFiring : classes.scopeValueNormal}`}>
-                                        {value}
-                                      </span>
-                                    </div>
-                                ))}
-                              </div>
-
-                              <span className={classes.timelineDate}>{formatDate(new Date(item.evaluated_at))}</span>
-                            </div>
+                <div className={classes.scopeHistoryList}>
+                  {evaluationHistoryData.data.map((scopeHistory, scopeIdx) => {
+                    const isExpanded = expandedScopes.has(scopeHistory.scope_id);
+                    const latestStatus = getLatestStatus(scopeHistory.evaluation_history);
+                    const statusColor = getStatusColor(latestStatus);
+                    
+                    return (
+                      <div key={scopeIdx} className={classes.scopeHistorySection}>
+                        {/* Collapsible Header */}
+                        <button 
+                          className={classes.scopeHistoryHeader}
+                          onClick={() => toggleScopeExpanded(scopeHistory.scope_id)}
+                        >
+                          <div className={classes.scopeHeaderLeft}>
+                            {isExpanded ? (
+                              <IconChevronDown size={16} className={classes.collapseIcon} />
+                            ) : (
+                              <IconChevronRight size={16} className={classes.collapseIcon} />
+                            )}
+                            <Badge 
+                              size="sm" 
+                              variant="filled" 
+                              style={{ background: statusColor }}
+                              className={classes.latestStatusBadge}
+                            >
+                              {latestStatus}
+                            </Badge>
+                            <Tooltip label={scopeHistory.scope_name} position="top">
+                              <span className={classes.scopeNameText}>
+                                {scopeHistory.scope_name.length > 25 
+                                  ? `${scopeHistory.scope_name.slice(0, 25)}...` 
+                                  : scopeHistory.scope_name}
+                              </span>
+                            </Tooltip>
                           </div>
-                        );
-                      })}
-                    </div>
-                  ))}
+                          <span className={classes.scopeHistoryCount}>
+                            {scopeHistory.evaluation_history.length} eval{scopeHistory.evaluation_history.length !== 1 ? 's' : ''}
+                          </span>
+                        </button>
+                        
+                        {/* Collapsible Content - Timeline */}
+                        <Collapse in={isExpanded}>
+                          <div className={classes.timeline}>
+                            {scopeHistory.evaluation_history.slice(0, 10).map((item, idx) => {
+                              const isItemFiring = item.state === "FIRING";
+                              const isItemNoData = item.state === "NO_DATA";
+                              const itemColor = isItemFiring ? "#ef4444" : isItemNoData ? "#9ca3af" : "#10b981";
+                              const evaluationResult = parseEvaluationResult(item.evaluation_result);
+                              
+                              return (
+                                <div key={idx} className={classes.timelineItem}>
+                                  <div className={classes.timelineDot} style={{ background: itemColor }} />
+                                  <div className={classes.timelineContent}>
+                                    <div className={classes.timelineHeader}>
+                                      <Badge size="xs" variant="light" color={isItemFiring ? "red" : isItemNoData ? "gray" : "green"}>
+                                        {item.state}
+                                      </Badge>
+                                      <span className={classes.timelineTime}>{formatTime(new Date(item.evaluated_at))}</span>
+                                    </div>
+                                    
+                                    {/* Metric Readings */}
+                                    {Object.keys(evaluationResult).length > 0 && (
+                                      <div className={classes.scopeReadings}>
+                                        <div className={classes.scopeReadingsHeader}>
+                                          <span>Metric</span>
+                                          <span>Value</span>
+                                        </div>
+                                        {Object.entries(evaluationResult).map(([metricKey, value], mrIdx) => (
+                                          <div key={mrIdx} className={classes.scopeReadingRow}>
+                                            <span className={classes.scopeName}>{METRIC_LABELS[metricKey] || metricKey}</span>
+                                            <span className={`${classes.scopeValue} ${isItemFiring ? classes.scopeValueFiring : classes.scopeValueNormal}`}>
+                                              {typeof value === 'number' ? value.toFixed(4) : value}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    <span className={classes.timelineDate}>{formatDate(new Date(item.evaluated_at))}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {scopeHistory.evaluation_history.length > 10 && (
+                              <div className={classes.historyMore}>
+                                +{scopeHistory.evaluation_history.length - 10} more evaluations
+                              </div>
+                            )}
+                          </div>
+                        </Collapse>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className={classes.historyEmpty}>No evaluation history yet</div>

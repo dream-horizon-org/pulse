@@ -233,13 +233,13 @@ class AlertModelsServiceTest {
       request.setNotificationChannelId(2);
       request.setCreatedBy("newCreator");
       request.setUpdatedBy("newUpdater");
-      request.setScope(AlertScope.network);
+      request.setScope(AlertScope.network_api);
       request.setDimensionFilters("{}");
       request.setConditionExpression("A || B");
       request.setAlerts(new ArrayList<>());
 
       assertEquals("Updated Name", request.getName());
-      assertEquals(AlertScope.network, request.getScope());
+      assertEquals(AlertScope.network_api, request.getScope());
     }
 
     @Test
@@ -435,7 +435,7 @@ class AlertModelsServiceTest {
 
     @Test
     void shouldHaveNetworkScope() {
-      AlertScope scope = AlertScope.network;
+      AlertScope scope = AlertScope.network_api;
       assertNotNull(scope);
     }
 
@@ -448,7 +448,7 @@ class AlertModelsServiceTest {
     @Test
     void shouldGetValueByName() {
       assertEquals(AlertScope.Interaction, AlertScope.valueOf("Interaction"));
-      assertEquals(AlertScope.network, AlertScope.valueOf("network"));
+      assertEquals(AlertScope.network_api, AlertScope.valueOf("network_api"));
       assertEquals(AlertScope.screen, AlertScope.valueOf("screen"));
     }
   }

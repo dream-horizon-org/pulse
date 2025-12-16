@@ -350,6 +350,21 @@
 .historyContainer {
   max-height: 500px;
   overflow-y: auto;
+  padding-right: 4px;
+}
+
+.historyContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.historyContainer::-webkit-scrollbar-track {
+  background: rgba(14, 201, 194, 0.05);
+  border-radius: 2px;
+}
+
+.historyContainer::-webkit-scrollbar-thumb {
+  background: rgba(14, 201, 194, 0.2);
+  border-radius: 2px;
 }
 
 .historyLoader, .historyEmpty, .historyError {
@@ -368,52 +383,102 @@
   color: #ef4444;
 }
 
-/* Scope History Section */
-.scopeHistorySection {
-  padding-bottom: 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
-}
-
-.scopeHistorySection:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.scopeHistoryHeader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed rgba(14, 201, 194, 0.12);
-}
-
-.scopeId {
+.historyMore {
+  text-align: center;
+  padding: 8px;
   font-size: 11px;
   color: #9ca3af;
-  font-weight: 500;
+  font-style: italic;
 }
 
+/* Scope History List */
+.scopeHistoryList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Scope History Section */
+.scopeHistorySection {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(14, 201, 194, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Collapsible Header */
+.scopeHistoryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.02) 0%, rgba(14, 201, 194, 0.06) 100%);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.scopeHistoryHeader:hover {
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.04) 0%, rgba(14, 201, 194, 0.1) 100%);
+}
+
+.scopeHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.collapseIcon {
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.latestStatusBadge {
+  flex-shrink: 0;
+}
+
+.scopeNameText {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scopeHistoryCount {
+  font-size: 11px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* Timeline inside collapsed section */
 .timeline {
   display: flex;
   flex-direction: column;
   gap: 0;
   position: relative;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .timelineItem {
   display: flex;
   gap: 12px;
-  padding: 12px 0;
+  padding: 10px 0;
   position: relative;
 }
+
 .timelineItem:not(:last-child)::after {
   content: "";
   position: absolute;
   left: 5px;
-  top: 28px;
+  top: 26px;
   bottom: 0;
   width: 2px;
   background: rgba(14, 201, 194, 0.15);
@@ -426,6 +491,7 @@
   flex-shrink: 0;
   margin-top: 4px;
   z-index: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .timelineContent {
@@ -433,6 +499,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .timelineHeader {
@@ -443,7 +510,14 @@
 
 .timelineTime {
   font-size: 11px;
+  color: #6b7280;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.timelineDate {
+  font-size: 10px;
   color: #9ca3af;
+  margin-top: 4px;
 }
 
 /* Per-Scope Readings Table */
@@ -481,19 +555,20 @@
 }
 
 .scopeName {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: #374151;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-grow: 1;
 }
 
 .scopeValue {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   font-family: "JetBrains Mono", monospace;
-  text-align: right;
+  text-align: left;
 }
 
 .scopeValueFiring {
@@ -502,21 +577,6 @@
 
 .scopeValueNormal {
   color: #10b981;
-}
-
-.scopeThreshold {
-  font-size: 11px;
-  font-weight: 500;
-  font-family: "JetBrains Mono", monospace;
-  color: #9ca3af;
-  text-align: right;
-}
-
-.timelineDate {
-  font-size: 10px;
-  color: #9ca3af;
-  margin-top: 6px;
-  display: block;
 }
 
 /* Responsive */

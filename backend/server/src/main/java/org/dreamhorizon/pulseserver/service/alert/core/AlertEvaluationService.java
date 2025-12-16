@@ -158,7 +158,7 @@ public class AlertEvaluationService {
     }
 
     for (String metric : metrics) {
-      Functions function = MetricToFunctionMapper.mapMetricToFunction(metric);
+      Functions function = MetricToFunctionMapper.mapMetricToFunction(metric, alertDetails.getScope());
       if (function != null) {
         QueryRequest.SelectItem selectItem = new QueryRequest.SelectItem();
         selectItem.setFunction(function);
@@ -205,11 +205,16 @@ public class AlertEvaluationService {
     if (!isAppVitals && alertDetails.getScope() != null && !alertDetails.getScope().isEmpty()) {
       QueryRequest.Filter spanTypeFilter = new QueryRequest.Filter();
       spanTypeFilter.setField("SpanType");
-      spanTypeFilter.setOperator(QueryRequest.Operator.IN);
 
       if ("SCREEN".equalsIgnoreCase(alertDetails.getScope())) {
+        spanTypeFilter.setOperator(QueryRequest.Operator.IN);
         spanTypeFilter.setValue(List.of("screen_session", "screen_load"));
+      } else if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope())) {
+        // Network SpanTypes are like "network.200", "network.404", etc.
+        spanTypeFilter.setOperator(QueryRequest.Operator.LIKE);
+        spanTypeFilter.setValue(List.of("network.%"));
       } else {
+        spanTypeFilter.setOperator(QueryRequest.Operator.IN);
         spanTypeFilter.setValue(List.of(alertDetails.getScope()));
       }
 
@@ -248,6 +253,20 @@ public class AlertEvaluationService {
                                                  List<AlertsDao.AlertScopeDetails> scopes,
                                                  PerformanceMetricDistributionRes queryResult) {
     List<EvaluationResult> results = new ArrayList<>();
+
+    // If query returned no rows, fields will be empty - treat all scopes as NO_DATA
+    if (queryResult.getFields() == null || queryResult.getFields().isEmpty()) {
+      log.info("No data returned from query for alert {}. All scopes will be set to NO_DATA.",
+          alertDetails.getId());
+      for (AlertsDao.AlertScopeDetails scope : scopes) {
+        results.add(EvaluationResult.builder()
+            .scopeId(scope.getId())
+            .state(AlertState.NO_DATA)
+            .isFiring(false)
+            .build());
+      }
+      return results;
+    }
 
     Map<String, Integer> fieldIndexMap = new HashMap<>();
     for (int i = 0; i < queryResult.getFields().size(); i++) {
@@ -356,6 +375,7 @@ public class AlertEvaluationService {
       EvaluationResult result = new EvaluationResult();
       result.setScopeId(scope.getId());
       result.setState(finalState);
+      result.setFiring(finalState == AlertState.FIRING);
       result.setEvaluationResult(buildEvaluationResultJson(metricReadings, variableValues, expressionResult));
       results.add(result);
     }
@@ -703,7 +723,7 @@ public class AlertEvaluationService {
     return switch (scope.toUpperCase()) {
       case "INTERACTION" -> "SpanName";
       case "SCREEN" -> "SpanAttributes['screen.name']";
-      case "NETWORK" -> "SpanAttributes['http.url']";
+      case "NETWORK_API" -> "SpanAttributes['http.url']";
       case "APP_VITALS" -> "GroupId";
       default -> "SpanName";
     };
@@ -717,9 +737,13 @@ public class AlertEvaluationService {
   }
 
   @lombok.Data
+  @lombok.Builder
+  @lombok.NoArgsConstructor
+  @lombok.AllArgsConstructor
   private static class EvaluationResult {
     private Integer scopeId;
     private AlertState state;
+    private boolean isFiring;
     private String evaluationResult;
   }
 }

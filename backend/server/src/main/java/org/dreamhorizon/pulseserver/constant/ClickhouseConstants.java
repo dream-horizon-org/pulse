@@ -25,12 +25,21 @@ public class ClickhouseConstants {
   public final String AVERAGE_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Average')";
   public final String POOR_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
 
+  // Network metrics for interactions flow (uses Events.Name)
   public final String NET_0 = "sum(arrayCount(x -> x = 'network.0', Events.Name))";
   public final String NET_2XX = "sum(arrayCount(x -> x LIKE 'network.2%', Events.Name))";
   public final String NET_3XX = "sum(arrayCount(x -> x LIKE 'network.3%', Events.Name))";
   public final String NET_4XX = "sum(arrayCount(x -> x LIKE 'network.4%', Events.Name))";
   public final String NET_5XX = "sum(arrayCount(x -> x LIKE 'network.5%', Events.Name))";
   public final String NET_COUNT = "count()";
+
+  // Network metrics for alerts flow (uses SpanType - network traces have status in SpanType)
+  public final String NET_0_BY_SPAN_TYPE = "countIf(SpanType = 'network.0')";
+  public final String NET_2XX_BY_SPAN_TYPE = "countIf(SpanType LIKE 'network.2%')";
+  public final String NET_3XX_BY_SPAN_TYPE = "countIf(SpanType LIKE 'network.3%')";
+  public final String NET_4XX_BY_SPAN_TYPE = "countIf(SpanType LIKE 'network.4%')";
+  public final String NET_5XX_BY_SPAN_TYPE = "countIf(SpanType LIKE 'network.5%')";
+  public final String NET_COUNT_BY_SPAN_TYPE = "countIf(SpanType LIKE 'network.%')";
 
   public final String CRASH_RATE = "countIf(has(Events.Name, 'device.crash'))/count()";
   public final String ANR_RATE = "countIf(has(Events.Name, 'device.anr'))/count()";

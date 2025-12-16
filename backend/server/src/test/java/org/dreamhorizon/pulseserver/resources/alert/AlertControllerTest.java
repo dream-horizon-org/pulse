@@ -194,7 +194,7 @@ class AlertControllerTest {
       dto.setNotificationChannelId(2);
       dto.setCreatedBy("creator");
       dto.setUpdatedBy("updater");
-      dto.setScope(AlertScope.network);
+      dto.setScope(AlertScope.network_api);
       dto.setDimensionFilters("{\"key\":\"value\"}");
       dto.setConditionExpression("A || B");
       dto.setAlerts(alerts);
@@ -207,7 +207,7 @@ class AlertControllerTest {
       assertEquals(2, dto.getNotificationChannelId());
       assertEquals("creator", dto.getCreatedBy());
       assertEquals("updater", dto.getUpdatedBy());
-      assertEquals(AlertScope.network, dto.getScope());
+      assertEquals(AlertScope.network_api, dto.getScope());
       assertEquals("{\"key\":\"value\"}", dto.getDimensionFilters());
       assertEquals("A || B", dto.getConditionExpression());
       assertEquals(alerts, dto.getAlerts());
