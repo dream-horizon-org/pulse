@@ -24,6 +24,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.resources.interaction.models.AllInteractionDetail;
 import org.dreamhorizon.pulseserver.resources.interaction.models.DeleteInteractionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestRequest;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
@@ -73,9 +74,10 @@ public class InteractionController {
   @Path("/all-active-interactions")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<List<InteractionDetails>>> getAllInteractions() {
+  public CompletionStage<Response<List<AllInteractionDetail>>> getAllInteractions() {
 
     return interactionService.getAllActiveAndRunningInteractions()
+        .map(mapper::toAllInteractionDetail)
         .to(RestResponse.jaxrsRestHandler());
   }
 
