@@ -1,3 +1,18 @@
+public class com/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer : kotlinx/serialization/KSerializer {
+	public static final field Companion Lcom/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer$Companion;
+	public static final field UNKNOWN_KEY_NAME Ljava/lang/String;
+	public fun <init> (Lkotlin/reflect/KClass;Ljava/lang/String;)V
+	public synthetic fun <init> (Lkotlin/reflect/KClass;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Enum;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Enum;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer$Companion {
+}
+
 public final class com/pulse/otel/utils/PulseOtelUtils {
 	public static final field INSTANCE Lcom/pulse/otel/utils/PulseOtelUtils;
 	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
