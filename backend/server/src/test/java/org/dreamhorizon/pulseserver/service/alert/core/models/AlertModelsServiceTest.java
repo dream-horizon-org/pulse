@@ -201,7 +201,7 @@ class AlertModelsServiceTest {
           .notificationChannelId(1)
           .createdBy("creator")
           .updatedBy("updater")
-          .scope(AlertScope.Interaction)
+          .scope(AlertScope.interaction)
           .dimensionFilters("{}")
           .conditionExpression("A && B")
           .alerts(alerts)
@@ -215,7 +215,7 @@ class AlertModelsServiceTest {
       assertEquals(1, request.getNotificationChannelId());
       assertEquals("creator", request.getCreatedBy());
       assertEquals("updater", request.getUpdatedBy());
-      assertEquals(AlertScope.Interaction, request.getScope());
+      assertEquals(AlertScope.interaction, request.getScope());
       assertEquals("{}", request.getDimensionFilters());
       assertEquals("A && B", request.getConditionExpression());
       assertEquals(alerts, request.getAlerts());
@@ -277,7 +277,7 @@ class AlertModelsServiceTest {
           .notificationChannelId(1)
           .createdBy("creator")
           .updatedBy("updater")
-          .scope(AlertScope.Interaction)
+          .scope(AlertScope.interaction)
           .dimensionFilters("{}")
           .conditionExpression("A && B")
           .alerts(alerts)
@@ -292,7 +292,7 @@ class AlertModelsServiceTest {
       assertEquals(1, request.getNotificationChannelId());
       assertEquals("creator", request.getCreatedBy());
       assertEquals("updater", request.getUpdatedBy());
-      assertEquals(AlertScope.Interaction, request.getScope());
+      assertEquals(AlertScope.interaction, request.getScope());
       assertEquals("{}", request.getDimensionFilters());
       assertEquals("A && B", request.getConditionExpression());
     }
@@ -428,9 +428,9 @@ class AlertModelsServiceTest {
 
     @Test
     void shouldHaveInteractionScope() {
-      AlertScope scope = AlertScope.Interaction;
+      AlertScope scope = AlertScope.interaction;
       assertNotNull(scope);
-      assertEquals("Interaction", scope.name());
+      assertEquals("interaction", scope.name());
     }
 
     @Test
@@ -447,7 +447,7 @@ class AlertModelsServiceTest {
 
     @Test
     void shouldGetValueByName() {
-      assertEquals(AlertScope.Interaction, AlertScope.valueOf("Interaction"));
+      assertEquals(AlertScope.interaction, AlertScope.valueOf("interaction"));
       assertEquals(AlertScope.network_api, AlertScope.valueOf("network_api"));
       assertEquals(AlertScope.screen, AlertScope.valueOf("screen"));
     }

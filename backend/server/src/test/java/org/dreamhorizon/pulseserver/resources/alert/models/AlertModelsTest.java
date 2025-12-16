@@ -976,7 +976,7 @@ class AlertModelsTest {
       List<AlertConditionDto> alerts = new ArrayList<>();
       CreateAlertRequestDto dto = new CreateAlertRequestDto(
           "Test Alert", "Description", 60, 300, 1, 1, "user", "user",
-          org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.Interaction,
+          org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.interaction,
           "{}", "A && B", alerts
       );
 
@@ -1024,7 +1024,7 @@ class AlertModelsTest {
       List<AlertConditionDto> alerts = new ArrayList<>();
       UpdateAlertRequestDto dto = new UpdateAlertRequestDto(
           1, "Test Alert", "Description", 60, 300, 1, 1, "user", "user",
-          org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.Interaction,
+          org.dreamhorizon.pulseserver.service.alert.core.models.AlertScope.interaction,
           "{}", "A && B", alerts
       );
 

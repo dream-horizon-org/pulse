@@ -140,7 +140,7 @@ class AlertServiceTest {
           .notificationChannelId(1)
           .createdBy("user")
           .updatedBy("user")
-          .scope(AlertScope.Interaction)
+          .scope(AlertScope.interaction)
           .conditionExpression("A && B")
           .alerts(new ArrayList<>())
           .build();
@@ -167,7 +167,7 @@ class AlertServiceTest {
           .notificationChannelId(1)
           .createdBy("user")
           .updatedBy("user")
-          .scope(AlertScope.Interaction)
+          .scope(AlertScope.interaction)
           .conditionExpression("A && B")
           .alerts(new ArrayList<>())
           .build();
@@ -194,7 +194,7 @@ class AlertServiceTest {
           .notificationChannelId(1)
           .createdBy("user")
           .updatedBy("user")
-          .scope(AlertScope.Interaction)
+          .scope(AlertScope.interaction)
           .conditionExpression("A && B")
           .alerts(new ArrayList<>())
           .build();
@@ -222,7 +222,7 @@ class AlertServiceTest {
           .notificationChannelId(1)
           .createdBy("user")
           .updatedBy("user")
-          .scope(AlertScope.Interaction)
+          .scope(AlertScope.interaction)
           .conditionExpression("A && B")
           .alerts(new ArrayList<>())
           .build();
