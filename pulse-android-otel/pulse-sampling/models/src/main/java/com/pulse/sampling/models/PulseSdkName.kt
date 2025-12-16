@@ -1,11 +1,12 @@
 package com.pulse.sampling.models
 
 import androidx.annotation.Keep
+import com.pulse.otel.utils.PulseFallbackToUnknownEnumSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Keep
-@Serializable
+@Serializable(with = PulseSdkNameSerializer::class)
 public enum class PulseSdkName {
     @SerialName(ANDROID_JAVA_SDK_NAME_STR)
     ANDROID_JAVA,
@@ -22,7 +23,7 @@ public enum class PulseSdkName {
     /**
      * Unknown SDK name which is may come in future
      */
-    @SerialName("unknown")
+    @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
     ;
 
@@ -31,3 +32,5 @@ public enum class PulseSdkName {
         internal const val ANDROID_JAVA_SDK_NAME_STR = "android_java"
     }
 }
+
+private class PulseSdkNameSerializer : PulseFallbackToUnknownEnumSerializer<PulseSdkName>(PulseSdkName::class)
