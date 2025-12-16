@@ -24,7 +24,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.resources.interaction.models.AllInteractionDetail;
 import org.dreamhorizon.pulseserver.resources.interaction.models.DeleteInteractionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestRequest;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
@@ -39,15 +38,12 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
-import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Path("/v1/interactions")
 public class InteractionController {
-  private static final String TYPE_EXPERIENCE = "experience";
-  private static final String OPERATION_UPDATE = "update";
   private static final RestInteractionMapper mapper = RestInteractionMapper.INSTANCE;
 
   private final InteractionService interactionService;
@@ -68,17 +64,6 @@ public class InteractionController {
         .collect(Collectors.toList());
 
     return Map.of("errors", messages);
-  }
-
-  @GET
-  @Path("/all-active-interactions")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<List<AllInteractionDetail>>> getAllInteractions() {
-
-    return interactionService.getAllActiveAndRunningInteractions()
-        .map(mapper::toAllInteractionDetail)
-        .to(RestResponse.jaxrsRestHandler());
   }
 
   @GET
