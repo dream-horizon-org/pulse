@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.resources.interaction.models.AllInteractionDetail;
+import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
@@ -26,9 +26,9 @@ public class InteractionConfigController {
   @GET
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<List<AllInteractionDetail>>> getAllInteractions() {
-    return interactionService.getAllActiveAndRunningInteractions()
-        .map(mapper::toAllInteractionDetail)
+  public CompletionStage<Response<List<InteractionConfig>>> getInteractionConfig() {
+    return interactionService.getInteractionConfig()
+        .map(mapper::toInteractionConfig)
         .to(RestResponse.jaxrsRestHandler());
   }
 }

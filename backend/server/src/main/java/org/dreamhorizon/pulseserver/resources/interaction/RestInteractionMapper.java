@@ -1,7 +1,7 @@
 package org.dreamhorizon.pulseserver.resources.interaction;
 
 import java.util.List;
-import org.dreamhorizon.pulseserver.resources.interaction.models.AllInteractionDetail;
+import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestRequest;
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
@@ -34,7 +34,7 @@ public abstract class RestInteractionMapper {
 
   public abstract RestInteractionDetail toRestInteractionDetail(InteractionDetails event);
 
-  public abstract List<AllInteractionDetail> toAllInteractionDetail(List<InteractionDetails> details);
+  public abstract List<InteractionConfig> toInteractionConfig(List<InteractionDetails> details);
 
   public abstract List<Event> toServiceEvents(List<RestInteractionDetail.Event> events);
 
