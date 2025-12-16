@@ -5,11 +5,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.telephony.TelephonyManager
 import androidx.annotation.Keep
+import com.pulse.otel.utils.PulseFallbackToUnknownEnumSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Keep
-@Serializable
+@Serializable(with = PulseDeviceAttributeNameSerializer::class)
 public enum class PulseDeviceAttributeName {
     @SerialName("os_version")
     OS_VERSION,
@@ -29,7 +30,7 @@ public enum class PulseDeviceAttributeName {
     /**
      * Unknown device attr name which is may come in future
      */
-    @SerialName("unknown")
+    @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
     ;
 
@@ -77,3 +78,6 @@ public enum class PulseDeviceAttributeName {
         return currentValue?.matches(regex) == true
     }
 }
+
+private class PulseDeviceAttributeNameSerializer :
+    PulseFallbackToUnknownEnumSerializer<PulseDeviceAttributeName>(PulseDeviceAttributeName::class)
