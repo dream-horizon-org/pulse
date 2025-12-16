@@ -154,7 +154,7 @@ class AlertControllerTest {
           1,
           "user",
           "user",
-          AlertScope.Interaction,
+          AlertScope.interaction,
           "{}",
           "A && B",
           alerts
@@ -168,7 +168,7 @@ class AlertControllerTest {
       assertEquals(1, dto.getNotificationChannelId());
       assertEquals("user", dto.getCreatedBy());
       assertEquals("user", dto.getUpdatedBy());
-      assertEquals(AlertScope.Interaction, dto.getScope());
+      assertEquals(AlertScope.interaction, dto.getScope());
       assertEquals("{}", dto.getDimensionFilters());
       assertEquals("A && B", dto.getConditionExpression());
       assertEquals(alerts, dto.getAlerts());
@@ -249,7 +249,7 @@ class AlertControllerTest {
           1,
           "user",
           "user",
-          AlertScope.Interaction,
+          AlertScope.interaction,
           "{}",
           "A && B",
           alerts
@@ -467,7 +467,7 @@ class AlertControllerTest {
       AlertScope[] scopes = AlertScope.values();
 
       assertEquals(4, scopes.length);
-      assertNotNull(AlertScope.valueOf("Interaction"));
+      assertNotNull(AlertScope.valueOf("interaction"));
       assertNotNull(AlertScope.valueOf("network"));
       assertNotNull(AlertScope.valueOf("screen"));
       assertNotNull(AlertScope.valueOf("app_vitals"));
@@ -578,7 +578,7 @@ class AlertControllerTest {
         1,
         "user",
         "user",
-        AlertScope.Interaction,
+        AlertScope.interaction,
         null,
         "A && B",
         new ArrayList<>()
@@ -596,7 +596,7 @@ class AlertControllerTest {
         1,
         "user",
         "user",
-        AlertScope.Interaction,
+        AlertScope.interaction,
         null,
         "A && B",
         new ArrayList<>()
