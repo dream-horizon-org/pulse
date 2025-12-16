@@ -1,6 +1,7 @@
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
+    alias(libs.plugins.kotlinSerialisation)
 }
 
 description = "Internal module for Pulse utils for mobile observability"
@@ -18,4 +19,5 @@ dependencies {
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
+    implementation(libs.kotlin.serialisation)
 }

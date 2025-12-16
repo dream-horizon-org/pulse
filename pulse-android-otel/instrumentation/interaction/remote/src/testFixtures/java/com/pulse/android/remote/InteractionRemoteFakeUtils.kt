@@ -30,11 +30,6 @@ public object InteractionRemoteFakeUtils {
             thresholdInMs = thresholdInNanos / 1000_000,
             shouldThrowOnWrongConfig = shouldThrowOnWrongConfig,
             description = "fake-description",
-            status = InteractionStatus.RUNNING,
-            createdAtInMs = System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(100),
-            updatedAtInMs = System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(100),
-            createdBy = "fake-user",
-            updatedBy = "fake-user",
         )
 
     public fun createFakeInteractionAttrsEntry(

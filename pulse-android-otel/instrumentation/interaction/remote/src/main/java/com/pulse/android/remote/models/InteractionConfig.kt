@@ -17,11 +17,6 @@ public class InteractionConfig internal constructor(
     public val uptimeMidLimitInMs: Long,
     public val uptimeUpperLimitInMs: Long,
     public val thresholdInMs: Long,
-    internal val status: InteractionStatus,
-    internal val createdAtInMs: Long,
-    internal val updatedAtInMs: Long?,
-    internal val createdBy: String,
-    internal val updatedBy: String?,
     @Transient
     internal val shouldThrowOnWrongConfig: Boolean = BuildConfig.DEBUG,
 ) {
