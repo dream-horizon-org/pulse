@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 
 @Data
 @AllArgsConstructor
@@ -98,4 +99,7 @@ public class AlertDetailsResponseDto {
 
   @JsonProperty("is_snoozed")
   Boolean isSnoozed;
+
+  @JsonProperty("status")
+  AlertState status;
 }

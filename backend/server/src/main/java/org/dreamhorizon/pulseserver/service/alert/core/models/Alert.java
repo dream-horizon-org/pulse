@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.validation.constraints.NotNull;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -89,4 +90,6 @@ public class Alert {
   LocalDateTime snoozedUntil;
 
   Boolean isSnoozed;
+
+  AlertState status;
 }

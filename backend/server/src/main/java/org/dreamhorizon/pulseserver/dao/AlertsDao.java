@@ -115,13 +115,57 @@ public class AlertsDao {
   private Alert enrichAlertWithConditions(Alert alert, List<Map<String, Object>> scopes) {
     try {
       List<AlertConditionDto> alertConditions = parseAlertConditionsFromScopes(scopes);
+      AlertState alertStatus = computeAlertStatusFromScopes(scopes);
       return alert.toBuilder()
           .alerts(alertConditions)
+          .status(alertStatus)
           .build();
     } catch (Exception e) {
       log.error("Error parsing alert conditions for alert {}: {}", alert.getAlertId(), e.getMessage());
       return alert;
     }
+  }
+
+  private AlertState computeAlertStatusFromScopes(List<Map<String, Object>> scopes) {
+    if (scopes == null || scopes.isEmpty()) {
+      return AlertState.NORMAL;
+    }
+
+    boolean hasFiring = false;
+    boolean hasNoData = false;
+    boolean allNormal = true;
+
+    for (Map<String, Object> scope : scopes) {
+      String stateStr = (String) scope.get("state");
+      if (stateStr == null) {
+        continue;
+      }
+
+      try {
+        AlertState state = AlertState.valueOf(stateStr);
+        if (state == AlertState.FIRING) {
+          hasFiring = true;
+          allNormal = false;
+        } else if (state == AlertState.NO_DATA) {
+          hasNoData = true;
+          allNormal = false;
+        } else if (state != AlertState.NORMAL) {
+          allNormal = false;
+        }
+      } catch (IllegalArgumentException e) {
+        log.warn("Unknown alert state: {}", stateStr);
+      }
+    }
+
+    if (hasFiring) {
+      return AlertState.FIRING;
+    } else if (hasNoData) {
+      return AlertState.NO_DATA;
+    } else if (allNormal) {
+      return AlertState.NORMAL;
+    }
+
+    return AlertState.NORMAL;
   }
 
   public Single<Integer> createAlert(@NotNull @Valid CreateAlertRequest req) {

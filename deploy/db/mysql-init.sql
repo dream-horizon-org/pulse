@@ -175,7 +175,10 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'SCREEN DAILY USERS value >= 0', 'screen'),
     ('SCREEN_ERROR_RATE', 'SCREEN ERROR RATE value [0,1]', 'screen'),
-    ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen');
+    ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen'),
+    ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen'),
+    ('LOAD_TIME', 'LOAD TIME value >= 0', 'screen');
+
 
 -- Insert network_api scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
