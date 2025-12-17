@@ -510,12 +510,14 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       List<String> createdBy = List.of("user1", "user2");
       List<String> updatedBy = List.of("user3");
+      List<String> scope = List.of("Interaction", "API");
       List<AlertState> states = List.of(AlertState.NORMAL, AlertState.FIRING);
 
-      AlertFiltersResponseDto dto = new AlertFiltersResponseDto(createdBy, updatedBy, states);
+      AlertFiltersResponseDto dto = new AlertFiltersResponseDto(createdBy, updatedBy, scope, states);
 
       assertEquals(createdBy, dto.getCreatedBy());
       assertEquals(updatedBy, dto.getUpdatedBy());
+      assertEquals(scope, dto.getScope());
       assertEquals(states, dto.getCurrentState());
     }
 
@@ -523,16 +525,19 @@ class AlertModelsTest {
     void shouldCreateWithBuilder() {
       List<String> createdBy = new ArrayList<>();
       List<String> updatedBy = new ArrayList<>();
+      List<String> scope = new ArrayList<>();
       List<AlertState> states = new ArrayList<>();
 
       AlertFiltersResponseDto dto = AlertFiltersResponseDto.builder()
           .createdBy(createdBy)
           .updatedBy(updatedBy)
+          .scope(scope)
           .currentState(states)
           .build();
 
       assertEquals(createdBy, dto.createdBy);
       assertEquals(updatedBy, dto.updatedBy);
+      assertEquals(scope, dto.scope);
       assertEquals(states, dto.currentState);
     }
 
@@ -542,14 +547,17 @@ class AlertModelsTest {
 
       List<String> createdBy = List.of("creator");
       List<String> updatedBy = List.of("updater");
+      List<String> scope = List.of("Interaction");
       List<AlertState> states = List.of(AlertState.SILENCED);
 
       dto.setCreatedBy(createdBy);
       dto.setUpdatedBy(updatedBy);
+      dto.setScope(scope);
       dto.setCurrentState(states);
 
       assertEquals(createdBy, dto.getCreatedBy());
       assertEquals(updatedBy, dto.getUpdatedBy());
+      assertEquals(scope, dto.getScope());
       assertEquals(states, dto.getCurrentState());
     }
   }
