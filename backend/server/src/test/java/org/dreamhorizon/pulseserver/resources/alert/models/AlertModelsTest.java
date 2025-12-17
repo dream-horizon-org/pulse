@@ -460,18 +460,18 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       AlertTagsResponseDto dto = new AlertTagsResponseDto(1, "production");
 
-      assertEquals(1, dto.getTag_id());
+      assertEquals(1, dto.getTagId());
       assertEquals("production", dto.getName());
     }
 
     @Test
     void shouldCreateWithBuilder() {
       AlertTagsResponseDto dto = AlertTagsResponseDto.builder()
-          .tag_id(2)
+          .tagId(2)
           .name("critical")
           .build();
 
-      assertEquals(2, dto.getTag_id());
+      assertEquals(2, dto.getTagId());
       assertEquals("critical", dto.getName());
     }
 
@@ -479,10 +479,10 @@ class AlertModelsTest {
     void shouldSetAndGetFields() {
       AlertTagsResponseDto dto = new AlertTagsResponseDto();
 
-      dto.setTag_id(3);
+      dto.setTagId(3);
       dto.setName("development");
 
-      assertEquals(3, dto.getTag_id());
+      assertEquals(3, dto.getTagId());
       assertEquals("development", dto.getName());
     }
 

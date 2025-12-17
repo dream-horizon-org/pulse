@@ -174,7 +174,7 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
 -- Insert Screen scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'Daily Users Count', 'screen'),
-    ('SCREEN_ERROR_RATE', 'Error Rate (%)', 'screen'),
+    ('ERROR_RATE', 'Error Rate (%)', 'screen'),
     ('SCREEN_TIME', 'Screen Time (s)', 'screen'),
     ('LOAD_TIME', 'Load Time (ms)', 'screen');
 

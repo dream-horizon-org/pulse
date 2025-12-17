@@ -85,7 +85,7 @@ export const mockAlertMetrics: Record<string, { scope: string; metrics: Array<{ 
     scope: "screen",
     metrics: [
       { id: 17, name: "SCREEN_DAILY_USERS", label: "SCREEN DAILY USERS value >= 0" },
-      { id: 18, name: "SCREEN_ERROR_RATE", label: "SCREEN ERROR RATE value [0,1]" },
+      { id: 18, name: "ERROR_RATE", label: "SCREEN ERROR RATE value [0,1]" },
       { id: 19, name: "SCREEN_TIME", label: "SCREEN TIME value >= 0" },
       { id: 20, name: "LOAD_TIME", label: "LOAD TIME value >= 0" },
     ],

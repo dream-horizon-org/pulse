@@ -719,7 +719,7 @@ public class AlertsDao {
 
       List<AlertTagsResponseDto> tags = new ArrayList<>();
 
-      rowSet.forEach(row -> tags.add(AlertTagsResponseDto.builder().tag_id(row.getInteger("tag_id")).name(row.getString("name")).build()));
+      rowSet.forEach(row -> tags.add(AlertTagsResponseDto.builder().tagId(row.getInteger("tag_id")).name(row.getString("name")).build()));
 
       return tags;
     });
@@ -741,7 +741,7 @@ public class AlertsDao {
           List<AlertTagsResponseDto> tags = new ArrayList<>();
 
           rowSet.forEach(
-              row -> tags.add(AlertTagsResponseDto.builder().tag_id(row.getInteger("tag_id")).name(row.getString("name")).build()));
+              row -> tags.add(AlertTagsResponseDto.builder().tagId(row.getInteger("tag_id")).name(row.getString("name")).build()));
 
           return tags;
         });

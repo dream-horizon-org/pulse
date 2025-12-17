@@ -26,7 +26,9 @@
 
 ## 🌟 Overview
 
-Pulse Server is a reactive, high-performance backend service built with Vert.x for the Pulse Observability Platform. It provides RESTful APIs for managing users, alerts, critical interactions, and analytics queries. The service handles real-time data processing and integrates with multiple databases for optimal performance.
+Pulse Server is a reactive, high-performance backend service built with Vert.x for the Pulse Observability Platform. It
+provides RESTful APIs for managing users, alerts, critical interactions, and analytics queries. The service handles
+real-time data processing and integrates with multiple databases for optimal performance.
 
 ## 🏗️ Architecture
 
@@ -61,16 +63,16 @@ Pulse Server is a reactive, high-performance backend service built with Vert.x f
 ### Core Features
 
 - **🔐 Authentication & Authorization**
-  - Google OAuth 2.0 integration
-  - JWT token-based authentication
-  - Session management
+    - Google OAuth 2.0 integration
+    - JWT token-based authentication
+    - Session management
 
 
 - **📊 Critical Interactions**
-  - Track key user interactions
-  - Interaction analytics
-  - Performance monitoring
-  - Custom event tracking
+    - Track key user interactions
+    - Interaction analytics
+    - Performance monitoring
+    - Custom event tracking
 
 ### Technical Features
 
@@ -123,9 +125,11 @@ Pulse Server is a reactive, high-performance backend service built with Vert.x f
 - **Vert.x JUnit5**: Integration testing
 
 ### Integration
+
 <!-- 
 - **Slack API**: 1.42.0 - Slack notifications
 - **AWS SDK**: 2.20.8 - AWS services integration -->
+
 - **OpenTelemetry**: Protocol buffer support
 
 ## 🚀 Getting Started
@@ -231,6 +235,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -251,6 +256,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 Response:
+
 ```json
 {
   "isAuthTokenValid": true
@@ -271,6 +277,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -284,27 +291,36 @@ Response:
 
 ### Performance Metric Distribution
 
-**Description:** Queries telemetry data with custom aggregations and filters for analytics. Builds ClickHouse SQL query from request parameters.
+**Description:** Queries telemetry data with custom aggregations and filters for analytics. Builds ClickHouse SQL query
+from request parameters.
 
 #### Request Fields
 
-**dataType** (required): Specifies which ClickHouse table to query. Accepts `TRACES`, `METRICS`, `LOGS`, or `EXCEPTIONS`. Determines source table: `otel_traces`, `otel_metrics`, `otel_logs`, or `stack_trace_events`.
+**dataType** (required): Specifies which ClickHouse table to query. Accepts `TRACES`, `METRICS`, `LOGS`, or`EXCEPTIONS`.
+Determines source table: `otel_traces`, `otel_metrics`, `otel_logs`, or `stack_trace_events`.
 
-**timeRange** (required): ISO-8601 UTC timestamps for filtering data. `start` and `end` fields define the time window for query execution.
+**timeRange** (required): ISO-8601 UTC timestamps for filtering data. `start` and `end` fields define the time window
+for query execution.
 
 **select** (required): Array of functions to calculate metrics. Each item contains:
+
 - `function`: Predefined metric function (see available functions below)
-- `param`: Optional parameters specific to function (e.g., field name for COL, expression for CUSTOM, bucket size for TIME_BUCKET)
+- `param`: Optional parameters specific to function (e.g., field name for COL, expression for CUSTOM, bucket size for
+  TIME_BUCKET)
 - `alias`: Optional custom name for the result column
 
 **filters** (optional): Array of WHERE clause conditions. Each filter contains:
+
 - `field`: Column name to filter on (e.g., "span.name", "page.url")
-- `operator`: Comparison operator - `IN` (matches any value in list), `LIKE` (pattern matching), `EQ` (equals), `ADDITIONAL` (raw query)
+- `operator`: Comparison operator - `IN` (matches any value in list), `LIKE` (pattern matching), `EQ` (equals),
+  `ADDITIONAL` (raw query)
 - `value`: Array of values to match against
 
-**groupBy** (optional): Array of field names or aliases to group results by. Used for aggregation, must match non-aggregated select items.
+**groupBy** (optional): Array of field names or aliases to group results by. Used for aggregation, must match
+non-aggregated select items.
 
 **orderBy** (optional): Array of sorting specifications. Each contains:
+
 - `field`: Field or alias name to sort by
 - `direction`: `ASC` (ascending) or `DESC` (descending)
 
@@ -313,18 +329,21 @@ Response:
 #### Available Functions
 
 **Duration & Performance Metrics:**
+
 - **APDEX**: Calculates average APDEX score from span attributes, excluding error status codes
 - **DURATION_P99**: 99th percentile duration in seconds, excluding errors
 - **DURATION_P95**: 95th percentile duration in seconds, excluding errors
 - **DURATION_P50**: 50th percentile (median) duration in seconds, excluding errors
 
 **Frame Metrics:**
+
 - **FROZEN_FRAME**: Sum of frozen frame counts from span attributes
 - **ANALYSED_FRAME**: Sum of analysed frame counts from span attributes
 - **UNANALYSED_FRAME**: Sum of unanalysed frame counts from span attributes
 - **FROZEN_FRAME_RATE**: Ratio of frozen frames to total frames
 
 **Error & Crash Metrics:**
+
 - **CRASH**: Count of crash events (device.crash)
 - **ANR**: Count of Application Not Responding events (device.anr)
 - **CRASH_RATE**: Ratio of crash events to total events
@@ -332,11 +351,13 @@ Response:
 - **ERROR_RATE**: Ratio of error status codes to total interactions
 
 **Interaction Metrics:**
+
 - **INTERACTION_SUCCESS_COUNT**: Count of successful interactions (non-error status codes)
 - **INTERACTION_ERROR_COUNT**: Count of failed interactions (error status codes)
 - **INTERACTION_ERROR_DISTINCT_USERS**: Count of distinct users who encountered errors
 
 **User Category Metrics:**
+
 - **USER_CATEGORY_EXCELLENT**: Count of users in EXCELLENT category
 - **USER_CATEGORY_GOOD**: Count of users in GOOD category
 - **USER_CATEGORY_AVERAGE**: Count of users in AVERAGE category
@@ -347,6 +368,7 @@ Response:
 - **POOR_USER_RATE**: Ratio of poor users to total users
 
 **Network Metrics:**
+
 - **NET_0**: Sum of network connection errors (network.0 events)
 - **NET_2XX**: Sum of successful HTTP responses (2xx status codes)
 - **NET_3XX**: Sum of redirect responses (3xx status codes)
@@ -361,12 +383,14 @@ Response:
 - **ERROR_RATE**: Ratio of error status codes to total network requests
 
 **Screen Metrics:**
+
 - **SCREEN_DAILY_USERS**: Count of distinct daily users for screen events
-- **SCREEN_ERROR_RATE**: Ratio of error status codes to total screen events (value range: [0,1])
+- **ERROR_RATE**: Ratio of error status codes to total screen events (value range: [0,1])
 - **SCREEN_TIME**: Average time spent on screen sessions
 - **LOAD_TIME**: Average time for screen load events
 
 **App Vitals Metrics (EXCEPTIONS data type):**
+
 - **CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events (value range: [0,1])
 - **CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events (value range: [0,1])
 - **CRASH_USERS**: Count of distinct users with crash events (value >= 0)
@@ -383,8 +407,10 @@ Response:
 - **NON_FATAL_SESSIONS**: Count of distinct sessions with non-fatal errors (value >= 0)
 
 **Utility Functions:**
+
 - **COL**: Selects a column directly. Requires `param.field` with column name
-- **TIME_BUCKET**: Groups timestamps into time buckets. Requires `param.bucket` (e.g., "1d", "1h") and `param.field` (timestamp column)
+- **TIME_BUCKET**: Groups timestamps into time buckets. Requires `param.bucket` (e.g., "1d", "1h") and `param.field` (
+  timestamp column)
 - **CUSTOM**: Executes custom ClickHouse expression. Requires `param.expression` with SQL expression
 - **ARR_TO_STR**: Converts array to comma-separated string. Requires `param.field` with array column name
 
@@ -421,18 +447,38 @@ Content-Type: application/json
   "limit": 1000
 }
 ```
+
 Response:
+
 ```json
 {
-    "status": 200,
-    "data": {
-        "fields": ["osVersion","duration_p99","apdex","t1","success_count"],
-        "rows": [
-                  ["1.0_1","0.547","0.68","2025-11-08T08:40:00Z","24"],
-                  ["1.0_2","0.566","0.677","2025-11-09T08:40:00Z","23"]
-                ]
-    },
-    "error": null
+  "status": 200,
+  "data": {
+    "fields": [
+      "osVersion",
+      "duration_p99",
+      "apdex",
+      "t1",
+      "success_count"
+    ],
+    "rows": [
+      [
+        "1.0_1",
+        "0.547",
+        "0.68",
+        "2025-11-08T08:40:00Z",
+        "24"
+      ],
+      [
+        "1.0_2",
+        "0.566",
+        "0.677",
+        "2025-11-09T08:40:00Z",
+        "23"
+      ]
+    ]
+  },
+  "error": null
 }
 ```
 
@@ -460,16 +506,31 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
-    "status": 200,
-    "data": {
-        "fields": ["crash_users", "crash_sessions", "all_users", "all_sessions", "crash_free_users_percentage", "crash_free_sessions_percentage"],
-        "rows": [
-            ["150", "320", "10000", "25000", "0.985", "0.9872"]
-        ]
-    },
-    "error": null
+  "status": 200,
+  "data": {
+    "fields": [
+      "crash_users",
+      "crash_sessions",
+      "all_users",
+      "all_sessions",
+      "crash_free_users_percentage",
+      "crash_free_sessions_percentage"
+    ],
+    "rows": [
+      [
+        "150",
+        "320",
+        "10000",
+        "25000",
+        "0.985",
+        "0.9872"
+      ]
+    ]
+  },
+  "error": null
 }
 ```
 
@@ -497,16 +558,31 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
-    "status": 200,
-    "data": {
-        "fields": ["anr_users", "anr_sessions", "all_users", "all_sessions", "anr_free_users_percentage", "anr_free_sessions_percentage"],
-        "rows": [
-            ["75", "180", "10000", "25000", "0.9925", "0.9928"]
-        ]
-    },
-    "error": null
+  "status": 200,
+  "data": {
+    "fields": [
+      "anr_users",
+      "anr_sessions",
+      "all_users",
+      "all_sessions",
+      "anr_free_users_percentage",
+      "anr_free_sessions_percentage"
+    ],
+    "rows": [
+      [
+        "75",
+        "180",
+        "10000",
+        "25000",
+        "0.9925",
+        "0.9928"
+      ]
+    ]
+  },
+  "error": null
 }
 ```
 
@@ -537,16 +613,31 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
-    "status": 200,
-    "data": {
-        "fields": ["non_fatal_users", "non_fatal_sessions", "all_users", "all_sessions", "non_fatal_free_users_percentage", "non_fatal_free_sessions_percentage"],
-        "rows": [
-            ["500", "1200", "10000", "25000", "0.95", "0.952"]
-        ]
-    },
-    "error": null
+  "status": 200,
+  "data": {
+    "fields": [
+      "non_fatal_users",
+      "non_fatal_sessions",
+      "all_users",
+      "all_sessions",
+      "non_fatal_free_users_percentage",
+      "non_fatal_free_sessions_percentage"
+    ],
+    "rows": [
+      [
+        "500",
+        "1200",
+        "10000",
+        "25000",
+        "0.95",
+        "0.952"
+      ]
+    ]
+  },
+  "error": null
 }
 ```
 
@@ -554,16 +645,22 @@ Response:
 
 ### Export Logs
 
-**Description:** Receives OpenTelemetry log data via OTLP (OpenTelemetry Protocol) and processes stack trace events for error grouping and analysis. This endpoint implements the OTLP/HTTP logs exporter specification, accepting protobuf-encoded log data and processing it through the error grouping service for symbolication and storage in ClickHouse.
+**Description:** Receives OpenTelemetry log data via OTLP (OpenTelemetry Protocol) and processes stack trace events for
+error grouping and analysis. This endpoint implements the OTLP/HTTP logs exporter specification, accepting
+protobuf-encoded log data and processing it through the error grouping service for symbolication and storage in
+ClickHouse.
 
-**Business Logic:** The endpoint receives OpenTelemetry `ExportLogsServiceRequest` containing log records with stack traces. It processes these logs through the `ErrorGroupingService`, which:
+**Business Logic:** The endpoint receives OpenTelemetry `ExportLogsServiceRequest` containing log records with stack
+traces. It processes these logs through the `ErrorGroupingService`, which:
+
 - Extracts stack trace events from log records
 - Identifies the platform/lane (JavaScript, Java, or NDK) for each stack trace
 - Symbolicates stack traces (converts obfuscated/minified code to readable format)
 - Groups similar errors together for analysis
 - Stores processed events in ClickHouse for analytics and error tracking
 
-The service supports automatic gzip compression/decompression for efficient data transfer. On success, it returns an empty protobuf response. On error, it returns a Google RPC Status message with sanitized error details.
+The service supports automatic gzip compression/decompression for efficient data transfer. On success, it returns an
+empty protobuf response. On error, it returns a Google RPC Status message with sanitized error details.
 
 ```http
 POST /v1/logs
@@ -575,14 +672,17 @@ Accept-Encoding: gzip (optional)
 ```
 
 **Request Headers:**
+
 - `Content-Type`: Must be `application/x-protobuf`
 - `Content-Encoding`: Optional. If set to `gzip`, the request body will be automatically decompressed
 - `Accept-Encoding`: Optional. If set to `gzip`, the response will be compressed
 
 **Request Body:**
-The request body must be a protobuf-encoded `ExportLogsServiceRequest` message following the OpenTelemetry Protocol specification. The body can be optionally gzip-compressed if `Content-Encoding: gzip` header is present.
+The request body must be a protobuf-encoded `ExportLogsServiceRequest` message following the OpenTelemetry Protocol
+specification. The body can be optionally gzip-compressed if `Content-Encoding: gzip` header is present.
 
 **Success Response:**
+
 ```http
 HTTP/1.1 200 OK
 Content-Type: application/x-protobuf
@@ -592,6 +692,7 @@ Content-Encoding: gzip (if Accept-Encoding: gzip was sent)
 ```
 
 **Error Response:**
+
 ```http
 HTTP/1.1 400 Bad Request
 Content-Type: application/x-protobuf
@@ -601,6 +702,7 @@ Content-Encoding: gzip (if Accept-Encoding: gzip was sent)
 ```
 
 **Example Request (using curl):**
+
 ```bash
 # Without compression
 curl -X POST http://localhost:8080/v1/logs \
@@ -616,6 +718,7 @@ curl -X POST http://localhost:8080/v1/logs \
 ```
 
 **Notes:**
+
 - This endpoint follows the OTLP/HTTP specification for log ingestion
 - Error messages in responses are sanitized (newlines and carriage returns are replaced with spaces)
 - The endpoint processes logs asynchronously and returns a completion stage
@@ -625,9 +728,14 @@ curl -X POST http://localhost:8080/v1/logs \
 
 ### Upload Mapping/Symbol Files
 
-**Description:** Uploads symbol files (such as ProGuard mapping files, source maps, or other symbolication files) that are used to convert obfuscated or minified stack traces back to readable format. This endpoint accepts multipart form data containing both the file content and metadata describing the file's context (app version, platform, framework type).
+**Description:** Uploads symbol files (such as ProGuard mapping files, source maps, or other symbolication files) that
+are used to convert obfuscated or minified stack traces back to readable format. This endpoint accepts multipart form
+data containing both the file content and metadata describing the file's context (app version, platform, framework
+type).
 
-**Business Logic:** The endpoint receives symbol/mapping files along with metadata through a multipart form upload. The service:
+**Business Logic:** The endpoint receives symbol/mapping files along with metadata through a multipart form upload. The
+service:
+
 - Validates that both file content and metadata are provided
 - Matches each uploaded file with its corresponding metadata entry by filename
 - Stores files in MySQL database with metadata (app version, version code, platform, framework type)
@@ -635,7 +743,9 @@ curl -X POST http://localhost:8080/v1/logs \
 - These uploaded files are later retrieved during error symbolication process when processing stack traces from logs
 - Supports multiple file uploads in a single request, processing them concurrently
 
-The symbol files are essential for the error grouping service to properly symbolicate stack traces, converting obfuscated class names, method names, and line numbers back to their original readable format for better error analysis and debugging.
+The symbol files are essential for the error grouping service to properly symbolicate stack traces, converting
+obfuscated class names, method names, and line numbers back to their original readable format for better error analysis
+and debugging.
 
 ```http
 POST /v1/symbolicate/file/upload
@@ -647,8 +757,8 @@ Content-Type: multipart/form-data
 The request must contain two parts:
 
 1. **`fileContent`** (one or more file parts): The actual symbol/mapping file(s) to upload
-   - Each file part should have a `Content-Disposition` header with a `filename` parameter
-   - Multiple files can be uploaded in a single request
+    - Each file part should have a `Content-Disposition` header with a `filename` parameter
+    - Multiple files can be uploaded in a single request
 
 2. **`metadata`** (JSON string): An array of metadata objects describing each file
    ```json
@@ -671,6 +781,7 @@ The request must contain two parts:
    ```
 
 **Metadata Fields:**
+
 - `type` (required): Framework/symbol file type (e.g., "proguard", "sourcemap", "retrace")
 - `appVersion` (required): Application version string
 - `fileName` (required): Name of the file (must match the filename in the file part)
@@ -678,6 +789,7 @@ The request must contain two parts:
 - `versionCode` (required): Version code/build number
 
 **Success Response:**
+
 ```json
 {
   "status": 200,
@@ -687,6 +799,7 @@ The request must contain two parts:
 ```
 
 **Error Response:**
+
 ```json
 {
   "status": 200,
@@ -696,12 +809,14 @@ The request must contain two parts:
 ```
 
 Note: The endpoint returns `false` in the data field if:
+
 - Metadata is empty or invalid
 - File parts are missing
 - Filename doesn't match any metadata entry
 - Upload fails for any file
 
 **Example Request (using curl):**
+
 ```bash
 curl -X POST http://localhost:8080/v1/symbolicate/file/upload \
   -F "fileContent=@mapping.txt" \
@@ -710,97 +825,113 @@ curl -X POST http://localhost:8080/v1/symbolicate/file/upload \
 ```
 
 **Notes:**
+
 - File names in the `fileContent` parts must exactly match the `fileName` field in the metadata array
 - Files with unknown filenames or without matching metadata are skipped
 - If any file upload fails, the entire operation returns `false`
-- Files are stored in MySQL and can be retrieved later for symbolication based on app version, platform, and framework type
+- Files are stored in MySQL and can be retrieved later for symbolication based on app version, platform, and framework
+  type
 - Existing files for the same app version/platform/framework combination are automatically replaced
 
 ## Critical Interactions
+
 See [Interaction.md](Interaction.md), to know more about Interactions.
 
-
 All endpoints require user-email in header.
+
 ```
 user-email: user@example.com
 ```
 
 ### Get Interactions
 
-**Description:** Retrieves paginated list of critical interactions with filtering options. Requires page and size query params, optional interactionName and userEmail for filtering.
+**Description:** Retrieves paginated list of critical interactions with filtering options. Requires page and size query
+params, optional interactionName and userEmail for filtering.
 
 ```http
 GET /v1/interactions?page=0&size=10&interactionName=ContestJoinSuccess&userEmail=user@example.com
 ```
+
 Response:
+
 ```json
 {
   data: {
     interactions: [
-        {
-          "interactionName": "ContestJoinSuccess",
-          "id": 123456,
-          "description": "Some description",
-          "uptimeLowerLimitInMs": 100, // in Ms
-          "uptimeMidLimitInMs": 200, // in Ms
-          "uptimeUpperLimitInMs": 300, // in Ms
-          "thresholdInMs": 60000, // in Ms
-          "status": "RUNNING"/"STOPPED"
-          "events": [
-            {
-              "name": "event1",
-              "props": [
-                {
-                  "name": "property1",
-                  "value": "value1",
-                  "operator": "EQUALS"
-                },
-                {
-                  "name": "property2",
-                  "value": "value2",
-                  "operator": "CONTAINS" // default EQUALS
-                }
-              ],
-              "isBlacklisted": true/false/null
-            },
-            {
-              "name": "event2",
-              "props": [
-                {
-                  "name": "property3",
-                  "value": "value3",
-                  "operator": "NOTEQUALS" // default EQUALS
-                }
-              ],
-              "isBlacklisted": true/false/null
-            }
-          ],
-          "globalBlacklistedEvents": [
-            {
-              "name": "blacklisted_event",
-              "props": [
-                {
-                  "name": "property4",
-                  "value": "value4",
-                  "operator": "NOTCONTAINS"
-                }
-              ],
-              "isBlacklisted": true/true
-            }
-          ],
-          "createdAt": 17874817100,
-          "createdBy": "user@example.com",
-          "updatedAt": "17874817100",
-          "updatedBy": "user@example.com"
-        }
+      {
+        "interactionName": "ContestJoinSuccess",
+        "id": 123456,
+        "description": "Some description",
+        "uptimeLowerLimitInMs": 100,
+        // in Ms
+        "uptimeMidLimitInMs": 200,
+        // in Ms
+        "uptimeUpperLimitInMs": 300,
+        // in Ms
+        "thresholdInMs": 60000,
+        // in Ms
+        "status": "RUNNING"
+        /
+        "STOPPED"
+        "events": [
+          {
+            "name": "event1",
+            "props": [
+              {
+                "name": "property1",
+                "value": "value1",
+                "operator": "EQUALS"
+              },
+              {
+                "name": "property2",
+                "value": "value2",
+                "operator": "CONTAINS"
+                // default EQUALS
+              }
+            ],
+            "isBlacklisted": true/false/null
+          },
+          {
+            "name": "event2",
+            "props": [
+              {
+                "name": "property3",
+                "value": "value3",
+                "operator": "NOTEQUALS"
+                // default EQUALS
+              }
+            ],
+            "isBlacklisted": true/false/null
+          }
+        ],
+        "globalBlacklistedEvents": [
+          {
+            "name": "blacklisted_event",
+            "props": [
+              {
+                "name": "property4",
+                "value": "value4",
+                "operator": "NOTCONTAINS"
+              }
+            ],
+            "isBlacklisted": true/true
+          }
+        ],
+        "createdAt": 17874817100,
+        "createdBy": "user@example.com",
+        "updatedAt": "17874817100",
+        "updatedBy": "user@example.com"
+      }
     ],
     "totalInteractions": 100
   }
 }
 ```
+
 ### Get All Interactions
 
-**Description:** Returns complete list of all interactions without pagination. No parameters required, used for dropdown selection or bulk operations.
+**Description:** Returns complete list of all interactions without pagination. No parameters required, used for dropdown
+selection or bulk operations.
 
 ```http
 GET /v1/interactions/all
@@ -808,24 +939,34 @@ GET /v1/interactions/all
 
 ### Get Interaction Details
 
-**Description:** Fetches complete interaction configuration including events, thresholds, and blacklisted events. Requires name path parameter to identify specific interaction.
+**Description:** Fetches complete interaction configuration including events, thresholds, and blacklisted events.
+Requires name path parameter to identify specific interaction.
 
 Request:
+
 ```http
 GET /v1/interactions/{name}
 ```
+
 Response:
+
 ```json
 {
   data: {
     "name": "example_interaction",
     "description": "Some description",
     "id": 123456,
-    "uptimeLowerLimitInMs": 100, // in Ms
-    "uptimeMidLimitInMs": 200, // in Ms
-    "uptimeUpperLimitInMs": 300, // in Ms
-    "thresholdInMS": 60000, // in Ms
-    "status": "RUNNING"/"STOPPED"
+    "uptimeLowerLimitInMs": 100,
+    // in Ms
+    "uptimeMidLimitInMs": 200,
+    // in Ms
+    "uptimeUpperLimitInMs": 300,
+    // in Ms
+    "thresholdInMS": 60000,
+    // in Ms
+    "status": "RUNNING"
+    /
+    "STOPPED"
     "events": [
       {
         "name": "event1",
@@ -838,7 +979,8 @@ Response:
           {
             "name": "property2",
             "value": "value2",
-            "operator": "CONTAINS" // default EQUALS
+            "operator": "CONTAINS"
+            // default EQUALS
           }
         ],
         "isBlacklisted": true/false/null
@@ -849,7 +991,8 @@ Response:
           {
             "name": "property3",
             "value": "value3",
-            "operator": "NOTEQUALS" // default EQUALS
+            "operator": "NOTEQUALS"
+            // default EQUALS
           }
         ],
         "isBlacklisted": true/false/null
@@ -875,11 +1018,14 @@ Response:
   }
 }
 ```
+
 ### Create Interaction
 
-**Description:** Creates new critical interaction definition for monitoring user flows. Requires name, events array, uptime limits, and thresholdInMs fields in request body.
+**Description:** Creates new critical interaction definition for monitoring user flows. Requires name, events array,
+uptime limits, and thresholdInMs fields in request body.
 
 Request:
+
 ```http
 POST /v1/interactions
 Content-Type: application/json
@@ -934,7 +1080,9 @@ Content-Type: application/json
   ]
 }
 ```
+
 Response:
+
 ```json
 {
   data: {
@@ -945,7 +1093,8 @@ Response:
 
 ### Update Interaction
 
-**Description:** Modifies existing interaction configuration with new events or thresholds. Requires name path parameter to identify interaction, updated fields in body to change configuration.
+**Description:** Modifies existing interaction configuration with new events or thresholds. Requires name path parameter
+to identify interaction, updated fields in body to change configuration.
 
 ```http
 PUT /v1/interactions/{name}
@@ -954,7 +1103,8 @@ Content-Type: application/json
 
 ### Delete Interaction
 
-**Description:** Removes critical interaction definition from system permanently. Requires name path parameter to specify which interaction to delete.
+**Description:** Removes critical interaction definition from system permanently. Requires name path parameter to
+specify which interaction to delete.
 
 ```http
 DELETE /v1/interactions/{name}
@@ -962,12 +1112,15 @@ DELETE /v1/interactions/{name}
 
 ## Interaction Filter Options
 
-**Description:** Returns available filter options for interaction queries. No parameters required, provides statuses and creator emails for filtering interactions.
+**Description:** Returns available filter options for interaction queries. No parameters required, provides statuses and
+creator emails for filtering interactions.
 
 ```http
 GET /v1/interactions/filter-options
 ```
+
 Response:
+
 ```json
 {
   "data": {
@@ -984,14 +1137,18 @@ Response:
   }
 }
 ```
+
 ## Telemetry Filter Options
 
-**Description:** Returns available telemetry filter values for data queries. No parameters required, provides app versions, device models, platforms, and OS versions for filtering.
+**Description:** Returns available telemetry filter values for data queries. No parameters required, provides app
+versions, device models, platforms, and OS versions for filtering.
 
 ```http
 GET /v1/interactions/telemetry-filters
 ```
+
 Response:
+
 ```json
 {
   "data": {
@@ -1037,6 +1194,7 @@ Response:
 Complete API reference for managing alerts, alert scopes, metrics, evaluation history, and alert-related configurations.
 
 All alert endpoints require authentication using JWT tokens. Include the token in the Authorization header:
+
 ```
 Authorization: Bearer {token}
 ```
@@ -1050,6 +1208,7 @@ GET /v1/alert?name=alert_name&scope=interaction&created_by=user@example.com&limi
 ```
 
 **Query Parameters:**
+
 - `name` (optional): Filter by alert name
 - `scope` (optional): Filter by scope (interaction, screen, app_vitals, network_api)
 - `created_by` (optional): Filter by creator email
@@ -1058,6 +1217,7 @@ GET /v1/alert?name=alert_name&scope=interaction&created_by=user@example.com&limi
 - `offset` (optional, default: 0): Pagination offset
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1093,6 +1253,7 @@ GET /v1/alerts
 ```
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1119,9 +1280,11 @@ GET /v1/alert/{id}
 ```
 
 **Path Parameters:**
+
 - `id` (required): Alert ID
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1132,7 +1295,10 @@ GET /v1/alert/{id}
     "scope": {
       "name": "interaction",
       "conditions": {
-        "interactionNames": ["page_load", "checkout"]
+        "interactionNames": [
+          "page_load",
+          "checkout"
+        ]
       }
     },
     "dimension_filters": "AppVersion = '1.0.0'",
@@ -1199,6 +1365,7 @@ Content-Type: application/json
 ```
 
 **Request Fields:**
+
 - `name` (required): Alert name
 - `description` (required): Alert description
 - `scope` (required): Alert scope object with name and conditions
@@ -1213,6 +1380,7 @@ Content-Type: application/json
 - `updated_by` (required): Updater email
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1225,7 +1393,8 @@ Content-Type: application/json
 
 ### Update Alert
 
-**Description:** Updates an existing alert configuration. Same request structure as Create Alert, but requires alert ID in the request body.
+**Description:** Updates an existing alert configuration. Same request structure as Create Alert, but requires alert ID
+in the request body.
 
 ```http
 PUT /v1/alert
@@ -1261,6 +1430,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1280,9 +1450,11 @@ DELETE /v1/alert/{id}
 ```
 
 **Path Parameters:**
+
 - `id` (required): Alert ID
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1300,6 +1472,7 @@ GET /v1/alert/scopes
 ```
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1340,9 +1513,11 @@ GET /v1/alert/metrics?scope=interaction
 ```
 
 **Query Parameters:**
+
 - `scope` (required): Scope name (interaction, screen, app_vitals, network_api)
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1379,9 +1554,11 @@ GET /v1/alert/{id}/evaluationHistory
 ```
 
 **Path Parameters:**
+
 - `id` (required): Alert ID
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1411,16 +1588,20 @@ GET /v1/alert/{id}/evaluationHistory
 
 ### Evaluate and Trigger Alert
 
-**Description:** Manually triggers evaluation of an alert. The evaluation is performed asynchronously, and this endpoint returns immediately with the alert ID. The actual evaluation results are processed in the background and stored in the evaluation history.
+**Description:** Manually triggers evaluation of an alert. The evaluation is performed asynchronously, and this endpoint
+returns immediately with the alert ID. The actual evaluation results are processed in the background and stored in the
+evaluation history.
 
 ```http
 GET /v1/alert/evaluateAndTriggerAlert?alertId=1
 ```
 
 **Query Parameters:**
+
 - `alertId` (required): Alert ID to evaluate
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1431,11 +1612,13 @@ GET /v1/alert/evaluateAndTriggerAlert?alertId=1
 }
 ```
 
-**Note:** To view the evaluation results, use the [Get Alert Evaluation History](#get-alert-evaluation-history) endpoint after the evaluation completes.
+**Note:** To view the evaluation results, use the [Get Alert Evaluation History](#get-alert-evaluation-history) endpoint
+after the evaluation completes.
 
 ### Snooze Alert
 
-**Description:** Snoozes an alert for a specified time period. During the snooze period, the alert will not trigger notifications.
+**Description:** Snoozes an alert for a specified time period. During the snooze period, the alert will not trigger
+notifications.
 
 ```http
 POST /v1/alert/{id}/snooze
@@ -1449,13 +1632,16 @@ Authorization: Bearer {token}
 ```
 
 **Path Parameters:**
+
 - `id` (required): Alert ID
 
 **Request Body:**
+
 - `snoozeFrom` (required): Start time in milliseconds (epoch timestamp)
 - `snoozeUntil` (required): End time in milliseconds (epoch timestamp)
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1478,9 +1664,11 @@ Authorization: Bearer {token}
 ```
 
 **Path Parameters:**
+
 - `id` (required): Alert ID
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1500,20 +1688,32 @@ GET /v1/alert/filters
 ```
 
 **Response:**
+
 ```json
 {
   "status": 200,
   "data": {
     "job_id": null,
-    "created_by": ["user1@example.com", "user2@example.com"],
-    "updated_by": ["user1@example.com", "user2@example.com"],
-    "current_state": ["NORMAL", "FIRING", "NO_DATA"]
+    "created_by": [
+      "user1@example.com",
+      "user2@example.com"
+    ],
+    "updated_by": [
+      "user1@example.com",
+      "user2@example.com"
+    ],
+    "current_state": [
+      "NORMAL",
+      "FIRING",
+      "NO_DATA"
+    ]
   },
   "error": null
 }
 ```
 
 **Response Fields:**
+
 - `job_id`: List of job IDs (currently not populated, returns null)
 - `created_by`: List of unique creator email addresses
 - `updated_by`: List of unique updater email addresses
@@ -1528,6 +1728,7 @@ GET /v1/alert/severity
 ```
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1553,6 +1754,7 @@ GET /v1/alert/severity
 ```
 
 **Response Fields:**
+
 - `severity_id`: Unique identifier for the severity level
 - `name`: Severity level number (1, 2, 3, etc.)
 - `description`: Detailed description of the severity level
@@ -1572,10 +1774,12 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 - `name` (required): Severity level number (Integer, e.g., 1, 2, 3, 4)
 - `description` (required): Detailed description of the severity level
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1593,6 +1797,7 @@ GET /v1/alert/notificationChannels
 ```
 
 **Response:**
+
 ```json
 {
   "status": 200,
@@ -1608,6 +1813,7 @@ GET /v1/alert/notificationChannels
 ```
 
 **Response Fields:**
+
 - `notification_channel_id`: Unique identifier for the notification channel
 - `name`: Name of the notification channel
 - `notification_webhook_url`: Webhook URL for sending notifications
@@ -1627,10 +1833,12 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 - `name` (required): Channel name
 - `config` (required): Notification webhook URL (stored as `notification_webhook_url` in the database)
 
 **Response:**
+
 ```json
 {
   "status": 200,
