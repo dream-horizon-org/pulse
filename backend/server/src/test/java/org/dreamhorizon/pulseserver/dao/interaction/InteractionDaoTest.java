@@ -294,7 +294,7 @@ class InteractionDaoTest {
             var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
             when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-            when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_DETAILS))
+            when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
                     .thenReturn(preparedQuery);
             when(preparedQuery.rxExecute(tupleCaptor.capture()))
                     .thenReturn(Single.just(rowSet));
@@ -369,7 +369,7 @@ class InteractionDaoTest {
             var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
             when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-            when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_DETAILS))
+            when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
                     .thenReturn(preparedQuery);
             when(preparedQuery.rxExecute(tupleCaptor.capture()))
                     .thenReturn(Single.just(mockRowSet));
@@ -397,7 +397,7 @@ class InteractionDaoTest {
             RuntimeException expectedError = new RuntimeException("Database connection failed");
 
             when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-            when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_DETAILS))
+            when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
                     .thenReturn(preparedQuery);
             when(preparedQuery.rxExecute(tupleCaptor.capture()))
                     .thenReturn(Single.error(expectedError));
