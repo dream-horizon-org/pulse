@@ -7,7 +7,7 @@ public class Queries {
   public static final String AUDIT_INTERACTION_CHANGES = "insert into "
       + "interaction_details_changes (Interaction_id, name, description, status, is_archived, interaction_details, updated_by) "
       + "select Interaction_id, name, description, status, is_archived, interaction_details, updated_by "
-      + "from interaction where Interaction_id = ?;";
+      + "from Interaction where Interaction_id = ?;";
 
   public static final String GET_COUNT_OF_INTERACTION_NAME_NAME = "SELECT COUNT(*) AS count FROM Interaction "
       + "WHERE name = ? AND is_archived = 0";
