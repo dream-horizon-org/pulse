@@ -68,7 +68,9 @@ export function createReactNavigationIntegration(
     try {
       if (enableScreenSession && screenSessionSpan && navigationContainer) {
         const currentRoute = navigationContainer.getCurrentRoute();
-        console.log(`[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'}`);
+        console.log(
+          `[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'}`
+        );
         endScreenSession();
       }
 
@@ -79,7 +81,10 @@ export function createReactNavigationIntegration(
             'phase': 'start',
           },
         });
-        console.log('[Pulse Navigation] Navigation span started', navigationSpan?.spanId);
+        console.log(
+          '[Pulse Navigation] Navigation span started',
+          navigationSpan?.spanId
+        );
       }
     } catch (error) {
       console.warn('[Pulse Navigation] Error in onNavigationDispatch:', error);
@@ -149,14 +154,18 @@ export function createReactNavigationIntegration(
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         if (screenSessionSpan) {
           const currentRoute = navigationContainer?.getCurrentRoute();
-          console.log(`[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'} (app backgrounded)`);
+          console.log(
+            `[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'} (app backgrounded)`
+          );
           endScreenSession();
         }
       } else if (nextAppState === 'active') {
         const currentRoute = navigationContainer?.getCurrentRoute();
         if (currentRoute && !screenSessionSpan) {
           startScreenSession(currentRoute);
-          console.log(`[Pulse] Screen session started on ${currentRoute.name} (app foregrounded)`);
+          console.log(
+            `[Pulse] Screen session started on ${currentRoute.name} (app foregrounded)`
+          );
         }
       }
     } catch (error) {
@@ -189,7 +198,9 @@ export function createReactNavigationIntegration(
         return () => {
           if (enableScreenSession && screenSessionSpan) {
             const currentRoute = navigationContainer?.getCurrentRoute();
-            console.log(`[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'} (container cleanup)`);
+            console.log(
+              `[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'} (container cleanup)`
+            );
             endScreenSession();
           }
         };
@@ -204,7 +215,9 @@ export function createReactNavigationIntegration(
         // React Navigation automatically removes listeners on unmount, so we only need to clean up our state
         if (enableScreenSession && screenSessionSpan) {
           const route = navigationContainer?.getCurrentRoute();
-          console.log(`[Pulse] Screen session ended for ${route?.name || 'unknown'} (container unmounting)`);
+          console.log(
+            `[Pulse] Screen session ended for ${route?.name || 'unknown'} (container unmounting)`
+          );
           endScreenSession();
         }
 
@@ -236,7 +249,10 @@ export function createReactNavigationIntegration(
         }
       }
 
-      appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+      appStateSubscription = AppState.addEventListener(
+        'change',
+        handleAppStateChange
+      );
       isInitialized = true;
 
       return unmountCleanup;
@@ -268,7 +284,7 @@ export type ReactNavigationIntegration = ReturnType<
  * React hook to automatically register NavigationContainer with Pulse.
  * Returns an onReady callback that should be passed to NavigationContainer.
  * This simplifies usage - no need to manually manage cleanup.
- * 
+ *
  * @example
  * const navigationRef = useRef(null);
  * const onReady = Pulse.useNavigationTracking(navigationRef);
@@ -281,7 +297,7 @@ export function useNavigationTracking(
   // Create integration synchronously to avoid race condition with onReady
   const integration = useMemo(
     () => createNavigationIntegrationWithConfig(options),
-    [options?.enableScreenSession, options?.enableNavigationSpans]
+    [options]
   );
 
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -296,7 +312,8 @@ export function useNavigationTracking(
 
   const onReady = useCallback(() => {
     if (navigationRef.current && integration) {
-      cleanupRef.current = integration.registerNavigationContainer(navigationRef);
+      cleanupRef.current =
+        integration.registerNavigationContainer(navigationRef);
     }
   }, [navigationRef, integration]);
 

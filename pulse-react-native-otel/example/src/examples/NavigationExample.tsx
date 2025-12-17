@@ -23,7 +23,8 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function NavigationDemo() {
-  const navigationRef = React.useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const navigationRef =
+    React.useRef<NavigationContainerRef<RootStackParamList>>(null);
   const onReady = Pulse.useNavigationTracking(navigationRef, {
     enableScreenSession: true,
     enableNavigationSpans: false,
