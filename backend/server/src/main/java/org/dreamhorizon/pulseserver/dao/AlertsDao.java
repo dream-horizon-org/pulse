@@ -61,8 +61,8 @@ public class AlertsDao {
   private final DateTimeUtil dateTimeUtil;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  private static void logAlertNotFound(Integer alert_id) {
-    log.error("Alert not found for alert id: {}", alert_id);
+  private static void logAlertNotFound(Integer alertId) {
+    log.error("Alert not found for alert id: {}", alertId);
   }
 
   private static @NotNull List<Object> getParameters(String name, String scope, Integer limit, Integer offset,
@@ -420,25 +420,25 @@ public class AlertsDao {
         });
   }
 
-  public Single<Alert> getAlertDetails(@NotNull Integer alert_id) {
+  public Single<Alert> getAlertDetails(@NotNull Integer alertId) {
     Pool pool = d11MysqlClient.getWriterPool();
 
     Single<Alert> alertSingle = pool.preparedQuery(AlertsQuery.GET_ALERT_DETAILS)
-        .rxExecute(Tuple.of(alert_id))
+        .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
-          log.error("Error while fetching alert details from db for alert id {}: {}", alert_id, error.getMessage());
+          log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
         })
         .map(rowSet -> {
           if (rowSet.size() > 0) {
             return mapRowToAlert(rowSet.iterator().next());
           } else {
-            logAlertNotFound(alert_id);
+            logAlertNotFound(alertId);
             throw ServiceError.NOT_FOUND.getCustomException("Alert not found");
           }
         });
 
-    Single<List<Map<String, Object>>> scopesSingle = fetchAlertScopes(pool, alert_id);
+    Single<List<Map<String, Object>>> scopesSingle = fetchAlertScopes(pool, alertId);
 
     return Single.zip(alertSingle, scopesSingle, this::enrichAlertWithConditions);
   }
@@ -666,10 +666,10 @@ public class AlertsDao {
           rowSet.forEach(row -> notificationChannels
               .add(AlertNotificationChannelResponseDto
                   .builder()
-                  .notification_channel_id(row
+                  .notificationChannelId(row
                       .getInteger("notification_channel_id"))
                   .name(row.getString("name"))
-                  .notification_webhook_url(row.getString("notification_webhook_url"))
+                  .notificationWebhookUrl(row.getString("notification_webhook_url"))
                   .build()));
 
           return notificationChannels;
@@ -695,10 +695,10 @@ public class AlertsDao {
     }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
-  public Single<Boolean> createTagAndAlertMapping(@NotNull Integer alert_id, @NotNull Integer tag_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_ALERT_TAG_MAPPING).rxExecute(Tuple.of(alert_id, tag_id))
+  public Single<Boolean> createTagAndAlertMapping(@NotNull Integer alertId, @NotNull Integer tagId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_ALERT_TAG_MAPPING).rxExecute(Tuple.of(alertId, tagId))
         .onErrorResumeNext(error -> {
-          log.error("Error while inserting tag and alert mapping in db for alert id {}: {}", alert_id, error.getMessage());
+          log.error("Error while inserting tag and alert mapping in db for alert id {}: {}", alertId, error.getMessage());
           MySQLException mySQLException = (MySQLException) error;
 
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
@@ -725,16 +725,16 @@ public class AlertsDao {
     });
   }
 
-  public Single<List<AlertTagsResponseDto>> getTagsByAlertId(@NotNull Integer alert_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_TAGS_FOR_ALERT).rxExecute(Tuple.of(alert_id))
+  public Single<List<AlertTagsResponseDto>> getTagsByAlertId(@NotNull Integer alertId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_TAGS_FOR_ALERT).rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
-          log.error("Error while fetching tags for alert id {} from db: {}", alert_id, error.getMessage());
+          log.error("Error while fetching tags for alert id {} from db: {}", alertId, error.getMessage());
           MySQLException mySQLException = (MySQLException) error;
 
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
         }).map(rowSet -> {
           if (rowSet.size() == 0) {
-            log.error("No tags found for alert id: {}", alert_id);
+            log.error("No tags found for alert id: {}", alertId);
             throw ServiceError.NOT_FOUND.getCustomException("No tags found");
           }
 
@@ -747,10 +747,10 @@ public class AlertsDao {
         });
   }
 
-  public Single<Boolean> deleteAlertTagMapping(@NotNull Integer alert_id, @NotNull Integer tag_id) {
-    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT_TAG_MAPPING).rxExecute(Tuple.of(alert_id, tag_id))
+  public Single<Boolean> deleteAlertTagMapping(@NotNull Integer alertId, @NotNull Integer tagId) {
+    return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT_TAG_MAPPING).rxExecute(Tuple.of(alertId, tagId))
         .onErrorResumeNext(error -> {
-          log.error("Error while deleting tag mapping for alert id {} from db: {}", alert_id, error.getMessage());
+          log.error("Error while deleting tag mapping for alert id {} from db: {}", alertId, error.getMessage());
           MySQLException mySQLException = (MySQLException) error;
 
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
