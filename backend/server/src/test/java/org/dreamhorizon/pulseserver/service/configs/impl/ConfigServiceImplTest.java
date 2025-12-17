@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
@@ -76,22 +75,20 @@ class ConfigServiceImplTest {
     void shouldGetConfigByVersionSuccessfully() {
       // Given
       long version = 1L;
-      Config expectedConfig = Config.builder()
+      PulseConfig expectedConfig = PulseConfig.builder()
           .version(version)
-          .configData(PulseConfig.builder()
-              .description("Test Config")
-              .build())
+          .description("Test Config")
           .build();
 
       when(configsDao.getConfig(version)).thenReturn(Single.just(expectedConfig));
 
       // When
-      Config result = configService.getConfig(version).blockingGet();
+      PulseConfig result = configService.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getDescription()).isEqualTo("Test Config");
+      assertThat(result.getDescription()).isEqualTo("Test Config");
 
       verify(configsDao, times(1)).getConfig(version);
       verifyNoMoreInteractions(configsDao);
@@ -125,22 +122,20 @@ class ConfigServiceImplTest {
     @Test
     void shouldGetActiveConfigSuccessfully() {
       // Given
-      Config expectedConfig = Config.builder()
+      PulseConfig expectedConfig = PulseConfig.builder()
           .version(5L)
-          .configData(PulseConfig.builder()
-              .description("Active Config")
-              .build())
+          .description("Active Config")
           .build();
 
       when(configsDao.getConfig()).thenReturn(Single.just(expectedConfig));
 
       // When
-      Config result = configService.getActiveConfig().blockingGet();
+      PulseConfig result = configService.getActiveConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(5L);
-      assertThat(result.getConfigData().getDescription()).isEqualTo("Active Config");
+      assertThat(result.getDescription()).isEqualTo("Active Config");
 
       verify(configsDao, times(1)).getConfig();
     }
@@ -148,19 +143,17 @@ class ConfigServiceImplTest {
     @Test
     void shouldReturnCachedConfigOnSubsequentCalls() {
       // Given
-      Config expectedConfig = Config.builder()
+      PulseConfig expectedConfig = PulseConfig.builder()
           .version(5L)
-          .configData(PulseConfig.builder()
-              .description("Active Config")
-              .build())
+          .description("Active Config")
           .build();
 
       when(configsDao.getConfig()).thenReturn(Single.just(expectedConfig));
 
       // When - first call
-      Config result1 = configService.getActiveConfig().blockingGet();
+      PulseConfig result1 = configService.getActiveConfig().blockingGet();
       // Second call - should use cache
-      Config result2 = configService.getActiveConfig().blockingGet();
+      PulseConfig result2 = configService.getActiveConfig().blockingGet();
 
       // Then
       assertThat(result1).isNotNull();
@@ -197,11 +190,6 @@ class ConfigServiceImplTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(FilterConfig.builder()
-              .mode(FilterMode.blacklist)
-              .whitelist(List.of())
-              .blacklist(List.of())
-              .build())
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
               .scheduleDurationMs(5000)
@@ -209,6 +197,10 @@ class ConfigServiceImplTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
+              .filters(FilterConfig.builder()
+                  .mode(FilterMode.blacklist)
+                  .values(List.of())
+                  .build())
               .build())
           .interaction(InteractionConfig.builder()
               .collectorUrl("http://interaction.example.com")
@@ -225,22 +217,20 @@ class ConfigServiceImplTest {
           ))
           .build();
 
-      Config createdConfig = Config.builder()
+      PulseConfig createdConfig = PulseConfig.builder()
           .version(10L)
-          .configData(PulseConfig.builder()
-              .description("New Config")
-              .build())
+          .description("New Config")
           .build();
 
       when(configsDao.createConfig(configData)).thenReturn(Single.just(createdConfig));
 
       // When
-      Config result = configService.createConfig(configData).blockingGet();
+      PulseConfig result = configService.createConfig(configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(10L);
-      assertThat(result.getConfigData().getDescription()).isEqualTo("New Config");
+      assertThat(result.getDescription()).isEqualTo("New Config");
 
       verify(configsDao, times(1)).createConfig(configData);
       verifyNoMoreInteractions(configsDao);
@@ -249,18 +239,14 @@ class ConfigServiceImplTest {
     @Test
     void shouldInvalidateCacheAfterCreatingConfig() {
       // Given
-      Config initialConfig = Config.builder()
+      PulseConfig initialConfig = PulseConfig.builder()
           .version(5L)
-          .configData(PulseConfig.builder()
-              .description("Initial Config")
-              .build())
+          .description("Initial Config")
           .build();
 
-      Config newConfig = Config.builder()
+      PulseConfig newConfig = PulseConfig.builder()
           .version(6L)
-          .configData(PulseConfig.builder()
-              .description("New Config")
-              .build())
+          .description("New Config")
           .build();
 
       ConfigData configData = ConfigData.builder()
@@ -278,7 +264,7 @@ class ConfigServiceImplTest {
       // Create config should invalidate cache
       configService.createConfig(configData).blockingGet();
       // This should reload from DAO, not cache
-      Config result = configService.getActiveConfig().blockingGet();
+      PulseConfig result = configService.getActiveConfig().blockingGet();
 
       // Then
       assertThat(result.getVersion()).isEqualTo(6L);

@@ -23,7 +23,7 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
@@ -88,7 +88,7 @@ class ConfigsDaoTest {
     void shouldGetConfigByVersionSuccessfully() {
       // Given
       long version = 1L;
-      String configJson = "{\"filters\":{\"mode\":\"blacklist\"},\"sampling\":{},\"signals\":{},\"interaction\":{},\"features\":[]}";
+      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Test Config";
 
       Row mockRow = mock(Row.class);
@@ -110,12 +110,12 @@ class ConfigsDaoTest {
       when(preparedQuery.rxExecute(tupleCaptor.capture())).thenReturn(Single.just(rowSet));
 
       // When
-      Config result = configsDao.getConfig(version).blockingGet();
+      PulseConfig result = configsDao.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getDescription()).isEqualTo(description);
+      assertThat(result.getDescription()).isEqualTo(description);
 
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getLong(0)).isEqualTo(version);
@@ -128,7 +128,7 @@ class ConfigsDaoTest {
     void shouldGetConfigByVersionWithNullDescription() {
       // Given
       long version = 1L;
-      String configJson = "{\"filters\":{\"mode\":\"whitelist\"},\"sampling\":{},\"signals\":{},\"interaction\":{},\"features\":[]}";
+      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
 
       Row mockRow = mock(Row.class);
       when(mockRow.getValue("config_json")).thenReturn(configJson);
@@ -148,12 +148,12 @@ class ConfigsDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When
-      Config result = configsDao.getConfig(version).blockingGet();
+      PulseConfig result = configsDao.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getDescription()).isNull();
+      assertThat(result.getDescription()).isNull();
     }
 
     @Test
@@ -206,7 +206,7 @@ class ConfigsDaoTest {
     void shouldGetLatestConfigWithBlacklistMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"filters\":{\"mode\":\"blacklist\",\"whitelist\":[],\"blacklist\":[]},\"sampling\":{},\"signals\":{},\"interaction\":{},\"features\":[]}";
+      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"blacklist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       // Mock for GET_LATEST_VERSION query
@@ -240,21 +240,19 @@ class ConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      Config result = configsDao.getConfig().blockingGet();
+      PulseConfig result = configsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getFilters().getMode()).isEqualTo(FilterMode.blacklist);
-      // Whitelist should be empty when mode is blacklist
-      assertThat(result.getConfigData().getFilters().getWhitelist()).isEmpty();
+      assertThat(result.getSignals().getFilters().getMode()).isEqualTo(FilterMode.blacklist);
     }
 
     @Test
     void shouldGetLatestConfigWithWhitelistMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"filters\":{\"mode\":\"whitelist\",\"whitelist\":[],\"blacklist\":[]},\"sampling\":{},\"signals\":{},\"interaction\":{},\"features\":[]}";
+      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"mode\":\"whitelist\",\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Latest Config";
 
       Row versionRow = mock(Row.class);
@@ -286,14 +284,12 @@ class ConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      Config result = configsDao.getConfig().blockingGet();
+      PulseConfig result = configsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getFilters().getMode()).isEqualTo(FilterMode.whitelist);
-      // Blacklist should be empty when mode is whitelist
-      assertThat(result.getConfigData().getFilters().getBlacklist()).isEmpty();
+      assertThat(result.getSignals().getFilters().getMode()).isEqualTo(FilterMode.whitelist);
     }
 
     @Test
@@ -332,19 +328,19 @@ class ConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      Config result = configsDao.getConfig().blockingGet();
+      PulseConfig result = configsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getFilters()).isNull();
+      assertThat(result.getSignals().getFilters()).isNull();
     }
 
     @Test
     void shouldGetLatestConfigWithNullFilterMode() {
       // Given
       long version = 5L;
-      String configJson = "{\"filters\":{\"whitelist\":[],\"blacklist\":[]},\"sampling\":{},\"signals\":{},\"interaction\":{},\"features\":[]}";
+      String configJson = "{\"sampling\":{},\"signals\":{\"filters\":{\"values\":[]}},\"interaction\":{},\"features\":[]}";
       String description = "Config With Null Mode";
 
       Row versionRow = mock(Row.class);
@@ -376,14 +372,12 @@ class ConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      Config result = configsDao.getConfig().blockingGet();
+      PulseConfig result = configsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
-      assertThat(result.getConfigData().getFilters().getMode()).isNull();
-      // Blacklist should be empty when mode is null (treated as whitelist mode path)
-      assertThat(result.getConfigData().getFilters().getBlacklist()).isEmpty();
+      assertThat(result.getSignals().getFilters().getMode()).isNull();
     }
 
     @Test
@@ -457,11 +451,6 @@ class ConfigsDaoTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(FilterConfig.builder()
-              .mode(FilterMode.blacklist)
-              .whitelist(List.of())
-              .blacklist(List.of())
-              .build())
           .sampling(SamplingConfig.builder().build())
           .signals(SignalsConfig.builder()
               .scheduleDurationMs(5000)
@@ -469,6 +458,10 @@ class ConfigsDaoTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
+              .filters(FilterConfig.builder()
+                  .mode(FilterMode.blacklist)
+                  .values(List.of())
+                  .build())
               .build())
           .interaction(InteractionConfig.builder()
               .collectorUrl("http://interaction.example.com")
@@ -508,12 +501,11 @@ class ConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      Config result = configsDao.createConfig(configData).blockingGet();
+      PulseConfig result = configsDao.createConfig(configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(insertedId);
-      assertThat(result.getConfigData()).isNotNull();
 
       verify(sqlConnection, times(1)).close();
     }
@@ -524,9 +516,10 @@ class ConfigsDaoTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(FilterConfig.builder().mode(FilterMode.blacklist).build())
           .sampling(SamplingConfig.builder().build())
-          .signals(SignalsConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
           .build();
@@ -564,9 +557,10 @@ class ConfigsDaoTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(FilterConfig.builder().mode(FilterMode.whitelist).build())
           .sampling(SamplingConfig.builder().build())
-          .signals(SignalsConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .filters(FilterConfig.builder().mode(FilterMode.whitelist).values(List.of()).build())
+              .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
           .build();
@@ -603,9 +597,10 @@ class ConfigsDaoTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(FilterConfig.builder().mode(FilterMode.blacklist).build())
           .sampling(SamplingConfig.builder().build())
-          .signals(SignalsConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
           .build();
@@ -638,9 +633,10 @@ class ConfigsDaoTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(FilterConfig.builder().mode(FilterMode.blacklist).build())
           .sampling(SamplingConfig.builder().build())
-          .signals(SignalsConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .build())
           .interaction(InteractionConfig.builder().build())
           .features(List.of())
           .build();
@@ -683,7 +679,6 @@ class ConfigsDaoTest {
       ConfigData configData = ConfigData.builder()
           .description("New Config")
           .user("test_user")
-          .filters(null)
           .sampling(null)
           .signals(null)
           .interaction(null)
@@ -710,7 +705,7 @@ class ConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      Config result = configsDao.createConfig(configData).blockingGet();
+      PulseConfig result = configsDao.createConfig(configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();

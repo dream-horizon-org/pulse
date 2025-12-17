@@ -20,7 +20,6 @@ import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
@@ -71,17 +70,15 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 1;
-        Config mockConfig = Config.builder()
+        PulseConfig mockConfig = PulseConfig.builder()
             .version(1L)
-            .configData(PulseConfig.builder()
-                .description("Test Config")
-                .build())
+            .description("Test Config")
             .build();
 
         when(configService.getConfig(version)).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<Config>> result = configController.getConfig(version);
+        CompletionStage<Response<PulseConfig>> result = configController.getConfig(version);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -89,7 +86,7 @@ class ConfigControllerTest {
             assertNull(err);
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
-            assertEquals("Test Config", resp.getData().getConfigData().getDescription());
+            assertEquals("Test Config", resp.getData().getDescription());
             verify(configService, times(1)).getConfig(version);
           });
           testContext.completeNow();
@@ -108,7 +105,7 @@ class ConfigControllerTest {
                 "Config not found", "Config not found", 404)));
 
         // When
-        CompletionStage<Response<Config>> result = configController.getConfig(version);
+        CompletionStage<Response<PulseConfig>> result = configController.getConfig(version);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -135,7 +132,7 @@ class ConfigControllerTest {
                 "Database error", "Database error", 500)));
 
         // When
-        CompletionStage<Response<Config>> result = configController.getConfig(version);
+        CompletionStage<Response<PulseConfig>> result = configController.getConfig(version);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -160,17 +157,15 @@ class ConfigControllerTest {
     void shouldGetActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given
-        Config mockConfig = Config.builder()
+        PulseConfig mockConfig = PulseConfig.builder()
             .version(5L)
-            .configData(PulseConfig.builder()
-                .description("Active Config")
-                .build())
+            .description("Active Config")
             .build();
 
         when(configService.getActiveConfig()).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<Config>> result = configController.getActiveConfig();
+        CompletionStage<Response<PulseConfig>> result = configController.getActiveConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -178,7 +173,7 @@ class ConfigControllerTest {
             assertNull(err);
             assertNotNull(resp.getData());
             assertEquals(5L, resp.getData().getVersion());
-            assertEquals("Active Config", resp.getData().getConfigData().getDescription());
+            assertEquals("Active Config", resp.getData().getDescription());
             verify(configService, times(1)).getActiveConfig();
           });
           testContext.completeNow();
@@ -195,7 +190,7 @@ class ConfigControllerTest {
                 "No active config", "No active config", 404)));
 
         // When
-        CompletionStage<Response<Config>> result = configController.getActiveConfig();
+        CompletionStage<Response<PulseConfig>> result = configController.getActiveConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -223,9 +218,13 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
         pulseConfig.getInteraction().setConfigUrl("http://custom-config.example.com");
 
-        Config createdConfig = Config.builder()
+        PulseConfig createdConfig = PulseConfig.builder()
             .version(10L)
-            .configData(pulseConfig)
+            .description(pulseConfig.getDescription())
+            .sampling(pulseConfig.getSampling())
+            .signals(pulseConfig.getSignals())
+            .interaction(pulseConfig.getInteraction())
+            .features(pulseConfig.getFeatures())
             .build();
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
@@ -259,10 +258,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getOtelCollectorUrl()).thenReturn("http://default-collector.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(11L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 11L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -293,10 +289,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getOtelCollectorUrl()).thenReturn("http://default-collector.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(12L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 12L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -325,10 +318,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getInteractionConfigUrl()).thenReturn("http://default-config.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(13L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 13L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -358,10 +348,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getInteractionConfigUrl()).thenReturn("http://default-config.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(14L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 14L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -391,10 +378,7 @@ class ConfigControllerTest {
         when(applicationConfig.getOtelCollectorUrl()).thenReturn("http://default-collector.example.com");
         when(applicationConfig.getInteractionConfigUrl()).thenReturn("http://default-config.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(15L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 15L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -421,10 +405,7 @@ class ConfigControllerTest {
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setInteraction(null);
 
-        Config createdConfig = Config.builder()
-            .version(16L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 16L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -456,10 +437,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getLogsCollectorUrl()).thenReturn("http://default-logs.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(30L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 30L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -489,10 +467,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getLogsCollectorUrl()).thenReturn("http://default-logs.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(31L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 31L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -520,10 +495,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getMetricCollectorUrl()).thenReturn("http://default-metrics.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(32L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 32L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -553,10 +525,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getMetricCollectorUrl()).thenReturn("http://default-metrics.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(33L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 33L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -584,10 +553,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getSpanCollectorUrl()).thenReturn("http://default-spans.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(34L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 34L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -617,10 +583,7 @@ class ConfigControllerTest {
 
         when(applicationConfig.getSpanCollectorUrl()).thenReturn("http://default-spans.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(35L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 35L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -652,10 +615,7 @@ class ConfigControllerTest {
         when(applicationConfig.getMetricCollectorUrl()).thenReturn("http://default-metrics.example.com");
         when(applicationConfig.getSpanCollectorUrl()).thenReturn("http://default-spans.example.com");
 
-        Config createdConfig = Config.builder()
-            .version(36L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 36L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -683,10 +643,7 @@ class ConfigControllerTest {
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setSignals(null);
 
-        Config createdConfig = Config.builder()
-            .version(37L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 37L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -742,11 +699,6 @@ class ConfigControllerTest {
     private PulseConfig createValidPulseConfig() {
       return PulseConfig.builder()
           .description("Test Config")
-          .filters(PulseConfig.FilterConfig.builder()
-              .mode(FilterMode.blacklist)
-              .whitelist(List.of())
-              .blacklist(List.of())
-              .build())
           .sampling(PulseConfig.SamplingConfig.builder()
               .defaultSampling(PulseConfig.DefaultSampling.builder()
                   .sessionSampleRate(1.0)
@@ -759,6 +711,10 @@ class ConfigControllerTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
+              .filters(PulseConfig.FilterConfig.builder()
+                  .mode(FilterMode.blacklist)
+                  .values(List.of())
+                  .build())
               .build())
           .interaction(PulseConfig.InteractionConfig.builder()
               .collectorUrl("http://interaction-collector.example.com")
@@ -782,35 +738,6 @@ class ConfigControllerTest {
     private PulseConfig createFullyPopulatedPulseConfig() {
       return PulseConfig.builder()
           .description("Full Config")
-          .filters(PulseConfig.FilterConfig.builder()
-              .mode(FilterMode.whitelist)
-              .whitelist(Arrays.asList(
-                  PulseConfig.EventFilter.builder()
-                      .name("event1")
-                      .props(Arrays.asList(
-                          PulseConfig.EventPropMatch.builder()
-                              .name("propName")
-                              .value("propValue.*")
-                              .build()
-                      ))
-                      .scope(Arrays.asList(Scope.logs, Scope.traces))
-                      .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
-                      .build()
-              ))
-              .blacklist(Arrays.asList(
-                  PulseConfig.EventFilter.builder()
-                      .name("blockedEvent")
-                      .props(Arrays.asList(
-                          PulseConfig.EventPropMatch.builder()
-                              .name("blockProp")
-                              .value("blockValue")
-                              .build()
-                      ))
-                      .scope(Arrays.asList(Scope.metrics))
-                      .sdks(Arrays.asList(Sdk.android_rn))
-                      .build()
-              ))
-              .build())
           .sampling(PulseConfig.SamplingConfig.builder()
               .defaultSampling(PulseConfig.DefaultSampling.builder()
                   .sessionSampleRate(0.5)
@@ -839,7 +766,7 @@ class ConfigControllerTest {
                                   .value("critical")
                                   .build()
                           ))
-                          .scope(Arrays.asList(Scope.logs))
+                          .scopes(Arrays.asList(Scope.logs))
                           .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
                           .build()
                   ))
@@ -854,7 +781,7 @@ class ConfigControllerTest {
                                   .value("vip")
                                   .build()
                           ))
-                          .scope(Arrays.asList(Scope.traces, Scope.baggage))
+                          .scopes(Arrays.asList(Scope.traces, Scope.baggage))
                           .sdks(Arrays.asList(Sdk.ios_rn))
                           .build()
                   ))
@@ -865,7 +792,36 @@ class ConfigControllerTest {
               .logsCollectorUrl("http://logs.example.com")
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
-              .attributesToDrop(Arrays.asList("sensitiveAttr1", "sensitiveAttr2"))
+              .attributesToDrop(Arrays.asList(
+                  PulseConfig.EventFilter.builder()
+                      .name("sensitiveAttr1")
+                      .props(List.of())
+                      .scopes(Arrays.asList(Scope.logs))
+                      .sdks(Arrays.asList(Sdk.android_java))
+                      .build(),
+                  PulseConfig.EventFilter.builder()
+                      .name("sensitiveAttr2")
+                      .props(List.of())
+                      .scopes(Arrays.asList(Scope.logs))
+                      .sdks(Arrays.asList(Sdk.android_java))
+                      .build()
+              ))
+              .filters(PulseConfig.FilterConfig.builder()
+                  .mode(FilterMode.whitelist)
+                  .values(Arrays.asList(
+                      PulseConfig.EventFilter.builder()
+                          .name("event1")
+                          .props(Arrays.asList(
+                              PulseConfig.EventPropMatch.builder()
+                                  .name("propName")
+                                  .value("propValue.*")
+                                  .build()
+                          ))
+                          .scopes(Arrays.asList(Scope.logs, Scope.traces))
+                          .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
+                          .build()
+                  ))
+                  .build())
               .build())
           .interaction(PulseConfig.InteractionConfig.builder()
               .collectorUrl("http://interaction-collector.example.com")
@@ -895,23 +851,30 @@ class ConfigControllerTest {
           .build();
     }
 
+    private PulseConfig createPulseConfigWithVersion(PulseConfig source, long version) {
+      return PulseConfig.builder()
+          .version(version)
+          .description(source.getDescription())
+          .sampling(source.getSampling())
+          .signals(source.getSignals())
+          .interaction(source.getInteraction())
+          .features(source.getFeatures())
+          .build();
+    }
+
     @Test
     void shouldCreateConfigWithNullNestedObjects(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given - Test with null nested objects to cover null-check branches in mapper
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Minimal Config")
-            .filters(null)
             .sampling(null)
             .signals(null)
             .interaction(null)
             .features(null)
             .build();
 
-        Config createdConfig = Config.builder()
-            .version(21L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 21L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -937,11 +900,6 @@ class ConfigControllerTest {
         // Given - Test with empty lists to cover list handling branches
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Empty Lists Config")
-            .filters(PulseConfig.FilterConfig.builder()
-                .mode(FilterMode.blacklist)
-                .whitelist(null)
-                .blacklist(null)
-                .build())
             .sampling(PulseConfig.SamplingConfig.builder()
                 .defaultSampling(null)
                 .rules(null)
@@ -954,6 +912,10 @@ class ConfigControllerTest {
                 .metricCollectorUrl("http://metrics.example.com")
                 .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(null)
+                .filters(PulseConfig.FilterConfig.builder()
+                    .mode(FilterMode.blacklist)
+                    .values(null)
+                    .build())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
                 .collectorUrl("http://interaction.example.com")
@@ -963,10 +925,7 @@ class ConfigControllerTest {
             .features(List.of())
             .build();
 
-        Config createdConfig = Config.builder()
-            .version(22L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 22L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -991,18 +950,6 @@ class ConfigControllerTest {
         // Given - Test with filter events that have null props/scope/sdks
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Partial Filter Config")
-            .filters(PulseConfig.FilterConfig.builder()
-                .mode(FilterMode.whitelist)
-                .whitelist(Arrays.asList(
-                    PulseConfig.EventFilter.builder()
-                        .name("event1")
-                        .props(null)
-                        .scope(null)
-                        .sdks(null)
-                        .build()
-                ))
-                .blacklist(List.of())
-                .build())
             .sampling(PulseConfig.SamplingConfig.builder()
                 .defaultSampling(PulseConfig.DefaultSampling.builder()
                     .sessionSampleRate(1.0)
@@ -1013,7 +960,7 @@ class ConfigControllerTest {
                         PulseConfig.CriticalPolicyRule.builder()
                             .name("critical1")
                             .props(null)
-                            .scope(null)
+                            .scopes(null)
                             .sdks(null)
                             .build()
                     ))
@@ -1023,7 +970,7 @@ class ConfigControllerTest {
                         PulseConfig.CriticalPolicyRule.builder()
                             .name("session1")
                             .props(null)
-                            .scope(null)
+                            .scopes(null)
                             .sdks(null)
                             .build()
                     ))
@@ -1035,6 +982,17 @@ class ConfigControllerTest {
                 .metricCollectorUrl("http://metrics.example.com")
                 .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(List.of())
+                .filters(PulseConfig.FilterConfig.builder()
+                    .mode(FilterMode.whitelist)
+                    .values(Arrays.asList(
+                        PulseConfig.EventFilter.builder()
+                            .name("event1")
+                            .props(null)
+                            .scopes(null)
+                            .sdks(null)
+                            .build()
+                    ))
+                    .build())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
                 .collectorUrl("http://interaction.example.com")
@@ -1051,10 +1009,7 @@ class ConfigControllerTest {
             ))
             .build();
 
-        Config createdConfig = Config.builder()
-            .version(23L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 23L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -1079,11 +1034,6 @@ class ConfigControllerTest {
         // Given - Test sampling rules with null sdks
         PulseConfig pulseConfig = PulseConfig.builder()
             .description("Sampling Rules Config")
-            .filters(PulseConfig.FilterConfig.builder()
-                .mode(FilterMode.blacklist)
-                .whitelist(List.of())
-                .blacklist(List.of())
-                .build())
             .sampling(PulseConfig.SamplingConfig.builder()
                 .defaultSampling(PulseConfig.DefaultSampling.builder()
                     .sessionSampleRate(0.5)
@@ -1103,6 +1053,10 @@ class ConfigControllerTest {
                 .metricCollectorUrl("http://metrics.example.com")
                 .spanCollectorUrl("http://spans.example.com")
                 .attributesToDrop(List.of())
+                .filters(PulseConfig.FilterConfig.builder()
+                    .mode(FilterMode.blacklist)
+                    .values(List.of())
+                    .build())
                 .build())
             .interaction(PulseConfig.InteractionConfig.builder()
                 .collectorUrl("http://interaction.example.com")
@@ -1112,10 +1066,7 @@ class ConfigControllerTest {
             .features(List.of())
             .build();
 
-        Config createdConfig = Config.builder()
-            .version(24L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 24L);
 
         when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
@@ -1140,10 +1091,7 @@ class ConfigControllerTest {
         // Given - Use fully populated config to exercise all mapper branches
         PulseConfig pulseConfig = createFullyPopulatedPulseConfig();
 
-        Config createdConfig = Config.builder()
-            .version(20L)
-            .configData(pulseConfig)
-            .build();
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 20L);
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
         when(configService.createConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
@@ -1164,9 +1112,9 @@ class ConfigControllerTest {
             assertNotNull(capturedData);
             assertEquals(userEmail, capturedData.getUser());
             assertEquals("Full Config", capturedData.getDescription());
-            assertNotNull(capturedData.getFilters());
             assertNotNull(capturedData.getSampling());
             assertNotNull(capturedData.getSignals());
+            assertNotNull(capturedData.getSignals().getFilters());
             assertNotNull(capturedData.getInteraction());
             assertNotNull(capturedData.getFeatures());
             assertEquals(3, capturedData.getFeatures().size());
