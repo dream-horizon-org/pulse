@@ -1,7 +1,5 @@
 package org.dreamhorizon.pulsealertscron.verticle;
 
-import org.dreamhorizon.pulsealertscron.client.mysql.MysqlClient;
-import org.dreamhorizon.pulsealertscron.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
 import org.dreamhorizon.pulsealertscron.constant.Constants;
 import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
@@ -21,7 +19,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class MainVerticle extends AbstractVerticle {
 
-  private MysqlClient mysqlClient;
   private WebClient webClient;
   private ApplicationConfig applicationConfig;
 
@@ -35,20 +32,13 @@ public class MainVerticle extends AbstractVerticle {
     this.applicationConfig = GuiceInjector.getGuiceInjector().getInstance(ApplicationConfig.class);
 
     // Initialize clients
-    this.mysqlClient = new MysqlClientImpl(vertx.getDelegate());
     this.webClient = GuiceInjector.getGuiceInjector().getInstance(WebClient.class);
 
-    // Connect to MySQL and deploy REST server
-    return mysqlClient.rxConnect()
-        .doOnComplete(() -> {
-          log.info("MySQL client connected successfully");
-          initCrons();
-        })
-        .andThen(
-            vertx.rxDeployVerticle(
-                () -> new RestVerticle(new HttpServerOptions().setPort(4000)),
-                new DeploymentOptions().setInstances(1)
-            )
+    // Initialize crons and deploy REST server
+    initCrons();
+    return vertx.rxDeployVerticle(
+            () -> new RestVerticle(new HttpServerOptions().setPort(4000)),
+            new DeploymentOptions().setInstances(1)
         )
         .doOnSuccess(deploymentId -> log.info("REST server started on port 4000"))
         .ignoreElement();
@@ -93,9 +83,6 @@ public class MainVerticle extends AbstractVerticle {
   public Completable rxStop() {
     if (webClient != null) {
       webClient.close();
-    }
-    if (mysqlClient != null) {
-      mysqlClient.close();
     }
     return Completable.complete()
         .doOnComplete(() -> log.info("MainVerticle stopped successfully"));
