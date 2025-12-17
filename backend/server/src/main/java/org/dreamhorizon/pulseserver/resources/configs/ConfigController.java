@@ -42,7 +42,7 @@ public class ConfigController {
   }
 
   @GET
-  @Path("/active-config")
+  @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getActiveConfig() {
     return configService.getActiveConfig()
