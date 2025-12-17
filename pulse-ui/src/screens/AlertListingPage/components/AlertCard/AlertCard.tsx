@@ -11,14 +11,6 @@ import classes from "./AlertCard.module.css";
 
 const DEFAULT_SEVERITY: SeverityDisplayConfig = { label: "Unknown", color: "#6b7280" };
 
-const METRIC_LABELS: Record<string, string> = {
-  APDEX: "APDEX", CRASH_RATE: "Crash Rate", ANR_RATE: "ANR Rate",
-  DURATION_P99: "P99", DURATION_P95: "P95", DURATION_P50: "P50",
-  ERROR_RATE: "Error Rate", INTERACTION_ERROR_COUNT: "Errors",
-  SCREEN_LOAD_TIME_P99: "Load P99", SCREEN_LOAD_TIME_P95: "Load P95",
-  SCREEN_LOAD_TIME_P50: "Load P50", NET_5XX_RATE: "5XX Rate", NET_4XX_RATE: "4XX Rate",
-};
-
 const OPERATOR_SYMBOLS: Record<string, string> = {
   GREATER_THAN: ">", LESS_THAN: "<", GREATER_THAN_OR_EQUAL: "≥",
   LESS_THAN_OR_EQUAL: "≤", EQUAL: "=",
@@ -30,16 +22,6 @@ const formatDuration = (seconds: number): string => {
   return `${Math.floor(seconds / 3600)}h`;
 };
 
-const formatThresholdValue = (value: number, metric: string): string => {
-  if (metric.includes("RATE") || metric === "APDEX") {
-    return value < 1 ? `${(value * 100).toFixed(0)}%` : value.toString();
-  }
-  if (metric.includes("DURATION") || metric.includes("TIME")) {
-    return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
-  }
-  return value.toLocaleString();
-};
-
 const getAllScopeNames = (conditions: AlertCondition[]): string[] => {
   const allNames = new Set<string>();
   conditions.forEach(c => Object.keys(c.threshold || {}).forEach(n => allNames.add(n)));
@@ -48,7 +30,7 @@ const getAllScopeNames = (conditions: AlertCondition[]): string[] => {
 
 export function AlertCard({
   name, description, current_state, scope, alerts = [], severity_id,
-  is_snoozed, evaluation_period, scopeLabels = {}, severityConfig = {}, onClick,
+  is_snoozed, evaluation_period, scopeLabels = {}, severityConfig = {}, metricLabels = {}, onClick,
 }: AlertCardProps) {
   const isFiring = current_state === "FIRING";
   const scopeLabel = scopeLabels[scope] || scope;
@@ -123,10 +105,10 @@ export function AlertCard({
                   <span className={classes.conditionAlias}>{condition.alias}</span>
                 )}
                 <span className={classes.conditionText}>
-                  {METRIC_LABELS[condition.metric] || condition.metric.replace(/_/g, " ")}
+                  {metricLabels[condition.metric] || condition.metric}
                   <span className={classes.operator}> {OPERATOR_SYMBOLS[condition.metric_operator] || ">"} </span>
                   <span className={classes.threshold}>
-                    {formatThresholdValue(Object.values(condition.threshold || {})[0] as number, condition.metric)}
+                    {Object.values(condition.threshold || {})[0]}
                   </span>
                 </span>
               </div>

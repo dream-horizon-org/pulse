@@ -37,6 +37,7 @@ import { useGetAlertFilters } from "../../hooks/useGetAlertFilters";
 import { AlertFilters } from "./components/AlertFilters";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
+import { useGetAllScopeMetrics } from "../../hooks/useGetAlertMetrics";
 
 const LIMIT = 12;
 
@@ -85,6 +86,13 @@ export function AlertListingPage({
     });
     return map;
   }, [scopesData]);
+
+  // Get all scope names and fetch metrics for all scopes
+  const scopeNames = useMemo(() => {
+    return scopesData?.data?.scopes?.map(s => s.name) || [];
+  }, [scopesData]);
+
+  const { metricLabels } = useGetAllScopeMetrics({ scopeNames });
 
   const severityConfig = useMemo(() => {
     const map: Record<number, { label: string; color: string; description: string }> = {};
@@ -212,6 +220,7 @@ export function AlertListingPage({
             evaluation_interval={element.evaluation_interval}
             scopeLabels={scopeLabels}
             severityConfig={severityConfig}
+            metricLabels={metricLabels}
             onClick={() =>
               navigate(`${ROUTES.ALERT_DETAIL.basePath}/${element.alert_id}`)
             }

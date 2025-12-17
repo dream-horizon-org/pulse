@@ -16,15 +16,8 @@ import { useSnoozeAlert } from "../../hooks/useSnoozeAlert";
 import { useResumeAlert } from "../../hooks/useResumeAlert";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
+import { useGetAlertMetrics } from "../../hooks/useGetAlertMetrics";
 import { showNotification } from "../../helpers/showNotification";
-
-const METRIC_LABELS: Record<string, string> = {
-  APDEX: "APDEX Score", CRASH_RATE: "Crash Rate", ANR_RATE: "ANR Rate",
-  DURATION_P99: "P99 Latency", DURATION_P95: "P95 Latency", DURATION_P50: "P50 Latency",
-  ERROR_RATE: "Error Rate", INTERACTION_ERROR_COUNT: "Error Count",
-  SCREEN_LOAD_TIME_P99: "Load Time P99", SCREEN_LOAD_TIME_P95: "Load Time P95",
-  NET_5XX_RATE: "5XX Rate", NET_4XX_RATE: "4XX Rate",
-};
 
 const OPERATOR_SYMBOLS: Record<string, string> = {
   GREATER_THAN: ">", LESS_THAN: "<", GREATER_THAN_OR_EQUAL: "≥", LESS_THAN_OR_EQUAL: "≤", EQUAL: "=",
@@ -34,12 +27,6 @@ const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-};
-
-const formatThresholdValue = (value: number, metric: string): string => {
-  if (metric.includes("RATE") || metric === "APDEX") return `${(value * 100).toFixed(1)}%`;
-  if (metric.includes("DURATION") || metric.includes("TIME")) return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
-  return value.toLocaleString();
 };
 
 const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -77,6 +64,10 @@ export function AlertDetail(_props: AlertDetailProps) {
   const { data: evaluationHistoryData, isLoading: isHistoryLoading, refetch: refetchHistory } = useGetAlertEvaluationHistory({ alertId: alertId || "" });
   const { data: scopesData } = useGetAlertScopes();
   const { data: severitiesData } = useGetAlertSeverities();
+  
+  // Fetch metrics based on alert's scope
+  const alertScope = alertData?.data?.scope || "";
+  const { data: metricsData } = useGetAlertMetrics({ scope: alertScope });
 
   const toggleScopeExpanded = (scopeId: number) => {
     setExpandedScopes(prev => {
@@ -115,6 +106,10 @@ export function AlertDetail(_props: AlertDetailProps) {
   severities.forEach((s: { severity_id: number; name: number }) => {
     severityConfig[s.severity_id] = { label: labels[s.name - 1] || `P${s.name}`, color: colors[s.name - 1] || "#6b7280" };
   });
+
+  // Build metric labels lookup from fetched metrics
+  const metricLabels: Record<string, string> = {};
+  metricsData?.data?.metrics?.forEach((m) => { metricLabels[m.name] = m.label; });
 
   const snoozeAlertMutation = useSnoozeAlert({
     onSettled: (data, error) => {
@@ -276,7 +271,7 @@ export function AlertDetail(_props: AlertDetailProps) {
                 <div key={idx} className={classes.conditionCard}>
                   <div className={classes.conditionHeader}>
                     <span className={classes.conditionAlias}>{condition.alias}</span>
-                    <span className={classes.conditionMetric}>{METRIC_LABELS[condition.metric] || condition.metric}</span>
+                    <span className={classes.conditionMetric}>{metricLabels[condition.metric] || condition.metric}</span>
                     <span className={classes.conditionOperator}>{OPERATOR_SYMBOLS[condition.metric_operator] || condition.metric_operator}</span>
                   </div>
                   <Divider my="xs" color="rgba(14,201,194,0.1)" />
@@ -421,9 +416,9 @@ export function AlertDetail(_props: AlertDetailProps) {
                                         </div>
                                         {Object.entries(evaluationResult).map(([metricKey, value], mrIdx) => (
                                           <div key={mrIdx} className={classes.scopeReadingRow}>
-                                            <span className={classes.scopeName}>{METRIC_LABELS[metricKey] || metricKey}</span>
+                                            <span className={classes.scopeName}>{metricLabels[metricKey] || metricKey}</span>
                                             <span className={`${classes.scopeValue} ${isItemFiring ? classes.scopeValueFiring : classes.scopeValueNormal}`}>
-                                              {typeof value === 'number' ? value.toFixed(4) : value}
+                                              {value}
                                             </span>
                                           </div>
                                         ))}
