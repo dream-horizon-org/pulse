@@ -149,10 +149,10 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('CRASH_RATE', 'Crash Rate (%)', 'interaction'),
     ('ANR_RATE', 'ANR Rate (%)', 'interaction'),
     ('FROZEN_FRAME_RATE', 'Frozen Frame Rate (%)', 'interaction'),
-    ('POOR_USER_RATE', 'Poor User Rate (%)', 'interaction'),
-    ('AVERAGE_USER_RATE', 'Average User Rate (%)', 'interaction'),
-    ('GOOD_USER_RATE', 'Good User Rate (%)', 'interaction'),
-    ('EXCELLENT_USER_RATE', 'Excellent User Rate (%)', 'interaction');
+    ('POOR_USER_RATE', 'Poor Users (%)', 'interaction'),
+    ('AVERAGE_USER_RATE', 'Average Users (%)', 'interaction'),
+    ('GOOD_USER_RATE', 'Good Users Rate (%)', 'interaction'),
+    ('EXCELLENT_USER_RATE', 'Excellent Users (%)', 'interaction');
 
 -- Insert APP_VITALS scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
@@ -175,7 +175,7 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'Daily Users Count', 'screen'),
     ('SCREEN_ERROR_RATE', 'Error Rate (%)', 'screen'),
-    ('SCREEN_TIME', 'Screen Time (ms)', 'screen'),
+    ('SCREEN_TIME', 'Screen Time (s)', 'screen'),
     ('LOAD_TIME', 'Load Time (ms)', 'screen');
 
 -- Insert network_api scope metrics

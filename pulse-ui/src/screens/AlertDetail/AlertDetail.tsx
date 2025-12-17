@@ -284,7 +284,7 @@ export function AlertDetail(_props: AlertDetailProps) {
                     {Object.entries(condition.threshold || {}).map(([name, value]) => (
                       <div key={name} className={classes.thresholdItem}>
                         <span className={classes.thresholdName}>{name}</span>
-                        <span className={classes.thresholdValue}>{formatThresholdValue(value as number, condition.metric)}</span>
+                        <span className={classes.thresholdValue}>{value}</span>
                       </div>
                     ))}
                   </div>

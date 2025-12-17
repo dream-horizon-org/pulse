@@ -45,19 +45,19 @@ public class ClickhouseConstants {
   public final String ANR_RATE = "(countIf(has(Events.Name, 'device.anr'))/count()) * 100";
   public final String FROZEN_FRAME_RATE =
       "(sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100";
-  public final String ERROR_RATE = "(countIf(StatusCode = 'ERROR')/count()) * 100";
+  public final String ERROR_RATE = "(countIf(StatusCode = 'Error')/count()) * 100";
   public final String POOR_USER_RATE =
-      "(countIf(ifNull(SpanAttributes['userCategory'], '') = 'POOR')/countIf(ifNull(SpanAttributes['userCategory'], '') != '')) * 100";
+      "(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100";
   public final String AVERAGE_USER_RATE =
-      "(countIf(ifNull(SpanAttributes['userCategory'], '') = 'AVERAGE')/countIf(ifNull(SpanAttributes['userCategory'], '') != '')) * 100";
+      "(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Average')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100";
   public final String GOOD_USER_RATE =
-      "(countIf(ifNull(SpanAttributes['userCategory'], '') = 'GOOD')/countIf(ifNull(SpanAttributes['userCategory'], '') != '')) * 100";
+      "(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Good')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100";
   public final String EXCELLENT_USER_RATE =
-      "(countIf(ifNull(SpanAttributes['userCategory'], '') = 'EXCELLENT')/countIf(ifNull(SpanAttributes['userCategory'], '') != '')) * 100";
+      "(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Excellent')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100";
   public final String LOAD_TIME =
-      "if(countIf(SpanType = 'screen_load') = 0, 0, sumIf(Duration,SpanType = 'screen_load')/countIf(SpanType = 'screen_load'))";
+      "if(countIf(SpanType = 'screen_load') = 0, 0, sumIf(Duration / 1e6, SpanType = 'screen_load')/countIf(SpanType = 'screen_load'))";
   public final String SCREEN_TIME =
-      "if(countIf(SpanType = 'screen_session') = 0, 0, sumIf(Duration,SpanType = 'screen_session')/countIf(SpanType = 'screen_session'))";
+      "if(countIf(SpanType = 'screen_session') = 0, 0, sumIf(Duration / 1e9, SpanType = 'screen_session')/countIf(SpanType = 'screen_session'))";
   public final String SCREEN_DAILY_USERS =
       "uniqCombined(UserId)";
   public final String NET_4XX_RATE =
