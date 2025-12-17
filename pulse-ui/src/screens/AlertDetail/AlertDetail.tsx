@@ -9,7 +9,7 @@ import {
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
 import { COMMON_CONSTANTS, ROUTES } from "../../constants";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useGetAlertEvaluationHistory } from "../../hooks/useGetAlertEvaluationHistory";
 import { useGetAlertDetails } from "../../hooks/useGetAlertDetails";
 import { useSnoozeAlert } from "../../hooks/useSnoozeAlert";
@@ -60,8 +60,17 @@ export function AlertDetail(_props: AlertDetailProps) {
   const [showSnoozeLoader, setShowSnoozeLoader] = useState(false);
   const [expandedScopes, setExpandedScopes] = useState<Set<number>>(new Set());
 
-  const { data: alertData, isLoading: isAlertLoading, refetch: refetchAlert } = useGetAlertDetails({ queryParams: { alert_id: alertId || null } });
-  const { data: evaluationHistoryData, isLoading: isHistoryLoading, refetch: refetchHistory } = useGetAlertEvaluationHistory({ alertId: alertId || "" });
+  // Poll every 30 seconds for real-time updates
+  const POLLING_INTERVAL = 30000;
+  
+  const { data: alertData, isLoading: isAlertLoading, refetch: refetchAlert } = useGetAlertDetails({ 
+    queryParams: { alert_id: alertId || null },
+    refetchInterval: POLLING_INTERVAL,
+  });
+  const { data: evaluationHistoryData, isLoading: isHistoryLoading } = useGetAlertEvaluationHistory({ 
+    alertId: alertId || "",
+    refetchInterval: POLLING_INTERVAL,
+  });
   const { data: scopesData } = useGetAlertScopes();
   const { data: severitiesData } = useGetAlertSeverities();
   
@@ -135,8 +144,6 @@ export function AlertDetail(_props: AlertDetailProps) {
     },
   });
 
-  useEffect(() => { if (alertId) refetchHistory(); }, [alertId, refetchHistory]);
-
   const handleBack = () => navigate(ROUTES.ALERTS.basePath);
   const handleEdit = () => navigate(`${ROUTES.ALERTS_FORM.basePath}/${alertId}`);
   
@@ -170,7 +177,6 @@ export function AlertDetail(_props: AlertDetailProps) {
     );
   }
 
-  console.log(alert.status);
   const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
   const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring || alert.status === "NO_DATA" ? "#ef4444" : "#10b981";
   const statusLabel = alert.is_snoozed ? "Snoozed" : alert.status;

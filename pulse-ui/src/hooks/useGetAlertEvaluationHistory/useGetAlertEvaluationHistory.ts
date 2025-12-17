@@ -8,6 +8,7 @@ import {
 
 export const useGetAlertEvaluationHistory = ({
   alertId,
+  refetchInterval = false,
 }: GetAlertEvaluationHistoryParams) => {
   const getAlertEvaluationHistory = API_ROUTES.GET_ALERT_EVALUATION_HISTORY;
 
@@ -29,8 +30,8 @@ export const useGetAlertEvaluationHistory = ({
       });
     },
     refetchOnWindowFocus: false,
-    refetchInterval: false,
-    enabled: false,
+    refetchInterval,
+    enabled: !!alertId,
   });
 };
 
