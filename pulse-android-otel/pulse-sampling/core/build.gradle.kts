@@ -15,6 +15,7 @@ dependencies {
     implementation(projects.testCommon)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
+    implementation(projects.pulseSamplingRemote)
     implementation(projects.pulseSamplingModels)
     testImplementation(testFixtures(projects.pulseSamplingModels))
     implementation(projects.pulseUtils)
