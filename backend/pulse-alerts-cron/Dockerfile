@@ -45,4 +45,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 USER 10001
 
 # Run the application
-ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback-docker.xml", "-jar", "pulse-alerts-cron.jar", "run", "org.dreamhorizon.pulsealertscron.verticle.MainVerticle"]
+ENTRYPOINT ["java", "-jar", "pulse-alerts-cron.jar", "run", "org.dreamhorizon.pulsealertscron.verticle.MainVerticle"]
