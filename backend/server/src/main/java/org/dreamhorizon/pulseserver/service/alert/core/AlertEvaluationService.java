@@ -401,8 +401,8 @@ public class AlertEvaluationService {
       return null;
     }
 
-    if (dimensionFilter.trim().startsWith("(") || dimensionFilter.contains("=") || dimensionFilter.contains("AND") ||
-        dimensionFilter.contains("OR")) {
+    if (dimensionFilter.trim().startsWith("(") || dimensionFilter.contains("=") || dimensionFilter.contains("AND")
+        || dimensionFilter.contains("OR")) {
       log.debug("Dimension filter appears to be SQL, using as-is: {}", dimensionFilter);
       return dimensionFilter;
     }
@@ -523,6 +523,10 @@ public class AlertEvaluationService {
           .doOnError(error -> log.error("Error fetching scope details for incident: {}", error.getMessage()))
           .subscribe();
     }
+  }
+
+  private Single<Boolean> updateScopeState(Integer scopeId, AlertState state) {
+    return alertsDao.updateScopeState(scopeId, state);
   }
 
   private void createIncidentIfRequired(
@@ -676,10 +680,6 @@ public class AlertEvaluationService {
             .subscribe();
       }
     }
-  }
-
-  private Single<Boolean> updateScopeState(Integer scopeId, AlertState state) {
-    return alertsDao.updateScopeState(scopeId, state);
   }
 
   private Single<Boolean> createEvaluationHistory(Integer scopeId, String evaluationResult, AlertState state) {

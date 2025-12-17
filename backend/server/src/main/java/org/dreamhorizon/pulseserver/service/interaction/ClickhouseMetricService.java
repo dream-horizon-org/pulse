@@ -170,14 +170,6 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       selectClause = String.join(",", clauses);
     }
 
-    // From
-    String from = switch (request.getDataType()) {
-      case TRACES -> "otel_traces";
-      case LOGS -> "otel_logs";
-      case METRICS -> "otel_metrics";
-      case EXCEPTIONS -> "stack_trace_events";
-    };
-
     // Where Clause toDateTime64('${start_time}', 9, 'UTC')
     String timeFilter = String.format("Timestamp >= toDateTime64('%s',9,'UTC')"
             + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
@@ -198,7 +190,6 @@ public class ClickhouseMetricService implements PerformanceMetricService {
         });
       }
     }
-    String whereClause = where.toString();
 
     //Group by
     String groupByClause = "";
@@ -225,6 +216,15 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     }
     query += String.format(" limit %d", Objects.requireNonNullElse(request.getLimit(), 100));
 
+    String whereClause = where.toString();
+
+    // From
+    String from = switch (request.getDataType()) {
+      case TRACES -> "otel_traces";
+      case LOGS -> "otel_logs";
+      case METRICS -> "otel_metrics";
+      case EXCEPTIONS -> "stack_trace_events";
+    };
 
     String finalQuery = String.format(query, selectClause, from, whereClause);
     return clickhouseQueryService.executeQueryOrCreateJob(QueryConfiguration.newQuery(finalQuery)
@@ -237,8 +237,8 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               .map(GetRawUserEventsResponseDto.Field::getName)
               .toList();
           List<List<String>> rows = rawRes.data.getRows().stream()
-              .map(row -> row.getF().stream()
-                  .map(field -> Objects.isNull(field.getV()) ? "" : field.getV().toString())
+              .map(row -> row.getRowFields().stream()
+                  .map(field -> Objects.isNull(field.getValue()) ? "" : field.getValue().toString())
                   .toList())
               .toList();
           return PerformanceMetricDistributionRes.builder()
