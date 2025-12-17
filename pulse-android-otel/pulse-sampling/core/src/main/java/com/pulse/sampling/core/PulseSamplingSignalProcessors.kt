@@ -140,6 +140,12 @@ public class PulseSamplingSignalProcessors(
         }
     }
 
+    public fun getEnabledFeatures(): List<String> =
+        sdkConfig
+            .features
+            .filter { PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.sessionSampleRate == 1F }
+            .map { it.featureName }
+
     private inline fun <E> List<E>.anyOrNone(
         shouldMatchAny: Boolean,
         predicate: (E) -> Boolean,

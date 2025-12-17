@@ -1,6 +1,7 @@
 public final class com/pulse/sampling/core/PulseSamplingSignalProcessors {
 	public fun <init> (Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/core/PulseSignalMatcher;)V
 	public synthetic fun <init> (Lcom/pulse/sampling/models/PulseSdkConfig;Lcom/pulse/sampling/core/PulseSignalMatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getEnabledFeatures ()Ljava/util/List;
 }
 
 public final class com/pulse/sampling/core/PulseSamplingSignalProcessors$SampledLogExporter : io/opentelemetry/sdk/logs/export/LogRecordExporter {
