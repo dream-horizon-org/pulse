@@ -172,7 +172,7 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
     ('NON_FATAL_SESSIONS', 'Non-Fatal Sessions Count', 'app_vitals');
 
 -- Insert Screen scope metrics
-INSERT INTO Alert_Metrics (name, label, scope) VALUES
+INSERT INTO alert_metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'Daily Users Count', 'screen'),
     ('ERROR_RATE', 'Error Rate (%)', 'screen'),
     ('SCREEN_TIME', 'Screen Time (s)', 'screen'),

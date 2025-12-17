@@ -367,7 +367,8 @@ public class AlertEvaluationService {
         }
 
         if (metricValue != null) {
-          metricReadings.put(metric, metricValue);
+          Float normalizedValue = normalizeRateOrPercentage(metric, metricValue);
+          metricReadings.put(metric, normalizedValue);
         }
         variableValues.put(alias, isFiring);
       }
@@ -460,6 +461,30 @@ public class AlertEvaluationService {
       }
     }
     return noDataResult;
+  }
+
+  private Float normalizeRateOrPercentage(String metricName, Float value) {
+    if (value == null) {
+      return null;
+    }
+    
+    String upperMetricName = metricName.toUpperCase();
+    boolean isRateOrPercentage = upperMetricName.contains("RATE") 
+        || upperMetricName.contains("PERCENTAGE");
+    
+    if (isRateOrPercentage) {
+      if (value > 100.0f) {
+        return value;
+      }
+      if (value > 1.0f && value <= 100.0f) {
+        return value;
+      }
+      if (value >= 0.0f && value <= 1.0f) {
+        return value * 100.0f;
+      }
+    }
+    
+    return value;
   }
 
   private String buildEvaluationResultJson(Map<String, Float> metricReadings, Map<String, Boolean> variableValues,

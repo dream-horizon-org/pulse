@@ -330,25 +330,25 @@ non-aggregated select items.
 
 **Duration & Performance Metrics:**
 
-- **APDEX**: Calculates average APDEX score from span attributes, excluding error status codes
-- **DURATION_P99**: 99th percentile duration in seconds, excluding errors
-- **DURATION_P95**: 95th percentile duration in seconds, excluding errors
-- **DURATION_P50**: 50th percentile (median) duration in seconds, excluding errors
+- **APDEX**: Calculates average APDEX score from span attributes, excluding error status codes (value range: [0,1])
+- **DURATION_P99**: 99th percentile duration in milliseconds, excluding errors
+- **DURATION_P95**: 95th percentile duration in milliseconds, excluding errors
+- **DURATION_P50**: 50th percentile duration in milliseconds, excluding errors
 
 **Frame Metrics:**
 
 - **FROZEN_FRAME**: Sum of frozen frame counts from span attributes
 - **ANALYSED_FRAME**: Sum of analysed frame counts from span attributes
 - **UNANALYSED_FRAME**: Sum of unanalysed frame counts from span attributes
-- **FROZEN_FRAME_RATE**: Ratio of frozen frames to total frames
+- **FROZEN_FRAME_RATE**: Percentage of frozen frames to total frames (value range: 0-100%)
 
 **Error & Crash Metrics:**
 
 - **CRASH**: Count of crash events (device.crash)
 - **ANR**: Count of Application Not Responding events (device.anr)
-- **CRASH_RATE**: Ratio of crash events to total events
-- **ANR_RATE**: Ratio of ANR events to total events
-- **ERROR_RATE**: Ratio of error status codes to total interactions
+- **CRASH_RATE**: Percentage of crash events to total events (value range: 0-100%)
+- **ANR_RATE**: Percentage of ANR events to total events (value range: 0-100%)
+- **ERROR_RATE**: Percentage of error status codes to total interactions (value range: 0-100%)
 
 **Interaction Metrics:**
 
@@ -362,10 +362,10 @@ non-aggregated select items.
 - **USER_CATEGORY_GOOD**: Count of users in GOOD category
 - **USER_CATEGORY_AVERAGE**: Count of users in AVERAGE category
 - **USER_CATEGORY_POOR**: Count of users in POOR category
-- **EXCELLENT_USER_RATE**: Ratio of excellent users to total users
-- **GOOD_USER_RATE**: Ratio of good users to total users
-- **AVERAGE_USER_RATE**: Ratio of average users to total users
-- **POOR_USER_RATE**: Ratio of poor users to total users
+- **EXCELLENT_USER_RATE**: Percentage of excellent users to total users (value range: 0-100%)
+- **GOOD_USER_RATE**: Percentage of good users to total users (value range: 0-100%)
+- **AVERAGE_USER_RATE**: Percentage of average users to total users (value range: 0-100%)
+- **POOR_USER_RATE**: Percentage of poor users to total users (value range: 0-100%)
 
 **Network Metrics:**
 
@@ -374,35 +374,35 @@ non-aggregated select items.
 - **NET_3XX**: Sum of redirect responses (3xx status codes)
 - **NET_4XX**: Sum of client error responses (4xx status codes)
 - **NET_5XX**: Sum of server error responses (5xx status codes)
-- **NET_4XX_RATE**: Ratio of 4xx responses to total network requests
-- **NET_5XX_RATE**: Ratio of 5xx responses to total network requests
+- **NET_4XX_RATE**: Percentage of 4xx responses to total network requests (value range: 0-100%)
+- **NET_5XX_RATE**: Percentage of 5xx responses to total network requests (value range: 0-100%)
 - **NET_COUNT**: Total count of network requests
-- **DURATION_P99**: 99th percentile duration in seconds for network requests, excluding errors
-- **DURATION_P95**: 95th percentile duration in seconds for network requests, excluding errors
-- **DURATION_P50**: 50th percentile duration in seconds for network requests, excluding errors
-- **ERROR_RATE**: Ratio of error status codes to total network requests
+- **DURATION_P99**: 99th percentile duration in milliseconds for network requests, excluding errors
+- **DURATION_P95**: 95th percentile duration in milliseconds for network requests, excluding errors
+- **DURATION_P50**: 50th percentile duration in milliseconds for network requests, excluding errors
+- **ERROR_RATE**: Percentage of error status codes to total network requests (value range: 0-100%)
 
 **Screen Metrics:**
 
 - **SCREEN_DAILY_USERS**: Count of distinct daily users for screen events
-- **ERROR_RATE**: Ratio of error status codes to total screen events (value range: [0,1])
-- **SCREEN_TIME**: Average time spent on screen sessions
-- **LOAD_TIME**: Average time for screen load events
+- **ERROR_RATE**: Percentage of error status codes to total screen events (value range: 0-100%)
+- **SCREEN_TIME**: Average time spent on screen sessions in milliseconds
+- **LOAD_TIME**: Average time for screen load events in milliseconds
 
 **App Vitals Metrics (EXCEPTIONS data type):**
 
-- **CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events (value range: [0,1])
-- **CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events (value range: [0,1])
+- **CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events (value range: 0-100%)
+- **CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events (value range: 0-100%)
 - **CRASH_USERS**: Count of distinct users with crash events (value >= 0)
 - **CRASH_SESSIONS**: Count of distinct sessions with crash events (value >= 0)
 - **ALL_USERS**: Total count of distinct users (value >= 0)
 - **ALL_SESSIONS**: Total count of distinct sessions (value >= 0)
-- **ANR_FREE_USERS_PERCENTAGE**: Percentage of users without ANR events (value range: [0,1])
-- **ANR_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without ANR events (value range: [0,1])
+- **ANR_FREE_USERS_PERCENTAGE**: Percentage of users without ANR events (value range: 0-100%)
+- **ANR_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without ANR events (value range: 0-100%)
 - **ANR_USERS**: Count of distinct users with ANR events (value >= 0)
 - **ANR_SESSIONS**: Count of distinct sessions with ANR events (value >= 0)
-- **NON_FATAL_FREE_USERS_PERCENTAGE**: Percentage of users without non-fatal errors (value range: [0,1])
-- **NON_FATAL_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without non-fatal errors (value range: [0,1])
+- **NON_FATAL_FREE_USERS_PERCENTAGE**: Percentage of users without non-fatal errors (value range: 0-100%)
+- **NON_FATAL_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without non-fatal errors (value range: 0-100%)
 - **NON_FATAL_USERS**: Count of distinct users with non-fatal errors (value >= 0)
 - **NON_FATAL_SESSIONS**: Count of distinct sessions with non-fatal errors (value >= 0)
 
