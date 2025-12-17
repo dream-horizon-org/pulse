@@ -284,7 +284,7 @@ class InteractionDaoTest {
 
         private final String GET_INTERACTION_DETAILS = "SELECT "
                 + "Interaction_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
-                + " from interaction where name = ? and is_archived = 0";
+                + " from Interaction where name = ? and is_archived = 0";
 
         @Test
         void shouldThrowExceptionWhenInteractionIsNotPresent() {
