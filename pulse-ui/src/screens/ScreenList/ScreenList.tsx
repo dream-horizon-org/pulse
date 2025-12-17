@@ -12,9 +12,9 @@ import { ScreenCard } from "./components/ScreenCard";
 import { ScreenCardSkeleton } from "./components/ScreenCardSkeleton";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { SCREEN_LISTING_PAGE_CONSTANTS } from "./ScreenList.constants";
 import { useAnalytics } from "../../hooks/useAnalytics";
+import { CardSkeleton } from "../../components/Skeletons";
 
 export function ScreenList() {
   const navigate = useNavigate();
@@ -115,9 +115,21 @@ export function ScreenList() {
 
     if (isLoadingScreenNames && screenNames.length === 0) {
       return (
-        <Box className={classes.loader}>
-          <LoaderWithMessage loadingMessage="Loading screens..." />
-        </Box>
+        <ScrollArea
+          viewportRef={scrollContainerRef}
+          className={classes.scrollArea}
+        >
+          <Box className={classes.screenTableContainer}>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <CardSkeleton
+                key={index}
+                height={220}
+                showHeader
+                contentRows={4}
+              />
+            ))}
+          </Box>
+        </ScrollArea>
       );
     }
 

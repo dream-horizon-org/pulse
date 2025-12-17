@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Box, Button } from "@mantine/core";
+import { Box, Button, Paper, Group } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { SessionHeader } from "./components/SessionHeader";
 import { ResourceAttributesPanel } from "./components/ResourceAttributesPanel";
@@ -15,7 +15,7 @@ import { transformApiResponse } from "./utils/transformApiResponse";
 import { DataQueryRequestBody, useGetDataQuery } from "../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { SkeletonLoader, MetricsGridSkeleton, TableSkeleton } from "../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
 import classes from "./SessionTimeline.module.css";
 
@@ -289,7 +289,39 @@ export function SessionTimeline() {
         >
           Back
         </Button>
-        <LoaderWithMessage loadingMessage="Loading session timeline..." />
+
+        {/* Session Header Skeleton */}
+        <Paper className={classes.sessionHeaderSkeleton} mb="md">
+          <Group gap="sm" mb="md">
+            <SkeletonLoader height={20} width={20} radius="sm" />
+            <SkeletonLoader height={18} width={80} radius="sm" />
+            <SkeletonLoader height={16} width={200} radius="sm" />
+          </Group>
+          <MetricsGridSkeleton count={7} />
+        </Paper>
+
+        {/* Resource Attributes Panel Skeleton */}
+        <Paper className={classes.resourcePanelSkeleton} mb="md">
+          <Group gap="sm" mb="md">
+            <SkeletonLoader height={18} width={180} radius="sm" />
+          </Group>
+          <Group gap="md">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Box key={i} style={{ flex: 1 }}>
+                <SkeletonLoader height={12} width="60%" radius="xs" />
+                <SkeletonLoader height={16} width="80%" radius="sm" />
+              </Box>
+            ))}
+          </Group>
+        </Paper>
+
+        {/* Filters Skeleton */}
+        <Box mb="md">
+          <SkeletonLoader height={36} width="100%" radius="md" />
+        </Box>
+
+        {/* Timeline Skeleton */}
+        <TableSkeleton columns={4} rows={8} />
       </Box>
     );
   }

@@ -6,6 +6,7 @@ import { IconArrowRight } from "@tabler/icons-react";
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { useGetTopInteractionsHealthData } from "../../../../hooks/useGetTopInteractionsHealthData";
+import { CardSkeleton } from "../../../../components/Skeletons";
 
 export function TopInteractionsHealth({
   onViewAll,
@@ -23,10 +24,10 @@ export function TopInteractionsHealth({
     };
   }, []);
 
-  const { data: topInteractionsData } = useGetTopInteractionsHealthData({
+  const { data: topInteractionsData, isLoading } = useGetTopInteractionsHealthData({
     startTime,
     endTime,
-      limit: 4,
+    limit: 4,
   });
 
   return (
@@ -43,22 +44,31 @@ export function TopInteractionsHealth({
         </Button>
       </div>
       <div className={classes.interactionsGrid}>
-        {topInteractionsData.map((interaction) => (
-          <InteractionCard
-            key={interaction.id}
-            interactionName={interaction.interactionName}
-            apdexScore={interaction.apdex}
-            errorRateValue={interaction.errorRate}
-            p50Latency={interaction.p50}
-            poorUserPercentage={interaction.poorUserPercentage}
-            onClick={() =>
-              onCardClick({
-                id: interaction.id,
-                name: interaction.interactionName,
-              })
-            }
-          />
-        ))}
+        {isLoading ? (
+          <>
+            <CardSkeleton height={180} showHeader contentRows={3} />
+            <CardSkeleton height={180} showHeader contentRows={3} />
+            <CardSkeleton height={180} showHeader contentRows={3} />
+            <CardSkeleton height={180} showHeader contentRows={3} />
+          </>
+        ) : (
+          topInteractionsData.map((interaction) => (
+            <InteractionCard
+              key={interaction.id}
+              interactionName={interaction.interactionName}
+              apdexScore={interaction.apdex}
+              errorRateValue={interaction.errorRate}
+              p50Latency={interaction.p50}
+              poorUserPercentage={interaction.poorUserPercentage}
+              onClick={() =>
+                onCardClick({
+                  id: interaction.id,
+                  name: interaction.interactionName,
+                })
+              }
+            />
+          ))
+        )}
       </div>
     </div>
   );

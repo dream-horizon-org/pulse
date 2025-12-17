@@ -315,3 +315,38 @@
   letter-spacing: -0.7px;
   white-space: nowrap;
 }
+
+/* Skeleton loading styles */
+.skeletonCard {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 20px;
+  min-width: 280px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.skeletonMockup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.03) 0%, rgba(14, 201, 194, 0.08) 100%);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.skeletonMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: rgba(14, 201, 194, 0.12);
+}
+
+.skeletonMetricItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  background: rgba(255, 255, 255, 0.95);
+}

@@ -6,7 +6,7 @@ import { NetworkListProps, NetworkApi } from "./NetworkList.interface";
 import classes from "./NetworkList.module.css";
 import { NetworkApiCard } from "../ScreenDetail/components/NetworkApiCard";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { CardSkeleton } from "../../components/Skeletons";
 import {
   ROUTES,
   CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
@@ -306,12 +306,21 @@ export function NetworkList({
   };
 
   const renderContent = () => {
-    // Show loading state
+    // Show loading state with skeleton cards
     if (isLoading) {
       return (
-        <Box className={classes.loader}>
-          <LoaderWithMessage loadingMessage="Loading Network APIs..." />
-        </Box>
+        <ScrollArea className={classes.scrollArea}>
+          <Box className={classes.apiListContainer}>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <CardSkeleton
+                key={index}
+                height={100}
+                showHeader
+                contentRows={1}
+              />
+            ))}
+          </Box>
+        </ScrollArea>
       );
     }
 

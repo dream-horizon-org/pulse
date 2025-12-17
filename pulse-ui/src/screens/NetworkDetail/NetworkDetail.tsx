@@ -17,8 +17,8 @@ import { CRITICAL_INTERACTION_QUICK_TIME_FILTERS } from "../../constants";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
+import { SkeletonLoader, MetricsGridSkeleton, ChartSkeleton } from "../../components/Skeletons";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import {
@@ -334,11 +334,52 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     navigate(-1);
   };
 
-  // Show loading state
+  // Show loading state with skeleton layout
   if (isLoading) {
     return (
       <div className={classes.pageContainer}>
-        <LoaderWithMessage loadingMessage="Loading network details..." />
+        {/* Header skeleton */}
+        <div className={classes.headerContainer}>
+          <SkeletonLoader height={32} width={80} radius="md" />
+          <div className={classes.titleSection}>
+            <SkeletonLoader height={24} width={200} radius="sm" />
+            <SkeletonLoader height={16} width={400} radius="sm" />
+          </div>
+        </div>
+
+        {/* Filters skeleton */}
+        <Box mb="xl" mt="md">
+          <Group gap="md">
+            <SkeletonLoader height={36} width={200} radius="md" />
+            <SkeletonLoader height={36} width={250} radius="md" />
+          </Group>
+        </Box>
+
+        {/* Stats skeleton */}
+        <Box className={vitalsClasses.statsContainer}>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={150} radius="sm" />
+            <MetricsGridSkeleton count={2} />
+          </Box>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={120} radius="sm" />
+            <MetricsGridSkeleton count={2} />
+          </Box>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={130} radius="sm" />
+            <MetricsGridSkeleton count={3} />
+          </Box>
+        </Box>
+
+        {/* Error breakdown skeleton */}
+        <Box mt="xl">
+          <SkeletonLoader height={18} width={180} radius="sm" />
+          <SkeletonLoader height={14} width={350} radius="xs" />
+          <SimpleGrid className={classes.errorBreakdownGrid} cols={{ base: 1, lg: 2 }} spacing="lg" mt="md">
+            <ChartSkeleton height={200} />
+            <ChartSkeleton height={200} />
+          </SimpleGrid>
+        </Box>
       </div>
     );
   }

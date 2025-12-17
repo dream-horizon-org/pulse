@@ -45,6 +45,7 @@ import { InteractionCard } from "./components/InteractionCard";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { CardSkeleton } from "../../components/Skeletons";
 import { useGetDataQuery } from "../../hooks";
 import { SpanType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
@@ -357,9 +358,18 @@ export function CriticalInteractionList() {
     // Show loading state while fetching interactions or metrics
     if (isLoading || isLoadingMetrics) {
       return (
-        <Box className={classes.loader}>
-          <LoaderWithMessage loadingMessage="Fetching Interactions..." />
-        </Box>
+        <ScrollArea className={classes.scrollArea}>
+          <Box className={classes.criticalInteractionsTableContainer}>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <CardSkeleton 
+                key={index} 
+                height={180} 
+                showHeader 
+                contentRows={3} 
+              />
+            ))}
+          </Box>
+        </ScrollArea>
       );
     }
 
@@ -404,7 +414,7 @@ export function CriticalInteractionList() {
           })}
         </Box>
         {isFetching && hasMore && (
-          <Box ref={ref} className={classes.loader}>
+          <Box ref={ref} className={classes.loadMoreLoader}>
             <LoaderWithMessage loadingMessage="Loading more interactions..." />
           </Box>
         )}

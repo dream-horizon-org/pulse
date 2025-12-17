@@ -1,6 +1,6 @@
 import { Text } from "@mantine/core";
 import { LineChart, createTooltipFormatter } from "../../../components/Charts";
-import { GraphSkeleton } from "../../../components/GraphSkeleton";
+import { GraphCardSkeleton } from "../../../components/Skeletons";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
 import classes from "./EngagementGraph.module.css";
 import dayjs from "dayjs";
@@ -30,7 +30,7 @@ export function TimeSpentGraph({
   error = null,
 }: TimeSpentGraphProps) {
   if (isLoading) {
-    return <GraphSkeleton title="Average Time Spent" height={240} />;
+    return <GraphCardSkeleton title="Average Time Spent" chartHeight={240} metricsCount={2} />;
   }
 
 

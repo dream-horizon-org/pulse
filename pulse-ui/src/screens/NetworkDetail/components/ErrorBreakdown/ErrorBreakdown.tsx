@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { ErrorBreakdownProps, ErrorDetail } from "./ErrorBreakdown.interface";
 import classes from "./ErrorBreakdown.module.css";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
-import { LoaderWithMessage } from "../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
+import { SkeletonLoader } from "../../../../components/Skeletons";
 
 export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   type,
@@ -151,7 +151,39 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
   }
 
   if (isLoading) {
-    return <LoaderWithMessage loadingMessage="Loading error breakdown..." />;
+    return (
+      <Box className={classes.container}>
+        <Box mb="md">
+          <Group justify="space-between" align="center">
+            <Box>
+              <SkeletonLoader height={16} width={150} radius="sm" />
+              <SkeletonLoader height={12} width={200} radius="xs" />
+            </Box>
+            <SkeletonLoader height={24} width={80} radius="md" />
+          </Group>
+        </Box>
+        <Box className={classes.errorList}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Box key={index} className={classes.errorCard}>
+              <Group justify="space-between" align="flex-start" mb="xs">
+                <Group gap="sm" wrap="nowrap">
+                  <SkeletonLoader height={28} width={50} radius="md" />
+                  <Box>
+                    <SkeletonLoader height={14} width={120} radius="sm" />
+                    <SkeletonLoader height={12} width={180} radius="xs" />
+                  </Box>
+                </Group>
+                <Box>
+                  <SkeletonLoader height={14} width={40} radius="sm" />
+                  <SkeletonLoader height={12} width={30} radius="xs" />
+                </Box>
+              </Group>
+              <SkeletonLoader height={6} width="100%" radius="sm" />
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    );
   }
 
   if (errorData.length === 0) {

@@ -110,9 +110,9 @@
   color: var(--mantine-color-gray-6);
   font-size: 13px;
 }
-.loaderContainer {
-  min-height: 400px;
+
+.skeletonContainer {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
 }

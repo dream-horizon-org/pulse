@@ -13,7 +13,7 @@ import {
 import { useGetDataQuery } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { LoaderWithMessage } from "../../../../components/LoaderWithMessage";
+import { ChartSkeleton, TableSkeleton } from "../../../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../../../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
 
 dayjs.extend(utc);
@@ -422,10 +422,10 @@ export function EngagementBreakdown({
       </Text>
 
       {isLoading ? (
-        <LoaderWithMessage
-          loadingMessage="Loading engagement data..."
-          className={classes.loaderContainer}
-        />
+        <div className={classes.skeletonContainer}>
+          <ChartSkeleton height={360} showLegend />
+          <TableSkeleton columns={5} rows={5} />
+        </div>
       ) : hasError ? (
         <ErrorAndEmptyStateWithNotification
           message="Failed to load engagement data"

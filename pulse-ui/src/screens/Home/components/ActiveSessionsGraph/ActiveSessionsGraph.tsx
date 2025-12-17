@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { ActiveSessionsGraphProps } from "./ActiveSessionsGraph.interface";
 import { useGetActiveSessionsData } from "../../../../hooks/useGetActiveSessionsData";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
+import { GraphCardSkeleton } from "../../../../components/Skeletons";
 
 dayjs.extend(utc);
 
@@ -48,7 +49,7 @@ export function ActiveSessionsGraph({
     };
   }, [startTime, endTime]);
 
-  const { data } = useGetActiveSessionsData({
+  const { data, isLoading } = useGetActiveSessionsData({
     screenName,
     appVersion,
     osVersion,
@@ -60,6 +61,10 @@ export function ActiveSessionsGraph({
   });
 
   const { currentSessions, peakSessions, averageSessions, trendData } = data;
+
+  if (isLoading) {
+    return <GraphCardSkeleton title="Active Sessions" chartHeight={260} metricsCount={3} />;
+  }
 
   return (
     <div className={classes.graphCard}>

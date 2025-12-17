@@ -9,6 +9,7 @@ import utc from "dayjs/plugin/utc";
 import { useMemo } from "react";
 import { UserEngagementGraphProps } from "./UserEngagementGraph.interface";
 import { useGetUserEngagementData } from "../../../../hooks/useGetUserEngagementData";
+import { GraphCardSkeleton } from "../../../../components/Skeletons";
 
 dayjs.extend(utc);
 
@@ -50,7 +51,7 @@ export function UserEngagementGraph({
     };
   }, []);
 
-  const { data } = useGetUserEngagementData({
+  const { data, isLoading } = useGetUserEngagementData({
     screenName,
     appVersion,
     osVersion,
@@ -65,6 +66,10 @@ export function UserEngagementGraph({
   });
 
   const { dailyUsers, weeklyUsers, monthlyUsers, trendData } = data;
+
+  if (isLoading) {
+    return <GraphCardSkeleton title="User Engagement" chartHeight={260} metricsCount={3} />;
+  }
 
   return (
     <div className={classes.graphCard}>

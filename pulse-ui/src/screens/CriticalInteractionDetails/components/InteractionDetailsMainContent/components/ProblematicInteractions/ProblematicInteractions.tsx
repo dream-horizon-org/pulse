@@ -32,8 +32,8 @@ import type {
   ProblematicInteractionsProps,
 } from "./ProblematicInteractions.interface";
 import { AbsoluteNumbersForGraphs } from "../AbsoluteNumbersForGraphs/AbsoluteNumbersForGraphs";
-import { LoaderWithMessage } from "../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../ErrorAndEmptyStateWithNotification";
+import { MetricsGridSkeleton, TableSkeleton } from "../../../../../../components/Skeletons";
 import {
   useGetProblematicInteractionsStats,
   useGetProblematicInteractions,
@@ -41,10 +41,8 @@ import {
 import type { ProblematicInteractionData } from "../../../../../../hooks";
 import {
   PROBLEMATIC_INTERACTIONS_ERROR_MESSAGES,
-  PROBLEMATIC_INTERACTIONS_LOADING_MESSAGE,
   DEFAULT_PAGE_SIZE,
 } from "./ProblematicInteractions.constants";
-import commonStyles from "../../common.module.css";
 import classes from "./ProblematicInteractions.module.css";
 
 dayjs.extend(utc);
@@ -185,10 +183,29 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
 
   if (isLoading) {
     return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={PROBLEMATIC_INTERACTIONS_LOADING_MESSAGE}
-      />
+      <Box>
+        {/* Stats skeleton */}
+        <Flex mt="lg" mb="lg" wrap="wrap" gap="md">
+          <MetricsGridSkeleton count={5} />
+        </Flex>
+        
+        {/* Filters skeleton */}
+        <Card p="md" mb="md" withBorder>
+          <Box mb="xs">
+            <Text size="sm" fw={600}>Interaction Filters</Text>
+          </Box>
+          <Flex gap="xs">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Box key={i} style={{ height: 28, width: 100, background: 'rgba(14, 201, 194, 0.08)', borderRadius: 4 }} />
+            ))}
+          </Flex>
+        </Card>
+        
+        {/* Table skeleton */}
+        <Card withBorder>
+          <TableSkeleton columns={7} rows={8} />
+        </Card>
+      </Box>
     );
   }
 

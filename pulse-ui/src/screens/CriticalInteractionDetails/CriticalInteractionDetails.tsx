@@ -1,13 +1,12 @@
 import classes from "./CriticalInteractionDetails.module.css";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Badge, Tabs, Title, Tooltip, useMantineTheme } from "@mantine/core";
+import { Badge, Box, Grid, Tabs, Title, Tooltip, useMantineTheme } from "@mantine/core";
 import {
   CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
 import { AllInteractionDetails } from "./AllInteractionDetails";
 import { useEffect, useState } from "react";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { IconArrowNarrowLeft } from "@tabler/icons-react";
 import { Manage } from "../CriticalInteractionList/components/Manage";
 import { InteractionDetailsFilters } from "./components/InteractionDetailsFilters";
@@ -17,6 +16,7 @@ import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
+import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,11 +57,54 @@ export function CiritcalInteractionDetails() {
     initializeFromUrlParams(searchParams);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Show skeleton loading state while fetching interaction details
   if (fetchingInteractionDetails) {
     return (
-      <LoaderWithMessage
-        loadingMessage={`Fetching details for ${interactionName || "Dream11 User Experience"}`}
-      />
+      <div className={classes.criticalInteractionDetailsContainer}>
+        {/* Header skeleton */}
+        <div className={classes.criticalInteractionDetailsHeader}>
+          <div className={classes.criticalInteractionDetailsHeaderContent}>
+            <SkeletonLoader height={18} width={18} radius="sm" />
+            <div className={classes.titleSection}>
+              <SkeletonLoader height={20} width={200} radius="sm" />
+              <SkeletonLoader height={14} width={300} radius="sm" />
+            </div>
+          </div>
+          <div className={classes.headerRightSection}>
+            <SkeletonLoader height={32} width={100} radius="md" />
+            <SkeletonLoader height={32} width={100} radius="md" />
+            <SkeletonLoader height={32} width={150} radius="md" />
+          </div>
+        </div>
+        
+        {/* Tab skeleton */}
+        <div className={classes.tabsSkeleton}>
+          <SkeletonLoader height={36} width={100} radius="sm" />
+          <SkeletonLoader height={36} width={80} radius="sm" />
+          <SkeletonLoader height={36} width={100} radius="sm" />
+        </div>
+        
+        {/* Content skeleton - graphs layout */}
+        <Grid mt="md">
+          <Grid.Col span={8.5}>
+            <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--mantine-spacing-md)' }}>
+              <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+              <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+              <Box style={{ gridColumn: '1 / span 2' }}>
+                <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+              </Box>
+            </Box>
+          </Grid.Col>
+          <Grid.Col span={3.5}>
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mantine-spacing-sm)' }}>
+              <SkeletonLoader height={60} width="100%" radius="md" />
+              <SkeletonLoader height={60} width="100%" radius="md" />
+              <SkeletonLoader height={60} width="100%" radius="md" />
+            </Box>
+          </Grid.Col>
+        </Grid>
+      </div>
     );
   }
 

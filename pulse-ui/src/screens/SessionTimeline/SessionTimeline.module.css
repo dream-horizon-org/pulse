@@ -15,3 +15,27 @@
   margin-bottom: var(--mantine-spacing-md);
   font-weight: 600;
 }
+
+/* Skeleton Styles */
+.sessionHeaderSkeleton,
+.resourcePanelSkeleton {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.sessionHeaderSkeleton::before,
+.resourcePanelSkeleton::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0.5;
+}
