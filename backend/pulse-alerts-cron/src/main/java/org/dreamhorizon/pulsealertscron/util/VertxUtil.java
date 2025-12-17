@@ -29,7 +29,7 @@ public final class VertxUtil {
   public static <T> void setInstanceInSharedData(Vertx vertx, T instance) {
     setInstanceInSharedData(vertx, instance, SHARED_DATA_DEFAULT_KEY);
   }
-  
+
   public static <T> void setInstanceInSharedData(Vertx vertx, T instance, String key) {
     log.debug(
         "setInstanceInSharedData: vertx instance {} is setting type : {} for instance: {}  in key {}",
@@ -40,11 +40,11 @@ public final class VertxUtil {
     getOrCreateSharedData(
         vertx, CLASS_PREFIX + instance.getClass().getName() + key, () -> instance);
   }
-  
+
   public static <T> T getInstanceFromSharedData(Vertx vertx, Class<T> clazz) {
     return getInstanceFromSharedData(vertx, clazz, SHARED_DATA_DEFAULT_KEY);
   }
-  
+
   public static <T> T getInstanceFromSharedData(Vertx vertx, Class<T> clazz, String key) {
     log.debug(
         "getInstanceFromSharedData: vertx instance {} is getting type : {}  in key {}",

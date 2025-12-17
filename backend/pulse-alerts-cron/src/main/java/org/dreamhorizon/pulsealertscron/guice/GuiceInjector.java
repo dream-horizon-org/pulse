@@ -4,10 +4,9 @@ import com.dream11.rest.ClassInjector;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.List;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class GuiceInjector implements ClassInjector {

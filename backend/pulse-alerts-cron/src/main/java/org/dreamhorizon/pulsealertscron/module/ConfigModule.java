@@ -1,9 +1,9 @@
 package org.dreamhorizon.pulsealertscron.module;
 
-import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
-import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 import com.google.inject.AbstractModule;
 import io.vertx.core.Vertx;
+import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
+import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 
 public class ConfigModule extends AbstractModule {
 

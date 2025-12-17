@@ -8,13 +8,6 @@ import static org.dreamhorizon.pulsealertscron.constant.Constants.HTTP_CONNECT_T
 import static org.dreamhorizon.pulsealertscron.constant.Constants.HTTP_READ_TIMEOUT;
 import static org.dreamhorizon.pulsealertscron.constant.Constants.HTTP_WRITE_TIMEOUT;
 
-import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
-import org.dreamhorizon.pulsealertscron.constant.Constants;
-import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
-import org.dreamhorizon.pulsealertscron.services.AlertsService;
-import org.dreamhorizon.pulsealertscron.services.CronManager;
-import org.dreamhorizon.pulsealertscron.config.ConfigUtils;
-import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
@@ -24,10 +17,16 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.rxjava3.core.AbstractVerticle;
 import io.vertx.rxjava3.ext.web.client.WebClient;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
+import org.dreamhorizon.pulsealertscron.config.ConfigUtils;
+import org.dreamhorizon.pulsealertscron.constant.Constants;
+import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
+import org.dreamhorizon.pulsealertscron.services.AlertsService;
+import org.dreamhorizon.pulsealertscron.services.CronManager;
+import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 
 @Slf4j
 public class MainVerticle extends AbstractVerticle {

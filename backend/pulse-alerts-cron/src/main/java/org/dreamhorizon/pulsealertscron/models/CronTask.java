@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class CronTask {
-    private Integer id;
-    private String url;
+  private Integer id;
+  private String url;
 }
 

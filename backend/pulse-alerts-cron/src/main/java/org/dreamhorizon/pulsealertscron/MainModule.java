@@ -1,8 +1,5 @@
 package org.dreamhorizon.pulsealertscron;
 
-import org.dreamhorizon.pulsealertscron.module.VertxAbstractModule;
-import org.dreamhorizon.pulsealertscron.services.CronManager;
-import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -11,6 +8,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import org.dreamhorizon.pulsealertscron.module.VertxAbstractModule;
+import org.dreamhorizon.pulsealertscron.services.CronManager;
+import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 
 public class MainModule extends VertxAbstractModule {
 
