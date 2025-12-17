@@ -1,7 +1,5 @@
 package org.dreamhorizon.pulsealertscron;
 
-import org.dreamhorizon.pulsealertscron.module.VertxAbstractModule;
-import org.dreamhorizon.pulsealertscron.services.CronManager;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -10,12 +8,14 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Singleton;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import org.dreamhorizon.pulsealertscron.module.VertxAbstractModule;
+import org.dreamhorizon.pulsealertscron.services.CronManager;
+import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 
 public class MainModule extends VertxAbstractModule {
 
   private final Vertx vertx;
   private ObjectMapper objectMapper;
-  private WebClient webClient;
 
   public MainModule(Vertx vertx) {
     super(vertx);
@@ -28,15 +28,8 @@ public class MainModule extends VertxAbstractModule {
     bind(io.vertx.rxjava3.core.Vertx.class)
         .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
     bind(ObjectMapper.class).toInstance(getObjectMapper());
-    bind(WebClient.class).toInstance(getWebClient());
+    bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
     bind(CronManager.class).in(Singleton.class);
-  }
-
-  private WebClient getWebClient() {
-    if (webClient == null) {
-      webClient = WebClient.create(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
-    }
-    return webClient;
   }
 
   protected ObjectMapper getObjectMapper() {
@@ -52,4 +45,3 @@ public class MainModule extends VertxAbstractModule {
     return objectMapper;
   }
 }
-

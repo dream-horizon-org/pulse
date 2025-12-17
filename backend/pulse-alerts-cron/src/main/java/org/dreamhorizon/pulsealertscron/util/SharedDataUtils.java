@@ -2,52 +2,52 @@ package org.dreamhorizon.pulsealertscron.util;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.shareddata.LocalMap;
+import io.vertx.core.shareddata.Shareable;
+import java.util.NoSuchElementException;
+import java.util.function.Supplier;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.keyvalue.MultiKey;
 
 @Slf4j
-public class SharedDataUtils {
+public final class SharedDataUtils {
+  private static final String SHARED_DATA = "sharedData";
+  private static final String DEFAULT_NAME = "default";
 
-    private static final String SHARED_DATA_MAP_NAME = "shared-data-map";
+  private SharedDataUtils() {
+    throw new UnsupportedOperationException("Utility class cannot be instantiated");
+  }
 
-    public static <T> void put(Vertx vertx, T instance) {
-        put(vertx, instance.getClass().getName(), instance);
-    }
+  public static <T> T getOrCreateInstance(io.vertx.core.Vertx vertx, MultiKey key, Supplier<T> supplier) {
+    LocalMap<MultiKey, ThreadSafe<T>> sharedDataMap = vertx.sharedData().getLocalMap(SHARED_DATA);
+    return sharedDataMap.computeIfAbsent(key, k -> new ThreadSafe<>(supplier.get())).object();
+  }
 
-    public static <T> void put(Vertx vertx, String key, T instance) {
-        LocalMap<String, Object> map = vertx.sharedData().getLocalMap(SHARED_DATA_MAP_NAME);
-        map.put(key, instance);
-        log.debug("Put instance in shared data with key: {}", key);
-    }
+  public static <T> void put(io.vertx.core.Vertx vertx, T instance) {
+    put(vertx, instance, DEFAULT_NAME);
+  }
 
-    public static <T> void put(Vertx vertx, Class<T> clazz) {
-        put(vertx, clazz.getName(), clazz);
-    }
+  public static <T> void put(io.vertx.core.Vertx vertx, T instance, String name) {
+    getOrCreateInstance(vertx, getKey(instance.getClass(), name), () -> instance);
+  }
 
-    @SuppressWarnings("unchecked")
-    public static <T> T get(Vertx vertx, Class<T> clazz) {
-        return get(vertx, clazz.getName());
-    }
+  public static <T> T get(io.vertx.core.Vertx vertx, Class<T> clazz) {
+    return get(vertx, clazz, DEFAULT_NAME);
+  }
 
-    @SuppressWarnings("unchecked")
-    public static <T> T get(Vertx vertx, String key) {
-        LocalMap<String, Object> map = vertx.sharedData().getLocalMap(SHARED_DATA_MAP_NAME);
-        T instance = (T) map.get(key);
-        if (instance == null) {
-            log.warn("No instance found in shared data with key: {}", key);
-        }
-        return instance;
-    }
+  public static <T> T get(Vertx vertx, Class<T> clazz, String name) {
+    return getOrCreateInstance(
+        vertx,
+        getKey(clazz, name),
+        () -> {
+          throw new NoSuchElementException("Cannot find default instance of " + clazz.getName());
+        });
+  }
 
-    public static void remove(Vertx vertx, String key) {
-        LocalMap<String, Object> map = vertx.sharedData().getLocalMap(SHARED_DATA_MAP_NAME);
-        map.remove(key);
-        log.debug("Removed instance from shared data with key: {}", key);
-    }
+  record ThreadSafe<T>(@Getter T object) implements Shareable {
+  }
 
-    public static void clear(Vertx vertx) {
-        LocalMap<String, Object> map = vertx.sharedData().getLocalMap(SHARED_DATA_MAP_NAME);
-        map.clear();
-        log.debug("Cleared all instances from shared data");
-    }
+  private static MultiKey getKey(Class<?> clazz, String name) {
+    return new MultiKey(clazz.getName(), name);
+  }
 }
-

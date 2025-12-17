@@ -13,11 +13,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Alert {
-    @JsonProperty("alert_id")
-    private Integer alertId;
+  @JsonProperty("alert_id")
+  private Integer alertId;
 
-    @JsonProperty("evaluation_interval")
-    private Integer evaluationInterval;
+  @JsonProperty("evaluation_interval")
+  private Integer evaluationInterval;
 
-    private String url;
+  private String url;
 }

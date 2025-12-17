@@ -8,6 +8,6 @@ import lombok.Data;
 @AllArgsConstructor
 @Builder
 public class CronManagerDto {
-    String status;
-    String failureReason;
+  String status;
+  String failureReason;
 }

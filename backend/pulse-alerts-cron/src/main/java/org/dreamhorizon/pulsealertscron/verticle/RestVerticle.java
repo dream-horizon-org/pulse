@@ -8,54 +8,53 @@ import io.vertx.rxjava3.ext.web.Router;
 import io.vertx.rxjava3.ext.web.handler.BodyHandler;
 import io.vertx.rxjava3.ext.web.handler.CorsHandler;
 import io.vertx.rxjava3.ext.web.handler.ResponseContentTypeHandler;
-import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
-
 import java.util.HashSet;
 import java.util.Set;
+import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
 
 public class RestVerticle extends AbstractRestVerticle {
-    private static final String PACKAGE_NAME = "org.dreamhorizon.pulsealertscron";
+  private static final String PACKAGE_NAME = "org.dreamhorizon.pulsealertscron";
 
-    protected RestVerticle(HttpServerOptions httpServerOptions) {
-        super(PACKAGE_NAME, httpServerOptions);
-    }
+  protected RestVerticle(HttpServerOptions httpServerOptions) {
+    super(PACKAGE_NAME, httpServerOptions);
+  }
 
-    @Override
-    protected ClassInjector getInjector() {
-        return GuiceInjector.getGuiceInjector();
-    }
+  @Override
+  protected ClassInjector getInjector() {
+    return GuiceInjector.getGuiceInjector();
+  }
 
-    @Override
-    protected Router getRouter() {
-        Router router = Router.router(vertx);
-        router.route().handler(BodyHandler.create());
-        router.route().handler(ResponseContentTypeHandler.create());
+  @Override
+  protected Router getRouter() {
+    Router router = Router.router(vertx);
+    router.route().handler(BodyHandler.create());
+    router.route().handler(ResponseContentTypeHandler.create());
 
-        final Set<String> allowedHeaders = new HashSet<>();
-        allowedHeaders.add("x-requested-with");
-        allowedHeaders.add("Access-Control-Allow-Origin");
-        allowedHeaders.add("Access-Control-Allow-Methods");
-        allowedHeaders.add("Access-Control-Allow-Headers");
-        allowedHeaders.add("Access-Control-Allow-Credentials");
-        allowedHeaders.add("origin");
-        allowedHeaders.add("Content-Type");
-        allowedHeaders.add("accept");
-        allowedHeaders.add("Authorization");
+    final Set<String> allowedHeaders = new HashSet<>();
+    allowedHeaders.add("x-requested-with");
+    allowedHeaders.add("Access-Control-Allow-Origin");
+    allowedHeaders.add("Access-Control-Allow-Methods");
+    allowedHeaders.add("Access-Control-Allow-Headers");
+    allowedHeaders.add("Access-Control-Allow-Credentials");
+    allowedHeaders.add("origin");
+    allowedHeaders.add("Content-Type");
+    allowedHeaders.add("accept");
+    allowedHeaders.add("Authorization");
 
-        final Set<HttpMethod> allowedMethods = new HashSet<>();
-        allowedMethods.add(HttpMethod.GET);
-        allowedMethods.add(HttpMethod.POST);
-        allowedMethods.add(HttpMethod.OPTIONS);
-        allowedMethods.add(HttpMethod.DELETE);
-        allowedMethods.add(HttpMethod.PATCH);
-        allowedMethods.add(HttpMethod.PUT);
-        router.route().handler(CorsHandler.create()
-                .addRelativeOrigin(".*.")
-                .allowCredentials(true)
-                .allowedMethods(allowedMethods)
-                .allowedHeaders(allowedHeaders));
+    final Set<HttpMethod> allowedMethods = new HashSet<>();
+    allowedMethods.add(HttpMethod.GET);
+    allowedMethods.add(HttpMethod.POST);
+    allowedMethods.add(HttpMethod.OPTIONS);
+    allowedMethods.add(HttpMethod.DELETE);
+    allowedMethods.add(HttpMethod.PATCH);
+    allowedMethods.add(HttpMethod.PUT);
+    router.route().handler(CorsHandler.create()
+        .addRelativeOrigin(".*.")
+        .allowCredentials(true)
+        .allowedMethods(allowedMethods)
+        .allowedHeaders(allowedHeaders));
 
-        return router;
-    }
+    return router;
+  }
 }
 

@@ -1,19 +1,18 @@
 package org.dreamhorizon.pulsealertscron.services;
 
-import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
-import org.dreamhorizon.pulsealertscron.dto.response.AlertsResponseDto;
-import org.dreamhorizon.pulsealertscron.models.Alert;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.ext.web.client.HttpResponse;
 import io.vertx.rxjava3.ext.web.client.WebClient;
-import java.util.ArrayList;
 import jakarta.ws.rs.core.HttpHeaders;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
+import org.dreamhorizon.pulsealertscron.config.ApplicationConfig;
+import org.dreamhorizon.pulsealertscron.dto.response.AlertsResponseDto;
+import org.dreamhorizon.pulsealertscron.models.Alert;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
