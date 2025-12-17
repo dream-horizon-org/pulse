@@ -151,7 +151,7 @@ class AlertServiceTest {
       AlertResponseDto result = alertService.createAlert(request).blockingGet();
 
       assertNotNull(result);
-      assertEquals(1, result.getAlert_id());
+      assertEquals(1, result.getAlertId());
       verify(alertsDao).createAlert(any());
       verify(alertCronService).createAlertCron(any());
     }
@@ -207,7 +207,7 @@ class AlertServiceTest {
       AlertResponseDto result = alertService.updateAlert(request).blockingGet();
 
       assertNotNull(result);
-      assertEquals(1, result.getAlert_id());
+      assertEquals(1, result.getAlertId());
     }
 
     @Test

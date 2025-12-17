@@ -351,7 +351,7 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       AlertSeverityResponseDto dto = new AlertSeverityResponseDto(1, 1, "Critical");
 
-      assertEquals(1, dto.getSeverity_id());
+      assertEquals(1, dto.getSeverityId());
       assertEquals(1, dto.getName());
       assertEquals("Critical", dto.getDescription());
     }
@@ -359,12 +359,12 @@ class AlertModelsTest {
     @Test
     void shouldCreateWithBuilder() {
       AlertSeverityResponseDto dto = AlertSeverityResponseDto.builder()
-          .severity_id(2)
+          .severityId(2)
           .name(2)
           .description("High")
           .build();
 
-      assertEquals(2, dto.getSeverity_id());
+      assertEquals(2, dto.getSeverityId());
       assertEquals(2, dto.getName());
       assertEquals("High", dto.getDescription());
     }
@@ -373,11 +373,11 @@ class AlertModelsTest {
     void shouldSetAndGetFields() {
       AlertSeverityResponseDto dto = new AlertSeverityResponseDto();
 
-      dto.setSeverity_id(3);
+      dto.setSeverityId(3);
       dto.setName(3);
       dto.setDescription("Medium");
 
-      assertEquals(3, dto.getSeverity_id());
+      assertEquals(3, dto.getSeverityId());
       assertEquals(3, dto.getName());
       assertEquals("Medium", dto.getDescription());
     }
@@ -1275,25 +1275,25 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       AlertResponseDto dto = new AlertResponseDto(1);
 
-      assertEquals(1, dto.getAlert_id());
+      assertEquals(1, dto.getAlertId());
     }
 
     @Test
     void shouldCreateWithBuilder() {
       AlertResponseDto dto = AlertResponseDto.builder()
-          .alert_id(2)
+          .alertId(2)
           .build();
 
-      assertEquals(2, dto.getAlert_id());
+      assertEquals(2, dto.getAlertId());
     }
 
     @Test
     void shouldSetAndGetFields() {
       AlertResponseDto dto = new AlertResponseDto();
 
-      dto.setAlert_id(3);
+      dto.setAlertId(3);
 
-      assertEquals(3, dto.getAlert_id());
+      assertEquals(3, dto.getAlertId());
     }
 
     @Test

@@ -631,7 +631,7 @@ public class AlertsDao {
       List<AlertSeverityResponseDto> severities = new ArrayList<>();
 
       rowSet.forEach(row -> severities.add(
-          AlertSeverityResponseDto.builder().severity_id(row.getInteger("severity_id")).name(row.getInteger("name"))
+          AlertSeverityResponseDto.builder().severityId(row.getInteger("severity_id")).name(row.getInteger("name"))
               .description(row.getString("description")).build()));
 
       return severities;

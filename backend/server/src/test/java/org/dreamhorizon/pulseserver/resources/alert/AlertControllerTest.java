@@ -319,7 +319,7 @@ class AlertControllerTest {
     void shouldCreateWithAllArgs() {
       AlertResponseDto dto = new AlertResponseDto(1);
 
-      assertEquals(1, dto.getAlert_id());
+      assertEquals(1, dto.getAlertId());
     }
 
     @Test
@@ -332,9 +332,9 @@ class AlertControllerTest {
     @Test
     void shouldSetAndGetAlertId() {
       AlertResponseDto dto = new AlertResponseDto();
-      dto.setAlert_id(2);
+      dto.setAlertId(2);
 
-      assertEquals(2, dto.getAlert_id());
+      assertEquals(2, dto.getAlertId());
     }
 
     @Test
@@ -359,10 +359,10 @@ class AlertControllerTest {
     @Test
     void shouldBuildWithBuilder() {
       AlertResponseDto dto = AlertResponseDto.builder()
-          .alert_id(3)
+          .alertId(3)
           .build();
 
-      assertEquals(3, dto.getAlert_id());
+      assertEquals(3, dto.getAlertId());
     }
   }
 

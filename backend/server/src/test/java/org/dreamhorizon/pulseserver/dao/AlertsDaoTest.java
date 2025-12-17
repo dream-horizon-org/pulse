@@ -544,7 +544,7 @@ class AlertsDaoTest {
 
       assertNotNull(result);
       assertEquals(1, result.size());
-      assertEquals(1, result.get(0).getSeverity_id());
+      assertEquals(1, result.get(0).getSeverityId());
     }
 
     @Test
