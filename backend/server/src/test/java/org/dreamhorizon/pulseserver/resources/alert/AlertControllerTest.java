@@ -468,7 +468,7 @@ class AlertControllerTest {
 
       assertEquals(4, scopes.length);
       assertNotNull(AlertScope.valueOf("interaction"));
-      assertNotNull(AlertScope.valueOf("network"));
+      assertNotNull(AlertScope.valueOf("network_api"));
       assertNotNull(AlertScope.valueOf("screen"));
       assertNotNull(AlertScope.valueOf("app_vitals"));
     }

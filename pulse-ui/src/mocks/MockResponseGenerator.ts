@@ -2139,7 +2139,7 @@ export class MockResponseGenerator {
       const columns = {
         user_events: ["user_id", "event_name", "timestamp", "properties"],
         interaction_metrics: [
-          "interaction_id",
+          "Interaction_id",
           "duration",
           "success",
           "timestamp",

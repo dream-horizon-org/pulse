@@ -79,9 +79,9 @@ class InteractionDaoTest {
     @ExtendWith(MockitoExtension.class)
     public class TestUpdateInteractionAndCreateUploadMetadata {
 
-        private final String UPDATE_INTERACTION_QUERY = "UPDATE interaction SET "
+        private final String UPDATE_INTERACTION_QUERY = "UPDATE Interaction SET "
                 + "status = ?, details = ?, last_updated_at = ?, updated_by = ? "
-                + " WHERE interaction_id = ?";
+                + " WHERE Interaction_id = ?";
 
 
         @Test
@@ -283,8 +283,8 @@ class InteractionDaoTest {
     public class TestGetInteractionDetails {
 
         private final String GET_INTERACTION_DETAILS = "SELECT "
-                + "interaction_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
-                + " from interaction where name = ? and is_archived = 0";
+                + "Interaction_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
+                + " from Interaction where name = ? and is_archived = 0";
 
         @Test
         void shouldThrowExceptionWhenInteractionIsNotPresent() {
@@ -294,7 +294,7 @@ class InteractionDaoTest {
             var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
             when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-            when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_DETAILS))
+            when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
                     .thenReturn(preparedQuery);
             when(preparedQuery.rxExecute(tupleCaptor.capture()))
                     .thenReturn(Single.just(rowSet));
@@ -350,7 +350,7 @@ class InteractionDaoTest {
                     .build();
 
             Row mockRow = Mockito.mock(Row.class);
-            when(mockRow.getLong("interaction_id")).thenReturn(expectedInteraction.getId());
+            when(mockRow.getLong("Interaction_id")).thenReturn(expectedInteraction.getId());
             when(mockRow.getString("name")).thenReturn(expectedInteraction.getName());
             when(mockRow.getString("status")).thenReturn(expectedInteraction.getStatus().toString());
             when(mockRow.getString("created_by")).thenReturn(expectedInteraction.getCreatedBy());
@@ -369,7 +369,7 @@ class InteractionDaoTest {
             var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
             when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-            when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_DETAILS))
+            when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
                     .thenReturn(preparedQuery);
             when(preparedQuery.rxExecute(tupleCaptor.capture()))
                     .thenReturn(Single.just(mockRowSet));
@@ -397,7 +397,7 @@ class InteractionDaoTest {
             RuntimeException expectedError = new RuntimeException("Database connection failed");
 
             when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-            when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTION_DETAILS))
+            when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
                     .thenReturn(preparedQuery);
             when(preparedQuery.rxExecute(tupleCaptor.capture()))
                     .thenReturn(Single.error(expectedError));
@@ -422,9 +422,9 @@ class InteractionDaoTest {
     @ExtendWith(MockitoExtension.class)
     public class TestGetInteractions {
 
-        String GET_INTERACTIONS_BASE_QUERY = "SELECT interaction_id, name, "
+        String GET_INTERACTIONS_BASE_QUERY = "SELECT Interaction_id, name, "
                 + " created_by, updated_by, created_at, last_updated_at, status, details, "
-                + " COUNT(*) OVER() AS total_interactions FROM interaction "
+                + " COUNT(*) OVER() AS total_interactions FROM Interaction "
                 + " WHERE is_archived = 0 ";
 
         @Test
@@ -467,7 +467,7 @@ class InteractionDaoTest {
                     .build();
 
             Row mockRow = Mockito.mock(Row.class);
-            lenient().when(mockRow.getLong("interaction_id")).thenReturn(expectedInteraction.getId());
+            lenient().when(mockRow.getLong("Interaction_id")).thenReturn(expectedInteraction.getId());
             lenient().when(mockRow.getString("name")).thenReturn(expectedInteraction.getName());
             lenient().when(mockRow.getString("status")).thenReturn(expectedInteraction.getStatus().toString());
             lenient().when(mockRow.getString("created_by")).thenReturn(expectedInteraction.getCreatedBy());
@@ -546,7 +546,7 @@ class InteractionDaoTest {
                     .build();
 
             Row mockRow = Mockito.mock(Row.class);
-            lenient().when(mockRow.getLong("interaction_id")).thenReturn(expectedInteraction.getId());
+            lenient().when(mockRow.getLong("Interaction_id")).thenReturn(expectedInteraction.getId());
             lenient().when(mockRow.getString("name")).thenReturn(expectedInteraction.getName());
             lenient().when(mockRow.getString("status")).thenReturn(expectedInteraction.getStatus().toString());
             lenient().when(mockRow.getString("created_by")).thenReturn(expectedInteraction.getCreatedBy());

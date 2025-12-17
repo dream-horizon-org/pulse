@@ -1,10 +1,11 @@
 import { Button, Select, Box, Text } from "@mantine/core";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertFiltersProps } from "./AlertFilters.interface";
 import classes from "./AlertFilters.module.css";
 
 export function AlertFilters({
   options,
+  scopeLabels,
   onFilterSave,
   onFilterReset,
   created_by,
@@ -18,6 +19,14 @@ export function AlertFilters({
   const [selectedUpdatedBy, setSelectedUpdatedBy] = useState<string | null>(
     updated_by,
   );
+
+  // Transform scope options to include labels
+  const scopeOptions = useMemo(() => {
+    return options.scope.map((s) => ({
+      value: s,
+      label: scopeLabels[s] || s,
+    }));
+  }, [options.scope, scopeLabels]);
 
   const handleApply = () => {
     onFilterSave({
@@ -52,7 +61,7 @@ export function AlertFilters({
         <Text className={classes.filterLabel}>Scope</Text>
         <Select
           placeholder="Select scope"
-          data={options.scope}
+          data={scopeOptions}
           value={selectedScope}
           onChange={setSelectedScope}
           clearable

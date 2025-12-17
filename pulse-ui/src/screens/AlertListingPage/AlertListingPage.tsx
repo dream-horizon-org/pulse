@@ -37,6 +37,7 @@ import { useGetAlertFilters } from "../../hooks/useGetAlertFilters";
 import { AlertFilters } from "./components/AlertFilters";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
+import { useGetAllScopeMetrics } from "../../hooks/useGetAlertMetrics";
 
 const LIMIT = 12;
 
@@ -86,6 +87,13 @@ export function AlertListingPage({
     return map;
   }, [scopesData]);
 
+  // Get all scope names and fetch metrics for all scopes
+  const scopeNames = useMemo(() => {
+    return scopesData?.data?.scopes?.map(s => s.name) || [];
+  }, [scopesData]);
+
+  const { metricLabels } = useGetAllScopeMetrics({ scopeNames });
+
   const severityConfig = useMemo(() => {
     const map: Record<number, { label: string; color: string; description: string }> = {};
     const colors = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#6366f1"];
@@ -126,18 +134,18 @@ export function AlertListingPage({
   // Filter rows based on status tab
   const filteredRows = useMemo(() => {
     if (statusTab === "all") return rows;
-    if (statusTab === "firing") return rows.filter(r => r.current_state === "FIRING" && !r.is_snoozed);
+    if (statusTab === "firing") return rows.filter(r => r.status === "FIRING" && !r.is_snoozed);
     if (statusTab === "snoozed") return rows.filter(r => r.is_snoozed);
-    if (statusTab === "normal") return rows.filter(r => r.current_state !== "FIRING" && !r.is_snoozed);
+    if (statusTab === "normal") return rows.filter(r => r.status !== "FIRING" && !r.is_snoozed);
     return rows;
   }, [rows, statusTab]);
 
   // Calculate stats
   const stats = useMemo(() => {
     const total = rows.length;
-    const firing = rows.filter(r => r.current_state === "FIRING" && !r.is_snoozed).length;
+    const firing = rows.filter(r => r.status === "FIRING" && !r.is_snoozed).length;
     const snoozed = rows.filter(r => r.is_snoozed).length;
-    const normal = rows.filter(r => r.current_state !== "FIRING" && !r.is_snoozed).length;
+    const normal = rows.filter(r => r.status !== "FIRING" && !r.is_snoozed).length;
     return { total, firing, snoozed, normal };
   }, [rows]);
 
@@ -203,7 +211,7 @@ export function AlertListingPage({
             alert_id={element.alert_id}
             name={element.name}
             description={element.description}
-            current_state={element.current_state}
+            current_state={element.status}
             scope={element.scope}
             alerts={element.alerts}
             severity_id={element.severity_id}
@@ -212,6 +220,7 @@ export function AlertListingPage({
             evaluation_interval={element.evaluation_interval}
             scopeLabels={scopeLabels}
             severityConfig={severityConfig}
+            metricLabels={metricLabels}
             onClick={() =>
               navigate(`${ROUTES.ALERT_DETAIL.basePath}/${element.alert_id}`)
             }
@@ -355,6 +364,7 @@ export function AlertListingPage({
                           updated_by: [],
                         }
                       }
+                      scopeLabels={scopeLabels}
                       onFilterSave={handleFilter}
                       onFilterReset={handleReset}
                       created_by={filters?.created_by || null}

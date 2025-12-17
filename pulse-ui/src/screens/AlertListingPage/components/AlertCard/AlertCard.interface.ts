@@ -28,5 +28,7 @@ export type AlertCardProps = {
   scopeLabels?: Record<string, string>;
   /** Severity ID to display config mapping from API */
   severityConfig?: Record<number, SeverityDisplayConfig>;
+  /** Metric name to label mapping from API */
+  metricLabels?: Record<string, string>;
   onClick?: () => void;
 };

@@ -1,5 +1,7 @@
 export type GetAlertEvaluationHistoryParams = {
   alertId: string;
+  /** Polling interval in milliseconds. Set to false to disable polling. */
+  refetchInterval?: number | false;
 };
 
 /**

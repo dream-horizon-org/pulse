@@ -5,6 +5,7 @@ import { GetAlertDetailsParams, AlertDetailsResponse } from "./useGetAlertDetail
 
 export const useGetAlertDetails = ({
   queryParams = null,
+  refetchInterval = false,
 }: GetAlertDetailsParams) => {
   const getAlertDetails = API_ROUTES.GET_ALERT_DETAILS;
 
@@ -26,9 +27,10 @@ export const useGetAlertDetails = ({
       });
     },
     refetchOnWindowFocus: false,
-    refetchInterval: false,
+    refetchInterval,
     staleTime: 0,
   });
 };
+
 
 
