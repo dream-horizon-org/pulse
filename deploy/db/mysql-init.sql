@@ -129,66 +129,64 @@ INSERT INTO Scope_Types (name, label) VALUES
 
 -- Insert interaction scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('APDEX', 'APDEX value [0,1]', 'interaction'),
-    ('CRASH', 'CRASH value >= 0', 'interaction'),
-    ('ANR', 'ANR value >= 0', 'interaction'),
-    ('FROZEN_FRAME', 'FROZEN FRAME value >= 0', 'interaction'),
-    ('ANALYSED_FRAME', 'ANALYSED FRAME value >= 0', 'interaction'),
-    ('UNANALYSED_FRAME', 'UNANALYSED FRAME value >= 0', 'interaction'),
-    ('DURATION_P99', 'DURATION P99 value >= 0', 'interaction'),
-    ('DURATION_P95', 'DURATION P95 value >= 0', 'interaction'),
-    ('DURATION_P50', 'DURATION P50 value >= 0', 'interaction'),
-    ('ERROR_RATE', 'ERROR RATE value [0,1]', 'interaction'),
-    ('Interaction_SUCCESS_COUNT', 'Interaction SUCCESS COUNT value >= 0', 'interaction'),
-    ('Interaction_ERROR_COUNT', 'Interaction ERROR COUNT value >= 0', 'interaction'),
-    ('Interaction_ERROR_DISTINCT_USERS', 'Interaction ERROR DISTINCT USERS value >= 0', 'interaction'),
-    ('USER_CATEGORY_EXCELLENT', 'USER CATEGORY EXCELLENT value >= 0', 'interaction'),
-    ('USER_CATEGORY_GOOD', 'USER CATEGORY GOOD value >= 0', 'interaction'),
-    ('USER_CATEGORY_AVERAGE', 'USER CATEGORY AVERAGE value >= 0', 'interaction'),
-    ('USER_CATEGORY_POOR', 'USER CATEGORY POOR value >= 0', 'interaction'),
-    ('CRASH_RATE', 'CRASH RATE value [0,1]', 'interaction'),
-    ('ANR_RATE', 'ANR RATE value [0,1]', 'interaction'),
-    ('FROZEN_FRAME_RATE', 'FROZEN FRAME RATE value [0,1]', 'interaction'),
-    ('POOR_USER_RATE', 'POOR USER RATE value [0,1]', 'interaction'),
-    ('AVERAGE_USER_RATE', 'AVERAGE USER RATE value [0,1]', 'interaction'),
-    ('GOOD_USER_RATE', 'GOOD USER RATE value [0,1]', 'interaction'),
-    ('EXCELLENT_USER_RATE', 'EXCELLENT USER RATE value [0,1]', 'interaction');
+    ('APDEX', 'Apdex Score (0 to 1)', 'interaction'),
+    ('CRASH', 'Crash Count', 'interaction'),
+    ('ANR', 'ANR Count', 'interaction'),
+    ('FROZEN_FRAME', 'Frozen Frame Count', 'interaction'),
+    ('ANALYSED_FRAME', 'Analysed Frame Count', 'interaction'),
+    ('UNANALYSED_FRAME', 'Unanalysed Frame Count', 'interaction'),
+    ('DURATION_P99', 'Duration P99 (ms)', 'interaction'),
+    ('DURATION_P95', 'Duration P95 (ms)', 'interaction'),
+    ('DURATION_P50', 'Duration P50 (ms)', 'interaction'),
+    ('ERROR_RATE', 'Error Rate (%)', 'interaction'),
+    ('Interaction_SUCCESS_COUNT', 'Success Count', 'interaction'),
+    ('Interaction_ERROR_COUNT', 'Error Count', 'interaction'),
+    ('Interaction_ERROR_DISTINCT_USERS', 'Distinct Users with Errors', 'interaction'),
+    ('USER_CATEGORY_EXCELLENT', 'Excellent Users Count', 'interaction'),
+    ('USER_CATEGORY_GOOD', 'Good Users Count', 'interaction'),
+    ('USER_CATEGORY_AVERAGE', 'Average Users Count', 'interaction'),
+    ('USER_CATEGORY_POOR', 'Poor Users Count', 'interaction'),
+    ('CRASH_RATE', 'Crash Rate (%)', 'interaction'),
+    ('ANR_RATE', 'ANR Rate (%)', 'interaction'),
+    ('FROZEN_FRAME_RATE', 'Frozen Frame Rate (%)', 'interaction'),
+    ('POOR_USER_RATE', 'Poor User Rate (%)', 'interaction'),
+    ('AVERAGE_USER_RATE', 'Average User Rate (%)', 'interaction'),
+    ('GOOD_USER_RATE', 'Good User Rate (%)', 'interaction'),
+    ('EXCELLENT_USER_RATE', 'Excellent User Rate (%)', 'interaction');
 
 -- Insert APP_VITALS scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'APP VITALS CRASH FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'APP VITALS CRASH FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_CRASH_USERS', 'APP VITALS CRASH USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_CRASH_SESSIONS', 'APP VITALS CRASH SESSIONS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ALL_USERS', 'APP VITALS ALL USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ALL_SESSIONS', 'APP VITALS ALL SESSIONS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'APP VITALS ANR FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'APP VITALS ANR FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_ANR_USERS', 'APP VITALS ANR USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ANR_SESSIONS', 'APP VITALS ANR SESSIONS value >= 0', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'APP VITALS NON FATAL FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'APP VITALS NON FATAL FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_USERS', 'APP VITALS NON FATAL USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_SESSIONS', 'APP VITALS NON FATAL SESSIONS value >= 0', 'app_vitals');
+    ('APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'Crash-Free Users %', 'app_vitals'),
+    ('APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'Crash-Free Sessions %', 'app_vitals'),
+    ('APP_VITALS_CRASH_USERS', 'Crash Users Count', 'app_vitals'),
+    ('APP_VITALS_CRASH_SESSIONS', 'Crash Sessions Count', 'app_vitals'),
+    ('APP_VITALS_ALL_USERS', 'Total Users Count', 'app_vitals'),
+    ('APP_VITALS_ALL_SESSIONS', 'Total Sessions Count', 'app_vitals'),
+    ('APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'ANR-Free Users %', 'app_vitals'),
+    ('APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'ANR-Free Sessions %', 'app_vitals'),
+    ('APP_VITALS_ANR_USERS', 'ANR Users Count', 'app_vitals'),
+    ('APP_VITALS_ANR_SESSIONS', 'ANR Sessions Count', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'Non-Fatal Free Users %', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'Non-Fatal Free Sessions %', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_USERS', 'Non-Fatal Users Count', 'app_vitals'),
+    ('APP_VITALS_NON_FATAL_SESSIONS', 'Non-Fatal Sessions Count', 'app_vitals');
 
 -- Insert Screen scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('SCREEN_DAILY_USERS', 'SCREEN DAILY USERS value >= 0', 'screen'),
-    ('SCREEN_ERROR_RATE', 'SCREEN ERROR RATE value [0,1]', 'screen'),
-    ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen'),
-    ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen'),
-    ('LOAD_TIME', 'LOAD TIME value >= 0', 'screen');
-
+    ('SCREEN_DAILY_USERS', 'Daily Users Count', 'screen'),
+    ('SCREEN_ERROR_RATE', 'Error Rate (%)', 'screen'),
+    ('SCREEN_TIME', 'Screen Time (ms)', 'screen'),
+    ('LOAD_TIME', 'Load Time (ms)', 'screen');
 
 -- Insert network_api scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('NET_0', 'NET 0 value >= 0', 'network_api'),
-    ('NET_2XX', 'NET 2XX value >= 0', 'network_api'),
-    ('NET_3XX', 'NET 3XX value >= 0', 'network_api'),
-    ('NET_4XX', 'NET 4XX value >= 0', 'network_api'),
-    ('NET_5XX', 'NET 5XX value >= 0', 'network_api'),
-    ('NET_4XX_RATE', 'NET 4XX RATE value [0,1]', 'network_api'),
-    ('NET_5XX_RATE', 'NET 5XX RATE value [0,1]', 'network_api');
+    ('NET_0', 'Connection Error Count', 'network_api'),
+    ('NET_2XX', '2XX Success Count', 'network_api'),
+    ('NET_3XX', '3XX Redirect Count', 'network_api'),
+    ('NET_4XX', '4XX Client Error Count', 'network_api'),
+    ('NET_5XX', '5XX Server Error Count', 'network_api'),
+    ('NET_4XX_RATE', '4XX Error Rate (%)', 'network_api'),
+    ('NET_5XX_RATE', '5XX Error Rate (%)', 'network_api');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
