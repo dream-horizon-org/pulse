@@ -16,3 +16,4 @@ public class AlertResponseDto {
   @JsonProperty("alert_id")
   Integer alertId;
 }
+
