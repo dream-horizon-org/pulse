@@ -619,9 +619,9 @@ public class AlertsDao {
   public Single<List<AlertSeverityResponseDto>> getAlertSeverities() {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_SEVERITIES).rxExecute().onErrorResumeNext(error -> {
       log.error("Error while fetching alert severities from db: {}", error.getMessage());
-      MySQLException mySQLException = (MySQLException) error;
+      MySQLException mySqlException = (MySQLException) error;
 
-      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
     }).map(rowSet -> {
       if (rowSet.size() == 0) {
         log.error("No alert severities found");
@@ -642,9 +642,9 @@ public class AlertsDao {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_SEVERITY).rxExecute(Tuple.of(name, description))
         .onErrorResumeNext(error -> {
           log.error("Error while inserting alert severity in db: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
@@ -652,9 +652,9 @@ public class AlertsDao {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNELS).rxExecute()
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert notification channels from db: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> {
           if (rowSet.size() == 0) {
             log.error("No notification channels found");
@@ -680,18 +680,18 @@ public class AlertsDao {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_NOTIFICATION_CHANNEL).rxExecute(Tuple.of(name, config))
         .onErrorResumeNext(error -> {
           log.error("Error while inserting alert notification channel in db: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
   public Single<Boolean> createTagForAlert(@NotNull String tag) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_TAG).rxExecute(Tuple.of(tag)).onErrorResumeNext(error -> {
       log.error("Error while inserting tag in db: {}", error.getMessage());
-      MySQLException mySQLException = (MySQLException) error;
+      MySQLException mySqlException = (MySQLException) error;
 
-      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
     }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
@@ -699,18 +699,18 @@ public class AlertsDao {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.CREATE_ALERT_TAG_MAPPING).rxExecute(Tuple.of(alertId, tagId))
         .onErrorResumeNext(error -> {
           log.error("Error while inserting tag and alert mapping in db for alert id {}: {}", alertId, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
   public Single<List<AlertTagsResponseDto>> getAllTags() {
     return d11MysqlClient.getWriterPool().query(AlertsQuery.GET_ALL_TAGS).rxExecute().onErrorResumeNext(error -> {
       log.error("Error while fetching tags from db: {}", error.getMessage());
-      MySQLException mySQLException = (MySQLException) error;
+      MySQLException mySqlException = (MySQLException) error;
 
-      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
     }).map(rowSet -> {
       if (rowSet.size() == 0) {
         log.error("No tags found");
@@ -729,9 +729,9 @@ public class AlertsDao {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_TAGS_FOR_ALERT).rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching tags for alert id {} from db: {}", alertId, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> {
           if (rowSet.size() == 0) {
             log.error("No tags found for alert id: {}", alertId);
@@ -751,18 +751,18 @@ public class AlertsDao {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.DELETE_ALERT_TAG_MAPPING).rxExecute(Tuple.of(alertId, tagId))
         .onErrorResumeNext(error -> {
           log.error("Error while deleting tag mapping for alert id {} from db: {}", alertId, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
+          MySQLException mySqlException = (MySQLException) error;
 
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         }).map(rowSet -> rowSet.rowCount() > 0);
   }
 
   public Single<AlertFiltersResponseDto> getAlertsFilters() {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_ALERT_FILTERS).rxExecute().onErrorResumeNext(error -> {
       log.error("Error while fetching alert filters from db: {}", error.getMessage());
-      MySQLException mySQLException = (MySQLException) error;
+      MySQLException mySqlException = (MySQLException) error;
 
-      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+      return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
     }).map(AlertMapper::mapRowSetToAlertFilters);
   }
 
@@ -772,8 +772,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(scope))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching metrics for scope {} from db: {}", scope, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> {
           List<org.dreamhorizon.pulseserver.resources.alert.models.MetricItemDto> metrics = new ArrayList<>();
@@ -794,8 +794,8 @@ public class AlertsDao {
         .rxExecute()
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert scopes from db: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> {
           List<org.dreamhorizon.pulseserver.resources.alert.models.AlertScopeItemDto> scopes = new ArrayList<>();
@@ -816,8 +816,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> {
           if (rowSet.size() > 0) {
@@ -889,8 +889,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert scopes: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> {
           List<AlertScopeDetails> scopes = new ArrayList<>();
@@ -913,8 +913,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(state.toString(), scopeId))
         .onErrorResumeNext(error -> {
           log.error("Error while updating scope state: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> rowSet.rowCount() > 0);
   }
@@ -925,8 +925,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(scopeId, evaluationResult, state.toString()))
         .onErrorResumeNext(error -> {
           log.error("Error while creating evaluation history: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> rowSet.rowCount() > 0);
   }
@@ -937,8 +937,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(scopeId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching scope state: {}", error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> {
           if (rowSet.size() > 0) {
@@ -963,8 +963,8 @@ public class AlertsDao {
         .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching evaluation history for alert id {}: {}", alertId, error.getMessage());
-          MySQLException mySQLException = (MySQLException) error;
-          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySQLException.getMessage()));
+          MySQLException mySqlException = (MySQLException) error;
+          return Single.error(ServiceError.DATABASE_ERROR.getCustomException(mySqlException.getMessage()));
         })
         .map(rowSet -> {
           Map<Integer, ScopeEvaluationHistoryDto> scopeMap = new HashMap<>();

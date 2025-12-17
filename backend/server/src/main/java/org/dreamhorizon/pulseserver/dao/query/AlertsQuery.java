@@ -1,154 +1,161 @@
 package org.dreamhorizon.pulseserver.dao.query;
 
 public class AlertsQuery {
-  public static final String GET_ALERT_DETAILS = "SELECT \n" +
-      "    A.id AS alert_id,\n" +
-      "    A.name,\n" +
-      "    A.description,\n" +
-      "    A.scope,\n" +
-      "    A.dimension_filter,\n" +
-      "    A.condition_expression,\n" +
-      "    A.evaluation_period,\n" +
-      "    A.evaluation_interval,\n" +
-      "    A.severity_id,\n" +
-      "    A.notification_channel_id,\n" +
-      "    NC.notification_webhook_url AS notification_webhook_url,\n" +
-      "    A.created_by,\n" +
-      "    A.updated_by,\n" +
-      "    A.created_at AS alert_created_at,\n" +
-      "    A.updated_at AS alert_updated_at,\n" +
-      "    A.is_active,\n" +
-      "    A.last_snoozed_at,\n" +
-      "    A.snoozed_from,\n" +
-      "    A.snoozed_until\n" +
-      "FROM \n" +
-      "    Alerts A\n" +
-      "LEFT JOIN  \n" +
-      "    Notification_Channels NC ON A.notification_channel_id = NC.notification_channel_id \n" +
-      "WHERE A.id = ? AND A.is_active = TRUE;";
+  public static final String GET_ALERT_DETAILS = """
+      SELECT\s
+          A.id AS alert_id,
+          A.name,
+          A.description,
+          A.scope,
+          A.dimension_filter,
+          A.condition_expression,
+          A.evaluation_period,
+          A.evaluation_interval,
+          A.severity_id,
+          A.notification_channel_id,
+          NC.notification_webhook_url AS notification_webhook_url,
+          A.created_by,
+          A.updated_by,
+          A.created_at AS alert_created_at,
+          A.updated_at AS alert_updated_at,
+          A.is_active,
+          A.last_snoozed_at,
+          A.snoozed_from,
+          A.snoozed_until
+      FROM\s
+          Alerts A
+      LEFT JOIN \s
+          Notification_Channels NC ON A.notification_channel_id = NC.notification_channel_id\s
+      WHERE A.id = ? AND A.is_active = TRUE;""";
 
-  public static final String GET_ALERT_SCOPES = "SELECT \n" +
-      "    id,\n" +
-      "    alert_id,\n" +
-      "    name,\n" +
-      "    conditions,\n" +
-      "    state,\n" +
-      "    created_at,\n" +
-      "    updated_at\n" +
-      "FROM Alert_Scope \n" +
-      "WHERE alert_id = ? AND is_active = TRUE \n" +
-      "ORDER BY name;";
+  public static final String GET_ALERT_SCOPES = """
+      SELECT\s
+          id,
+          alert_id,
+          name,
+          conditions,
+          state,
+          created_at,
+          updated_at
+      FROM Alert_Scope\s
+      WHERE alert_id = ? AND is_active = TRUE\s
+      ORDER BY name;""";
 
-  public static final String GET_ALL_ALERT_SCOPES = "SELECT \n" +
-      "    id,\n" +
-      "    alert_id,\n" +
-      "    name,\n" +
-      "    conditions,\n" +
-      "    state,\n" +
-      "    created_at,\n" +
-      "    updated_at\n" +
-      "FROM Alert_Scope \n" +
-      "WHERE alert_id IN (SELECT id FROM Alerts WHERE is_active = TRUE) AND is_active = TRUE \n" +
-      "ORDER BY alert_id, name;";
+  public static final String GET_ALL_ALERT_SCOPES = """
+      SELECT\s
+          id,
+          alert_id,
+          name,
+          conditions,
+          state,
+          created_at,
+          updated_at
+      FROM Alert_Scope\s
+      WHERE alert_id IN (SELECT id FROM Alerts WHERE is_active = TRUE) AND is_active = TRUE\s
+      ORDER BY alert_id, name;""";
 
-  public static final String GET_ALERT_SCOPES_FOR_IDS = "SELECT \n" +
-      "    id,\n" +
-      "    alert_id,\n" +
-      "    name,\n" +
-      "    conditions,\n" +
-      "    state,\n" +
-      "    created_at,\n" +
-      "    updated_at\n" +
-      "FROM Alert_Scope \n" +
-      "WHERE alert_id IN (%s) AND is_active = TRUE \n" +
-      "ORDER BY alert_id, name;";
+  public static final String GET_ALERT_SCOPES_FOR_IDS = """
+      SELECT\s
+          id,
+          alert_id,
+          name,
+          conditions,
+          state,
+          created_at,
+          updated_at
+      FROM Alert_Scope\s
+      WHERE alert_id IN (%s) AND is_active = TRUE\s
+      ORDER BY alert_id, name;""";
 
-  public static final String GET_ALERTS = "WITH FilteredAlerts AS (\n" +
-      "    SELECT \n" +
-      "        A.id AS alert_id, \n" +
-      "        A.name, \n" +
-      "        A.description, \n" +
-      "        A.scope, \n" +
-      "        A.dimension_filter, \n" +
-      "        A.condition_expression, \n" +
-      "        A.evaluation_period, \n" +
-      "        A.evaluation_interval, \n" +
-      "        A.severity_id, \n" +
-      "        A.notification_channel_id, \n" +
-      "        A.created_by, \n" +
-      "        A.updated_by, \n" +
-      "        A.created_at AS alert_created_at, \n" +
-      "        A.updated_at AS alert_updated_at, \n" +
-      "        A.is_active, \n" +
-      "        A.last_snoozed_at, \n" +
-      "        A.snoozed_from, \n" +
-      "        A.snoozed_until\n" +
-      "    FROM \n" +
-      "        Alerts A\n" +
-      "    WHERE \n" +
-      "        A.is_active = TRUE \n" +
-      "        AND ( ? = '' OR A.name LIKE CONCAT('%', ?, '%')) \n" +
-      "        AND ( ? = '' OR A.scope = ?) \n" +
-      "        AND ( ? = '' OR A.created_by = ?) \n" +
-      "        AND ( ? = '' OR A.updated_by = ?) \n" +
-      "),\n" +
-      "TotalAlertCount AS (\n" +
-      "    SELECT COUNT(*) AS total_count FROM FilteredAlerts \n" +
-      "), \n" +
-      "AlertFilterWithLimitAndOffset AS (\n" +
-      "    SELECT * FROM FilteredAlerts ORDER BY alert_created_at DESC LIMIT ? OFFSET ? \n" +
-      ")\n" +
-      "SELECT \n" +
-      "    FA.alert_id, \n" +
-      "    FA.name, \n" +
-      "    FA.description, \n" +
-      "    FA.scope, \n" +
-      "    FA.dimension_filter, \n" +
-      "    FA.condition_expression, \n" +
-      "    FA.evaluation_period, \n" +
-      "    FA.evaluation_interval, \n" +
-      "    FA.severity_id, \n" +
-      "    FA.notification_channel_id, \n" +
-      "    FA.created_by, \n" +
-      "    FA.updated_by, \n" +
-      "    FA.alert_created_at, \n" +
-      "    FA.alert_updated_at, \n" +
-      "    FA.is_active, \n" +
-      "    FA.last_snoozed_at, \n" +
-      "    FA.snoozed_from, \n" +
-      "    FA.snoozed_until, \n" +
-      "    NC.notification_webhook_url, \n" +
-      "    (SELECT total_count FROM TotalAlertCount) AS total_count \n" +
-      "FROM \n" +
-      "    AlertFilterWithLimitAndOffset FA\n" +
-      "LEFT JOIN \n" +
-      "    Notification_Channels NC ON FA.notification_channel_id = NC.notification_channel_id \n";
+  public static final String GET_ALERTS = """
+      WITH FilteredAlerts AS (
+          SELECT\s
+              A.id AS alert_id,\s
+              A.name,\s
+              A.description,\s
+              A.scope,\s
+              A.dimension_filter,\s
+              A.condition_expression,\s
+              A.evaluation_period,\s
+              A.evaluation_interval,\s
+              A.severity_id,\s
+              A.notification_channel_id,\s
+              A.created_by,\s
+              A.updated_by,\s
+              A.created_at AS alert_created_at,\s
+              A.updated_at AS alert_updated_at,\s
+              A.is_active,\s
+              A.last_snoozed_at,\s
+              A.snoozed_from,\s
+              A.snoozed_until
+          FROM\s
+              Alerts A
+          WHERE\s
+              A.is_active = TRUE\s
+              AND ( ? = '' OR A.name LIKE CONCAT('%', ?, '%'))\s
+              AND ( ? = '' OR A.scope = ?)\s
+              AND ( ? = '' OR A.created_by = ?)\s
+              AND ( ? = '' OR A.updated_by = ?)\s
+      ),
+      TotalAlertCount AS (
+          SELECT COUNT(*) AS total_count FROM FilteredAlerts\s
+      ),\s
+      AlertFilterWithLimitAndOffset AS (
+          SELECT * FROM FilteredAlerts ORDER BY alert_created_at DESC LIMIT ? OFFSET ?\s
+      )
+      SELECT\s
+          FA.alert_id,\s
+          FA.name,\s
+          FA.description,\s
+          FA.scope,\s
+          FA.dimension_filter,\s
+          FA.condition_expression,\s
+          FA.evaluation_period,\s
+          FA.evaluation_interval,\s
+          FA.severity_id,\s
+          FA.notification_channel_id,\s
+          FA.created_by,\s
+          FA.updated_by,\s
+          FA.alert_created_at,\s
+          FA.alert_updated_at,\s
+          FA.is_active,\s
+          FA.last_snoozed_at,\s
+          FA.snoozed_from,\s
+          FA.snoozed_until,\s
+          NC.notification_webhook_url,\s
+          (SELECT total_count FROM TotalAlertCount) AS total_count\s
+      FROM\s
+          AlertFilterWithLimitAndOffset FA
+      LEFT JOIN\s
+          Notification_Channels NC ON FA.notification_channel_id = NC.notification_channel_id\s
+      """;
 
-  public static final String GET_ALL_ALERTS = "SELECT \n" +
-      "    A.id AS alert_id,\n" +
-      "    A.name,\n" +
-      "    A.description,\n" +
-      "    A.scope,\n" +
-      "    A.dimension_filter,\n" +
-      "    A.condition_expression,\n" +
-      "    A.evaluation_period,\n" +
-      "    A.evaluation_interval,\n" +
-      "    A.severity_id,\n" +
-      "    A.notification_channel_id,\n" +
-      "    NC.notification_webhook_url AS notification_webhook_url,\n" +
-      "    A.created_by,\n" +
-      "    A.updated_by,\n" +
-      "    A.created_at AS alert_created_at,\n" +
-      "    A.updated_at AS alert_updated_at,\n" +
-      "    A.is_active,\n" +
-      "    A.last_snoozed_at,\n" +
-      "    A.snoozed_from,\n" +
-      "    A.snoozed_until\n" +
-      "FROM \n" +
-      "    Alerts A\n" +
-      "LEFT JOIN  \n" +
-      "    Notification_Channels NC ON A.notification_channel_id = NC.notification_channel_id \n" +
-      "WHERE A.is_active = TRUE;";
+  public static final String GET_ALL_ALERTS = """
+      SELECT\s
+          A.id AS alert_id,
+          A.name,
+          A.description,
+          A.scope,
+          A.dimension_filter,
+          A.condition_expression,
+          A.evaluation_period,
+          A.evaluation_interval,
+          A.severity_id,
+          A.notification_channel_id,
+          NC.notification_webhook_url AS notification_webhook_url,
+          A.created_by,
+          A.updated_by,
+          A.created_at AS alert_created_at,
+          A.updated_at AS alert_updated_at,
+          A.is_active,
+          A.last_snoozed_at,
+          A.snoozed_from,
+          A.snoozed_until
+      FROM\s
+          Alerts A
+      LEFT JOIN \s
+          Notification_Channels NC ON A.notification_channel_id = NC.notification_channel_id\s
+      WHERE A.is_active = TRUE;""";
 
   public static final String CREATE_ALERT = "INSERT INTO Alerts("
       + "name, "
@@ -201,7 +208,8 @@ public class AlertsQuery {
   public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM Alerts WHERE id = ?;";
 
   public static final String GET_ALERT_FILTERS =
-      "SELECT DISTINCT A.name as name, A.scope as scope, A.created_by as created_by, A.updated_by as updated_by, S.state AS current_state FROM Alerts A "
+      "SELECT DISTINCT A.name as name, A.scope as scope, A.created_by as created_by, A.updated_by as updated_by,"
+          + " S.state AS current_state FROM Alerts A"
           + "LEFT JOIN Alert_Scope S ON A.id = S.alert_id AND S.is_active = TRUE "
           + "WHERE A.is_active = TRUE;";
 

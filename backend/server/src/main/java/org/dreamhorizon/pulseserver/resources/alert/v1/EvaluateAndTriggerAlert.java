@@ -22,11 +22,11 @@ import org.dreamhorizon.pulseserver.service.alert.core.AlertEvaluationService;
 public class EvaluateAndTriggerAlert {
   private final AlertEvaluationService alertEvaluationService;
 
-    @GET
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
+  @GET
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<EvaluateAlertResponseDto>> evaluateAndTriggerAlert(@BeanParam EvaluateAlertRequestDto request) {
     return alertEvaluationService.evaluateAlertById(request.getAlertId())
-                .to(RestResponse.jaxrsRestHandler());
-    }
+        .to(RestResponse.jaxrsRestHandler());
+  }
 }
