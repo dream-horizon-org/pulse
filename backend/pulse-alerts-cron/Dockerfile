@@ -33,7 +33,7 @@ WORKDIR /app
 # Copy the built JAR from builder stage
 COPY --from=builder /app/target/pulse-alerts-cron/pulse-alerts-cron.jar ./pulse-alerts-cron.jar
 
-COPY --from=builder /app/src/main/resources/config ./config
+COPY --from=builder /app/src/main/resources/conf ./conf
 
 # Expose the application port
 EXPOSE 4000
