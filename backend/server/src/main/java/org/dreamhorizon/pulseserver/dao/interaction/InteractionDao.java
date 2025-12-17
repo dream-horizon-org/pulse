@@ -149,7 +149,7 @@ public class InteractionDao {
 
     return InteractionDetails
         .builder()
-        .id(row.getLong("Interaction_id"))
+        .id(row.getLong("interaction_id"))
         .name(row.getString("name"))
         .description(details.getDescription())
         .status(InteractionStatus.fromString(row.getString("status")))

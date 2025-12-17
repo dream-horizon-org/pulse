@@ -259,10 +259,15 @@ public class AlertEvaluationService {
       log.info("No data returned from query for alert {}. All scopes will be set to NO_DATA.",
           alertDetails.getId());
       for (AlertsDao.AlertScopeDetails scope : scopes) {
+        List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
+        Map<String, Float> noDataResult = buildNoDataEvaluationResult(alerts != null ? alerts : new ArrayList<>());
+        String evaluationResultJson = buildEvaluationResultJson(noDataResult, new HashMap<>(), false);
+        
         results.add(EvaluationResult.builder()
             .scopeId(scope.getId())
             .state(AlertState.NO_DATA)
             .isFiring(false)
+            .evaluationResult(evaluationResultJson)
             .build());
       }
       return results;
@@ -376,7 +381,11 @@ public class AlertEvaluationService {
       result.setScopeId(scope.getId());
       result.setState(finalState);
       result.setFiring(finalState == AlertState.FIRING);
-      result.setEvaluationResult(buildEvaluationResultJson(metricReadings, variableValues, expressionResult));
+      
+      Map<String, Float> evaluationResultMap = metricReadings.isEmpty()
+          ? buildNoDataEvaluationResult(alerts)
+          : metricReadings;
+      result.setEvaluationResult(buildEvaluationResultJson(evaluationResultMap, variableValues, expressionResult));
       results.add(result);
     }
 
@@ -440,6 +449,17 @@ public class AlertEvaluationService {
       log.warn("Dimension filter is not JSON, using as raw SQL string: {}", dimensionFilter);
       return dimensionFilter;
     }
+  }
+
+  private Map<String, Float> buildNoDataEvaluationResult(List<Map<String, Object>> alerts) {
+    Map<String, Float> noDataResult = new HashMap<>();
+    for (Map<String, Object> alert : alerts) {
+      String metric = (String) alert.get("metric");
+      if (metric != null) {
+        noDataResult.put(metric, null);
+      }
+    }
+    return noDataResult;
   }
 
   private String buildEvaluationResultJson(Map<String, Float> metricReadings, Map<String, Boolean> variableValues,
@@ -657,17 +677,17 @@ public class AlertEvaluationService {
     }
 
     if (Constants.QUERY_COMPLETED_STATUS.equals(responseDto.getStatus())) {
-      if (responseDto.getState() == AlertState.NO_DATA) {
-        log.info("Skipping evaluation history creation for NO_DATA state. Alert: {}, Scope: {}",
-            responseDto.getAlert().getId(), responseDto.getScopeId());
-        return;
-      }
       log.info("Query execution succeeded for alert: {}, scope: {}",
           responseDto.getAlert().getId(), responseDto.getScopeId());
 
       if (responseDto.getScopeId() != null) {
+        String evaluationResult = responseDto.getEvaluationResult();
+        if (evaluationResult == null || evaluationResult.isEmpty()) {
+          evaluationResult = "{}";
+        }
+        
         createEvaluationHistory(responseDto.getScopeId(),
-            responseDto.getEvaluationResult(),
+            evaluationResult,
             responseDto.getState())
             .doOnError(error -> logErrorWhileUpdatingEvaluationHistory(error, responseDto))
             .subscribe();

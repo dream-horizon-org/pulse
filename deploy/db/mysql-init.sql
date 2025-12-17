@@ -6,8 +6,8 @@ CREATE DATABASE IF NOT EXISTS pulse_db CHARACTER SET utf8mb4 COLLATE utf8mb4_uni
 
 USE pulse_db;
 
-CREATE TABLE Interaction (
-    Interaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE interaction (
+    interaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     status VARCHAR(25) NOT NULL,
     details JSON,
@@ -20,23 +20,23 @@ CREATE TABLE Interaction (
 
 -- Minimal table
 CREATE TABLE symbol_files (
-  app_version       VARCHAR(64)         NOT NULL,  -- e.g. "7.3.1"
-  app_version_code  INT                 NOT NULL,  -- e.g. 7030100
+  app_version       VARCHAR(64)         NOT NULL,
+  app_version_code  INT                 NOT NULL,
   platform          ENUM('ios','android') NOT NULL,
-  framework         ENUM('java','js')   NOT NULL,  -- java = R8 mapping.txt, js = RN sourcemap
-  file_content      LONGBLOB            NOT NULL,  -- raw bytes of mapping.txt or .map
+  framework         ENUM('java','js')   NOT NULL,
+  file_content      LONGBLOB            NOT NULL,
   PRIMARY KEY (app_version, app_version_code, platform, framework)
 );
 
 
-CREATE TABLE Severity
+CREATE TABLE severity
 (
     severity_id INT PRIMARY KEY AUTO_INCREMENT,
     name        INT NOT NULL,
     description TEXT
 );
 
-CREATE TABLE Notification_Channels
+CREATE TABLE notification_channels
 (
     notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
     name                    VARCHAR(100) NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE Notification_Channels
 );
 
 
-CREATE TABLE Alerts (
+CREATE TABLE alerts (
   id                          INT PRIMARY KEY AUTO_INCREMENT,
   name                        TEXT NOT NULL,
   description                 TEXT NOT NULL,
@@ -65,13 +65,13 @@ CREATE TABLE Alerts (
   is_active                   BOOLEAN NOT NULL DEFAULT TRUE,
 
   CONSTRAINT fk_alert_severity
-    FOREIGN KEY (severity_id) REFERENCES Severity(severity_id),
+    FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
 
   CONSTRAINT fk_alert_notification_channel
-    FOREIGN KEY (notification_channel_id) REFERENCES Notification_Channels(notification_channel_id)
+    FOREIGN KEY (notification_channel_id) REFERENCES notification_channels(notification_channel_id)
 );
 
-CREATE TABLE Alert_Scope (
+CREATE TABLE alert_scope (
   id                     INT PRIMARY KEY AUTO_INCREMENT,
   alert_id               INT NOT NULL,
   name                   VARCHAR(255) NOT NULL,
@@ -80,19 +80,19 @@ CREATE TABLE Alert_Scope (
   is_active              BOOLEAN NOT NULL DEFAULT TRUE,
   created_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_subject_alert FOREIGN KEY (alert_id) REFERENCES Alerts (id)
+  CONSTRAINT fk_subject_alert FOREIGN KEY (alert_id) REFERENCES alerts (id)
 );
 
-CREATE TABLE Alert_Evaluation_History (
+CREATE TABLE alert_evaluation_history (
   evaluation_id      INT PRIMARY KEY AUTO_INCREMENT,
   scope_id           INT NOT NULL,
   evaluation_result  JSON NOT NULL,
   state              VARCHAR(50) NOT NULL DEFAULT 'NORMAL',
   evaluated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_eval_subject FOREIGN KEY (scope_id) REFERENCES Alert_Scope (id)
+  CONSTRAINT fk_eval_subject FOREIGN KEY (scope_id) REFERENCES alert_scope (id)
 );
 
-CREATE TABLE Scope_Types (
+CREATE TABLE scope_types (
   id                  INT PRIMARY KEY AUTO_INCREMENT,
   name                VARCHAR(255) NOT NULL UNIQUE,
   label               VARCHAR(500) NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE Scope_Types (
   updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE Alert_Metrics (
+CREATE TABLE alert_metrics (
   id                  INT PRIMARY KEY AUTO_INCREMENT,
   name                VARCHAR(255) NOT NULL,
   label               VARCHAR(500) NOT NULL,
@@ -110,25 +110,25 @@ CREATE TABLE Alert_Metrics (
   UNIQUE KEY unique_metric_scope (name, scope)
 );
 
-INSERT INTO Severity (name, description)
+INSERT INTO severity (name, description)
 VALUES
     (1, 'Critical: Production outage or severe degradation with significant user impact. Requires immediate action and incident management.'),
     (2, 'Warning: Degraded performance, elevated errors, or risk of user impact. Should be investigated soon but is not a full outage.'),
     (3, 'Info: Informational or low-risk condition. No immediate action required; useful for visibility, trend analysis, or validation of changes.');
 
-INSERT INTO Notification_Channels (name, notification_webhook_url)
+INSERT INTO notification_channels (name, notification_webhook_url)
 VALUES
     ('Incident management', 'http://whistlebot.local/declare-incident');
 
 -- Insert Scope Types
-INSERT INTO Scope_Types (name, label) VALUES
+INSERT INTO scope_types (name, label) VALUES
     ('interaction', 'Interactions'),
     ('network_api', 'Network APIs'),
     ('screen', 'Screen'),
     ('app_vitals', 'App Vitals');
 
 -- Insert interaction scope metrics
-INSERT INTO Alert_Metrics (name, label, scope) VALUES
+INSERT INTO alert_metrics (name, label, scope) VALUES
     ('APDEX', 'Apdex Score (0 to 1)', 'interaction'),
     ('CRASH', 'Crash Count', 'interaction'),
     ('ANR', 'ANR Count', 'interaction'),
@@ -155,7 +155,7 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('EXCELLENT_USER_RATE', 'Excellent Users (%)', 'interaction');
 
 -- Insert APP_VITALS scope metrics
-INSERT INTO Alert_Metrics (name, label, scope) VALUES
+INSERT INTO alert_metrics (name, label, scope) VALUES
     ('CRASH_FREE_USERS_PERCENTAGE', 'Crash-Free Users %', 'app_vitals'),
     ('CRASH_FREE_SESSIONS_PERCENTAGE', 'Crash-Free Sessions %', 'app_vitals'),
     ('CRASH_USERS', 'Crash Users Count', 'app_vitals'),
@@ -179,7 +179,7 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('LOAD_TIME', 'Load Time (ms)', 'screen');
 
 -- Insert network_api scope metrics
-INSERT INTO Alert_Metrics (name, label, scope) VALUES
+INSERT INTO alert_metrics (name, label, scope) VALUES
     ('NET_0', 'Connection Error Count', 'network_api'),
     ('NET_2XX', '2XX Success Count', 'network_api'),
     ('NET_3XX', '3XX Redirect Count', 'network_api'),
