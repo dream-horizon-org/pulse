@@ -209,7 +209,7 @@ public class AlertsQuery {
 
   public static final String GET_ALERT_FILTERS =
       "SELECT DISTINCT A.name as name, A.scope as scope, A.created_by as created_by, A.updated_by as updated_by,"
-          + " S.state AS current_state FROM Alerts A"
+          + " S.state AS current_state FROM Alerts A "
           + "LEFT JOIN Alert_Scope S ON A.id = S.alert_id AND S.is_active = TRUE "
           + "WHERE A.is_active = TRUE;";
 
