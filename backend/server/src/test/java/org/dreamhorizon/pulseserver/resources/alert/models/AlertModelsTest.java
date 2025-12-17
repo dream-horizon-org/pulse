@@ -406,20 +406,20 @@ class AlertModelsTest {
     void shouldCreateWithAllArgs() {
       AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto(1, "Slack", "http://slack.webhook");
 
-      assertEquals(1, dto.getNotification_channel_id());
+      assertEquals(1, dto.getNotificationChannelId());
       assertEquals("Slack", dto.getName());
-      assertEquals("http://slack.webhook", dto.getNotification_webhook_url());
+      assertEquals("http://slack.webhook", dto.getNotificationWebhookUrl());
     }
 
     @Test
     void shouldCreateWithBuilder() {
       AlertNotificationChannelResponseDto dto = AlertNotificationChannelResponseDto.builder()
-          .notification_channel_id(2)
+          .notificationChannelId(2)
           .name("Email")
-          .notification_webhook_url("http://email.webhook")
+          .notificationWebhookUrl("http://email.webhook")
           .build();
 
-      assertEquals(2, dto.getNotification_channel_id());
+      assertEquals(2, dto.getNotificationChannelId());
       assertEquals("Email", dto.getName());
     }
 
@@ -427,13 +427,13 @@ class AlertModelsTest {
     void shouldSetAndGetFields() {
       AlertNotificationChannelResponseDto dto = new AlertNotificationChannelResponseDto();
 
-      dto.setNotification_channel_id(3);
+      dto.setNotificationChannelId(3);
       dto.setName("PagerDuty");
-      dto.setNotification_webhook_url("http://pagerduty.webhook");
+      dto.setNotificationWebhookUrl("http://pagerduty.webhook");
 
-      assertEquals(3, dto.getNotification_channel_id());
+      assertEquals(3, dto.getNotificationChannelId());
       assertEquals("PagerDuty", dto.getName());
-      assertEquals("http://pagerduty.webhook", dto.getNotification_webhook_url());
+      assertEquals("http://pagerduty.webhook", dto.getNotificationWebhookUrl());
     }
 
     @Test
