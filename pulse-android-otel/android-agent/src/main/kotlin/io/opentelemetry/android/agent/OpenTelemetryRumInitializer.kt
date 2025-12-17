@@ -11,7 +11,6 @@ import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
-import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
 import io.opentelemetry.android.agent.session.SessionManager
@@ -71,7 +70,6 @@ object OpenTelemetryRumInitializer {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
@@ -95,10 +93,6 @@ object OpenTelemetryRumInitializer {
                 .build(),
         rumConfig: OtelRumConfig = OtelRumConfig(),
     ): OpenTelemetryRum {
-        instrumentations?.let { configure ->
-            InstrumentationConfiguration(rumConfig).configure()
-        }
-
         val diskBufferingConfigurationSpec = DiskBufferingConfigurationSpec()
         diskBuffering?.invoke(diskBufferingConfigurationSpec)
         rumConfig.setDiskBufferingConfig(DiskBufferingConfig.create(enabled = diskBufferingConfigurationSpec.isEnabled))

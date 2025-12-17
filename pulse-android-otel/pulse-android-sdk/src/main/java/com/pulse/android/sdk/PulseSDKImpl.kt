@@ -53,7 +53,7 @@ internal class PulseSDKImpl :
     CoroutineScope by MainScope() {
     override fun isInitialized(): Boolean = isInitialised
 
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList", "LongMethod")
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
@@ -192,13 +192,39 @@ internal class PulseSDKImpl :
                     attributesBuilder.build()
                 },
                 diskBuffering = diskBuffering,
-                instrumentations = instrumentations,
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
                 loggerProviderCustomizer = mergedLoggerProviderCustomizer,
                 spanExporter = filteredSpanExporter,
                 logRecordExporter = logExporter,
             )
+        instrumentations?.let { configure ->
+            InstrumentationConfiguration(config).configure()
+            pulseSamplingProcessors?.let {
+                val enabledFeatures = it.getEnabledFeatures()
+                when {
+                    "java_crash" in enabledFeatures -> {
+                        config.suppressInstrumentation("crash")
+                    }
+
+                    "network" in enabledFeatures -> {
+                        config.disableNetworkAttributes()
+                    }
+
+                    "anr" in enabledFeatures -> {
+                        config.suppressInstrumentation("anr")
+                    }
+
+                    "interaction" in enabledFeatures -> {
+                        config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                    }
+
+                    else -> {
+                        // no-op
+                    }
+                }
+            }
+        }
         isInitialised = true
     }
 
