@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
@@ -16,7 +15,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ConfigDataDao {
-  private FilterConfig filters;
 
   private SamplingConfig sampling;
 

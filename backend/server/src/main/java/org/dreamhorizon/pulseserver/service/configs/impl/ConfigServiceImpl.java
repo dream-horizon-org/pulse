@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
@@ -30,7 +30,7 @@ public class ConfigServiceImpl implements ConfigService {
   private static final String LATEST_CONFIG_KEY = "latest-config";
 
   private final ConfigsDao configsDao;
-  private final AsyncLoadingCache<String, Config> latestConfigCache;
+  private final AsyncLoadingCache<String, PulseConfig> latestConfigCache;
 
   @Inject
   public ConfigServiceImpl(Vertx vertx, ConfigsDao configsDao) {
@@ -53,13 +53,13 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<Config> getConfig(long version) {
+  public Single<PulseConfig> getConfig(long version) {
     return configsDao.getConfig(version);
   }
 
   @Override
-  public Single<Config> getActiveConfig() {
-    CompletableFuture<Config> fut = latestConfigCache.get(LATEST_CONFIG_KEY);
+  public Single<PulseConfig> getActiveConfig() {
+    CompletableFuture<PulseConfig> fut = latestConfigCache.get(LATEST_CONFIG_KEY);
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
         if (throwable != null) {
@@ -74,7 +74,7 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<Config> createConfig(ConfigData createConfigRequest) {
+  public Single<PulseConfig> createConfig(ConfigData createConfigRequest) {
     return configsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(LATEST_CONFIG_KEY);

@@ -18,13 +18,13 @@ import org.dreamhorizon.pulseserver.service.configs.models.rules;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PulseConfig {
+
+  @JsonProperty("version")
+  private Long version;
+
   @NotNull
   @JsonProperty("description")
   private String description;
-
-  @NotNull
-  @JsonProperty("filters")
-  private FilterConfig filters;
 
   @NotNull
   @JsonProperty("sampling")
@@ -48,23 +48,6 @@ public class PulseConfig {
   @AllArgsConstructor
   @NoArgsConstructor
   @NotNull
-  public static class FilterConfig {
-
-    @JsonProperty("mode")
-    private FilterMode mode;
-
-    @JsonProperty("whitelist")
-    private List<EventFilter> whitelist;
-
-    @JsonProperty("blacklist")
-    private List<EventFilter> blacklist;
-  }
-
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  @NotNull
   public static class EventFilter {
 
     @JsonProperty("name")
@@ -73,8 +56,8 @@ public class PulseConfig {
     @JsonProperty("props")
     private List<EventPropMatch> props;
 
-    @JsonProperty("scope")
-    private List<Scope> scope;
+    @JsonProperty("scopes")
+    private List<Scope> scopes;
 
     @JsonProperty("sdks")
     private List<Sdk> sdks;
@@ -177,19 +160,36 @@ public class PulseConfig {
     @JsonProperty("props")
     private List<EventPropMatch> props;
 
-    @JsonProperty("scope")
-    private List<Scope> scope;
+    @JsonProperty("scopes")
+    private List<Scope> scopes;
 
     @JsonProperty("sdks")
     private List<Sdk> sdks;
   }
 
+  @Data
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @NotNull
+  public static class FilterConfig {
+
+    @JsonProperty("mode")
+    private FilterMode mode;
+
+    @JsonProperty("values")
+    private List<EventFilter> values;
+  }
 
   @Data
   @Builder
   @AllArgsConstructor
   @NoArgsConstructor
   public static class SignalsConfig {
+
+    @NotNull
+    @JsonProperty("filters")
+    private FilterConfig filters;
 
     @NotNull
     @JsonProperty("scheduleDurationMs")
@@ -206,7 +206,7 @@ public class PulseConfig {
 
     @NotNull
     @JsonProperty("attributesToDrop")
-    private List<String> attributesToDrop;
+    private List<EventFilter> attributesToDrop;
   }
 
 

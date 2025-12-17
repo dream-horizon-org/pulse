@@ -22,8 +22,8 @@ public class EventFilter {
   @JsonProperty("props")
   private List<EventPropMatch> props;
 
-  @JsonProperty("scope")
-  private List<Scope> scope;
+  @JsonProperty("scopes")
+  private List<Scope> scopes;
 
   @JsonProperty("sdks")
   private List<Sdk> sdks;

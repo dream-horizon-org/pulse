@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
@@ -37,7 +36,7 @@ public class ConfigController {
   @GET
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<Config>> getConfig(@PathParam("version") Integer version) {
+  public CompletionStage<Response<PulseConfig>> getConfig(@PathParam("version") Integer version) {
     return configService.getConfig(version)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -45,7 +44,7 @@ public class ConfigController {
   @GET
   @Path("/active-config")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<Config>> getActiveConfig() {
+  public CompletionStage<Response<PulseConfig>> getActiveConfig() {
     return configService.getActiveConfig()
         .to(RestResponse.jaxrsRestHandler());
   }

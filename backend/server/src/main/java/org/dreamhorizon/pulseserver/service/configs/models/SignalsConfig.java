@@ -7,12 +7,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.NotNull;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @NotNull
 public class SignalsConfig {
+
+  @JsonProperty("filters")
+  private FilterConfig filters;
+
   @JsonProperty("scheduleDurationMs")
   private int scheduleDurationMs;
 
@@ -26,5 +31,5 @@ public class SignalsConfig {
   private String spanCollectorUrl;
 
   @JsonProperty("attributesToDrop")
-  private List<String> attributesToDrop;
+  private List<EventFilter> attributesToDrop;
 }

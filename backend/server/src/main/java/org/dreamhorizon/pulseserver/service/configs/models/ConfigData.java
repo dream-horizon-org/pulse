@@ -16,9 +16,6 @@ public class ConfigData {
   @JsonProperty("description")
   private String description;
 
-  @JsonProperty("filters")
-  private FilterConfig filters;
-
   @JsonProperty("sampling")
   private SamplingConfig sampling;
 

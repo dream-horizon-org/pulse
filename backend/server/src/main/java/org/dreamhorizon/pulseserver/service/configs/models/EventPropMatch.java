@@ -17,6 +17,5 @@ public class EventPropMatch {
   private String name;
 
   @JsonProperty("value")
-
-  private String value; // regex string
+  private String value;
 }

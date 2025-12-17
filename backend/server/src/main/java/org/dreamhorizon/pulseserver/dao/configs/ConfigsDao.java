@@ -19,10 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.configs.models.ConfigDataDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
-import org.dreamhorizon.pulseserver.resources.configs.models.Config;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 
@@ -33,7 +31,7 @@ public class ConfigsDao {
   private final MysqlClient d11MysqlClient;
   private final ObjectMapperUtil objectMapper;
 
-  public Single<Config> getConfig(long version) {
+  public Single<PulseConfig> getConfig(long version) {
     return d11MysqlClient.getReaderPool()
         .preparedQuery(GET_CONFIG_BY_VERSION)
         .rxExecute(Tuple.of(version))
@@ -43,10 +41,8 @@ public class ConfigsDao {
             PulseConfig pulseConfig = objectMapper.readValue(row.getValue("config_json").toString(), PulseConfig.class);
             String description = row.getValue("description") != null ? row.getValue("description").toString() : null;
             pulseConfig.setDescription(description);
-            return Config.builder()
-                .version(Long.parseLong(row.getValue("version").toString()))
-                .configData(pulseConfig)
-                .build();
+            pulseConfig.setVersion(Long.parseLong(row.getValue("version").toString()));
+            return pulseConfig;
           } else {
             log.error("No config found for version: {}", version);
             throw new RuntimeException("No config found for version: " + version);
@@ -59,24 +55,13 @@ public class ConfigsDao {
         });
   }
 
-  public Single<Config> getConfig() {
+  public Single<PulseConfig> getConfig() {
     return d11MysqlClient.getReaderPool()
         .preparedQuery(GET_LATEST_VERSION)
         .rxExecute()
         .flatMap(rows -> {
           Row row = rows.iterator().next();
-          return getConfig(Long.parseLong(row.getValue("version").toString()))
-              .map(config -> {
-                if (config.getConfigData().getFilters() != null) {
-                  FilterMode mode = config.getConfigData().getFilters().getMode();
-                  if (mode != null && mode.equals(FilterMode.blacklist)) {
-                    config.getConfigData().getFilters().setWhitelist(List.of());
-                  } else {
-                    config.getConfigData().getFilters().setBlacklist(List.of());
-                  }
-                }
-                return config;
-              });
+          return getConfig(Long.parseLong(row.getValue("version").toString()));
         })
         .onErrorResumeNext(error -> {
           log.error("Error while fetching latest version from db: {}", error.getMessage());
@@ -92,10 +77,9 @@ public class ConfigsDao {
     return Single.just(Long.parseLong(rowSet.property(MySQLClient.LAST_INSERTED_ID).toString()));
   }
 
-  public Single<Config> createConfig(ConfigData createConfig) {
+  public Single<PulseConfig> createConfig(ConfigData createConfig) {
     ConfigDataDao configDataDao = ConfigDataDao.builder()
         .features(createConfig.getFeatures())
-        .filters(createConfig.getFilters())
         .interaction(createConfig.getInteraction())
         .sampling(createConfig.getSampling())
         .signals(createConfig.getSignals())
@@ -119,25 +103,22 @@ public class ConfigsDao {
                 .flatMap(ConfigsDao::getLastInsertedId)
                 .map(configId -> {
                   PulseConfig pulseConfig = PulseConfig.builder()
+                      .version(configId)
                       .description(createConfig.getDescription())
-                      .filters(objectMapper.convertValue(createConfig.getFilters(), PulseConfig.FilterConfig.class))
                       .sampling(objectMapper.convertValue(createConfig.getSampling(), PulseConfig.SamplingConfig.class))
                       .signals(objectMapper.convertValue(createConfig.getSignals(), PulseConfig.SignalsConfig.class))
                       .interaction(objectMapper.convertValue(createConfig.getInteraction(), PulseConfig.InteractionConfig.class))
                       .features(objectMapper.convertValue(createConfig.getFeatures(),
                           objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
                       .build();
-                  return Config.builder()
-                      .version(configId)
-                      .configData(objectMapper.convertValue(pulseConfig, PulseConfig.class))
-                      .build();
+                  return pulseConfig;
                 })
                 .flatMap(config -> tx.rxCommit().toSingleDefault(config))
                 .onErrorResumeNext(err -> {
                   log.error("Error while creating config in DB ", err);
                   return tx
                       .rxRollback()
-                      .toSingleDefault(Config.builder().build())
+                      .toSingleDefault(PulseConfig.builder().build())
                       .flatMap(msg -> Single.error(err));
                 })
                 .doFinally(conn::close)));

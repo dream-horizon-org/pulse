@@ -23,9 +23,8 @@ public class FeatureConfig {
   private boolean enabled;
 
   @JsonProperty("sessionSampleRate")
-  private Double sessionSampleRate; // nullable (not required in schema)
+  private Double sessionSampleRate;
 
   @JsonProperty("sdks")
-
   private List<Sdk> sdks;
 }

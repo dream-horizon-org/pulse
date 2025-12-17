@@ -6,8 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import jakarta.validation.constraints.NotNull;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -17,9 +17,6 @@ public class FilterConfig {
   @JsonProperty("mode")
   private FilterMode mode;
 
-  @JsonProperty("whitelist")
-  private List<EventFilter> whitelist;
-
-  @JsonProperty("blacklist")
-  private List<EventFilter> blacklist;
+  @JsonProperty("values")
+  private List<EventFilter> values;
 }
