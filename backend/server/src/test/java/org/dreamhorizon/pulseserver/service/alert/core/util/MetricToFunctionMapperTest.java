@@ -156,14 +156,34 @@ class MetricToFunctionMapperTest {
 
     @Test
     void shouldMapAppVitalsMetrics() {
-      assertEquals(Functions.APP_VITALS_CRASH_FREE_USERS_PERCENTAGE, 
-          MetricToFunctionMapper.mapMetricToFunction("app_vitals_crash_free_users_percentage"));
-      assertEquals(Functions.APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE, 
-          MetricToFunctionMapper.mapMetricToFunction("app_vitals_crash_free_sessions_percentage"));
-      assertEquals(Functions.APP_VITALS_CRASH_USERS, 
-          MetricToFunctionMapper.mapMetricToFunction("app_vitals_crash_users"));
-      assertEquals(Functions.APP_VITALS_CRASH_SESSIONS, 
-          MetricToFunctionMapper.mapMetricToFunction("app_vitals_crash_sessions"));
+      assertEquals(Functions.CRASH_FREE_USERS_PERCENTAGE, 
+          MetricToFunctionMapper.mapMetricToFunction("crash_free_users_percentage"));
+      assertEquals(Functions.CRASH_FREE_SESSIONS_PERCENTAGE, 
+          MetricToFunctionMapper.mapMetricToFunction("crash_free_sessions_percentage"));
+      assertEquals(Functions.CRASH_USERS, 
+          MetricToFunctionMapper.mapMetricToFunction("crash_users"));
+      assertEquals(Functions.CRASH_SESSIONS, 
+          MetricToFunctionMapper.mapMetricToFunction("crash_sessions"));
+      assertEquals(Functions.ALL_USERS, 
+          MetricToFunctionMapper.mapMetricToFunction("all_users"));
+      assertEquals(Functions.ALL_SESSIONS, 
+          MetricToFunctionMapper.mapMetricToFunction("all_sessions"));
+      assertEquals(Functions.ANR_FREE_USERS_PERCENTAGE, 
+          MetricToFunctionMapper.mapMetricToFunction("anr_free_users_percentage"));
+      assertEquals(Functions.ANR_FREE_SESSIONS_PERCENTAGE, 
+          MetricToFunctionMapper.mapMetricToFunction("anr_free_sessions_percentage"));
+      assertEquals(Functions.ANR_USERS, 
+          MetricToFunctionMapper.mapMetricToFunction("anr_users"));
+      assertEquals(Functions.ANR_SESSIONS, 
+          MetricToFunctionMapper.mapMetricToFunction("anr_sessions"));
+      assertEquals(Functions.NON_FATAL_FREE_USERS_PERCENTAGE, 
+          MetricToFunctionMapper.mapMetricToFunction("non_fatal_free_users_percentage"));
+      assertEquals(Functions.NON_FATAL_FREE_SESSIONS_PERCENTAGE, 
+          MetricToFunctionMapper.mapMetricToFunction("non_fatal_free_sessions_percentage"));
+      assertEquals(Functions.NON_FATAL_USERS, 
+          MetricToFunctionMapper.mapMetricToFunction("non_fatal_users"));
+      assertEquals(Functions.NON_FATAL_SESSIONS, 
+          MetricToFunctionMapper.mapMetricToFunction("non_fatal_sessions"));
     }
   }
 

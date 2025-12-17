@@ -355,27 +355,32 @@ Response:
 - **NET_4XX_RATE**: Ratio of 4xx responses to total network requests
 - **NET_5XX_RATE**: Ratio of 5xx responses to total network requests
 - **NET_COUNT**: Total count of network requests
+- **DURATION_P99**: 99th percentile duration in seconds for network requests, excluding errors
+- **DURATION_P95**: 95th percentile duration in seconds for network requests, excluding errors
+- **DURATION_P50**: 50th percentile duration in seconds for network requests, excluding errors
+- **ERROR_RATE**: Ratio of error status codes to total network requests
 
 **Screen Metrics:**
 - **SCREEN_DAILY_USERS**: Count of distinct daily users for screen events
+- **SCREEN_ERROR_RATE**: Ratio of error status codes to total screen events (value range: [0,1])
 - **SCREEN_TIME**: Average time spent on screen sessions
 - **LOAD_TIME**: Average time for screen load events
 
 **App Vitals Metrics (EXCEPTIONS data type):**
-- **APP_VITALS_CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events
-- **APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events
-- **APP_VITALS_CRASH_USERS**: Count of distinct users with crash events
-- **APP_VITALS_CRASH_SESSIONS**: Count of distinct sessions with crash events
-- **APP_VITALS_ALL_USERS**: Total count of distinct users
-- **APP_VITALS_ALL_SESSIONS**: Total count of distinct sessions
-- **APP_VITALS_ANR_FREE_USERS_PERCENTAGE**: Percentage of users without ANR events
-- **APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without ANR events
-- **APP_VITALS_ANR_USERS**: Count of distinct users with ANR events
-- **APP_VITALS_ANR_SESSIONS**: Count of distinct sessions with ANR events
-- **APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE**: Percentage of users without non-fatal errors
-- **APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without non-fatal errors
-- **APP_VITALS_NON_FATAL_USERS**: Count of distinct users with non-fatal errors
-- **APP_VITALS_NON_FATAL_SESSIONS**: Count of distinct sessions with non-fatal errors
+- **CRASH_FREE_USERS_PERCENTAGE**: Percentage of users without crash events (value range: [0,1])
+- **CRASH_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without crash events (value range: [0,1])
+- **CRASH_USERS**: Count of distinct users with crash events (value >= 0)
+- **CRASH_SESSIONS**: Count of distinct sessions with crash events (value >= 0)
+- **ALL_USERS**: Total count of distinct users (value >= 0)
+- **ALL_SESSIONS**: Total count of distinct sessions (value >= 0)
+- **ANR_FREE_USERS_PERCENTAGE**: Percentage of users without ANR events (value range: [0,1])
+- **ANR_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without ANR events (value range: [0,1])
+- **ANR_USERS**: Count of distinct users with ANR events (value >= 0)
+- **ANR_SESSIONS**: Count of distinct sessions with ANR events (value >= 0)
+- **NON_FATAL_FREE_USERS_PERCENTAGE**: Percentage of users without non-fatal errors (value range: [0,1])
+- **NON_FATAL_FREE_SESSIONS_PERCENTAGE**: Percentage of sessions without non-fatal errors (value range: [0,1])
+- **NON_FATAL_USERS**: Count of distinct users with non-fatal errors (value >= 0)
+- **NON_FATAL_SESSIONS**: Count of distinct sessions with non-fatal errors (value >= 0)
 
 **Utility Functions:**
 - **COL**: Selects a column directly. Requires `param.field` with column name
@@ -426,6 +431,120 @@ Response:
                   ["1.0_1","0.547","0.68","2025-11-08T08:40:00Z","24"],
                   ["1.0_2","0.566","0.677","2025-11-09T08:40:00Z","23"]
                 ]
+    },
+    "error": null
+}
+```
+
+#### Example: App Vitals Crash Metrics
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "EXCEPTIONS",
+  "timeRange": {
+    "start": "2025-12-05T00:00:00.000Z",
+    "end": "2025-12-12T23:59:59.999Z"
+  },
+  "select": [
+    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(UserId, EventName = 'device.crash')" }, "alias": "crash_users" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(SessionId, EventName = 'device.crash')" }, "alias": "crash_sessions" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombined(UserId)" }, "alias": "all_users" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombined(SessionId)" }, "alias": "all_sessions" },
+    { "function": "CRASH_FREE_USERS_PERCENTAGE", "alias": "crash_free_users_percentage" },
+    { "function": "CRASH_FREE_SESSIONS_PERCENTAGE", "alias": "crash_free_sessions_percentage" }
+  ]
+}
+```
+
+Response:
+```json
+{
+    "status": 200,
+    "data": {
+        "fields": ["crash_users", "crash_sessions", "all_users", "all_sessions", "crash_free_users_percentage", "crash_free_sessions_percentage"],
+        "rows": [
+            ["150", "320", "10000", "25000", "0.985", "0.9872"]
+        ]
+    },
+    "error": null
+}
+```
+
+#### Example: App Vitals ANR Metrics
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "EXCEPTIONS",
+  "timeRange": {
+    "start": "2025-12-05T00:00:00.000Z",
+    "end": "2025-12-12T23:59:59.999Z"
+  },
+  "select": [
+    { "function": "ANR_USERS", "alias": "anr_users" },
+    { "function": "ANR_SESSIONS", "alias": "anr_sessions" },
+    { "function": "ALL_USERS", "alias": "all_users" },
+    { "function": "ALL_SESSIONS", "alias": "all_sessions" },
+    { "function": "ANR_FREE_USERS_PERCENTAGE", "alias": "anr_free_users_percentage" },
+    { "function": "ANR_FREE_SESSIONS_PERCENTAGE", "alias": "anr_free_sessions_percentage" }
+  ]
+}
+```
+
+Response:
+```json
+{
+    "status": 200,
+    "data": {
+        "fields": ["anr_users", "anr_sessions", "all_users", "all_sessions", "anr_free_users_percentage", "anr_free_sessions_percentage"],
+        "rows": [
+            ["75", "180", "10000", "25000", "0.9925", "0.9928"]
+        ]
+    },
+    "error": null
+}
+```
+
+#### Example: App Vitals Non-Fatal Metrics
+
+```http
+POST /v1/interactions/performance-metric/distribution
+Content-Type: application/json
+
+{
+  "dataType": "EXCEPTIONS",
+  "timeRange": {
+    "start": "2025-12-05T00:00:00.000Z",
+    "end": "2025-12-12T23:59:59.999Z"
+  },
+  "filters": [
+    { "field": "EventName", "operator": "EQ", "value": ["non_fatal"] }
+  ],
+  "select": [
+    { "function": "NON_FATAL_USERS", "alias": "non_fatal_users" },
+    { "function": "NON_FATAL_SESSIONS", "alias": "non_fatal_sessions" },
+    { "function": "ALL_USERS", "alias": "all_users" },
+    { "function": "ALL_SESSIONS", "alias": "all_sessions" },
+    { "function": "NON_FATAL_FREE_USERS_PERCENTAGE", "alias": "non_fatal_free_users_percentage" },
+    { "function": "NON_FATAL_FREE_SESSIONS_PERCENTAGE", "alias": "non_fatal_free_sessions_percentage" }
+  ]
+}
+```
+
+Response:
+```json
+{
+    "status": 200,
+    "data": {
+        "fields": ["non_fatal_users", "non_fatal_sessions", "all_users", "all_sessions", "non_fatal_free_users_percentage", "non_fatal_free_sessions_percentage"],
+        "rows": [
+            ["500", "1200", "10000", "25000", "0.95", "0.952"]
+        ]
     },
     "error": null
 }

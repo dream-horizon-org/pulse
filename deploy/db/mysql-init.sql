@@ -156,26 +156,25 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
 
 -- Insert APP_VITALS scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
-    ('APP_VITALS_CRASH_FREE_USERS_PERCENTAGE', 'APP VITALS CRASH FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE', 'APP VITALS CRASH FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_CRASH_USERS', 'APP VITALS CRASH USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_CRASH_SESSIONS', 'APP VITALS CRASH SESSIONS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ALL_USERS', 'APP VITALS ALL USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ALL_SESSIONS', 'APP VITALS ALL SESSIONS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ANR_FREE_USERS_PERCENTAGE', 'APP VITALS ANR FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_ANR_FREE_SESSIONS_PERCENTAGE', 'APP VITALS ANR FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_ANR_USERS', 'APP VITALS ANR USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_ANR_SESSIONS', 'APP VITALS ANR SESSIONS value >= 0', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_FREE_USERS_PERCENTAGE', 'APP VITALS NON FATAL FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'APP VITALS NON FATAL FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_USERS', 'APP VITALS NON FATAL USERS value >= 0', 'app_vitals'),
-    ('APP_VITALS_NON_FATAL_SESSIONS', 'APP VITALS NON FATAL SESSIONS value >= 0', 'app_vitals');
+    ('CRASH_FREE_USERS_PERCENTAGE', 'CRASH FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
+    ('CRASH_FREE_SESSIONS_PERCENTAGE', 'CRASH FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
+    ('CRASH_USERS', 'CRASH USERS value >= 0', 'app_vitals'),
+    ('CRASH_SESSIONS', 'CRASH SESSIONS value >= 0', 'app_vitals'),
+    ('ALL_USERS', 'ALL USERS value >= 0', 'app_vitals'),
+    ('ALL_SESSIONS', 'ALL SESSIONS value >= 0', 'app_vitals'),
+    ('ANR_FREE_USERS_PERCENTAGE', 'ANR FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
+    ('ANR_FREE_SESSIONS_PERCENTAGE', 'ANR FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
+    ('ANR_USERS', 'ANR USERS value >= 0', 'app_vitals'),
+    ('ANR_SESSIONS', 'ANR SESSIONS value >= 0', 'app_vitals'),
+    ('NON_FATAL_FREE_USERS_PERCENTAGE', 'NON FATAL FREE USERS PERCENTAGE value [0,1]', 'app_vitals'),
+    ('NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'NON FATAL FREE SESSIONS PERCENTAGE value [0,1]', 'app_vitals'),
+    ('NON_FATAL_USERS', 'NON FATAL USERS value >= 0', 'app_vitals'),
+    ('NON_FATAL_SESSIONS', 'NON FATAL SESSIONS value >= 0', 'app_vitals');
 
 -- Insert Screen scope metrics
 INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'SCREEN DAILY USERS value >= 0', 'screen'),
     ('SCREEN_ERROR_RATE', 'SCREEN ERROR RATE value [0,1]', 'screen'),
-    ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen'),
     ('SCREEN_TIME', 'SCREEN TIME value >= 0', 'screen'),
     ('LOAD_TIME', 'LOAD TIME value >= 0', 'screen');
 
@@ -188,7 +187,12 @@ INSERT INTO Alert_Metrics (name, label, scope) VALUES
     ('NET_4XX', 'NET 4XX value >= 0', 'network_api'),
     ('NET_5XX', 'NET 5XX value >= 0', 'network_api'),
     ('NET_4XX_RATE', 'NET 4XX RATE value [0,1]', 'network_api'),
-    ('NET_5XX_RATE', 'NET 5XX RATE value [0,1]', 'network_api');
+    ('NET_5XX_RATE', 'NET 5XX RATE value [0,1]', 'network_api'),
+    ('DURATION_P99', 'DURATION P99 value >= 0', 'network_api'),
+    ('DURATION_P95', 'DURATION P95 value >= 0', 'network_api'),
+    ('DURATION_P50', 'DURATION P50 value >= 0', 'network_api'),
+    ('ERROR_RATE', 'ERROR RATE value [0,1]', 'network_api'),
+    ('NET_COUNT', 'NET COUNT value >= 0', 'network_api');
 
 -- Grant privileges (adjust as needed for your environment)
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';

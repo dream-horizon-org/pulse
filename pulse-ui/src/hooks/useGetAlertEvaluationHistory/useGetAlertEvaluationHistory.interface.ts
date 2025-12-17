@@ -8,7 +8,7 @@ export type GetAlertEvaluationHistoryParams = {
 export type EvaluationHistoryEntry = {
   /** Unique identifier for this evaluation */
   evaluation_id: number;
-  /** JSON string containing metric readings (e.g., {"APP_VITALS_CRASH_FREE_SESSIONS_PERCENTAGE": 0.6666667}) */
+  /** JSON string containing metric readings (e.g., {"CRASH_FREE_SESSIONS_PERCENTAGE": 0.6666667}) */
   evaluation_result: string;
   /** Current state: FIRING, NORMAL, etc. */
   state: string;
