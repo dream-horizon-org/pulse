@@ -12,5 +12,4 @@ import lombok.extern.slf4j.Slf4j;
 public class ApplicationConfig {
   private String pulseServerUrl;
   private long shutdownGracePeriod;
-  private String webhookUrl;
 }
