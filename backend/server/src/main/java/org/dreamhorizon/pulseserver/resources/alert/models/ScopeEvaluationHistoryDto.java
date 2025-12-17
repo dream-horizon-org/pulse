@@ -12,13 +12,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class ScopeEvaluationHistoryDto {
-    @JsonProperty("scope_id")
-    private Integer scopeId;
+  @JsonProperty("scope_id")
+  private Integer scopeId;
 
-    @JsonProperty("scope_name")
-    private String scopeName;
+  @JsonProperty("scope_name")
+  private String scopeName;
 
-    @JsonProperty("evaluation_history")
-    private List<EvaluationHistoryEntryDto> evaluationHistory;
+  @JsonProperty("evaluation_history")
+  private List<EvaluationHistoryEntryDto> evaluationHistory;
 }
 

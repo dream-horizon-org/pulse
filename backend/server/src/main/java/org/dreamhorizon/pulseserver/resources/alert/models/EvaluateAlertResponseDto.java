@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EvaluateAlertResponseDto {
-    @JsonProperty("alert_id")
-    private String alertId;
+  @JsonProperty("alert_id")
+  private String alertId;
 }
 
 

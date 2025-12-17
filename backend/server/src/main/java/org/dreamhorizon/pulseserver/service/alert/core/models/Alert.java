@@ -1,24 +1,23 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
-import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
+import jakarta.validation.constraints.NotNull;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import jakarta.validation.constraints.NotNull;
-import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
 
 @Getter
 @Builder(toBuilder = true)

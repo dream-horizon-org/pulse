@@ -125,12 +125,10 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_BY_SPAN_TYPE.getDisplayName()));
           case NET_COUNT_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_COUNT_BY_SPAN_TYPE.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_COUNT_BY_SPAN_TYPE.getDisplayName()));
-          case CRASH_FREE_USERS_PERCENTAGE ->
-              String.format("%s as %s", Functions.CRASH_FREE_USERS_PERCENTAGE.getChSelectClause(),
-                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_USERS_PERCENTAGE.getDisplayName()));
-          case CRASH_FREE_SESSIONS_PERCENTAGE ->
-              String.format("%s as %s", Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
-                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
+          case CRASH_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.CRASH_FREE_USERS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_USERS_PERCENTAGE.getDisplayName()));
+          case CRASH_FREE_SESSIONS_PERCENTAGE -> String.format("%s as %s", Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
           case CRASH_USERS -> String.format("%s as %s", Functions.CRASH_USERS.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_USERS.getDisplayName()));
           case CRASH_SESSIONS -> String.format("%s as %s", Functions.CRASH_SESSIONS.getChSelectClause(),
@@ -139,19 +137,16 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.ALL_USERS.getDisplayName()));
           case ALL_SESSIONS -> String.format("%s as %s", Functions.ALL_SESSIONS.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.ALL_SESSIONS.getDisplayName()));
-          case ANR_FREE_USERS_PERCENTAGE ->
-              String.format("%s as %s", Functions.ANR_FREE_USERS_PERCENTAGE.getChSelectClause(),
-                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_FREE_USERS_PERCENTAGE.getDisplayName()));
-          case ANR_FREE_SESSIONS_PERCENTAGE ->
-              String.format("%s as %s", Functions.ANR_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
-                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
+          case ANR_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.ANR_FREE_USERS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_FREE_USERS_PERCENTAGE.getDisplayName()));
+          case ANR_FREE_SESSIONS_PERCENTAGE -> String.format("%s as %s", Functions.ANR_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
           case ANR_USERS -> String.format("%s as %s", Functions.ANR_USERS.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_USERS.getDisplayName()));
           case ANR_SESSIONS -> String.format("%s as %s", Functions.ANR_SESSIONS.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_SESSIONS.getDisplayName()));
-          case NON_FATAL_FREE_USERS_PERCENTAGE ->
-              String.format("%s as %s", Functions.NON_FATAL_FREE_USERS_PERCENTAGE.getChSelectClause(),
-                  Objects.requireNonNullElse(selectItem.getAlias(), Functions.NON_FATAL_FREE_USERS_PERCENTAGE.getDisplayName()));
+          case NON_FATAL_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.NON_FATAL_FREE_USERS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NON_FATAL_FREE_USERS_PERCENTAGE.getDisplayName()));
           case NON_FATAL_FREE_SESSIONS_PERCENTAGE ->
               String.format("%s as %s", Functions.NON_FATAL_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
                   Objects.requireNonNullElse(selectItem.getAlias(),

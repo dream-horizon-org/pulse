@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EvaluateAlertRequestDto {
-    @NotNull
-    @QueryParam("alertId")
-    private Integer alertId;
+  @NotNull
+  @QueryParam("alertId")
+  private Integer alertId;
 }
 
 

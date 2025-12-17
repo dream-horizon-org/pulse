@@ -1,10 +1,9 @@
 package org.dreamhorizon.pulseserver.service.alert.core.models;
 
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
-
-import java.util.Map;
 
 @Data
 @Builder

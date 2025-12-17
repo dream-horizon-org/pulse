@@ -1,8 +1,8 @@
 package org.dreamhorizon.pulseserver.resources.alert.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

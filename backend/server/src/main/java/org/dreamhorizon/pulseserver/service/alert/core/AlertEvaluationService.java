@@ -552,14 +552,14 @@ public class AlertEvaluationService {
     return alertState == AlertState.FIRING && !alertState.equals(currentScopeState);
   }
 
-  private boolean isAlertSnoozed(AlertsDao.AlertDetails alert) {
+  boolean isAlertSnoozed(AlertsDao.AlertDetails alert) {
     if (alert == null) {
       return false;
     }
     return isAlertSnoozed(alert.getSnoozedFrom(), alert.getSnoozedUntil());
   }
 
-  private boolean isAlertSnoozed(LocalDateTime snoozedFrom, LocalDateTime snoozedUntil) {
+  boolean isAlertSnoozed(LocalDateTime snoozedFrom, LocalDateTime snoozedUntil) {
     LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
 
     if (Objects.isNull(snoozedFrom) || Objects.isNull(snoozedUntil)) {
@@ -716,7 +716,7 @@ public class AlertEvaluationService {
     log.error("Error while parsing response to update scope state: {}", e.getMessage());
   }
 
-  private String getScopeField(String scope) {
+  String getScopeField(String scope) {
     if (scope == null || scope.isEmpty()) {
       return "SpanName";
     }
@@ -729,7 +729,7 @@ public class AlertEvaluationService {
     };
   }
 
-  private String getScopeFieldAlias(String scope) {
+  String getScopeFieldAlias(String scope) {
     if (scope == null || scope.isEmpty()) {
       return "scopeName";
     }
