@@ -9,14 +9,9 @@ import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import io.opentelemetry.android.export.ModifiedSpanData
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.Value
-import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.common.CompletableResultCode
-import io.opentelemetry.sdk.logs.LogRecordProcessor
-import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
-import io.opentelemetry.sdk.trace.ReadableSpan
-import io.opentelemetry.sdk.trace.SpanProcessor
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import kotlin.experimental.ExperimentalTypeInference
@@ -31,29 +26,7 @@ public class PulseSamplingSignalProcessors(
             .attributesToDrop
             .filter { it.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.sdks }
 
-    public inner class SampledSpanProcessor(
-        private val delegateProcessor: SpanProcessor,
-    ) : SpanProcessor by delegateProcessor {
-        override fun onEnd(span: ReadableSpan) {
-            // todo how to handle case when there is child trace but parent we are sampling?
-            val spanPropsMap = span.attributes.toMap()
-            sampleWithFilterMode(PulseSignalScope.TRACES, span.name, spanPropsMap) {
-                delegateProcessor.onEnd(span)
-            }
-        }
-
-        override fun isEndRequired(): Boolean = true
-
-        override fun shutdown(): CompletableResultCode = delegateProcessor.shutdown()
-
-        override fun forceFlush(): CompletableResultCode = delegateProcessor.forceFlush()
-
-        override fun close() {
-            delegateProcessor.close()
-        }
-    }
-
-    public inner class FilteredSpanExporter(
+    public inner class SampledSpanExporter(
         private val delegateExporter: SpanExporter,
     ) : SpanExporter by delegateExporter {
         private val attributesToDrop by lazy {
@@ -61,42 +34,47 @@ public class PulseSamplingSignalProcessors(
         }
 
         override fun export(spans: Collection<SpanData>): CompletableResultCode? {
-            if (attributesToDrop.isEmpty()) {
-                return delegateExporter.export(spans)
-            }
-
-            val newSpans =
+            val filteredSpans =
                 spans
                     .asSequence()
-                    .map { spanData ->
-                        filterAttributes(spanData.name, spanData.attributes, attributesToDrop) { newAttributes ->
-                            ModifiedSpanData(spanData, newAttributes)
-                        } ?: spanData
+                    .filter { spanData ->
+                        val spanPropsMap = spanData.attributes.toMap()
+                        shouldExportSpan(spanData.name, spanPropsMap)
+                    }.map { spanData ->
+                        if (attributesToDrop.isEmpty()) {
+                            spanData
+                        } else {
+                            filterAttributes(spanData.name, spanData.attributes, attributesToDrop) { newAttributes ->
+                                ModifiedSpanData(spanData, newAttributes)
+                            } ?: spanData
+                        }
                     }.toList()
-            return delegateExporter.export(newSpans)
+
+            return delegateExporter.export(filteredSpans)
         }
+
+        private fun shouldExportSpan(
+            spanName: String?,
+            spanPropsMap: Map<String, Any?>,
+        ): Boolean =
+            spanName == null ||
+                sdkConfig.signals.filters.values.anyOrNone(
+                    sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
+                ) { matchCondition ->
+                    signalMatcher.matches(
+                        PulseSignalScope.TRACES,
+                        spanName,
+                        spanPropsMap,
+                        matchCondition,
+                    )
+                }
 
         override fun close() {
             delegateExporter.close()
         }
     }
 
-    public inner class SampledLogsProcessor(
-        private val delegateLogProcessor: LogRecordProcessor,
-    ) : LogRecordProcessor {
-        override fun onEmit(
-            context: Context,
-            logRecord: ReadWriteLogRecord,
-        ) {
-            val spanPropsMap = logRecord.attributes.toMap()
-            val logName = logRecord.bodyValue?.asString()
-            sampleWithFilterMode(PulseSignalScope.LOGS, logName, spanPropsMap) {
-                delegateLogProcessor.onEmit(context, logRecord)
-            }
-        }
-    }
-
-    public inner class FilteredLogExporter(
+    public inner class SampledLogExporter(
         private val delegateExporter: LogRecordExporter,
     ) : LogRecordExporter by delegateExporter {
         private val attributesToDrop by lazy {
@@ -104,25 +82,45 @@ public class PulseSamplingSignalProcessors(
         }
 
         override fun export(logs: Collection<LogRecordData>): CompletableResultCode {
-            if (attributesToDrop.isEmpty()) {
-                return delegateExporter.export(logs)
-            }
-
-            val newLogs =
+            val filteredLogs =
                 logs
                     .asSequence()
-                    .map { logRecord: LogRecordData ->
-                        filterAttributes(
-                            // todo handle null
-                            logRecord.bodyValue?.asString().orEmpty(),
-                            logRecord.attributes,
-                            attributesToDrop,
-                        ) { newAttributes ->
-                            ModifiedLAttributeRecordData(newAttributes, logRecord)
-                        } ?: logRecord
+                    .filter { logRecord ->
+                        val logPropsMap = logRecord.attributes.toMap()
+                        val logName = logRecord.bodyValue?.asString()
+                        shouldExportLog(logName, logPropsMap)
+                    }.map { logRecord ->
+                        if (attributesToDrop.isEmpty()) {
+                            logRecord
+                        } else {
+                            filterAttributes(
+                                logRecord.bodyValue?.asString().orEmpty(),
+                                logRecord.attributes,
+                                attributesToDrop,
+                            ) { newAttributes ->
+                                ModifiedLAttributeRecordData(newAttributes, logRecord)
+                            } ?: logRecord
+                        }
                     }.toList()
-            return delegateExporter.export(newLogs)
+
+            return delegateExporter.export(filteredLogs)
         }
+
+        private fun shouldExportLog(
+            logName: String?,
+            logPropsMap: Map<String, Any?>,
+        ): Boolean =
+            logName == null ||
+                sdkConfig.signals.filters.values.anyOrNone(
+                    sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
+                ) { matchCondition ->
+                    signalMatcher.matches(
+                        PulseSignalScope.LOGS,
+                        logName,
+                        logPropsMap,
+                        matchCondition,
+                    )
+                }
 
         override fun close() {
             delegateExporter.close()
@@ -151,29 +149,6 @@ public class PulseSamplingSignalProcessors(
         } else {
             this.none(predicate)
         }
-
-    private inline fun sampleWithFilterMode(
-        scope: PulseSignalScope,
-        signalName: String?,
-        signalMap: Map<String, Any?>,
-        onSampled: () -> Unit,
-    ) {
-        if (
-            signalName == null ||
-            sdkConfig.signals.filters.values.anyOrNone(
-                sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
-            ) { matchCondition ->
-                signalMatcher.matches(
-                    scope,
-                    signalName,
-                    signalMap,
-                    matchCondition,
-                )
-            }
-        ) {
-            onSampled()
-        }
-    }
 
     @OptIn(ExperimentalTypeInference::class)
     @BuilderInference

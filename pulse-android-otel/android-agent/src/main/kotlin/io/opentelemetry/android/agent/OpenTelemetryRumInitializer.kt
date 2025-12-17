@@ -26,8 +26,11 @@ import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
+import io.opentelemetry.sdk.metrics.export.MetricExporter
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import io.opentelemetry.sdk.trace.export.SpanExporter
 import java.util.function.BiFunction
 import java.util.function.Predicate
 
@@ -75,6 +78,24 @@ object OpenTelemetryRumInitializer {
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
+        spanExporter: SpanExporter? =
+            OtlpHttpSpanExporter
+                .builder()
+                .setEndpoint(spanEndpointConnectivity.getUrl())
+                .setHeaders(spanEndpointConnectivity::getHeaders)
+                .build(),
+        logRecordExporter: LogRecordExporter =
+            OtlpHttpLogRecordExporter
+                .builder()
+                .setEndpoint(logEndpointConnectivity.getUrl())
+                .setHeaders(logEndpointConnectivity::getHeaders)
+                .build(),
+        metricExporter: MetricExporter =
+            OtlpHttpMetricExporter
+                .builder()
+                .setEndpoint(metricEndpointConnectivity.getUrl())
+                .setHeaders(metricEndpointConnectivity::getHeaders)
+                .build(),
         rumConfig: OtelRumConfig = OtelRumConfig(),
     ): OpenTelemetryRum {
         instrumentations?.let { configure ->
@@ -92,34 +113,9 @@ object OpenTelemetryRumInitializer {
             .builder(application, rumConfig)
             .apply {
                 setSessionProvider(createSessionProvider(application, sessionConfig))
-                addSpanExporterCustomizer { delegate ->
-                    val otlpExporter =
-                        OtlpHttpSpanExporter
-                            .builder()
-                            .setEndpoint(spanEndpointConnectivity.getUrl())
-                            .setHeaders(spanEndpointConnectivity::getHeaders)
-                            .build()
-                    val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
-                    attrRejects[AttributeKey.booleanKey("pulse.internal")] = Predicate<Boolean> { it == true }
-                    FilteringSpanExporter
-                        .builder(otlpExporter)
-                        .rejectSpansWithAttributesMatching(attrRejects)
-                        .build()
-                }
-                addLogRecordExporterCustomizer {
-                    OtlpHttpLogRecordExporter
-                        .builder()
-                        .setEndpoint(logEndpointConnectivity.getUrl())
-                        .setHeaders(logEndpointConnectivity::getHeaders)
-                        .build()
-                }
-                addMetricExporterCustomizer {
-                    OtlpHttpMetricExporter
-                        .builder()
-                        .setEndpoint(metricEndpointConnectivity.getUrl())
-                        .setHeaders(metricEndpointConnectivity::getHeaders)
-                        .build()
-                }
+                addSpanExporterCustomizer { spanExporter }
+                addLogRecordExporterCustomizer { logRecordExporter }
+                addMetricExporterCustomizer { metricExporter }
                 if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
                 if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
                 if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
