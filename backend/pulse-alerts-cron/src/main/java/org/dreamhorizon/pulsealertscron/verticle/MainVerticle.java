@@ -36,8 +36,6 @@ public class MainVerticle extends AbstractVerticle {
   private ApplicationConfig applicationConfig;
 
   private static final AtomicBoolean alertCronMethodCalled = new AtomicBoolean(false);
-  private static final AtomicBoolean populateMetricInitiated = new AtomicBoolean(false);
-  private static final AtomicBoolean populateAndIngestAnomalyInitiated = new AtomicBoolean(false);
 
   @Override
   public Completable rxStart() {
