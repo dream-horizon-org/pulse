@@ -24,7 +24,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function NavigationDemo() {
   const navigationRef = React.useRef<NavigationContainerRef<RootStackParamList>>(null);
-  const onReady = Pulse.useNavigationTracking(navigationRef);
+  const onReady = Pulse.useNavigationTracking(navigationRef, {
+    enableScreenSession: true,
+    enableNavigationSpans: false,
+  });
 
   return (
     <NavigationContainer ref={navigationRef} onReady={onReady}>

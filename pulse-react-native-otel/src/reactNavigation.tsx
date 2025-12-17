@@ -21,12 +21,14 @@ interface NavigationContainer {
 
 export interface NavigationIntegrationOptions {
   enableScreenSession?: boolean;
+  enableNavigationSpans?: boolean;
 }
 
 export function createReactNavigationIntegration(
   options?: NavigationIntegrationOptions
 ) {
   const enableScreenSession = options?.enableScreenSession ?? true;
+  const enableNavigationSpans = options?.enableNavigationSpans ?? true;
   let navigationContainer: NavigationContainer | undefined;
   let latestRoute: NavigationRoute | undefined;
   let recentRouteKeys: string[] = [];
@@ -70,13 +72,15 @@ export function createReactNavigationIntegration(
         endScreenSession();
       }
 
-      navigationSpan = Pulse.startSpan('Navigated', {
-        attributes: {
-          'pulse.type': 'screen_load',
-          'phase': 'start',
-        },
-      });
-      console.log('[Pulse Navigation] Navigation span started', navigationSpan?.spanId);
+      if (enableNavigationSpans) {
+        navigationSpan = Pulse.startSpan('Navigated', {
+          attributes: {
+            'pulse.type': 'screen_load',
+            'phase': 'start',
+          },
+        });
+        console.log('[Pulse Navigation] Navigation span started', navigationSpan?.spanId);
+      }
     } catch (error) {
       console.warn('[Pulse Navigation] Error in onNavigationDispatch:', error);
       navigationSpan = undefined;
@@ -96,7 +100,7 @@ export function createReactNavigationIntegration(
 
       const previousRoute = latestRoute;
 
-      if (navigationSpan) {
+      if (enableNavigationSpans && navigationSpan) {
         const spanId = navigationSpan.spanId;
         if (previousRoute && previousRoute.key === currentRoute.key) {
           endNavigationSpan();
@@ -277,7 +281,7 @@ export function useNavigationTracking(
   // Create integration synchronously to avoid race condition with onReady
   const integration = useMemo(
     () => createNavigationIntegrationWithConfig(options),
-    [options?.enableScreenSession]
+    [options?.enableScreenSession, options?.enableNavigationSpans]
   );
 
   const cleanupRef = useRef<(() => void) | null>(null);
