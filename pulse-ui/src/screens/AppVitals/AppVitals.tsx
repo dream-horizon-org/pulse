@@ -18,7 +18,10 @@ import {
 } from "./components";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import { CRITICAL_INTERACTION_QUICK_TIME_FILTERS } from "../../constants";
+import { 
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
+  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+} from "../../constants";
 import { useExceptionListData } from "./components/ExceptionTable/hooks";
 import { useFilterStore } from "../../stores/useFilterStore";
 import dayjs from "dayjs";
@@ -134,12 +137,20 @@ export const AppVitals: React.FC = () => {
 
     // Directly update startTime and endTime in store (AppVitals doesn't use filterValues)
     const store = useFilterStore.getState();
+    // Get the quickTimeRangeString from the activeQuickTimeFilter index
+    const activeIndex = store.activeQuickTimeFilter;
+    const quickTimeString = activeIndex !== -1 && activeIndex < CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length
+      ? CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeIndex].value
+      : "";
+    
     store.handleFilterChange(
       {} as any, // Empty filter values for AppVitals
       value.startDate || "",
       value.endDate || "",
-      quickTimeRangeString || "",
+      quickTimeString,
     );
+    // Also update quickTimeRangeFilterIndex
+    store.setQuickTimeRange(quickTimeString, activeIndex);
   };
 
   // Fetch data from API for stats calculation

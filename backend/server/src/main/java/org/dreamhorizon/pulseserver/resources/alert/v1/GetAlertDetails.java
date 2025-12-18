@@ -11,8 +11,8 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertDetailsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.AlertMapper;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
@@ -21,8 +21,9 @@ import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Path("/v1/alert/{id}")
 public class GetAlertDetails {
-  private static final AlertMapper mapper = AlertMapper.INSTANCE;
   private final AlertService alertsService;
+
+  private static final AlertMapper mapper = AlertMapper.INSTANCE;
 
   @GET
   @Consumes(MediaType.APPLICATION_JSON)

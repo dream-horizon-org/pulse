@@ -3,9 +3,9 @@ package org.dreamhorizon.pulseserver.resources.alert;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertDetailsPaginatedResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertDetailsResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AllAlertDetailsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsPaginatedResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AllAlertDetailsResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.SnoozeAlertRestRequest;
 import org.dreamhorizon.pulseserver.resources.alert.models.SnoozeAlertRestResponse;
@@ -51,10 +51,10 @@ public abstract class AlertMapper {
   }
 
   public LocalDateTime epochToLocalDateTime(Long epoch) {
-    return epoch == null ? null : LocalDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC);
+    return epoch == null ? null : LocalDateTime.ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC);
   }
 
   public Long localDateTimeToEpoch(LocalDateTime localDateTime) {
-    return localDateTime == null ? null : localDateTime.toEpochSecond(ZoneOffset.UTC);
+    return localDateTime == null ? null : localDateTime.toInstant(ZoneOffset.UTC).toEpochMilli();
   }
 }

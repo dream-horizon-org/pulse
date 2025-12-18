@@ -1,0 +1,31 @@
+.filtersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+  min-width: 280px;
+  padding: var(--mantine-spacing-xs);
+}
+
+.filterItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mantine-color-gray-7);
+}
+
+.buttonGroup {
+  display: flex;
+  gap: var(--mantine-spacing-xs);
+  justify-content: flex-end;
+  margin-top: var(--mantine-spacing-sm);
+  padding-top: var(--mantine-spacing-sm);
+  border-top: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+
+

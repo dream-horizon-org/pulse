@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.query;
 
 public class AlertsQuery {
-  // Alerts table queries
   public static final String GET_ALERT_DETAILS = """
       SELECT\s
           A.id AS alert_id,
@@ -24,9 +23,9 @@ public class AlertsQuery {
           A.snoozed_from,
           A.snoozed_until
       FROM\s
-          Alerts A
+          alerts A
       LEFT JOIN \s
-          Notification_Channels NC ON A.notification_channel_id = NC.notification_channel_id\s
+          notification_channels NC ON A.notification_channel_id = NC.notification_channel_id\s
       WHERE A.id = ? AND A.is_active = TRUE;""";
 
   public static final String GET_ALERT_SCOPES = """
@@ -38,8 +37,8 @@ public class AlertsQuery {
           state,
           created_at,
           updated_at
-      FROM Alert_Scope\s
-      WHERE alert_id = ?\s
+      FROM alert_scope\s
+      WHERE alert_id = ? AND is_active = TRUE\s
       ORDER BY name;""";
 
   public static final String GET_ALL_ALERT_SCOPES = """
@@ -51,8 +50,8 @@ public class AlertsQuery {
           state,
           created_at,
           updated_at
-      FROM Alert_Scope\s
-      WHERE alert_id IN (SELECT id FROM Alerts WHERE is_active = TRUE)\s
+      FROM alert_scope\s
+      WHERE alert_id IN (SELECT id FROM alerts WHERE is_active = TRUE) AND is_active = TRUE\s
       ORDER BY alert_id, name;""";
 
   public static final String GET_ALERT_SCOPES_FOR_IDS = """
@@ -64,8 +63,8 @@ public class AlertsQuery {
           state,
           created_at,
           updated_at
-      FROM Alert_Scope\s
-      WHERE alert_id IN (%s)\s
+      FROM alert_scope\s
+      WHERE alert_id IN (%s) AND is_active = TRUE\s
       ORDER BY alert_id, name;""";
 
   public static final String GET_ALERTS = """
@@ -90,7 +89,7 @@ public class AlertsQuery {
               A.snoozed_from,\s
               A.snoozed_until
           FROM\s
-              Alerts A
+              alerts A
           WHERE\s
               A.is_active = TRUE\s
               AND ( ? = '' OR A.name LIKE CONCAT('%', ?, '%'))\s
@@ -128,7 +127,7 @@ public class AlertsQuery {
       FROM\s
           AlertFilterWithLimitAndOffset FA
       LEFT JOIN\s
-          Notification_Channels NC ON FA.notification_channel_id = NC.notification_channel_id\s
+          notification_channels NC ON FA.notification_channel_id = NC.notification_channel_id\s
       """;
 
   public static final String GET_ALL_ALERTS = """
@@ -153,12 +152,12 @@ public class AlertsQuery {
           A.snoozed_from,
           A.snoozed_until
       FROM\s
-          Alerts A
+          alerts A
       LEFT JOIN \s
-          Notification_Channels NC ON A.notification_channel_id = NC.notification_channel_id\s
+          notification_channels NC ON A.notification_channel_id = NC.notification_channel_id\s
       WHERE A.is_active = TRUE;""";
 
-  public static final String CREATE_ALERT = "INSERT INTO Alerts("
+  public static final String CREATE_ALERT = "INSERT INTO alerts("
       + "name, "
       + "description, "
       + "scope, "
@@ -171,16 +170,19 @@ public class AlertsQuery {
       + "created_by) "
       + "VALUES (?,?,?,?,?,?,?,?,?,?);";
 
-  public static final String CREATE_ALERT_SCOPE = "INSERT INTO Alert_Scope("
+  public static final String CREATE_ALERT_SCOPE = "INSERT INTO alert_scope("
       + "alert_id, "
       + "name, "
       + "conditions, "
-      + "state) "
-      + "VALUES (?,?,?,?);";
+      + "state, "
+      + "is_active) "
+      + "VALUES (?,?,?,?,TRUE);";
 
-  public static final String DELETE_ALERT = "UPDATE Alerts SET is_active = FALSE WHERE id = ?;";
+  public static final String DELETE_ALERT = "UPDATE alerts SET is_active = FALSE WHERE id = ?;";
 
-  public static final String UPDATE_ALERT = "UPDATE Alerts SET "
+  public static final String UPDATE_ALERT_STATE = "UPDATE alert_scope SET state = ? WHERE alert_id = ? AND name = ?;";
+
+  public static final String UPDATE_ALERT = "UPDATE alerts SET "
       + "name = ?, "
       + "description = ?, "
       + "scope = ?, "
@@ -194,35 +196,89 @@ public class AlertsQuery {
       + "updated_at = CURRENT_TIMESTAMP "
       + "WHERE id = ?;";
 
-  public static final String DELETE_ALERT_SCOPES = "DELETE FROM Alert_Scope WHERE alert_id = ?;";
+  public static final String DELETE_ALERT_SCOPES =
+      "UPDATE alert_scope SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE alert_id = ?;";
 
-  public static final String SNOOZE_ALERT = "UPDATE Alerts "
-      + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE alert_id = ?;";
+  public static final String SNOOZE_ALERT = "UPDATE alerts "
+      + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE id = ?;";
 
-  public static final String DELETE_SNOOZE = "UPDATE Alerts "
-      + "set snoozed_from = null, snoozed_until = null, updated_by = ? WHERE alert_id = ?;";
+  public static final String DELETE_SNOOZE = "UPDATE alerts "
+      + "set snoozed_from = null, snoozed_until = null, updated_by = ? WHERE id = ?;";
+
+  public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM alerts WHERE id = ?;";
 
   public static final String GET_ALERT_FILTERS =
-      "SELECT DISTINCT name, created_by, updated_by, current_state, job_id FROM Alerts WHERE is_active = TRUE;";
-  public static final String GET_ALERT_EVALUATION_HISTORY =
-      "SELECT * FROM Alert_Evaluation_History WHERE alert_id = ? ORDER BY evaluated_at DESC LIMIT 200;";
+      "SELECT DISTINCT A.name as name, A.scope as scope, A.created_by as created_by, A.updated_by as updated_by,"
+          + " S.state AS current_state FROM alerts A"
+          + " LEFT JOIN alert_scope S ON A.id = S.alert_id AND S.is_active = TRUE"
+          + " WHERE A.is_active = TRUE;";
 
-  // Alert severity table queries
-  public static final String GET_SEVERITIES = "SELECT * FROM Severity;";
-  public static final String CREATE_SEVERITY = "INSERT INTO Severity(name, description) VALUES (?,?);";
+  public static final String GET_SEVERITIES = "SELECT * FROM severity;";
+  public static final String CREATE_SEVERITY = "INSERT INTO severity(name, description) VALUES (?,?);";
 
-  // Alert notification channel table queries
-  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM Notification_Channels;";
+  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels;";
   public static final String CREATE_NOTIFICATION_CHANNEL =
-      "INSERT INTO Notification_Channels(name, notification_webhook_url) VALUES (?,?);";
+      "INSERT INTO notification_channels(name, notification_webhook_url) VALUES (?,?);";
 
-  // Alert tag queries
-  public static final String CREATE_TAG = "INSERT INTO Tags(name) VALUES (?);";
+  public static final String CREATE_TAG = "INSERT INTO tags(name) VALUES (?);";
   public static final String GET_TAGS_FOR_ALERT =
-      "SELECT Tags.name, AT.alert_id FROM Tags LEFT JOIN Alert_Tags as AT ON Tags.tag_id = AT.tag_id AND AT.alert_id = ?;";
-  public static final String GET_ALL_TAGS = "SELECT * FROM Tags;";
+      "SELECT tags.name, AT.alert_id FROM tags LEFT JOIN alert_tags as AT ON tags.tag_id = AT.tag_id AND AT.alert_id = ?;";
+  public static final String GET_ALL_TAGS = "SELECT * FROM tags;";
 
-  // Alert tag mapping queries
-  public static final String CREATE_ALERT_TAG_MAPPING = "INSERT INTO Alert_Tag_Mapping(alert_id, tag_id) VALUES (?,?);";
-  public static final String DELETE_ALERT_TAG_MAPPING = "DELETE FROM Alert_Tag_Mapping WHERE alert_id = ? AND tag_id = ?;";
+  public static final String CREATE_ALERT_TAG_MAPPING = "INSERT INTO alert_tag_mapping(alert_id, tag_id) VALUES (?,?);";
+  public static final String DELETE_ALERT_TAG_MAPPING = "DELETE FROM alert_tag_mapping WHERE alert_id = ? AND tag_id = ?;";
+
+  public static final String GET_METRICS_BY_SCOPE = "SELECT id, name, label FROM alert_metrics WHERE scope = ? ORDER BY id;";
+
+  public static final String GET_ALL_ALERT_SCOPE_TYPES = "SELECT id, name, label FROM scope_types ORDER BY id;";
+
+  public static final String GET_ALERT_DETAILS_FOR_EVALUATION = "SELECT "
+      + "id, "
+      + "name, "
+      + "description, "
+      + "scope, "
+      + "dimension_filter, "
+      + "condition_expression, "
+      + "severity_id, "
+      + "notification_channel_id, "
+      + "evaluation_period, "
+      + "evaluation_interval, "
+      + "created_by, "
+      + "updated_by, "
+      + "created_at, "
+      + "updated_at, "
+      + "is_active, "
+      + "snoozed_from, "
+      + "snoozed_until "
+      + "FROM alerts "
+      + "WHERE id = ? AND is_active = TRUE;";
+
+
+  public static final String UPDATE_SCOPE_STATE = "UPDATE alert_scope SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;";
+
+  public static final String CREATE_EVALUATION_HISTORY = "INSERT INTO alert_evaluation_history("
+      + "scope_id, "
+      + "evaluation_result, "
+      + "state) "
+      + "VALUES (?,?,?);";
+
+  public static final String GET_NOTIFICATION_WEBHOOK_URL = "SELECT notification_webhook_url "
+      + "FROM notification_channels "
+      + "WHERE notification_channel_id = ?;";
+
+  public static final String GET_SCOPE_STATE = "SELECT state "
+      + "FROM alert_scope "
+      + "WHERE id = ? AND is_active = TRUE;";
+
+  public static final String GET_EVALUATION_HISTORY_BY_ALERT = "SELECT "
+      + "eh.evaluation_id, "
+      + "eh.scope_id, "
+      + "eh.evaluation_result, "
+      + "eh.state, "
+      + "eh.evaluated_at, "
+      + "as_scope.name as scope_name "
+      + "FROM alert_evaluation_history eh "
+      + "INNER JOIN alert_scope as_scope ON eh.scope_id = as_scope.id "
+      + "WHERE as_scope.alert_id = ? AND as_scope.is_active = TRUE "
+      + "ORDER BY as_scope.id, eh.evaluated_at DESC LIMIT 200;";
 }

@@ -1,0 +1,24 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-lg);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-lg);
+}
+
+.label {
+  font-weight: 500;
+  color: var(--mantine-color-dark-7);
+}
+
+.input {
+  border-color: rgba(14, 201, 194, 0.2);
+}
+
+.input:focus {
+  border-color: #0ec9c2;
+}

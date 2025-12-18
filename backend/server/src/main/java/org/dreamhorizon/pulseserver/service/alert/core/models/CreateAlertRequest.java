@@ -30,10 +30,12 @@ public class CreateAlertRequest {
   String createdBy;
 
   @NotNull
-  AlertScope scope;
+  String updatedBy;
 
   @NotNull
-  List<String> dimensionFilters;
+  AlertScope scope;
+
+  String dimensionFilters;
 
   @NotNull
   String conditionExpression;

@@ -8,9 +8,9 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AddAlertToCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.DeleteAlertFromCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.UpdateAlertInCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
 
 @Slf4j
 @Data
