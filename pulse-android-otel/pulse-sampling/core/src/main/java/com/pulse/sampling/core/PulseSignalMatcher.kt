@@ -1,9 +1,9 @@
 package com.pulse.sampling.core
 
+import com.pulse.otel.utils.matchesFromRegexCache
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
-import java.util.concurrent.ConcurrentHashMap
 
 public fun interface PulseSignalMatcher {
     public fun matches(
@@ -13,8 +13,6 @@ public fun interface PulseSignalMatcher {
         signalMatchConfig: PulseSignalMatchCondition,
     ): Boolean
 }
-
-internal val regexCache = ConcurrentHashMap<String, Regex>()
 
 @Suppress("FunctionName")
 internal fun PulseSignalsAttrMatcher() =
@@ -47,8 +45,3 @@ internal fun PulseSignalsAttrMatcher() =
                 }
             }
     }
-
-internal fun String.matchesFromRegexCache(regexStr: String): Boolean {
-    val regex = regexCache.computeIfAbsent(regexStr) { regexStr.toRegex() }
-    return this.matches(regex)
-}

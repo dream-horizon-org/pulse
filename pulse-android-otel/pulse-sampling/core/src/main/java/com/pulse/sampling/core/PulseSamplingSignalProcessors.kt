@@ -1,5 +1,6 @@
 package com.pulse.sampling.core
 
+import com.pulse.otel.utils.matchesFromRegexCache
 import com.pulse.otel.utils.toMap
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
