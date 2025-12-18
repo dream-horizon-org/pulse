@@ -22,19 +22,13 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navigationIntegration = Pulse.createNavigationIntegration();
-
 export default function NavigationDemo() {
   const navigationRef =
     React.useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const onReady = Pulse.useNavigationTracking(navigationRef);
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onReady={() => {
-        navigationIntegration.registerNavigationContainer(navigationRef);
-      }}
-    >
+    <NavigationContainer ref={navigationRef} onReady={onReady}>
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen
           name="Home"

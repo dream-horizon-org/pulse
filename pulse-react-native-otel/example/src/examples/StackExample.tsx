@@ -3,7 +3,7 @@ import {
   NavigationContainer,
   type NavigationContainerRef,
 } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import HomeScreen from '../screens/Home';
 import ProfileScreen from '../screens/Profile';
@@ -11,21 +11,15 @@ import SettingsScreen from '../screens/Settings';
 import DetailsScreen from '../screens/Details';
 import type { RootStackParamList } from './NavigationExample';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
-
-const navigationIntegration = Pulse.createNavigationIntegration();
+const Stack = createStackNavigator<RootStackParamList>();
 
 export default function StackDemo() {
   const navigationRef =
     React.useRef<NavigationContainerRef<RootStackParamList>>(null);
+  const onReady = Pulse.useNavigationTracking(navigationRef);
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      onReady={() => {
-        navigationIntegration.registerNavigationContainer(navigationRef);
-      }}
-    >
+    <NavigationContainer ref={navigationRef} onReady={onReady}>
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen
           name="Home"
