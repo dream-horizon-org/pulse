@@ -14,15 +14,16 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
+import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
-import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
+import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
+import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.rules;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
@@ -30,11 +31,14 @@ public class ConfigServiceImpl implements ConfigService {
   private static final String LATEST_CONFIG_KEY = "latest-config";
 
   private final ConfigsDao configsDao;
+  private final UploadConfigDetailService uploadConfigDetailService;
   private final AsyncLoadingCache<String, PulseConfig> latestConfigCache;
 
   @Inject
-  public ConfigServiceImpl(Vertx vertx, ConfigsDao configsDao) {
+  public ConfigServiceImpl(Vertx vertx, ConfigsDao configsDao,
+                           UploadConfigDetailService uploadConfigDetailService) {
     this.configsDao = configsDao;
+    this.uploadConfigDetailService = uploadConfigDetailService;
 
     Context ctx = vertx.getOrCreateContext();
     Objects.requireNonNull(ctx, "ConfigServiceImpl must be created on a Vert.x context thread");
@@ -78,6 +82,9 @@ public class ConfigServiceImpl implements ConfigService {
     return configsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(LATEST_CONFIG_KEY);
+          uploadConfigDetailService
+              .pushInteractionDetailsToObjectStore()
+              .subscribe();
         })
         .doOnError(err -> log.error("error while creating interaction", err));
   }

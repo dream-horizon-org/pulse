@@ -23,4 +23,8 @@ public class ApplicationConfig {
   public String logsCollectorUrl;
   public String metricCollectorUrl;
   public String spanCollectorUrl;
+  public String configS3BucketName;
+  public String configDetailsS3BucketFilePath;
+  public String configDetailCloudFrontDistributionId;
+  public String configDetailCloudFrontAssetPath;
 }

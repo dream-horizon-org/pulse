@@ -16,10 +16,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
+import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesResponse;
+import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
@@ -52,6 +54,9 @@ class ConfigServiceImplTest {
   @Mock
   Context context;
 
+  @Mock
+  UploadConfigDetailService uploadConfigDetailService;
+
   ConfigServiceImpl configService;
 
   @BeforeEach
@@ -63,7 +68,7 @@ class ConfigServiceImplTest {
       handler.handle(null);
       return null;
     }).when(context).runOnContext(any());
-    configService = new ConfigServiceImpl(vertx, configsDao);
+    configService = new ConfigServiceImpl(vertx, configsDao, uploadConfigDetailService);
   }
 
   @Nested
@@ -223,6 +228,8 @@ class ConfigServiceImplTest {
           .build();
 
       when(configsDao.createConfig(configData)).thenReturn(Single.just(createdConfig));
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore())
+          .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
       PulseConfig result = configService.createConfig(configData).blockingGet();
@@ -233,7 +240,6 @@ class ConfigServiceImplTest {
       assertThat(result.getDescription()).isEqualTo("New Config");
 
       verify(configsDao, times(1)).createConfig(configData);
-      verifyNoMoreInteractions(configsDao);
     }
 
     @Test
@@ -257,6 +263,8 @@ class ConfigServiceImplTest {
       // First load to populate cache
       when(configsDao.getConfig()).thenReturn(Single.just(initialConfig), Single.just(newConfig));
       when(configsDao.createConfig(any())).thenReturn(Single.just(newConfig));
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore())
+          .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
       // First call populates cache
@@ -446,11 +454,12 @@ class ConfigServiceImplTest {
       // Given
       Vertx mockVertx = mock(Vertx.class);
       ConfigsDao mockConfigsDao = mock(ConfigsDao.class);
+      UploadConfigDetailService mockUploadService = mock(UploadConfigDetailService.class);
       when(mockVertx.getOrCreateContext()).thenReturn(null);
 
       // When & Then
       try {
-        new ConfigServiceImpl(mockVertx, mockConfigsDao);
+        new ConfigServiceImpl(mockVertx, mockConfigsDao, mockUploadService);
         org.junit.jupiter.api.Assertions.fail("Expected NullPointerException");
       } catch (NullPointerException e) {
         assertThat(e.getMessage()).contains("ConfigServiceImpl must be created on a Vert.x context thread");
