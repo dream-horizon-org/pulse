@@ -99,7 +99,8 @@ internal class PulseSDKImpl :
         pulseSamplingProcessors =
             currentSdkConfig?.let {
                 PulseSamplingSignalProcessors(
-                    currentSdkConfig,
+                    context = application,
+                    sdkConfig = currentSdkConfig,
                 )
             }
         pulseSpanProcessor = PulseSdkSignalProcessors()
