@@ -10,6 +10,11 @@ public fun interface PulseSessionParser {
         context: Context,
         samplingConfig: PulseSamplingConfig,
     ): SamplingRate
+
+    public companion object {
+        internal val alwaysOn = PulseSessionParser { _, _ -> 1F }
+        internal val alwaysOff = PulseSessionParser { _, _ -> 0F }
+    }
 }
 
 @Suppress("FunctionName")
