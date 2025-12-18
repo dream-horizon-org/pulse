@@ -556,7 +556,7 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <configLocation>.checkstyle/dream11_checks.xml</configLocation>
+                            <configLocation>.checkstyle/checks.xml</configLocation>
                             <failsOnError>false</failsOnError>
                             <failOnViolation>false</failOnViolation>
                             <consoleOutput>true</consoleOutput>
