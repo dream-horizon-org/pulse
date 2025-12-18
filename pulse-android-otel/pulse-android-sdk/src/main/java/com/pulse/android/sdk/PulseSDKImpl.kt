@@ -31,9 +31,11 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
+import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
+import io.opentelemetry.sdk.metrics.export.MetricExporter
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import io.opentelemetry.semconv.ExceptionAttributes
@@ -135,6 +137,10 @@ internal class PulseSDKImpl :
             currentSdkConfig?.let {
                 HttpEndpointConnectivity.forLogs(it.signals.logsCollectorUrl)
             } ?: logEndpointConnectivity
+        val finalMetricEndpointConnectivity =
+            currentSdkConfig?.let {
+                HttpEndpointConnectivity.forMetrics(it.signals.metricCollectorUrl)
+            } ?: metricEndpointConnectivity
 
         val otlpSpanExporter: SpanExporter =
             OtlpHttpSpanExporter
@@ -150,14 +156,23 @@ internal class PulseSDKImpl :
             .rejectSpansWithAttributesMatching(attrRejects)
             .build()
 
-        val sampledLogExporter: LogRecordExporter =
+        val otlpLogExporter: LogRecordExporter =
             OtlpHttpLogRecordExporter
                 .builder()
                 .setEndpoint(finalLogEndpointConnectivity.getUrl())
                 .setHeaders(finalLogEndpointConnectivity::getHeaders)
                 .build()
 
-        val logExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(sampledLogExporter) ?: sampledLogExporter
+        val otlMetricExporter: MetricExporter =
+            OtlpHttpMetricExporter
+                .builder()
+                .setEndpoint(finalMetricEndpointConnectivity.getUrl())
+                .setHeaders(finalMetricEndpointConnectivity::getHeaders)
+                .build()
+
+        val spanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
+        val logExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
+        val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
@@ -169,10 +184,7 @@ internal class PulseSDKImpl :
                 //  2. Or give options like LocalOnly, ConfigOrFallback
                 spanEndpointConnectivity = finalSpanEndpointConnectivity,
                 logEndpointConnectivity = finalLogEndpointConnectivity,
-                metricEndpointConnectivity =
-                    currentSdkConfig?.let {
-                        HttpEndpointConnectivity.forMetrics(it.signals.metricCollectorUrl)
-                    } ?: metricEndpointConnectivity,
+                metricEndpointConnectivity = finalMetricEndpointConnectivity,
                 sessionConfig = sessionConfig,
                 globalAttributes = {
                     val attributesBuilder = Attributes.builder()
@@ -197,8 +209,9 @@ internal class PulseSDKImpl :
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
                 loggerProviderCustomizer = mergedLoggerProviderCustomizer,
-                spanExporter = filteredSpanExporter,
+                spanExporter = spanExporter,
                 logRecordExporter = logExporter,
+                metricExporter = metricExporter,
             )
         instrumentations?.let { configure ->
             InstrumentationConfiguration(config).configure()
