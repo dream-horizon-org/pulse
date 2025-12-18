@@ -32,3 +32,4 @@ public class AlertConditionDto {
   @JsonProperty("threshold")
   Map<String, Float> threshold;
 }
+

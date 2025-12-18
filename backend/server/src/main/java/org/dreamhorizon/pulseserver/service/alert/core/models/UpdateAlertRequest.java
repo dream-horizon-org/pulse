@@ -36,10 +36,12 @@ public class UpdateAlertRequest {
   String updatedBy;
 
   @NotNull
-  AlertScope scope;
+  String createdBy;
 
   @NotNull
-  List<String> dimensionFilters;
+  AlertScope scope;
+
+  String dimensionFilters;
 
   @NotNull
   String conditionExpression;

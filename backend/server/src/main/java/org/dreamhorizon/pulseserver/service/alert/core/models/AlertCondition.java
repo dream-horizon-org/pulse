@@ -20,3 +20,4 @@ public class AlertCondition {
   @NotNull
   Map<String, Float> threshold;
 }
+

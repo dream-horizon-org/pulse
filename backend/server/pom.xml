@@ -110,7 +110,6 @@
         </dependency>
 
 
-
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-web-client</artifactId>
@@ -244,7 +243,6 @@
         </dependency>
 
 
-
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
             <artifactId>resteasy-multipart-provider</artifactId>
@@ -284,7 +282,6 @@
         </dependency>
 
 
-
         <!-- ClickHouse R2DBC driver -->
         <dependency>
             <groupId>com.clickhouse</groupId>
@@ -312,18 +309,25 @@
         <repository>
             <id>central</id>
             <url>https://repo1.maven.org/maven2/</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
 
         <repository>
             <id>google</id>
             <url>https://maven.google.com/</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
-
 
 
     <build>
@@ -358,7 +362,8 @@
                     </annotationProcessorPaths>
 
                     <annotationProcessors>
-                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</annotationProcessor>
+                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor
+                        </annotationProcessor>
                         <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
                     </annotationProcessors>
@@ -388,7 +393,8 @@
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
                                         <Main-Class>org.dreamhorizon.pulseserver.MainApplication</Main-Class>
-                                        <Main-Verticle>org.dreamhorizon.pulseserver.verticle.MainVerticle</Main-Verticle>
+                                        <Main-Verticle>org.dreamhorizon.pulseserver.verticle.MainVerticle
+                                        </Main-Verticle>
                                         <X-Compile-Source-JDK>17</X-Compile-Source-JDK>
                                         <X-Compile-Target-JDK>17</X-Compile-Target-JDK>
                                     </manifestEntries>
@@ -513,11 +519,13 @@
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/error/**</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/resources/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/rest/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <!-- Exclude untestable classes -->
+                                <exclude>org/dreamhorizon/pulseserver/util/RxObjectMapper.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/util/Utils.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>
@@ -548,7 +556,7 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <configLocation>.checkstyle/dream11_checks.xml</configLocation>
+                            <configLocation>.checkstyle/checks.xml</configLocation>
                             <failsOnError>false</failsOnError>
                             <failOnViolation>false</failOnViolation>
                             <consoleOutput>true</consoleOutput>

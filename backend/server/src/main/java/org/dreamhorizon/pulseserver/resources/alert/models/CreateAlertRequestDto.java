@@ -44,13 +44,16 @@ public class CreateAlertRequestDto {
   @JsonProperty("created_by")
   String createdBy;
 
+  @NotNull
+  @JsonProperty("updated_by")
+  String updatedBy;
+
   @NotNull(message = "scope cannot be null")
   @JsonProperty("scope")
   AlertScope scope;
 
-  @NotNull(message = "identifiers cannot be null")
   @JsonProperty("dimension_filters")
-  List<String> dimensionFilters;
+  String dimensionFilters;
 
   @NotNull(message = "condition_expression cannot be null")
   @JsonProperty("condition_expression")
@@ -61,3 +64,4 @@ public class CreateAlertRequestDto {
   @JsonProperty("alerts")
   List<AlertConditionDto> alerts;
 }
+
