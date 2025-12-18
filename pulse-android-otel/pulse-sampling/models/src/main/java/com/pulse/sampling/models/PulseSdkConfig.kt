@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public class PulseSdkConfig(
+public class PulseSdkConfig internal constructor(
     @SerialName("version")
     public val version: Int,
     @SerialName("description")

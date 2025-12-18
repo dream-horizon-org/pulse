@@ -6,11 +6,9 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public class PulseFeatureConfig(
+public class PulseFeatureConfig internal constructor(
     @SerialName("featureName")
-    public val featureName: String,
-    @SerialName("enabled")
-    public val isEnabled: Boolean,
+    public val featureName: PulseFeatureName,
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate,
     @SerialName("sdks")

@@ -3,7 +3,6 @@
 package com.pulse.sampling.core
 
 import com.pulse.otel.utils.toAttributes
-import com.pulse.sampling.models.PulseProp
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCondition
@@ -49,7 +48,10 @@ class PulseSamplingSignalProcessorsTest {
         val whitelistWithRegexWithOneCharAndProp =
             PulseSdkConfigFakeUtils.createFakeConfig(
                 filterMode = PulseSignalFilterMode.WHITELIST,
-                signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1")))),
+                signalFilters =
+                    listOf(
+                        createFakeSignalMatchCondition("abc.", props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1"))),
+                    ),
             )
 
         @Test
@@ -161,13 +163,19 @@ class PulseSamplingSignalProcessorsTest {
         val blackListWithRegexWithOneCharAndProp =
             PulseSdkConfigFakeUtils.createFakeConfig(
                 filterMode = PulseSignalFilterMode.BLACKLIST,
-                signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1")))),
+                signalFilters =
+                    listOf(
+                        createFakeSignalMatchCondition("abc.", props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1"))),
+                    ),
             )
 
         val blackListWithRegexWithOneCharAndPropRegex =
             PulseSdkConfigFakeUtils.createFakeConfig(
                 filterMode = PulseSignalFilterMode.BLACKLIST,
-                signalFilters = listOf(createFakeSignalMatchCondition("abc.", props = setOf(PulseProp("key1", "value1.")))),
+                signalFilters =
+                    listOf(
+                        createFakeSignalMatchCondition("abc.", props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1."))),
+                    ),
             )
 
         @Test
@@ -311,7 +319,7 @@ class PulseSamplingSignalProcessorsTest {
             listOf(
                 createFakeSignalMatchCondition(
                     name = "test-span",
-                    props = setOf(PulseProp("key1", "value1")),
+                    props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
                 ),
             )
         private val attributesDroppingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToDrop = attributesToDrop)

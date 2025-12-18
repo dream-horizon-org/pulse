@@ -1,6 +1,7 @@
 package com.pulse.sampling.core
 
 import com.pulse.otel.utils.toMap
+import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
@@ -140,7 +141,7 @@ public class PulseSamplingSignalProcessors(
         }
     }
 
-    public fun getEnabledFeatures(): List<String> =
+    public fun getEnabledFeatures(): List<PulseFeatureName> =
         sdkConfig
             .features
             .filter { PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.sessionSampleRate == 1F }

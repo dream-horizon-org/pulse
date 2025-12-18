@@ -10,6 +10,7 @@ import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
+import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseUserAttributes
@@ -203,19 +204,19 @@ internal class PulseSDKImpl :
             pulseSamplingProcessors?.let {
                 val enabledFeatures = it.getEnabledFeatures()
                 when {
-                    "java_crash" in enabledFeatures -> {
+                    PulseFeatureName.JAVA_CRASH in enabledFeatures -> {
                         config.suppressInstrumentation("crash")
                     }
 
-                    "network" in enabledFeatures -> {
+                    PulseFeatureName.NETWORK_CHANGE in enabledFeatures -> {
                         config.disableNetworkAttributes()
                     }
 
-                    "anr" in enabledFeatures -> {
+                    PulseFeatureName.JAVA_ANR in enabledFeatures -> {
                         config.suppressInstrumentation("anr")
                     }
 
-                    "interaction" in enabledFeatures -> {
+                    PulseFeatureName.INTERACTION in enabledFeatures -> {
                         config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
                     }
 
