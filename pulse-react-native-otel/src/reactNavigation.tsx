@@ -1,7 +1,13 @@
 import { Pulse, type Span } from './index';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { useRef, useCallback, useEffect, useMemo, type RefObject } from 'react';
 import { createNavigationIntegrationWithConfig } from './config';
+import {
+  SPAN_NAMES,
+  ATTRIBUTE_KEYS,
+  PULSE_TYPES,
+  PHASE_VALUES,
+} from './pulse.constants';
 
 const NAVIGATION_HISTORY_MAX_SIZE = 200;
 
@@ -20,15 +26,15 @@ interface NavigationContainer {
 }
 
 export interface NavigationIntegrationOptions {
-  enableScreenSession?: boolean;
-  enableNavigationSpans?: boolean;
+  screenSessionTracking?: boolean;
+  screenNavigationTracking?: boolean;
 }
 
 export function createReactNavigationIntegration(
   options?: NavigationIntegrationOptions
 ) {
-  const enableScreenSession = options?.enableScreenSession ?? true;
-  const enableNavigationSpans = options?.enableNavigationSpans ?? true;
+  const screenSessionTracking = options?.screenSessionTracking ?? true;
+  const screenNavigationTracking = options?.screenNavigationTracking ?? true;
   let navigationContainer: NavigationContainer | undefined;
   let latestRoute: NavigationRoute | undefined;
   let recentRouteKeys: string[] = [];
@@ -39,11 +45,12 @@ export function createReactNavigationIntegration(
   let appStateSubscription: { remove: () => void } | undefined;
 
   const startScreenSession = (route: NavigationRoute): void => {
-    screenSessionSpan = Pulse.startSpan('ScreenSession', {
+    screenSessionSpan = Pulse.startSpan(SPAN_NAMES.SCREEN_SESSION, {
       attributes: {
-        'pulse.type': 'screen_session',
-        'screen.name': route.name,
-        'routeKey': route.key,
+        [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_SESSION,
+        [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
+        [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
+        [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS as 'android' | 'ios',
       },
     });
     currentScreenKey = route.key;
@@ -66,25 +73,18 @@ export function createReactNavigationIntegration(
 
   const onNavigationDispatch = (): void => {
     try {
-      if (enableScreenSession && screenSessionSpan && navigationContainer) {
-        const currentRoute = navigationContainer.getCurrentRoute();
-        console.log(
-          `[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'}`
-        );
+      if (screenSessionTracking && screenSessionSpan && navigationContainer) {
         endScreenSession();
       }
 
-      if (enableNavigationSpans) {
-        navigationSpan = Pulse.startSpan('Navigated', {
+      if (screenNavigationTracking) {
+        navigationSpan = Pulse.startSpan(SPAN_NAMES.NAVIGATED, {
           attributes: {
-            'pulse.type': 'screen_load',
-            'phase': 'start',
+            [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_LOAD,
+            [ATTRIBUTE_KEYS.PHASE]: PHASE_VALUES.START,
+            [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS as 'android' | 'ios',
           },
         });
-        console.log(
-          '[Pulse Navigation] Navigation span started',
-          navigationSpan?.spanId
-        );
       }
     } catch (error) {
       console.warn('[Pulse Navigation] Error in onNavigationDispatch:', error);
@@ -105,25 +105,22 @@ export function createReactNavigationIntegration(
 
       const previousRoute = latestRoute;
 
-      if (enableNavigationSpans && navigationSpan) {
-        const spanId = navigationSpan.spanId;
+      if (screenNavigationTracking && navigationSpan) {
         if (previousRoute && previousRoute.key === currentRoute.key) {
           endNavigationSpan();
-          console.log('[Pulse Navigation] Navigation span ended', spanId);
         } else {
           latestRoute = currentRoute;
           const routeHasBeenSeen = recentRouteKeys.includes(currentRoute.key);
           pushRecentRouteKey(currentRoute.key);
 
           navigationSpan.setAttributes({
-            'screen.name': currentRoute.name,
-            'last.screen.name': previousRoute?.name || undefined,
-            'routeHasBeenSeen': routeHasBeenSeen,
-            'routeKey': currentRoute.key,
+            [ATTRIBUTE_KEYS.SCREEN_NAME]: currentRoute.name,
+            [ATTRIBUTE_KEYS.LAST_SCREEN_NAME]: previousRoute?.name || undefined,
+            [ATTRIBUTE_KEYS.ROUTE_HAS_BEEN_SEEN]: routeHasBeenSeen,
+            [ATTRIBUTE_KEYS.ROUTE_KEY]: currentRoute.key,
           });
 
           endNavigationSpan();
-          console.log('[Pulse Navigation] Navigation span ended', spanId);
         }
       } else {
         latestRoute = currentRoute;
@@ -131,13 +128,12 @@ export function createReactNavigationIntegration(
       }
 
       if (
-        enableScreenSession &&
+        screenSessionTracking &&
         AppState.currentState === 'active' &&
         !screenSessionSpan &&
         currentScreenKey !== currentRoute.key
       ) {
         startScreenSession(currentRoute);
-        console.log(`[Pulse] Screen session started on ${currentRoute.name}`);
       }
     } catch (error) {
       console.warn('[Pulse] Error in onStateChange:', error);
@@ -147,25 +143,18 @@ export function createReactNavigationIntegration(
 
   const handleAppStateChange = (nextAppState: AppStateStatus): void => {
     try {
-      if (!enableScreenSession) {
+      if (!screenSessionTracking) {
         return;
       }
 
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         if (screenSessionSpan) {
-          const currentRoute = navigationContainer?.getCurrentRoute();
-          console.log(
-            `[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'} (app backgrounded)`
-          );
           endScreenSession();
         }
       } else if (nextAppState === 'active') {
         const currentRoute = navigationContainer?.getCurrentRoute();
         if (currentRoute && !screenSessionSpan) {
           startScreenSession(currentRoute);
-          console.log(
-            `[Pulse] Screen session started on ${currentRoute.name} (app foregrounded)`
-          );
         }
       }
     } catch (error) {
@@ -194,13 +183,8 @@ export function createReactNavigationIntegration(
       }
 
       if (isInitialized && navigationContainer === container) {
-        console.log('[Pulse Navigation] Container already registered');
         return () => {
-          if (enableScreenSession && screenSessionSpan) {
-            const currentRoute = navigationContainer?.getCurrentRoute();
-            console.log(
-              `[Pulse] Screen session ended for ${currentRoute?.name || 'unknown'} (container cleanup)`
-            );
+          if (screenSessionTracking && screenSessionSpan) {
             endScreenSession();
           }
         };
@@ -208,16 +192,14 @@ export function createReactNavigationIntegration(
 
       navigationContainer = container;
 
-      container.addListener('__unsafe_action__', onNavigationDispatch);
-      container.addListener('state', onStateChange);
+      navigationContainer.addListener(
+        '__unsafe_action__',
+        onNavigationDispatch
+      );
+      navigationContainer.addListener('state', onStateChange);
 
       const unmountCleanup = (): void => {
-        // React Navigation automatically removes listeners on unmount, so we only need to clean up our state
-        if (enableScreenSession && screenSessionSpan) {
-          const route = navigationContainer?.getCurrentRoute();
-          console.log(
-            `[Pulse] Screen session ended for ${route?.name || 'unknown'} (container unmounting)`
-          );
+        if (screenSessionTracking && screenSessionSpan) {
           endScreenSession();
         }
 
@@ -239,13 +221,12 @@ export function createReactNavigationIntegration(
         pushRecentRouteKey(currentRoute.key);
 
         if (
-          enableScreenSession &&
+          screenSessionTracking &&
           AppState.currentState === 'active' &&
           !screenSessionSpan &&
           currentScreenKey !== currentRoute.key
         ) {
           startScreenSession(currentRoute);
-          console.log(`[Pulse] Screen session started on ${currentRoute.name}`);
         }
       }
 
@@ -280,24 +261,20 @@ export type ReactNavigationIntegration = ReturnType<
   typeof createReactNavigationIntegration
 >;
 
-/**
- * React hook to automatically register NavigationContainer with Pulse.
- * Returns an onReady callback that should be passed to NavigationContainer.
- * This simplifies usage - no need to manually manage cleanup.
- *
- * @example
- * const navigationRef = useRef(null);
- * const onReady = Pulse.useNavigationTracking(navigationRef);
- * return <NavigationContainer ref={navigationRef} onReady={onReady}>...
- */
 export function useNavigationTracking(
   navigationRef: RefObject<any>,
   options?: NavigationIntegrationOptions
 ): () => void {
-  // Create integration synchronously to avoid race condition with onReady
+  const screenSessionTracking = options?.screenSessionTracking ?? true;
+  const screenNavigationTracking = options?.screenNavigationTracking ?? true;
+
   const integration = useMemo(
-    () => createNavigationIntegrationWithConfig(options),
-    [options]
+    () =>
+      createNavigationIntegrationWithConfig({
+        screenSessionTracking,
+        screenNavigationTracking,
+      }),
+    [screenSessionTracking, screenNavigationTracking]
   );
 
   const cleanupRef = useRef<(() => void) | null>(null);

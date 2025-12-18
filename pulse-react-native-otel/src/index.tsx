@@ -1,7 +1,7 @@
 import { startSpan, trackSpan } from './trace';
 import { reportException } from './errorHandler';
 import { trackEvent } from './events';
-import { start, createNavigationIntegrationWithConfig } from './config';
+import { start } from './config';
 import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
@@ -16,7 +16,6 @@ export type {
   NavigationRoute,
   NavigationIntegrationOptions,
 } from './reactNavigation';
-export { useNavigationTracking } from './reactNavigation';
 
 export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 
@@ -24,7 +23,6 @@ export { SpanStatusCode } from './trace';
 export const Pulse = {
   start,
   isInitialized,
-  createNavigationIntegration: createNavigationIntegrationWithConfig,
   useNavigationTracking,
   trackEvent,
   reportException,
