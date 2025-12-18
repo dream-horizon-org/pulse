@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public class PulseInteractionConfig(
+public class PulseInteractionConfig internal constructor(
     @SerialName("collectorUrl")
     public val collectorUrl: String,
     @SerialName("configUrl")

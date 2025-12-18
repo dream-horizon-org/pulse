@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 public sealed class PulseDeviceMatchCondition {
     @Serializable
-    public class ValueBasedMatchCondition(
+    public class ValueBasedMatchCondition internal constructor(
         @SerialName("type")
         public val type: String,
         @SerialName("sdks")

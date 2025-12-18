@@ -2,6 +2,7 @@ package com.pulse.sampling.remote
 
 import com.pulse.otel.utils.models.PulseApiResponse
 import com.pulse.sampling.models.PulseDeviceAttributeName
+import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
@@ -282,7 +283,6 @@ class PulseSdkConfigRetrofitClientTest {
                         "features": [
                             {
                                 "featureName": "java_crash",
-                                "enabled": true,
                                 "sessionSampleRate": 0.8,
                                 "sdks": [
                                     "android_java",
@@ -358,8 +358,7 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.interaction.beforeInitQueueSize).isEqualTo(100)
 
             assertThat(config.features).hasSize(1)
-            assertThat(config.features[0].featureName).isEqualTo("java_crash")
-            assertThat(config.features[0].isEnabled).isTrue()
+            assertThat(config.features[0].featureName).isEqualTo(PulseFeatureName.JAVA_CRASH)
             assertThat(config.features[0].sessionSampleRate).isEqualTo(0.8f)
         }
 
