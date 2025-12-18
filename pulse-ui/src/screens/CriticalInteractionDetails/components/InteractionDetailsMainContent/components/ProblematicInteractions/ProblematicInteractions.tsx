@@ -19,7 +19,6 @@ import {
   IconClock,
   IconArrowNarrowRight,
   IconActivity,
-  IconNetworkOff,
   IconX,
   IconCheck,
 } from "@tabler/icons-react";
@@ -88,18 +87,14 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
 
   const eventTypeConfig = {
     crash: { label: "Crash", color: "red", icon: IconAlertCircle },
-    anr: { label: "Anr", color: "orange", icon: IconActivity },
-    networkError: {
-      label: "Network Errors",
-      color: "grape",
-      icon: IconNetworkOff,
-    },
+    anr: { label: "ANR", color: "orange", icon: IconActivity },
     frozenFrame: {
       label: "Frozen Frames",
       color: "yellow",
       icon: IconSnowflake,
     },
-    nonFatal: { label: "Error", color: "red", icon: IconAlertCircle },
+    nonFatal: { label: "Non-Fatal", color: "pink", icon: IconAlertCircle },
+    error: { label: "Error", color: "red", icon: IconX },
     completed: { label: "Completed", color: "green", icon: IconCheck },
   };
 
@@ -125,50 +120,8 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
     setCurrentPage(0);
   };
 
-  const getEventTypeFromEventNames = (
-    eventNames: string | undefined | null,
-  ): ProblematicInteractionData["event_type"] | "completed" => {
-    if (!eventNames || eventNames.trim() === "") {
-      return "nonFatal";
-    }
-
-    const events = eventNames
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e.length > 0);
-
-    for (const event of events) {
-      const eventLower = event.toLowerCase();
-
-      if (eventLower === "device.crash") {
-        return "crash";
-      }
-
-      if (eventLower === "device.anr") {
-        return "anr";
-      }
-
-      if (eventLower === "non_fatal") {
-        return "networkError";
-      }
-
-      if (eventLower === "app.jank.frozen") {
-        return "frozenFrame";
-      }
-    }
-
-    return "completed";
-  };
-
   const getEventTypeConfig = (eventType: ProblematicInteractionData["event_type"]) => {
-    return eventTypeConfig[eventType] || eventTypeConfig.nonFatal;
-  };
-
-  const getEventTypeForInteraction = (interaction: ProblematicInteractionData) => {
-    if (interaction.event_names !== undefined && interaction.event_names !== null) {
-      return getEventTypeFromEventNames(interaction.event_names);
-    }
-    return interaction.event_type;
+    return eventTypeConfig[eventType] || eventTypeConfig.completed;
   };
 
   const paginatedInteractions = useMemo(() => {
@@ -384,8 +337,7 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
                     </td>
                     <td>
                       {(() => {
-                        const eventType = getEventTypeForInteraction(interaction);
-                        const config = getEventTypeConfig(eventType);
+                        const config = getEventTypeConfig(interaction.event_type);
                         const Icon = config.icon;
                         return (
                           <Badge color={config.color} size="md">

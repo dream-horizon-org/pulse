@@ -50,5 +50,6 @@ export const useGetDataQuery = ({
     refetchInterval,
     enabled: enabled,
     staleTime: 0,
+    placeholderData: undefined,
   });
 };
