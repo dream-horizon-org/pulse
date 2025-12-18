@@ -5,11 +5,9 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.telephony.TelephonyManager
-import com.pulse.sampling.models.PulseDefaultSamplingConfig
 import com.pulse.sampling.models.PulseDeviceAttributeName
-import com.pulse.sampling.models.PulseSamplingConfig
+import com.pulse.sampling.models.PulseSdkConfigFakeUtils
 import com.pulse.sampling.models.PulseSdkName
-import com.pulse.sampling.models.PulseSessionSamplingRule
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
@@ -36,8 +34,8 @@ class PulseSessionConfigParserTest {
         fun `returns default session sample rate`() {
             val defaultRate = 0.5f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules = emptyList(),
                 )
 
@@ -54,11 +52,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.3f
             val ruleRate = 0.8f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = ".*",
                                 sdks = setOf(PulseSdkName.IOS_SWIFT),
@@ -77,11 +75,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.4f
             val ruleRate = 0.9f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "ios.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -100,11 +98,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.2f
             val ruleRate = 0.7f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "ios.*",
                                 sdks = setOf(PulseSdkName.IOS_SWIFT),
@@ -126,11 +124,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.1f
             val ruleRate = 0.75f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -150,17 +148,17 @@ class PulseSessionConfigParserTest {
             val firstRuleRate = 0.6f
             val secondRuleRate = 0.9f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
                                 sessionSampleRate = firstRuleRate,
                             ),
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -179,23 +177,23 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.1f
             val matchingRuleRate = 0.85f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "ios.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
                                 sessionSampleRate = 0.5f,
                             ),
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
                                 sessionSampleRate = matchingRuleRate,
                             ),
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -214,17 +212,17 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.1f
             val matchingRuleRate = 0.7f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.IOS_SWIFT),
                                 sessionSampleRate = 0.5f,
                             ),
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -246,11 +244,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.1f
             val ruleRate = 0.65f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks =
@@ -274,11 +272,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.1f
             val ruleRate = 0.65f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "android.*",
                                 sdks =
@@ -305,11 +303,11 @@ class PulseSessionConfigParserTest {
             val ruleRate = 0.8f
             val sdkInt = Build.VERSION.SDK_INT.toString()
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.OS_VERSION,
                                 value = sdkInt,
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -328,11 +326,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.2f
             val ruleRate = 0.9f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.OS_VERSION,
                                 value = "999",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -351,11 +349,11 @@ class PulseSessionConfigParserTest {
             val defaultRate = 0.1f
             val ruleRate = 0.7f
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.OS_VERSION,
                                 value = "\\d+",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -388,11 +386,11 @@ class PulseSessionConfigParserTest {
             every { packageManager.getPackageInfo(packageName, 0) } returns packageInfo
 
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.APP_VERSION,
                                 value = appVersion,
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -422,11 +420,11 @@ class PulseSessionConfigParserTest {
             every { packageManager.getPackageInfo(packageName, 0) } returns packageInfo
 
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.APP_VERSION,
                                 value = "2.0.0",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -454,11 +452,11 @@ class PulseSessionConfigParserTest {
             every { context.getSystemService(Context.TELEPHONY_SERVICE) } returns telephonyManager
 
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.COUNTRY,
                                 value = countryCode,
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -483,11 +481,11 @@ class PulseSessionConfigParserTest {
             every { context.getSystemService(Context.TELEPHONY_SERVICE) } returns telephonyManager
 
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.COUNTRY,
                                 value = "CA",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -509,11 +507,11 @@ class PulseSessionConfigParserTest {
             every { context.getSystemService(Context.TELEPHONY_SERVICE) } returns null
 
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.COUNTRY,
                                 value = ".*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -536,11 +534,11 @@ class PulseSessionConfigParserTest {
             val ruleRate = 0.95f
 
             val config =
-                PulseSamplingConfig(
-                    default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                     rules =
                         listOf(
-                            PulseSessionSamplingRule(
+                            PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.UNKNOWN,
                                 value = ".*",
                                 sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
@@ -573,17 +571,17 @@ class PulseSessionConfigParserTest {
         every { packageManager.getPackageInfo(packageName, 0) } returns packageInfo
 
         val config =
-            PulseSamplingConfig(
-                default = PulseDefaultSamplingConfig(sessionSampleRate = defaultRate),
+            PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(sessionSampleRate = defaultRate),
                 rules =
                     listOf(
-                        PulseSessionSamplingRule(
+                        PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                             name = PulseDeviceAttributeName.OS_VERSION,
                             value = sdkInt,
                             sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
                             sessionSampleRate = osVersionRate,
                         ),
-                        PulseSessionSamplingRule(
+                        PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                             name = PulseDeviceAttributeName.APP_VERSION,
                             value = appVersion,
                             sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),

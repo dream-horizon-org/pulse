@@ -9,7 +9,7 @@ public typealias SamplingRate = Float
 
 @Keep
 @Serializable
-public class PulseSamplingConfig(
+public class PulseSamplingConfig internal constructor(
     @SerialName("default")
     public val default: PulseDefaultSamplingConfig,
     /**
@@ -25,7 +25,7 @@ public class PulseSamplingConfig(
 
 @Keep
 @Serializable
-public class PulseSessionSamplingRule(
+public class PulseSessionSamplingRule internal constructor(
     @SerialName("name")
     public val name: PulseDeviceAttributeName,
     @SerialName("value")
@@ -40,21 +40,21 @@ public class PulseSessionSamplingRule(
 
 @Keep
 @Serializable
-public class PulseDefaultSamplingConfig(
+public class PulseDefaultSamplingConfig internal constructor(
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate,
 )
 
 @Keep
 @Serializable
-public class PulseCriticalEventPolicies(
+public class PulseCriticalEventPolicies internal constructor(
     @SerialName("alwaysSend")
     public val alwaysSend: List<PulseCriticalEventPolicy>,
 )
 
 @Keep
 @Serializable
-public class PulseCriticalEventPolicy(
+public class PulseCriticalEventPolicy internal constructor(
     @SerialName("name")
     public val name: String,
     @SerialName("props")

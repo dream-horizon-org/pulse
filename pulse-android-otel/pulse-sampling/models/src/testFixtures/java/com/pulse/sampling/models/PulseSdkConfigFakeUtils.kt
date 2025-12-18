@@ -49,6 +49,37 @@ public object PulseSdkConfigFakeUtils {
             features = emptyList(),
         )
 
+    public fun createFakeSamplingConfig(
+        default: PulseDefaultSamplingConfig = createFakeDefaultSamplingConfig(),
+        rules: List<PulseSessionSamplingRule> = emptyList(),
+        criticalEventPolicies: PulseCriticalEventPolicies? = null,
+        criticalSessionPolicies: PulseCriticalEventPolicies? = null,
+    ): PulseSamplingConfig =
+        PulseSamplingConfig(
+            default = default,
+            rules = rules,
+            criticalEventPolicies = criticalEventPolicies,
+            criticalSessionPolicies = criticalSessionPolicies,
+        )
+
+    public fun createFakeDefaultSamplingConfig(sessionSampleRate: SamplingRate = 1.0f): PulseDefaultSamplingConfig =
+        PulseDefaultSamplingConfig(
+            sessionSampleRate = sessionSampleRate,
+        )
+
+    public fun createFakeSessionSamplingRule(
+        name: PulseDeviceAttributeName = PulseDeviceAttributeName.OS_VERSION,
+        value: String = ".*",
+        sdks: Set<PulseSdkName> = setOf(PulseSdkName.CURRENT_SDK_NAME),
+        sessionSampleRate: SamplingRate = 1.0f,
+    ): PulseSessionSamplingRule =
+        PulseSessionSamplingRule(
+            name = name,
+            value = value,
+            sdks = sdks,
+            sessionSampleRate = sessionSampleRate,
+        )
+
     public fun createFakeSignalMatchCondition(
         name: String = ".*",
         props: Set<PulseProp> = emptySet(),

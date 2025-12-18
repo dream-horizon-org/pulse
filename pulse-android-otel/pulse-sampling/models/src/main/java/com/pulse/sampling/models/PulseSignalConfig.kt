@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public class PulseSignalConfig(
+public class PulseSignalConfig internal constructor(
     @SerialName("scheduleDurationMs")
     public val scheduleDurationMs: Long,
     @SerialName("logsCollectorUrl")
@@ -24,7 +24,7 @@ public class PulseSignalConfig(
 
 @Keep
 @Serializable
-public class PulseSignalFilter(
+public class PulseSignalFilter internal constructor(
     @SerialName("mode")
     public val mode: PulseSignalFilterMode,
     @SerialName("values")
@@ -43,7 +43,7 @@ public enum class PulseSignalFilterMode {
 
 @Keep
 @Serializable
-public class PulseProp(
+public class PulseProp internal constructor(
     @SerialName("name")
     public val name: String,
     @SerialName("value")

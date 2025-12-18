@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 @Keep
 @Serializable
-public class PulseSignalMatchCondition(
+public class PulseSignalMatchCondition internal constructor(
     @SerialName("name")
     public val name: String,
     @SerialName("props")
