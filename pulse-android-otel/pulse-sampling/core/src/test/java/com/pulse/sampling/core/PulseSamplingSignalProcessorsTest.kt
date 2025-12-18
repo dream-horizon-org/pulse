@@ -1,7 +1,8 @@
-@file:Suppress("DEPRECATION")
+@file:Suppress("DEPRECATION", "ClassName")
 
 package com.pulse.sampling.core
 
+import android.content.Context
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils
@@ -16,6 +17,7 @@ import io.opentelemetry.sdk.logs.data.Body
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
 import io.opentelemetry.sdk.testing.exporter.InMemoryLogRecordExporter
+import io.opentelemetry.sdk.testing.exporter.InMemoryMetricExporter
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.testing.trace.TestSpanData
 import io.opentelemetry.sdk.trace.data.SpanData
@@ -23,15 +25,17 @@ import io.opentelemetry.sdk.trace.data.StatusData
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.security.SecureRandom
+import java.util.Random
 
 @ExtendWith(MockKExtension::class)
 class PulseSamplingSignalProcessorsTest {
-    private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher()
-
     private val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create()
     private val logExporter: InMemoryLogRecordExporter = InMemoryLogRecordExporter.create()
+    private val metricExporter: InMemoryMetricExporter = InMemoryMetricExporter.create()
     private lateinit var whitelistAllAllowedConfig: PulseSdkConfig
     private lateinit var whitelistAllAllowedProcessors: PulseSamplingSignalProcessors
 
@@ -39,8 +43,9 @@ class PulseSamplingSignalProcessorsTest {
     fun setUp() {
         spanExporter.reset()
         logExporter.reset()
+        metricExporter.reset()
         whitelistAllAllowedConfig = PulseSdkConfigFakeUtils.createFakeConfig()
-        whitelistAllAllowedProcessors = PulseSamplingSignalProcessors(whitelistAllAllowedConfig, signalMatcher)
+        whitelistAllAllowedProcessors = createSamplingSignalProcessors(whitelistAllAllowedConfig)
     }
 
     @Nested
@@ -56,7 +61,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, filters the span only matching the regex and prop`() {
-            val processors = PulseSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp, signalMatcher)
+            val processors = createSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp)
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
             sampledSpanExporter.export(
@@ -77,7 +82,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in log, filters the span only matching the regex and prop`() {
-            val processors = PulseSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp, signalMatcher)
+            val processors = createSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp)
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
 
             sampledLogExporter.export(
@@ -180,7 +185,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, filters the span only matching the regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneChar, signalMatcher)
+            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneChar)
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
             sampledSpanExporter.export(
@@ -199,7 +204,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, filters the span only matching the regex and prop`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp, signalMatcher)
+            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp)
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
             sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value1"))))
@@ -210,7 +215,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, does not filters the span matching the name but not the prop`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp, signalMatcher)
+            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp)
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
             sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value2"))))
@@ -224,7 +229,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, filters the span only matching the regex and prop regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex, signalMatcher)
+            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex)
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
             sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value12"))))
@@ -235,7 +240,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in span, does not filters the span matching the name but not the prop regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex, signalMatcher)
+            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex)
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
             sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value1"))))
@@ -249,7 +254,7 @@ class PulseSamplingSignalProcessorsTest {
 
         @Test
         fun `in log, filers the log only matching the regex`() {
-            val processors = PulseSamplingSignalProcessors(blackListWithRegexWithOneChar, signalMatcher)
+            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneChar)
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
             sampledLogExporter.export(
                 listOf(
@@ -273,7 +278,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in span, filters the span without any props`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
+                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
                 val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
                 sampledSpanExporter.export(listOf(createSpanData("test-span", emptyMap())))
@@ -283,7 +288,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in span, filters the span with a prop`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
+                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
                 val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
 
                 sampledSpanExporter.export(listOf(createSpanData("test-span", mapOf("key1" to "value1"))))
@@ -293,7 +298,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in log, filers the log without a prop`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
+                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
                 val sampledLogExporter = processors.SampledLogExporter(logExporter)
                 val mockLogRecord = createLogRecordData("test-log", emptyMap())
                 sampledLogExporter.export(listOf(mockLogRecord))
@@ -303,7 +308,7 @@ class PulseSamplingSignalProcessorsTest {
 
             @Test
             fun `in log, filers the log with a prop`() {
-                val processors = PulseSamplingSignalProcessors(blackListAllDenyConfig, signalMatcher)
+                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
                 val sampledLogExporter = processors.SampledLogExporter(logExporter)
                 val mockLogRecord = createLogRecordData("test-log", mapOf("key1" to "value1"))
                 sampledLogExporter.export(listOf(mockLogRecord))
@@ -323,7 +328,7 @@ class PulseSamplingSignalProcessorsTest {
                 ),
             )
         private val attributesDroppingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToDrop = attributesToDrop)
-        val attributesDroppingProcessors = PulseSamplingSignalProcessors(attributesDroppingConfig, signalMatcher)
+        val attributesDroppingProcessors = createSamplingSignalProcessors(attributesDroppingConfig)
         val attributesDroppingSpanExporter = attributesDroppingProcessors.SampledSpanExporter(spanExporter)
 
         val attributesDroppingLogExporter = attributesDroppingProcessors.SampledLogExporter(logExporter)
@@ -509,6 +514,197 @@ class PulseSamplingSignalProcessorsTest {
         assertThat(result.isSuccess).isTrue
     }
 
+    @Nested
+    inner class `Session scenarios` {
+        @Test
+        fun `in span, no data is sent when session sampling is off`() {
+            val processors =
+                createSamplingSignalProcessors(
+                    config = whitelistAllAllowedConfig,
+                    sessionParser = PulseSessionParser.alwaysOff,
+                )
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+            val testSpan = createSpanData("test-span", emptyMap())
+
+            sampledSpanExporter.export(listOf(testSpan))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
+        }
+
+        @RepeatedTest(10)
+        fun `in span, all data is sent when session sampling is on`() {
+            val processors =
+                createSamplingSignalProcessors(
+                    config = whitelistAllAllowedConfig,
+                    sessionParser = PulseSessionParser.alwaysOn,
+                )
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+            val testSpan = createSpanData("test-span", emptyMap())
+
+            sampledSpanExporter.export(listOf(testSpan))
+
+            assertThat(spanExporter.finishedSpanItems).hasSize(1)
+            assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
+        }
+
+        @RepeatedTest(10)
+        fun `in span, data is sent when session random value less than session sampling config`() {
+            val samplingRate = 0.5f
+            val randomValue = 0.3f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+            val testSpan = createSpanData("test-span", emptyMap())
+
+            sampledSpanExporter.export(listOf(testSpan))
+
+            assertThat(spanExporter.finishedSpanItems).hasSize(1)
+            assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
+        }
+
+        @RepeatedTest(10)
+        fun `in span, data is sent when session random value is equal to session sampling config`() {
+            val samplingRate = 0.5f
+            val randomValue = 0.5f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+            val testSpan = createSpanData("test-span", emptyMap())
+
+            sampledSpanExporter.export(listOf(testSpan))
+
+            assertThat(spanExporter.finishedSpanItems).hasSize(1)
+            assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
+        }
+
+        @RepeatedTest(10)
+        fun `in span, data is not sent when session random value greater than session sampling config`() {
+            val samplingRate = 0.5f
+            val randomValue = 0.7f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+            val testSpan = createSpanData("test-span", emptyMap())
+
+            sampledSpanExporter.export(listOf(testSpan))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
+        }
+
+        @Test
+        fun `in log, no data is sent when session sampling is off`() {
+            val config = PulseSdkConfigFakeUtils.createFakeConfig()
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser.alwaysOff,
+                )
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+            val testLog = createLogRecordData("test-log", emptyMap())
+
+            sampledLogExporter.export(listOf(testLog))
+
+            assertThat(logExporter.finishedLogRecordItems).isEmpty()
+        }
+
+        @RepeatedTest(10)
+        fun `in log, all data is sent when session sampling is on`() {
+            val config = PulseSdkConfigFakeUtils.createFakeConfig()
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser.alwaysOn,
+                )
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+            val testLog = createLogRecordData("test-log", emptyMap())
+
+            sampledLogExporter.export(listOf(testLog))
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
+        }
+
+        @RepeatedTest(10)
+        fun `in log, data is sent when session random value less than session sampling config`() {
+            val samplingRate = 0.5f
+            val randomValue = 0.3f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+            val testLog = createLogRecordData("test-log", emptyMap())
+
+            sampledLogExporter.export(listOf(testLog))
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
+        }
+
+        @RepeatedTest(10)
+        fun `in log, data is sent when session random value is equal to session sampling config`() {
+            val samplingRate = 0.5f
+            val randomValue = 0.5f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+            val testLog = createLogRecordData("test-log", emptyMap())
+
+            sampledLogExporter.export(listOf(testLog))
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
+        }
+
+        @RepeatedTest(10)
+        fun `in log, data is not sent when session random value greater than session sampling config`() {
+            val samplingRate = 0.5f
+            val randomValue = 0.7f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+            val testLog = createLogRecordData("test-log", emptyMap())
+
+            sampledLogExporter.export(listOf(testLog))
+
+            assertThat(logExporter.finishedLogRecordItems).isEmpty()
+        }
+    }
+
     private fun createSpanData(
         name: String = "test-span",
         attributes: Map<String, Any?> = emptyMap(),
@@ -537,4 +733,25 @@ class PulseSamplingSignalProcessorsTest {
                 every { this@apply.body } returns Body.string(body)
                 every { this@apply.eventName } returns eventName
             }
+
+    private fun createSamplingSignalProcessors(
+        config: PulseSdkConfig,
+        signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
+        sessionParser: PulseSessionParser = PulseSessionParser.alwaysOn,
+        randomIdGenerator: Random = SecureRandom(),
+    ): PulseSamplingSignalProcessors {
+        val context = mockk<Context>()
+        return PulseSamplingSignalProcessors(
+            context = context,
+            sdkConfig = config,
+            signalMatcher = signalMatcher,
+            sessionParser = sessionParser,
+            randomIdGenerator = randomIdGenerator,
+        )
+    }
+
+    private fun createMockRandomGenerator(value: Float): Random =
+        mockk<Random>().apply {
+            every { nextFloat() } returns value
+        }
 }
