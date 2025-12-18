@@ -7,10 +7,15 @@ import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class PulseOtelUtilsTest {
     @ParameterizedTest(name = "normaliseUrl: {2} - from {0} to {1}")
@@ -141,6 +146,81 @@ class PulseOtelUtilsTest {
         value: Boolean,
     ) {
         assertThat(PulseOtelUtils.isNetworkSpan(span as? ReadableSpan ?: error("Not a ReadableSpan"))).isEqualTo(value)
+    }
+
+    @RepeatedTest(10)
+    fun `matchesFromRegexCache ensures thread safety by providing isolated Matcher per thread`() {
+        val threadCount = 100
+        val iterationsPerThread = 500
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val latch = CountDownLatch(threadCount)
+        val sharedPattern = "test\\d+"
+        val correctResults = AtomicInteger(0)
+        val incorrectResults = AtomicInteger(0)
+
+        repeat(threadCount) { _ ->
+            executor.submit {
+                repeat(iterationsPerThread) { iteration ->
+                    val matchingInput = "test$iteration"
+                    val nonMatchingInput = "fail$iteration"
+
+                    val matchResult = matchingInput.matchesFromRegexCache(sharedPattern)
+                    val mismatchResult = nonMatchingInput.matchesFromRegexCache(sharedPattern)
+
+                    if (matchResult && !mismatchResult) {
+                        correctResults.incrementAndGet()
+                    } else {
+                        incorrectResults.incrementAndGet()
+                    }
+                }
+                latch.countDown()
+            }
+        }
+
+        latch.await(10, TimeUnit.SECONDS)
+        executor.shutdown()
+        executor.awaitTermination(5, TimeUnit.SECONDS)
+
+        assertThat(incorrectResults.get()).isEqualTo(0)
+        assertThat(correctResults.get()).isEqualTo(threadCount * iterationsPerThread)
+    }
+
+    @RepeatedTest(10)
+    fun `matchesFromRegexCache handles concurrent cache population without race conditions`() {
+        val threadCount = 50
+        val uniquePatterns = 20
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val latch = CountDownLatch(threadCount)
+        val correctResults = AtomicInteger(0)
+        val incorrectResults = AtomicInteger(0)
+
+        repeat(threadCount) { threadId ->
+            executor.submit {
+                repeat(100) { iteration ->
+                    val patternIndex = (threadId + iteration) % uniquePatterns
+                    val pattern = "test$patternIndex\\d+"
+                    val matchingInput = "test${patternIndex}123"
+                    val nonMatchingInput = "fail${patternIndex}123"
+
+                    val matchResult = matchingInput.matchesFromRegexCache(pattern)
+                    val nonMatchResult = nonMatchingInput.matchesFromRegexCache(pattern)
+
+                    if (matchResult && !nonMatchResult) {
+                        correctResults.incrementAndGet()
+                    } else {
+                        incorrectResults.incrementAndGet()
+                    }
+                }
+                latch.countDown()
+            }
+        }
+
+        latch.await(10, TimeUnit.SECONDS)
+        executor.shutdown()
+        executor.awaitTermination(5, TimeUnit.SECONDS)
+
+        assertThat(incorrectResults.get()).isEqualTo(0)
+        assertThat(correctResults.get()).isEqualTo(threadCount * 100)
     }
 
     companion object {
