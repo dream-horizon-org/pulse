@@ -226,15 +226,22 @@ export function EngagementBreakdown({
     const userCountIndex = mauData.data.fields.indexOf("user_count");
     const sessionCountIndex = mauData.data.fields.indexOf("session_count");
 
+    // Helper to normalize empty segment names to "Unknown"
+    const normalizeSegmentName = (value: unknown): string => {
+      const segment = String(value || "").trim();
+      return segment === "" ? "Unknown" : segment;
+    };
+
     // Get DAU data
     const dauMap = new Map<string, number>();
     if (dauData.data.rows) {
       const dauSegmentIndex = dauData.data.fields.indexOf(segmentAlias);
       const dauUserIndex = dauData.data.fields.indexOf("user_count");
       dauData.data.rows.forEach((row) => {
-        const segment = String(row[dauSegmentIndex] || "");
+        const segment = normalizeSegmentName(row[dauSegmentIndex]);
         const users = parseFloat(row[dauUserIndex]) || 0;
-        dauMap.set(segment, users);
+        // Accumulate values for the same segment (e.g., multiple empty values -> "Unknown")
+        dauMap.set(segment, (dauMap.get(segment) || 0) + users);
       });
     }
 
@@ -244,43 +251,56 @@ export function EngagementBreakdown({
       const wauSegmentIndex = wauData.data.fields.indexOf(segmentAlias);
       const wauUserIndex = wauData.data.fields.indexOf("user_count");
       wauData.data.rows.forEach((row) => {
-        const segment = String(row[wauSegmentIndex] || "");
+        const segment = normalizeSegmentName(row[wauSegmentIndex]);
         const users = parseFloat(row[wauUserIndex]) || 0;
-        wauMap.set(segment, users);
+        wauMap.set(segment, (wauMap.get(segment) || 0) + users);
       });
     }
 
-    // Get MAU and Sessions data
-    const result: Array<{
-      name: string;
-      dau: number;
-      wau: number;
-      mau: number;
-      sessions: number;
-      wowChange: number;
-    }> = [];
+    // Get MAU and Sessions data - use a map to accumulate values for same segment
+    const resultMap = new Map<
+      string,
+      {
+        name: string;
+        dau: number;
+        wau: number;
+        mau: number;
+        sessions: number;
+        wowChange: number;
+      }
+    >();
 
     if (mauData.data.rows) {
       mauData.data.rows.forEach((row) => {
-        const segment = String(row[segmentNameIndex] || "");
+        const segment = normalizeSegmentName(row[segmentNameIndex]);
         const mau = parseFloat(row[userCountIndex]) || 0;
         const sessions = parseFloat(row[sessionCountIndex]) || 0;
-        const dau = dauMap.get(segment) || 0;
-        const wau = wauMap.get(segment) || 0;
 
-        // Calculate WoW change (placeholder - would need previous week data)
-        const wowChange = 0;
-
-        result.push({
-          name: segment,
-          dau: Math.round(dau),
-          wau: Math.round(wau),
-          mau: Math.round(mau),
-          sessions: Math.round(sessions),
-          wowChange,
-        });
+        const existing = resultMap.get(segment);
+        if (existing) {
+          existing.mau += mau;
+          existing.sessions += sessions;
+        } else {
+          resultMap.set(segment, {
+            name: segment,
+            dau: 0,
+            wau: 0,
+            mau,
+            sessions,
+            wowChange: 0,
+          });
+        }
       });
     }
+
+    // Merge DAU and WAU data into results
+    const result = Array.from(resultMap.values()).map((item) => ({
+      ...item,
+      dau: Math.round(dauMap.get(item.name) || 0),
+      wau: Math.round(wauMap.get(item.name) || 0),
+      mau: Math.round(item.mau),
+      sessions: Math.round(item.sessions),
+    }));
 
     return result.sort((a, b) => b.mau - a.mau);
   }, [

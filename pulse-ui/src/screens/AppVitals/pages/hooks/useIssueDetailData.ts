@@ -7,7 +7,7 @@ import type {
   ANRIssue,
   NonFatalIssue,
 } from "../../AppVitals.interface";
-
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 interface UseIssueDetailDataParams {
   groupId: string;
   startTime?: string;
@@ -95,7 +95,7 @@ export function useIssueDetailData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "arrayStringConcat(groupUniqArray(AppVersionCode), ', ')",
+            expression: `arrayStringConcat(groupUniqArray(${COLUMN_NAME.APP_VERSION}), ', ')`,
           },
           alias: "app_versions",
         },

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../hooks";
 import { useQueryError } from "../../../../hooks/useQueryError";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
-
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 interface StackTrace {
   timestamp: Date;
   device: string;
@@ -101,7 +101,7 @@ export function useIssueStackTraces({
         {
           function: "COL" as const,
           param: {
-            field: "AppVersionCode",
+            field: COLUMN_NAME.APP_VERSION,
           },
           alias: "app_version",
         },

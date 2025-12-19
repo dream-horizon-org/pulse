@@ -60,11 +60,22 @@ export function ActiveSessionsGraph({
     spanType,
   });
 
-  const { currentSessions, peakSessions, averageSessions, trendData } = data;
+  const { currentSessions, peakSessions, averageSessions, trendData, hasData } = data;
 
   if (isLoading) {
     return <GraphCardSkeleton title="Active Sessions" chartHeight={260} metricsCount={3} />;
   }
+
+  const formatMetricValue = (value: number | null, color: string) => {
+    if (value === null) {
+      return <Text className={classes.metricValue} c="dimmed">N/A</Text>;
+    }
+    return (
+      <Text className={classes.metricValue} style={{ color }}>
+        {value.toLocaleString()}
+      </Text>
+    );
+  };
 
   return (
     <div className={classes.graphCard}>
@@ -72,21 +83,15 @@ export function ActiveSessionsGraph({
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Current</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ec9c2" }}>
-            {currentSessions.toLocaleString()}
-          </Text>
+          {formatMetricValue(currentSessions, "#0ec9c2")}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Peak</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ba09a" }}>
-            {peakSessions.toLocaleString()}
-          </Text>
+          {formatMetricValue(peakSessions, "#0ba09a")}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Average</Text>
-          <Text className={classes.metricValue} style={{ color: "#2c3e50" }}>
-            {averageSessions.toLocaleString()}
-          </Text>
+          {formatMetricValue(averageSessions, "#2c3e50")}
         </div>
       </div>
       <div className={classes.chartContainer}>

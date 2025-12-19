@@ -159,12 +159,13 @@ export function useGetUserEngagementData({
   });
 
   // Transform daily data and calculate average
-  const { dailyUsers, trendData } = useMemo(() => {
+  const { dailyUsers, trendData, hasDailyData } = useMemo(() => {
     const responseData = dailyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        dailyUsers: 0,
+        dailyUsers: null,
         trendData: [],
+        hasDailyData: false,
       };
     }
 
@@ -180,19 +181,20 @@ export function useGetUserEngagementData({
     const avgDailyUsers =
       trend.length > 0
         ? Math.round(trend.reduce((sum, d) => sum + d.dau, 0) / trend.length)
-        : 0;
+        : null;
 
     return {
       dailyUsers: avgDailyUsers,
       trendData: trend,
+      hasDailyData: true,
     };
   }, [dailyData]);
 
   // Calculate weekly active users
-  const weeklyUsers = useMemo(() => {
+  const { weeklyUsers, hasWeeklyData } = useMemo(() => {
     const responseData = weeklyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return 0;
+      return { weeklyUsers: null, hasWeeklyData: false };
     }
 
     const userCountIndex = responseData.fields.indexOf("user_count");
@@ -201,14 +203,14 @@ export function useGetUserEngagementData({
       0,
     );
 
-    return total;
+    return { weeklyUsers: total, hasWeeklyData: true };
   }, [weeklyData]);
 
   // Calculate monthly active users
-  const monthlyUsers = useMemo(() => {
+  const { monthlyUsers, hasMonthlyData } = useMemo(() => {
     const responseData = monthlyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return 0;
+      return { monthlyUsers: null, hasMonthlyData: false };
     }
 
     const userCountIndex = responseData.fields.indexOf("user_count");
@@ -217,8 +219,10 @@ export function useGetUserEngagementData({
       0,
     );
 
-    return total;
+    return { monthlyUsers: total, hasMonthlyData: true };
   }, [monthlyData]);
+
+  const hasData = hasDailyData || hasWeeklyData || hasMonthlyData;
 
   const isLoading = isLoadingDaily || isLoadingWeekly || isLoadingMonthly;
   const error = null; // You can enhance this to capture errors from queries if needed
@@ -229,6 +233,7 @@ export function useGetUserEngagementData({
       weeklyUsers,
       monthlyUsers,
       trendData,
+      hasData,
     },
     isLoading,
     error,

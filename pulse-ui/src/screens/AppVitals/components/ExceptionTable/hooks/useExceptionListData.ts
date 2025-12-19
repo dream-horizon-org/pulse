@@ -11,7 +11,7 @@ import type {
   NonFatalIssue,
 } from "../../../AppVitals.interface";
 import { useExceptionTimestamps } from "./useExceptionTimestamps";
-
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 export type ExceptionType = "crash" | "anr" | "nonfatal";
 
 interface UseExceptionListDataParams {
@@ -72,7 +72,7 @@ export function useExceptionListData({
     // Add other filters
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ" as const,
         value: [appVersion],
       });

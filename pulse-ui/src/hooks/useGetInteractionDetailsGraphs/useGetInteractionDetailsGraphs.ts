@@ -193,35 +193,37 @@ export const useGetInteractionDetailsGraphs = ({
         color: "red",
       });
       return {
-        apdex: 0,
-        errorRate: 0,
-        p50: 0,
-        p95: 0,
-        frozenFrameRate: 0,
-        crashRate: 0,
-        anrRate: 0,
-        networkErrorRate: 0,
-        excellentUsersPercentage: "0%",
-        goodUsersPercentage: "0%",
-        averageUsersPercentage: "0%",
-        poorUsersPercentage: "0%",
+        apdex: null,
+        errorRate: null,
+        p50: null,
+        p95: null,
+        frozenFrameRate: null,
+        crashRate: null,
+        anrRate: null,
+        networkErrorRate: null,
+        excellentUsersPercentage: null,
+        goodUsersPercentage: null,
+        averageUsersPercentage: null,
+        poorUsersPercentage: null,
+        hasData: false,
       } as InteractionDetailsMetricsData;
     }
 
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        apdex: 0,
-        errorRate: 0,
-        p50: 0,
-        p95: 0,
-        frozenFrameRate: 0,
-        crashRate: 0,
-        anrRate: 0,
-        networkErrorRate: 0,
-        excellentUsersPercentage: "0%",
-        goodUsersPercentage: "0%",
-        averageUsersPercentage: "0%",
-        poorUsersPercentage: "0%",
+        apdex: null,
+        errorRate: null,
+        p50: null,
+        p95: null,
+        frozenFrameRate: null,
+        crashRate: null,
+        anrRate: null,
+        networkErrorRate: null,
+        excellentUsersPercentage: null,
+        goodUsersPercentage: null,
+        averageUsersPercentage: null,
+        poorUsersPercentage: null,
+        hasData: false,
       } as InteractionDetailsMetricsData;
     }
 
@@ -246,76 +248,115 @@ export const useGetInteractionDetailsGraphs = ({
 
     if (responseData.rows.length === 0) {
       return {
-        apdex: 0,
-        errorRate: 0,
-        p50: 0,
-        p95: 0,
-        frozenFrameRate: 0,
-        crashRate: 0,
-        anrRate: 0,
-        networkErrorRate: 0,
-        excellentUsersPercentage: "0%",
-        goodUsersPercentage: "0%",
-        averageUsersPercentage: "0%",
-        poorUsersPercentage: "0%",
+        apdex: null,
+        errorRate: null,
+        p50: null,
+        p95: null,
+        frozenFrameRate: null,
+        crashRate: null,
+        anrRate: null,
+        networkErrorRate: null,
+        excellentUsersPercentage: null,
+        goodUsersPercentage: null,
+        averageUsersPercentage: null,
+        poorUsersPercentage: null,
+        hasData: false,
       } as InteractionDetailsMetricsData;
     }
 
     const row = responseData.rows[0];
+    
+    // Calculate totals to determine if we have meaningful data
     const totalUsers =
-      parseFloat(row[userExcellentIndex]) +
-      parseFloat(row[userGoodIndex]) +
-      parseFloat(row[userAvgIndex]) +
-      parseFloat(row[userPoorIndex]);
-    const excellentUsersPercentage =
-      totalUsers > 0
-        ? (parseFloat(row[userExcellentIndex]) / totalUsers) * 100
-        : 0;
-    const goodUsersPercentage =
-      totalUsers > 0 ? (parseFloat(row[userGoodIndex]) / totalUsers) * 100 : 0;
-    const averageUsersPercentage =
-      totalUsers > 0 ? (parseFloat(row[userAvgIndex]) / totalUsers) * 100 : 0;
-    const poorUsersPercentage =
-      totalUsers > 0 ? (parseFloat(row[userPoorIndex]) / totalUsers) * 100 : 0;
+      (parseFloat(row[userExcellentIndex]) || 0) +
+      (parseFloat(row[userGoodIndex]) || 0) +
+      (parseFloat(row[userAvgIndex]) || 0) +
+      (parseFloat(row[userPoorIndex]) || 0);
+    
+    const successCount = parseFloat(row[successCountIndex]) || 0;
+    const errorCount = parseFloat(row[errorCountIndex]) || 0;
+    const totalRequests = successCount + errorCount;
 
     const totalFrames =
-      parseFloat(row[unanalysedFrameIndex]) +
-      parseFloat(row[analysedFrameIndex]);
+      (parseFloat(row[unanalysedFrameIndex]) || 0) +
+      (parseFloat(row[analysedFrameIndex]) || 0);
+
+    // If there's no meaningful data (no requests, no users), return null values
+    if (totalRequests === 0 && totalUsers === 0) {
+      return {
+        apdex: null,
+        errorRate: null,
+        p50: null,
+        p95: null,
+        frozenFrameRate: null,
+        crashRate: null,
+        anrRate: null,
+        networkErrorRate: null,
+        excellentUsersPercentage: null,
+        goodUsersPercentage: null,
+        averageUsersPercentage: null,
+        poorUsersPercentage: null,
+        hasData: false,
+      } as InteractionDetailsMetricsData;
+    }
+
+    // Calculate user percentages (null if no users)
+    const excellentUsersPercentage =
+      totalUsers > 0
+        ? ((parseFloat(row[userExcellentIndex]) || 0) / totalUsers) * 100
+        : null;
+    const goodUsersPercentage =
+      totalUsers > 0 
+        ? ((parseFloat(row[userGoodIndex]) || 0) / totalUsers) * 100 
+        : null;
+    const averageUsersPercentage =
+      totalUsers > 0 
+        ? ((parseFloat(row[userAvgIndex]) || 0) / totalUsers) * 100 
+        : null;
+    const poorUsersPercentage =
+      totalUsers > 0 
+        ? ((parseFloat(row[userPoorIndex]) || 0) / totalUsers) * 100 
+        : null;
+
+    // Calculate rate metrics (null if no requests)
+    const apdexValue = parseFloat(row[apdexIndex]);
+    const p50Value = parseFloat(row[p50Index]);
+    const p95Value = parseFloat(row[p95Index]);
 
     return {
-      apdex: parseFloat(row[apdexIndex]) || 0,
-      errorRate:
-        (parseFloat(row[errorCountIndex]) /
-          (parseFloat(row[successCountIndex]) +
-            parseFloat(row[errorCountIndex]))) *
-          100 || 0,
-      p50: parseFloat(row[p50Index]) || 0,
-      p95: parseFloat(row[p95Index]) || 0,
-      frozenFrameRate:
-        totalFrames > 0
-          ? (parseFloat(row[frozenFrameIndex]) / totalFrames) * 100
-          : 0,
-      crashRate:
-        (parseFloat(row[crashIndex]) /
-          (parseFloat(row[successCountIndex]) +
-            parseFloat(row[errorCountIndex]))) *
-          100 || 0,
-      anrRate:
-        (parseFloat(row[anrIndex]) /
-          (parseFloat(row[successCountIndex]) +
-            parseFloat(row[errorCountIndex]))) *
-          100 || 0,
-      excellentUsersPercentage: excellentUsersPercentage.toFixed(2) + "%",
-      goodUsersPercentage: goodUsersPercentage.toFixed(2) + "%",
-      averageUsersPercentage: averageUsersPercentage.toFixed(2) + "%",
-      poorUsersPercentage: poorUsersPercentage.toFixed(2) + "%",
-      networkErrorRate:
-        ((parseFloat(row[net0Index]) +
-          parseFloat(row[net4xxIndex]) +
-          parseFloat(row[net5xxIndex])) /
-          (parseFloat(row[successCountIndex]) +
-            parseFloat(row[errorCountIndex]))) *
-          100 || 0,
+      apdex: totalRequests > 0 ? (apdexValue || 0) : null,
+      errorRate: totalRequests > 0 
+        ? (errorCount / totalRequests) * 100 
+        : null,
+      p50: totalRequests > 0 ? (p50Value || 0) : null,
+      p95: totalRequests > 0 ? (p95Value || 0) : null,
+      frozenFrameRate: totalFrames > 0
+        ? ((parseFloat(row[frozenFrameIndex]) || 0) / totalFrames) * 100
+        : null,
+      crashRate: totalRequests > 0
+        ? ((parseFloat(row[crashIndex]) || 0) / totalRequests) * 100
+        : null,
+      anrRate: totalRequests > 0
+        ? ((parseFloat(row[anrIndex]) || 0) / totalRequests) * 100
+        : null,
+      excellentUsersPercentage: excellentUsersPercentage !== null 
+        ? excellentUsersPercentage.toFixed(2) + "%" 
+        : null,
+      goodUsersPercentage: goodUsersPercentage !== null 
+        ? goodUsersPercentage.toFixed(2) + "%" 
+        : null,
+      averageUsersPercentage: averageUsersPercentage !== null 
+        ? averageUsersPercentage.toFixed(2) + "%" 
+        : null,
+      poorUsersPercentage: poorUsersPercentage !== null 
+        ? poorUsersPercentage.toFixed(2) + "%" 
+        : null,
+      networkErrorRate: totalRequests > 0
+        ? (((parseFloat(row[net0Index]) || 0) +
+            (parseFloat(row[net4xxIndex]) || 0) +
+            (parseFloat(row[net5xxIndex]) || 0)) / totalRequests) * 100
+        : null,
+      hasData: totalRequests > 0 || totalUsers > 0,
     } as InteractionDetailsMetricsData;
   }, [metricsDataResponse, metricsError]);
 

@@ -102,7 +102,7 @@ export function useGetActiveSessionsData({
   });
 
   // Transform data and calculate metrics
-  const { currentSessions, peakSessions, averageSessions, trendData } =
+  const { currentSessions, peakSessions, averageSessions, trendData, hasData } =
     useMemo(() => {
       const responseData = data?.data;
       if (
@@ -111,10 +111,11 @@ export function useGetActiveSessionsData({
         responseData.rows.length === 0
       ) {
         return {
-          currentSessions: 0,
-          peakSessions: 0,
-          averageSessions: 0,
+          currentSessions: null,
+          peakSessions: null,
+          averageSessions: null,
           trendData: [],
+          hasData: false,
         };
       }
 
@@ -139,6 +140,7 @@ export function useGetActiveSessionsData({
         peakSessions: Math.round(peak),
         averageSessions: average,
         trendData: trend,
+        hasData: true,
       };
     }, [data]);
 
@@ -150,6 +152,7 @@ export function useGetActiveSessionsData({
       peakSessions,
       averageSessions,
       trendData,
+      hasData,
     },
     isLoading,
     error,

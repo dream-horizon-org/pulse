@@ -25,8 +25,18 @@ const OPERATOR_SYMBOLS: Record<string, string> = {
 
 const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  let result = `${hrs}h`;
+  if (mins > 0) result += ` ${mins}m`;
+  if (secs > 0) result += ` ${secs}s`;
+  return result;
 };
 
 const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });

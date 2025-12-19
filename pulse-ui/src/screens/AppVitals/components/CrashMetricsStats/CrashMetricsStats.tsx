@@ -5,6 +5,7 @@ import { useQueryError } from "../../../../hooks/useQueryError";
 import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./CrashMetricsStats.module.css";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";  
 
 interface CrashMetricsStatsProps {
   startTime: string;
@@ -38,7 +39,7 @@ export function CrashMetricsStats({
 
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ" as const,
         value: [appVersion],
       });
@@ -112,8 +113,9 @@ export function CrashMetricsStats({
     const responseData = data?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        crashFreeUsers: 0,
-        crashFreeSessions: 0,
+        crashFreeUsers: null,
+        crashFreeSessions: null,
+        hasData: false,
       };
     }
 
@@ -129,14 +131,24 @@ export function CrashMetricsStats({
     const allUsers = parseFloat(row[allUsersIndex]) || 0;
     const allSessions = parseFloat(row[allSessionsIndex]) || 0;
 
+    // If there are no users/sessions, we have no data to calculate from
+    if (allUsers === 0 && allSessions === 0) {
+      return {
+        crashFreeUsers: null,
+        crashFreeSessions: null,
+        hasData: false,
+      };
+    }
+
     const crashFreeUsers =
-      allUsers > 0 ? ((allUsers - crashUsers) / allUsers) * 100 : 0;
+      allUsers > 0 ? ((allUsers - crashUsers) / allUsers) * 100 : null;
     const crashFreeSessions =
-      allSessions > 0 ? ((allSessions - crashSessions) / allSessions) * 100 : 0;
+      allSessions > 0 ? ((allSessions - crashSessions) / allSessions) * 100 : null;
 
     return {
-      crashFreeUsers: parseFloat(crashFreeUsers.toFixed(2)),
-      crashFreeSessions: parseFloat(crashFreeSessions.toFixed(2)),
+      crashFreeUsers: crashFreeUsers !== null ? parseFloat(crashFreeUsers.toFixed(2)) : null,
+      crashFreeSessions: crashFreeSessions !== null ? parseFloat(crashFreeSessions.toFixed(2)) : null,
+      hasData: true,
     };
   }, [data]);
 
@@ -155,20 +167,25 @@ export function CrashMetricsStats({
     );
   }
 
+  const formatMetricValue = (value: number | null) => {
+    if (value === null) return "N/A";
+    return `${value}%`;
+  };
+
   return (
     <Box className={`${classes.statSection} ${classes.fadeIn}`}>
       <Text className={classes.sectionTitle}>Crash Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>Crash-Free Users</Text>
-          <Text className={classes.statValue} c="red">
-            {`${metrics.crashFreeUsers}%`}
+          <Text className={classes.statValue} c={metrics.crashFreeUsers !== null ? "red" : "dimmed"}>
+            {formatMetricValue(metrics.crashFreeUsers)}
           </Text>
         </Box>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>Crash-Free Sessions</Text>
-          <Text className={classes.statValue} c="red">
-            {`${metrics.crashFreeSessions}%`}
+          <Text className={classes.statValue} c={metrics.crashFreeSessions !== null ? "red" : "dimmed"}>
+            {formatMetricValue(metrics.crashFreeSessions)}
           </Text>
         </Box>
       </Box>

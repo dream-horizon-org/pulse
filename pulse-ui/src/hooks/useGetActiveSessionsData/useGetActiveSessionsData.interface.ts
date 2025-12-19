@@ -10,12 +10,13 @@ export interface UseGetActiveSessionsDataProps {
 }
 
 export interface ActiveSessionsData {
-  currentSessions: number;
-  peakSessions: number;
-  averageSessions: number;
+  currentSessions: number | null;
+  peakSessions: number | null;
+  averageSessions: number | null;
   trendData: Array<{
     timestamp: number;
     sessions: number;
   }>;
+  hasData: boolean;
 }
 

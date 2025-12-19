@@ -109,6 +109,10 @@ export function ScreensHealth({
             <ScreenCardSkeleton />
             <ScreenCardSkeleton />
           </>
+        ) : screensData.length === 0 ? (
+          <div className={classes.emptyState}>
+            <span className={classes.emptyStateText}>No screen data available</span>
+          </div>
         ) : (
           screensData.map((screen, index) => {
             const Icon = getScreenIcon(screen.screenType);

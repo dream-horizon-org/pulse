@@ -13,12 +13,13 @@ export interface UseGetUserEngagementDataProps {
 }
 
 export interface UserEngagementData {
-  dailyUsers: number;
-  weeklyUsers: number;
-  monthlyUsers: number;
+  dailyUsers: number | null;
+  weeklyUsers: number | null;
+  monthlyUsers: number | null;
   trendData: Array<{
     timestamp: number;
     dau: number;
   }>;
+  hasData: boolean;
 }
 

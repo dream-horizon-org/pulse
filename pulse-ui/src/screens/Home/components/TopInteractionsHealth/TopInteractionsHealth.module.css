@@ -83,3 +83,22 @@
 .interactionsGrid::-webkit-scrollbar-thumb:hover {
   background: rgba(14, 201, 194, 0.25);
 }
+
+/* Empty state styles */
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 1 / -1;
+  min-height: 180px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px dashed rgba(14, 201, 194, 0.3);
+  border-radius: 16px;
+  padding: var(--mantine-spacing-xl);
+}
+
+.emptyStateText {
+  font-size: 14px;
+  color: var(--mantine-color-dimmed);
+  font-weight: 500;
+}

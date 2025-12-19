@@ -350,3 +350,22 @@
   padding: 12px 8px;
   background: rgba(255, 255, 255, 0.95);
 }
+
+/* Empty state styles */
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 180px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px dashed rgba(14, 201, 194, 0.3);
+  border-radius: 16px;
+  padding: var(--mantine-spacing-xl);
+}
+
+.emptyStateText {
+  font-size: 14px;
+  color: var(--mantine-color-dimmed);
+  font-weight: 500;
+}

@@ -51,6 +51,10 @@ export function TopInteractionsHealth({
             <CardSkeleton height={180} showHeader contentRows={3} />
             <CardSkeleton height={180} showHeader contentRows={3} />
           </>
+        ) : topInteractionsData.length === 0 ? (
+          <div className={classes.emptyState}>
+            <span className={classes.emptyStateText}>No interaction data available</span>
+          </div>
         ) : (
           topInteractionsData.map((interaction) => (
             <InteractionCard

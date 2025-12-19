@@ -11,7 +11,7 @@ import {
   buildCommonFilters,
 } from "../../components/TrendGraphWithData/helpers/trendDataHelpers";
 import dayjs from "dayjs";
-
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 interface UseIssueTrendDataParams {
   groupId: string;
   startTime?: string;
@@ -92,7 +92,7 @@ export function useIssueTrendData({
     if (trendView === "appVersion") {
       baseFields.push({
         function: "COL" as const,
-        param: { field: "AppVersionCode" },
+        param: { field: COLUMN_NAME.APP_VERSION },
         alias: "app_version",
       });
     } else if (trendView === "os") {

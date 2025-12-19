@@ -5,6 +5,7 @@ import { useQueryError } from "../../../../hooks/useQueryError";
 import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./ANRMetricsStats.module.css";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 interface ANRMetricsStatsProps {
   startTime: string;
@@ -38,7 +39,7 @@ export function ANRMetricsStats({
 
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ" as const,
         value: [appVersion],
       });
@@ -112,8 +113,9 @@ export function ANRMetricsStats({
     const responseData = data?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        anrFreeUsers: 0,
-        anrFreeSessions: 0,
+        anrFreeUsers: null,
+        anrFreeSessions: null,
+        hasData: false,
       };
     }
 
@@ -129,14 +131,24 @@ export function ANRMetricsStats({
     const allUsers = parseFloat(row[allUsersIndex]) || 0;
     const allSessions = parseFloat(row[allSessionsIndex]) || 0;
 
+    // If there are no users/sessions, we have no data to calculate from
+    if (allUsers === 0 && allSessions === 0) {
+      return {
+        anrFreeUsers: null,
+        anrFreeSessions: null,
+        hasData: false,
+      };
+    }
+
     const anrFreeUsers =
-      allUsers > 0 ? ((allUsers - anrUsers) / allUsers) * 100 : 0;
+      allUsers > 0 ? ((allUsers - anrUsers) / allUsers) * 100 : null;
     const anrFreeSessions =
-      allSessions > 0 ? ((allSessions - anrSessions) / allSessions) * 100 : 0;
+      allSessions > 0 ? ((allSessions - anrSessions) / allSessions) * 100 : null;
 
     return {
-      anrFreeUsers: parseFloat(anrFreeUsers.toFixed(2)),
-      anrFreeSessions: parseFloat(anrFreeSessions.toFixed(2)),
+      anrFreeUsers: anrFreeUsers !== null ? parseFloat(anrFreeUsers.toFixed(2)) : null,
+      anrFreeSessions: anrFreeSessions !== null ? parseFloat(anrFreeSessions.toFixed(2)) : null,
+      hasData: true,
     };
   }, [data]);
 
@@ -155,20 +167,25 @@ export function ANRMetricsStats({
     );
   }
 
+  const formatMetricValue = (value: number | null) => {
+    if (value === null) return "N/A";
+    return `${value}%`;
+  };
+
   return (
     <Box className={`${classes.statSection} ${classes.fadeIn}`}>
       <Text className={classes.sectionTitle}>ANR Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>ANR-Free Users</Text>
-          <Text className={classes.statValue} c="orange">
-            {`${metrics.anrFreeUsers}%`}
+          <Text className={classes.statValue} c={metrics.anrFreeUsers !== null ? "orange" : "dimmed"}>
+            {formatMetricValue(metrics.anrFreeUsers)}
           </Text>
         </Box>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>ANR-Free Sessions</Text>
-          <Text className={classes.statValue} c="orange">
-            {`${metrics.anrFreeSessions}%`}
+          <Text className={classes.statValue} c={metrics.anrFreeSessions !== null ? "orange" : "dimmed"}>
+            {formatMetricValue(metrics.anrFreeSessions)}
           </Text>
         </Box>
       </Box>
