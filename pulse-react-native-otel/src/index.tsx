@@ -6,7 +6,21 @@ import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
 import { ErrorBoundary, withErrorBoundary } from './errorBoundary';
-import { useNavigationTracking, markContentReady } from './reactNavigation';
+import { markContentReady, type NavigationIntegrationOptions } from './navigation';
+import { createNavigationIntegrationWithConfig } from './config';
+import { useNavigationTracking as useNavigationTrackingBase } from './navigation/hooks';
+import type { RefObject } from 'react';
+
+const useNavigationTracking = (
+  navigationRef: RefObject<any>,
+  options?: NavigationIntegrationOptions
+) => {
+  return useNavigationTrackingBase(
+    navigationRef,
+    options,
+    createNavigationIntegrationWithConfig
+  );
+};
 
 export type { Span } from './trace';
 export type { PulseConfig, PulseStartOptions } from './config';
@@ -15,7 +29,7 @@ export type {
   ReactNavigationIntegration,
   NavigationRoute,
   NavigationIntegrationOptions,
-} from './reactNavigation';
+} from './navigation';
 
 export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 
