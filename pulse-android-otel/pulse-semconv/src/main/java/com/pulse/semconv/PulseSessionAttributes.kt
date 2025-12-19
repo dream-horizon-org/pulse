@@ -5,9 +5,14 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 
 public object PulseSessionAttributes {
-    private val PULSE_SESSION_ANR_COUNT = AttributeKey.longKey("pulse.session.anr.count")
-    private val PULSE_SESSION_CRASH_COUNT = AttributeKey.longKey("pulse.session.crash.count")
-    private val PULSE_SESSION_CRASH_NON_FATAL = AttributeKey.longKey("pulse.session.non_fatal.count")
+    @JvmField
+    public val PULSE_SESSION_ANR_COUNT: AttributeKey<Long> = AttributeKey.longKey("pulse.session.anr.count")
+
+    @JvmField
+    public val PULSE_SESSION_CRASH_COUNT: AttributeKey<Long> = AttributeKey.longKey("pulse.session.crash.count")
+
+    @JvmField
+    public val PULSE_SESSION_CRASH_NON_FATAL: AttributeKey<Long> = AttributeKey.longKey("pulse.session.non_fatal.count")
     private val PULSE_SESSION_SLOW_FRAMES_COUNT =
         AttributeKey.longKey("pulse.session.jank.frozen.count")
     private val PULSE_SESSION_FROZEN_FRAMES_COUNT =

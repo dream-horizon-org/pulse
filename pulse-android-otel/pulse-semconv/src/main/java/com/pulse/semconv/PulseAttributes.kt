@@ -2,6 +2,8 @@ package com.pulse.semconv
 
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.AttributeKey.stringKey
+import io.opentelemetry.semconv.AttributeKeyTemplate
+import io.opentelemetry.semconv.AttributeKeyTemplate.stringKeyTemplate
 
 public object PulseAttributes {
     /**
@@ -28,7 +30,13 @@ public object PulseAttributes {
         public const val SLOW: String = "app.jank.slow"
         public const val NON_FATAL: String = "non_fatal"
         public const val INTERACTION: String = "interaction"
-        public const val NETWORK: String = "network"
+        private const val NETWORK: String = "network"
         public const val NETWORK_CHANGE: String = "network.change"
+
+        @JvmField
+        public val PULSE_NETWORK: AttributeKeyTemplate<String> = stringKeyTemplate(NETWORK)
+
+        @JvmStatic
+        public fun isNetworkType(type: String): Boolean = type.startsWith("$NETWORK.")
     }
 }

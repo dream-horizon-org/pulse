@@ -13,13 +13,14 @@ public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field FROZEN Ljava/lang/String;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$PulseTypeValues;
 	public static final field INTERACTION Ljava/lang/String;
-	public static final field NETWORK Ljava/lang/String;
 	public static final field NETWORK_CHANGE Ljava/lang/String;
 	public static final field NON_FATAL Ljava/lang/String;
+	public static final field PULSE_NETWORK Lio/opentelemetry/semconv/AttributeKeyTemplate;
 	public static final field SCREEN_LOAD Ljava/lang/String;
 	public static final field SCREEN_SESSION Ljava/lang/String;
 	public static final field SLOW Ljava/lang/String;
 	public static final field TOUCH Ljava/lang/String;
+	public static final fun isNetworkType (Ljava/lang/String;)Z
 }
 
 public final class com/pulse/semconv/PulseInteractionAttributes {
@@ -35,6 +36,9 @@ public final class com/pulse/semconv/PulseInteractionAttributes {
 
 public final class com/pulse/semconv/PulseSessionAttributes {
 	public static final field INSTANCE Lcom/pulse/semconv/PulseSessionAttributes;
+	public static final field PULSE_SESSION_ANR_COUNT Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SESSION_CRASH_COUNT Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_SESSION_CRASH_NON_FATAL Lio/opentelemetry/api/common/AttributeKey;
 	public final fun createSessionEndAttributes (Ljava/util/Map;)Lio/opentelemetry/api/common/Attributes;
 }
 
