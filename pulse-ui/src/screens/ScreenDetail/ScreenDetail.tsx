@@ -109,13 +109,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
 
   // Filter handlers
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
+    // Update time filter options which now also updates startTime and endTime
     storeHandleTimeFilterChange(value);
-    const store = useFilterStore.getState();
-    store.handleFilterChange(
-      {} as any,
-      value.startDate || "",
-      value.endDate || "",
-    );
   };
 
   const handleIssueTypeChange = (value: string) => {
@@ -267,8 +262,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           {/* Detailed Graphs */}
           <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
             <TimeSpentGraph
-              avgTimeSpent={engagementData?.avgTimeSpent || 0}
-              avgLoadTime={engagementData?.avgLoadTime || 0}
+              avgTimeSpent={engagementData?.avgTimeSpent ?? null}
+              avgLoadTime={engagementData?.avgLoadTime ?? null}
               trendData={
                 engagementData?.trendData.map((d) => ({
                   timestamp: d.timestamp,
@@ -337,12 +332,15 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                   <Text className={vitalsClasses.statLabel}>
                     Screen Load Time
                   </Text>
-                  <Text className={vitalsClasses.statValue} c="teal">
-                    {engagementData?.avgLoadTime
+                  <Text 
+                    className={vitalsClasses.statValue} 
+                    c={engagementData?.avgLoadTime !== null && engagementData?.avgLoadTime !== undefined ? "teal" : "dimmed"}
+                  >
+                    {engagementData?.avgLoadTime !== null && engagementData?.avgLoadTime !== undefined
                       ? engagementData.avgLoadTime >= 1
                         ? `${engagementData.avgLoadTime.toFixed(1)}s`
                         : `${(engagementData.avgLoadTime * 1000).toFixed(0)}ms`
-                      : "0ms"}
+                      : "N/A"}
                   </Text>
                 </Box>
               </Box>

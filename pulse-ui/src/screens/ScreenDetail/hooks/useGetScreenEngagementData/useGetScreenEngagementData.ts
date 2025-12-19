@@ -17,9 +17,10 @@ interface UseGetScreenEngagementDataProps {
 }
 
 interface TransformedData {
-  avgTimeSpent: number;
-  avgLoadTime: number;
+  avgTimeSpent: number | null;
+  avgLoadTime: number | null;
   totalSessions: number;
+  hasData: boolean;
   trendData: Array<{
     timestamp: number;
     avgTimeSpent: number;
@@ -218,28 +219,34 @@ export function useGetScreenEngagementData({
       totalSessions += sessions;
       totalLoads += loads;
 
-      const avgTimeSpent = sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0; // Convert nanoseconds to seconds
-      const avgLoadTime = loads > 0 ? loadTime / loads / 1_000_000_000 : 0; // Convert nanoseconds to seconds
+      const avgTimeSpentVal = sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0; // Convert nanoseconds to seconds
+      const avgLoadTimeVal = loads > 0 ? loadTime / loads / 1_000_000_000 : 0; // Convert nanoseconds to seconds
 
       trend.push({
         timestamp,
-        avgTimeSpent: Math.round(avgTimeSpent * 10) / 10, // Round to 1 decimal
-        avgLoadTime: avgLoadTime,
+        avgTimeSpent: Math.round(avgTimeSpentVal * 100) / 100, // Round to 2 decimals for better precision
+        avgLoadTime: Math.round(avgLoadTimeVal * 100) / 100, // Round to 2 decimals
         sessionCount: Math.round(sessions),
       });
     });
+    
+    // Calculate overall averages - return null if no valid data
     const avgTimeSpent =
       totalSessions > 0
-        ? Math.round((totalTimeSpentSum / totalSessions / 1_000_000_000) * 10) / 10
-        : 0;
+        ? Math.round((totalTimeSpentSum / totalSessions / 1_000_000_000) * 100) / 100
+        : null;
     const avgLoadTime =
       totalLoads > 0
-        ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 10) / 10
-        : 0;
+        ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 100) / 100
+        : null;
+        
+    const hasData = totalSessions > 0 || totalLoads > 0 || trend.length > 0;
+    
     return {
       avgTimeSpent,
       avgLoadTime,
       totalSessions: Math.round(totalSessions),
+      hasData,
       trendData: trend,
     };
   }, [data]);

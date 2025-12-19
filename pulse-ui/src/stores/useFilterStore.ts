@@ -211,7 +211,12 @@ export const useFilterStore = create<FilterStore>()(
 
       handleTimeFilterChange: (options) => {
         const { filterValues, handleFilterChange } = get();
-        set({ timeFilterOptions: options });
+        // Update all time-related state
+        set({ 
+          timeFilterOptions: options,
+          startTime: options.startDate || "",
+          endTime: options.endDate || "",
+        });
 
         if (filterValues) {
           handleFilterChange(filterValues, options.startDate, options.endDate);
@@ -275,7 +280,13 @@ export const useFilterStore = create<FilterStore>()(
           subtractMinutes,
         );
 
-        set({ selectedTimeFilter: refreshedTimeFilter });
+        // Update all time-related state to ensure components get the refreshed values
+        set({ 
+          selectedTimeFilter: refreshedTimeFilter,
+          startTime: refreshedTimeFilter.startDate,
+          endTime: refreshedTimeFilter.endDate,
+          timeFilterOptions: refreshedTimeFilter,
+        });
       },
 
       initializeDateTimePickerState: (
@@ -285,6 +296,14 @@ export const useFilterStore = create<FilterStore>()(
         endTime,
         subtractMinutes = 2,
       ) => {
+        const currentState = get();
+        
+        // If the incoming times match what's already in the store, skip re-initialization
+        // This prevents overwriting times that were just set by refresh
+        if (currentState.startTime === startTime && currentState.endTime === endTime) {
+          return;
+        }
+        
         const defaultSelectedTimeFilter =
           selectedQuickTimeFilterIndex !== -1
             ? getStartAndEndDateTimeString(
@@ -381,8 +400,7 @@ export const useFilterStore = create<FilterStore>()(
       },
 
       handleDateTimeRefreshClick: (subractMinutes, handleTimefilterChange) => {
-        const { activeQuickTimeFilter, handleDateTimeRefreshButton } = get();
-
+        const { activeQuickTimeFilter } = get();
         const refreshedTimeFilter = getStartAndEndDateTimeString(
           CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[
             activeQuickTimeFilter
@@ -390,7 +408,15 @@ export const useFilterStore = create<FilterStore>()(
           subractMinutes,
         );
 
-        handleDateTimeRefreshButton(subractMinutes);
+        // Update all time-related state directly
+        set({ 
+          selectedTimeFilter: refreshedTimeFilter,
+          startTime: refreshedTimeFilter.startDate,
+          endTime: refreshedTimeFilter.endDate,
+          timeFilterOptions: refreshedTimeFilter,
+        });
+        
+        // Call the callback to notify the component
         handleTimefilterChange(refreshedTimeFilter);
       },
     }),

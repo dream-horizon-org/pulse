@@ -15,8 +15,8 @@ interface TimeSpentTrendData {
 }
 
 interface TimeSpentGraphProps {
-  avgTimeSpent: number;
-  avgLoadTime: number;
+  avgTimeSpent: number | null;
+  avgLoadTime: number | null;
   trendData: TimeSpentTrendData[];
   isLoading?: boolean;
   error?: Error | null;
@@ -61,14 +61,18 @@ export function TimeSpentGraph({
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Time Spent</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ec9c2" }}>
-            {avgTimeSpent.toFixed(1)}s
+          <Text className={classes.metricValue} style={{ color: avgTimeSpent !== null ? "#0ec9c2" : "var(--mantine-color-dimmed)" }}>
+            {avgTimeSpent !== null ? `${avgTimeSpent.toFixed(1)}s` : "N/A"}
           </Text>
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Load Time</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ba09a" }}>
-            {avgLoadTime >= 1 ? `${avgLoadTime.toFixed(1)}s` : `${(avgLoadTime * 1000).toFixed(0)}ms`}
+          <Text className={classes.metricValue} style={{ color: avgLoadTime !== null ? "#0ba09a" : "var(--mantine-color-dimmed)" }}>
+            {avgLoadTime !== null
+              ? avgLoadTime >= 1
+                ? `${avgLoadTime.toFixed(1)}s`
+                : `${(avgLoadTime * 1000).toFixed(0)}ms`
+              : "N/A"}
           </Text>
         </div>
       </div>
@@ -81,9 +85,22 @@ export function TimeSpentGraph({
             tooltip: {
               trigger: "axis",
               formatter: createTooltipFormatter({
-                valueFormatter: (value: any) => {
+                valueFormatter: (value: any, seriesName?: string) => {
                   const numericValue = Array.isArray(value) ? value[1] : value;
-                  return `${parseFloat(numericValue).toFixed(1)}s`;
+                  const parsed = parseFloat(numericValue);
+                  
+                  // Handle zero or very small values
+                  if (parsed === 0 || isNaN(parsed)) {
+                    return "N/A";
+                  }
+                  
+                  // For load time, show in ms if less than 1 second
+                  if (seriesName?.includes("Load") && parsed < 1) {
+                    return `${(parsed * 1000).toFixed(0)}ms`;
+                  }
+                  
+                  // For time spent or values >= 1s, show in seconds
+                  return `${parsed.toFixed(2)}s`;
                 },
                 customHeaderFormatter: (axisValue: any) => {
                   if (axisValue && typeof axisValue === "number") {
