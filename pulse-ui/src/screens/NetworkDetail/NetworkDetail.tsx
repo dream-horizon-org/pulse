@@ -111,9 +111,10 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   const formatToUTC = (time: string): string => {
     if (!time) return "";
     if (time.includes("T") || time.includes("Z")) {
-      return time;
+      return dayjs.utc(time).toISOString();
     }
-    return dayjs.utc(time).toISOString();
+    // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+    return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
   };
 
   // Build common filters from applied filters

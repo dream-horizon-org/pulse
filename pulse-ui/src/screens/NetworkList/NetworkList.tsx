@@ -133,12 +133,12 @@ export function NetworkList({
     // Format times to UTC ISO format
     const formatToUTC = (time: string): string => {
       if (!time) return "";
-      // If already in ISO format, return as is
+      // If already in ISO format, parse and ensure valid
       if (time.includes("T") || time.includes("Z")) {
-        return time;
+        return dayjs.utc(time).toISOString();
       }
-      // Convert "YYYY-MM-DD HH:mm:ss" to UTC ISO format
-      return dayjs.utc(time).toISOString();
+      // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+      return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
     };
 
 

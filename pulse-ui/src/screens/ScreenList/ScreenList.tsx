@@ -2,12 +2,15 @@ import classes from "./ScreenList.module.css";
 
 import { Box, Group, ScrollArea, TextInput } from "@mantine/core";
 
-import { ROUTES } from "../../constants";
+import {
+  ROUTES,
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
+} from "../../constants";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useGetScreenNames } from "../../hooks/useGetScreenNames";
 import { useGetScreenDetails } from "../../hooks/useGetScreenDetails";
-import { getDateFilterDetails } from "./utils";
 import { ScreenCard } from "./components/ScreenCard";
 import { ScreenCardSkeleton } from "./components/ScreenCardSkeleton";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
@@ -15,6 +18,10 @@ import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { SCREEN_LISTING_PAGE_CONSTANTS } from "./ScreenList.constants";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { CardSkeleton } from "../../components/Skeletons";
+import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
+import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
+import { useFilterStore } from "../../stores/useFilterStore";
+import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 
 export function ScreenList() {
   const navigate = useNavigate();
@@ -32,6 +39,35 @@ export function ScreenList() {
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Use filter store for time range state
+  const {
+    startTime: storeStartTime,
+    endTime: storeEndTime,
+    quickTimeRangeString,
+    quickTimeRangeFilterIndex,
+    handleTimeFilterChange: storeHandleTimeFilterChange,
+    initializeFromUrlParams,
+  } = useFilterStore();
+
+  // Initialize default time range (Last 24 hours)
+  const getDefaultTimeRange = () => {
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
+  };
+
+  // Initialize filter store from URL params
+  useEffect(() => {
+    initializeFromUrlParams(searchParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Use store values for time range
+  const startTime = storeStartTime || getDefaultTimeRange().startDate;
+  const endTime = storeEndTime || getDefaultTimeRange().endDate;
+
+  const handleTimeFilterChange = (value: StartEndDateTimeType) => {
+    storeHandleTimeFilterChange(value);
+  };
+
   useEffect(() => {
     setSearchParams(
       filtersToQueryString({
@@ -41,21 +77,6 @@ export function ScreenList() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchStr]);
-
-  // Get date filter details and memoize to prevent infinite loops
-  const { startTime: startTimeStr, endTime: endTimeStr } = useMemo(
-    () => getDateFilterDetails(),
-    [],
-  );
-
-  // Convert date strings to ISO format for API
-  const startTime = useMemo(() => {
-    return startTimeStr;
-  }, [startTimeStr]);
-
-  const endTime = useMemo(() => {
-    return endTimeStr;
-  }, [endTimeStr]);
 
   // First hook: Get screen names (for skeleton cards)
   // Use debounced search string for API calls
@@ -206,6 +227,20 @@ export function ScreenList() {
             onChange={handleSearchChange}
             size="sm"
             value={searchStr}
+          />
+          <DateTimeRangePicker
+            handleTimefilterChange={handleTimeFilterChange}
+            selectedQuickTimeFilterIndex={
+              quickTimeRangeFilterIndex !== null
+                ? quickTimeRangeFilterIndex
+                : DEFAULT_QUICK_TIME_FILTER_INDEX
+            }
+            defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterString={
+              quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER
+            }
+            defaultEndTime={endTime}
+            defaultStartTime={startTime}
           />
         </Group>
       </Box>

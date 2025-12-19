@@ -6,6 +6,9 @@ import {
 } from "./useGetDataQuery.interface";
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
 
 export const useGetDataQuery = ({
   requestBody,
@@ -14,10 +17,20 @@ export const useGetDataQuery = ({
 }: GetDataQueryParams) => {
   const dataQuery = API_ROUTES.DATA_QUERY;
 
+  // Format times to ISO string
+  // If the time is already in ISO format (contains 'T' or 'Z'), parse it directly
+  // Otherwise, parse it as UTC (since getStartAndEndDateTimeString returns UTC times in "YYYY-MM-DD HH:mm:ss" format)
+  const formatTime = (time: string): string => {
+    if (time.includes("T") || time.includes("Z")) {
+      // Already ISO format, just ensure it's valid
+      return dayjs.utc(time).toISOString();
+    }
+    // Parse as UTC since the time string is already in UTC
+    return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
+  };
 
-  // make sure we send the start and end time in the correct format
-  const formattedStartTime = dayjs(requestBody.timeRange.start).toISOString();
-  const formattedEndTime = dayjs(requestBody.timeRange.end).toISOString();
+  const formattedStartTime = formatTime(requestBody.timeRange.start);
+  const formattedEndTime = formatTime(requestBody.timeRange.end);
 
   const modifiedRequestBody = {
     ...requestBody,

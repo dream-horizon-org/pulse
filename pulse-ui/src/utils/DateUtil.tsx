@@ -296,3 +296,23 @@ export function getHumanReadableLocalStringFromUTCEpoch(value: number) {
 export function getCurrentEpochSeconds(): number {
   return Math.floor(dayjs.utc().valueOf() / 1000);
 }
+
+/**
+ * Converts a time string to ISO format (UTC).
+ * Handles both "YYYY-MM-DD HH:mm:ss" format (from getStartAndEndDateTimeString)
+ * and ISO format (contains 'T' or 'Z').
+ * 
+ * @param time - The time string to convert
+ * @returns ISO formatted UTC string, or empty string if input is empty
+ */
+export function formatTimeToISO(time: string): string {
+  if (!time) return "";
+  
+  // If already in ISO format (contains 'T' or 'Z'), parse and ensure valid
+  if (time.includes("T") || time.includes("Z")) {
+    return dayjs.utc(time).toISOString();
+  }
+  
+  // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+  return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
+}
