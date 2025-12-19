@@ -184,8 +184,6 @@ export function ScreenList() {
               <ScreenCard
                 key={screenName}
                 screenName={screenName}
-                startTime={startTime}
-                endTime={endTime}
                 staticAvgTimeSpent={screenDetails?.avgTimeSpent}
                 staticCrashRate={screenDetails?.errorRate}
                 staticLoadTime={screenDetails?.loadTime}
