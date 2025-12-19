@@ -624,7 +624,7 @@ describe('parseUrl with searchParams', () => {
 
   it('searchParams handles URL-encoded GraphQL parameters', () => {
     const url =
-      'https://www.fancode.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment';
+      'https://api.example.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment';
     const parsed = parseUrl(url);
     expect(parsed?.searchParams.get('operationName')).toBe('NudgeSegment');
     expect(parsed?.searchParams.get('operation')).toBe('query');

@@ -35,7 +35,7 @@ describe('graphql-helper', () => {
       });
 
       it('detects GraphQL in full path', () => {
-        expect(isGraphQLRequest('https://www.fancode.com/graphql')).toBe(true);
+        expect(isGraphQLRequest('https://api.example.com/graphql')).toBe(true);
       });
     });
 
@@ -350,7 +350,7 @@ describe('graphql-helper', () => {
 
       it('handles APQ GET request with extensions', () => {
         const url =
-          'https://www.fancode.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment';
+          'https://api.example.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment';
 
         const result = updateAttributesWithGraphQLData(url);
 
@@ -631,7 +631,7 @@ describe('graphql-helper', () => {
     });
 
     describe('real-world scenarios', () => {
-      it('handles FanCode GraphQL POST request', () => {
+      it('handles GraphQL POST request with complex query', () => {
         const body = JSON.stringify({
           operationName: 'ClientInfo',
           operation: 'query',
@@ -640,7 +640,7 @@ describe('graphql-helper', () => {
         });
 
         const result = updateAttributesWithGraphQLData(
-          'https://www.fancode.com/graphql',
+          'https://api.example.com/graphql',
           body
         );
 
@@ -650,9 +650,9 @@ describe('graphql-helper', () => {
         });
       });
 
-      it('handles FanCode GraphQL GET request with APQ', () => {
+      it('handles GraphQL GET request with APQ', () => {
         const url =
-          'https://www.fancode.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment&variables=%7B%22input%22%3A%7B%22adIdentity%22%3A%22AD_ROADBLOCK_NATIVE_NUDGE%22%7D%7D';
+          'https://api.example.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment&variables=%7B%22input%22%3A%7B%22adIdentity%22%3A%22AD_ROADBLOCK_NATIVE_NUDGE%22%7D%7D';
 
         const result = updateAttributesWithGraphQLData(url);
 
@@ -667,11 +667,11 @@ describe('graphql-helper', () => {
           operationName: 'userCollectionsV5',
           operation: 'query',
           query:
-            'query userCollectionsV5($userPref: UserPreferencesInput!, $countryId: Int!) {\\n  userCollectionsV5(userPref: $userPref, countryId: $countryId) {\\n    collections {\\n      ...CasaFanCollectionPill\\n    }\\n  }\\n}\\nfragment CasaFanCollectionPill on FanCollection {\\n  id\\n  name\\n}',
+            'query userCollectionsV5($userPref: UserPreferencesInput!, $countryId: Int!) {\\n  userCollectionsV5(userPref: $userPref, countryId: $countryId) {\\n    collections {\\n      ...CollectionPill\\n    }\\n  }\\n}\\nfragment CollectionPill on Collection {\\n  id\\n  name\\n}',
         });
 
         const result = updateAttributesWithGraphQLData(
-          'https://www.fancode.com/graphql',
+          'https://api.example.com/graphql',
           body
         );
 
