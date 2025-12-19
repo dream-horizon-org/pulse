@@ -10,6 +10,11 @@ interface StackTrace {
   appVersion: string;
   trace: string;
   logId?: string;
+  title?: string;
+  screenName?: string;
+  platform?: string;
+  errorMessage?: string;
+  errorType?: string;
 }
 
 interface UseIssueStackTracesParams {
@@ -115,6 +120,13 @@ export function useIssueStackTraces({
         {
           function: "COL" as const,
           param: {
+            field: "ExceptionStackTraceRaw",
+          },
+          alias: "stacktrace_raw",
+        },
+        {
+          function: "COL" as const,
+          param: {
             field: "ExceptionMessage",
           },
           alias: "error_message",
@@ -125,6 +137,27 @@ export function useIssueStackTraces({
             field: "ExceptionType",
           },
           alias: "error_type",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "Title",
+          },
+          alias: "title",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "ScreenName",
+          },
+          alias: "screen_name",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "Platform",
+          },
+          alias: "platform",
         },
       ],
       orderBy: [
@@ -162,7 +195,12 @@ export function useIssueStackTraces({
     const osVersionIndex = fields.indexOf("os_version");
     const appVersionIndex = fields.indexOf("app_version");
     const stacktraceIndex = fields.indexOf("stacktrace");
+    const stacktraceRawIndex = fields.indexOf("stacktrace_raw");
     const errorMessageIndex = fields.indexOf("error_message");
+    const errorTypeIndex = fields.indexOf("error_type");
+    const titleIndex = fields.indexOf("title");
+    const screenNameIndex = fields.indexOf("screen_name");
+    const platformIndex = fields.indexOf("platform");
 
     return responseData.rows.map((row) => {
       const traceId = row[traceIdIndex] || "";
@@ -172,10 +210,15 @@ export function useIssueStackTraces({
       const osVersion = row[osVersionIndex] || "Unknown OS";
       const appVersion = row[appVersionIndex] || "Unknown Version";
       const stacktrace = row[stacktraceIndex] || "";
+      const stacktraceRaw = row[stacktraceRawIndex] || "";
       const errorMessage = row[errorMessageIndex] || "";
+      const errorType = row[errorTypeIndex] || "";
+      const title = row[titleIndex] || "";
+      const screenName = row[screenNameIndex] || "";
+      const platform = row[platformIndex] || "";
 
-      // Use stacktrace if available, otherwise use error message
-      const trace = stacktrace || errorMessage || "No stack trace available";
+      // Use stacktrace if available, fallback to raw stacktrace, then error message
+      const trace = stacktrace || stacktraceRaw || errorMessage || "No stack trace available";
 
       // Use traceId + spanId as unique identifier
       const logId =
@@ -190,6 +233,11 @@ export function useIssueStackTraces({
         appVersion,
         trace,
         logId,
+        title: title || errorType || "Unknown Error",
+        screenName: screenName || undefined,
+        platform: platform || undefined,
+        errorMessage: errorMessage || undefined,
+        errorType: errorType || undefined,
       };
     });
   }, [data]);

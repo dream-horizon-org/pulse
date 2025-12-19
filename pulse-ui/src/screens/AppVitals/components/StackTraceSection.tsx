@@ -16,6 +16,11 @@ interface StackTrace {
   osVersion: string;
   appVersion: string;
   trace: string;
+  title?: string;
+  screenName?: string;
+  platform?: string;
+  errorMessage?: string;
+  errorType?: string;
 }
 
 interface StackTraceSectionProps {
@@ -94,11 +99,31 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
         </Group>
       </Box>
 
+      {/* Title/Error Type Header */}
+      {currentTrace?.title && (
+        <Paper className={classes.titleHeader}>
+          <Text className={classes.errorTitle}>{currentTrace.title}</Text>
+          {currentTrace?.errorMessage && currentTrace.errorMessage !== currentTrace.title && (
+            <Text className={classes.errorMessage} lineClamp={2}>
+              {currentTrace.errorMessage}
+            </Text>
+          )}
+        </Paper>
+      )}
+
       {/* Compact Header with Device Info and Actions */}
       <Paper className={classes.compactHeader}>
-        <Group justify="space-between" align="center">
+        <Group justify="space-between" align="center" wrap="wrap" gap="sm">
           {/* Left: Device Info */}
-          <Group gap="lg">
+          <Group gap="lg" wrap="wrap">
+            {currentTrace?.platform && (
+              <Group gap={6}>
+                <Text className={classes.infoLabel}>Platform:</Text>
+                <Text className={classes.infoValue}>
+                  {currentTrace.platform}
+                </Text>
+              </Group>
+            )}
             <Group gap={6}>
               <Text className={classes.infoLabel}>Device:</Text>
               <Text className={classes.infoValue}>
@@ -117,6 +142,14 @@ export const StackTraceSection: React.FC<StackTraceSectionProps> = ({
                 {currentTrace?.appVersion || "Unknown Version"}
               </Text>
             </Group>
+            {currentTrace?.screenName && (
+              <Group gap={6}>
+                <Text className={classes.infoLabel}>Screen:</Text>
+                <Text className={classes.infoValue}>
+                  {currentTrace.screenName}
+                </Text>
+              </Group>
+            )}
           </Group>
 
           {/* Right: Timestamp */}

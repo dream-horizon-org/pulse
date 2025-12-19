@@ -36,7 +36,7 @@ export const useGetScreenNames = ({
         operator: "LIKE" as const,
         // Send search string - API might handle partial matching
         // If not, we filter client-side in the screenNames useMemo
-        value: `${searchStr.trim()}`,
+        value: [`%${searchStr.trim()}%`],
       });
     }
 

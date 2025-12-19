@@ -218,7 +218,7 @@ export const IssueDetail: React.FC = () => {
       </Button>
 
       {/* Issue Details */}
-      <IssueDetailsCard issue={issue} issueType={issueType} />
+      <IssueDetailsCard issue={issue} issueType={issueType} groupId={groupId || ""}/>
 
       {/* Occurrence Section */}
       <OccurrenceSection
