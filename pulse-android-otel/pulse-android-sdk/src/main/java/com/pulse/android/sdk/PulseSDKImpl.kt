@@ -4,6 +4,7 @@
 package com.pulse.android.sdk
 
 import android.app.Application
+import android.content.Context
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
 import com.pulse.semconv.PulseAttributes
@@ -48,6 +49,7 @@ internal class PulseSDKImpl : PulseSDK {
         if (isInitialized()) {
             return
         }
+        this.application = application
         pulseSpanProcessor = PulseSignalProcessor()
         val config = OtelRumConfig()
         val (tracerProviderCustomizer, loggerProviderCustomizer) = createSignalsProcessors(config)
@@ -71,8 +73,8 @@ internal class PulseSDKImpl : PulseSDK {
                             )
                         }
                     }
-                    if (userId != null) {
-                        attributesBuilder.put(UserIncubatingAttributes.USER_ID, userId)
+                    if (userSessionEmitter.userId != null) {
+                        attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                     }
                     if (globalAttributes != null) {
                         attributesBuilder.putAll(globalAttributes.invoke())
@@ -134,7 +136,7 @@ internal class PulseSDKImpl : PulseSDK {
     }
 
     override fun setUserId(id: String?) {
-        userId = id
+        userSessionEmitter.userId = id
     }
 
     override fun setUserProperty(
@@ -246,7 +248,12 @@ internal class PulseSDKImpl : PulseSDK {
 
     override fun getOtelOrNull(): OpenTelemetryRum? = otelInstance
 
-    override fun getOtelOrThrow(): OpenTelemetryRum = otelInstance ?: error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
+    override fun getOtelOrThrow(): OpenTelemetryRum = otelInstance ?: throwSdkNotInitError()
+
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun throwSdkNotInitError(): Nothing {
+        error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
+    }
 
     private val logger: Logger by lazy {
         getOtelOrThrow()
@@ -264,13 +271,25 @@ internal class PulseSDKImpl : PulseSDK {
             .build()
     }
 
+    private val sharedPrefsData by lazy {
+        val application = application ?: throwSdkNotInitError()
+        application.getSharedPreferences(
+            "pulse_sdk_data",
+            Context.MODE_PRIVATE,
+        )
+    }
+
+    private val userSessionEmitter: PulseUserSessionEmitter by lazy {
+        PulseUserSessionEmitter(logger, sharedPrefsData)
+    }
+
     private var isInitialised: Boolean = false
 
     private lateinit var pulseSpanProcessor: PulseSignalProcessor
     private var otelInstance: OpenTelemetryRum? = null
 
-    private var userId: String? = null
     private val userProps = ConcurrentHashMap<String, Any>()
+    private var application: Application? = null
 
     internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
