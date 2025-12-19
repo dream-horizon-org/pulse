@@ -1,13 +1,15 @@
+import { isGraphQLRequest } from '../network-interceptor/graphql-helper';
 import {
   parseUrl,
   extractHttpAttributes,
+  SearchParams,
 } from '../network-interceptor/url-helper';
 
 describe('parseUrl', () => {
   describe('valid URLs', () => {
     it('parses a simple HTTP URL', () => {
       const result = parseUrl('http://example.com');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'http:',
         hostname: 'example.com',
         host: 'example.com',
@@ -17,11 +19,13 @@ describe('parseUrl', () => {
         hash: '',
         href: 'http://example.com',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses a simple HTTPS URL', () => {
       const result = parseUrl('https://example.com');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -31,11 +35,13 @@ describe('parseUrl', () => {
         hash: '',
         href: 'https://example.com',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with pathname', () => {
       const result = parseUrl('https://api.example.com/users/123');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'api.example.com',
         host: 'api.example.com',
@@ -45,11 +51,13 @@ describe('parseUrl', () => {
         hash: '',
         href: 'https://api.example.com/users/123',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with port', () => {
       const result = parseUrl('http://localhost:8080/api');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'http:',
         hostname: 'localhost',
         host: 'localhost:8080',
@@ -59,11 +67,13 @@ describe('parseUrl', () => {
         hash: '',
         href: 'http://localhost:8080/api',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with query string', () => {
       const result = parseUrl('https://example.com/search?q=test&page=1');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -73,11 +83,14 @@ describe('parseUrl', () => {
         hash: '',
         href: 'https://example.com/search?q=test&page=1',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('q')).toBe('test');
+      expect(result?.searchParams.get('page')).toBe('1');
     });
 
     it('parses URL with hash', () => {
       const result = parseUrl('https://example.com/docs#section');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -87,13 +100,15 @@ describe('parseUrl', () => {
         hash: '#section',
         href: 'https://example.com/docs#section',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with all components', () => {
       const result = parseUrl(
         'https://api.example.com:443/users?id=123&active=true#profile'
       );
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'api.example.com',
         host: 'api.example.com:443',
@@ -103,11 +118,14 @@ describe('parseUrl', () => {
         hash: '#profile',
         href: 'https://api.example.com:443/users?id=123&active=true#profile',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('id')).toBe('123');
+      expect(result?.searchParams.get('active')).toBe('true');
     });
 
     it('parses URL with authentication', () => {
       const result = parseUrl('https://user:pass@example.com/api');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -117,11 +135,13 @@ describe('parseUrl', () => {
         hash: '',
         href: 'https://user:pass@example.com/api',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with subdomain', () => {
       const result = parseUrl('https://api.v2.example.com/users');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'https:',
         hostname: 'api.v2.example.com',
         host: 'api.v2.example.com',
@@ -131,11 +151,13 @@ describe('parseUrl', () => {
         hash: '',
         href: 'https://api.v2.example.com/users',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with IP address', () => {
       const result = parseUrl('http://192.168.1.1:3000/api');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         protocol: 'http:',
         hostname: '192.168.1.1',
         host: '192.168.1.1:3000',
@@ -145,6 +167,8 @@ describe('parseUrl', () => {
         hash: '',
         href: 'http://192.168.1.1:3000/api',
       });
+      expect(result?.searchParams).toBeInstanceOf(SearchParams);
+      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses FTP URL (protocol only)', () => {
@@ -503,5 +527,148 @@ describe('extractHttpAttributes', () => {
       expect(typeof result['net.peer.port']).toBe('number');
       expect(result['net.peer.port']).toBe(8080);
     });
+  });
+});
+
+describe('isGraphQLRequest', () => {
+  describe('GraphQL URL detection', () => {
+    it('detects GraphQL in URL path', () => {
+      expect(isGraphQLRequest('https://api.example.com/graphql')).toBe(true);
+    });
+
+    it('detects GraphQL in URL path (case insensitive)', () => {
+      expect(isGraphQLRequest('https://api.example.com/GRAPHQL')).toBe(true);
+      expect(isGraphQLRequest('https://api.example.com/GraphQL')).toBe(true);
+      expect(isGraphQLRequest('https://api.example.com/gRaPhQl')).toBe(true);
+    });
+
+    it('detects GraphQL in subpath', () => {
+      expect(isGraphQLRequest('https://api.example.com/api/v1/graphql')).toBe(
+        true
+      );
+    });
+
+    it('detects GraphQL with query params', () => {
+      expect(
+        isGraphQLRequest(
+          'https://api.example.com/graphql?operationName=Test&operation=query'
+        )
+      ).toBe(true);
+    });
+
+    it('returns false for non-GraphQL URLs', () => {
+      expect(isGraphQLRequest('https://api.example.com/api/users')).toBe(false);
+      expect(isGraphQLRequest('https://api.example.com/rest')).toBe(false);
+    });
+
+    it('returns false for empty string', () => {
+      expect(isGraphQLRequest('')).toBe(false);
+    });
+
+    it('returns false for null', () => {
+      expect(isGraphQLRequest(null as any)).toBe(false);
+    });
+  });
+});
+
+describe('SearchParams', () => {
+  describe('constructor and basic parsing', () => {
+    it('parses simple query string', () => {
+      const params = new SearchParams('?key=value');
+      expect(params.get('key')).toBe('value');
+    });
+
+    it('parses query string without leading ?', () => {
+      const params = new SearchParams('key=value');
+      expect(params.get('key')).toBe('value');
+    });
+
+    it('parses multiple parameters', () => {
+      const params = new SearchParams('?key1=value1&key2=value2');
+      expect(params.get('key1')).toBe('value1');
+      expect(params.get('key2')).toBe('value2');
+    });
+
+    it('parses empty query string', () => {
+      const params = new SearchParams('');
+      expect(params.get('any')).toBeNull();
+    });
+  });
+
+  describe('URL decoding', () => {
+    it('decodes URL-encoded values', () => {
+      const params = new SearchParams('?name=John%20Doe');
+      expect(params.get('name')).toBe('John Doe');
+    });
+
+    it('decodes GraphQL operationName with special chars', () => {
+      const params = new SearchParams(
+        '?operationName=GetUser%20Profile&operation=query'
+      );
+      expect(params.get('operationName')).toBe('GetUser Profile');
+    });
+  });
+
+  describe('get method', () => {
+    it('returns null for non-existent parameter', () => {
+      const params = new SearchParams('?key=value');
+      expect(params.get('nonexistent')).toBeNull();
+    });
+
+    it('returns value for existing parameter', () => {
+      const params = new SearchParams('?operationName=TestQuery');
+      expect(params.get('operationName')).toBe('TestQuery');
+    });
+  });
+
+  describe('has method', () => {
+    it('returns true for existing parameter', () => {
+      const params = new SearchParams('?key=value');
+      expect(params.has('key')).toBe(true);
+    });
+
+    it('returns false for non-existent parameter', () => {
+      const params = new SearchParams('?key=value');
+      expect(params.has('nonexistent')).toBe(false);
+    });
+  });
+
+  describe('GraphQL-specific query parameters', () => {
+    it('parses GraphQL GET request with operationName and operation', () => {
+      const params = new SearchParams(
+        '?operationName=FetchScheduleFilters&operation=query'
+      );
+      expect(params.get('operationName')).toBe('FetchScheduleFilters');
+      expect(params.get('operation')).toBe('query');
+    });
+
+    it('parses GraphQL GET request with APQ extensions', () => {
+      const searchString =
+        '?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment';
+      const params = new SearchParams(searchString);
+      expect(params.get('operationName')).toBe('NudgeSegment');
+      expect(params.get('operation')).toBe('query');
+      expect(params.has('extensions')).toBe(true);
+    });
+  });
+});
+
+describe('parseUrl with searchParams', () => {
+  it('includes searchParams in parsed URL', () => {
+    const parsed = parseUrl(
+      'https://example.com/graphql?operationName=Test&operation=query'
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed?.searchParams).toBeInstanceOf(SearchParams);
+    expect(parsed?.searchParams.get('operationName')).toBe('Test');
+    expect(parsed?.searchParams.get('operation')).toBe('query');
+  });
+
+  it('searchParams handles URL-encoded GraphQL parameters', () => {
+    const url =
+      'https://www.fancode.com/graphql?extensions=%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%22a997e95f29b926ef40e5f0d52438e188b49ea74a43b33f736afb9dc96fd5f99d%22%7D%7D&operation=query&operationName=NudgeSegment';
+    const parsed = parseUrl(url);
+    expect(parsed?.searchParams.get('operationName')).toBe('NudgeSegment');
+    expect(parsed?.searchParams.get('operation')).toBe('query');
   });
 });

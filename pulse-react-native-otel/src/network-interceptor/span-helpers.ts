@@ -7,6 +7,7 @@ import type { Span } from '../index';
 import { Pulse, SpanStatusCode } from '../index';
 import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
+import { updateAttributesWithGraphQLData } from './graphql-helper';
 
 export function setNetworkSpanAttributes(
   span: Span,
@@ -47,19 +48,26 @@ export function setNetworkSpanAttributes(
 
 export function createNetworkSpan(
   startContext: RequestStartContext,
-  interceptorType: 'fetch' | 'xmlhttprequest'
+  interceptorType: 'fetch' | 'xmlhttprequest',
+  body?: Document | XMLHttpRequestBodyInit | null
 ): Span {
   const method = startContext.method.toUpperCase();
   const spanName = `HTTP ${method}`;
 
-  const span = Pulse.startSpan(spanName, {
-    attributes: {
-      'http.method': method,
-      'http.url': startContext.url,
-      'pulse.type': 'network',
-      'http.request.type': interceptorType,
-    },
-  });
+  let baseAttributes: PulseAttributes = {
+    'http.method': method,
+    'http.url': startContext.url,
+    'pulse.type': 'network',
+    'http.request.type': interceptorType,
+  };
+
+  const graphqlAttributes = updateAttributesWithGraphQLData(
+    startContext.url,
+    body
+  );
+  const attributes = { ...baseAttributes, ...graphqlAttributes };
+
+  const span = Pulse.startSpan(spanName, { attributes });
 
   return span;
 }
