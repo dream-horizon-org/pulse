@@ -148,12 +148,14 @@ internal class PulseSDKImpl : PulseSDK {
         }
     }
 
-    fun setUserProperties(properties: Map<String, Any>) {
-        userProps.putAll(properties)
+    fun setUserProperties(properties: Map<String, Any?>) {
+        properties.forEach {
+            setUserProperty(it.key, it.value)
+        }
     }
 
-    override fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit) {
-        setUserProperties(mutableMapOf<String, Any>().apply(builderAction))
+    override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
+        setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
     }
 
     override fun trackEvent(
