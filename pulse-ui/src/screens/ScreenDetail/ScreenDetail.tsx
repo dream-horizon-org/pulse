@@ -29,8 +29,7 @@ import {
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import {
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
-  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+  DEFAULT_QUICK_TIME_FILTER,
   ROUTES,
 } from "../../constants";
 import { useFilterStore } from "../../stores/useFilterStore";
@@ -52,7 +51,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    setQuickTimeRange,
     initializeFromUrlParams
   } = useFilterStore();
 
@@ -67,12 +65,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   // Performance & Stability filters (separate state for issue type)
   const [issueType, setIssueType] = useState<IssueType>(ISSUE_TYPES.CRASHES);
 
-  // Initialize default time values (LAST_1_HOUR) if not set in store
+  // Initialize default time values (Last 24 hours) if not set in store
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
   // Use store values if available, otherwise use defaults
@@ -83,29 +78,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   const endTime = useMemo(() => {
     return storeEndTime || getDefaultTimeRange().endDate;
   }, [storeEndTime]);
-
-  // Initialize filter store with LAST_1_HOUR on mount if not already set
-  useEffect(() => {
-    if (!storeStartTime || !storeEndTime) {
-      const defaultRange = getDefaultTimeRange();
-      // Find the index for LAST_1_HOUR in the time filter options
-      const last1HourIndex =
-        CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.findIndex(
-          (option) =>
-            option.value ===
-            CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-        );
-      setQuickTimeRange(
-        CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-        last1HourIndex >= 0 ? last1HourIndex : 3,
-      );
-      storeHandleTimeFilterChange({
-        startDate: defaultRange.startDate,
-        endDate: defaultRange.endDate,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Filter handlers
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {

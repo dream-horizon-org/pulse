@@ -14,8 +14,8 @@ import {
   DataQueryRequestBody,
 } from "../../hooks/useGetDataQuery";
 import { 
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
-  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
@@ -72,56 +72,26 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    setQuickTimeRange,
+    initializeFromUrlParams,
   } = useFilterStore();
 
-  // Initialize default time range (LAST_1_HOUR)
+  // Initialize default time range (Last 24 hours)
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
-  // Initialize filter store with LAST_1_HOUR on mount if not already set
+  // Initialize filter store from URL params
   useEffect(() => {
-    if (!storeStartTime || !storeEndTime) {
-      const defaultRange = getDefaultTimeRange();
-      setQuickTimeRange(CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR, 3);
-      storeHandleTimeFilterChange({
-        startDate: defaultRange.startDate,
-        endDate: defaultRange.endDate,
-      });
-    }
+    initializeFromUrlParams(searchParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   // Use store values for time range
   const startTime = storeStartTime || getDefaultTimeRange().startDate;
   const endTime = storeEndTime || getDefaultTimeRange().endDate;
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    // Update store with new time values
-    // The store's handleTimeFilterChange only updates if filterValues exists,
-    // so we also directly update startTime and endTime
     storeHandleTimeFilterChange(value);
-
-    // Directly update startTime and endTime in store
-    const store = useFilterStore.getState();
-    // Get the quickTimeRangeString from the activeQuickTimeFilter index
-    const activeIndex = store.activeQuickTimeFilter;
-    const quickTimeString = activeIndex !== -1 && activeIndex < CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length
-      ? CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeIndex].value
-      : "";
-    
-    store.handleFilterChange(
-      {} as any, // Empty filter values
-      value.startDate || "",
-      value.endDate || "",
-      quickTimeString,
-    );
-    // Also update quickTimeRangeFilterIndex
-    store.setQuickTimeRange(quickTimeString, activeIndex);
   };
 
   const handleAddFilter = (type: FilterType, value: string) => {
@@ -480,9 +450,9 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           {/* DateTime Filter */}
           <DateTimeRangePicker
             handleTimefilterChange={handleTimeFilterChange}
-            selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : 3}
-            defaultQuickTimeFilterIndex={3}
-            defaultQuickTimeFilterString={quickTimeRangeString || CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR}
+            selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
             defaultEndTime={endTime}
             defaultStartTime={startTime}
           />

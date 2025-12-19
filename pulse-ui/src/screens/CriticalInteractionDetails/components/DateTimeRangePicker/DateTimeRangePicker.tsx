@@ -13,6 +13,7 @@ import { DateTimeRangePickerDropDown } from "../DateTimeRangePickerDropDown/Date
 import {
   CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
   TOOLTIP_LABLES,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../../../constants";
 import React from "react";
 import { useSearchParams } from "react-router-dom";
@@ -23,7 +24,7 @@ const DateTimeRangePicker = ({
   handleTimefilterChange,
   defaultQuickTimeFilterString,
   selectedQuickTimeFilterIndex,
-  defaultQuickTimeFilterIndex = 1,
+  defaultQuickTimeFilterIndex = DEFAULT_QUICK_TIME_FILTER_INDEX,
   defaultStartTime,
   defaultEndTime,
   showRefreshButton = true,

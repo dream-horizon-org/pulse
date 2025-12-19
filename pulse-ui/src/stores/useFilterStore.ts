@@ -8,6 +8,7 @@ import {
 import {
   CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
   DATE_FORMAT,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../constants/Constants";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions/getCriticalInteractionDetailsFilterOptions.interface";
 import { interactionDetailsfilterDefaultValues } from "../screens/CriticalInteractionDetails/components/InteractionDetailsFilters/InteractionDetailsFilters.interface";
@@ -149,33 +150,41 @@ export const useFilterStore = create<FilterStore>()(
           OS_VERSION: params.OS_VERSION || "",
           STATE: params.STATE || "",
         };
-        if (Number(params.quickDateFilter || 1) !== -1) {
+        const quickDateFilterIndex = params.quickDateFilter !== undefined 
+          ? Number(params.quickDateFilter) 
+          : DEFAULT_QUICK_TIME_FILTER_INDEX;
+        
+        if (quickDateFilterIndex !== -1) {
           const dateTimeFilter = getStartAndEndDateTimeString(
-            CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[
-              Number(params.quickDateFilter || 1)
-            ].value,
+            CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[quickDateFilterIndex].value,
             2,
           );
 
           set({
             quickTimeRangeString:
-              CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[
-                Number(params.quickDateFilter || 1)
-              ].value,
+              CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[quickDateFilterIndex].value,
             startTime: dateTimeFilter.startDate,
             endTime: dateTimeFilter.endDate,
-            quickTimeRangeFilterIndex: Number(params.quickDateFilter || 1),
+            quickTimeRangeFilterIndex: quickDateFilterIndex,
+            activeQuickTimeFilter: quickDateFilterIndex,
+            selectedTimeFilter: dateTimeFilter,
             filterValues,
           });
         } else if (
           params.quickDateFilter &&
           Number(params.quickDateFilter) === -1
         ) {
+          const customTimeFilter = {
+            startDate: params.startDate || "",
+            endDate: params.endDate || "",
+          };
           set({
             startTime: params.startDate || "",
             endTime: params.endDate || "",
             quickTimeRangeFilterIndex: -1,
+            activeQuickTimeFilter: -1,
             quickTimeRangeString: "",
+            selectedTimeFilter: customTimeFilter,
             filterValues,
           });
         } else {
