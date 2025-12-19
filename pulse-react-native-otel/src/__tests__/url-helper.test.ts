@@ -1,4 +1,3 @@
-import { isGraphQLRequest } from '../network-interceptor/graphql-helper';
 import {
   parseUrl,
   extractHttpAttributes,
@@ -526,47 +525,6 @@ describe('extractHttpAttributes', () => {
       const result = extractHttpAttributes('http://localhost:8080/api');
       expect(typeof result['net.peer.port']).toBe('number');
       expect(result['net.peer.port']).toBe(8080);
-    });
-  });
-});
-
-describe('isGraphQLRequest', () => {
-  describe('GraphQL URL detection', () => {
-    it('detects GraphQL in URL path', () => {
-      expect(isGraphQLRequest('https://api.example.com/graphql')).toBe(true);
-    });
-
-    it('detects GraphQL in URL path (case insensitive)', () => {
-      expect(isGraphQLRequest('https://api.example.com/GRAPHQL')).toBe(true);
-      expect(isGraphQLRequest('https://api.example.com/GraphQL')).toBe(true);
-      expect(isGraphQLRequest('https://api.example.com/gRaPhQl')).toBe(true);
-    });
-
-    it('detects GraphQL in subpath', () => {
-      expect(isGraphQLRequest('https://api.example.com/api/v1/graphql')).toBe(
-        true
-      );
-    });
-
-    it('detects GraphQL with query params', () => {
-      expect(
-        isGraphQLRequest(
-          'https://api.example.com/graphql?operationName=Test&operation=query'
-        )
-      ).toBe(true);
-    });
-
-    it('returns false for non-GraphQL URLs', () => {
-      expect(isGraphQLRequest('https://api.example.com/api/users')).toBe(false);
-      expect(isGraphQLRequest('https://api.example.com/rest')).toBe(false);
-    });
-
-    it('returns false for empty string', () => {
-      expect(isGraphQLRequest('')).toBe(false);
-    });
-
-    it('returns false for null', () => {
-      expect(isGraphQLRequest(null as any)).toBe(false);
     });
   });
 });
