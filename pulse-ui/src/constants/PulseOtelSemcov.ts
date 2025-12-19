@@ -13,6 +13,7 @@ export enum STATUS_CODE {
   OK = "Ok",
 }
 export enum COLUMN_NAME {
+  EXCEPTION_TYPE = "ExceptionType",
   DEVICE_MODEL = "DeviceModel",
   NETWORK_PROVIDER = "NetworkProvider",
   OS_VERSION = "OsVersion",
