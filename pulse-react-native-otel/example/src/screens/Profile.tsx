@@ -17,13 +17,10 @@ export default function ProfileScreen({
   const { userId } = route.params;
   const [loading, setLoading] = React.useState(true);
 
-  // Simulate loading data
   React.useEffect(() => {
     const loadData = async () => {
-      // Simulate async data loading
       await new Promise((resolve) => setTimeout(resolve, 1500));
       setLoading(false);
-      // Mark content as ready when meaningful content is loaded
       Pulse.markContentReady();
     };
     loadData();

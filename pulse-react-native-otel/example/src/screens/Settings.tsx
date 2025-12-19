@@ -7,9 +7,7 @@ import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 export default function SettingsScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Settings'>) {
-  // Settings screen marks content ready immediately (no async loading)
   React.useEffect(() => {
-    // Mark content ready immediately for Settings (simple screen)
     Pulse.markContentReady();
   }, []);
 

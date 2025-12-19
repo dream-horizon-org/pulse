@@ -2,6 +2,7 @@ import { Pulse, type Span } from '../index';
 import { type AppStateStatus, Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type { NavigationRoute, NavigationContainer } from './types';
+import { LOG_TAGS } from './utils';
 
 export interface ScreenSessionState {
   screenSessionSpan: Span | undefined;
@@ -22,18 +23,15 @@ export function createScreenSessionTracker(
       },
     });
     state.currentScreenKey = route.key;
-    console.log(
-      `[Pulse Navigation] [TEST] Started screen_session span for screen: ${route.name}, routeKey: ${route.key}`
-    );
+    console.log(`${LOG_TAGS.SCREEN_SESSION} ${route.name}`);
   };
 
-  const endScreenSession = (): void => {
+  const endScreenSession = (routeName?: string): void => {
     if (state.screenSessionSpan) {
-      const endedKey = state.currentScreenKey;
       state.screenSessionSpan.end();
-      console.log(
-        `[Pulse Navigation] [TEST] Ended screen_session span for routeKey: ${endedKey}`
-      );
+      if (routeName) {
+        console.log(`${LOG_TAGS.SCREEN_SESSION} ${routeName} ended`);
+      }
       state.screenSessionSpan = undefined;
       state.currentScreenKey = undefined;
     }
@@ -49,17 +47,12 @@ export function createScreenSessionTracker(
 
     if (nextAppState === 'background' || nextAppState === 'inactive') {
       if (state.screenSessionSpan) {
-        console.log(
-          `[Pulse Navigation] [TEST] App backgrounded - ending screen_session span for routeKey: ${state.currentScreenKey}`
-        );
-        endScreenSession();
+        const currentRoute = navigationContainer?.getCurrentRoute();
+        endScreenSession(currentRoute?.name);
       }
     } else if (nextAppState === 'active') {
       const currentRoute = navigationContainer?.getCurrentRoute();
       if (currentRoute && !state.screenSessionSpan) {
-        console.log(
-          `[Pulse Navigation] [TEST] App foregrounded - starting screen_session span for screen: ${currentRoute.name}, routeKey: ${currentRoute.key}`
-        );
         startScreenSession(currentRoute);
       }
     }

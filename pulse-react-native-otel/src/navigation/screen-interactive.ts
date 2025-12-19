@@ -2,6 +2,7 @@ import { Pulse, type Span } from '../index';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import type { NavigationRoute, NavigationContainer } from './types';
+import { LOG_TAGS } from './utils';
 
 export interface ScreenInteractiveState {
   screenInteractiveSpan: Span | undefined;
@@ -18,7 +19,7 @@ export function createScreenInteractiveTracker(
   const nullScreenInteractive = (reason: string): void => {
     if (state.screenInteractiveSpan) {
       console.log(
-        `[Pulse Navigation] [DEBUG] Nulling screen_interactive span (${reason}) for routeKey: ${state.currentInteractiveRouteKey}`
+        `${LOG_TAGS.SCREEN_INTERACTIVE} screen_interactive span discarded: ${reason} (routeKey: ${state.currentInteractiveRouteKey})`
       );
       state.screenInteractiveSpan = undefined;
       state.currentInteractiveRouteKey = undefined;
@@ -31,7 +32,7 @@ export function createScreenInteractiveTracker(
     }
 
     if (state.screenInteractiveSpan) {
-      nullScreenInteractive('starting new span');
+      nullScreenInteractive('previous span replaced by new navigation');
     }
 
     state.screenInteractiveSpan = Pulse.startSpan(
@@ -46,42 +47,37 @@ export function createScreenInteractiveTracker(
       }
     );
     state.currentInteractiveRouteKey = route.key;
-    console.log(
-      `[Pulse Navigation] [TEST] Started screen_interactive span for screen: ${route.name}, routeKey: ${route.key}`
-    );
+    console.log(`${LOG_TAGS.SCREEN_INTERACTIVE} ${route.name}`);
   };
 
-  const endScreenInteractive = (): void => {
+  const endScreenInteractive = (routeName?: string): void => {
     if (state.screenInteractiveSpan) {
       state.screenInteractiveSpan.end();
-      console.log(
-        `[Pulse Navigation] [TEST] Ended screen_interactive span for routeKey: ${state.currentInteractiveRouteKey}`
-      );
+      if (routeName) {
+        console.log(`${LOG_TAGS.SCREEN_INTERACTIVE} ${routeName} ready`);
+      }
       state.screenInteractiveSpan = undefined;
       state.currentInteractiveRouteKey = undefined;
     }
   };
 
-  const markContentReady = (): void => {
+  const handleMarkContentReady = (): void => {
     try {
       if (!enabled) {
         console.warn(
-          '[Pulse Navigation] [DEBUG] markContentReady called but screenInteractiveTracking is disabled'
+          `${LOG_TAGS.SCREEN_INTERACTIVE} markContentReady called but screenInteractiveTracking is disabled`
         );
         return;
       }
 
       if (!state.screenInteractiveSpan) {
-        console.log(
-          '[Pulse Navigation] [TEST] markContentReady called but no active screen_interactive span (may have been nulled or not started yet)'
-        );
         return;
       }
 
       const currentRoute = navigationContainer?.getCurrentRoute();
       if (!currentRoute) {
         console.warn(
-          '[Pulse Navigation] [DEBUG] markContentReady called but no current route found'
+          `${LOG_TAGS.SCREEN_INTERACTIVE} markContentReady called but no current route found`
         );
         nullScreenInteractive('no current route');
         return;
@@ -89,28 +85,28 @@ export function createScreenInteractiveTracker(
 
       if (currentRoute.key !== state.currentInteractiveRouteKey) {
         console.warn(
-          `[Pulse Navigation] [DEBUG] markContentReady called for wrong screen. Expected: ${state.currentInteractiveRouteKey}, Current: ${currentRoute.key}`
+          `${LOG_TAGS.SCREEN_INTERACTIVE} markContentReady called for wrong screen. Expected routeKey: ${state.currentInteractiveRouteKey}, Current: ${currentRoute.key}`
         );
-        nullScreenInteractive('route mismatch');
+        nullScreenInteractive('route key mismatch');
         return;
       }
 
-      endScreenInteractive();
+      endScreenInteractive(currentRoute.name);
     } catch (error) {
       console.error(
-        '[Pulse Navigation] [DEBUG] Error in markContentReady:',
+        `${LOG_TAGS.SCREEN_INTERACTIVE} Error in markContentReady:`,
         error
       );
     }
   };
 
-  globalMarkContentReady = markContentReady;
+  globalMarkContentReady = handleMarkContentReady;
 
   return {
     startScreenInteractive,
     endScreenInteractive,
     nullScreenInteractive,
-    markContentReady,
+    markContentReady: handleMarkContentReady,
   };
 }
 
@@ -119,7 +115,7 @@ export function markContentReady(): void {
     globalMarkContentReady();
   } else {
     console.warn(
-      '[Pulse Navigation] markContentReady called but navigation integration not initialized'
+      `${LOG_TAGS.NAVIGATION} markContentReady called but navigation integration not initialized`
     );
   }
 }

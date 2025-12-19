@@ -1,10 +1,11 @@
 import { AppState, type AppStateStatus } from 'react-native';
+import type { RefObject } from 'react';
 import type {
   NavigationContainer,
   NavigationIntegrationOptions,
   NavigationRoute,
 } from './types';
-import { pushRecentRouteKey } from './utils';
+import { pushRecentRouteKey, LOG_TAGS } from './utils';
 import { createScreenLoadTracker, type ScreenLoadState } from './screen-load';
 import {
   createScreenInteractiveTracker,
@@ -16,13 +17,14 @@ import {
   createScreenSessionTracker,
   type ScreenSessionState,
 } from './screen-session';
+import { useNavigationTracking as useNavigationTrackingBase } from './hooks';
 
 export type { NavigationRoute, NavigationIntegrationOptions };
 
 export interface ReactNavigationIntegration {
   registerNavigationContainer: (
     maybeNavigationContainer: unknown
-  ) => (() => void);
+  ) => () => void;
   markContentReady: () => void;
 }
 
@@ -81,16 +83,24 @@ export function createReactNavigationIntegration(
   const onNavigationDispatch = (): void => {
     try {
       if (screenInteractiveTracking) {
-        screenInteractiveTracker.nullScreenInteractive('navigation started');
+        screenInteractiveTracker.nullScreenInteractive('user navigated away');
       }
 
-      if (screenSessionTracking && screenSessionState.screenSessionSpan && navigationContainer) {
-        screenSessionTracker.endScreenSession();
+      if (
+        screenSessionTracking &&
+        screenSessionState.screenSessionSpan &&
+        navigationContainer
+      ) {
+        const currentRoute = navigationContainer.getCurrentRoute();
+        screenSessionTracker.endScreenSession(currentRoute?.name);
       }
 
       screenLoadTracker.startNavigationSpan();
     } catch (error) {
-      console.warn('[Pulse Navigation] Error in onNavigationDispatch:', error);
+      console.warn(
+        `${LOG_TAGS.NAVIGATION} Error in onNavigationDispatch:`,
+        error
+      );
       screenLoadState.navigationSpan = undefined;
     }
   };
@@ -111,11 +121,14 @@ export function createReactNavigationIntegration(
       screenLoadTracker.handleStateChange(currentRoute);
 
       const appState = AppState.currentState as AppStateStatus;
-      if (appState && screenSessionTracker.shouldStartSession(currentRoute, appState)) {
+      if (
+        appState &&
+        screenSessionTracker.shouldStartSession(currentRoute, appState)
+      ) {
         screenSessionTracker.startScreenSession(currentRoute);
       }
     } catch (error) {
-      console.warn('[Pulse] Error in onStateChange:', error);
+      console.warn(`${LOG_TAGS.NAVIGATION} Error in onStateChange:`, error);
       screenLoadState.navigationSpan = undefined;
     }
   };
@@ -129,11 +142,16 @@ export function createReactNavigationIntegration(
 
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         if (screenInteractiveTracking) {
-          screenInteractiveTracker.nullScreenInteractive('app backgrounded');
+          screenInteractiveTracker.nullScreenInteractive(
+            'app went to background'
+          );
         }
       }
     } catch (error) {
-      console.warn('[Pulse] Error in handleAppStateChange:', error);
+      console.warn(
+        `${LOG_TAGS.NAVIGATION} Error in handleAppStateChange:`,
+        error
+      );
     }
   };
 
@@ -153,14 +171,15 @@ export function createReactNavigationIntegration(
       }
 
       if (!container) {
-        console.warn('[Pulse Navigation] Invalid navigation container ref');
+        console.warn(`${LOG_TAGS.NAVIGATION} Invalid navigation container ref`);
         return () => {};
       }
 
       if (isInitialized && navigationContainer === container) {
         return () => {
           if (screenSessionTracking && screenSessionState.screenSessionSpan) {
-            screenSessionTracker.endScreenSession();
+            const currentRoute = container.getCurrentRoute();
+            screenSessionTracker.endScreenSession(currentRoute?.name);
           }
         };
       }
@@ -173,16 +192,22 @@ export function createReactNavigationIntegration(
         navigationContainer
       );
 
-      navigationContainer.addListener('__unsafe_action__', onNavigationDispatch);
+      navigationContainer.addListener(
+        '__unsafe_action__',
+        onNavigationDispatch
+      );
       navigationContainer.addListener('state', onStateChange);
 
       const unmountCleanup = (): void => {
         if (screenSessionTracking && screenSessionState.screenSessionSpan) {
-          screenSessionTracker.endScreenSession();
+          const currentRoute = container.getCurrentRoute();
+          screenSessionTracker.endScreenSession(currentRoute?.name);
         }
 
         if (screenInteractiveTracking) {
-          screenInteractiveTracker.nullScreenInteractive('unmount');
+          screenInteractiveTracker.nullScreenInteractive(
+            'navigation container unmounted'
+          );
         }
 
         screenLoadTracker.endNavigationSpan();
@@ -195,7 +220,9 @@ export function createReactNavigationIntegration(
           navigationContainer = undefined;
           isInitialized = false;
 
-          clearGlobalMarkContentReady(updatedInteractiveTracker.markContentReady);
+          clearGlobalMarkContentReady(
+            updatedInteractiveTracker.markContentReady
+          );
         }
       };
 
@@ -205,7 +232,10 @@ export function createReactNavigationIntegration(
         recentRouteKeys = pushRecentRouteKey(recentRouteKeys, currentRoute.key);
 
         const appState = AppState.currentState as AppStateStatus;
-        if (appState && screenSessionTracker.shouldStartSession(currentRoute, appState)) {
+        if (
+          appState &&
+          screenSessionTracker.shouldStartSession(currentRoute, appState)
+        ) {
           screenSessionTracker.startScreenSession(currentRoute);
         }
       }
@@ -218,7 +248,10 @@ export function createReactNavigationIntegration(
 
       return unmountCleanup;
     } catch (error) {
-      console.error('[Pulse Navigation] Error registering container:', error);
+      console.error(
+        `${LOG_TAGS.NAVIGATION} Error registering container:`,
+        error
+      );
       return () => {};
     }
   };
@@ -230,3 +263,15 @@ export function createReactNavigationIntegration(
 }
 
 export { markContentReady };
+
+export function useNavigationTracking(
+  navigationRef: RefObject<any>,
+  options?: NavigationIntegrationOptions
+): () => void {
+  const { createNavigationIntegrationWithConfig } = require('../config');
+  return useNavigationTrackingBase(
+    navigationRef,
+    options,
+    createNavigationIntegrationWithConfig
+  );
+}

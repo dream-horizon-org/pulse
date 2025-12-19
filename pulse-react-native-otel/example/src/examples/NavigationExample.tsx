@@ -26,7 +26,7 @@ export default function NavigationDemo() {
   const navigationRef =
     React.useRef<NavigationContainerRef<RootStackParamList>>(null);
   const onReady = Pulse.useNavigationTracking(navigationRef, {
-    screenInteractiveTracking: true, 
+    screenInteractiveTracking: true,
   });
 
   return (

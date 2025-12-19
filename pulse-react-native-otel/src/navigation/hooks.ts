@@ -5,25 +5,29 @@ import type { ReactNavigationIntegration } from './index';
 export function useNavigationTracking(
   navigationRef: RefObject<any>,
   options?: NavigationIntegrationOptions,
-  createIntegration?: (options?: NavigationIntegrationOptions) => ReactNavigationIntegration
+  createIntegration?: (
+    options?: NavigationIntegrationOptions
+  ) => ReactNavigationIntegration
 ): () => void {
   const screenSessionTracking = options?.screenSessionTracking ?? true;
   const screenNavigationTracking = options?.screenNavigationTracking ?? true;
   const screenInteractiveTracking = options?.screenInteractiveTracking ?? false;
 
-  const integration = useMemo(
-    () => {
-      if (createIntegration) {
-        return createIntegration({
-          screenSessionTracking,
-          screenNavigationTracking,
-          screenInteractiveTracking,
-        });
-      }
-      throw new Error('createIntegration must be provided');
-    },
-    [screenSessionTracking, screenNavigationTracking, screenInteractiveTracking, createIntegration]
-  );
+  const integration = useMemo(() => {
+    if (createIntegration) {
+      return createIntegration({
+        screenSessionTracking,
+        screenNavigationTracking,
+        screenInteractiveTracking,
+      });
+    }
+    throw new Error('createIntegration must be provided');
+  }, [
+    screenSessionTracking,
+    screenNavigationTracking,
+    screenInteractiveTracking,
+    createIntegration,
+  ]);
 
   const cleanupRef = useRef<(() => void) | null>(null);
 

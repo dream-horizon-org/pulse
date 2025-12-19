@@ -7,6 +7,7 @@ import {
   PHASE_VALUES,
 } from '../pulse.constants';
 import type { NavigationRoute } from './types';
+import { LOG_TAGS } from './utils';
 
 export interface ScreenLoadState {
   navigationSpan: Span | undefined;
@@ -32,22 +33,20 @@ export function createScreenLoadTracker(
         [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS as 'android' | 'ios',
       },
     });
-    console.log(
-      `[Pulse Navigation] [TEST] Started screen_load span (navigation dispatch)`
-    );
+    console.log(`${LOG_TAGS.SCREEN_LOAD} started`);
   };
 
   const endNavigationSpan = (): void => {
     if (state.navigationSpan) {
       const route = state.latestRoute;
       state.navigationSpan.end();
-      console.log(
-        `[Pulse Navigation] [TEST] Ended screen_load span for screen: ${route?.name || 'unknown'}`
-      );
       state.navigationSpan = undefined;
 
-      if (route && onLoadEnd) {
-        onLoadEnd(route);
+      if (route) {
+        console.log(`${LOG_TAGS.SCREEN_LOAD} ${route.name}`);
+        if (onLoadEnd) {
+          onLoadEnd(route);
+        }
       }
     }
   };
@@ -74,10 +73,6 @@ export function createScreenLoadTracker(
       [ATTRIBUTE_KEYS.ROUTE_HAS_BEEN_SEEN]: routeHasBeenSeen,
       [ATTRIBUTE_KEYS.ROUTE_KEY]: currentRoute.key,
     });
-
-    console.log(
-      `[Pulse Navigation] [TEST] screen_load span attributes set - screen: ${currentRoute.name}, from: ${previousRoute?.name || 'none'}, routeKey: ${currentRoute.key}`
-    );
 
     endNavigationSpan();
   };
