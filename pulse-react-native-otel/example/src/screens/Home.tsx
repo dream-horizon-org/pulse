@@ -1,10 +1,19 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../examples/NavigationExample';
 import { Text, View, Button, StyleSheet, ScrollView } from 'react-native';
+import React from 'react';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function HomeScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Home'>) {
+  // Home screen doesn't call markContentReady - this tests the nulling behavior
+  // when user navigates away without marking content ready
+  React.useEffect(() => {
+    // Intentionally NOT calling markContentReady to test nulling behavior
+    console.log('[Example] Home screen mounted - NOT calling markContentReady');
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>🚀 Navigation Performance Tracking</Text>
@@ -41,6 +50,9 @@ export default function HomeScreen({
       <Text style={styles.infoDetail}>
         Each navigation will log: screen name, duration, source/destination
         routes
+      </Text>
+      <Text style={styles.infoDetail}>
+        ⚠️ Home screen doesn't call markContentReady - tests nulling behavior
       </Text>
     </ScrollView>
   );

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import React from 'react';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function ProfileScreen({
   route,
@@ -18,8 +19,14 @@ export default function ProfileScreen({
 
   // Simulate loading data
   React.useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
+    const loadData = async () => {
+      // Simulate async data loading
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setLoading(false);
+      // Mark content as ready when meaningful content is loaded
+      Pulse.markContentReady();
+    };
+    loadData();
   }, []);
 
   return (
@@ -34,6 +41,9 @@ export default function ProfileScreen({
           <Text style={styles.content}>Profile loaded successfully!</Text>
           <Text style={styles.info}>
             ✅ Navigation performance was tracked automatically
+          </Text>
+          <Text style={styles.infoDetail}>
+            ✅ Screen interactive (TTFD) was marked ready after data load
           </Text>
         </>
       )}
