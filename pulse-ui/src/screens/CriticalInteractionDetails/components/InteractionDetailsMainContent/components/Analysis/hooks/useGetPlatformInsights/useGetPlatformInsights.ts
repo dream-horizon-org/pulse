@@ -81,10 +81,16 @@ export const useGetPlatformInsights = ({
     const userPoorIndex = responseData.fields.indexOf("user_poor");
     const platformIndex = responseData.fields.indexOf("platform");
 
+    // Helper to normalize empty platform names to "Unknown"
+    const normalizePlatformName = (value: unknown): string => {
+      const platform = String(value || "").trim();
+      return platform === "" ? "Unknown" : platform;
+    };
+
     const poorUsersByPlatform = responseData.rows.map((row) => {
       const poorUsers = parseFloat(String(row[userPoorIndex])) || 0;
       return {
-        platform: String(row[platformIndex] || ""),
+        platform: normalizePlatformName(row[platformIndex]),
         value: poorUsers,
       };
     });
@@ -92,7 +98,7 @@ export const useGetPlatformInsights = ({
     const errorsByPlatform = responseData.rows.map((row) => {
       const errorCount = parseFloat(String(row[errorCountIndex])) || 0;
       return {
-        platform: String(row[platformIndex] || ""),
+        platform: normalizePlatformName(row[platformIndex]),
         value: errorCount,
       };
     });

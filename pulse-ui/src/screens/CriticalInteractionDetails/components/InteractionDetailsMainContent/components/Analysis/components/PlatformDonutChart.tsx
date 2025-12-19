@@ -1,10 +1,9 @@
-// @ts-nocheck
-
 import { Card, Text, Box, Grid, useMantineTheme } from "@mantine/core";
 import {
   IconBrandAndroid,
   IconBrandApple,
   IconBrandReact,
+  IconChartPie,
 } from "@tabler/icons-react";
 import {
   PieChart,
@@ -25,12 +24,27 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
   metricSuffix = "",
 }) => {
   const theme = useMantineTheme();
-  const totalValue = data.reduce((sum, d) => sum + d.value, 0);
-  const maxValue = Math.max(...data.map((d) => d.value));
-  const minValue = Math.min(...data.map((d) => d.value));
+  
+  // Normalize empty platform names
+  const normalizedData = data.map((d) => ({
+    ...d,
+    platform: d.platform?.trim() || "Unknown",
+  }));
+  
+  const totalValue = normalizedData.reduce((sum, d) => sum + d.value, 0);
+  const maxValue = Math.max(...normalizedData.map((d) => d.value), 0);
+  const minValue = Math.min(...normalizedData.map((d) => d.value), 0);
+  
+  // Check if all values are zero
+  const hasNonZeroData = totalValue > 0;
 
   // Helper function to get color based on relative comparison between platforms
-  const getColorByComparison = (value) => {
+  const getColorByComparison = (value: number) => {
+    // Handle all zeros case
+    if (maxValue === 0) {
+      return theme.colors.gray[4];
+    }
+    
     // Normalize between platforms (0 = lowest, 1 = highest)
     const normalized =
       maxValue === minValue ? 0.5 : (value - minValue) / (maxValue - minValue);
@@ -42,7 +56,7 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
   };
 
   // Calculate color for each platform based on relative comparison
-  const platformDataWithColors = data.map((d) => ({
+  const platformDataWithColors = normalizedData.map((d) => ({
     ...d,
     color: getColorByComparison(d.value),
   }));
@@ -55,7 +69,7 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
         valueFormatter: (value) => {
           return metricSuffix
             ? `${Math.round(Number(value))}${metricSuffix}`
-            : Math.round(Number(value));
+            : String(Math.round(Number(value)));
         },
       }),
     },
@@ -69,7 +83,7 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
         label: {
           show: true,
           position: "inside",
-          formatter: (params) => Math.round(params.percent) + "%",
+          formatter: (params: { percent: number }) => Math.round(params.percent) + "%",
           fontWeight: 700,
           color: "white",
         },
@@ -84,16 +98,17 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
   };
 
   // support android, rn, ios, web
-  const getIconByPlatform = (platform: string) => {
-    if (platform.toLowerCase().includes("android"))
-      return <IconBrandAndroid size={18} color={platform.color} />;
-    if (platform.toLowerCase().includes("ios"))
-      return <IconBrandApple size={18} color={platform.color} />;
-    if (platform.toLowerCase().includes("rn"))
-      return <IconBrandReact size={18} color={platform.color} />;
-    if (platform.toLowerCase().includes("web"))
-      return <IconBrandReact size={18} color={platform.color} />;
-    return <IconBrandReact size={18} color={platform.color} />;
+  const getIconByPlatform = (platform: string, color: string) => {
+    const platformLower = platform.toLowerCase();
+    if (platformLower.includes("android"))
+      return <IconBrandAndroid size={18} color={color} />;
+    if (platformLower.includes("ios") || platformLower.includes("apple"))
+      return <IconBrandApple size={18} color={color} />;
+    if (platformLower.includes("rn") || platformLower.includes("react"))
+      return <IconBrandReact size={18} color={color} />;
+    if (platformLower.includes("web"))
+      return <IconBrandReact size={18} color={color} />;
+    return <IconBrandReact size={18} color={color} />;
   };
 
   return (
@@ -128,8 +143,31 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
         </Text>
       </Box>
 
-      <Box height={250} mb="sm">
-        <PieChart option={option} height={250} />
+      <Box h={250} mb="sm">
+        {hasNonZeroData ? (
+          <PieChart option={option} height={250} />
+        ) : (
+          <Box
+            style={{
+              height: 250,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(0, 0, 0, 0.02)",
+              borderRadius: "12px",
+              border: "1px dashed rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <IconChartPie size={48} color={theme.colors.gray[4]} stroke={1.5} />
+            <Text size="sm" c="dimmed" mt="sm">
+              No data available
+            </Text>
+            <Text size="xs" c="dimmed">
+              All values are zero for this metric
+            </Text>
+          </Box>
+        )}
       </Box>
 
       <Grid gutter="xs">
@@ -164,7 +202,7 @@ const PlatformDonutChart: React.FC<PlatformDonutChartProps> = ({
                   marginBottom: 4,
                 }}
               >
-                {getIconByPlatform(platform.platform)}
+                {getIconByPlatform(platform.platform, platform.color)}
                 <Text fw={600} size="xs">
                   {platform.platform}
                 </Text>
