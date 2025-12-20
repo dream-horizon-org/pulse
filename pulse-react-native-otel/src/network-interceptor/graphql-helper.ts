@@ -1,5 +1,6 @@
 import type { PulseAttributes } from '../pulse.interface';
 import { parseUrl } from './url-helper';
+import { ATTRIBUTE_KEYS } from '../pulse.constants';
 
 export interface GraphQLOperationData {
   operationName?: string;
@@ -99,10 +100,10 @@ export function updateAttributesWithGraphQLData(
 
   const attributes: PulseAttributes = {};
   if (data.operationName) {
-    attributes['graphql.operation.name'] = data.operationName;
+    attributes[ATTRIBUTE_KEYS.GRAPHQL_OPERATION_NAME] = data.operationName;
   }
   if (data.operationType) {
-    attributes['graphql.operation.type'] = data.operationType;
+    attributes[ATTRIBUTE_KEYS.GRAPHQL_OPERATION_TYPE] = data.operationType;
   }
 
   return attributes;
