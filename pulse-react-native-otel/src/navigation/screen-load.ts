@@ -6,7 +6,7 @@ import {
   PULSE_TYPES,
   PHASE_VALUES,
 } from '../pulse.constants';
-import type { NavigationRoute } from './types';
+import type { NavigationRoute } from './navigation.interface';
 import { LOG_TAGS } from './utils';
 
 export interface ScreenLoadState {
@@ -36,9 +36,24 @@ export function createScreenLoadTracker(
     console.log(`${LOG_TAGS.SCREEN_LOAD} started`);
   };
 
-  const endNavigationSpan = (): void => {
+  const endNavigationSpan = (
+    currentRoute?: NavigationRoute,
+    previousRoute?: NavigationRoute
+  ): void => {
     if (state.navigationSpan) {
-      const route = state.latestRoute;
+      const route = currentRoute || state.latestRoute;
+
+      if (route) {
+        const routeHasBeenSeen = recentRouteKeys.includes(route.key);
+
+        state.navigationSpan.setAttributes({
+          [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
+          [ATTRIBUTE_KEYS.LAST_SCREEN_NAME]: previousRoute?.name || undefined,
+          [ATTRIBUTE_KEYS.ROUTE_HAS_BEEN_SEEN]: routeHasBeenSeen,
+          [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
+        });
+      }
+
       state.navigationSpan.end();
       state.navigationSpan = undefined;
 
@@ -59,22 +74,14 @@ export function createScreenLoadTracker(
     const previousRoute = state.latestRoute;
 
     if (previousRoute && previousRoute.key === currentRoute.key) {
-      endNavigationSpan();
+      endNavigationSpan(currentRoute, previousRoute);
       return;
     }
 
     state.latestRoute = currentRoute;
-    const routeHasBeenSeen = recentRouteKeys.includes(currentRoute.key);
     pushRecentRouteKey(currentRoute.key);
 
-    state.navigationSpan.setAttributes({
-      [ATTRIBUTE_KEYS.SCREEN_NAME]: currentRoute.name,
-      [ATTRIBUTE_KEYS.LAST_SCREEN_NAME]: previousRoute?.name || undefined,
-      [ATTRIBUTE_KEYS.ROUTE_HAS_BEEN_SEEN]: routeHasBeenSeen,
-      [ATTRIBUTE_KEYS.ROUTE_KEY]: currentRoute.key,
-    });
-
-    endNavigationSpan();
+    endNavigationSpan(currentRoute, previousRoute);
   };
 
   return {

@@ -1,13 +1,13 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../examples/NavigationExample';
 import { Text, View, Button, StyleSheet } from 'react-native';
-import React from 'react';
+import { useEffect } from 'react';
 import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function SettingsScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Settings'>) {
-  React.useEffect(() => {
+  useEffect(() => {
     Pulse.markContentReady();
   }, []);
 

@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function ProfileScreen({
@@ -15,9 +15,9 @@ export default function ProfileScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Profile'>) {
   const { userId } = route.params;
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const loadData = async () => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       setLoading(false);

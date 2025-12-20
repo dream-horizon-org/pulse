@@ -4,7 +4,7 @@ import type {
   NavigationContainer,
   NavigationIntegrationOptions,
   NavigationRoute,
-} from './types';
+} from './navigation.interface';
 import { pushRecentRouteKey, LOG_TAGS } from './utils';
 import { createScreenLoadTracker, type ScreenLoadState } from './screen-load';
 import {
@@ -17,7 +17,7 @@ import {
   createScreenSessionTracker,
   type ScreenSessionState,
 } from './screen-session';
-import { useNavigationTracking as useNavigationTrackingBase } from './hooks';
+import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
 
 export type { NavigationRoute, NavigationIntegrationOptions };
 
@@ -115,8 +115,6 @@ export function createReactNavigationIntegration(
       if (!currentRoute) {
         return;
       }
-
-      screenLoadState.latestRoute = currentRoute;
 
       screenLoadTracker.handleStateChange(currentRoute);
 

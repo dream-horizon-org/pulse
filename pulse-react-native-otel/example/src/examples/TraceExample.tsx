@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
 import { Pulse, SpanStatusCode } from '@dreamhorizonorg/pulse-react-native';
 
@@ -93,13 +93,12 @@ const createNestedSpans = async () => {
 };
 
 export default function TraceDemo() {
-  const [manualSpan, setManualSpan] = React.useState<ReturnType<
+  const [manualSpan, setManualSpan] = useState<ReturnType<
     typeof Pulse.startSpan
   > | null>(null);
-  const [syncResult, setSyncResult] = React.useState<number | null>(null);
-  const [asyncNoReturnDone, setAsyncNoReturnDone] =
-    React.useState<boolean>(false);
-  const [asyncResult, setAsyncResult] = React.useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<number | null>(null);
+  const [asyncNoReturnDone, setAsyncNoReturnDone] = useState<boolean>(false);
+  const [asyncResult, setAsyncResult] = useState<string | null>(null);
 
   return (
     <View style={styles.fullContainer}>

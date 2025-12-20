@@ -1,7 +1,10 @@
 import { Pulse, type Span } from '../index';
 import { type AppStateStatus, Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
-import type { NavigationRoute, NavigationContainer } from './types';
+import type {
+  NavigationRoute,
+  NavigationContainer,
+} from './navigation.interface';
 import { LOG_TAGS } from './utils';
 
 export interface ScreenSessionState {

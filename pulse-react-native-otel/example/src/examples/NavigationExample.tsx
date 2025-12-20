@@ -1,4 +1,4 @@
-import React from 'react';
+import { useRef } from 'react';
 import { enableScreens } from 'react-native-screens';
 import {
   NavigationContainer,
@@ -24,7 +24,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function NavigationDemo() {
   const navigationRef =
-    React.useRef<NavigationContainerRef<RootStackParamList>>(null);
+    useRef<NavigationContainerRef<RootStackParamList>>(null);
   const onReady = Pulse.useNavigationTracking(navigationRef, {
     screenInteractiveTracking: true,
   });

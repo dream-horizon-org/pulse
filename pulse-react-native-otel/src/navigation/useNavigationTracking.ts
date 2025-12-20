@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useMemo, type RefObject } from 'react';
-import type { NavigationIntegrationOptions } from './types';
+import type { NavigationIntegrationOptions } from './navigation.interface';
 import type { ReactNavigationIntegration } from './index';
 
 export function useNavigationTracking(
