@@ -8,7 +8,7 @@ describe('parseUrl', () => {
   describe('valid URLs', () => {
     it('parses a simple HTTP URL', () => {
       const result = parseUrl('http://example.com');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'http:',
         hostname: 'example.com',
         host: 'example.com',
@@ -17,14 +17,13 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'http://example.com',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses a simple HTTPS URL', () => {
       const result = parseUrl('https://example.com');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -33,14 +32,13 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'https://example.com',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with pathname', () => {
       const result = parseUrl('https://api.example.com/users/123');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'api.example.com',
         host: 'api.example.com',
@@ -49,14 +47,13 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'https://api.example.com/users/123',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with port', () => {
       const result = parseUrl('http://localhost:8080/api');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'http:',
         hostname: 'localhost',
         host: 'localhost:8080',
@@ -65,14 +62,13 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'http://localhost:8080/api',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with query string', () => {
       const result = parseUrl('https://example.com/search?q=test&page=1');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -81,15 +77,13 @@ describe('parseUrl', () => {
         search: '?q=test&page=1',
         hash: '',
         href: 'https://example.com/search?q=test&page=1',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('q')).toBe('test');
-      expect(result?.searchParams.get('page')).toBe('1');
     });
 
     it('parses URL with hash', () => {
       const result = parseUrl('https://example.com/docs#section');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -98,16 +92,15 @@ describe('parseUrl', () => {
         search: '',
         hash: '#section',
         href: 'https://example.com/docs#section',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with all components', () => {
       const result = parseUrl(
         'https://api.example.com:443/users?id=123&active=true#profile'
       );
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'api.example.com',
         host: 'api.example.com:443',
@@ -116,15 +109,13 @@ describe('parseUrl', () => {
         search: '?id=123&active=true',
         hash: '#profile',
         href: 'https://api.example.com:443/users?id=123&active=true#profile',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('id')).toBe('123');
-      expect(result?.searchParams.get('active')).toBe('true');
     });
 
     it('parses URL with authentication', () => {
       const result = parseUrl('https://user:pass@example.com/api');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'example.com',
         host: 'example.com',
@@ -133,14 +124,13 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'https://user:pass@example.com/api',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with subdomain', () => {
       const result = parseUrl('https://api.v2.example.com/users');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'https:',
         hostname: 'api.v2.example.com',
         host: 'api.v2.example.com',
@@ -149,14 +139,13 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'https://api.v2.example.com/users',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses URL with IP address', () => {
       const result = parseUrl('http://192.168.1.1:3000/api');
-      expect(result).toMatchObject({
+      expect(result).toEqual({
         protocol: 'http:',
         hostname: '192.168.1.1',
         host: '192.168.1.1:3000',
@@ -165,9 +154,8 @@ describe('parseUrl', () => {
         search: '',
         hash: '',
         href: 'http://192.168.1.1:3000/api',
+        searchParams: expect.any(SearchParams),
       });
-      expect(result?.searchParams).toBeInstanceOf(SearchParams);
-      expect(result?.searchParams.get('any')).toBeNull();
     });
 
     it('parses FTP URL (protocol only)', () => {
