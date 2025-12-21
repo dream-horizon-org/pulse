@@ -5,3 +5,12 @@
 .kotlin/
 
 .env
+/deploy/terraform/otel-collector/terraform.tfstate
+/deploy/terraform/otel-collector/.terraform/
+terraform.tfvars
+
+
+/deploy/terraform/clickhouse/.terraform/
+/deploy/terraform/clickhouse/terraform.tfstate
+/deploy/terraform/clickhouse/terraform.tfstate.backup
+/deploy/terraform/clickhouse/terraform.tfvars
