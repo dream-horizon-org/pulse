@@ -294,6 +294,6 @@ internal class PulseSDKImpl : PulseSDK {
     internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
-        private const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
+        internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
     }
 }
