@@ -154,11 +154,11 @@ services:
       - CLICKHOUSE_PORT=8123
 
       # S3 Configuration
-      - CONFIG_S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
+      - S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
 
       # CloudFront Configuration
-      - CONFIG_CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
     networks:
       - pulse-network

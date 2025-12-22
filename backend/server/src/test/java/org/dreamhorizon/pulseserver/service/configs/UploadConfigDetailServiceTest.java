@@ -53,9 +53,9 @@ class UploadConfigDetailServiceTest {
     );
 
     // Setup default config values
-    when(applicationConfig.getConfigS3BucketName()).thenReturn(TEST_BUCKET_NAME);
+    when(applicationConfig.getS3BucketName()).thenReturn(TEST_BUCKET_NAME);
     when(applicationConfig.getConfigDetailsS3BucketFilePath()).thenReturn(TEST_FILE_PATH);
-    when(applicationConfig.getConfigDetailCloudFrontDistributionId()).thenReturn(TEST_DISTRIBUTION_ID);
+    when(applicationConfig.getCloudFrontDistributionId()).thenReturn(TEST_DISTRIBUTION_ID);
     when(applicationConfig.getConfigDetailCloudFrontAssetPath()).thenReturn(TEST_ASSET_PATH);
   }
 
@@ -171,9 +171,9 @@ class UploadConfigDetailServiceTest {
       String customDistributionId = "ECUSTOM12345";
       String customAssetPath = "/custom/path.json";
 
-      when(applicationConfig.getConfigS3BucketName()).thenReturn(customBucket);
+      when(applicationConfig.getS3BucketName()).thenReturn(customBucket);
       when(applicationConfig.getConfigDetailsS3BucketFilePath()).thenReturn(customFilePath);
-      when(applicationConfig.getConfigDetailCloudFrontDistributionId()).thenReturn(customDistributionId);
+      when(applicationConfig.getCloudFrontDistributionId()).thenReturn(customDistributionId);
       when(applicationConfig.getConfigDetailCloudFrontAssetPath()).thenReturn(customAssetPath);
 
       PulseConfig activeConfig = PulseConfig.builder()

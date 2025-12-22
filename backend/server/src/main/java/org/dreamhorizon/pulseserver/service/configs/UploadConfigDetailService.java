@@ -42,11 +42,11 @@ public class UploadConfigDetailService {
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       PulseConfig config
   ) {
-    String distributionId = applicationConfig.getConfigDetailCloudFrontDistributionId();
+    String distributionId = applicationConfig.getCloudFrontDistributionId();
     
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
-            applicationConfig.getConfigS3BucketName(),
+            applicationConfig.getS3BucketName(),
             applicationConfig.getConfigDetailsS3BucketFilePath(),
             config);
     

@@ -426,9 +426,9 @@ class AlertCronServiceTest {
       assertEquals("http://logs-collector.url", config.getLogsCollectorUrl());
       assertEquals("http://metric-collector.url", config.getMetricCollectorUrl());
       assertEquals("http://span-collector.url", config.getSpanCollectorUrl());
-      assertEquals("config-bucket", config.getConfigS3BucketName());
+      assertEquals("config-bucket", config.getS3BucketName());
       assertEquals("config/details.json", config.getConfigDetailsS3BucketFilePath());
-      assertEquals("cloudfront-distribution-id", config.getConfigDetailCloudFrontDistributionId());
+      assertEquals("cloudfront-distribution-id", config.getCloudFrontDistributionId());
       assertEquals("/config/details.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://webhook.url", config.getWebhookUrl());
     }
@@ -454,9 +454,9 @@ class AlertCronServiceTest {
       config.setLogsCollectorUrl("http://new-logs.url");
       config.setMetricCollectorUrl("http://new-metric.url");
       config.setSpanCollectorUrl("http://new-span.url");
-      config.setConfigS3BucketName("new-bucket");
+      config.setS3BucketName("new-bucket");
       config.setConfigDetailsS3BucketFilePath("new/path.json");
-      config.setConfigDetailCloudFrontDistributionId("new-distribution-id");
+      config.setCloudFrontDistributionId("new-distribution-id");
       config.setConfigDetailCloudFrontAssetPath("/new/path.json");
       config.setWebhookUrl("http://new-webhook.url");
 
@@ -471,9 +471,9 @@ class AlertCronServiceTest {
       assertEquals("http://new-logs.url", config.getLogsCollectorUrl());
       assertEquals("http://new-metric.url", config.getMetricCollectorUrl());
       assertEquals("http://new-span.url", config.getSpanCollectorUrl());
-      assertEquals("new-bucket", config.getConfigS3BucketName());
+      assertEquals("new-bucket", config.getS3BucketName());
       assertEquals("new/path.json", config.getConfigDetailsS3BucketFilePath());
-      assertEquals("new-distribution-id", config.getConfigDetailCloudFrontDistributionId());
+      assertEquals("new-distribution-id", config.getCloudFrontDistributionId());
       assertEquals("/new/path.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://new-webhook.url", config.getWebhookUrl());
     }
