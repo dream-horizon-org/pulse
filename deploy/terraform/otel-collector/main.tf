@@ -102,6 +102,7 @@ resource "aws_lb" "otel" {
   load_balancer_type = "application"
   security_groups    = var.alb_security_group_ids
   subnets            = var.subnet_ids
+  drop_invalid_header_fields = true
 }
 
 resource "aws_lb_listener" "otel" {
@@ -166,9 +167,11 @@ resource "aws_route53_record" "otel" {
 # Outputs
 # -------------------------------
 output "otel_alb_dns_name" {
+  description = "dns name of the otel alb route53 record"
   value = aws_lb.otel.dns_name
 }
 
 output "otel_dns_name" {
+  description = "dns name of the otel collector route53 record"
   value = aws_route53_record.otel.fqdn
 }

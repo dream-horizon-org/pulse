@@ -30,6 +30,7 @@ resource "aws_instance" "clickhouse" {
   vpc_security_group_ids = var.vpc_security_group_ids
   key_name               = var.key_name
   iam_instance_profile   = var.iam_instance_profile
+  associate_public_ip_address = false
 
   # Tag each instance with cluster + shard index
   tags = {
@@ -98,10 +99,12 @@ resource "aws_route53_record" "clickhouse_shard" {
 # -------------------------------
 output "clickhouse_private_ips" {
   value = [for i in aws_instance.clickhouse : i.private_ip]
+  description = "clickhouse private IPs"
 }
 
 output "clickhouse_hostnames" {
   value = [for i in range(var.shard_count) :
     "shard-${i + 1}.${var.cluster_name}.${var.private_zone_domain}"
   ]
+  description = "hostnames of the clickhouse shards"
 }
