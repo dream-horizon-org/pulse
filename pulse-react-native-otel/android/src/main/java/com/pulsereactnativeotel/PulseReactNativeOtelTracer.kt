@@ -85,6 +85,11 @@ object PulseReactNativeOtelTracer {
         idToScope.remove(spanId)?.close()
     }
 
+    fun cancelSpan(spanId: String) {
+        idToSpan.remove(spanId)
+        idToScope.remove(spanId)?.close()
+    }
+
     private fun ReadableMap.applyTo(span: Span) {
         entryIterator.forEach { (key, value) ->
             when (value) {

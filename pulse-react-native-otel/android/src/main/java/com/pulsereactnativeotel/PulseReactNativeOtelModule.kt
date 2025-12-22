@@ -54,6 +54,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return  true
   }
 
+  override fun cancelSpan(spanId: String): Boolean {
+    PulseReactNativeOtelTracer.cancelSpan(spanId)
+    return true
+  }
+
   override fun setUserId(id: String?) {
     PulseSDK.INSTANCE.setUserId(id)
   }

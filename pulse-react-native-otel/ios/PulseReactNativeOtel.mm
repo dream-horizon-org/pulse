@@ -71,6 +71,12 @@ RCT_EXPORT_MODULE()
   return @NO;
 }
 
+// Cancel span (no-op on iOS)
+- (NSNumber *)cancelSpan:(NSString *)spanId
+{
+  return @NO;
+}
+
 - (nonnull NSNumber *)reportException:(nonnull NSString *)errorMessage observedTimeMs:(double)observedTimeMs stackTrace:(nonnull NSString *)stackTrace isFatal:(BOOL)isFatal errorType:(nonnull NSString *)errorType attributes:(nonnull NSDictionary *)attributes { 
   return @NO;
 }

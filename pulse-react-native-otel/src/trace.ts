@@ -16,6 +16,7 @@ export enum SpanStatusCode {
 
 export type Span = {
   end: (statusCode?: SpanStatusCode) => void;
+  cancel: () => void;
   addEvent: (name: string, attributes?: PulseAttributes) => void;
   setAttributes: (attributes?: PulseAttributes) => void;
   recordException: (error: Error, attributes?: PulseAttributes) => void;
@@ -27,6 +28,7 @@ export function startSpan(name: string, options?: SpanOptions): Span {
   if (!isSupportedPlatform()) {
     return {
       end: (_statusCode?: SpanStatusCode) => {},
+      cancel: () => {},
       addEvent: (_eventName: string, _eventAttributes?: PulseAttributes) => {},
       setAttributes: (_attributes?: PulseAttributes) => {},
       recordException: (_error: Error, _attributes?: PulseAttributes) => {},
@@ -39,6 +41,9 @@ export function startSpan(name: string, options?: SpanOptions): Span {
   return {
     end: (statusCode?: SpanStatusCode) => {
       return endSpan(spanId, statusCode);
+    },
+    cancel: () => {
+      return cancelSpan(spanId);
     },
     addEvent: (eventName: string, eventAttributes?: PulseAttributes) => {
       return addSpanEvent(spanId, eventName, eventAttributes);
@@ -79,6 +84,10 @@ export function trackSpan<T>(
 
 function endSpan(spanId: string, statusCode?: SpanStatusCode): void {
   PulseReactNativeOtel.endSpan(spanId, statusCode);
+}
+
+function cancelSpan(spanId: string): void {
+  PulseReactNativeOtel.cancelSpan(spanId);
 }
 
 function addSpanEvent(

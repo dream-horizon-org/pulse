@@ -106,7 +106,11 @@ export function createReactNavigationIntegration(
         `${LOG_TAGS.NAVIGATION} Error in onNavigationDispatch:`,
         error
       );
-      screenLoadState.navigationSpan = undefined;
+
+      if (screenLoadState.navigationSpan) {
+        screenLoadState.navigationSpan.cancel();
+        screenLoadState.navigationSpan = undefined;
+      }
     }
   };
 
@@ -132,7 +136,10 @@ export function createReactNavigationIntegration(
       }
     } catch (error) {
       console.warn(`${LOG_TAGS.NAVIGATION} Error in onStateChange:`, error);
-      screenLoadState.navigationSpan = undefined;
+      if (screenLoadState.navigationSpan) {
+        screenLoadState.navigationSpan.cancel();
+        screenLoadState.navigationSpan = undefined;
+      }
     }
   };
 

@@ -41,6 +41,9 @@ export interface Spec extends TurboModule {
     stackTrace?: string
   ): boolean;
 
+  /** Cancel a span without sending it to backend. Cleans up memory. */
+  cancelSpan(spanId: string): boolean;
+
   /** Set user id for the session. Setting null will reset the id */
   setUserId(id: string | null): void;
 

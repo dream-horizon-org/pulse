@@ -29,6 +29,7 @@ export function createScreenInteractiveTracker(
       console.log(
         `${LOG_TAGS.SCREEN_INTERACTIVE} screen_interactive span discarded: ${reason} (routeKey: ${state.currentInteractiveRouteKey})`
       );
+      state.screenInteractiveSpan.cancel();
       state.screenInteractiveSpan = undefined;
       state.currentInteractiveRouteKey = undefined;
     }
