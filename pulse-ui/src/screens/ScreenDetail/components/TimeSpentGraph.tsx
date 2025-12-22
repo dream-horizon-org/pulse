@@ -2,6 +2,7 @@ import { Text } from "@mantine/core";
 import { LineChart, createTooltipFormatter } from "../../../components/Charts";
 import { GraphCardSkeleton } from "../../../components/Skeletons";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
+import { formatDuration, formatDurationCompact } from "../../../utils";
 import classes from "./EngagementGraph.module.css";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -62,17 +63,13 @@ export function TimeSpentGraph({
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Time Spent</Text>
           <Text className={classes.metricValue} style={{ color: avgTimeSpent !== null ? "#0ec9c2" : "var(--mantine-color-dimmed)" }}>
-            {avgTimeSpent !== null ? `${avgTimeSpent.toFixed(1)}s` : "N/A"}
+            {avgTimeSpent !== null ? formatDuration(avgTimeSpent) : "N/A"}
           </Text>
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Load Time</Text>
           <Text className={classes.metricValue} style={{ color: avgLoadTime !== null ? "#0ba09a" : "var(--mantine-color-dimmed)" }}>
-            {avgLoadTime !== null
-              ? avgLoadTime >= 1
-                ? `${avgLoadTime.toFixed(1)}s`
-                : `${(avgLoadTime * 1000).toFixed(0)}ms`
-              : "N/A"}
+            {avgLoadTime !== null ? formatDuration(avgLoadTime) : "N/A"}
           </Text>
         </div>
       </div>
@@ -85,22 +82,17 @@ export function TimeSpentGraph({
             tooltip: {
               trigger: "axis",
               formatter: createTooltipFormatter({
-                valueFormatter: (value: any, seriesName?: string) => {
+                valueFormatter: (value: any) => {
                   const numericValue = Array.isArray(value) ? value[1] : value;
                   const parsed = parseFloat(numericValue);
-                  
+
                   // Handle zero or very small values
                   if (parsed === 0 || isNaN(parsed)) {
                     return "N/A";
                   }
-                  
-                  // For load time, show in ms if less than 1 second
-                  if (seriesName?.includes("Load") && parsed < 1) {
-                    return `${(parsed * 1000).toFixed(0)}ms`;
-                  }
-                  
-                  // For time spent or values >= 1s, show in seconds
-                  return `${parsed.toFixed(2)}s`;
+
+                  // Use human-readable format for all duration values
+                  return formatDuration(parsed);
                 },
                 customHeaderFormatter: (axisValue: any) => {
                   if (axisValue && typeof axisValue === "number") {
@@ -123,12 +115,12 @@ export function TimeSpentGraph({
             },
             yAxis: {
               type: "value",
-              name: "Seconds",
+              name: "Duration",
               nameGap: 40,
               nameTextStyle: { fontSize: 11 },
               axisLabel: {
                 fontSize: 10,
-                formatter: (value: number) => `${value}s`,
+                formatter: (value: number) => formatDurationCompact(value),
               },
             },
             series: [
