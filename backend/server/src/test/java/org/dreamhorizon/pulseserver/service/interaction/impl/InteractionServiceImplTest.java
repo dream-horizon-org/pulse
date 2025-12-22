@@ -47,6 +47,8 @@ class InteractionServiceImplTest {
 
         @BeforeEach
         void setUp() {
+                Mockito.lenient().when(uploadInteractionDetailService.pushInteractionDetailsToObjectStore())
+                        .thenReturn(Single.just(EmptyResponse.emptyResponse));
                 interactionService = new InteractionServiceImpl(interactionDao, uploadInteractionDetailService);
         }
 
