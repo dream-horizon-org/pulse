@@ -36,28 +36,28 @@ public class ConfigController {
   @GET
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<PulseConfig>> getConfig(@PathParam("version") Integer version) {
-    return configService.getConfig(version)
+  public CompletionStage<Response<PulseConfig>> getSdkConfig(@PathParam("version") Integer version) {
+    return configService.getSdkConfig(version)
         .to(RestResponse.jaxrsRestHandler());
   }
 
   @GET
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<PulseConfig>> getActiveConfig() {
-    return configService.getActiveConfig()
+  public CompletionStage<Response<PulseConfig>> getActiveSdkConfig() {
+    return configService.getActiveSdkConfig()
         .to(RestResponse.jaxrsRestHandler());
   }
 
   @POST
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<CreateConfigResponse>> createConfig(
+  public CompletionStage<Response<CreateConfigResponse>> createSdkConfig(
       @NotNull @HeaderParam("user-email") String user,
       @NotNull @Valid PulseConfig config
   ) {
     applyConfigDefaults(config);
     ConfigData createConfigServiceRequest = mapper.toServiceCreateConfigRequest(config, user);
-    return configService.createConfig(createConfigServiceRequest)
+    return configService.createSdkConfig(createConfigServiceRequest)
         .map(resp -> CreateConfigResponse.builder().version(resp.getVersion()).build())
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -96,8 +96,8 @@ public class ConfigController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<AllConfigdetails>> getConfigDescription() {
-    return configService.getAllConfigDetails()
+  public CompletionStage<Response<AllConfigdetails>> getSdkConfigDescription() {
+    return configService.getAllSdkConfigDetails()
         .to(RestResponse.jaxrsRestHandler());
   }
 

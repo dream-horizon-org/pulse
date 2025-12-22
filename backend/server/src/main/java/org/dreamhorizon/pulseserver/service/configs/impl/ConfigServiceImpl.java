@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.configs.ConfigsDao;
+import org.dreamhorizon.pulseserver.dao.configs.SdkConfigsDao;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
@@ -30,14 +30,14 @@ public class ConfigServiceImpl implements ConfigService {
 
   private static final String LATEST_CONFIG_KEY = "latest-config";
 
-  private final ConfigsDao configsDao;
+  private final SdkConfigsDao sdkConfigsDao;
   private final UploadConfigDetailService uploadConfigDetailService;
   private final AsyncLoadingCache<String, PulseConfig> latestConfigCache;
 
   @Inject
-  public ConfigServiceImpl(Vertx vertx, ConfigsDao configsDao,
+  public ConfigServiceImpl(Vertx vertx, SdkConfigsDao sdkConfigsDao,
                            UploadConfigDetailService uploadConfigDetailService) {
-    this.configsDao = configsDao;
+    this.sdkConfigsDao = sdkConfigsDao;
     this.uploadConfigDetailService = uploadConfigDetailService;
 
     Context ctx = vertx.getOrCreateContext();
@@ -50,19 +50,19 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String key, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for key: {}", key);
-          return configsDao.getConfig()
+          return sdkConfigsDao.getConfig()
               .toCompletionStage()
               .toCompletableFuture();
         });
   }
 
   @Override
-  public Single<PulseConfig> getConfig(long version) {
-    return configsDao.getConfig(version);
+  public Single<PulseConfig> getSdkConfig(long version) {
+    return sdkConfigsDao.getConfig(version);
   }
 
   @Override
-  public Single<PulseConfig> getActiveConfig() {
+  public Single<PulseConfig> getActiveSdkConfig() {
     CompletableFuture<PulseConfig> fut = latestConfigCache.get(LATEST_CONFIG_KEY);
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
@@ -78,8 +78,8 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> createConfig(ConfigData createConfigRequest) {
-    return configsDao.createConfig(createConfigRequest)
+  public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
+    return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(LATEST_CONFIG_KEY);
           uploadConfigDetailService
@@ -90,8 +90,8 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<AllConfigdetails> getAllConfigDetails() {
-    return configsDao.getAllConfigDetails();
+  public Single<AllConfigdetails> getAllSdkConfigDetails() {
+    return sdkConfigsDao.getAllConfigDetails();
   }
 
   @Override

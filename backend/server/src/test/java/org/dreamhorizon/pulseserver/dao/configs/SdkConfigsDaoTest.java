@@ -44,7 +44,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
-class ConfigsDaoTest {
+class SdkConfigsDaoTest {
 
   @Test
   void shouldHaveCorrectQueryStrings() {
@@ -71,12 +71,12 @@ class ConfigsDaoTest {
 
   ObjectMapperUtil objectMapper;
 
-  ConfigsDao configsDao;
+  SdkConfigsDao sdkConfigsDao;
 
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapperUtil();
-    configsDao = new ConfigsDao(d11MysqlClient, objectMapper);
+    sdkConfigsDao = new SdkConfigsDao(d11MysqlClient, objectMapper);
   }
 
   @Nested
@@ -105,12 +105,12 @@ class ConfigsDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
       ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture())).thenReturn(Single.just(rowSet));
 
       // When
-      PulseConfig result = configsDao.getConfig(version).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -120,7 +120,7 @@ class ConfigsDaoTest {
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getLong(0)).isEqualTo(version);
 
-      verify(d11MysqlClient, times(1)).getReaderPool();
+      verify(d11MysqlClient, times(1)).getWriterPool();
       verifyNoMoreInteractions(d11MysqlClient);
     }
 
@@ -143,12 +143,12 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When
-      PulseConfig result = configsDao.getConfig(version).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -166,13 +166,13 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When & Then
       RuntimeException exception = assertThrows(RuntimeException.class,
-          () -> configsDao.getConfig(version).blockingGet());
+          () -> sdkConfigsDao.getConfig(version).blockingGet());
       assertThat(exception.getMessage()).isEqualTo("No config found for version: " + version);
     }
 
@@ -184,12 +184,12 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = configsDao.getConfig(version).test();
+      var testObserver = sdkConfigsDao.getConfig(version).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -233,14 +233,14 @@ class ConfigsDaoTest {
       PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
       when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = configsDao.getConfig().blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -277,14 +277,14 @@ class ConfigsDaoTest {
       PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
       when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = configsDao.getConfig().blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -321,14 +321,14 @@ class ConfigsDaoTest {
       PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
       when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = configsDao.getConfig().blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -365,14 +365,14 @@ class ConfigsDaoTest {
       PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
       when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = configsDao.getConfig().blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -387,12 +387,12 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
       when(latestVersionQuery.rxExecute()).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = configsDao.getConfig().test();
+      var testObserver = sdkConfigsDao.getConfig().test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -419,14 +419,14 @@ class ConfigsDaoTest {
       PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> configByVersionQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
       when(latestVersionQuery.rxExecute()).thenReturn(Single.just(versionRowSet));
-      when(readerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
+      when(writerPool.preparedQuery(Queries.GET_CONFIG_BY_VERSION)).thenReturn(configByVersionQuery);
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      var testObserver = configsDao.getConfig().test();
+      var testObserver = sdkConfigsDao.getConfig().test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -501,7 +501,7 @@ class ConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      PulseConfig result = configsDao.createConfig(configData).blockingGet();
+      PulseConfig result = sdkConfigsDao.createConfig(configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -541,7 +541,7 @@ class ConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = configsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig(configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -582,7 +582,7 @@ class ConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = configsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig(configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -617,7 +617,7 @@ class ConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = configsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig(configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -663,7 +663,7 @@ class ConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = configsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig(configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -705,7 +705,7 @@ class ConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      PulseConfig result = configsDao.createConfig(configData).blockingGet();
+      PulseConfig result = sdkConfigsDao.createConfig(configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -747,12 +747,12 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
 
       // When
-      AllConfigdetails result = configsDao.getAllConfigDetails().blockingGet();
+      AllConfigdetails result = sdkConfigsDao.getAllConfigDetails().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -772,7 +772,7 @@ class ConfigsDaoTest {
       assertThat(config2.getCreatedAt()).isEqualTo("2024-01-02 00:00:00");
       assertThat(config2.isIsactive()).isFalse();
 
-      verify(d11MysqlClient, times(1)).getReaderPool();
+      verify(d11MysqlClient, times(1)).getWriterPool();
       verifyNoMoreInteractions(d11MysqlClient);
     }
 
@@ -786,12 +786,12 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute()).thenReturn(Single.just(rowSet));
 
       // When
-      AllConfigdetails result = configsDao.getAllConfigDetails().blockingGet();
+      AllConfigdetails result = sdkConfigsDao.getAllConfigDetails().blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -805,12 +805,12 @@ class ConfigsDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
 
-      when(d11MysqlClient.getReaderPool()).thenReturn(readerPool);
-      when(readerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_ALL_CONFIG_DETAILS)).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute()).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = configsDao.getAllConfigDetails().test();
+      var testObserver = sdkConfigsDao.getAllConfigDetails().test();
 
       // Then
       testObserver.assertError(RuntimeException.class);

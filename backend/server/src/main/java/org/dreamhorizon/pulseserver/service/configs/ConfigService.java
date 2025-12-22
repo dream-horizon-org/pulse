@@ -8,13 +8,13 @@ import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResp
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 
 public interface ConfigService {
-  Single<PulseConfig> getConfig(long version);
+  Single<PulseConfig> getSdkConfig(long version);
 
-  Single<PulseConfig> getActiveConfig();
+  Single<PulseConfig> getActiveSdkConfig();
 
-  Single<PulseConfig> createConfig(ConfigData createConfig);
+  Single<PulseConfig> createSdkConfig(ConfigData createConfig);
 
-  Single<AllConfigdetails> getAllConfigDetails();
+  Single<AllConfigdetails> getAllSdkConfigDetails();
 
   Single<RulesAndFeaturesResponse> getRulesandFeatures();
 

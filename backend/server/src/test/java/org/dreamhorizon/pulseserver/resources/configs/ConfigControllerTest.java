@@ -75,10 +75,10 @@ class ConfigControllerTest {
             .description("Test Config")
             .build();
 
-        when(configService.getConfig(version)).thenReturn(Single.just(mockConfig));
+        when(configService.getSdkConfig(version)).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getConfig(version);
+        CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -87,7 +87,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
             assertEquals("Test Config", resp.getData().getDescription());
-            verify(configService, times(1)).getConfig(version);
+            verify(configService, times(1)).getSdkConfig(version);
           });
           testContext.completeNow();
         });
@@ -100,12 +100,12 @@ class ConfigControllerTest {
         // Given
         Integer version = 999;
 
-        when(configService.getConfig(version))
+        when(configService.getSdkConfig(version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Config not found", "Config not found", 404)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getConfig(version);
+        CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -114,7 +114,7 @@ class ConfigControllerTest {
             assertInstanceOf(WebApplicationException.class, err);
             WebApplicationException webException = (WebApplicationException) err;
             assertEquals(404, webException.getResponse().getStatus());
-            verify(configService, times(1)).getConfig(version);
+            verify(configService, times(1)).getSdkConfig(version);
           });
           testContext.completeNow();
         });
@@ -127,12 +127,12 @@ class ConfigControllerTest {
         // Given
         Integer version = 1;
 
-        when(configService.getConfig(version))
+        when(configService.getSdkConfig(version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getConfig(version);
+        CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -162,10 +162,10 @@ class ConfigControllerTest {
             .description("Active Config")
             .build();
 
-        when(configService.getActiveConfig()).thenReturn(Single.just(mockConfig));
+        when(configService.getActiveSdkConfig()).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveConfig();
+        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -174,7 +174,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(5L, resp.getData().getVersion());
             assertEquals("Active Config", resp.getData().getDescription());
-            verify(configService, times(1)).getActiveConfig();
+            verify(configService, times(1)).getActiveSdkConfig();
           });
           testContext.completeNow();
         });
@@ -185,19 +185,19 @@ class ConfigControllerTest {
     void shouldHandleServiceErrorForActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given
-        when(configService.getActiveConfig())
+        when(configService.getActiveSdkConfig())
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "No active config", "No active config", 404)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveConfig();
+        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNotNull(err);
             assertInstanceOf(WebApplicationException.class, err);
-            verify(configService, times(1)).getActiveConfig();
+            verify(configService, times(1)).getActiveSdkConfig();
           });
           testContext.completeNow();
         });
@@ -228,11 +228,11 @@ class ConfigControllerTest {
             .build();
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
-        when(configService.createConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -241,7 +241,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(10L, resp.getData().getVersion());
             assertEquals(userEmail, configDataCaptor.getValue().getUser());
-            verify(configService, times(1)).createConfig(any(ConfigData.class));
+            verify(configService, times(1)).createSdkConfig(any(ConfigData.class));
           });
           testContext.completeNow();
         });
@@ -260,11 +260,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 11L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -291,11 +291,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 12L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -320,11 +320,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 13L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -350,11 +350,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 14L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -380,11 +380,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 15L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -407,11 +407,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 16L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -439,11 +439,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 30L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -469,11 +469,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 31L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -497,11 +497,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 32L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -527,11 +527,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 33L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -555,11 +555,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 34L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -585,11 +585,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 35L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -617,11 +617,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 36L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -645,11 +645,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 37L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -675,13 +675,13 @@ class ConfigControllerTest {
         pulseConfig.getInteraction().setCollectorUrl("http://collector.example.com");
         pulseConfig.getInteraction().setConfigUrl("http://config.example.com");
 
-        when(configService.createConfig(any(ConfigData.class)))
+        when(configService.createSdkConfig(any(ConfigData.class)))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Creation failed", "Creation failed", 500)));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -876,11 +876,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 21L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -927,11 +927,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 22L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -1011,11 +1011,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 23L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -1068,11 +1068,11 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 24L);
 
-        when(configService.createConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -1094,11 +1094,11 @@ class ConfigControllerTest {
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 20L);
 
         ArgumentCaptor<ConfigData> configDataCaptor = ArgumentCaptor.forClass(ConfigData.class);
-        when(configService.createConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(configDataCaptor.capture())).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
-            configController.createConfig(userEmail, pulseConfig);
+            configController.createSdkConfig(userEmail, pulseConfig);
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -1153,10 +1153,10 @@ class ConfigControllerTest {
             ))
             .build();
 
-        when(configService.getAllConfigDetails()).thenReturn(Single.just(mockDetails));
+        when(configService.getAllSdkConfigDetails()).thenReturn(Single.just(mockDetails));
 
         // When
-        CompletionStage<Response<AllConfigdetails>> result = configController.getConfigDescription();
+        CompletionStage<Response<AllConfigdetails>> result = configController.getSdkConfigDescription();
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -1166,7 +1166,7 @@ class ConfigControllerTest {
             assertEquals(2, resp.getData().getConfigDetails().size());
             assertEquals(1L, resp.getData().getConfigDetails().get(0).getVersion());
             assertEquals("Config 1", resp.getData().getConfigDetails().get(0).getDescription());
-            verify(configService, times(1)).getAllConfigDetails();
+            verify(configService, times(1)).getAllSdkConfigDetails();
           });
           testContext.completeNow();
         });
@@ -1181,10 +1181,10 @@ class ConfigControllerTest {
             .configDetails(List.of())
             .build();
 
-        when(configService.getAllConfigDetails()).thenReturn(Single.just(mockDetails));
+        when(configService.getAllSdkConfigDetails()).thenReturn(Single.just(mockDetails));
 
         // When
-        CompletionStage<Response<AllConfigdetails>> result = configController.getConfigDescription();
+        CompletionStage<Response<AllConfigdetails>> result = configController.getSdkConfigDescription();
 
         // Then
         result.whenComplete((resp, err) -> {
@@ -1202,12 +1202,12 @@ class ConfigControllerTest {
     void shouldHandleServiceErrorForConfigDetails(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given
-        when(configService.getAllConfigDetails())
+        when(configService.getAllSdkConfigDetails())
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
 
         // When
-        CompletionStage<Response<AllConfigdetails>> result = configController.getConfigDescription();
+        CompletionStage<Response<AllConfigdetails>> result = configController.getSdkConfigDescription();
 
         // Then
         result.whenComplete((resp, err) -> {

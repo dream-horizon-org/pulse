@@ -62,7 +62,7 @@ public class UploadConfigDetailService {
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
     return configService
-        .getActiveConfig()
+        .getActiveSdkConfig()
         .flatMap(this::pushToObjectStoreAndInvalidateCache)
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());

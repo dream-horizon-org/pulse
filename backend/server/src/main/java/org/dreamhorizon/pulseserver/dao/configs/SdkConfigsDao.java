@@ -17,16 +17,15 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.configs.models.ConfigDataDao;
+import org.dreamhorizon.pulseserver.dao.configs.models.SdkConfigData;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
-import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class ConfigsDao {
+public class SdkConfigsDao {
 
   private final MysqlClient d11MysqlClient;
   private final ObjectMapperUtil objectMapper;
@@ -77,15 +76,15 @@ public class ConfigsDao {
     return Single.just(Long.parseLong(rowSet.property(MySQLClient.LAST_INSERTED_ID).toString()));
   }
 
-  public Single<PulseConfig> createConfig(ConfigData createConfig) {
-    ConfigDataDao configDataDao = ConfigDataDao.builder()
+  public Single<PulseConfig> createConfig(org.dreamhorizon.pulseserver.service.configs.models.ConfigData createConfig) {
+    SdkConfigData sdkConfigData = SdkConfigData.builder()
         .features(createConfig.getFeatures())
         .interaction(createConfig.getInteraction())
         .sampling(createConfig.getSampling())
         .signals(createConfig.getSignals())
         .build();
 
-    String configDetailRowStr = objectMapper.writeValueAsString(configDataDao);
+    String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
 
     Tuple tuple = Tuple.tuple()
         .addString(configDetailRowStr)
@@ -100,7 +99,7 @@ public class ConfigsDao {
             .flatMap(tx -> conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
                 .rxExecute()
                 .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
-                .flatMap(ConfigsDao::getLastInsertedId)
+                .flatMap(SdkConfigsDao::getLastInsertedId)
                 .map(configId -> {
                   PulseConfig pulseConfig = PulseConfig.builder()
                       .version(configId)

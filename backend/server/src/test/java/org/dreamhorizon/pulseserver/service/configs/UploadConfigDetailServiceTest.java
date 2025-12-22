@@ -72,7 +72,7 @@ class UploadConfigDetailServiceTest {
           .description("Active Test Config")
           .build();
 
-      when(configService.getActiveConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
@@ -85,7 +85,7 @@ class UploadConfigDetailServiceTest {
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(configService).getActiveConfig();
+      verify(configService).getActiveSdkConfig();
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_FILE_PATH, activeConfig);
       verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
       verifyNoMoreInteractions(configService, s3BucketClient, cloudFrontClient);
@@ -95,7 +95,7 @@ class UploadConfigDetailServiceTest {
     void shouldPropagateErrorWhenConfigServiceFails() {
       // Given
       RuntimeException configError = new RuntimeException("Failed to get active config");
-      when(configService.getActiveConfig()).thenReturn(Single.error(configError));
+      when(configService.getActiveSdkConfig()).thenReturn(Single.error(configError));
 
       // When
       var testObserver = uploadConfigDetailService.pushInteractionDetailsToObjectStore().test();
@@ -104,7 +104,7 @@ class UploadConfigDetailServiceTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to get active config"));
 
-      verify(configService).getActiveConfig();
+      verify(configService).getActiveSdkConfig();
       verify(s3BucketClient, never()).uploadObject(any(), any(), any());
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -119,7 +119,7 @@ class UploadConfigDetailServiceTest {
 
       RuntimeException s3Error = new RuntimeException("S3 upload failed");
 
-      when(configService.getActiveConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.error(s3Error));
 
@@ -130,7 +130,7 @@ class UploadConfigDetailServiceTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("S3 upload failed"));
 
-      verify(configService).getActiveConfig();
+      verify(configService).getActiveSdkConfig();
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_FILE_PATH, activeConfig);
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -145,7 +145,7 @@ class UploadConfigDetailServiceTest {
 
       RuntimeException cloudFrontError = new RuntimeException("CloudFront invalidation failed");
 
-      when(configService.getActiveConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
@@ -158,7 +158,7 @@ class UploadConfigDetailServiceTest {
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("CloudFront invalidation failed"));
 
-      verify(configService).getActiveConfig();
+      verify(configService).getActiveSdkConfig();
       verify(s3BucketClient).uploadObject(TEST_BUCKET_NAME, TEST_FILE_PATH, activeConfig);
       verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
     }
@@ -181,7 +181,7 @@ class UploadConfigDetailServiceTest {
           .description("Custom Config")
           .build();
 
-      when(configService.getActiveConfig()).thenReturn(Single.just(activeConfig));
+      when(configService.getActiveSdkConfig()).thenReturn(Single.just(activeConfig));
       when(s3BucketClient.uploadObject(eq(customBucket), eq(customFilePath), eq(activeConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(customDistributionId), eq(customAssetPath)))
@@ -205,7 +205,7 @@ class UploadConfigDetailServiceTest {
           .version(5L)
           .build();
 
-      when(configService.getActiveConfig()).thenReturn(Single.just(minimalConfig));
+      when(configService.getActiveSdkConfig()).thenReturn(Single.just(minimalConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), eq(minimalConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))

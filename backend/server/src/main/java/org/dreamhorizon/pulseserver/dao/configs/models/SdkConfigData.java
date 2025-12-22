@@ -14,7 +14,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ConfigDataDao {
+public class SdkConfigData {
 
   private SamplingConfig sampling;
 
