@@ -66,10 +66,8 @@ internal class DiskManager(
         }
 
         private fun ensureExistingOrThrow(dir: File) {
-            if (!dir.exists()) {
-                if (!dir.mkdirs()) {
-                    throw IOException("Could not create dir $dir")
-                }
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw IOException("Could not create dir $dir")
             }
         }
     }

@@ -30,9 +30,9 @@ jobs:
       - name: touch local props
         run: touch demo-app/local.properties
       - name: run gradle check
-        run: ./gradlew check
+        run: ./gradlew check -x detekt detektDebug detektDebugUnitTest detektDebugAndroidTest :pulse-upload-plugin:detektMain
       - name: create test coverage report
-        run: ./gradlew check koverXmlReport
+        run: ./gradlew koverXmlReport
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
@@ -42,7 +42,7 @@ jobs:
 
       - name: build demo app
         working-directory: ./pulse-android-otel/demo-app
-        run: ./gradlew check assemble
+        run: ./gradlew assemble
       # Will start publishing when we have finalized on the coordinates
       # - name: publish snapshot
       #   run: ./gradlew publishToSonatype

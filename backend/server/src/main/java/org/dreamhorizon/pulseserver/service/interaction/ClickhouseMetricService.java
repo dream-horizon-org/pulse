@@ -84,6 +84,77 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX.getDisplayName()));
           case NET_5XX -> String.format("%s as %s", Functions.NET_5XX.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX.getDisplayName()));
+          case NET_COUNT -> String.format("%s as %s", Functions.NET_COUNT.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_COUNT.getDisplayName()));
+          case CRASH_RATE -> String.format("%s as %s", Functions.CRASH_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_RATE.getDisplayName()));
+          case ANR_RATE -> String.format("%s as %s", Functions.ANR_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_RATE.getDisplayName()));
+          case FROZEN_FRAME_RATE -> String.format("%s as %s", Functions.FROZEN_FRAME_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.FROZEN_FRAME_RATE.getDisplayName()));
+          case ERROR_RATE -> String.format("%s as %s", Functions.ERROR_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ERROR_RATE.getDisplayName()));
+          case POOR_USER_RATE -> String.format("%s as %s", Functions.POOR_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.POOR_USER_RATE.getDisplayName()));
+          case AVERAGE_USER_RATE -> String.format("%s as %s", Functions.AVERAGE_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.AVERAGE_USER_RATE.getDisplayName()));
+          case GOOD_USER_RATE -> String.format("%s as %s", Functions.GOOD_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.GOOD_USER_RATE.getDisplayName()));
+          case EXCELLENT_USER_RATE -> String.format("%s as %s", Functions.EXCELLENT_USER_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.EXCELLENT_USER_RATE.getDisplayName()));
+          case LOAD_TIME -> String.format("%s as %s", Functions.LOAD_TIME.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.LOAD_TIME.getDisplayName()));
+          case SCREEN_TIME -> String.format("%s as %s", Functions.SCREEN_TIME.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.SCREEN_TIME.getDisplayName()));
+          case SCREEN_DAILY_USERS -> String.format("%s as %s", Functions.SCREEN_DAILY_USERS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.SCREEN_DAILY_USERS.getDisplayName()));
+          case NET_4XX_RATE -> String.format("%s as %s", Functions.NET_4XX_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX_RATE.getDisplayName()));
+          case NET_5XX_RATE -> String.format("%s as %s", Functions.NET_5XX_RATE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_RATE.getDisplayName()));
+          // Network metrics for alerts (uses SpanType)
+          case NET_0_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_0_BY_SPAN_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_0_BY_SPAN_TYPE.getDisplayName()));
+          case NET_2XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_2XX_BY_SPAN_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_2XX_BY_SPAN_TYPE.getDisplayName()));
+          case NET_3XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_3XX_BY_SPAN_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_3XX_BY_SPAN_TYPE.getDisplayName()));
+          case NET_4XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_4XX_BY_SPAN_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX_BY_SPAN_TYPE.getDisplayName()));
+          case NET_5XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_5XX_BY_SPAN_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_BY_SPAN_TYPE.getDisplayName()));
+          case NET_COUNT_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_COUNT_BY_SPAN_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_COUNT_BY_SPAN_TYPE.getDisplayName()));
+          case CRASH_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.CRASH_FREE_USERS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_USERS_PERCENTAGE.getDisplayName()));
+          case CRASH_FREE_SESSIONS_PERCENTAGE -> String.format("%s as %s", Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
+          case CRASH_USERS -> String.format("%s as %s", Functions.CRASH_USERS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_USERS.getDisplayName()));
+          case CRASH_SESSIONS -> String.format("%s as %s", Functions.CRASH_SESSIONS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_SESSIONS.getDisplayName()));
+          case ALL_USERS -> String.format("%s as %s", Functions.ALL_USERS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ALL_USERS.getDisplayName()));
+          case ALL_SESSIONS -> String.format("%s as %s", Functions.ALL_SESSIONS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ALL_SESSIONS.getDisplayName()));
+          case ANR_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.ANR_FREE_USERS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_FREE_USERS_PERCENTAGE.getDisplayName()));
+          case ANR_FREE_SESSIONS_PERCENTAGE -> String.format("%s as %s", Functions.ANR_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
+          case ANR_USERS -> String.format("%s as %s", Functions.ANR_USERS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_USERS.getDisplayName()));
+          case ANR_SESSIONS -> String.format("%s as %s", Functions.ANR_SESSIONS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.ANR_SESSIONS.getDisplayName()));
+          case NON_FATAL_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.NON_FATAL_FREE_USERS_PERCENTAGE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NON_FATAL_FREE_USERS_PERCENTAGE.getDisplayName()));
+          case NON_FATAL_FREE_SESSIONS_PERCENTAGE ->
+              String.format("%s as %s", Functions.NON_FATAL_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),
+                  Objects.requireNonNullElse(selectItem.getAlias(),
+                      Functions.NON_FATAL_FREE_SESSIONS_PERCENTAGE.getDisplayName()));
+          case NON_FATAL_USERS -> String.format("%s as %s", Functions.NON_FATAL_USERS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NON_FATAL_USERS.getDisplayName()));
+          case NON_FATAL_SESSIONS -> String.format("%s as %s", Functions.NON_FATAL_SESSIONS.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NON_FATAL_SESSIONS.getDisplayName()));
           case TIME_BUCKET -> String.format("%s as %s",
               String.format(Functions.TIME_BUCKET.getChSelectClause(),
                   selectItem.getParam().get("field"),
@@ -99,14 +170,6 @@ public class ClickhouseMetricService implements PerformanceMetricService {
       selectClause = String.join(",", clauses);
     }
 
-    // From
-    final String from = switch (request.getDataType()) {
-      case TRACES -> "otel_traces";
-      case LOGS -> "otel_logs";
-      case METRICS -> "otel_metrics";
-      case EXCEPTIONS -> "stack_trace_events";
-    };
-
     // Where Clause toDateTime64('${start_time}', 9, 'UTC')
     String timeFilter = String.format("Timestamp >= toDateTime64('%s',9,'UTC')"
             + " AND Timestamp <= toDateTime64('%s',9,'UTC')",
@@ -116,20 +179,17 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     StringBuilder where = new StringBuilder(timeFilter);
     if (!CollectionUtils.isEmpty(request.getFilters())) {
       for (QueryRequest.Filter filter : request.getFilters()) {
-        where.append(
-            switch (filter.getOperator()) {
-              case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
-                  format(filter.getValue()));
-              case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
-                  format(filter.getValue()));
-              case EQ -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
-                  format(List.of(filter.getValue().get(0))));
-              case ADDITIONAL -> String.format(" And (%s)", filter.getValue().get(0));
-            });
+        where.append(switch (filter.getOperator()) {
+          case LIKE -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
+              format(filter.getValue()));
+          case IN -> String.format(" And %s %s (%s)", filter.getField(), filter.getOperator().getDisplayName(),
+              format(filter.getValue()));
+          case EQ -> String.format(" And %s %s %s", filter.getField(), filter.getOperator().getDisplayName(),
+              format(List.of(filter.getValue().get(0))));
+          case ADDITIONAL -> String.format(" And (%s)", filter.getValue().get(0));
+        });
       }
     }
-
-    final String whereClause = where.toString();
 
     //Group by
     String groupByClause = "";
@@ -156,6 +216,15 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     }
     query += String.format(" limit %d", Objects.requireNonNullElse(request.getLimit(), 100));
 
+    String whereClause = where.toString();
+
+    // From
+    String from = switch (request.getDataType()) {
+      case TRACES -> "otel_traces";
+      case LOGS -> "otel_logs";
+      case METRICS -> "otel_metrics";
+      case EXCEPTIONS -> "stack_trace_events";
+    };
 
     String finalQuery = String.format(query, selectClause, from, whereClause);
     return clickhouseQueryService.executeQueryOrCreateJob(QueryConfiguration.newQuery(finalQuery)

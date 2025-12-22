@@ -5,6 +5,9 @@
 
 package io.opentelemetry.android.export
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
 import io.opentelemetry.android.export.TestSpanHelper.span
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -15,18 +18,9 @@ import io.opentelemetry.sdk.trace.export.SpanExporter
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.ThrowingConsumer
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.ArgumentCaptor
-import org.mockito.Captor
-import org.mockito.Mockito
-import org.mockito.junit.jupiter.MockitoExtension
 import java.util.function.Predicate
 
-@ExtendWith(MockitoExtension::class)
 internal class FilteringSpanExporterTest {
-    @Captor
-    private lateinit var spansCaptor: ArgumentCaptor<MutableCollection<SpanData>>
-
     @Test
     fun filter() {
         val span1 = span("one")
@@ -42,21 +36,14 @@ internal class FilteringSpanExporterTest {
         val spans = listOf(span1, span2, span3, span4, span5, span6, span7, span8)
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
-        attrRejects.put(
-            AttributeKey.stringKey("herp"),
-            Predicate { anObject: String -> "derp".equals(anObject) },
-        )
-        attrRejects.put(
-            AttributeKey.stringKey("dig"),
-            Predicate { v: String -> v.startsWith("d") },
-        )
+        attrRejects[AttributeKey.stringKey("herp")] = Predicate { anObject: String -> "derp".equals(anObject) }
+        attrRejects[AttributeKey.stringKey("dig")] = Predicate { v: String -> v.startsWith("d") }
 
-        val exporter = Mockito.mock(SpanExporter::class.java)
-        val expectedResult = Mockito.mock(CompletableResultCode::class.java)
+        val exporter = mockk<SpanExporter>()
+        val expectedResult = mockk<CompletableResultCode>()
 
-        Mockito
-            .`when`(exporter.export(spansCaptor.capture()))
-            .thenReturn(expectedResult)
+        val spansCaptor = slot<MutableCollection<SpanData>>()
+        every { exporter.export(capture(spansCaptor)) } returns expectedResult
 
         val underTest =
             FilteringSpanExporter
@@ -70,7 +57,7 @@ internal class FilteringSpanExporterTest {
 
         val result = underTest.export(spans)
         assertThat(result).isSameAs(expectedResult)
-        val resultSpans = spansCaptor.getValue()
+        val resultSpans = spansCaptor.captured
         assertThat(resultSpans)
             .satisfiesExactly(
                 ThrowingConsumer { s: SpanData? ->

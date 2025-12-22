@@ -7,6 +7,8 @@ package io.opentelemetry.android.instrumentation.fragment
 
 import androidx.fragment.app.Fragment
 import io.mockk.every
+import io.mockk.impl.annotations.RelaxedMockK
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.common.ScreenNameExtractor
@@ -22,34 +24,31 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.RegisterExtension
-import org.mockito.Mockito
-import org.mockito.junit.jupiter.MockitoExtension
 
-@ExtendWith(MockitoExtension::class)
+@ExtendWith(MockKExtension::class)
 internal class RumFragmentLifecycleCallbacksTest {
     private companion object {
         @RegisterExtension
         val otelTesting: OpenTelemetryExtension = OpenTelemetryExtension.create()
     }
 
-    private val visibleScreenTracker: VisibleScreenTracker =
-        Mockito.mock(VisibleScreenTracker::class.java)
+    @RelaxedMockK
+    private lateinit var visibleScreenTracker: VisibleScreenTracker
     private lateinit var tracer: Tracer
 
+    @RelaxedMockK
     private lateinit var screenNameExtractor: ScreenNameExtractor
 
     @BeforeEach
     fun setup() {
         tracer = otelTesting.openTelemetry.getTracer("testTracer")
-        screenNameExtractor =
-            mockk(relaxed = true) {
-                every { extract(any()) } returns "Fragment"
-            }
+        every { screenNameExtractor.extract(any()) } returns "Fragment"
+        every { visibleScreenTracker.previouslyVisibleScreen } returns null
     }
 
     @Test
     fun fragmentCreation() {
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         fragmentCallbackTestHarness.runFragmentCreationLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -81,12 +80,10 @@ internal class RumFragmentLifecycleCallbacksTest {
 
     @Test
     fun fragmentRestored() {
-        Mockito
-            .`when`(visibleScreenTracker.previouslyVisibleScreen)
-            .thenReturn("previousScreen")
+        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         testHarness.runFragmentRestoredLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -119,7 +116,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun fragmentResumed() {
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         testHarness.runFragmentResumedLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -143,7 +140,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun fragmentPaused() {
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         // calls onFragmentPaused() and onFragmentStopped()
         testHarness.runFragmentPausedLifecycle(fragment)
 
@@ -190,7 +187,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun fragmentDetachedFromActive() {
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         testHarness.runFragmentDetachedFromActiveLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -211,7 +208,7 @@ internal class RumFragmentLifecycleCallbacksTest {
         )
         assertNull(pauseSpan.attributes.get(RumConstants.LAST_SCREEN_NAME_KEY))
 
-        var events = pauseSpan.events
+        var events: List<EventData> = pauseSpan.events
         assertEquals(1, events.size)
         checkEventExists(events, "fragmentPaused")
 
@@ -265,7 +262,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun fragmentDestroyedFromStopped() {
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         testHarness.runFragmentViewDestroyedFromStoppedLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -293,7 +290,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun fragmentDetachedFromStopped() {
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         testHarness.runFragmentDetachedFromStoppedLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -312,7 +309,7 @@ internal class RumFragmentLifecycleCallbacksTest {
         )
         assertNull(destroyViewSpan.attributes.get(RumConstants.LAST_SCREEN_NAME_KEY))
 
-        var events = destroyViewSpan.events
+        var events: List<EventData> = destroyViewSpan.events
         assertEquals(1, events.size)
         checkEventExists(events, "fragmentViewDestroyed")
 
@@ -335,7 +332,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     fun fragmentDetached() {
         val testHarness = fragmentCallbackTestHarness
 
-        val fragment = Mockito.mock(Fragment::class.java)
+        val fragment = mockk<Fragment>()
         testHarness.runFragmentDetachedLifecycle(fragment)
 
         val spans = otelTesting.spans
@@ -360,7 +357,7 @@ internal class RumFragmentLifecycleCallbacksTest {
     }
 
     private fun checkEventExists(
-        events: MutableList<EventData>,
+        events: List<EventData>,
         eventName: String,
     ) {
         val hasEvent = events.any { e: EventData -> e.name == eventName }

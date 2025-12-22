@@ -19,7 +19,7 @@ internal val THRESHOLD: AttributeKey<Double> = AttributeKey.doubleKey("app.jank.
 internal class EventJankReporter(
     private val eventLogger: Logger,
     private val threshold: Double,
-    private val debugVerbose: Boolean = false,
+    private val isDebugVerbose: Boolean = false,
 ) : JankReporter {
     override fun reportSlow(
         durationToCountHistogram: Map<Int, Int>,
@@ -29,9 +29,9 @@ internal class EventJankReporter(
         var frameCount: Long = 0
         for (entry in durationToCountHistogram) {
             val durationMillis = entry.key
-            if ((durationMillis / 1000.0) > threshold) {
+            if (durationMillis / 1000.0 > threshold) {
                 val count = entry.value
-                if (debugVerbose) {
+                if (isDebugVerbose) {
                     Log.d(
                         RumConstants.OTEL_RUM_LOG_TAG,
                         "* Slow render detected: $durationMillis ms. $count times",

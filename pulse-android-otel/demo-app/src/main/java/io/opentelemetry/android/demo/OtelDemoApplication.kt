@@ -57,7 +57,7 @@ class OtelDemoApplication : Application() {
             ) {
                 interaction {
                     enabled(true)
-                    setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions" }
+                    setConfigUrl { "http://10.0.2.2:8080/v1/interaction-configs/" }
                 }
                 activity {
                     enabled(true)

@@ -30,18 +30,19 @@ interface AndroidInstrumentationLoader {
         private var instance: AndroidInstrumentationLoader? = null
 
         @JvmStatic
-        fun get(): AndroidInstrumentationLoader {
-            if (instance == null) {
-                instance = AndroidInstrumentationLoaderImpl()
+        fun get(): AndroidInstrumentationLoader =
+            instance ?: run {
+                AndroidInstrumentationLoaderImpl().apply {
+                    instance = this
+                }
             }
-            return instance!!
-        }
 
         /**
          * Convenience method for [AndroidInstrumentationLoader.getByType].
          */
         @JvmStatic
-        fun <T : AndroidInstrumentation> getInstrumentation(type: Class<out T>): T = get().getByType(type)!!
+        fun <T : AndroidInstrumentation> getInstrumentation(type: Class<out T>): T =
+            get().getByType(type) ?: error("Instrumentation not found for type = $type")
 
         @JvmStatic
         fun resetForTest() {

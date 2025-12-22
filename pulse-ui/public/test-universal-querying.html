@@ -294,7 +294,7 @@
             },
             body: JSON.stringify({
               query: query,
-              emailId: "test@dream11.com",
+              emailId: "test@example.com",
             }),
           });
           const data = await response.json();
@@ -432,7 +432,7 @@
 
         try {
           const response = await fetch(
-            "/v2/getQuery/user?emailId=test@dream11.com",
+            "/v2/getQuery/user?emailId=test@example.com",
             {
               method: "GET",
             },

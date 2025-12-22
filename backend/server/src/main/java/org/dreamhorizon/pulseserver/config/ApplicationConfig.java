@@ -27,4 +27,5 @@ public class ApplicationConfig {
   public String configDetailsS3BucketFilePath;
   public String configDetailCloudFrontDistributionId;
   public String configDetailCloudFrontAssetPath;
+  public String webhookUrl;
 }

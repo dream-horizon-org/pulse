@@ -18,21 +18,23 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.AlertsDao;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AddAlertToCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.AlertTagMapRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertNotificationChannelRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertSeverityRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.DeleteAlertFromCronManager;
-import org.dreamhorizon.pulseserver.dto.request.alerts.GetAlertsListRequestDto;
-import org.dreamhorizon.pulseserver.dto.request.alerts.UpdateAlertInCronManager;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertEvaluationHistoryResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertNotificationChannelResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertSeverityResponseDto;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertTagsResponseDto;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertMetricsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertScopesResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertSeverityResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagMapRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertTagsResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertNotificationChannelRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.GetAlertsListRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
 import org.dreamhorizon.pulseserver.service.alert.core.models.Alert;
 import org.dreamhorizon.pulseserver.service.alert.core.models.CreateAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.DeleteSnoozeRequest;
@@ -230,8 +232,8 @@ public class AlertService {
         .build();
   }
 
-  public Single<List<AlertEvaluationHistoryResponseDto>> getAlertEvaluationHistory(@NotNull Integer alertId) {
-    return alertsDao.getEvaluationHistoryOfAlert(alertId);
+  public Single<List<ScopeEvaluationHistoryDto>> getAlertEvaluationHistoryByScope(@NotNull Integer alertId) {
+    return alertsDao.getEvaluationHistoryByAlert(alertId);
   }
 
   public Single<List<AlertSeverityResponseDto>> getAlertSeverities() {
@@ -288,4 +290,21 @@ public class AlertService {
   public Single<AlertFiltersResponseDto> getAlertFilters() {
     return alertsDao.getAlertsFilters();
   }
+
+  public Single<AlertScopesResponseDto> getAlertScopes() {
+    return alertsDao.getAlertScopes()
+        .map(scopes -> AlertScopesResponseDto.builder()
+            .scopes(scopes)
+            .build());
+  }
+
+  public Single<AlertMetricsResponseDto> getAlertMetrics(String scope) {
+    return alertsDao.getMetricsByScope(scope)
+        .map(metrics -> AlertMetricsResponseDto.builder()
+            .scope(scope)
+            .metrics(metrics)
+            .build());
+  }
+
 }
+

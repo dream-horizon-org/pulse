@@ -70,8 +70,23 @@ class SdkPreconfiguredRumBuilder internal constructor(
         return openTelemetryRum
     }
 
-    private fun getEnabledInstrumentations(): List<AndroidInstrumentation> =
-        getInstrumentations().filter { inst -> !config.isSuppressed(inst.name) }
+    /**
+     * Enabled means non-suppressed. This method returns all non-suppressed instrumentations, and may
+     * reorder them so that the session instrumentation (when enabled/available) is at the front
+     * of the list.
+     */
+    internal fun getEnabledInstrumentations(): List<AndroidInstrumentation> {
+        val instrumentations = getInstrumentations().filter { inst -> !config.isSuppressed(inst.name) }
+        val result = instrumentations.toMutableList()
+        val sessionInstrumentation = instrumentations.find { it.name == "session" }
+        sessionInstrumentation?.let {
+            // If session instrumentation is available, slam it to the front of the list.
+            // This helps prevent a session id from being created before the observers can be added.
+            result.remove(it)
+            result.add(0, it)
+        }
+        return result.toList()
+    }
 
     private fun getInstrumentations(): List<AndroidInstrumentation> {
         if (config.shouldDiscoverInstrumentations()) {

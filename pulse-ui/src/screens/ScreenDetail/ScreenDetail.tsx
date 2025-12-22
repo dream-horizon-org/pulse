@@ -206,17 +206,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     device: device !== "all" ? device : undefined,
   });
 
-
-  const responseTimeFormatter = (responseTime: number) => {
-    // response time is in nanoseconds, so we need to convert it to milliseconds.
-    const milliseconds = responseTime / 1000000;
-    // if the response time is greater than 1000, then format it as seconds.
-    if (milliseconds > 1000) {
-      return `${(milliseconds / 1000).toFixed(1)}s`;
-    }
-    return `${milliseconds.toFixed(1)}ms`;
-  };
-
   // Get graph config based on selected issue type
   const graphConfig = GRAPH_CONFIGS[issueType];
 
@@ -350,8 +339,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                   </Text>
                   <Text className={vitalsClasses.statValue} c="teal">
                     {engagementData?.avgLoadTime
-                      ? responseTimeFormatter(engagementData.avgLoadTime)
-                      : 0}
+                      ? engagementData.avgLoadTime >= 1
+                        ? `${engagementData.avgLoadTime.toFixed(1)}s`
+                        : `${(engagementData.avgLoadTime * 1000).toFixed(0)}ms`
+                      : "0ms"}
                   </Text>
                 </Box>
               </Box>

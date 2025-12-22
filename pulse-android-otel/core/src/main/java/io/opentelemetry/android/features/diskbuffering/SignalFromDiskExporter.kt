@@ -37,7 +37,7 @@ class SignalFromDiskExporter
             spanFromDiskExporter?.exportStoredBatch(
                 exportTimeoutInMillis,
                 TimeUnit.MILLISECONDS,
-            ) ?: false
+            ) == true
 
         /**
          * A batch contains all the signals that arrived in one call to [MetricFromDiskExporter.exportStoredBatch]. So if
@@ -53,7 +53,7 @@ class SignalFromDiskExporter
             metricFromDiskExporter?.exportStoredBatch(
                 exportTimeoutInMillis,
                 TimeUnit.MILLISECONDS,
-            ) ?: false
+            ) == true
 
         /**
          * A batch contains all the signals that arrived in one call to [LogRecordFromDiskExporter.exportStoredBatch]. So if
@@ -69,7 +69,7 @@ class SignalFromDiskExporter
             logRecordFromDiskExporter?.exportStoredBatch(
                 exportTimeoutInMillis,
                 TimeUnit.MILLISECONDS,
-            ) ?: false
+            ) == true
 
         /**
          * Convenience method that attempts to export all kinds of signals from disk.
@@ -80,14 +80,14 @@ class SignalFromDiskExporter
         @WorkerThread
         @Throws(IOException::class)
         fun exportBatchOfEach(): Boolean {
-            var atLeastOneWorked = exportBatchOfSpans()
+            var hasAtLeastOneWorked = exportBatchOfSpans()
             if (exportBatchOfMetrics()) {
-                atLeastOneWorked = true
+                hasAtLeastOneWorked = true
             }
             if (exportBatchOfLogs()) {
-                atLeastOneWorked = true
+                hasAtLeastOneWorked = true
             }
-            return atLeastOneWorked
+            return hasAtLeastOneWorked
         }
 
         companion object {

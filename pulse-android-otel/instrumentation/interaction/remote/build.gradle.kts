@@ -24,7 +24,10 @@ kotlin {
 }
 
 dependencies {
+    implementation(projects.pulseUtils)
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinSerialisation)
     implementation(libs.kotlin.serialisation)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlin.coroutinesTest)
 }

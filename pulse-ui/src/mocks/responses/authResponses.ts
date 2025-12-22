@@ -10,7 +10,7 @@ export const mockAuthResponses = {
       tokenType: "Bearer",
       expiresIn: 3600,
       user: {
-        email: "mock@dream11.com",
+        email: "mock@example.com",
         name: "Mock User",
         picture: "https://via.placeholder.com/150",
       },

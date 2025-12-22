@@ -19,6 +19,8 @@ import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.TracerProvider
+import io.opentelemetry.sdk.logs.LogRecordProcessor
+import io.opentelemetry.sdk.trace.SpanProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,7 +40,7 @@ class InteractionInstrumentation :
 
     /**
      * Configure the interaction config fetcher.
-     * In case not set defaults to "http://10.0.2.2:8080/interaction-configs" with [InteractionConfigRestFetcher]
+     * In case not set defaults to "http://10.0.2.2:8080/v1/interaction-configs" with [InteractionConfigRestFetcher]
      */
     fun setConfigFetcher(configFetcher: InteractionConfigFetcher): InteractionInstrumentation =
         apply {
@@ -48,7 +50,7 @@ class InteractionInstrumentation :
     val interactionManagerInstance by lazy {
         InteractionManager(
             interactionConfigFetcher ?: InteractionConfigRestFetcher {
-                "http://10.0.2.2:8080/interaction-configs"
+                "http://10.0.2.2:8080/v1/interaction-configs"
             },
         )
     }
@@ -78,7 +80,14 @@ class InteractionInstrumentation :
     override val name: String = INSTRUMENTATION_NAME
 
     companion object {
-        fun handleSuccessInteraction(
+        @JvmStatic
+        fun createSpanProcessor(interactionManager: InteractionManager): SpanProcessor =
+            InteractionAttributesSpanAppender(interactionManager)
+
+        @JvmStatic
+        fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor = InteractionLogListener(interactionManager)
+
+        private fun handleSuccessInteraction(
             tracerProvider: TracerProvider,
             additionalAttributeExtractors: List<InteractionAttributesExtractor>,
             interactionStatuses: List<InteractionRunningStatus>,

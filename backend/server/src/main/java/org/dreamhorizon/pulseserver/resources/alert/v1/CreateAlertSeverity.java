@@ -10,7 +10,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.dreamhorizon.pulseserver.dto.request.alerts.CreateAlertSeverityRequestDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertSeverityRequestDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;

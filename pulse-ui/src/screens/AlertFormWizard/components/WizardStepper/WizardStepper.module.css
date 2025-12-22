@@ -1,0 +1,333 @@
+/**
+ * Wizard Stepper Styles
+ *
+ * Production-grade styles for the wizard stepper component.
+ * Uses CSS custom properties for theming consistency.
+ */
+
+/* ============================================================================
+   MAIN STEPPER CONTAINER
+   ============================================================================ */
+
+.stepper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--mantine-spacing-md) 0;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.02) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.stepper.horizontal {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+/* ============================================================================
+   PROGRESS BAR
+   ============================================================================ */
+
+.progressContainer {
+  margin-bottom: var(--mantine-spacing-lg);
+  padding: 0 var(--mantine-spacing-xs);
+}
+
+.progressBar {
+  transition: width 0.3s ease;
+}
+
+/* ============================================================================
+   STEPS CONTAINER
+   ============================================================================ */
+
+.stepsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.stepper.horizontal .stepsContainer {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+/* ============================================================================
+   INDIVIDUAL STEP ITEM
+   ============================================================================ */
+
+.stepItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.stepItem.horizontal {
+  flex: 1;
+  align-items: center;
+}
+
+/* ============================================================================
+   STEP BUTTON (CLICKABLE AREA)
+   ============================================================================ */
+
+.stepButton {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  /* padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm); */
+  border-radius: var(--mantine-radius-md);
+  width: 100%;
+  padding-left: var(--mantine-spacing-sm) !important; 
+  padding-right: var(--mantine-spacing-sm) !important;
+  /* transition: background-color 0.2s ease; */
+  cursor: default;
+  
+  
+}
+
+.stepButton.clickable {
+  cursor: pointer;
+  padding: var(--mantine-spacing-xs) 0;
+  /* margin:  var(--mantine-spacing-sm) 0; */
+}
+
+.stepButton.clickable:hover {
+  background-color: rgba(14, 201, 194, 0.06);
+}
+
+.stepButton.clickable:active {
+  background-color: rgba(14, 201, 194, 0.1);
+}
+
+.stepButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ============================================================================
+   STEP ICON
+   ============================================================================ */
+
+.stepIcon {
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  /* box-shadow: 0 2px 8px rgba(14, 201, 194, 0.15); */
+}
+
+.stepItem.active .stepIcon {
+  /* box-shadow: 0 4px 16px rgba(14, 201, 194, 0.3); */
+  transform: scale(1.05);
+}
+
+.stepItem.completed .stepIcon {
+  /* box-shadow: 0 2px 8px rgba(14, 201, 194, 0.2); */
+}
+
+.stepItem.error .stepIcon {
+  /* box-shadow: 0 2px 8px rgba(255, 100, 100, 0.2); */
+}
+
+.stepItem.locked .stepIcon {
+  box-shadow: none;
+  opacity: 0.5;
+}
+
+/* ============================================================================
+   STEP CONTENT (LABEL + DESCRIPTION)
+   ============================================================================ */
+
+.stepContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepLabel {
+  color: var(--mantine-color-dark-7);
+  line-height: 1.3;
+  transition: color 0.2s ease;
+}
+
+.stepItem.active .stepLabel {
+  color: #0ba09a;
+}
+
+.stepItem.completed .stepLabel {
+  color: var(--mantine-color-dark-6);
+}
+
+.stepItem.error .stepLabel {
+  color: var(--mantine-color-red-7);
+}
+
+.stepItem.locked .stepLabel {
+  color: var(--mantine-color-gray-5);
+}
+
+.stepDescription {
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.stepItem.locked .stepDescription {
+  color: var(--mantine-color-gray-4);
+}
+
+/* ============================================================================
+   OPTIONAL BADGE
+   ============================================================================ */
+
+.optionalBadge {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ============================================================================
+   CONNECTOR LINE
+   ============================================================================ */
+
+.connector {
+  position: relative;
+  width: 2px;
+  height: 32px;
+  margin-left: var(--mantine-spacing-xl); /* Center under the icon (40px / 2 - 1px) */
+  background-color: var(--mantine-color-gray-3);
+  transition: background-color 0.3s ease;
+}
+
+.connector::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  background: linear-gradient(
+    180deg,
+    #0ec9c2 0%,
+    #0ba09a 100%
+  );
+  transition: height 0.5s ease;
+}
+
+.connectorCompleted {
+  background-color: #0ec9c2;
+}
+
+.connectorCompleted::after {
+  height: 100%;
+}
+
+/* Horizontal connector */
+.stepper.horizontal .connector {
+  width: 100%;
+  height: 2px;
+  margin: 0;
+  margin-top: 20px; /* Align with icon center */
+}
+
+.stepper.horizontal .connectorCompleted::after {
+  height: 100%;
+  width: 100%;
+}
+
+/* ============================================================================
+   STATE-SPECIFIC STYLES
+   ============================================================================ */
+
+/* Active state */
+.stepItem.active button{
+  background: linear-gradient(
+    90deg,
+    rgba(14, 201, 194, 0.08) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  border-radius: var(--mantine-radius-md);
+}
+
+/* Completed state animation */
+.stepItem.completed .stepIcon {
+  animation: completePulse 0.3s ease-out;
+}
+
+@keyframes completePulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Error state shake */
+.stepItem.error .stepIcon {
+  animation: errorShake 0.4s ease-out;
+}
+
+@keyframes errorShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+/* ============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .stepContent {
+    display: none;
+  }
+
+  .stepper {
+    padding: var(--mantine-spacing-sm);
+  }
+
+  .stepButton {
+    justify-content: center;
+    padding: var(--mantine-spacing-xs);
+  }
+
+  .optionalBadge {
+    display: none;
+  }
+
+  .connector {
+    margin-left: 15px;
+    height: 20px;
+  }
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+.stepButton:focus-visible {
+  outline: 2px solid #0ec9c2;
+  outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .stepIcon,
+  .connector::after,
+  .stepItem.completed .stepIcon,
+  .stepItem.error .stepIcon {
+    animation: none;
+    transition: none;
+  }
+}
+

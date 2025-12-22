@@ -198,7 +198,7 @@ internal object InteractionUtil {
 
         val (timeDifferenceInNano, timeCategory, upTimeIndex) =
             if (isSuccessInteraction) {
-                val timeDifferenceInNano = (lastEventTimeInNano - events.first().timeInNano)
+                val timeDifferenceInNano = lastEventTimeInNano - events.first().timeInNano
                 val timeDifferenceInMs = timeDifferenceInNano / 1000_000
                 val lowerLimitInMs = interactionConfig.uptimeLowerLimitInMs
                 val midLimitInMs = interactionConfig.uptimeMidLimitInMs
@@ -278,7 +278,7 @@ internal inline fun logDebug(body: () -> String) {
 public class Interaction internal constructor(
     public val id: String,
     public val name: String,
-    public val props: Map<String, Any?> = mapOf(),
+    public val props: Map<String, Any?> = emptyMap(),
 )
 
 @Suppress("UNCHECKED_CAST")
@@ -297,17 +297,21 @@ public val Interaction.timeSpanInNanos: Pair<Long, Long>?
 @Suppress("UNCHECKED_CAST")
 public val Interaction.events: List<InteractionLocalEvent>
     get() {
-        return props[InteractionConstant.LOCAL_EVENTS] as List<InteractionLocalEvent>
+        return props[InteractionConstant.LOCAL_EVENTS] as? List<InteractionLocalEvent>
+            ?: error("InteractionConstant.LOCAL_EVENTS is missing or not of correct type")
     }
 
 @Suppress("UNCHECKED_CAST")
 public val Interaction.markerEvents: List<InteractionLocalEvent>
     get() {
-        return props[InteractionConstant.MARKER_EVENTS] as List<InteractionLocalEvent>
+        return props[InteractionConstant.MARKER_EVENTS] as? List<InteractionLocalEvent>
+            ?: error("InteractionConstant.MARKER_EVENTS is missing or not of correct type")
     }
 
 public val Interaction.isErrored: Boolean
     get() {
-        val isError = props[InteractionConstant.IS_ERROR] as Boolean
+        val isError =
+            props[InteractionConstant.IS_ERROR] as? Boolean
+                ?: error("InteractionConstant.IS_ERROR is missing or not of correct type")
         return isError
     }

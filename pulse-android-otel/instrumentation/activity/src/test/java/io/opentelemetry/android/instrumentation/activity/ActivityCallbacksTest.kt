@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
-import org.mockito.Mockito
 
 internal class ActivityCallbacksTest {
     private companion object {
@@ -35,7 +34,8 @@ internal class ActivityCallbacksTest {
     fun setup() {
         val tracer = otelTesting.openTelemetry.getTracer("testTracer")
         val startupTimer = AppStartupTimer()
-        visibleScreenTracker = Mockito.mock(VisibleScreenTracker::class.java)
+        visibleScreenTracker = mockk<VisibleScreenTracker>(relaxed = true)
+        every { visibleScreenTracker.previouslyVisibleScreen } returns null
         val extractor = mockk<ScreenNameExtractor>(relaxed = true)
         every { extractor.extract(any<Activity>()) } returns "Activity"
         tracers = ActivityTracerCache(tracer, visibleScreenTracker, startupTimer, extractor)
@@ -46,7 +46,7 @@ internal class ActivityCallbacksTest {
         val activityCallbacks = ActivityCallbacks(tracers)
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runAppStartupLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -89,7 +89,7 @@ internal class ActivityCallbacksTest {
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityCreationLifecycle(activity)
         val spans = otelTesting.spans
         assertEquals(1, spans.size)
@@ -126,7 +126,7 @@ internal class ActivityCallbacksTest {
 
     private fun startupAppAndClearSpans(testHarness: ActivityCallbackTestHarness) {
         // make sure that the initial state has been set up & the application is started.
-        testHarness.runAppStartupLifecycle(Mockito.mock(Activity::class.java))
+        testHarness.runAppStartupLifecycle(mockk<Activity>())
         otelTesting.clearSpans()
     }
 
@@ -137,7 +137,7 @@ internal class ActivityCallbacksTest {
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityRestartedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -171,15 +171,13 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityResumed() {
-        Mockito
-            .`when`<String?>(visibleScreenTracker.previouslyVisibleScreen)
-            .thenReturn("previousScreen")
+        every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
         val activityCallbacks = ActivityCallbacks(tracers)
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityResumedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -216,7 +214,7 @@ internal class ActivityCallbacksTest {
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityDestroyedFromStoppedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -250,7 +248,7 @@ internal class ActivityCallbacksTest {
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityDestroyedFromPausedLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -269,7 +267,7 @@ internal class ActivityCallbacksTest {
         )
         assertNull(stoppedSpan.attributes.get(RumConstants.LAST_SCREEN_NAME_KEY))
 
-        var events = stoppedSpan.events
+        var events: List<EventData> = stoppedSpan.events
         assertEquals(3, events.size)
 
         checkEventExists(events, "activityPreStopped")
@@ -304,7 +302,7 @@ internal class ActivityCallbacksTest {
 
         startupAppAndClearSpans(testHarness)
 
-        val activity = Mockito.mock(Activity::class.java)
+        val activity = mockk<Activity>()
         testHarness.runActivityStoppedFromRunningLifecycle(activity)
 
         val spans = otelTesting.spans
@@ -323,7 +321,7 @@ internal class ActivityCallbacksTest {
         )
         assertNull(stoppedSpan.attributes.get(RumConstants.LAST_SCREEN_NAME_KEY))
 
-        var events = stoppedSpan.events
+        var events: List<EventData> = stoppedSpan.events
         assertEquals(3, events.size)
 
         checkEventExists(events, "activityPrePaused")
@@ -352,7 +350,7 @@ internal class ActivityCallbacksTest {
     }
 
     private fun checkEventExists(
-        events: MutableList<EventData>,
+        events: List<EventData>,
         eventName: String,
     ) {
         val event = events.any { e: EventData -> e.name == eventName }

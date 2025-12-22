@@ -124,7 +124,7 @@ public class InteractionServiceImpl implements InteractionService {
   }
 
   @Override
-  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions() {
+  public Single<List<InteractionDetails>> getInteractionConfig() {
     return interactionDao.getAllActiveAndRunningInteractions();
   }
 

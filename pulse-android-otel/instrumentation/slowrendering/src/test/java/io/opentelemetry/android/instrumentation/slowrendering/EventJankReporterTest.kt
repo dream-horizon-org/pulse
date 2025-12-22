@@ -31,7 +31,7 @@ class EventJankReporterTest {
         jankReporter.reportSlow(histogramData, 10.5, "io.otel/Komponent")
 
         assertThat(otelTesting.logRecords.size).isEqualTo(1)
-        val log = otelTesting.logRecords.get(0)
+        val log = otelTesting.logRecords[0]
         assertThat(log.eventName).isEqualTo("app.jank")
         assertThat(log.attributes.get(FRAME_COUNT)).isEqualTo(1)
         assertThat(log.attributes.get(PERIOD)).isEqualTo(10.5)

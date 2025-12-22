@@ -12,6 +12,7 @@ import io.vertx.rxjava3.ext.web.handler.StaticHandler;
 import java.util.HashSet;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
+import org.dreamhorizon.pulseserver.service.alert.core.AlertEvaluationService;
 
 public class RestVerticle extends AbstractRestVerticle {
   private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
@@ -32,6 +33,9 @@ public class RestVerticle extends AbstractRestVerticle {
     router.route().handler(BodyHandler.create());
     router.route().handler(ResponseContentTypeHandler.create());
     router.route().handler(StaticHandler.create());
+
+    AlertEvaluationService alertEvaluationService = GuiceInjector.getGuiceInjector().getInstance(AlertEvaluationService.class);
+    alertEvaluationService.registerConsumers();
 
 
     final Set<String> allowedHeaders = new HashSet<>();

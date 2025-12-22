@@ -9,3 +9,44 @@ public final class com/pulse/otel/utils/PulseOtelUtilsKt {
 	public static final fun toAttributes (Ljava/util/Map;)Lio/opentelemetry/api/common/Attributes;
 }
 
+public final class com/pulse/otel/utils/models/PulseApiError {
+	public static final field Companion Lcom/pulse/otel/utils/models/PulseApiError$Companion;
+	public final fun getCode ()Ljava/lang/String;
+	public final fun getMessage ()Ljava/lang/String;
+}
+
+public final class com/pulse/otel/utils/models/PulseApiError$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/otel/utils/models/PulseApiError$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/otel/utils/models/PulseApiError;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/otel/utils/models/PulseApiError;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/otel/utils/models/PulseApiError$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/otel/utils/models/PulseApiResponse {
+	public static final field Companion Lcom/pulse/otel/utils/models/PulseApiResponse$Companion;
+	public final fun getData ()Ljava/lang/Object;
+	public final fun getError ()Lcom/pulse/otel/utils/models/PulseApiError;
+}
+
+public final class com/pulse/otel/utils/models/PulseApiResponse$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public synthetic fun <init> (Lkotlinx/serialization/KSerializer;)V
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/otel/utils/models/PulseApiResponse;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/otel/utils/models/PulseApiResponse;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/otel/utils/models/PulseApiResponse$Companion {
+	public final fun serializer (Lkotlinx/serialization/KSerializer;)Lkotlinx/serialization/KSerializer;
+}
+

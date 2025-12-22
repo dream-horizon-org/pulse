@@ -18,10 +18,14 @@ import {
 } from "./components";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import { CRITICAL_INTERACTION_QUICK_TIME_FILTERS } from "../../constants";
+import { 
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
+  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+} from "../../constants";
 import { useExceptionListData } from "./components/ExceptionTable/hooks";
 import { useFilterStore } from "../../stores/useFilterStore";
 import dayjs from "dayjs";
+import { useAnalytics } from "../../hooks/useAnalytics";
 
 export const AppVitals: React.FC = () => {
   const {
@@ -32,6 +36,7 @@ export const AppVitals: React.FC = () => {
     handleTimeFilterChange: storeHandleTimeFilterChange,
     setQuickTimeRange,
   } = useFilterStore();
+  const { trackTabSwitch, trackFilter } = useAnalytics("AppVitals");
 
   const [filters, setFilters] = useState<VitalsFiltersType>({
     issueType: ISSUE_TYPES.CRASHES,
@@ -105,18 +110,22 @@ export const AppVitals: React.FC = () => {
   }, []);
 
   const handleIssueTypeChange = (value: string) => {
+    trackTabSwitch(value);
     setFilters((prev) => ({ ...prev, issueType: value as IssueType }));
   };
 
   const handleAppVersionChange = (value: string | null) => {
+    trackFilter("appVersion", value || "all");
     setFilters((prev) => ({ ...prev, appVersion: value || "all" }));
   };
 
   const handleOsVersionChange = (value: string | null) => {
+    trackFilter("osVersion", value || "all");
     setFilters((prev) => ({ ...prev, osVersion: value || "all" }));
   };
 
   const handleDeviceChange = (value: string | null) => {
+    trackFilter("device", value || "all");
     setFilters((prev) => ({ ...prev, device: value || "all" }));
   };
 
@@ -128,12 +137,20 @@ export const AppVitals: React.FC = () => {
 
     // Directly update startTime and endTime in store (AppVitals doesn't use filterValues)
     const store = useFilterStore.getState();
+    // Get the quickTimeRangeString from the activeQuickTimeFilter index
+    const activeIndex = store.activeQuickTimeFilter;
+    const quickTimeString = activeIndex !== -1 && activeIndex < CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length
+      ? CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeIndex].value
+      : "";
+    
     store.handleFilterChange(
       {} as any, // Empty filter values for AppVitals
       value.startDate || "",
       value.endDate || "",
-      quickTimeRangeString || "",
+      quickTimeString,
     );
+    // Also update quickTimeRangeFilterIndex
+    store.setQuickTimeRange(quickTimeString, activeIndex);
   };
 
   // Fetch data from API for stats calculation

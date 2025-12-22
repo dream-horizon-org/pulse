@@ -1,0 +1,35 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-lg);
+}
+
+.section {
+  background: rgba(14, 201, 194, 0.02);
+  padding: var(--mantine-spacing-lg);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.08);
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.severityCard {
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  padding: var(--mantine-spacing-sm);
+}
+
+.severityCard:hover {
+  border-color: rgba(14, 201, 194, 0.3);
+}
+
+.selected {
+  border-color: #0ec9c2;
+  background: rgba(14, 201, 194, 0.05);
+}

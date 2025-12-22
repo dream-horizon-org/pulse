@@ -218,8 +218,8 @@ export function useGetScreenEngagementData({
       totalSessions += sessions;
       totalLoads += loads;
 
-      const avgTimeSpent = sessions > 0 ? timeSpent / (sessions * 1000000) : 0; // Convert nanoseconds to seconds
-      const avgLoadTime = loads > 0 ? (loadTime / (loads * 1000000)) : 0; // Convert nanoseconds to milliseconds
+      const avgTimeSpent = sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0; // Convert nanoseconds to seconds
+      const avgLoadTime = loads > 0 ? loadTime / loads / 1_000_000_000 : 0; // Convert nanoseconds to seconds
 
       trend.push({
         timestamp,
@@ -230,11 +230,11 @@ export function useGetScreenEngagementData({
     });
     const avgTimeSpent =
       totalSessions > 0
-        ? Math.round((totalTimeSpentSum / (totalSessions * 1000000)) * 10) / 10
+        ? Math.round((totalTimeSpentSum / totalSessions / 1_000_000_000) * 10) / 10
         : 0;
     const avgLoadTime =
       totalLoads > 0
-        ? Math.round((totalLoadTimeSum / (totalLoads * 1000000)) * 10) / 10
+        ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 10) / 10
         : 0;
     return {
       avgTimeSpent,

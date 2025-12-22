@@ -36,7 +36,7 @@ class OkHttpInstrumentation : AndroidInstrumentation {
      *
      * @param capturedRequestHeaders A list of HTTP header names.
      */
-    var capturedRequestHeaders: MutableList<String> = mutableListOf()
+    var capturedRequestHeaders: List<String> = emptyList()
         set(requestHeaders) {
             field = requestHeaders.toMutableList()
         }
@@ -51,7 +51,7 @@ class OkHttpInstrumentation : AndroidInstrumentation {
      *
      * @param capturedResponseHeaders A list of HTTP header names.
      */
-    var capturedResponseHeaders: MutableList<String> = mutableListOf()
+    var capturedResponseHeaders: List<String> = emptyList()
         set(responseHeaders) {
             field = responseHeaders.toMutableList()
         }
@@ -71,13 +71,13 @@ class OkHttpInstrumentation : AndroidInstrumentation {
      *
      * @param knownMethods A set of recognized HTTP request methods.
      */
-    var knownMethods: MutableSet<String> = HttpConstants.KNOWN_METHODS
+    var knownMethods: Set<String> = HttpConstants.KNOWN_METHODS
         set(knownMethods) {
             field = knownMethods.toMutableSet()
         }
 
-    private var peerServiceMapping: Map<String, String> = mapOf()
-    private var emitExperimentalHttpClientTelemetry = false
+    private var peerServiceMapping: Map<String, String> = emptyMap()
+    private var shouldEmitExperimentalHttpClientTelemetry = false
 
     /**
      * Adds an [AttributesExtractor] that will extract additional attributes.
@@ -103,10 +103,10 @@ class OkHttpInstrumentation : AndroidInstrumentation {
      * the response size](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/http/http-metrics.md#metric-httpserverresponsebodysize).
      */
     fun setEmitExperimentalHttpClientTelemetry(emitExperimentalHttpClientTelemetry: Boolean) {
-        this.emitExperimentalHttpClientTelemetry = emitExperimentalHttpClientTelemetry
+        this.shouldEmitExperimentalHttpClientTelemetry = emitExperimentalHttpClientTelemetry
     }
 
-    fun emitExperimentalHttpClientTelemetry(): Boolean = emitExperimentalHttpClientTelemetry
+    fun emitExperimentalHttpClientTelemetry(): Boolean = shouldEmitExperimentalHttpClientTelemetry
 
     override fun install(ctx: InstallationContext) {
         OkHttp3Singletons.configure(this, ctx.openTelemetry)
