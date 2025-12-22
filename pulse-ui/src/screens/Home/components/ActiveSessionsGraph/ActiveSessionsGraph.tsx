@@ -60,7 +60,7 @@ export function ActiveSessionsGraph({
     spanType,
   });
 
-  const { currentSessions, peakSessions, averageSessions, trendData, hasData } = data;
+  const { currentSessions, peakSessions, averageSessions, trendData } = data;
 
   if (isLoading) {
     return <GraphCardSkeleton title="Active Sessions" chartHeight={260} metricsCount={3} />;

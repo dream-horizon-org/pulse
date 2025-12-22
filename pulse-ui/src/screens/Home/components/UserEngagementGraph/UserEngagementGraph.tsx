@@ -65,7 +65,7 @@ export function UserEngagementGraph({
     spanType,
   });
 
-  const { dailyUsers, weeklyUsers, monthlyUsers, trendData, hasData } = data;
+  const { dailyUsers, weeklyUsers, monthlyUsers, trendData } = data;
 
   if (isLoading) {
     return <GraphCardSkeleton title="User Engagement" chartHeight={260} metricsCount={3} />;
