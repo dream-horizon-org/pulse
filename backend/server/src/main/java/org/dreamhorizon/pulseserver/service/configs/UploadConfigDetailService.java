@@ -42,15 +42,22 @@ public class UploadConfigDetailService {
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       PulseConfig config
   ) {
-    return s3BucketClient
+    String distributionId = applicationConfig.getConfigDetailCloudFrontDistributionId();
+    
+    Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getConfigS3BucketName(),
             applicationConfig.getConfigDetailsS3BucketFilePath(),
-            config)
-        .flatMap(resp -> cloudFrontClient
-            .invalidateCache(
-                applicationConfig.getConfigDetailCloudFrontDistributionId(),
-                applicationConfig.getConfigDetailCloudFrontAssetPath()));
+            config);
+    
+    return uploadSingle
+        .flatMap(resp -> {
+          log.info("S3 upload successful, invalidating CloudFront cache for distribution: {}", distributionId);
+          return cloudFrontClient
+              .invalidateCache(
+                  distributionId,
+                  applicationConfig.getConfigDetailCloudFrontAssetPath());
+        });
   }
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {

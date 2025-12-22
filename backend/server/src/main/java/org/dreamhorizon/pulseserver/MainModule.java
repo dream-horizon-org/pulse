@@ -68,7 +68,7 @@ public class MainModule extends VertxAbstractModule {
   private S3AsyncClient loadS3Client() {
     return S3AsyncClient.builder()
         .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-        .region(Region.US_EAST_1)
+        .region(Region.AP_SOUTH_1)
         .credentialsProvider(DefaultCredentialsProvider.create())
         .build();
   }
@@ -77,7 +77,7 @@ public class MainModule extends VertxAbstractModule {
     return CloudFrontAsyncClient
         .builder()
         .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-        .region(Region.US_EAST_1)
+        .region(Region.US_EAST_1)  // CloudFront API is always in us-east-1
         .credentialsProvider(DefaultCredentialsProvider.create())
         .build();
   }

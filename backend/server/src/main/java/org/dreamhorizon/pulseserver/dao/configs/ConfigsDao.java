@@ -32,7 +32,7 @@ public class ConfigsDao {
   private final ObjectMapperUtil objectMapper;
 
   public Single<PulseConfig> getConfig(long version) {
-    return d11MysqlClient.getReaderPool()
+    return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_CONFIG_BY_VERSION)
         .rxExecute(Tuple.of(version))
         .map(rows -> {
@@ -56,7 +56,7 @@ public class ConfigsDao {
   }
 
   public Single<PulseConfig> getConfig() {
-    return d11MysqlClient.getReaderPool()
+    return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_LATEST_VERSION)
         .rxExecute()
         .flatMap(rows -> {
@@ -125,7 +125,7 @@ public class ConfigsDao {
   }
 
   public Single<AllConfigdetails> getAllConfigDetails() {
-    return d11MysqlClient.getReaderPool()
+    return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_CONFIG_DETAILS)
         .rxExecute()
         .map(rows -> {
