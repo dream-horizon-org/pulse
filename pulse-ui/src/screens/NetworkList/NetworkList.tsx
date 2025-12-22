@@ -54,6 +54,7 @@ export function NetworkList({
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
     initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
 
   // Initialize default time range (Last 24 hours)
@@ -440,8 +441,8 @@ export function NetworkList({
               selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
               defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
               defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </Group>
         </Box>

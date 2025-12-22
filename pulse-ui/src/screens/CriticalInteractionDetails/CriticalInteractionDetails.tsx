@@ -28,6 +28,7 @@ export function CiritcalInteractionDetails() {
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange,
+    selectedTimeFilter,
   } = useFilterStore();
 
   const navigate = useNavigate();
@@ -181,10 +182,10 @@ export function CiritcalInteractionDetails() {
             <div className={classes.verticalDivider} />
             <DateTimeRangePicker
               handleTimefilterChange={handleTimeFilterChange}
-              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex || 0}
+              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex ?? 0}
               defaultQuickTimeFilterString={quickTimeRangeString || ""}
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </div>
         </div>
@@ -196,7 +197,16 @@ export function CiritcalInteractionDetails() {
         </Tabs.List>
 
         <Tabs.Panel value="overview">
-          {filterValues && startTime && endTime && interactionDetails?.data && (
+          {!startTime || !endTime ? (
+            <Grid mt="md">
+              <Grid.Col span={8.5}>
+                <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--mantine-spacing-md)' }}>
+                  <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+                  <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+                </Box>
+              </Grid.Col>
+            </Grid>
+          ) : filterValues && interactionDetails?.data ? (
             <div>
               <InteractionDetailsMainContent
                 jobDetails={interactionDetails?.data}
@@ -205,20 +215,32 @@ export function CiritcalInteractionDetails() {
                 endTime={endTime}
               />
             </div>
-          )}
+          ) : null}
         </Tabs.Panel>
         <Tabs.Panel value="analysis">
-          {filterValues && startTime && endTime && (
+          {!startTime || !endTime ? (
+            <Grid mt="md">
+              <Grid.Col span={12}>
+                <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+              </Grid.Col>
+            </Grid>
+          ) : filterValues ? (
             <Analysis
               interactionName={interactionName}
               dashboardFilters={filterValues}
               startTime={startTime}
               endTime={endTime}
             />
-          )}
+          ) : null}
         </Tabs.Panel>
         <Tabs.Panel value="sessions">
-          {startTime && endTime && (
+          {!startTime || !endTime ? (
+            <Grid mt="md">
+              <Grid.Col span={12}>
+                <GraphCardSkeleton chartHeight={200} metricsCount={3} />
+              </Grid.Col>
+            </Grid>
+          ) : (
             <ProblematicInteractions
               dashboardFilters={filterValues}
               startTime={startTime}

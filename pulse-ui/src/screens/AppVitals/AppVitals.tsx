@@ -38,6 +38,7 @@ export const AppVitals: React.FC = () => {
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
     initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
   const { trackTabSwitch, trackFilter } = useAnalytics("AppVitals");
 
@@ -260,8 +261,8 @@ export const AppVitals: React.FC = () => {
               defaultQuickTimeFilterString={
                 quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER
               }
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
               showRefreshButton={true}
             />
           </Group>

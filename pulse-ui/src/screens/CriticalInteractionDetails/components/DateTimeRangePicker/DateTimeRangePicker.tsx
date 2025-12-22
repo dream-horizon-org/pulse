@@ -55,6 +55,8 @@ const DateTimeRangePicker = ({
     dateTimePickerOpened,
     selectedTimeFilter,
     activeQuickTimeFilter,
+    pendingQuickTimeFilter,
+    pendingTimeFilter,
     toggleDateTimePickerOpened,
     handleQuickTimeFilterChange,
     handleStartEndDateTimeChange,
@@ -63,6 +65,7 @@ const DateTimeRangePicker = ({
     handleDateTimeReset,
     getDateTimeDisplayText,
     handleDateTimeRefreshClick,
+    syncPendingWithApplied,
   } = useFilterStore();
   const handleApplyButton = (value: StartEndDateTimeType) => {
     const newSearchParams = handleDateTimeApply(
@@ -104,11 +107,20 @@ const DateTimeRangePicker = ({
     handleDateTimeRefreshClick(subractMinutes, handleTimefilterChange);
   };
 
+  // Handle popover open/close - sync pending state when opening
+  const handlePopoverChange = (opened: boolean) => {
+    if (opened) {
+      // When opening, sync pending state with currently applied state
+      syncPendingWithApplied();
+    }
+    toggleDateTimePickerOpened();
+  };
+
   return (
     <div className={classes.dateTimeRangePickerContainer}>
       <Popover
         opened={dateTimePickerOpened}
-        onChange={toggleDateTimePickerOpened}
+        onChange={handlePopoverChange}
         width={200}
         position="bottom"
         withArrow
@@ -120,7 +132,7 @@ const DateTimeRangePicker = ({
           <Button
             variant="transparent"
             size="compact-sm"
-            onClick={toggleDateTimePickerOpened}
+            onClick={() => handlePopoverChange(!dateTimePickerOpened)}
             className={classes.filterButton + " " + className}
           >
             <IconClock size={14} stroke={2.5} className={classes.filterIcon} />
@@ -130,12 +142,12 @@ const DateTimeRangePicker = ({
         <Popover.Dropdown w={500} className={classes.timeFilterPopup}>
           <DateTimeRangePickerDropDown
             defaultQuickTimeFilterString={defaultQuickTimeFilterString}
-            activeQuickTimeFilter={activeQuickTimeFilter}
+            activeQuickTimeFilter={pendingQuickTimeFilter}
             quickTimeOptions={defaultQuickTimeOptions}
             maxDateTime={maxDateTime}
             minDateTime={minDateTime}
-            defaultStartTime={selectedTimeFilter?.startDate || defaultStartTime}
-            defaultEndTime={selectedTimeFilter?.endDate || defaultEndTime}
+            defaultStartTime={pendingTimeFilter?.startDate || selectedTimeFilter?.startDate || defaultStartTime}
+            defaultEndTime={pendingTimeFilter?.endDate || selectedTimeFilter?.endDate || defaultEndTime}
             handleStartEndDateTimeChange={handleStartEndDateTimeChange}
             handleQuickTimeFilterChange={handleQuickTimeFilterChange}
             subtractMinutes={subractMinutes}

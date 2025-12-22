@@ -207,6 +207,7 @@ export const DateTimeRangePickerDropDown = ({
             minDate={minDateTime ? new Date(minDateTime) : undefined}
             maxDate={maxDateTime ? new Date(maxDateTime) : new Date(Date.now())}
             onChange={handlCustomStartDate}
+            popoverProps={{ withinPortal: false }}
           />
           <DateTimePicker
             value={
@@ -223,6 +224,7 @@ export const DateTimeRangePickerDropDown = ({
             minDate={getMinEndDate()}
             maxDate={maxDateTime ? new Date(maxDateTime) : new Date(Date.now())}
             onChange={handlCustomEndDate}
+            popoverProps={{ withinPortal: false }}
           />
         </Grid.Col>
         <Grid.Col span={1}>

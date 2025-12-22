@@ -276,9 +276,9 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
                   </td>
                 </tr>
               ) : (
-                paginatedInteractions.map((interaction: ProblematicInteractionData) => (
+                paginatedInteractions.map((interaction: ProblematicInteractionData, index: number) => (
                   <tr
-                    key={interaction.sessionId}
+                    key={`${interaction.trace_id}-${interaction.sessionId}-${index}`}
                     style={{
                       cursor: "pointer",
                       borderBottom: "1px solid #dee2e6",

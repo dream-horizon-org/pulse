@@ -282,7 +282,33 @@ export function getUTCDateTimeFromLocalStringDateValue(
 }
 
 export function getLocalStringFromUTCDateTimeValue(value: string | undefined) {
-  return value ? dayjs.utc(value).local().format("YYYY-MM-DD HH:mm:ss") : "";
+  if (!value || value.trim() === "") return "";
+  
+  // Handle URL encoding: replace + with space (URL encoding for space in query strings)
+  let cleanedValue = value.replace(/\+/g, " ").trim();
+  
+  // Try to decode if still URL-encoded
+  try {
+    cleanedValue = decodeURIComponent(cleanedValue);
+  } catch {
+    // Already decoded or invalid, use as is
+  }
+  
+  // Try parsing as UTC with explicit format first, then flexible parsing
+  let parsed = dayjs.utc(cleanedValue, "YYYY-MM-DD HH:mm:ss", true); // strict mode
+  
+  // If strict parsing fails, try flexible parsing
+  if (!parsed.isValid()) {
+    parsed = dayjs.utc(cleanedValue);
+  }
+  
+  // Validate the parsed date
+  if (!parsed.isValid()) {
+    console.warn("Invalid date string:", value, "->", cleanedValue);
+    return "";
+  }
+  
+  return parsed.local().format("YYYY-MM-DD HH:mm:ss");
 }
 
 export function getLocalStringFromUTCEpoch(value: number) {

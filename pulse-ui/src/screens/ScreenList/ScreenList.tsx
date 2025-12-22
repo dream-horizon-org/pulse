@@ -47,6 +47,7 @@ export function ScreenList() {
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
     initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
 
   // Initialize default time range (Last 24 hours)
@@ -237,8 +238,8 @@ export function ScreenList() {
             defaultQuickTimeFilterString={
               quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER
             }
-            defaultEndTime={endTime}
-            defaultStartTime={startTime}
+            defaultEndTime={selectedTimeFilter?.endDate || endTime}
+            defaultStartTime={selectedTimeFilter?.startDate || startTime}
           />
         </Group>
       </Box>

@@ -51,7 +51,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    initializeFromUrlParams
+    initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
 
   // Tab state
@@ -217,8 +218,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               handleTimefilterChange={handleTimeFilterChange}
               selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex || 0}
               defaultQuickTimeFilterString={quickTimeRangeString || ""}
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </div>
         </div> 
