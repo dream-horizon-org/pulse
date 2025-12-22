@@ -25,7 +25,7 @@ export enum COLUMN_NAME {
   DURATION = "Duration",
   USER_ID = "UserId",
   TIMESTAMP = "Timestamp",
-  SPAN_ID = "SpanId", 
+  SPAN_ID = "SpanId",
   TRACE_ID = "TraceId",
   SESSION_ID = "SessionId",
   SPAN_TYPE = "SpanType",

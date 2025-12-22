@@ -3,7 +3,7 @@ import { useGetDataQuery } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
-import { SpanType } from "../../../../constants/PulseOtelSemcov";
+import { SpanType, COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -20,6 +20,7 @@ interface TransformedData {
   avgTimeSpent: number | null;
   avgLoadTime: number | null;
   totalSessions: number;
+  totalUsers: number;
   hasData: boolean;
   trendData: Array<{
     timestamp: number;
@@ -59,15 +60,16 @@ export function useGetScreenEngagementData({
         value: [screenName],
       },
       {
-        field: "SpanType",
+        field: COLUMN_NAME.SPAN_TYPE,
         operator: "IN",
-        value: ["screen_session", "screen_load"],
+        value: [SpanType.SCREEN_SESSION, SpanType.SCREEN_LOAD],
       },
     ];
 
+    // Use MATERIALIZED columns from otel_traces for filters
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "ResourceAttributes['app.version']",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ",
         value: [appVersion],
       });
@@ -75,7 +77,7 @@ export function useGetScreenEngagementData({
 
     if (osVersion && osVersion !== "all") {
       filterArray.push({
-        field: "ResourceAttributes['os.version']",
+        field: COLUMN_NAME.OS_VERSION,
         operator: "EQ",
         value: [osVersion],
       });
@@ -83,7 +85,7 @@ export function useGetScreenEngagementData({
 
     if (device && device !== "all") {
       filterArray.push({
-        field: "ResourceAttributes['device.model']",
+        field: COLUMN_NAME.DEVICE_MODEL,
         operator: "EQ",
         value: [device],
       });
@@ -135,30 +137,46 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "sumIf(Duration,SpanType = 'screen_session')",
+            expression: `sumIf(${COLUMN_NAME.DURATION},${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_SESSION}')`,
           },
           alias: "total_time_spent",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "sumIf(Duration,SpanType = 'screen_load')",
+            expression: `sumIf(${COLUMN_NAME.DURATION},${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_LOAD}')`,
           },
           alias: "total_load_time",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "countIf(SpanType = 'screen_session')",
+            expression: `countIf(${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_SESSION}')`,
           },
           alias: "session_count",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "countIf(SpanType = 'screen_load')",
+            expression: `countIf(${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_LOAD}')`,
           },
           alias: "load_count",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            // Note: TRACES table has direct UserId column (not nested in ResourceAttributes)
+            expression: `uniqCombined(${COLUMN_NAME.USER_ID})`,
+          },
+          alias: "unique_users",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            // Note: TRACES table has direct SessionId column (not nested in ResourceAttributes)
+            expression: `uniqCombined(${COLUMN_NAME.SESSION_ID})`,
+          },
+          alias: "unique_sessions",
         },
       ],
       filters,
@@ -194,6 +212,8 @@ export function useGetScreenEngagementData({
     const totalLoadTimeIndex = responseData.fields.indexOf("total_load_time");
     const sessionCountIndex = responseData.fields.indexOf("session_count");
     const loadCountIndex = responseData.fields.indexOf("load_count");
+    const uniqueUsersIndex = responseData.fields.indexOf("unique_users");
+    const uniqueSessionsIndex = responseData.fields.indexOf("unique_sessions");
 
     const trend: Array<{
       timestamp: number;
@@ -206,6 +226,8 @@ export function useGetScreenEngagementData({
     let totalLoadTimeSum = 0;
     let totalSessions = 0;
     let totalLoads = 0;
+    let totalUniqueUsers = 0;
+    let totalUniqueSessions = 0;
 
     responseData.rows.forEach((row) => {
       const timestamp = dayjs(row[t1Index]).valueOf();
@@ -213,11 +235,16 @@ export function useGetScreenEngagementData({
       const loadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
       const sessions = parseFloat(row[sessionCountIndex]) || 0;
       const loads = parseFloat(row[loadCountIndex]) || 0;
+      const uniqueUsers = parseFloat(row[uniqueUsersIndex]) || 0;
+      const uniqueSessions = parseFloat(row[uniqueSessionsIndex]) || 0;
 
       totalTimeSpentSum += timeSpent;
       totalLoadTimeSum += loadTime;
       totalSessions += sessions;
       totalLoads += loads;
+      // Sum unique users/sessions from all buckets (approximation)
+      totalUniqueUsers += uniqueUsers;
+      totalUniqueSessions += uniqueSessions;
 
       const avgTimeSpentVal = sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0; // Convert nanoseconds to seconds
       const avgLoadTimeVal = loads > 0 ? loadTime / loads / 1_000_000_000 : 0; // Convert nanoseconds to seconds
@@ -245,7 +272,8 @@ export function useGetScreenEngagementData({
     return {
       avgTimeSpent,
       avgLoadTime,
-      totalSessions: Math.round(totalSessions),
+      totalSessions: Math.round(totalUniqueSessions), // Use unique session count for crash-free calculations
+      totalUsers: Math.round(totalUniqueUsers),
       hasData,
       trendData: trend,
     };

@@ -23,3 +23,4 @@ export * from "./useGetAlertMetrics";
 export * from "./useGetAlertSeverities";
 export * from "./useGetAlertNotificationChannels";
 export * from "./useAnalytics";
+export * from "./useGetAppStats";

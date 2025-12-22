@@ -26,7 +26,7 @@ import {
 import { useExceptionListData } from "./components/ExceptionTable/hooks";
 import { useFilterStore } from "../../stores/useFilterStore";
 import dayjs from "dayjs";
-import { useAnalytics } from "../../hooks/useAnalytics";
+import { useAnalytics, useGetAppStats } from "../../hooks";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 
 export const AppVitals: React.FC = () => {
@@ -126,6 +126,15 @@ export const AppVitals: React.FC = () => {
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
     storeHandleTimeFilterChange(value);
   };
+
+  // Fetch total users and sessions from app_start spans (TRACES table)
+  const { data: appStats } = useGetAppStats({
+    startTime: formattedStartTime,
+    endTime: formattedEndTime,
+    appVersion: filters.appVersion,
+    osVersion: filters.osVersion,
+    device: filters.device,
+  });
 
   // Fetch data from API for stats calculation
   const { exceptions: crashes } = useExceptionListData({
@@ -272,6 +281,8 @@ export const AppVitals: React.FC = () => {
           appVersion={filters.appVersion}
           osVersion={filters.osVersion}
           device={filters.device}
+          externalTotalUsers={appStats?.totalUsers}
+          externalTotalSessions={appStats?.totalSessions}
         />
         <ANRMetricsStats
           startTime={formattedStartTime}
@@ -279,6 +290,8 @@ export const AppVitals: React.FC = () => {
           appVersion={filters.appVersion}
           osVersion={filters.osVersion}
           device={filters.device}
+          externalTotalUsers={appStats?.totalUsers}
+          externalTotalSessions={appStats?.totalSessions}
         />
         <AlertStatusStats
           startTime={formattedStartTime}

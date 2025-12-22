@@ -14,6 +14,10 @@ interface CrashMetricsStatsProps {
   osVersion?: string;
   device?: string;
   screenName?: string;
+  /** External total users count (from screen engagement data) - used when users exist but no crashes */
+  externalTotalUsers?: number;
+  /** External total sessions count (from screen engagement data) - used when sessions exist but no crashes */
+  externalTotalSessions?: number;
 }
 
 export function CrashMetricsStats({
@@ -23,6 +27,8 @@ export function CrashMetricsStats({
   osVersion = "all",
   device = "all",
   screenName,
+  externalTotalUsers,
+  externalTotalSessions,
 }: CrashMetricsStatsProps) {
   // Build filters array for API request
   const filters = useMemo(() => {
@@ -64,6 +70,8 @@ export function CrashMetricsStats({
     return filterArray.length > 0 ? filterArray : undefined;
   }, [appVersion, osVersion, device, screenName]);
 
+  // Query only crash users/sessions from EXCEPTIONS table
+  // Total users/sessions come from external source (TRACES via useGetAppStats)
   const queryResult = useGetDataQuery({
     requestBody: {
       dataType: "EXCEPTIONS",
@@ -87,20 +95,6 @@ export function CrashMetricsStats({
           },
           alias: "crash_sessions",
         },
-        {
-          function: "CUSTOM",
-          param: {
-            expression: "uniqCombined(UserId)",
-          },
-          alias: "all_users",
-        },
-        {
-          function: "CUSTOM",
-          param: {
-            expression: "uniqCombined(SessionId)",
-          },
-          alias: "all_sessions",
-        },
       ],
     },
     enabled: !!startTime && !!endTime,
@@ -111,28 +105,27 @@ export function CrashMetricsStats({
 
   const metrics = useMemo(() => {
     const responseData = data?.data;
-    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return {
-        crashFreeUsers: null,
-        crashFreeSessions: null,
-        hasData: false,
-      };
+
+    // Get crash users/sessions from EXCEPTIONS table
+    let crashUsers = 0;
+    let crashSessions = 0;
+
+    if (responseData && responseData.rows && responseData.rows.length > 0) {
+      const fields = responseData.fields;
+      const crashUsersIndex = fields.indexOf("crash_users");
+      const crashSessionsIndex = fields.indexOf("crash_sessions");
+
+      const row = responseData.rows[0];
+      crashUsers = parseFloat(row[crashUsersIndex]) || 0;
+      crashSessions = parseFloat(row[crashSessionsIndex]) || 0;
     }
 
-    const fields = responseData.fields;
-    const crashUsersIndex = fields.indexOf("crash_users");
-    const crashSessionsIndex = fields.indexOf("crash_sessions");
-    const allUsersIndex = fields.indexOf("all_users");
-    const allSessionsIndex = fields.indexOf("all_sessions");
-
-    const row = responseData.rows[0];
-    const crashUsers = parseFloat(row[crashUsersIndex]) || 0;
-    const crashSessions = parseFloat(row[crashSessionsIndex]) || 0;
-    const allUsers = parseFloat(row[allUsersIndex]) || 0;
-    const allSessions = parseFloat(row[allSessionsIndex]) || 0;
+    // Total users/sessions from TRACES table (passed as props)
+    const totalUsers = externalTotalUsers ?? 0;
+    const totalSessions = externalTotalSessions ?? 0;
 
     // If there are no users/sessions, we have no data to calculate from
-    if (allUsers === 0 && allSessions === 0) {
+    if (totalUsers === 0 && totalSessions === 0) {
       return {
         crashFreeUsers: null,
         crashFreeSessions: null,
@@ -140,17 +133,18 @@ export function CrashMetricsStats({
       };
     }
 
+    // Calculate crash-free percentage: (total - crash) / total * 100
     const crashFreeUsers =
-      allUsers > 0 ? ((allUsers - crashUsers) / allUsers) * 100 : null;
+      totalUsers > 0 ? ((totalUsers - crashUsers) / totalUsers) * 100 : null;
     const crashFreeSessions =
-      allSessions > 0 ? ((allSessions - crashSessions) / allSessions) * 100 : null;
+      totalSessions > 0 ? ((totalSessions - crashSessions) / totalSessions) * 100 : null;
 
     return {
       crashFreeUsers: crashFreeUsers !== null ? parseFloat(crashFreeUsers.toFixed(2)) : null,
       crashFreeSessions: crashFreeSessions !== null ? parseFloat(crashFreeSessions.toFixed(2)) : null,
       hasData: true,
     };
-  }, [data]);
+  }, [data, externalTotalUsers, externalTotalSessions]);
 
   if (queryState.isLoading) {
     return <StatsSkeleton title="Crash Metrics" itemCount={2} />;

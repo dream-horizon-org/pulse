@@ -287,6 +287,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               osVersion={osVersion !== "all" ? osVersion : undefined}
               device={device !== "all" ? device : undefined}
               screenName={decodedScreenName}
+              externalTotalUsers={engagementData?.totalUsers}
+              externalTotalSessions={engagementData?.totalSessions}
             />
             <ANRMetricsStats
               startTime={formattedStartTime}
@@ -295,6 +297,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               osVersion={osVersion !== "all" ? osVersion : undefined}
               device={device !== "all" ? device : undefined}
               screenName={decodedScreenName}
+              externalTotalUsers={engagementData?.totalUsers}
+              externalTotalSessions={engagementData?.totalSessions}
             />
             {/* Section 3: Performance Metrics */}
             <Box className={vitalsClasses.statSection}>
