@@ -6,7 +6,7 @@ import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
 
 internal class PulseUserSessionEmitter(
-    private val logger: Logger,
+    private val loggerProvider: () -> Logger,
     private val userPref: SharedPreferences,
 ) {
     private var _userId: String? = null
@@ -39,7 +39,7 @@ internal class PulseUserSessionEmitter(
         oldUserId: String?,
     ) {
         if (newUserId == oldUserId) return
-
+        val logger = loggerProvider()
         if (oldUserId != null) {
             logger
                 .logRecordBuilder()

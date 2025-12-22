@@ -29,7 +29,7 @@ internal class PulseUserSessionEmitterTest {
                 .build()
         logger = loggerProvider.loggerBuilder("test").build()
         sharedPreferences = InMemorySharedPreferences()
-        emitter = PulseUserSessionEmitter(logger, sharedPreferences)
+        emitter = PulseUserSessionEmitter({ logger }, sharedPreferences)
     }
 
     @Test

@@ -280,7 +280,7 @@ internal class PulseSDKImpl : PulseSDK {
     }
 
     private val userSessionEmitter: PulseUserSessionEmitter by lazy {
-        PulseUserSessionEmitter(logger, sharedPrefsData)
+        PulseUserSessionEmitter({ logger }, sharedPrefsData)
     }
 
     private var isInitialised: Boolean = false
