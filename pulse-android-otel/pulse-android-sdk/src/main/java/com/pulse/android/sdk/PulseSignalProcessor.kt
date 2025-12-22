@@ -130,15 +130,6 @@ internal class PulseSignalProcessor {
                         }
 
                         PulseOtelUtils.isNetworkSpan(span) -> {
-                            // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
-                            //  use the new not deprecated attributes
-                            @Suppress("DEPRECATION")
-                            val httpUrlKey: AttributeKey<String> = HttpIncubatingAttributes.HTTP_URL
-                            val originalUrl = span.attributes.get(httpUrlKey)
-
-                            originalUrl?.let {
-                                span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
-                            }
                             PulseAttributes.PulseTypeValues.PULSE_NETWORK
                                 .getAttributeKey(
                                     @Suppress("DEPRECATION")
@@ -159,6 +150,16 @@ internal class PulseSignalProcessor {
                 type?.let {
                     span.setAttribute(PulseAttributes.PULSE_TYPE, it)
                 }
+            }
+
+            // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
+            //  use the new not deprecated attributes
+            @Suppress("DEPRECATION")
+            val httpUrlKey: AttributeKey<String> = HttpIncubatingAttributes.HTTP_URL
+            val originalUrl = span.attributes.get(httpUrlKey)
+
+            originalUrl?.let {
+                span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
             }
         }
 

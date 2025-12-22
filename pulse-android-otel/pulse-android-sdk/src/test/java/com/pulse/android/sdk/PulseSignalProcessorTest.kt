@@ -389,6 +389,39 @@ class PulseSignalProcessorTest {
                     .assertThat(spanExporter.finishedSpanItems[0].attributes)
                     .containsEntry(PulseAttributes.PULSE_TYPE, "network.404")
             }
+
+            @Test
+            fun `in network span, url is getting normalised when doesn't contain pulse type`() {
+                val span =
+                    tracer
+                        .spanBuilder("network-req")
+                        .setAttribute(HttpIncubatingAttributes.HTTP_URL, "https://api.example.com?param=value")
+                        .setAttribute(HttpIncubatingAttributes.HTTP_METHOD, "GET")
+                        .startSpan()
+                span.end()
+
+                assertThat(spanExporter.finishedSpanItems).hasSize(1)
+                OpenTelemetryAssertions
+                    .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                    .containsEntry(HttpIncubatingAttributes.HTTP_URL, "https://api.example.com")
+            }
+
+            @Test
+            fun `in network span, url is getting normalised when contain pulse type`() {
+                val span =
+                    tracer
+                        .spanBuilder("network-req")
+                        .setAttribute(PulseAttributes.PULSE_TYPE, "react-native")
+                        .setAttribute(HttpIncubatingAttributes.HTTP_URL, "https://api.example.com?param=value")
+                        .setAttribute(HttpIncubatingAttributes.HTTP_METHOD, "GET")
+                        .startSpan()
+                span.end()
+
+                assertThat(spanExporter.finishedSpanItems).hasSize(1)
+                OpenTelemetryAssertions
+                    .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                    .containsEntry(HttpIncubatingAttributes.HTTP_URL, "https://api.example.com")
+            }
         }
 
         @Test
