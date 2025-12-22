@@ -56,7 +56,7 @@ public interface PulseSDK {
     public fun setUserId(id: String?)
 
     /**
-     * Set user property for this session
+     * Set user property for this session. Passing null will remove the property from the key
      * Also see [setUserId]
      */
     public fun setUserProperty(
@@ -65,10 +65,10 @@ public interface PulseSDK {
     )
 
     /**
-     * Set user properties for this session
+     * Set user properties for this session. Passing null will remove the property from the key
      * Also see [setUserProperty] and [setUserId]
      */
-    public fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit)
+    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit)
 
     public fun trackEvent(
         name: String,

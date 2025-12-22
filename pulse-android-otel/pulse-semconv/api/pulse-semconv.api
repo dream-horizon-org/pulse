@@ -41,5 +41,8 @@ public final class com/pulse/semconv/PulseSessionAttributes {
 public final class com/pulse/semconv/PulseUserAttributes {
 	public static final field INSTANCE Lcom/pulse/semconv/PulseUserAttributes;
 	public static final field PULSE_USER_PARAMETER Lio/opentelemetry/semconv/AttributeKeyTemplate;
+	public static final field PULSE_USER_PREVIOUS_ID Lio/opentelemetry/api/common/AttributeKey;
+	public static final field PULSE_USER_SESSION_END_EVENT_NAME Ljava/lang/String;
+	public static final field PULSE_USER_SESSION_START_EVENT_NAME Ljava/lang/String;
 }
 
