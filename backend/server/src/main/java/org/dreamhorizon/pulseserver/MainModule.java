@@ -1,4 +1,5 @@
 package org.dreamhorizon.pulseserver;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -30,10 +31,12 @@ public class MainModule extends VertxAbstractModule {
 
   private final Vertx vertx;
   private ObjectMapper objectMapper;
+
   public MainModule(Vertx vertx) {
     super(vertx);
     this.vertx = vertx;
   }
+
   @Override
   protected void bindConfiguration() {
     bind(Vertx.class).toInstance(this.vertx);

@@ -43,13 +43,13 @@ public class UploadConfigDetailService {
       PulseConfig config
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    
+
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
             applicationConfig.getConfigDetailsS3BucketFilePath(),
             config);
-    
+
     return uploadSingle
         .flatMap(resp -> {
           log.info("S3 upload successful, invalidating CloudFront cache for distribution: {}", distributionId);
