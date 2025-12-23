@@ -17,7 +17,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppulse_root_password"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppulse_root_password" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,7 +42,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -110,10 +110,40 @@ services:
 
     # OpenTelemetry Collector (Data Ingestion Pipeline)
 
+  vector:
+    build:
+      context: ../vector
+      dockerfile: Dockerfile
+      args:
+        VECTOR_REPO: https://github.com/hemanthbee/vector
+        VECTOR_REF: add-parquet
+        DEBIAN_VERSION: "12"
+    container_name: vector
+    command: [ ]
+    volumes:
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - vector-data:/var/lib/vector
+    networks:
+      - pulse-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8686:8686"
+
+
+
   otel-collector-1:
     image: otel/opentelemetry-collector-contrib:0.137.0
     container_name: pulse-otel-collector-1
-    command: ["--config=/etc/otel-collector-1.yaml"]
+    command: [ "--config=/etc/otel-collector-1.yaml" ]
     volumes:
       - ../backend/ingestion/otel-collector-1.yaml:/etc/otel-collector-1.yaml:ro
     networks:
@@ -123,7 +153,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector-1.yaml"]
+      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector-1.yaml" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -185,7 +215,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthcheck.txt"]
+      test: [ "CMD", "curl", "-f", "http://localhost/healthcheck.txt" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -231,7 +261,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthcheck"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -248,5 +278,7 @@ volumes:
   mysql-data:
     driver: local
   clickhouse-data:
+    driver: local
+  vector-data:
     driver: local
 
