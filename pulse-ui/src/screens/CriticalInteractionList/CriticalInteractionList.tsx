@@ -180,6 +180,15 @@ export function CriticalInteractionList() {
   );
 
   const handleFilterChange = (filter: FiltersType) => {
+    // Check if filters have actually changed to prevent duplicate fetches
+    const hasFilterChanged =
+      filter.users !== filters.users || filter.status !== filters.status;
+
+    if (!hasFilterChanged) {
+      close();
+      return;
+    }
+
     setPagination({
       page: 0,
       size: defaultPageSize,
