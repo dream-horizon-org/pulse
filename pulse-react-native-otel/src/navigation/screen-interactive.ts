@@ -1,6 +1,7 @@
 import { Pulse, type Span } from '../index';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
+import { discardSpan } from '../trace';
 import type {
   NavigationRoute,
   NavigationContainer,
@@ -29,7 +30,9 @@ export function createScreenInteractiveTracker(
       console.log(
         `${LOG_TAGS.SCREEN_INTERACTIVE} screen_interactive span discarded: ${reason} (routeKey: ${state.currentInteractiveRouteKey})`
       );
-      state.screenInteractiveSpan.cancel();
+      if (state.screenInteractiveSpan.spanId) {
+        discardSpan(state.screenInteractiveSpan.spanId);
+      }
       state.screenInteractiveSpan = undefined;
       state.currentInteractiveRouteKey = undefined;
     }
@@ -37,6 +40,13 @@ export function createScreenInteractiveTracker(
 
   const startScreenInteractive = (route: NavigationRoute): void => {
     if (!enabled) {
+      return;
+    }
+
+    if (
+      state.screenInteractiveSpan &&
+      state.currentInteractiveRouteKey === route.key
+    ) {
       return;
     }
 
@@ -53,6 +63,7 @@ export function createScreenInteractiveTracker(
           [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
           [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
         },
+        inheritContext: false,
       }
     );
     state.currentInteractiveRouteKey = route.key;

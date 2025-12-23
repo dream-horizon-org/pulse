@@ -6,6 +6,7 @@ import type { PulseAttributes } from './pulse.interface';
 
 export type SpanOptions = {
   attributes?: PulseAttributes;
+  inheritContext?: boolean; // If true (default), span will be parented in existing context. If false, creates new context.
 };
 
 export enum SpanStatusCode {
@@ -16,7 +17,6 @@ export enum SpanStatusCode {
 
 export type Span = {
   end: (statusCode?: SpanStatusCode) => void;
-  cancel: () => void;
   addEvent: (name: string, attributes?: PulseAttributes) => void;
   setAttributes: (attributes?: PulseAttributes) => void;
   recordException: (error: Error, attributes?: PulseAttributes) => void;
@@ -28,7 +28,6 @@ export function startSpan(name: string, options?: SpanOptions): Span {
   if (!isSupportedPlatform()) {
     return {
       end: (_statusCode?: SpanStatusCode) => {},
-      cancel: () => {},
       addEvent: (_eventName: string, _eventAttributes?: PulseAttributes) => {},
       setAttributes: (_attributes?: PulseAttributes) => {},
       recordException: (_error: Error, _attributes?: PulseAttributes) => {},
@@ -37,13 +36,15 @@ export function startSpan(name: string, options?: SpanOptions): Span {
   }
 
   const mergedAttributes = mergeWithGlobalAttributes(options?.attributes || {});
-  const spanId = PulseReactNativeOtel.startSpan(name, mergedAttributes);
+  const inheritContext = options?.inheritContext ?? true;
+  const spanId = PulseReactNativeOtel.startSpan(
+    name,
+    mergedAttributes,
+    inheritContext
+  );
   return {
     end: (statusCode?: SpanStatusCode) => {
       return endSpan(spanId, statusCode);
-    },
-    cancel: () => {
-      return cancelSpan(spanId);
     },
     addEvent: (eventName: string, eventAttributes?: PulseAttributes) => {
       return addSpanEvent(spanId, eventName, eventAttributes);
@@ -68,7 +69,12 @@ export function trackSpan<T>(
   }
 
   const mergedAttributes = mergeWithGlobalAttributes(options?.attributes || {});
-  const spanId = PulseReactNativeOtel.startSpan(name, mergedAttributes);
+  const inheritContext = options?.inheritContext ?? true;
+  const spanId = PulseReactNativeOtel.startSpan(
+    name,
+    mergedAttributes,
+    inheritContext
+  );
 
   const result = fn();
 
@@ -86,8 +92,8 @@ function endSpan(spanId: string, statusCode?: SpanStatusCode): void {
   PulseReactNativeOtel.endSpan(spanId, statusCode);
 }
 
-function cancelSpan(spanId: string): void {
-  PulseReactNativeOtel.cancelSpan(spanId);
+export function discardSpan(spanId: string): void {
+  PulseReactNativeOtel.discardSpan(spanId);
 }
 
 function addSpanEvent(

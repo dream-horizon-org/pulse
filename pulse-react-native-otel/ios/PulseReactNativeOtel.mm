@@ -35,9 +35,9 @@ RCT_EXPORT_MODULE()
   return @NO;
 }
 
-// Start span (returns no-op span ID)
 - (NSString *)startSpan:(NSString *)name
              attributes:(NSDictionary *)attributes
+         inheritContext:(NSNumber *)inheritContext
 {
   return [NSString stringWithFormat:@"noop-ios-%@", [[NSUUID UUID] UUIDString]];
 }
@@ -71,8 +71,8 @@ RCT_EXPORT_MODULE()
   return @NO;
 }
 
-// Cancel span (no-op on iOS)
-- (NSNumber *)cancelSpan:(NSString *)spanId
+// Discard span (no-op on iOS)
+- (NSNumber *)discardSpan:(NSString *)spanId
 {
   return @NO;
 }

@@ -6,6 +6,7 @@ import type {
   NavigationRoute,
 } from './navigation.interface';
 import { pushRecentRouteKey, LOG_TAGS } from './utils';
+import { discardSpan } from '../trace';
 import {
   createScreenLoadTracker,
   type ScreenLoadState,
@@ -71,11 +72,7 @@ export function createReactNavigationIntegration(
     (key: string) => {
       recentRouteKeys = pushRecentRouteKey(recentRouteKeys, key);
     },
-    (route: NavigationRoute) => {
-      if (screenInteractiveTracking) {
-        screenInteractiveTracker.startScreenInteractive(route);
-      }
-    }
+    undefined
   );
 
   const screenSessionTracker = createScreenSessionTracker(
@@ -107,8 +104,8 @@ export function createReactNavigationIntegration(
         error
       );
 
-      if (screenLoadState.navigationSpan) {
-        screenLoadState.navigationSpan.cancel();
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
         screenLoadState.navigationSpan = undefined;
       }
     }
@@ -134,10 +131,14 @@ export function createReactNavigationIntegration(
       ) {
         screenSessionTracker.startScreenSession(currentRoute);
       }
+
+      if (screenInteractiveTracking) {
+        screenInteractiveTracker.startScreenInteractive(currentRoute);
+      }
     } catch (error) {
       console.warn(`${LOG_TAGS.NAVIGATION} Error in onStateChange:`, error);
-      if (screenLoadState.navigationSpan) {
-        screenLoadState.navigationSpan.cancel();
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
         screenLoadState.navigationSpan = undefined;
       }
     }
