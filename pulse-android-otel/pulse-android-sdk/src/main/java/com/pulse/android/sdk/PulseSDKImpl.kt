@@ -45,6 +45,8 @@ internal class PulseSDKImpl : PulseSDK {
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
     ) {
         if (isInitialized()) {
             return
@@ -52,7 +54,24 @@ internal class PulseSDKImpl : PulseSDK {
         this.application = application
         pulseSpanProcessor = PulseSignalProcessor()
         val config = OtelRumConfig()
-        val (tracerProviderCustomizer, loggerProviderCustomizer) = createSignalsProcessors(config)
+        val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
+        val mergedTracerProviderCustomizer = if (tracerProviderCustomizer != null) {
+            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, application ->
+                val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, application)
+                tracerProviderCustomizer.apply(builderWithInternal, application)
+            }
+        } else {
+            internalTracerProviderCustomizer
+        }
+
+        val mergedLoggerProviderCustomizer = if (loggerProviderCustomizer != null) {
+            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, application ->
+                val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, application)
+                loggerProviderCustomizer.apply(builderWithInternal, application)
+            }
+        } else {
+            internalLoggerProviderCustomizer
+        }
 
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
@@ -84,8 +103,8 @@ internal class PulseSDKImpl : PulseSDK {
                 diskBuffering = diskBuffering,
                 instrumentations = instrumentations,
                 rumConfig = config,
-                tracerProviderCustomizer = tracerProviderCustomizer,
-                loggerProviderCustomizer = loggerProviderCustomizer,
+                tracerProviderCustomizer = mergedTracerProviderCustomizer,
+                loggerProviderCustomizer = mergedLoggerProviderCustomizer,
             )
         isInitialised = true
     }

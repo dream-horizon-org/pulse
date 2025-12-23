@@ -2,6 +2,8 @@ import { Pulse, type Span } from './index';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { useRef, useCallback, useEffect, useMemo, type RefObject } from 'react';
 import { createNavigationIntegrationWithConfig } from './config';
+import PulseReactNativeOtel from './NativePulseReactNativeOtel';
+import { isSupportedPlatform } from './initialization';
 import {
   SPAN_NAMES,
   ATTRIBUTE_KEYS,
@@ -71,6 +73,12 @@ export function createReactNavigationIntegration(
     }
   };
 
+  const setCurrentScreenName = (screenName: string): void => {
+    if (isSupportedPlatform()) {
+      PulseReactNativeOtel.setCurrentScreenName(screenName);
+    }
+  };
+
   const onNavigationDispatch = (): void => {
     try {
       if (screenSessionTracking && screenSessionSpan && navigationContainer) {
@@ -104,6 +112,10 @@ export function createReactNavigationIntegration(
       }
 
       const previousRoute = latestRoute;
+
+      if (previousRoute && previousRoute.key !== currentRoute.key) {
+        setCurrentScreenName(currentRoute.name);
+      }
 
       if (screenNavigationTracking && navigationSpan) {
         if (previousRoute && previousRoute.key === currentRoute.key) {
@@ -219,6 +231,8 @@ export function createReactNavigationIntegration(
       if (currentRoute) {
         latestRoute = currentRoute;
         pushRecentRouteKey(currentRoute.key);
+
+        setCurrentScreenName(currentRoute.name);
 
         if (
           screenSessionTracking &&

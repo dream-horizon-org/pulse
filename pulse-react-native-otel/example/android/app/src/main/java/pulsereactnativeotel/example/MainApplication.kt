@@ -9,7 +9,7 @@ import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
-import com.pulse.android.sdk.PulseSDK
+import com.pulsereactnativeotel.Pulse
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.instrumentation.library.okhttp.v3_0.OkHttpInstrumentation
 import android.util.Log
@@ -45,12 +45,16 @@ class MainApplication : Application(), ReactApplication {
       Log.w("MainApplication", "OkHttp instrumentation not available: ${e.message}")
     }
 
-    PulseSDK.INSTANCE.initialize(this, "http://10.0.2.2:4318") {
-      interaction {
-        enabled(true)
-        setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions/" }
+    Pulse.initialize(
+      application = this,
+      endpointBaseUrl = "http://10.0.2.2:4318",
+      instrumentations = {
+        interaction {
+          enabled(true)
+          setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions/" }
+        }
       }
-    }
+    )
     loadReactNative(this)
   }
 }

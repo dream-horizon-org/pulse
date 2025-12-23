@@ -11,6 +11,9 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import java.util.function.BiFunction
 
 /**
  * Interface defining the public API for the PulseSDK
@@ -47,6 +50,8 @@ public interface PulseSDK {
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
     )
 
     /**
