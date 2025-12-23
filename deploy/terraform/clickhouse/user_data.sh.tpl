@@ -73,8 +73,8 @@ cat <<SHARD
                 <replica>
                     <host>shard-$i.$CLUSTER_NAME.$PRIVATE_ZONE</host>
                     <port>9000</port>
-                    <user>default</user>
-                    <password>default</password>
+                    <user>pulseuser</user>
+                    <password>Q7mX2pN9zHa4</password>
                 </replica>
             </shard>
 SHARD

@@ -1,7 +1,3 @@
-locals {
-  otel_config = file("${path.module}/config/otel-config.yaml")
-}
-
 terraform {
   required_version = ">= 1.3.0"
 
@@ -47,13 +43,6 @@ resource "aws_launch_template" "otel" {
     }
   }
 
-  user_data = base64encode(
-      templatefile("${path.module}/otel_user_data.sh.tpl", {
-        otel_config    = local.otel_config
-        collector_port = var.collector_port
-        region         = var.aws_region
-      })
-    )
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -77,6 +66,17 @@ resource "aws_launch_template" "otel" {
       service = "pulse"
     }
   }
+
+  tag_specifications {
+      resource_type = "volume"
+
+      tags = {
+        Role        = "pulse-otel-collector-1"
+        service     = "pulse"
+        VolumeRole  = "root"
+        ManagedBy   = "terraform"
+      }
+    }
 }
 
 # -------------------------------
