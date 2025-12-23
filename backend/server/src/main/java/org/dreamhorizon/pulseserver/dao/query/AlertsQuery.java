@@ -96,6 +96,31 @@ public class AlertsQuery {
               AND ( ? = '' OR A.scope = ?)\s
               AND ( ? = '' OR A.created_by = ?)\s
               AND ( ? = '' OR A.updated_by = ?)\s
+              AND ( ? = '' OR (
+                  CASE
+                      WHEN ? = 'FIRING' THEN EXISTS (
+                          SELECT 1 FROM alert_scope AS2
+                          WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state = 'FIRING'
+                      )
+                      WHEN ? = 'NO_DATA' THEN EXISTS (
+                          SELECT 1 FROM alert_scope AS2
+                          WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state = 'NO_DATA'
+                      ) AND NOT EXISTS (
+                          SELECT 1 FROM alert_scope AS2
+                          WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state = 'FIRING'
+                      )
+                      WHEN ? = 'NORMAL' THEN (
+                          NOT EXISTS (
+                              SELECT 1 FROM alert_scope AS2
+                              WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state != 'NORMAL'
+                          ) OR NOT EXISTS (
+                              SELECT 1 FROM alert_scope AS2
+                              WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE
+                          )
+                      )
+                      ELSE TRUE
+                  END
+              ))
       ),
       TotalAlertCount AS (
           SELECT COUNT(*) AS total_count FROM FilteredAlerts\s
