@@ -187,9 +187,10 @@ export function AlertDetail(_props: AlertDetailProps) {
     );
   }
 
+  const isNoData = alert.status === "NO_DATA";
   const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
-  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring || alert.status === "NO_DATA" ? "#ef4444" : "#10b981";
-  const statusLabel = alert.is_snoozed ? "Snoozed" : alert.status;
+  const statusColor = alert.is_snoozed ? "#94a3b8" : isNoData ? "#9ca3af" : isFiring ? "#ef4444" : "#10b981";
+  const statusLabel = alert.is_snoozed ? "Snoozed" : isNoData ? "No Data" : alert.status;
 
   // Format snooze end time
   const formatSnoozeUntil = (timestamp: number | null) => {
