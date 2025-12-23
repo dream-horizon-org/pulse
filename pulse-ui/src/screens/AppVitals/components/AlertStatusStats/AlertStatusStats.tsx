@@ -18,6 +18,7 @@ export function AlertStatusStats(_props: AlertStatusStatsProps) {
       updated_by: null,
       scope: APP_VITALS_SCOPE,
       name: null,
+      status: null, // Fetch all statuses
     },
   });
 

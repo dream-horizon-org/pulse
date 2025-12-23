@@ -84,6 +84,7 @@ public class AlertsDao {
     parameters.add(statusValue);
     parameters.add(statusValue);
     parameters.add(statusValue);
+    parameters.add(statusValue); // For SNOOZED case
     parameters.add(limit == null ? 10 : limit);
     parameters.add(offset == null ? 0 : offset);
     return parameters;
