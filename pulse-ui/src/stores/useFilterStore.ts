@@ -106,6 +106,10 @@ interface FilterStore {
   syncPendingWithApplied: () => void;
 }
 
+// Use literal value 7 to avoid circular dependency issues with DEFAULT_QUICK_TIME_FILTER_INDEX
+// This matches the value of DEFAULT_QUICK_TIME_FILTER_INDEX (index of LAST_24_HOURS)
+const INITIAL_QUICK_TIME_FILTER_INDEX = 7;
+
 const initialState = {
   filterValues: undefined,
   startTime: "",
@@ -117,10 +121,10 @@ const initialState = {
   filterOptions: DEFAULT_FILTER_OPTIONS,
   dateTimePickerOpened: false,
   selectedTimeFilter: { startDate: "", endDate: "" },
-  activeQuickTimeFilter: 1,
+  activeQuickTimeFilter: INITIAL_QUICK_TIME_FILTER_INDEX,
   // Pending state for date picker draft selections
   pendingTimeFilter: { startDate: "", endDate: "" },
-  pendingQuickTimeFilter: 1,
+  pendingQuickTimeFilter: INITIAL_QUICK_TIME_FILTER_INDEX,
 };
 
 export const useFilterStore = create<FilterStore>()(
@@ -360,7 +364,22 @@ export const useFilterStore = create<FilterStore>()(
         // This handles the case where the prop hasn't updated yet but store has
         if (currentState.quickTimeRangeFilterIndex === -1) {
           // Store has custom dates from URL, don't overwrite
-          // Even if startTime/endTime are being processed, preserve custom date mode
+          return;
+        }
+        
+        // If store already has valid times and quickTimeRangeString is empty,
+        // don't re-initialize (would cause default 15-min range to be applied)
+        if (currentState.startTime && currentState.endTime && !quickTimeRangeString) {
+          return;
+        }
+        
+        // IMPORTANT: If the store's activeQuickTimeFilter is different from what's being passed,
+        // AND the store already has valid times, the store was just updated by handleDateTimeApply.
+        // Don't overwrite with potentially stale prop values.
+        if (currentState.startTime && currentState.endTime && 
+            currentState.activeQuickTimeFilter !== selectedQuickTimeFilterIndex &&
+            currentState.activeQuickTimeFilter >= 0) {
+          // Store has more recent data from handleDateTimeApply, skip re-initialization
           return;
         }
         
@@ -369,8 +388,8 @@ export const useFilterStore = create<FilterStore>()(
         if (selectedQuickTimeFilterIndex !== -1) {
           // Quick filter - generate fresh times
           const quickFilterTimes = getStartAndEndDateTimeString(
-            quickTimeRangeString,
-            subtractMinutes,
+                quickTimeRangeString,
+                subtractMinutes,
           );
           
           // Skip if times haven't changed
@@ -532,20 +551,53 @@ export const useFilterStore = create<FilterStore>()(
       },
 
       handleDateTimeRefreshClick: (subractMinutes, handleTimefilterChange) => {
-        const { activeQuickTimeFilter } = get();
+        const { activeQuickTimeFilter, selectedTimeFilter } = get();
+        
+        // If custom date is selected (-1), just keep the same time range
+        // (no refresh makes sense for custom dates)
+        if (activeQuickTimeFilter === -1) {
+          // For custom dates, we don't change the time range on refresh
+          // Just trigger the callback with existing times
+          handleTimefilterChange(selectedTimeFilter);
+          return;
+        }
+        
+        // Validate that the index is within bounds
+        if (activeQuickTimeFilter < 0 || activeQuickTimeFilter >= CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length) {
+          // Fallback to default if invalid
+          const refreshedTimeFilter = getStartAndEndDateTimeString(
+            CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[DEFAULT_QUICK_TIME_FILTER_INDEX].value,
+            subractMinutes,
+          );
+          set({ 
+            selectedTimeFilter: refreshedTimeFilter,
+            startTime: refreshedTimeFilter.startDate,
+            endTime: refreshedTimeFilter.endDate,
+            timeFilterOptions: refreshedTimeFilter,
+            pendingTimeFilter: refreshedTimeFilter,
+            pendingQuickTimeFilter: DEFAULT_QUICK_TIME_FILTER_INDEX,
+            activeQuickTimeFilter: DEFAULT_QUICK_TIME_FILTER_INDEX,
+          });
+          handleTimefilterChange(refreshedTimeFilter);
+          return;
+        }
+        
+        const filterOption = CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeQuickTimeFilter];
+        
         const refreshedTimeFilter = getStartAndEndDateTimeString(
-          CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[
-            activeQuickTimeFilter
-          ].value,
+          filterOption.value,
           subractMinutes,
         );
 
-        // Update all time-related state directly
+        // Update all time-related state directly, including quickTimeRangeString
         set({ 
           selectedTimeFilter: refreshedTimeFilter,
           startTime: refreshedTimeFilter.startDate,
           endTime: refreshedTimeFilter.endDate,
           timeFilterOptions: refreshedTimeFilter,
+          // Update quickTimeRangeString to prevent re-initialization with empty string
+          quickTimeRangeString: filterOption.value,
+          quickTimeRangeFilterIndex: activeQuickTimeFilter,
           // Also sync pending state
           pendingTimeFilter: refreshedTimeFilter,
           pendingQuickTimeFilter: activeQuickTimeFilter,
