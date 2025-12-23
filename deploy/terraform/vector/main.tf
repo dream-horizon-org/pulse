@@ -40,6 +40,10 @@ resource "aws_launch_template" "vector" {
 
   vpc_security_group_ids = [var.security_group_id]
 
+  instance_market_options {
+    market_type = "spot"
+  }
+
   lifecycle {
     create_before_destroy = true
   }

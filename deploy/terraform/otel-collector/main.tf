@@ -36,6 +36,10 @@ resource "aws_launch_template" "otel" {
 
   vpc_security_group_ids = var.vpc_security_group_ids
 
+  instance_market_options {
+    market_type = "spot"
+  }
+
   dynamic "iam_instance_profile" {
     for_each = var.iam_instance_profile == null ? [] : [1]
     content {
