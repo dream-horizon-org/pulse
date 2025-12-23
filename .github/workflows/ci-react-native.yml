@@ -6,12 +6,14 @@ on:
       - main
     paths:
       - 'pulse-react-native-otel/**'
+      - 'pulse-android-otel/**'
       - '.github/workflows/ci-react-native.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'pulse-react-native-otel/**'
+      - 'pulse-android-otel/**'
       - '.github/workflows/ci-react-native.yml'
 
 concurrency:
@@ -22,7 +24,28 @@ permissions:
   contents: read
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      react-native-changed: ${{ steps.filter.outputs.pulse-react-native-otel }}
+      android-sdk-changed: ${{ steps.filter.outputs.pulse-android-otel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      
+      - name: Check changed files
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            pulse-react-native-otel:
+              - 'pulse-react-native-otel/**'
+            pulse-android-otel:
+              - 'pulse-android-otel/**'
+
   lint:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,6 +94,8 @@ jobs:
         run: yarn typecheck
 
   test:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -115,6 +140,8 @@ jobs:
         run: yarn test --maxWorkers=2 --coverage
 
   build-library:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -159,12 +186,15 @@ jobs:
         run: yarn prepare
 
   build-android:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true' || needs.check-changes.outputs.android-sdk-changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     env:
       TURBO_CACHE_DIR: .turbo/android
+      ANDROID_SDK_CHANGED: ${{ needs.check-changes.outputs.android-sdk-changed }}
 
     steps:
       - name: Checkout
@@ -241,6 +271,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Publish Android SDK to Maven Local
+        if: env.ANDROID_SDK_CHANGED == 'true' || env.turbo_cache_hit != 1
+        working-directory: pulse-android-otel
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          ./gradlew publishToMavenLocal -Pfinal=true
+
       - name: Build example for Android
         working-directory: pulse-react-native-otel
         env:
@@ -249,6 +287,8 @@ jobs:
           yarn turbo run build:android --cache-dir=".turbo/android"
 
   build-ios:
+    needs: check-changes
+    if: needs.check-changes.outputs.react-native-changed == 'true'
     runs-on: macos-latest
     permissions:
       contents: read
