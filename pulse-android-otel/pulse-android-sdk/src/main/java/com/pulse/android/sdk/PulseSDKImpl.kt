@@ -55,23 +55,25 @@ internal class PulseSDKImpl : PulseSDK {
         pulseSpanProcessor = PulseSignalProcessor()
         val config = OtelRumConfig()
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
-        val mergedTracerProviderCustomizer = if (tracerProviderCustomizer != null) {
-            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, application ->
-                val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, application)
-                tracerProviderCustomizer.apply(builderWithInternal, application)
+        val mergedTracerProviderCustomizer =
+            if (tracerProviderCustomizer != null) {
+                BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, application ->
+                    val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, application)
+                    tracerProviderCustomizer.apply(builderWithInternal, application)
+                }
+            } else {
+                internalTracerProviderCustomizer
             }
-        } else {
-            internalTracerProviderCustomizer
-        }
 
-        val mergedLoggerProviderCustomizer = if (loggerProviderCustomizer != null) {
-            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, application ->
-                val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, application)
-                loggerProviderCustomizer.apply(builderWithInternal, application)
+        val mergedLoggerProviderCustomizer =
+            if (loggerProviderCustomizer != null) {
+                BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, application ->
+                    val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, application)
+                    loggerProviderCustomizer.apply(builderWithInternal, application)
+                }
+            } else {
+                internalLoggerProviderCustomizer
             }
-        } else {
-            internalLoggerProviderCustomizer
-        }
 
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
