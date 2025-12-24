@@ -101,7 +101,7 @@ object OpenTelemetryRumInitializer {
                     FilteringSpanExporter.builder(otlpExporter)
                         .rejectSpansWithAttributesMatching(
                             mapOf(
-                                AttributeKey.booleanKey("pulse.discarded") to Predicate<Boolean> { it == true }
+                                AttributeKey.booleanKey("pulse.internal") to Predicate<Boolean> { it == true }
                             )
                         )
                         .build()

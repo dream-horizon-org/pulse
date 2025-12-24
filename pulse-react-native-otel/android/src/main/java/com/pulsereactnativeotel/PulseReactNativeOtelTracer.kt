@@ -88,7 +88,7 @@ object PulseReactNativeOtelTracer {
     fun discardSpan(spanId: String) {
         idToSpan.remove(spanId)?.let { span ->
             span.setAttribute(
-                AttributeKey.booleanKey("pulse.discarded"),
+                AttributeKey.booleanKey("pulse.internal"),
                 true
             )
             span.end()
