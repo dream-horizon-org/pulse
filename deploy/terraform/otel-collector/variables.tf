@@ -20,13 +20,23 @@ variable "collector_count" {
   type        = number
 }
 
-variable "subnet_ids" {
-  description = "List of subnets (usually private) for the collectors/ALB"
+variable "public_subnet_ids" {
+  description = "List of public subnets for the NLB"
+  type        = list(string)
+}
+
+variable "acm_certificate_arn" {
+  description = "acm certificate to add to the listener"
+  type        = string
+}
+
+variable "private_subnet_ids" {
+  description = "List of public subnets for the collector"
   type        = list(string)
 }
 
 variable "vpc_id" {
-  description = "VPC ID where collectors/ALB live"
+  description = "VPC ID where collectors/NLB live"
   type        = string
 }
 
@@ -35,7 +45,7 @@ variable "vpc_security_group_ids" {
   type        = list(string)
 }
 
-variable "alb_security_group_ids" {
+variable "nlb_security_group_ids" {
   description = "Security group IDs to attach to the OTEL ALB"
   type        = list(string)
 }

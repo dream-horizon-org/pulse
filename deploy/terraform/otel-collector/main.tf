@@ -85,7 +85,7 @@ resource "aws_launch_template" "otel" {
 resource "aws_lb_target_group" "otel" {
   name        = "pulse-otel-collector-1-tg"
   port        = var.collector_port
-  protocol    = "HTTP"
+  protocol    = "TCP"
   vpc_id      = var.vpc_id
   target_type = "instance"
 
@@ -98,22 +98,24 @@ resource "aws_lb_target_group" "otel" {
 }
 
 # -------------------------------
-# Application Load Balancer (internal)
+# Network Load Balancer (internal)
 # -------------------------------
 resource "aws_lb" "otel" {
-  name               = "pulse-otel-collector-1-alb"
-  internal           = true
-  load_balancer_type = "application"
-  security_groups    = var.alb_security_group_ids
-  subnets            = var.subnet_ids
+  name               = "pulse-otel-collector-1-nlb"
+  internal           = false
+  load_balancer_type = "network"
+  security_groups    = var.nlb_security_group_ids
+  subnets            = var.private_subnet_ids
   drop_invalid_header_fields = true
 }
 
 resource "aws_lb_listener" "otel" {
   load_balancer_arn = aws_lb.otel.arn
-  port              = var.collector_port
-  protocol          = "HTTP"
+  port              = 443
+  protocol          = "TLS"
 
+  certificate_arn = var.acm_certificate_arn
+  ssl_policy = "ELBSecurityPolicy-2016-08"
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.otel.arn
@@ -128,7 +130,7 @@ resource "aws_autoscaling_group" "otel" {
   max_size                  = var.collector_count
   min_size                  = var.collector_count
   desired_capacity          = var.collector_count
-  vpc_zone_identifier       = var.subnet_ids
+  vpc_zone_identifier       = var.public_subnet_ids
   health_check_type         = "ELB"
   health_check_grace_period = 60
 
