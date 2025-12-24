@@ -1,6 +1,7 @@
 package com.pulse.android.sdk
 
 import android.content.SharedPreferences
+import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseUserAttributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.sdk.logs.SdkLoggerProvider
@@ -63,6 +64,9 @@ internal class PulseUserSessionEmitterTest {
         val logRecords = logExporter.finishedLogRecordItems
         assertThat(logRecords).hasSize(1)
         assertThat(logRecords[0].eventName).isEqualTo(PulseUserAttributes.PULSE_USER_SESSION_END_EVENT_NAME)
+        assertThat(
+            logRecords[0].attributes.get(PulseAttributes.PULSE_TYPE),
+        ).isEqualTo(PulseUserAttributes.PULSE_USER_SESSION_END_EVENT_NAME)
         assertThat(logRecords[0].attributes.get(UserIncubatingAttributes.USER_ID)).isEqualTo("old-user")
         assertThat(logRecords[0].attributes.get(PulseUserAttributes.PULSE_USER_PREVIOUS_ID)).isNull()
 
@@ -77,6 +81,9 @@ internal class PulseUserSessionEmitterTest {
         val logRecords = logExporter.finishedLogRecordItems
         assertThat(logRecords).hasSize(1)
         assertThat(logRecords[0].eventName).isEqualTo(PulseUserAttributes.PULSE_USER_SESSION_START_EVENT_NAME)
+        assertThat(
+            logRecords[0].attributes.get(PulseAttributes.PULSE_TYPE),
+        ).isEqualTo(PulseUserAttributes.PULSE_USER_SESSION_START_EVENT_NAME)
         assertThat(logRecords[0].attributes.get(UserIncubatingAttributes.USER_ID)).isEqualTo("new-user")
         assertThat(logRecords[0].attributes.get(PulseUserAttributes.PULSE_USER_PREVIOUS_ID)).isNull()
 

@@ -200,7 +200,27 @@ class PulseSignalProcessorTest {
         }
 
         @Nested
-        inner class `session end handling` {
+        inner class `session handling` {
+            @Test
+            fun `in log, sets session start pulse type`() {
+                logger.logRecordBuilder().setEventName("session.end").emit()
+                assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+                val sessionEndLog = logExporter.finishedLogRecordItems[0]
+                assertThat(
+                    sessionEndLog.attributes.get(PulseAttributes.PULSE_TYPE),
+                ).isEqualTo(PulseAttributes.PulseTypeValues.APP_SESSION_END)
+            }
+
+            @Test
+            fun `in log, sets session end pulse type`() {
+                logger.logRecordBuilder().setEventName("session.start").emit()
+                assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+                val sessionStartLog = logExporter.finishedLogRecordItems[0]
+                assertThat(
+                    sessionStartLog.attributes.get(PulseAttributes.PULSE_TYPE),
+                ).isEqualTo(PulseAttributes.PulseTypeValues.APP_SESSION_START)
+            }
+
             @Test
             fun `in log, sets session end attributes and clears recorded events on session end`() {
                 logger.logRecordBuilder().setEventName("device.crash").emit()

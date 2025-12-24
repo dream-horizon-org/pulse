@@ -7,6 +7,8 @@ public final class com/pulse/semconv/PulseAttributes {
 
 public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field ANR Ljava/lang/String;
+	public static final field APP_SESSION_END Ljava/lang/String;
+	public static final field APP_SESSION_START Ljava/lang/String;
 	public static final field APP_START Ljava/lang/String;
 	public static final field CRASH Ljava/lang/String;
 	public static final field CUSTOM_EVENT Ljava/lang/String;
