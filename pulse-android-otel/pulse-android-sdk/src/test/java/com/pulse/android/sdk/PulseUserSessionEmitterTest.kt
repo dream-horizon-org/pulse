@@ -52,12 +52,14 @@ internal class PulseUserSessionEmitterTest {
         val result = emitter.userId
         assertThat(result).isEqualTo("cached-user")
         assertThat(result).isEqualTo("cached-user")
+        assertThat(sharedPreferences.getString(PulseUserSessionEmitter.USER_PREFS_KEY, null)).isEqualTo("cached-user")
     }
 
     @Test
     fun `when userId is not fetched and set with new null and old not null, should emit session end`() {
         sharedPreferences.putString(PulseUserSessionEmitter.USER_PREFS_KEY, "old-user")
         emitter.userId = null
+        assertThat(sharedPreferences.getString(PulseUserSessionEmitter.USER_PREFS_KEY, "not null")).isEqualTo(null)
         val logRecords = logExporter.finishedLogRecordItems
         assertThat(logRecords).hasSize(1)
         assertThat(logRecords[0].eventName).isEqualTo(PulseUserAttributes.PULSE_USER_SESSION_END_EVENT_NAME)
@@ -176,12 +178,12 @@ internal class InMemorySharedPreferences : SharedPreferences {
     override fun getAll(): MutableMap<String, *> = data.toMutableMap()
 
     override fun getString(
-        key: String?,
+        key: String,
         defValue: String?,
-    ): String? = data[key] as? String ?: defValue
+    ): String? = if (data.containsKey(key)) data[key] as? String? else defValue
 
     override fun getStringSet(
-        key: String?,
+        key: String,
         defValues: MutableSet<String>?,
     ): MutableSet<String>? =
         (data[key] as? Set<*>)?.run {
@@ -189,26 +191,26 @@ internal class InMemorySharedPreferences : SharedPreferences {
         } ?: defValues
 
     override fun getInt(
-        key: String?,
+        key: String,
         defValue: Int,
     ): Int = (data[key] as? Number)?.toInt() ?: defValue
 
     override fun getLong(
-        key: String?,
+        key: String,
         defValue: Long,
     ): Long = (data[key] as? Number)?.toLong() ?: defValue
 
     override fun getFloat(
-        key: String?,
+        key: String,
         defValue: Float,
     ): Float = (data[key] as? Number)?.toFloat() ?: defValue
 
     override fun getBoolean(
-        key: String?,
+        key: String,
         defValue: Boolean,
     ): Boolean = data[key] as? Boolean ?: defValue
 
-    override fun contains(key: String?): Boolean = data.containsKey(key)
+    override fun contains(key: String): Boolean = data.containsKey(key)
 
     override fun edit(): SharedPreferences.Editor = InMemoryEditor(data)
 
@@ -222,11 +224,7 @@ internal class InMemorySharedPreferences : SharedPreferences {
         key: String,
         value: String?,
     ) {
-        if (value == null) {
-            data.remove(key)
-        } else {
-            data[key] = value
-        }
+        data[key] = value
     }
 }
 
@@ -237,67 +235,60 @@ internal class InMemoryEditor(
     private val removals = mutableSetOf<String>()
 
     override fun putString(
-        key: String?,
+        key: String,
         value: String?,
     ): SharedPreferences.Editor {
-        if (key == null) return this
         changes[key] = value
         removals.remove(key)
         return this
     }
 
     override fun putStringSet(
-        key: String?,
+        key: String,
         values: MutableSet<String>?,
     ): SharedPreferences.Editor {
-        if (key == null) return this
         changes[key] = values
         removals.remove(key)
         return this
     }
 
     override fun putInt(
-        key: String?,
+        key: String,
         value: Int,
     ): SharedPreferences.Editor {
-        if (key == null) return this
         changes[key] = value
         removals.remove(key)
         return this
     }
 
     override fun putLong(
-        key: String?,
+        key: String,
         value: Long,
     ): SharedPreferences.Editor {
-        if (key == null) return this
         changes[key] = value
         removals.remove(key)
         return this
     }
 
     override fun putFloat(
-        key: String?,
+        key: String,
         value: Float,
     ): SharedPreferences.Editor {
-        if (key == null) return this
         changes[key] = value
         removals.remove(key)
         return this
     }
 
     override fun putBoolean(
-        key: String?,
+        key: String,
         value: Boolean,
     ): SharedPreferences.Editor {
-        if (key == null) return this
         changes[key] = value
         removals.remove(key)
         return this
     }
 
-    override fun remove(key: String?): SharedPreferences.Editor {
-        if (key == null) return this
+    override fun remove(key: String): SharedPreferences.Editor {
         removals.add(key)
         changes.remove(key)
         return this
@@ -317,11 +308,7 @@ internal class InMemoryEditor(
     override fun apply() {
         removals.forEach { data.remove(it) }
         changes.forEach { (key, value) ->
-            if (value == null) {
-                data.remove(key)
-            } else {
-                data[key] = value
-            }
+            data[key] = value
         }
         changes.clear()
         removals.clear()

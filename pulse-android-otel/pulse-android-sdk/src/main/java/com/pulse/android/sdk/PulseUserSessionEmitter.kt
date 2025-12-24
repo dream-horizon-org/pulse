@@ -1,6 +1,7 @@
 package com.pulse.android.sdk
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.pulse.semconv.PulseUserAttributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
@@ -39,6 +40,7 @@ internal class PulseUserSessionEmitter(
         oldUserId: String?,
     ) {
         if (newUserId == oldUserId) return
+        userPref.edit { putString(USER_PREFS_KEY, newUserId) }
         val logger = loggerProvider()
         if (oldUserId != null) {
             logger
