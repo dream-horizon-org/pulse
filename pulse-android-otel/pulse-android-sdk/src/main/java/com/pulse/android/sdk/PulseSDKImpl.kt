@@ -57,9 +57,9 @@ internal class PulseSDKImpl : PulseSDK {
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
             if (tracerProviderCustomizer != null) {
-                BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, application ->
-                    val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, application)
-                    tracerProviderCustomizer.apply(builderWithInternal, application)
+                BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
+                    val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, app)
+                    tracerProviderCustomizer.apply(builderWithInternal, app)
                 }
             } else {
                 internalTracerProviderCustomizer
@@ -67,9 +67,9 @@ internal class PulseSDKImpl : PulseSDK {
 
         val mergedLoggerProviderCustomizer =
             if (loggerProviderCustomizer != null) {
-                BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, application ->
-                    val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, application)
-                    loggerProviderCustomizer.apply(builderWithInternal, application)
+                BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
+                    val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, app)
+                    loggerProviderCustomizer.apply(builderWithInternal, app)
                 }
             } else {
                 internalLoggerProviderCustomizer
