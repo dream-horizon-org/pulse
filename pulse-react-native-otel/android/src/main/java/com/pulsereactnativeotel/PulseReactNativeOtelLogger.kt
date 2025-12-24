@@ -4,6 +4,7 @@ import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
 import com.pulse.android.sdk.PulseSDK
+import com.pulse.semconv.PulseAttributes
 
 object PulseReactNativeOtelLogger {
 
@@ -35,6 +36,7 @@ object PulseReactNativeOtelLogger {
             put(PulseOtelConstants.ATTR_THREAD_ID, getCurrentThreadId())
             put(PulseOtelConstants.ATTR_THREAD_NAME, Thread.currentThread().name)
             put(PulseOtelConstants.ATTR_ERROR_SOURCE, PulseOtelConstants.ERROR_SOURCE_JS)
+            put(PulseAttributes.PULSE_TYPE.key, if (isFatal) PulseAttributes.PulseTypeValues.CRASH else PulseAttributes.PulseTypeValues.NON_FATAL)
             attributes?.let { putAll(it.toMap()) }
         }
 

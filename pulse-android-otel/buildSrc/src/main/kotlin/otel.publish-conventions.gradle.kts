@@ -22,7 +22,7 @@ if (findProperty("final") != "true") {
 
 // When isARelease is `false`, only the main deliverable is generated (.aar/.jar file) and is not signed.
 // When isARelease is `true`, some extra work is done to also generate javadoc/sources artifacts, while signing them all as well.
-val isARelease = System.getenv("CI") != null
+val isARelease = System.getenv("CI") == "true"
 
 val android = extensions.findByType(LibraryExtension::class.java)
 
