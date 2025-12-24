@@ -105,7 +105,7 @@ resource "aws_lb" "otel" {
   internal           = false
   load_balancer_type = "network"
   security_groups    = var.nlb_security_group_ids
-  subnets            = var.private_subnet_ids
+  subnets            = var.public_subnet_ids
   drop_invalid_header_fields = true
 }
 
@@ -130,7 +130,7 @@ resource "aws_autoscaling_group" "otel" {
   max_size                  = var.collector_count
   min_size                  = var.collector_count
   desired_capacity          = var.collector_count
-  vpc_zone_identifier       = var.public_subnet_ids
+  vpc_zone_identifier       = var.private_subnet_ids
   health_check_type         = "ELB"
   health_check_grace_period = 60
 
