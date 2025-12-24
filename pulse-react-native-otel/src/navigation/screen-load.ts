@@ -67,7 +67,7 @@ export function createScreenLoadTracker(
       state.navigationSpan = undefined;
 
       if (route) {
-        console.log(`${LOG_TAGS.SCREEN_LOAD} ${route.name}`);
+        console.log(`${LOG_TAGS.SCREEN_LOAD} ${route.name} ended`);
         if (onLoadEnd) {
           onLoadEnd(route);
         }

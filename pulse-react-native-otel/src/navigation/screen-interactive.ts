@@ -67,14 +67,14 @@ export function createScreenInteractiveTracker(
       }
     );
     state.currentInteractiveRouteKey = route.key;
-    console.log(`${LOG_TAGS.SCREEN_INTERACTIVE} ${route.name}`);
+    console.log(`${LOG_TAGS.SCREEN_INTERACTIVE} ${route.name} started`);
   };
 
   const endScreenInteractive = (routeName?: string): void => {
     if (state.screenInteractiveSpan) {
       state.screenInteractiveSpan.end();
       if (routeName) {
-        console.log(`${LOG_TAGS.SCREEN_INTERACTIVE} ${routeName} ready`);
+        console.log(`${LOG_TAGS.SCREEN_INTERACTIVE} ${routeName} ended`);
       }
       state.screenInteractiveSpan = undefined;
       state.currentInteractiveRouteKey = undefined;

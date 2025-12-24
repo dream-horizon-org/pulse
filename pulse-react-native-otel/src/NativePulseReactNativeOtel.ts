@@ -22,7 +22,7 @@ export interface Spec extends TurboModule {
     attributes?: Object
   ): boolean;
 
-  /** Start an active span; returns spanId (simplified). */
+  /** Start an active span; returns spanId. */
   startSpan(name: string, inheritContext: boolean, attributes?: Object): string;
 
   /** End a span with optional status code. */
@@ -41,7 +41,7 @@ export interface Spec extends TurboModule {
     stackTrace?: string
   ): boolean;
 
-  /** Discard a span without sending it to backend. Cleans up memory. */
+  /** Discard a span without sending it to backend. */
   discardSpan(spanId: string): boolean;
 
   /** Set user id for the session. Setting null will reset the id */

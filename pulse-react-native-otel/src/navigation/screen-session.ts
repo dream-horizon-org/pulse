@@ -31,7 +31,7 @@ export function createScreenSessionTracker(
       },
     });
     state.currentScreenKey = route.key;
-    console.log(`${LOG_TAGS.SCREEN_SESSION} ${route.name}`);
+    console.log(`${LOG_TAGS.SCREEN_SESSION} ${route.name} started`);
   };
 
   const endScreenSession = (routeName?: string): void => {

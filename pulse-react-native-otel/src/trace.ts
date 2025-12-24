@@ -4,9 +4,14 @@ import { mergeWithGlobalAttributes } from './globalAttributes';
 import { extractErrorDetails } from './utility';
 import type { PulseAttributes } from './pulse.interface';
 
+/**
+ * Options for starting a span.
+ * @param attributes - Attributes to set on the span.
+ * @param inheritContext - Controls whether or not the new span will be parented in the existing (current) context. If false, a new context is created.
+ */
 export type SpanOptions = {
   attributes?: PulseAttributes;
-  inheritContext?: boolean; // If true (default), span will be parented in existing context. If false, creates new context.
+  inheritContext?: boolean;
 };
 
 export enum SpanStatusCode {
