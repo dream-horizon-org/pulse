@@ -13,7 +13,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @NotNull
-public class CriticalEventPolicies {
-  @JsonProperty("alwaysSend")
-  private List<CriticalPolicyRule> alwaysSend;
+public class AttributeToAdd {
+  @JsonProperty("values")
+  private List<AttributeValue> values;
+
+  @JsonProperty("condition")
+  private EventFilter condition;
 }
+
