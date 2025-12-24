@@ -6,16 +6,23 @@ import type {
   NavigationRoute,
 } from './navigation.interface';
 import { pushRecentRouteKey, LOG_TAGS } from './utils';
-import { createScreenLoadTracker, type ScreenLoadState } from './screen-load';
+import { discardSpan } from '../trace';
+import {
+  createScreenLoadTracker,
+  type ScreenLoadState,
+  INITIAL_SCREEN_LOAD_STATE,
+} from './screen-load';
 import {
   createScreenInteractiveTracker,
   markContentReady,
   clearGlobalMarkContentReady,
   type ScreenInteractiveState,
+  INITIAL_SCREEN_INTERACTIVE_STATE,
 } from './screen-interactive';
 import {
   createScreenSessionTracker,
   type ScreenSessionState,
+  INITIAL_SCREEN_SESSION_STATE,
 } from './screen-session';
 import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
 
@@ -41,18 +48,15 @@ export function createReactNavigationIntegration(
   let appStateSubscription: { remove: () => void } | undefined;
 
   const screenLoadState: ScreenLoadState = {
-    navigationSpan: undefined,
-    latestRoute: undefined,
+    ...INITIAL_SCREEN_LOAD_STATE,
   };
 
   const screenInteractiveState: ScreenInteractiveState = {
-    screenInteractiveSpan: undefined,
-    currentInteractiveRouteKey: undefined,
+    ...INITIAL_SCREEN_INTERACTIVE_STATE,
   };
 
   const screenSessionState: ScreenSessionState = {
-    screenSessionSpan: undefined,
-    currentScreenKey: undefined,
+    ...INITIAL_SCREEN_SESSION_STATE,
   };
 
   const screenInteractiveTracker = createScreenInteractiveTracker(
@@ -64,15 +68,11 @@ export function createReactNavigationIntegration(
   const screenLoadTracker = createScreenLoadTracker(
     screenNavigationTracking,
     screenLoadState,
-    recentRouteKeys,
+    () => recentRouteKeys,
     (key: string) => {
       recentRouteKeys = pushRecentRouteKey(recentRouteKeys, key);
     },
-    (route: NavigationRoute) => {
-      if (screenInteractiveTracking) {
-        screenInteractiveTracker.startScreenInteractive(route);
-      }
-    }
+    undefined
   );
 
   const screenSessionTracker = createScreenSessionTracker(
@@ -83,7 +83,9 @@ export function createReactNavigationIntegration(
   const onNavigationDispatch = (): void => {
     try {
       if (screenInteractiveTracking) {
-        screenInteractiveTracker.nullScreenInteractive('user navigated away');
+        screenInteractiveTracker.discardScreenInteractive(
+          'user navigated away'
+        );
       }
 
       if (
@@ -101,7 +103,11 @@ export function createReactNavigationIntegration(
         `${LOG_TAGS.NAVIGATION} Error in onNavigationDispatch:`,
         error
       );
-      screenLoadState.navigationSpan = undefined;
+
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
+        screenLoadState.navigationSpan = undefined;
+      }
     }
   };
 
@@ -125,9 +131,16 @@ export function createReactNavigationIntegration(
       ) {
         screenSessionTracker.startScreenSession(currentRoute);
       }
+
+      if (screenInteractiveTracking) {
+        screenInteractiveTracker.startScreenInteractive(currentRoute);
+      }
     } catch (error) {
       console.warn(`${LOG_TAGS.NAVIGATION} Error in onStateChange:`, error);
-      screenLoadState.navigationSpan = undefined;
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
+        screenLoadState.navigationSpan = undefined;
+      }
     }
   };
 
@@ -137,14 +150,6 @@ export function createReactNavigationIntegration(
         nextAppState,
         navigationContainer
       );
-
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
-        if (screenInteractiveTracking) {
-          screenInteractiveTracker.nullScreenInteractive(
-            'app went to background'
-          );
-        }
-      }
     } catch (error) {
       console.warn(
         `${LOG_TAGS.NAVIGATION} Error in handleAppStateChange:`,
@@ -203,7 +208,7 @@ export function createReactNavigationIntegration(
         }
 
         if (screenInteractiveTracking) {
-          screenInteractiveTracker.nullScreenInteractive(
+          screenInteractiveTracker.discardScreenInteractive(
             'navigation container unmounted'
           );
         }
@@ -235,6 +240,10 @@ export function createReactNavigationIntegration(
           screenSessionTracker.shouldStartSession(currentRoute, appState)
         ) {
           screenSessionTracker.startScreenSession(currentRoute);
+        }
+
+        if (screenInteractiveTracking) {
+          updatedInteractiveTracker.startScreenInteractive(currentRoute);
         }
       }
 

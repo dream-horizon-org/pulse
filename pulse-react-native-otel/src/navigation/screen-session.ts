@@ -12,6 +12,11 @@ export interface ScreenSessionState {
   currentScreenKey: string | undefined;
 }
 
+export const INITIAL_SCREEN_SESSION_STATE: ScreenSessionState = {
+  screenSessionSpan: undefined,
+  currentScreenKey: undefined,
+};
+
 export function createScreenSessionTracker(
   enabled: boolean,
   state: ScreenSessionState

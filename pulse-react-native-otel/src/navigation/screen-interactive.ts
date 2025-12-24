@@ -1,6 +1,7 @@
 import { Pulse, type Span } from '../index';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
+import { discardSpan } from '../trace';
 import type {
   NavigationRoute,
   NavigationContainer,
@@ -12,6 +13,11 @@ export interface ScreenInteractiveState {
   currentInteractiveRouteKey: string | undefined;
 }
 
+export const INITIAL_SCREEN_INTERACTIVE_STATE: ScreenInteractiveState = {
+  screenInteractiveSpan: undefined,
+  currentInteractiveRouteKey: undefined,
+};
+
 let globalMarkContentReady: (() => void) | undefined;
 
 export function createScreenInteractiveTracker(
@@ -19,11 +25,14 @@ export function createScreenInteractiveTracker(
   state: ScreenInteractiveState,
   navigationContainer: NavigationContainer | undefined
 ) {
-  const nullScreenInteractive = (reason: string): void => {
+  const discardScreenInteractive = (reason: string): void => {
     if (state.screenInteractiveSpan) {
       console.log(
         `${LOG_TAGS.SCREEN_INTERACTIVE} screen_interactive span discarded: ${reason} (routeKey: ${state.currentInteractiveRouteKey})`
       );
+      if (state.screenInteractiveSpan.spanId) {
+        discardSpan(state.screenInteractiveSpan.spanId);
+      }
       state.screenInteractiveSpan = undefined;
       state.currentInteractiveRouteKey = undefined;
     }
@@ -34,8 +43,15 @@ export function createScreenInteractiveTracker(
       return;
     }
 
+    if (
+      state.screenInteractiveSpan &&
+      state.currentInteractiveRouteKey === route.key
+    ) {
+      return;
+    }
+
     if (state.screenInteractiveSpan) {
-      nullScreenInteractive('previous span replaced by new navigation');
+      discardScreenInteractive('previous span replaced by new navigation');
     }
 
     state.screenInteractiveSpan = Pulse.startSpan(
@@ -45,8 +61,9 @@ export function createScreenInteractiveTracker(
           [ATTRIBUTE_KEYS.PULSE_TYPE]: PULSE_TYPES.SCREEN_INTERACTIVE,
           [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
           [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
-          [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS as 'android' | 'ios',
+          [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
         },
+        inheritContext: false,
       }
     );
     state.currentInteractiveRouteKey = route.key;
@@ -82,7 +99,7 @@ export function createScreenInteractiveTracker(
         console.warn(
           `${LOG_TAGS.SCREEN_INTERACTIVE} markContentReady called but no current route found`
         );
-        nullScreenInteractive('no current route');
+        discardScreenInteractive('no current route');
         return;
       }
 
@@ -90,7 +107,7 @@ export function createScreenInteractiveTracker(
         console.warn(
           `${LOG_TAGS.SCREEN_INTERACTIVE} markContentReady called for wrong screen. Expected routeKey: ${state.currentInteractiveRouteKey}, Current: ${currentRoute.key}`
         );
-        nullScreenInteractive('route key mismatch');
+        discardScreenInteractive('route key mismatch');
         return;
       }
 
@@ -108,7 +125,7 @@ export function createScreenInteractiveTracker(
   return {
     startScreenInteractive,
     endScreenInteractive,
-    nullScreenInteractive,
+    discardScreenInteractive,
     markContentReady: handleMarkContentReady,
   };
 }

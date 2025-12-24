@@ -14,10 +14,15 @@ export interface ScreenLoadState {
   latestRoute: NavigationRoute | undefined;
 }
 
+export const INITIAL_SCREEN_LOAD_STATE: ScreenLoadState = {
+  navigationSpan: undefined,
+  latestRoute: undefined,
+};
+
 export function createScreenLoadTracker(
   enabled: boolean,
   state: ScreenLoadState,
-  recentRouteKeys: string[],
+  getRecentRouteKeys: () => string[],
   pushRecentRouteKey: (key: string) => void,
   onLoadEnd?: (route: NavigationRoute) => void
 ) {
@@ -38,18 +43,22 @@ export function createScreenLoadTracker(
 
   const endNavigationSpan = (
     currentRoute?: NavigationRoute,
-    previousRoute?: NavigationRoute
+    previousRoute?: NavigationRoute,
+    routeHasBeenSeen?: boolean
   ): void => {
     if (state.navigationSpan) {
       const route = currentRoute || state.latestRoute;
 
       if (route) {
-        const routeHasBeenSeen = recentRouteKeys.includes(route.key);
+        const hasBeenSeen =
+          routeHasBeenSeen !== undefined
+            ? routeHasBeenSeen
+            : getRecentRouteKeys().includes(route.key);
 
         state.navigationSpan.setAttributes({
           [ATTRIBUTE_KEYS.SCREEN_NAME]: route.name,
           [ATTRIBUTE_KEYS.LAST_SCREEN_NAME]: previousRoute?.name || undefined,
-          [ATTRIBUTE_KEYS.ROUTE_HAS_BEEN_SEEN]: routeHasBeenSeen,
+          [ATTRIBUTE_KEYS.ROUTE_HAS_BEEN_SEEN]: hasBeenSeen,
           [ATTRIBUTE_KEYS.ROUTE_KEY]: route.key,
         });
       }
@@ -74,14 +83,16 @@ export function createScreenLoadTracker(
     const previousRoute = state.latestRoute;
 
     if (previousRoute && previousRoute.key === currentRoute.key) {
-      endNavigationSpan(currentRoute, previousRoute);
+      const routeHasBeenSeen = getRecentRouteKeys().includes(currentRoute.key);
+      endNavigationSpan(currentRoute, previousRoute, routeHasBeenSeen);
       return;
     }
 
+    const routeHasBeenSeen = getRecentRouteKeys().includes(currentRoute.key);
     state.latestRoute = currentRoute;
     pushRecentRouteKey(currentRoute.key);
 
-    endNavigationSpan(currentRoute, previousRoute);
+    endNavigationSpan(currentRoute, previousRoute, routeHasBeenSeen);
   };
 
   return {
