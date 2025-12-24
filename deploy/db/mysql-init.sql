@@ -28,6 +28,15 @@ CREATE TABLE symbol_files (
   PRIMARY KEY (app_version, app_version_code, platform, framework)
 );
 
+CREATE TABLE pulse_sdk_configs (
+  version     INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  description TEXT NOT NULL,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by  VARCHAR(255),
+  config_json JSON NOT NULL
+);
+
 
 CREATE TABLE severity
 (

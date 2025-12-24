@@ -262,7 +262,7 @@ public class AlertEvaluationService {
         List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
         Map<String, Float> noDataResult = buildNoDataEvaluationResult(alerts != null ? alerts : new ArrayList<>());
         String evaluationResultJson = buildEvaluationResultJson(noDataResult, new HashMap<>(), false);
-        
+
         results.add(EvaluationResult.builder()
             .scopeId(scope.getId())
             .state(AlertState.NO_DATA)
@@ -382,7 +382,7 @@ public class AlertEvaluationService {
       result.setScopeId(scope.getId());
       result.setState(finalState);
       result.setFiring(finalState == AlertState.FIRING);
-      
+
       Map<String, Float> evaluationResultMap = metricReadings.isEmpty()
           ? buildNoDataEvaluationResult(alerts)
           : metricReadings;
@@ -467,11 +467,11 @@ public class AlertEvaluationService {
     if (value == null) {
       return null;
     }
-    
+
     String upperMetricName = metricName.toUpperCase();
-    boolean isRateOrPercentage = upperMetricName.contains("RATE") 
+    boolean isRateOrPercentage = upperMetricName.contains("RATE")
         || upperMetricName.contains("PERCENTAGE");
-    
+
     if (isRateOrPercentage) {
       if (value > 100.0f) {
         return value;
@@ -483,7 +483,7 @@ public class AlertEvaluationService {
         return value * 100.0f;
       }
     }
-    
+
     return value;
   }
 
@@ -710,7 +710,7 @@ public class AlertEvaluationService {
         if (evaluationResult == null || evaluationResult.isEmpty()) {
           evaluationResult = "{}";
         }
-        
+
         createEvaluationHistory(responseDto.getScopeId(),
             evaluationResult,
             responseDto.getState())
