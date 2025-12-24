@@ -28,6 +28,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.AttributeToAdd;
+import org.dreamhorizon.pulseserver.service.configs.models.AttributeValue;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
@@ -202,6 +204,7 @@ class ConfigServiceImplTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(List.of())
+              .attributesToAdd(List.of())
               .filters(FilterConfig.builder()
                   .mode(FilterMode.blacklist)
                   .values(List.of())

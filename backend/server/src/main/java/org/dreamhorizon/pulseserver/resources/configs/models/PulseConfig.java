@@ -82,6 +82,34 @@ public class PulseConfig {
   @AllArgsConstructor
   @NoArgsConstructor
   @NotNull
+  public static class AttributeValue {
+
+    @JsonProperty("name")
+    private String name;
+
+    @JsonProperty("value")
+    private String value;
+  }
+
+  @Data
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @NotNull
+  public static class AttributeToAdd {
+
+    @JsonProperty("values")
+    private List<AttributeValue> values;
+
+    @JsonProperty("condition")
+    private EventFilter condition;
+  }
+
+  @Data
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
+  @NotNull
   public static class SamplingConfig {
 
     @JsonProperty("default")
@@ -207,6 +235,9 @@ public class PulseConfig {
     @NotNull
     @JsonProperty("attributesToDrop")
     private List<EventFilter> attributesToDrop;
+
+    @JsonProperty("attributesToAdd")
+    private List<AttributeToAdd> attributesToAdd;
   }
 
 

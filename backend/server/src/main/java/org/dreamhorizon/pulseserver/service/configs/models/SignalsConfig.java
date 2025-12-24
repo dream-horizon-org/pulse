@@ -32,4 +32,7 @@ public class SignalsConfig {
 
   @JsonProperty("attributesToDrop")
   private List<EventFilter> attributesToDrop;
+
+  @JsonProperty("attributesToAdd")
+  private List<AttributeToAdd> attributesToAdd;
 }
