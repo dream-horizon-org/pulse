@@ -149,7 +149,11 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     -- Grouping keys
     `GroupId`               String,
     `Signature`             String,
-    `Fingerprint`           String
+    `Fingerprint`           String,
+
+    `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1))
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)

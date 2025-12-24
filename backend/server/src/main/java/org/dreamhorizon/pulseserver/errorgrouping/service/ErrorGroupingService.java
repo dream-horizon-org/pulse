@@ -295,6 +295,9 @@ public class ErrorGroupingService {
                     .signature(result.group().getSignature())
                     .fingerprint(result.group().getFingerprint())
                     .interactions(getInteractionNames(resourceAttrMap))
+                    .resourceAttributes(resourceAttrMap)
+                    .scopeAttributes(attributesToMap(scopeLogs.getScope().getAttributesList()))
+                    .logAttributes(logAttrMap)
                     .build();
               }));
         }
