@@ -28,4 +28,6 @@ public class ApplicationConfig {
   public String cloudFrontDistributionId;
   public String configDetailCloudFrontAssetPath;
   public String webhookUrl;
+  public String interactionDetailsS3BucketFilePath;
+  public String interactionDetailCloudFrontAssetPath;
 }
