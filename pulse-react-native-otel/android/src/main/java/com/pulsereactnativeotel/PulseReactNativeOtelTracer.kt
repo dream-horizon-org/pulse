@@ -85,6 +85,17 @@ object PulseReactNativeOtelTracer {
         idToScope.remove(spanId)?.close()
     }
 
+    fun discardSpan(spanId: String) {
+        idToSpan.remove(spanId)?.let { span ->
+            span.setAttribute(
+                AttributeKey.booleanKey("pulse.discarded"),
+                true
+            )
+            span.end()
+        }
+        idToScope.remove(spanId)?.close()
+    }
+
     private fun ReadableMap.applyTo(span: Span) {
         entryIterator.forEach { (key, value) ->
             when (value) {

@@ -22,11 +22,14 @@ import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
+import io.opentelemetry.android.export.FilteringSpanExporter
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import java.util.function.BiFunction
+import java.util.function.Predicate
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
@@ -89,11 +92,18 @@ object OpenTelemetryRumInitializer {
             .builder(application, rumConfig)
             .apply {
                 setSessionProvider(createSessionProvider(application, sessionConfig))
-                addSpanExporterCustomizer {
-                    OtlpHttpSpanExporter
+                addSpanExporterCustomizer { delegate ->
+                    val otlpExporter = OtlpHttpSpanExporter
                         .builder()
                         .setEndpoint(spanEndpointConnectivity.getUrl())
                         .setHeaders(spanEndpointConnectivity::getHeaders)
+                        .build()
+                    FilteringSpanExporter.builder(otlpExporter)
+                        .rejectSpansWithAttributesMatching(
+                            mapOf(
+                                AttributeKey.booleanKey("pulse.discarded") to Predicate<Boolean> { it == true }
+                            )
+                        )
                         .build()
                 }
                 addLogRecordExporterCustomizer {
