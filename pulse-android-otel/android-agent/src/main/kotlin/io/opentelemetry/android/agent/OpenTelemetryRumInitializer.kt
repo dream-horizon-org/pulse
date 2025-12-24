@@ -98,12 +98,10 @@ object OpenTelemetryRumInitializer {
                         .setEndpoint(spanEndpointConnectivity.getUrl())
                         .setHeaders(spanEndpointConnectivity::getHeaders)
                         .build()
+                    val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
+                    attrRejects[AttributeKey.booleanKey("pulse.internal")] = Predicate<Boolean> { it == true }
                     FilteringSpanExporter.builder(otlpExporter)
-                        .rejectSpansWithAttributesMatching(
-                            mapOf(
-                                AttributeKey.booleanKey("pulse.internal") to Predicate<Boolean> { it == true }
-                            )
-                        )
+                        .rejectSpansWithAttributesMatching(attrRejects)
                         .build()
                 }
                 addLogRecordExporterCustomizer {
