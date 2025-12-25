@@ -69,6 +69,10 @@ internal class PulseSignalProcessor {
                             PulseAttributes.PulseTypeValues.NON_FATAL
                         }
 
+                        "session.start" -> {
+                            PulseAttributes.PulseTypeValues.APP_SESSION_START
+                        }
+
                         "session.end" -> {
                             logRecord.setAllAttributes(
                                 PulseSessionAttributes.createSessionEndAttributes(
@@ -76,7 +80,7 @@ internal class PulseSignalProcessor {
                                 ),
                             )
                             recordedRelevantLogEvents.clear()
-                            null
+                            PulseAttributes.PulseTypeValues.APP_SESSION_END
                         }
 
                         else -> {
