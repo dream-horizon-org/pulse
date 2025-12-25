@@ -45,16 +45,12 @@ class MainApplication : Application(), ReactApplication {
       Log.w("MainApplication", "OkHttp instrumentation not available: ${e.message}")
     }
 
-    Pulse.initialize(
-      application = this,
-      endpointBaseUrl = "http://10.0.2.2:4318",
-      instrumentations = {
-        interaction {
-          enabled(true)
-          setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions/" }
-        }
+    Pulse.initialize(this, "http://10.0.2.2:4318") {
+      interaction {
+        enabled(true)
+        setConfigUrl { "http://10.0.2.2:8080/v1/interactions/all-active-interactions/" }
       }
-    )
+    }
     loadReactNative(this)
   }
 }

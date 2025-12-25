@@ -44,9 +44,9 @@ internal class PulseSDKImpl : PulseSDK {
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (isInitialized()) {
             return

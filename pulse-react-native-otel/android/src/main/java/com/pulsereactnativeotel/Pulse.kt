@@ -29,9 +29,9 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         val rnTracerProviderCustomizer = BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
             tracerProviderBuilder.addSpanProcessor(ReactNativeScreenAttributesSpanProcessor())
@@ -69,9 +69,9 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
             diskBuffering = diskBuffering,
-            instrumentations = instrumentations,
             tracerProviderCustomizer = mergedTracerProviderCustomizer,
             loggerProviderCustomizer = mergedLoggerProviderCustomizer,
+            instrumentations = instrumentations,
         )
     }
 }
