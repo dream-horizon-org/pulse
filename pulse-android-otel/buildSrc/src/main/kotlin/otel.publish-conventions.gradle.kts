@@ -90,13 +90,10 @@ afterEvaluate {
             }
         }
 
-        // Signing only during a release and when GPG keys are available.
-        // Skip signing for local publishes (publishToMavenLocal) even in CI.
-        val gpgPrivateKey = System.getenv("GPG_PRIVATE_KEY")
-        val gpgPassword = System.getenv("GPG_PASSWORD")
-        if (isARelease && gpgPrivateKey != null && gpgPassword != null) {
+        // Signing only during a release.
+        if (isARelease) {
             signing {
-                useInMemoryPgpKeys(gpgPrivateKey, gpgPassword)
+                useInMemoryPgpKeys(System.getenv("GPG_PRIVATE_KEY"), System.getenv("GPG_PASSWORD"))
                 sign(maven)
             }
         }
