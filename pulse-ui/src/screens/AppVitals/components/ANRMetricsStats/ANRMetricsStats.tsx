@@ -84,14 +84,14 @@ export function ANRMetricsStats({
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(UserId, EventName = 'device.anr')",
+            expression: "uniqCombinedIf(UserId, PulseType = 'device.anr')",
           },
           alias: "anr_users",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(SessionId, EventName = 'device.anr')",
+            expression: "uniqCombinedIf(SessionId, PulseType = 'device.anr')",
           },
           alias: "anr_sessions",
         },

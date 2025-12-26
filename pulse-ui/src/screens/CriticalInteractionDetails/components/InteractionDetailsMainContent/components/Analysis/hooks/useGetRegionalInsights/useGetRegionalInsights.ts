@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { FilterField, useGetDataQuery } from "../../../../../../../../hooks";
-import { COLUMN_NAME, SpanType } from "../../../../../../../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../../../../../../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import {
   UseGetRegionalInsightsParams,
@@ -20,7 +20,7 @@ export const useGetRegionalInsights = ({
 
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: "PulseType", operator: "EQ", value: [PulseType.INTERACTION] },
     ];
 
     if (interactionName) {

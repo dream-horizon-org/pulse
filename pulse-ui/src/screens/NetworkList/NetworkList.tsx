@@ -22,7 +22,7 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { encodeNetworkId } from "./utils/networkIdUtils";
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useFilterStore } from "../../stores/useFilterStore";
 
@@ -84,7 +84,7 @@ export function NetworkList({
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "LIKE" as const,
         value: ["%network%"],
       },
@@ -93,7 +93,7 @@ export function NetworkList({
     // Add screen name filter only if provided
     if (screenName) {
       filters.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "EQ" as const,
         value: [screenName],
       });
@@ -203,7 +203,7 @@ export function NetworkList({
         },
         ...(screenName ? [{
           function: "COL" as const,
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
           alias: "screen_name",
         }] : []),
       ],

@@ -3,7 +3,7 @@ import { useGetDataQuery } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
-import { SpanType, COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
+import { PulseType, COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -55,14 +55,14 @@ export function useGetScreenEngagementData({
       value: string[];
     }> = [
       {
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "IN",
         value: [screenName],
       },
       {
-        field: COLUMN_NAME.SPAN_TYPE,
+        field: COLUMN_NAME.PULSE_TYPE,
         operator: "IN",
-        value: [SpanType.SCREEN_SESSION, SpanType.SCREEN_LOAD],
+        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
       },
     ];
 
@@ -131,34 +131,34 @@ export function useGetScreenEngagementData({
         },
         {
           function: "COL" as const,
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
           alias: "screen_name",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `sumIf(${COLUMN_NAME.DURATION},${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_SESSION}')`,
+            expression: `sumIf(${COLUMN_NAME.DURATION},${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_SESSION}')`,
           },
           alias: "total_time_spent",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `sumIf(${COLUMN_NAME.DURATION},${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_LOAD}')`,
+            expression: `sumIf(${COLUMN_NAME.DURATION},${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_LOAD}')`,
           },
           alias: "total_load_time",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `countIf(${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_SESSION}')`,
+            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_SESSION}')`,
           },
           alias: "session_count",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            expression: `countIf(${COLUMN_NAME.SPAN_TYPE} = '${SpanType.SCREEN_LOAD}')`,
+            expression: `countIf(${COLUMN_NAME.PULSE_TYPE} = '${PulseType.SCREEN_LOAD}')`,
           },
           alias: "load_count",
         },

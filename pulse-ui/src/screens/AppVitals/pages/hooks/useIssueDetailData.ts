@@ -67,7 +67,7 @@ export function useIssueDetailData({
         {
           function: "COL" as const,
           param: {
-            field: "EventName",
+            field: "PulseType",
           },
           alias: "event_name",
         },
@@ -186,7 +186,7 @@ export function useIssueDetailData({
     // Use GroupId as the ID
     const id = groupId;
 
-    // Determine issue type from EventName
+    // Determine issue type from PulseType
     let issueType: "crash" | "anr" | "nonfatal" = "crash";
     if (eventName === "device.anr") {
       issueType = "anr";

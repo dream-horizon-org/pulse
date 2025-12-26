@@ -50,7 +50,7 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
       groupBy: ["status_code", "error_type"],
       filters: [
         {
-          field: "SpanType",
+          field: "PulseType",
           operator: "LIKE" as const,
           value: [statusCodePattern],
         },

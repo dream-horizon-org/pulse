@@ -35,7 +35,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanName" }, alias: "interaction_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["interaction_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "EQ" as const, value: ["interaction"] }, ...baseFilters],
+      filters: [{ field: "PulseType", operator: "EQ" as const, value: ["interaction"] }, ...baseFilters],
     };
   }
   if (scopeType === AlertScopeType.Screen) {
@@ -44,7 +44,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanAttributes['screen.name']" }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["screen_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
+      filters: [{ field: "PulseType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
     };
   }
   if (scopeType === AlertScopeType.NetworkAPI) {
@@ -53,7 +53,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanAttributes['http.url']" }, alias: "url" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
+      filters: [{ field: "PulseType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
     };
   }
   return null;

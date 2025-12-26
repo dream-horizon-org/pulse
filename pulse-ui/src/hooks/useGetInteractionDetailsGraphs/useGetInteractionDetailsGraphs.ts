@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { FilterField, useGetDataQuery } from "../useGetDataQuery";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { getTimeBucketSize } from "../../utils";
 import { showNotification } from "@mantine/notifications";
@@ -22,7 +22,7 @@ export const useGetInteractionDetailsGraphs = ({
   // Build filters
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: COLUMN_NAME.SPAN_TYPE, operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: COLUMN_NAME.PULSE_TYPE, operator: "EQ", value: [PulseType.INTERACTION] },
     ];
 
     if (interactionName) {

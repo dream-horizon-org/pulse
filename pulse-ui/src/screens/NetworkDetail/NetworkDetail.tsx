@@ -30,7 +30,7 @@ import {
   FilterType,
   FILTER_OPTIONS,
 } from "./components/NetworkFilters";
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
 import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
@@ -147,7 +147,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           field = "OsVersion";
           break;
         case "ScreenName":
-          field = `SpanAttributes['${SpanType.SCREEN_NAME}']`;
+          field = `SpanAttributes['${PulseType.SCREEN_NAME}']`;
           break;
         case "InteractionName":
           // Special case: use custom expression with LIKE
@@ -196,7 +196,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "LIKE" as const,
         value: ["%network%"],
       },

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { SpanType } from "../../../../constants/PulseOtelSemcov";
+import { PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -71,12 +71,12 @@ export function useGetScreenActiveUsers({
       value: string[];
     }> = [
       {
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "IN",
         value: [screenName],
       },
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "EQ",
         value: ["app_start"],
       },

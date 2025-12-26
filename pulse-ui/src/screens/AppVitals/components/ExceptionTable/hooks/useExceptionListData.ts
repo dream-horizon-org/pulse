@@ -42,19 +42,19 @@ export function useExceptionListData({
     // Add event type filter based on exception type
     if (exceptionType === "crash") {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["device.crash"],
       });
     } else if (exceptionType === "anr") {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["device.anr"],
       });
     } else if (exceptionType === "nonfatal") {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["non_fatal"],
       });

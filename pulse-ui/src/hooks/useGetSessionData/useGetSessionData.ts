@@ -42,7 +42,7 @@ const fetchSessionTraces = async (sessionId: string, timeRange: { start: string;
       { function: "COL", param: { field: "Timestamp" }, alias: "timestamp" },
       { function: "COL", param: { field: "Duration" }, alias: "duration" },
       { function: "COL", param: { field: "StatusCode" }, alias: "statusCode" },
-      { function: "COL", param: { field: "SpanType" }, alias: "spanType" },
+      { function: "COL", param: { field: "PulseType" }, alias: "pulseType" },
     ],
     filters: [
       {
@@ -85,7 +85,7 @@ const fetchSessionLogs = async (sessionId: string, timeRange: { start: string; e
       { function: "COL", param: { field: "Timestamp" }, alias: "timestamp" },
       { function: "COL", param: { field: "SeverityText" }, alias: "severityText" },
       { function: "COL", param: { field: "Body" }, alias: "body" },
-      { function: "COL", param: { field: "EventName" }, alias: "eventName" },
+      { function: "COL", param: { field: "PulseType" }, alias: "pulseType" },
     ],
     filters: [
       {
@@ -125,7 +125,7 @@ const fetchSessionExceptions = async (sessionId: string, timeRange: { start: str
     },
     select: [
       { function: "COL", param: { field: "Timestamp" }, alias: "timestamp" },
-      { function: "COL", param: { field: "EventName" }, alias: "eventName" },
+      { function: "COL", param: { field: "PulseType" }, alias: "pulseType" },
       { function: "COL", param: { field: "Title" }, alias: "title" },
       { function: "COL", param: { field: "ExceptionMessage" }, alias: "exceptionMessage" },
       { function: "COL", param: { field: "ExceptionType" }, alias: "exceptionType" },

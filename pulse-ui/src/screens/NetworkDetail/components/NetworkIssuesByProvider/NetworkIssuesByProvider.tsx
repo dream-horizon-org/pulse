@@ -46,7 +46,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       ],
       groupBy: ["network_provider"],
       filters: [
-        { field: "SpanType", operator: "EQ" as const, value: ["network.0"] },
+        { field: "PulseType", operator: "EQ" as const, value: ["network.0"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
@@ -72,7 +72,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       ],
       groupBy: ["network_provider"],
       filters: [
-        { field: "SpanType", operator: "LIKE" as const, value: ["network.4%"] },
+        { field: "PulseType", operator: "LIKE" as const, value: ["network.4%"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
@@ -98,7 +98,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       ],
       groupBy: ["network_provider"],
       filters: [
-        { field: "SpanType", operator: "LIKE" as const, value: ["network.5%"] },
+        { field: "PulseType", operator: "LIKE" as const, value: ["network.5%"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,

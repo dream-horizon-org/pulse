@@ -47,7 +47,7 @@ import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { CardSkeleton } from "../../components/Skeletons";
 import { useGetDataQuery } from "../../hooks";
-import { SpanType } from "../../constants/PulseOtelSemcov";
+import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 
@@ -279,7 +279,7 @@ export function CriticalInteractionList() {
       ],
       filters: [
         { field: "SpanName", operator: "IN", value: interactionNames },
-        { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+        { field: "PulseType", operator: "EQ", value: [PulseType.INTERACTION] },
       ],
       groupBy: ["interaction_name"],
     },

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
-import { SpanType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
+import { PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import type { UseGetAppStatsProps, AppStatsData } from "./useGetAppStats.interface";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -12,7 +12,7 @@ dayjs.extend(utc);
  * Used to calculate crash-free/ANR-free percentages on App Vitals page
  * 
  * Note: Uses MATERIALIZED columns from otel_traces table directly:
- * - AppVersion, OsVersion, DeviceModel, UserId, SessionId, SpanType
+ * - AppVersion, OsVersion, DeviceModel, UserId, SessionId, PulseType
  * See: backend/ingestion/clickhouse-otel-schema.sql
  */
 export function useGetAppStats({
@@ -34,9 +34,9 @@ export function useGetAppStats({
       value: string[];
     }> = [
       {
-        field: COLUMN_NAME.SPAN_TYPE,
+        field: COLUMN_NAME.PULSE_TYPE,
         operator: "EQ",
-        value: [SpanType.APP_START],
+        value: [PulseType.APP_START],
       },
     ];
 

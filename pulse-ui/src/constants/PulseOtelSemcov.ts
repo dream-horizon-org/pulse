@@ -1,4 +1,4 @@
-export enum SpanType {
+export enum PulseType {
   INTERACTION = "interaction",
   SCREEN_SESSION = "screen_session",
   SCREEN_LOAD = "screen_load",
@@ -28,7 +28,7 @@ export enum COLUMN_NAME {
   SPAN_ID = "SpanId",
   TRACE_ID = "TraceId",
   SESSION_ID = "SessionId",
-  SPAN_TYPE = "SpanType",
+  PULSE_TYPE = "PulseType",
   SPAN_NAME = "SpanName",
   DEVICE_MANUFACTURER = "device.manufacturer",
   OS_TYPE = "os.type",

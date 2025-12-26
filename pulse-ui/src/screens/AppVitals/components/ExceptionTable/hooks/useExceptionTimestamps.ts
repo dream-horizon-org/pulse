@@ -76,17 +76,17 @@ export function useExceptionTimestamps({
       });
     }
 
-    // Filter by EventName if provided
+    // Filter by PulseType if provided
     if (eventName) {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: [eventName],
       });
     } else {
       // For non-fatal, exclude crashes and ANRs
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["non_fatal"],
       });

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetActiveSessionsDataProps,
   ActiveSessionsData,
@@ -18,7 +18,7 @@ export function useGetActiveSessionsData({
   startTime,
   endTime,
   bucketSize,
-  spanType = SpanType.APP_START,
+  spanType = PulseType.APP_START,
 }: UseGetActiveSessionsDataProps): {
   data: ActiveSessionsData;
   isLoading: boolean;
@@ -33,7 +33,7 @@ export function useGetActiveSessionsData({
       value: string[];
     }> = [
       {
-        field: COLUMN_NAME.SPAN_TYPE,
+        field: COLUMN_NAME.PULSE_TYPE,
         operator: "EQ",
         value: [spanType],
       },
@@ -41,7 +41,7 @@ export function useGetActiveSessionsData({
 
     if (screenName) {
       filterArray.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "IN",
         value: [screenName],
       });

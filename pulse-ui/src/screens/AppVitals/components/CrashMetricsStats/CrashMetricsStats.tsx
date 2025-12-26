@@ -84,14 +84,14 @@ export function CrashMetricsStats({
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(UserId, EventName = 'device.crash')",
+            expression: "uniqCombinedIf(UserId, PulseType = 'device.crash')",
           },
           alias: "crash_users",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(SessionId, EventName = 'device.crash')",
+            expression: "uniqCombinedIf(SessionId, PulseType = 'device.crash')",
           },
           alias: "crash_sessions",
         },

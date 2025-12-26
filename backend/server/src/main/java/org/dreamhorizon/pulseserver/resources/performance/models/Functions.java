@@ -58,13 +58,13 @@ public enum Functions {
   SCREEN_DAILY_USERS("screenDailyUsers", ClickhouseConstants.SCREEN_DAILY_USERS),
   NET_4XX_RATE("net4xxRate", ClickhouseConstants.NET_4XX_RATE),
   NET_5XX_RATE("net5xxRate", ClickhouseConstants.NET_5XX_RATE),
-  // Network metrics for alerts (uses SpanType instead of Events.Name)
-  NET_0_BY_SPAN_TYPE("connectionErrorBySpanType", ClickhouseConstants.NET_0_BY_SPAN_TYPE),
-  NET_2XX_BY_SPAN_TYPE("net2xxBySpanType", ClickhouseConstants.NET_2XX_BY_SPAN_TYPE),
-  NET_3XX_BY_SPAN_TYPE("net3xxBySpanType", ClickhouseConstants.NET_3XX_BY_SPAN_TYPE),
-  NET_4XX_BY_SPAN_TYPE("net4xxBySpanType", ClickhouseConstants.NET_4XX_BY_SPAN_TYPE),
-  NET_5XX_BY_SPAN_TYPE("net5xxBySpanType", ClickhouseConstants.NET_5XX_BY_SPAN_TYPE),
-  NET_COUNT_BY_SPAN_TYPE("netCountBySpanType", ClickhouseConstants.NET_COUNT_BY_SPAN_TYPE),
+  // Network metrics for alerts (uses PulseType instead of Events.Name)
+  NET_0_BY_PULSE_TYPE("connectionErrorByPulseType", ClickhouseConstants.NET_0_BY_PULSE_TYPE),
+  NET_2XX_BY_PULSE_TYPE("net2xxByPulseType", ClickhouseConstants.NET_2XX_BY_PULSE_TYPE),
+  NET_3XX_BY_PULSE_TYPE("net3xxByPulseType", ClickhouseConstants.NET_3XX_BY_PULSE_TYPE),
+  NET_4XX_BY_PULSE_TYPE("net4xxByPulseType", ClickhouseConstants.NET_4XX_BY_PULSE_TYPE),
+  NET_5XX_BY_PULSE_TYPE("net5xxByPulseType", ClickhouseConstants.NET_5XX_BY_PULSE_TYPE),
+  NET_COUNT_BY_PULSE_TYPE("netCountByPulseType", ClickhouseConstants.NET_COUNT_BY_PULSE_TYPE),
   ARR_TO_STR("arrToString", ClickhouseConstants.ARR_TO_STR);
 
   private final String displayName;

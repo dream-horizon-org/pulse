@@ -104,7 +104,7 @@ export function EngagementBreakdown({
           },
         ],
         filters: [
-          { field: "SpanType", operator: "EQ" as const, value: ["app_start"] },
+          { field: "PulseType", operator: "EQ" as const, value: ["app_start"] },
           {
             field: attributeField,
             operator: "IN" as const,
@@ -143,7 +143,7 @@ export function EngagementBreakdown({
       ],
       // TODO: add app_start to constants
       filters: [
-        { field: "SpanType", operator: "EQ" as const, value: ["app_start"] },
+        { field: "PulseType", operator: "EQ" as const, value: ["app_start"] },
       ],
       groupBy: [fieldConfig.alias],
     };
