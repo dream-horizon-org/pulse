@@ -1,0 +1,299 @@
+import { AppState, type AppStateStatus } from 'react-native';
+import type { RefObject } from 'react';
+import type {
+  NavigationContainer,
+  NavigationIntegrationOptions,
+  NavigationRoute,
+} from './navigation.interface';
+import { pushRecentRouteKey, LOG_TAGS } from './utils';
+import { discardSpan } from '../trace';
+import {
+  createScreenLoadTracker,
+  type ScreenLoadState,
+  INITIAL_SCREEN_LOAD_STATE,
+} from './screen-load';
+import {
+  createScreenInteractiveTracker,
+  markContentReady,
+  clearGlobalMarkContentReady,
+  type ScreenInteractiveState,
+  INITIAL_SCREEN_INTERACTIVE_STATE,
+} from './screen-interactive';
+import {
+  createScreenSessionTracker,
+  type ScreenSessionState,
+  INITIAL_SCREEN_SESSION_STATE,
+} from './screen-session';
+import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
+import { isSupportedPlatform } from '../initialization';
+import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
+
+export type { NavigationRoute, NavigationIntegrationOptions };
+
+export interface ReactNavigationIntegration {
+  registerNavigationContainer: (
+    maybeNavigationContainer: unknown
+  ) => () => void;
+  markContentReady: () => void;
+}
+
+export function createReactNavigationIntegration(
+  options?: NavigationIntegrationOptions
+): ReactNavigationIntegration {
+  const screenSessionTracking = options?.screenSessionTracking ?? true;
+  const screenNavigationTracking = options?.screenNavigationTracking ?? true;
+  const screenInteractiveTracking = options?.screenInteractiveTracking ?? false;
+
+  let navigationContainer: NavigationContainer | undefined;
+  let recentRouteKeys: string[] = [];
+  let isInitialized = false;
+  let appStateSubscription: { remove: () => void } | undefined;
+
+  const screenLoadState: ScreenLoadState = {
+    ...INITIAL_SCREEN_LOAD_STATE,
+  };
+
+  const screenInteractiveState: ScreenInteractiveState = {
+    ...INITIAL_SCREEN_INTERACTIVE_STATE,
+  };
+
+  const screenSessionState: ScreenSessionState = {
+    ...INITIAL_SCREEN_SESSION_STATE,
+  };
+
+  const screenInteractiveTracker = createScreenInteractiveTracker(
+    screenInteractiveTracking,
+    screenInteractiveState,
+    navigationContainer
+  );
+
+  const screenLoadTracker = createScreenLoadTracker(
+    screenNavigationTracking,
+    screenLoadState,
+    () => recentRouteKeys,
+    (key: string) => {
+      recentRouteKeys = pushRecentRouteKey(recentRouteKeys, key);
+    },
+    undefined
+  );
+
+  const screenSessionTracker = createScreenSessionTracker(
+    screenSessionTracking,
+    screenSessionState
+  );
+
+  const setCurrentScreenName = (screenName: string): void => {
+    if (isSupportedPlatform()) {
+      PulseReactNativeOtel.setCurrentScreenName(screenName);
+    }
+  };
+
+  const onNavigationDispatch = (): void => {
+    try {
+      if (screenInteractiveTracking) {
+        screenInteractiveTracker.discardScreenInteractive(
+          'user navigated away'
+        );
+      }
+
+      if (
+        screenSessionTracking &&
+        screenSessionState.screenSessionSpan &&
+        navigationContainer
+      ) {
+        const currentRoute = navigationContainer.getCurrentRoute();
+        screenSessionTracker.endScreenSession(currentRoute?.name);
+      }
+
+      screenLoadTracker.startNavigationSpan();
+    } catch (error) {
+      console.warn(
+        `${LOG_TAGS.NAVIGATION} Error in onNavigationDispatch:`,
+        error
+      );
+
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
+        screenLoadState.navigationSpan = undefined;
+      }
+    }
+  };
+
+  const onStateChange = (): void => {
+    try {
+      if (!navigationContainer) {
+        return;
+      }
+
+      const currentRoute = navigationContainer.getCurrentRoute();
+      if (!currentRoute) {
+        return;
+      }
+
+      if (currentRoute.name) {
+        setCurrentScreenName(currentRoute.name);
+      }
+
+      screenLoadTracker.handleStateChange(currentRoute);
+
+      const appState = AppState.currentState as AppStateStatus;
+      if (
+        appState &&
+        screenSessionTracker.shouldStartSession(currentRoute, appState)
+      ) {
+        screenSessionTracker.startScreenSession(currentRoute);
+      }
+
+      if (screenInteractiveTracking) {
+        screenInteractiveTracker.startScreenInteractive(currentRoute);
+      }
+    } catch (error) {
+      console.warn(`${LOG_TAGS.NAVIGATION} Error in onStateChange:`, error);
+      if (screenLoadState.navigationSpan?.spanId) {
+        discardSpan(screenLoadState.navigationSpan.spanId);
+        screenLoadState.navigationSpan = undefined;
+      }
+    }
+  };
+
+  const handleAppStateChange = (nextAppState: AppStateStatus): void => {
+    try {
+      screenSessionTracker.handleAppStateChange(
+        nextAppState,
+        navigationContainer
+      );
+    } catch (error) {
+      console.warn(
+        `${LOG_TAGS.NAVIGATION} Error in handleAppStateChange:`,
+        error
+      );
+    }
+  };
+
+  const registerNavigationContainer = (
+    maybeNavigationContainer: unknown
+  ): (() => void) => {
+    try {
+      let container: NavigationContainer | undefined;
+      if (
+        typeof maybeNavigationContainer === 'object' &&
+        maybeNavigationContainer !== null &&
+        'current' in maybeNavigationContainer
+      ) {
+        container = maybeNavigationContainer.current as NavigationContainer;
+      } else {
+        container = maybeNavigationContainer as NavigationContainer;
+      }
+
+      if (!container) {
+        console.warn(`${LOG_TAGS.NAVIGATION} Invalid navigation container ref`);
+        return () => {};
+      }
+
+      if (isInitialized && navigationContainer === container) {
+        return () => {
+          if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+            const currentRoute = container.getCurrentRoute();
+            screenSessionTracker.endScreenSession(currentRoute?.name);
+          }
+        };
+      }
+
+      navigationContainer = container;
+
+      const updatedInteractiveTracker = createScreenInteractiveTracker(
+        screenInteractiveTracking,
+        screenInteractiveState,
+        navigationContainer
+      );
+
+      navigationContainer.addListener(
+        '__unsafe_action__',
+        onNavigationDispatch
+      );
+      navigationContainer.addListener('state', onStateChange);
+
+      const unmountCleanup = (): void => {
+        if (screenSessionTracking && screenSessionState.screenSessionSpan) {
+          const currentRoute = container.getCurrentRoute();
+          screenSessionTracker.endScreenSession(currentRoute?.name);
+        }
+
+        if (screenInteractiveTracking) {
+          screenInteractiveTracker.discardScreenInteractive(
+            'navigation container unmounted'
+          );
+        }
+
+        screenLoadTracker.endNavigationSpan();
+
+        if (navigationContainer === container) {
+          if (appStateSubscription) {
+            appStateSubscription.remove();
+            appStateSubscription = undefined;
+          }
+          navigationContainer = undefined;
+          isInitialized = false;
+
+          clearGlobalMarkContentReady(
+            updatedInteractiveTracker.markContentReady
+          );
+        }
+      };
+
+      const currentRoute = container.getCurrentRoute();
+      if (currentRoute) {
+        screenLoadState.latestRoute = currentRoute;
+        recentRouteKeys = pushRecentRouteKey(recentRouteKeys, currentRoute.key);
+        if (currentRoute.name) {
+          setCurrentScreenName(currentRoute.name);
+        }
+
+        const appState = AppState.currentState as AppStateStatus;
+        if (
+          appState &&
+          screenSessionTracker.shouldStartSession(currentRoute, appState)
+        ) {
+          screenSessionTracker.startScreenSession(currentRoute);
+        }
+
+        if (screenInteractiveTracking) {
+          updatedInteractiveTracker.startScreenInteractive(currentRoute);
+        }
+      }
+
+      appStateSubscription = AppState.addEventListener(
+        'change',
+        handleAppStateChange
+      );
+      isInitialized = true;
+
+      return unmountCleanup;
+    } catch (error) {
+      console.error(
+        `${LOG_TAGS.NAVIGATION} Error registering container:`,
+        error
+      );
+      return () => {};
+    }
+  };
+
+  return {
+    registerNavigationContainer,
+    markContentReady: screenInteractiveTracker.markContentReady,
+  };
+}
+
+export { markContentReady };
+
+export function useNavigationTracking(
+  navigationRef: RefObject<any>,
+  options?: NavigationIntegrationOptions
+): () => void {
+  const { createNavigationIntegrationWithConfig } = require('../config');
+  return useNavigationTrackingBase(
+    navigationRef,
+    options,
+    createNavigationIntegrationWithConfig
+  );
+}

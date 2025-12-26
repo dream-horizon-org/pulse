@@ -1,10 +1,34 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../examples/NavigationExample';
-import { Text, View, Button, StyleSheet, ScrollView } from 'react-native';
+import {
+  Text,
+  View,
+  Button,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function HomeScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Home'>) {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setLoading(false);
+      Pulse.markContentReady();
+    };
+    loadData();
+  }, []);
+
+  if (loading) {
+    return <ActivityIndicator size="large" color="#2196f3" />;
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>🚀 Navigation Performance Tracking</Text>

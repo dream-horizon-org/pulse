@@ -5,6 +5,7 @@
 export enum SPAN_NAMES {
   SCREEN_SESSION = 'ScreenSession',
   NAVIGATED = 'Navigated',
+  SCREEN_INTERACTIVE = 'ScreenInteractive',
 }
 
 export enum ATTRIBUTE_KEYS {
@@ -28,6 +29,7 @@ export enum ATTRIBUTE_KEYS {
 export enum PULSE_TYPES {
   SCREEN_SESSION = 'screen_session',
   SCREEN_LOAD = 'screen_load',
+  SCREEN_INTERACTIVE = 'screen_interactive',
 }
 
 export enum PHASE_VALUES {
