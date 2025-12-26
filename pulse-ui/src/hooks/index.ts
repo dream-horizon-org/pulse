@@ -23,3 +23,5 @@ export * from "./useGetAlertMetrics";
 export * from "./useGetAlertSeverities";
 export * from "./useGetAlertNotificationChannels";
 export * from "./useAnalytics";
+// SDK Config hooks
+export * from "./useSdkConfig";

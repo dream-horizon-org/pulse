@@ -259,10 +259,243 @@ export class MockResponseGenerator {
       return this.handleEventEndpoints(pathname, method, request);
     }
 
+    // SDK Configuration endpoints (new API format: /v1/configs/*)
+    if (pathname.includes("/v1/configs")) {
+      return this.handleSdkConfigV1Endpoints(pathname, method, request);
+    }
+
+    // SDK Configuration endpoints (legacy)
+    if (pathname.includes("/sdk-config")) {
+      return this.handleSdkConfigEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
       status: 200,
+    };
+  }
+
+  /**
+   * Handle SDK Configuration endpoints
+   */
+  private handleSdkConfigEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/sdk-config/versions - List all configuration versions
+    if (pathname.includes("/sdk-config/versions") && method === "GET") {
+      // Check if requesting a specific version
+      const versionMatch = pathname.match(/\/versions\/(\d+)$/);
+      if (versionMatch) {
+        const version = parseInt(versionMatch[1], 10);
+        const config = this.dataStore.getSdkConfigByVersion(version);
+        if (config) {
+          return { data: config, status: 200 };
+        }
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: `Configuration version ${version} not found`,
+            cause: "Version does not exist",
+          },
+        };
+      }
+      // Return list of all versions
+      const versions = this.dataStore.getSdkConfigVersions();
+      return { data: { versions }, status: 200 };
+    }
+
+    // GET /v1/sdk-config - Get current (active) SDK configuration
+    if (method === "GET") {
+      const storedConfig = this.dataStore.getSdkConfig();
+      return {
+        data: storedConfig,
+        status: 200,
+      };
+    }
+
+    // PUT /v1/sdk-config - Update SDK configuration (creates new version)
+    if (method === "PUT") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const updatedConfig = this.dataStore.updateSdkConfig(body);
+        return {
+          data: updatedConfig,
+          status: 200,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    // POST /v1/sdk-config - Create new SDK configuration
+    if (method === "POST") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const newConfig = this.dataStore.createSdkConfig(body);
+        return {
+          data: newConfig,
+          status: 201,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 405,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: `Method ${method} not allowed for SDK config endpoint`,
+        cause: "Invalid HTTP method",
+      },
+    };
+  }
+
+  /**
+   * Handle SDK Configuration V1 endpoints (/v1/configs/*)
+   * New API format matching backend PulseConfig schema
+   */
+  private handleSdkConfigV1Endpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/configs/rules-features - Get available rules and features
+    if (pathname.includes("/rules-features") && method === "GET") {
+      return {
+        data: {
+          rules: [
+            "os_version",
+            "app_version", 
+            "country",
+            "platform",
+            "state",
+            "device",
+            "network"
+          ],
+          features: [
+            "interaction",
+            "java_crash",
+            "java_anr",
+            "network_change",
+            "network_instrumentation",
+            "screen_session",
+            "custom_events"
+          ]
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/configs/scopes-sdks - Get available scopes and SDKs
+    if (pathname.includes("/scopes-sdks") && method === "GET") {
+      return {
+        data: {
+          scope: ["logs", "traces", "metrics", "baggage"],
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"]
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/configs/active - Get active configuration
+    if (pathname.includes("/active") && method === "GET") {
+      const activeConfig = this.dataStore.getActiveConfigV1();
+      if (activeConfig) {
+        return { data: activeConfig, status: 200 };
+      }
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "No active configuration found. Please create a configuration first.",
+          cause: "No active config exists",
+        },
+      };
+    }
+
+    // GET /v1/configs/{version} - Get config by version
+    const versionMatch = pathname.match(/\/v1\/configs\/(\d+)$/);
+    if (versionMatch && method === "GET") {
+      const version = parseInt(versionMatch[1], 10);
+      const config = this.dataStore.getConfigByVersionV1(version);
+      if (config) {
+        return { data: config, status: 200 };
+      }
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: `Configuration version ${version} not found`,
+          cause: "Version does not exist",
+        },
+      };
+    }
+
+    // GET /v1/configs - Get all config versions (list)
+    if (pathname.endsWith("/configs") && method === "GET") {
+      const allConfigs = this.dataStore.getAllConfigsV1();
+      return {
+        data: { configDetails: allConfigs },
+        status: 200,
+      };
+    }
+
+    // POST /v1/configs - Create new configuration
+    if (pathname.endsWith("/configs") && method === "POST") {
+      try {
+        const body = request.body ? JSON.parse(request.body) : {};
+        const userEmail = request.headers?.["user-email"] || "mock@example.com";
+        const newVersion = this.dataStore.createConfigV1(body, userEmail);
+        return {
+          data: { version: newVersion },
+          status: 201,
+        };
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_CONFIG",
+            message: "Invalid SDK configuration format",
+            cause: String(e),
+          },
+        };
+      }
+    }
+
+    return {
+      data: null,
+      status: 405,
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: `Method ${method} not allowed for this endpoint`,
+        cause: "Invalid HTTP method",
+      },
     };
   }
 

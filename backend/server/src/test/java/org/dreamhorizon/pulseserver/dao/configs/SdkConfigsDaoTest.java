@@ -214,6 +214,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -259,6 +260,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -303,6 +305,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -347,6 +350,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);
@@ -408,6 +412,7 @@ class SdkConfigsDaoTest {
       when(versionRow.getValue("version")).thenReturn(version);
 
       RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(1);
       RowIterator<Row> versionIterator = mock(RowIterator.class);
       when(versionRowSet.iterator()).thenReturn(versionIterator);
       when(versionIterator.next()).thenReturn(versionRow);

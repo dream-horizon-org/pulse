@@ -1,0 +1,2 @@
+export { AttributesToDropConfig } from './AttributesToDropConfig';
+
