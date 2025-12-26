@@ -150,10 +150,11 @@ internal class PulseSDKImpl :
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
         attrRejects[AttributeKey.booleanKey("pulse.internal")] = Predicate<Boolean> { it == true }
-        val filteredSpanExporter = FilteringSpanExporter
-            .builder(otlpSpanExporter)
-            .rejectSpansWithAttributesMatching(attrRejects)
-            .build()
+        val filteredSpanExporter =
+            FilteringSpanExporter
+                .builder(otlpSpanExporter)
+                .rejectSpansWithAttributesMatching(attrRejects)
+                .build()
 
         val otlpLogExporter: LogRecordExporter =
             OtlpHttpLogRecordExporter
