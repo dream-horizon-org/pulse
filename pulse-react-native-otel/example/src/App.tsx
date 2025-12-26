@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import { Text, View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 import ButtonWithTitle from './components/ButtonWithTitle';
@@ -113,7 +113,7 @@ function DemoScreen({ demo, onBack }: DemoScreenProps) {
 }
 
 export default function App() {
-  const [activeDemo, setActiveDemo] = React.useState<string | null>(null);
+  const [activeDemo, setActiveDemo] = useState<string | null>(null);
 
   const activeDemoConfig = DEMO_CONFIGS.find((demo) => demo.id === activeDemo);
 
