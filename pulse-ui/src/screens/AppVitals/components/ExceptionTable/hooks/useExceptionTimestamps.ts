@@ -5,7 +5,7 @@ import type {
   DataQueryResponse,
   SelectField,
 } from "../../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
-
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 interface UseExceptionTimestampsParams {
   groupIds: string[];
   appVersion?: string;
@@ -76,17 +76,17 @@ export function useExceptionTimestamps({
       });
     }
 
-    // Filter by EventName if provided
+    // Filter by PulseType if provided
     if (eventName) {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: [eventName],
       });
     } else {
       // For non-fatal, exclude crashes and ANRs
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["non_fatal"],
       });
@@ -95,7 +95,7 @@ export function useExceptionTimestamps({
     // Add other filters
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ" as const,
         value: [appVersion],
       });

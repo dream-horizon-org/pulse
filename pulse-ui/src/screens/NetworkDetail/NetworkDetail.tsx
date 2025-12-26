@@ -14,14 +14,14 @@ import {
   DataQueryRequestBody,
 } from "../../hooks/useGetDataQuery";
 import { 
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
-  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
+import { SkeletonLoader, MetricsGridSkeleton, ChartSkeleton } from "../../components/Skeletons";
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import {
@@ -30,7 +30,7 @@ import {
   FilterType,
   FILTER_OPTIONS,
 } from "./components/NetworkFilters";
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
 import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
@@ -72,56 +72,27 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    setQuickTimeRange,
+    initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
 
-  // Initialize default time range (LAST_1_HOUR)
+  // Initialize default time range (Last 24 hours)
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
-  // Initialize filter store with LAST_1_HOUR on mount if not already set
+  // Initialize filter store from URL params
   useEffect(() => {
-    if (!storeStartTime || !storeEndTime) {
-      const defaultRange = getDefaultTimeRange();
-      setQuickTimeRange(CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR, 3);
-      storeHandleTimeFilterChange({
-        startDate: defaultRange.startDate,
-        endDate: defaultRange.endDate,
-      });
-    }
+    initializeFromUrlParams(searchParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   // Use store values for time range
   const startTime = storeStartTime || getDefaultTimeRange().startDate;
   const endTime = storeEndTime || getDefaultTimeRange().endDate;
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    // Update store with new time values
-    // The store's handleTimeFilterChange only updates if filterValues exists,
-    // so we also directly update startTime and endTime
     storeHandleTimeFilterChange(value);
-
-    // Directly update startTime and endTime in store
-    const store = useFilterStore.getState();
-    // Get the quickTimeRangeString from the activeQuickTimeFilter index
-    const activeIndex = store.activeQuickTimeFilter;
-    const quickTimeString = activeIndex !== -1 && activeIndex < CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length
-      ? CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeIndex].value
-      : "";
-    
-    store.handleFilterChange(
-      {} as any, // Empty filter values
-      value.startDate || "",
-      value.endDate || "",
-      quickTimeString,
-    );
-    // Also update quickTimeRangeFilterIndex
-    store.setQuickTimeRange(quickTimeString, activeIndex);
   };
 
   const handleAddFilter = (type: FilterType, value: string) => {
@@ -141,9 +112,10 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   const formatToUTC = (time: string): string => {
     if (!time) return "";
     if (time.includes("T") || time.includes("Z")) {
-      return time;
+      return dayjs.utc(time).toISOString();
     }
-    return dayjs.utc(time).toISOString();
+    // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+    return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
   };
 
   // Build common filters from applied filters
@@ -175,7 +147,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           field = "OsVersion";
           break;
         case "ScreenName":
-          field = `SpanAttributes['${SpanType.SCREEN_NAME}']`;
+          field = `SpanAttributes['${PulseType.SCREEN_NAME}']`;
           break;
         case "InteractionName":
           // Special case: use custom expression with LIKE
@@ -224,7 +196,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       value: string[];
     }> = [
       {
-        field: "SpanType",
+        field: "PulseType",
         operator: "LIKE" as const,
         value: ["%network%"],
       },
@@ -373,11 +345,52 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     navigate(-1);
   };
 
-  // Show loading state
+  // Show loading state with skeleton layout
   if (isLoading) {
     return (
       <div className={classes.pageContainer}>
-        <LoaderWithMessage loadingMessage="Loading network details..." />
+        {/* Header skeleton */}
+        <div className={classes.headerContainer}>
+          <SkeletonLoader height={32} width={80} radius="md" />
+          <div className={classes.titleSection}>
+            <SkeletonLoader height={24} width={200} radius="sm" />
+            <SkeletonLoader height={16} width={400} radius="sm" />
+          </div>
+        </div>
+
+        {/* Filters skeleton */}
+        <Box mb="xl" mt="md">
+          <Group gap="md">
+            <SkeletonLoader height={36} width={200} radius="md" />
+            <SkeletonLoader height={36} width={250} radius="md" />
+          </Group>
+        </Box>
+
+        {/* Stats skeleton */}
+        <Box className={vitalsClasses.statsContainer}>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={150} radius="sm" />
+            <MetricsGridSkeleton count={2} />
+          </Box>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={120} radius="sm" />
+            <MetricsGridSkeleton count={2} />
+          </Box>
+          <Box className={vitalsClasses.statSection}>
+            <SkeletonLoader height={16} width={130} radius="sm" />
+            <MetricsGridSkeleton count={3} />
+          </Box>
+        </Box>
+
+        {/* Error breakdown skeleton */}
+        <Box mt="xl">
+          <SkeletonLoader height={18} width={180} radius="sm" />
+          <SkeletonLoader height={14} width={350} radius="xs" />
+          <SimpleGrid className={classes.errorBreakdownGrid} cols={{ base: 1, lg: 2 }} spacing="lg" mt="md">
+            <ChartSkeleton height={200} />
+            <ChartSkeleton height={200} />
+          </SimpleGrid>
+        </Box>
       </div>
     );
   }
@@ -439,11 +452,11 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           {/* DateTime Filter */}
           <DateTimeRangePicker
             handleTimefilterChange={handleTimeFilterChange}
-            selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : 3}
-            defaultQuickTimeFilterIndex={3}
-            defaultQuickTimeFilterString={quickTimeRangeString || CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR}
-            defaultEndTime={endTime}
-            defaultStartTime={startTime}
+            selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
+            defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
+            defaultEndTime={selectedTimeFilter?.endDate || endTime}
+            defaultStartTime={selectedTimeFilter?.startDate || startTime}
           />
         </Group>
 

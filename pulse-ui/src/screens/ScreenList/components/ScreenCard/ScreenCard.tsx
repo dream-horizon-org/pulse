@@ -4,11 +4,9 @@ import classes from "./ScreenCard.module.css";
 
 interface ScreenCardProps {
   screenName: string;
-  startTime?: string;
-  endTime?: string;
   onClick?: () => void;
   icon?: TablerIcon;
-  // Static values (used when not fetching from API)
+  // Static values from useGetScreenDetails
   staticAvgTimeSpent?: number;
   staticCrashRate?: number;
   staticLoadTime?: number;
@@ -17,8 +15,6 @@ interface ScreenCardProps {
 
 export function ScreenCard({
   screenName,
-  startTime,
-  endTime,
   onClick,
   icon: IconComponent = IconDeviceDesktop,
   staticAvgTimeSpent,
@@ -26,15 +22,55 @@ export function ScreenCard({
   staticLoadTime,
   staticUsers,
 }: ScreenCardProps) {
-  const getLoadTimeFormattString = (loadTime: number) => {
-    // The load time is in nanoseconds, so we need to convert it to milliseconds. If the milliseconds is greater than 1000, then format it as seconds
-    // first convert the nanoseconds to milliseconds
-    const milliseconds = loadTime / 1000000;
-    // then format the milliseconds
-    if (milliseconds > 1000) {
+  // Format load time (nanoseconds) to readable string (ms or s)
+  const formatLoadTime = (nanoseconds: number): string => {
+    const milliseconds = nanoseconds / 1_000_000;
+    if (milliseconds >= 1000) {
       return (milliseconds / 1000).toFixed(2) + "s";
     }
-    return milliseconds.toFixed(2) + "ms";
+    return milliseconds.toFixed(0) + "ms";
+  };
+
+  // Format time spent (nanoseconds) to readable string (s, or Xm Ys if > 60s)
+  const formatTimeSpent = (nanoseconds: number): string => {
+    const seconds = nanoseconds / 1_000_000_000;
+
+    if (seconds < 1) {
+      // Less than 1 second, show in milliseconds
+      const ms = nanoseconds / 1_000_000;
+      return ms.toFixed(0) + "ms";
+    }
+
+    if (seconds < 60) {
+      // Less than 60 seconds, show in seconds
+      return seconds.toFixed(1) + "s";
+    }
+
+    // 60 seconds or more, show in minutes and seconds
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.round(seconds % 60);
+
+    if (remainingSeconds === 0) {
+      return `${minutes}m`;
+    }
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  // Format user count to human readable format (K, M, B)
+  const formatUserCount = (count: number): string => {
+    if (count < 1000) {
+      return count.toString();
+    }
+    if (count < 1_000_000) {
+      const value = count / 1000;
+      return value >= 100 ? `${Math.round(value)}K` : `${value.toFixed(1)}K`;
+    }
+    if (count < 1_000_000_000) {
+      const value = count / 1_000_000;
+      return value >= 100 ? `${Math.round(value)}M` : `${value.toFixed(1)}M`;
+    }
+    const value = count / 1_000_000_000;
+    return value >= 100 ? `${Math.round(value)}B` : `${value.toFixed(1)}B`;
   };
 
 
@@ -57,25 +93,25 @@ export function ScreenCard({
         <div className={classes.metricItem}>
           <Text className={classes.metricLabel}>Avg Time Spent</Text>
           <Text className={classes.metricValue}>
-            {staticAvgTimeSpent ? `${getLoadTimeFormattString(staticAvgTimeSpent)}` : "N/A"}
+            {staticAvgTimeSpent ? formatTimeSpent(staticAvgTimeSpent) : "N/A"}
           </Text>
         </div>
         <div className={classes.metricItem}>
-          <Text className={classes.metricLabel}>Crash Rate</Text>
+          <Text className={classes.metricLabel}>Error Rate</Text>
           <Text className={classes.metricValue}>
-            {staticCrashRate ? `${staticCrashRate.toFixed(1)}%` : "N/A"}
+            {staticCrashRate !== undefined ? `${staticCrashRate.toFixed(1)}%` : "N/A"}
           </Text>
         </div>
         <div className={classes.metricItem}>
-          <Text className={classes.metricLabel}>Load Time</Text>
+          <Text className={classes.metricLabel}>Avg Load Time</Text>
           <Text className={classes.metricValue}>
-            {staticLoadTime ? `${getLoadTimeFormattString(staticLoadTime)}` : "N/A"}
+            {staticLoadTime ? formatLoadTime(staticLoadTime) : "N/A"}
           </Text>
         </div>
         <div className={classes.metricItem}>
           <Text className={classes.metricLabel}>Users</Text>
           <Text className={classes.metricValue}>
-            {staticUsers ? staticUsers.toLocaleString() : "N/A"}
+            {staticUsers ? formatUserCount(staticUsers) : "N/A"}
           </Text>
         </div>
       </div>

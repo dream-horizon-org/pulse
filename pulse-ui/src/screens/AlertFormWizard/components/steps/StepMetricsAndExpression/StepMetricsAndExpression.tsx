@@ -9,6 +9,7 @@ import React, { useCallback, useMemo, useEffect, useState, useRef } from "react"
 import { Box, Text, Button, TextInput, Divider, MultiSelect, Loader } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useAlertFormContext } from "../../../context";
+import { useAlertFormValidation } from "../../../hooks";
 import { useGetAlertMetrics } from "../../../../../hooks/useGetAlertMetrics";
 import { useGetDataQuery } from "../../../../../hooks/useGetDataQuery";
 import { MetricCondition, MetricOperator, isAppVitalsScope, AlertScopeType } from "../../../types";
@@ -34,7 +35,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanName" }, alias: "interaction_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["interaction_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "EQ" as const, value: ["interaction"] }, ...baseFilters],
+      filters: [{ field: "PulseType", operator: "EQ" as const, value: ["interaction"] }, ...baseFilters],
     };
   }
   if (scopeType === AlertScopeType.Screen) {
@@ -43,7 +44,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanAttributes['screen.name']" }, alias: "screen_name" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["screen_name"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
+      filters: [{ field: "PulseType", operator: "IN" as const, value: ["screen_session", "screen_load"] }, ...baseFilters],
     };
   }
   if (scopeType === AlertScopeType.NetworkAPI) {
@@ -52,7 +53,7 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
       dataType: "TRACES" as const, timeRange,
       select: [{ function: "COL" as const, param: { field: "SpanAttributes['http.url']" }, alias: "url" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
       groupBy: ["url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
-      filters: [{ field: "SpanType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
+      filters: [{ field: "PulseType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
     };
   }
   return null;
@@ -64,10 +65,26 @@ const createDefaultCondition = (): MetricCondition => ({
 
 export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> = ({ className }) => {
   const { formData, updateStepData } = useAlertFormContext();
+  const { validateMetricCondition, validateConditionExpression } = useAlertFormValidation();
   const { conditions: rawConditions, selectedScopeNames: globalScopeNames } = formData.metricsConditions;
   const { expression } = formData.conditionExpression;
   const scopeType = formData.scopeType.scopeType;
   const isAppVitals = isAppVitalsScope(scopeType);
+  
+  // Collect validation errors for all conditions
+  const conditionValidationErrors = useMemo(() => {
+    const errors: Record<string, string> = {};
+    (rawConditions || []).forEach((cond, idx) => {
+      const condErrors = validateMetricCondition(cond, idx);
+      Object.assign(errors, condErrors);
+    });
+    return errors;
+  }, [rawConditions, validateMetricCondition]);
+  
+  // Validate expression
+  const expressionValidation = useMemo(() => {
+    return validateConditionExpression(expression);
+  }, [expression, validateConditionExpression]);
 
   // Search state with debounce
   const [searchValue, setSearchValue] = useState("");
@@ -225,6 +242,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
           <MetricConditionCard
             key={condition.id}
             condition={condition}
+            conditionIndex={idx}
             metrics={metrics}
             globalScopeNames={isAppVitals ? [] : (globalScopeNames || [])}
             isAppVitals={isAppVitals}
@@ -232,6 +250,7 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
             onUpdate={(updates) => updateCondition(idx, updates)}
             onRemove={() => removeCondition(idx)}
             canRemove={conditions.length > 1}
+            validationErrors={conditionValidationErrors}
           />
         ))}
 
@@ -245,9 +264,14 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
       <Divider my="lg" />
 
       <Text className={sharedClasses.stepTitle}>Condition Expression</Text>
-      <Text className={sharedClasses.stepDescription}>Combine conditions using && (AND) or || (OR)</Text>
+      <Text className={sharedClasses.stepDescription}>Combine conditions using && (AND) or || (OR). Example: A && B, A || B, (A && B) || C</Text>
       <Divider className={sharedClasses.stepDivider} mb="lg" />
-      <TextInput value={expression} onChange={(e) => updateStepData("conditionExpression", { expression: e.target.value })} placeholder="A && B" />
+      <TextInput 
+        value={expression} 
+        onChange={(e) => updateStepData("conditionExpression", { expression: e.target.value })} 
+        placeholder="A && B" 
+        error={!expressionValidation.isValid ? expressionValidation.error : undefined}
+      />
     </Box>
   );
 };

@@ -282,7 +282,33 @@ export function getUTCDateTimeFromLocalStringDateValue(
 }
 
 export function getLocalStringFromUTCDateTimeValue(value: string | undefined) {
-  return value ? dayjs.utc(value).local().format("YYYY-MM-DD HH:mm:ss") : "";
+  if (!value || value.trim() === "") return "";
+  
+  // Handle URL encoding: replace + with space (URL encoding for space in query strings)
+  let cleanedValue = value.replace(/\+/g, " ").trim();
+  
+  // Try to decode if still URL-encoded
+  try {
+    cleanedValue = decodeURIComponent(cleanedValue);
+  } catch {
+    // Already decoded or invalid, use as is
+  }
+  
+  // Try parsing as UTC with explicit format first, then flexible parsing
+  let parsed = dayjs.utc(cleanedValue, "YYYY-MM-DD HH:mm:ss", true); // strict mode
+  
+  // If strict parsing fails, try flexible parsing
+  if (!parsed.isValid()) {
+    parsed = dayjs.utc(cleanedValue);
+  }
+  
+  // Validate the parsed date
+  if (!parsed.isValid()) {
+    console.warn("Invalid date string:", value, "->", cleanedValue);
+    return "";
+  }
+  
+  return parsed.local().format("YYYY-MM-DD HH:mm:ss");
 }
 
 export function getLocalStringFromUTCEpoch(value: number) {
@@ -295,4 +321,24 @@ export function getHumanReadableLocalStringFromUTCEpoch(value: number) {
 
 export function getCurrentEpochSeconds(): number {
   return Math.floor(dayjs.utc().valueOf() / 1000);
+}
+
+/**
+ * Converts a time string to ISO format (UTC).
+ * Handles both "YYYY-MM-DD HH:mm:ss" format (from getStartAndEndDateTimeString)
+ * and ISO format (contains 'T' or 'Z').
+ * 
+ * @param time - The time string to convert
+ * @returns ISO formatted UTC string, or empty string if input is empty
+ */
+export function formatTimeToISO(time: string): string {
+  if (!time) return "";
+  
+  // If already in ISO format (contains 'T' or 'Z'), parse and ensure valid
+  if (time.includes("T") || time.includes("Z")) {
+    return dayjs.utc(time).toISOString();
+  }
+  
+  // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
+  return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
 }

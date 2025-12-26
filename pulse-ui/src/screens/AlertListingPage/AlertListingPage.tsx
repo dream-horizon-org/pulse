@@ -41,7 +41,19 @@ import { useGetAllScopeMetrics } from "../../hooks/useGetAlertMetrics";
 
 const LIMIT = 12;
 
-type StatusTab = "all" | "firing" | "normal" | "snoozed";
+type StatusTab = "all" | "firing" | "normal" | "snoozed" | "no_data";
+
+// Map UI status tab to API status filter
+const getApiStatusFilter = (tab: StatusTab): "FIRING" | "NORMAL" | "SNOOZED" | "NO_DATA" | null => {
+  switch (tab) {
+    case "firing": return "FIRING";
+    case "normal": return "NORMAL";
+    case "snoozed": return "SNOOZED";
+    case "no_data": return "NO_DATA";
+    case "all": 
+    default: return null;
+  }
+};
 
 export function AlertListingPage({
   isInteractionDetailsFlow = false,
@@ -71,6 +83,7 @@ export function AlertListingPage({
       created_by: filters?.created_by || null,
       scope: filters?.scope || null,
       updated_by: filters?.updated_by || null,
+      status: getApiStatusFilter(statusTab),
     },
   });
 
@@ -114,7 +127,7 @@ export function AlertListingPage({
 
   useEffect(() => {
     refetch();
-  }, [filters, refetch]);
+  }, [filters, statusTab, refetch]);
 
   useEffect(() => {
     if (response?.data) {
@@ -131,23 +144,14 @@ export function AlertListingPage({
     }
   }, [response, isLoading]);
 
-  // Filter rows based on status tab
-  const filteredRows = useMemo(() => {
-    if (statusTab === "all") return rows;
-    if (statusTab === "firing") return rows.filter(r => r.status === "FIRING" && !r.is_snoozed);
-    if (statusTab === "snoozed") return rows.filter(r => r.is_snoozed);
-    if (statusTab === "normal") return rows.filter(r => r.status !== "FIRING" && !r.is_snoozed);
-    return rows;
-  }, [rows, statusTab]);
+  // Server handles filtering, so use rows directly
+  const filteredRows = rows;
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    const total = rows.length;
-    const firing = rows.filter(r => r.status === "FIRING" && !r.is_snoozed).length;
-    const snoozed = rows.filter(r => r.is_snoozed).length;
-    const normal = rows.filter(r => r.status !== "FIRING" && !r.is_snoozed).length;
-    return { total, firing, snoozed, normal };
-  }, [rows]);
+  // Reset pagination when status tab changes
+  useEffect(() => {
+    setPagination(0);
+    offsetRef.current = 0;
+  }, [statusTab]);
 
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
     setPagination(0);
@@ -303,9 +307,10 @@ export function AlertListingPage({
               onChange={(v) => setStatusTab(v as StatusTab)}
               data={[
                 { label: "All", value: "all" },
-                { label: `Firing (${stats.firing})`, value: "firing" },
-                { label: `Normal (${stats.normal})`, value: "normal" },
-                { label: `Snoozed (${stats.snoozed})`, value: "snoozed" },
+                { label: "Firing", value: "firing" },
+                { label: "Normal", value: "normal" },
+                { label: "Snoozed", value: "snoozed" },
+                { label: "No Data", value: "no_data" },
               ]}
               className={classes.statusTabs}
             />

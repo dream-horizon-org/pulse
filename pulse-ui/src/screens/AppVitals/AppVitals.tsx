@@ -1,5 +1,6 @@
 import { Box, Text, Group } from "@mantine/core";
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import classes from "./AppVitals.module.css";
 import { ISSUE_TYPES, GRAPH_CONFIGS, IssueType } from "./AppVitals.constants";
 import type { VitalsFilters as VitalsFiltersType } from "./AppVitals.interface";
@@ -19,22 +20,25 @@ import {
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import { 
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
-  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+  DEFAULT_QUICK_TIME_FILTER,
+  DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
 import { useExceptionListData } from "./components/ExceptionTable/hooks";
 import { useFilterStore } from "../../stores/useFilterStore";
 import dayjs from "dayjs";
-import { useAnalytics } from "../../hooks/useAnalytics";
+import { useAnalytics, useGetAppStats } from "../../hooks";
+import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 
 export const AppVitals: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const {
     startTime: storeStartTime,
     endTime: storeEndTime,
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    setQuickTimeRange,
+    initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
   const { trackTabSwitch, trackFilter } = useAnalytics("AppVitals");
 
@@ -45,20 +49,18 @@ export const AppVitals: React.FC = () => {
     device: "all",
   });
 
-  const getDefaultForamttedTimeRange = () => {
-    return {
-      startDate: dayjs.utc().subtract(7, "days").startOf("day").toISOString(),
-      endDate: dayjs.utc().endOf("day").toISOString(),
-    };
+  // Initialize default time range (Last 24 hours)
+  const getDefaultTimeRange = () => {
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
   // Use store values if available, otherwise use defaults (reactive to store changes)
   const startTime = useMemo(() => {
-    return storeStartTime || getDefaultForamttedTimeRange().startDate;
+    return storeStartTime || getDefaultTimeRange().startDate;
   }, [storeStartTime]);
 
   const endTime = useMemo(() => {
-    return storeEndTime || getDefaultForamttedTimeRange().endDate;
+    return storeEndTime || getDefaultTimeRange().endDate;
   }, [storeEndTime]);
 
   // Format times to UTC ISO strings for API calls
@@ -96,18 +98,11 @@ export const AppVitals: React.FC = () => {
     }
   }, [endTime]);
 
-  // Initialize filter store with LAST_7_DAYS on mount if not already set
+  // Initialize filter store from URL params
   useEffect(() => {
-    if (!storeStartTime || !storeEndTime) {
-      const defaultRange = getDefaultForamttedTimeRange();
-      setQuickTimeRange(CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_7_DAYS, 9);
-      storeHandleTimeFilterChange({
-        startDate: defaultRange.startDate,
-        endDate: defaultRange.endDate,
-      });
-    }
+    initializeFromUrlParams(searchParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const handleIssueTypeChange = (value: string) => {
     trackTabSwitch(value);
@@ -130,28 +125,17 @@ export const AppVitals: React.FC = () => {
   };
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    // Update store with new time values
-    // The store's handleTimeFilterChange only updates if filterValues exists,
-    // so we also directly update startTime and endTime for AppVitals
     storeHandleTimeFilterChange(value);
-
-    // Directly update startTime and endTime in store (AppVitals doesn't use filterValues)
-    const store = useFilterStore.getState();
-    // Get the quickTimeRangeString from the activeQuickTimeFilter index
-    const activeIndex = store.activeQuickTimeFilter;
-    const quickTimeString = activeIndex !== -1 && activeIndex < CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.length
-      ? CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS[activeIndex].value
-      : "";
-    
-    store.handleFilterChange(
-      {} as any, // Empty filter values for AppVitals
-      value.startDate || "",
-      value.endDate || "",
-      quickTimeString,
-    );
-    // Also update quickTimeRangeFilterIndex
-    store.setQuickTimeRange(quickTimeString, activeIndex);
   };
+
+  // Fetch total users and sessions from session.start logs (LOGS table)
+  const { data: appStats } = useGetAppStats({
+    startTime: formattedStartTime,
+    endTime: formattedEndTime,
+    appVersion: filters.appVersion,
+    osVersion: filters.osVersion,
+    device: filters.device,
+  });
 
   // Fetch data from API for stats calculation
   const { exceptions: crashes } = useExceptionListData({
@@ -271,14 +255,14 @@ export const AppVitals: React.FC = () => {
               selectedQuickTimeFilterIndex={
                 quickTimeRangeFilterIndex !== null
                   ? quickTimeRangeFilterIndex
-                  : 9
+                  : DEFAULT_QUICK_TIME_FILTER_INDEX
               }
+              defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
               defaultQuickTimeFilterString={
-                quickTimeRangeString ||
-                CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_7_DAYS
+                quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER
               }
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
               showRefreshButton={true}
             />
           </Group>
@@ -298,6 +282,8 @@ export const AppVitals: React.FC = () => {
           appVersion={filters.appVersion}
           osVersion={filters.osVersion}
           device={filters.device}
+          externalTotalUsers={appStats?.totalUsers}
+          externalTotalSessions={appStats?.totalSessions}
         />
         <ANRMetricsStats
           startTime={formattedStartTime}
@@ -305,6 +291,8 @@ export const AppVitals: React.FC = () => {
           appVersion={filters.appVersion}
           osVersion={filters.osVersion}
           device={filters.device}
+          externalTotalUsers={appStats?.totalUsers}
+          externalTotalSessions={appStats?.totalSessions}
         />
         <AlertStatusStats
           startTime={formattedStartTime}

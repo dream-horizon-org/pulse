@@ -32,7 +32,7 @@ export function NonFatalTrendGraph({
   const filters = useMemo(() => {
     const filterArray: FilterField[] = [
       {
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ",
         value: ["non_fatal"],
       },

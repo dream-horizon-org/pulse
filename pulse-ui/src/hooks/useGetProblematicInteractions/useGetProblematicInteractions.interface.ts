@@ -1,6 +1,8 @@
 import { CriticalInteractionDetailsFilterValues } from "../../screens/CriticalInteractionDetails";
 
-export type EventTypeFilter = "crash" | "anr" | "networkError" | "frozenFrame" | "nonFatal"
+export type EventTypeFilter = "crash" | "anr" | "frozenFrame" | "nonFatal" | "error" | "completed" 
+
+export type InteractionEventType = "crash" | "anr" | "frozenFrame" | "nonFatal" | "error" | "completed";
 
 export interface ProblematicInteractionData {
   trace_id: string;
@@ -13,7 +15,7 @@ export interface ProblematicInteractionData {
   duration_ms: number;
   event_count: number;
   screen_count: number;
-  event_type: "crash" | "anr" | "networkError" | "frozenFrame" | "nonFatal" |"completed";
+  event_type: InteractionEventType;
   event_names?: string;
   interaction_name: string;
   screens_visited: string;

@@ -1,5 +1,7 @@
 import { AlertState } from "../../screens/AlertListingPage/AlertListingPage.interface";
 
+export type AlertStatusFilter = "FIRING" | "NORMAL" | "SNOOZED" | "NO_DATA" | null;
+
 export type GetAlertListQueryParams = {
   queryParams: {
     offset: number | null;
@@ -8,6 +10,7 @@ export type GetAlertListQueryParams = {
     updated_by: string | null;
     scope: string | null;
     name: string | null;
+    status: AlertStatusFilter;
   } | null;
 };
 

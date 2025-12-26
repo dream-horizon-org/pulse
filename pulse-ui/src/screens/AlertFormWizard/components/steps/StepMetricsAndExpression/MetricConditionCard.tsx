@@ -15,6 +15,7 @@ import classes from "./StepMetricsAndExpression.module.css";
 
 interface MetricConditionCardProps {
   condition: MetricCondition;
+  conditionIndex: number;
   metrics: MetricItem[];
   globalScopeNames: string[];
   isAppVitals: boolean;
@@ -22,12 +23,18 @@ interface MetricConditionCardProps {
   onUpdate: (updates: Partial<MetricCondition>) => void;
   onRemove: () => void;
   canRemove: boolean;
+  validationErrors?: Record<string, string>;
 }
 
 export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
-  condition, metrics, globalScopeNames, isAppVitals, isMetricsLoading, onUpdate, onRemove, canRemove,
+  condition, conditionIndex, metrics, globalScopeNames, isAppVitals, isMetricsLoading, onUpdate, onRemove, canRemove, validationErrors = {},
 }) => {
   const metricOptions = metrics.map((m) => ({ value: m.name, label: m.label }));
+  
+  // Helper to get threshold error for a specific scope
+  const getThresholdError = (scopeName: string): string | undefined => {
+    return validationErrors[`condition_${conditionIndex}_threshold_${scopeName}`];
+  };
 
   const handleThresholdChange = useCallback((scopeName: string, value: number) => {
     onUpdate({ threshold: { ...condition.threshold, [scopeName]: value } });
@@ -76,19 +83,24 @@ export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
         <>
           <Divider my="md" label="Thresholds" labelPosition="center" />
           <Box className={classes.thresholdsGrid}>
-            {globalScopeNames.map((scopeName) => (
-              <Group key={scopeName} gap="sm" className={classes.thresholdRow}>
-                <Text size="sm" fw={500} className={classes.scopeNameLabel}>{scopeName}</Text>
-                <NumberInput
-                  size="sm"
-                  placeholder="Threshold"
-                  value={condition.threshold[scopeName] ?? 0}
-                  onChange={(v) => handleThresholdChange(scopeName, Number(v) || 0)}
-                  className={classes.thresholdInput}
-                  decimalScale={2}
-                />
-              </Group>
-            ))}
+            {globalScopeNames.map((scopeName) => {
+              const thresholdError = getThresholdError(scopeName);
+              return (
+                <Group key={scopeName} gap="sm" className={classes.thresholdRow}>
+                  <Text size="sm" fw={500} className={classes.scopeNameLabel}>{scopeName}</Text>
+                  <NumberInput
+                    size="sm"
+                    placeholder="Threshold"
+                    value={condition.threshold[scopeName] ?? 0}
+                    onChange={(v) => handleThresholdChange(scopeName, Number(v) || 0)}
+                    className={classes.thresholdInput}
+                    decimalScale={2}
+                    min={0}
+                    error={thresholdError}
+                  />
+                </Group>
+              );
+            })}
           </Box>
         </>
       )}
@@ -107,6 +119,8 @@ export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
           value={condition.threshold["value"] ?? 0}
           onChange={(v) => onUpdate({ threshold: { value: Number(v) || 0 } })}
           decimalScale={2}
+          min={0}
+          error={getThresholdError("value")}
         />
       )}
     </Box>

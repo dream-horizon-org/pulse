@@ -16,9 +16,18 @@ export const useGetInteractions = ({
   pageIdentifier = "details",
 }: GetInteractionsQueryParams) => {
   const getInteractions = API_ROUTES.GET_INTERACTIONS;
-  const searchParams = getQueryParamString(
-    removeUndefinedValues(queryParams || {}),
-  );
+  // Map frontend 'interactionName' to backend 'name' parameter
+  const apiParams = queryParams
+    ? {
+        page: queryParams.page,
+        size: queryParams.size,
+        userEmail: queryParams.userEmail,
+        status: queryParams.status,
+        name: queryParams.interactionName, // Backend expects 'name', not 'interactionName'
+        tags: queryParams.tags,
+      }
+    : {};
+  const searchParams = getQueryParamString(removeUndefinedValues(apiParams));
 
   return useQuery({
     queryKey: [

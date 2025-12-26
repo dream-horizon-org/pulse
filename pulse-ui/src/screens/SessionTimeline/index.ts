@@ -5,3 +5,4 @@ export type {
   SessionSummary,
   SessionTimelineProps,
 } from "./SessionTimeline.interface";
+export type { FlameChartNode, FlameChartItem } from "./utils/flameChartTransform";

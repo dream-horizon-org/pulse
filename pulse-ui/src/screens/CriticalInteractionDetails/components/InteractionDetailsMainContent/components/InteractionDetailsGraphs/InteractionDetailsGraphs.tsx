@@ -4,8 +4,8 @@ import { ApdexWithLatencyGraph } from "../ApdexWithLatencyGraph";
 import { ErrorMetricsGraph } from "../ErrorMetricsGraph";
 import classes from "./InteractionDetailsGraphs.module.css";
 import { useGetInteractionDetailsGraphs } from "../../../../../../hooks/useGetInteractionDetailsGraphs";
-import { LoaderWithMessage } from "../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../ErrorAndEmptyStateWithNotification";
+import { GraphCardSkeleton } from "../../../../../../components/Skeletons";
 
 export function InteractionDetailsGraphs({
   ...detailsAndFilters
@@ -22,8 +22,23 @@ export function InteractionDetailsGraphs({
     enabled: true,
     dashboardFilters: detailsAndFilters?.dashboardFilters,
   });
+
+  const isHorizontal = detailsAndFilters?.orientation === "horizontal";
+
   if (isLoading) {
-    return <LoaderWithMessage width="100%" loadingMessage="loading" />;
+    return (
+      <div className={`${classes.graphsMainContainer} ${isHorizontal ? classes.horizontal : classes.vertical}`}>
+        <div className={classes.graphcolumn}>
+          <GraphCardSkeleton chartHeight={isHorizontal ? 180 : 200} metricsCount={3} />
+        </div>
+        <div className={classes.graphcolumn}>
+          <GraphCardSkeleton chartHeight={isHorizontal ? 180 : 200} metricsCount={3} />
+        </div>
+        <div className={classes.graphcolumn}>
+          <GraphCardSkeleton chartHeight={isHorizontal ? 180 : 200} metricsCount={3} />
+        </div>
+      </div>
+    );
   }
 
   if (isError) {
@@ -36,7 +51,6 @@ export function InteractionDetailsGraphs({
     );
   }
 
-  const isHorizontal = detailsAndFilters?.orientation === "horizontal";
   return (
     <div className={`${classes.graphsMainContainer} ${isHorizontal ? classes.horizontal : classes.vertical}`}>
       <div className={`${classes.graphcolumn}`}>

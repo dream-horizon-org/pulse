@@ -266,3 +266,12 @@
   border: 1px solid rgba(14, 201, 194, 0.12);
   box-shadow: 0 4px 12px rgba(14, 201, 194, 0.06);
 }
+
+.loadMoreLoader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--mantine-spacing-xl) 0;
+  margin-top: var(--mantine-spacing-md);
+}

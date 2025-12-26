@@ -9,16 +9,16 @@ export interface UseGetUserEngagementDataProps {
   weekEndDate: string;
   monthStartDate: string;
   monthEndDate: string;
-  spanType?: string;
 }
 
 export interface UserEngagementData {
-  dailyUsers: number;
-  weeklyUsers: number;
-  monthlyUsers: number;
+  dailyUsers: number | null;
+  weeklyUsers: number | null;
+  monthlyUsers: number | null;
   trendData: Array<{
     timestamp: number;
     dau: number;
   }>;
+  hasData: boolean;
 }
 

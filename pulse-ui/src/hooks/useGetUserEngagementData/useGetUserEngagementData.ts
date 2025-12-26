@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetUserEngagementDataProps,
   UserEngagementData,
@@ -21,12 +21,17 @@ export function useGetUserEngagementData({
   weekEndDate,
   monthStartDate,
   monthEndDate,
-  spanType = SpanType.APP_START,
 }: UseGetUserEngagementDataProps): {
   data: UserEngagementData;
   isLoading: boolean;
   error: Error | null;
 } {
+
+  // Determine data source based on whether screenName is provided
+  // - With screenName: Use TRACES with screen_session/screen_load (screen-specific users)
+  // - Without screenName: Use LOGS with session.start (overall app users)
+  const useTracesTable = !!screenName;
+  const dataType = useTracesTable ? "TRACES" : "LOGS";
 
   // Build filters array
   const buildFilters = useMemo(() => {
@@ -34,19 +39,26 @@ export function useGetUserEngagementData({
       field: string;
       operator: "IN" | "EQ";
       value: string[];
-    }> = [
-      {
-        field: COLUMN_NAME.SPAN_TYPE,
-        operator: "EQ",
-        value: [spanType],
-      },
-    ];
+    }> = [];
 
-    if (screenName) {
+    if (useTracesTable) {
+      // Screen Detail page: TRACES with screen_session/screen_load
       filterArray.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.PULSE_TYPE,
         operator: "IN",
-        value: [screenName],
+        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
+      });
+      filterArray.push({
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        operator: "IN",
+        value: [screenName!],
+      });
+    } else {
+      // User Engagement page: LOGS with session.start
+      filterArray.push({
+        field: COLUMN_NAME.PULSE_TYPE,
+        operator: "EQ",
+        value: [PulseType.SESSION_START],
       });
     }
 
@@ -75,12 +87,12 @@ export function useGetUserEngagementData({
     }
 
     return filterArray;
-  }, [screenName, appVersion, osVersion, device, spanType]);
+  }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
   // Fetch daily unique users for the last 7 days (for graph)
   const { data: dailyData, isLoading: isLoadingDaily } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: dailyStartDate,
         end: dailyEndDate,
@@ -107,7 +119,7 @@ export function useGetUserEngagementData({
   // Fetch weekly unique users for the last 1 month
   const { data: weeklyData, isLoading: isLoadingWeekly } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: weekStartDate,
         end: weekEndDate,
@@ -134,7 +146,7 @@ export function useGetUserEngagementData({
   // Fetch monthly unique users for the last 1 month
   const { data: monthlyData, isLoading: isLoadingMonthly } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: monthStartDate,
         end: monthEndDate,
@@ -159,12 +171,13 @@ export function useGetUserEngagementData({
   });
 
   // Transform daily data and calculate average
-  const { dailyUsers, trendData } = useMemo(() => {
+  const { dailyUsers, trendData, hasDailyData } = useMemo(() => {
     const responseData = dailyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
       return {
-        dailyUsers: 0,
+        dailyUsers: null,
         trendData: [],
+        hasDailyData: false,
       };
     }
 
@@ -180,19 +193,20 @@ export function useGetUserEngagementData({
     const avgDailyUsers =
       trend.length > 0
         ? Math.round(trend.reduce((sum, d) => sum + d.dau, 0) / trend.length)
-        : 0;
+        : null;
 
     return {
       dailyUsers: avgDailyUsers,
       trendData: trend,
+      hasDailyData: true,
     };
   }, [dailyData]);
 
   // Calculate weekly active users
-  const weeklyUsers = useMemo(() => {
+  const { weeklyUsers, hasWeeklyData } = useMemo(() => {
     const responseData = weeklyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return 0;
+      return { weeklyUsers: null, hasWeeklyData: false };
     }
 
     const userCountIndex = responseData.fields.indexOf("user_count");
@@ -201,14 +215,14 @@ export function useGetUserEngagementData({
       0,
     );
 
-    return total;
+    return { weeklyUsers: total, hasWeeklyData: true };
   }, [weeklyData]);
 
   // Calculate monthly active users
-  const monthlyUsers = useMemo(() => {
+  const { monthlyUsers, hasMonthlyData } = useMemo(() => {
     const responseData = monthlyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
-      return 0;
+      return { monthlyUsers: null, hasMonthlyData: false };
     }
 
     const userCountIndex = responseData.fields.indexOf("user_count");
@@ -217,8 +231,10 @@ export function useGetUserEngagementData({
       0,
     );
 
-    return total;
+    return { monthlyUsers: total, hasMonthlyData: true };
   }, [monthlyData]);
+
+  const hasData = hasDailyData || hasWeeklyData || hasMonthlyData;
 
   const isLoading = isLoadingDaily || isLoadingWeekly || isLoadingMonthly;
   const error = null; // You can enhance this to capture errors from queries if needed
@@ -229,6 +245,7 @@ export function useGetUserEngagementData({
       weeklyUsers,
       monthlyUsers,
       trendData,
+      hasData,
     },
     isLoading,
     error,

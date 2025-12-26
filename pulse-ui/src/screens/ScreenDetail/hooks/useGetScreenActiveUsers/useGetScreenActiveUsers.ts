@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../../../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { SpanType } from "../../../../constants/PulseOtelSemcov";
+import { PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -63,7 +63,7 @@ export function useGetScreenActiveUsers({
     };
   }, [endTime]);
 
-  // Build base filters
+  // Build base filters - using TRACES with screen_session for screen-specific user counts
   const buildFilters = useMemo(() => {
     const filterArray: Array<{
       field: string;
@@ -71,14 +71,14 @@ export function useGetScreenActiveUsers({
       value: string[];
     }> = [
       {
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "IN",
         value: [screenName],
       },
       {
-        field: "SpanType",
-        operator: "EQ",
-        value: ["app_start"],
+        field: "PulseType",
+        operator: "IN",
+        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
       },
     ];
 

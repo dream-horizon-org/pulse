@@ -1,4 +1,4 @@
-import { STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
 import { Screen } from "../../screens/ScreenList/ScreenList.interface";
 import { useGetDataQuery } from "../useGetDataQuery";
 import { useMemo } from "react";
@@ -27,27 +27,27 @@ export const useGetScreenDetails = ({
       select: [
         {
           function: "COL" as const,
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
           alias: "screen_name",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "sumIf(Duration,SpanType = 'screen_session')" },
+          param: { expression: "sumIf(Duration,PulseType = 'screen_session')" },
           alias: "total_time_spent",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "sumIf(Duration,SpanType = 'screen_load')" },
+          param: { expression: "sumIf(Duration,PulseType = 'screen_load')" },
           alias: "total_load_time",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "countIf(SpanType = 'screen_session')" },
+          param: { expression: "countIf(PulseType = 'screen_session')" },
           alias: "session_count",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "countIf(SpanType = 'screen_load')" },
+          param: { expression: "countIf(PulseType = 'screen_load')" },
           alias: "load_count",
         },
         {
@@ -73,12 +73,12 @@ export const useGetScreenDetails = ({
       ],
       filters: [
         {
-          field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+          field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
           operator: "IN" as const,
           value: screenNames,
         },
         {
-          field: "SpanType",
+          field: "PulseType",
           operator: "IN" as const,
           value: ["screen_session", "screen_load"],
         },

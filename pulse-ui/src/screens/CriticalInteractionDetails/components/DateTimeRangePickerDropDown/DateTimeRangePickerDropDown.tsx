@@ -16,7 +16,7 @@ import { DATE_FORMAT } from "../../../../constants";
 
 export const DateTimeRangePickerDropDown = ({
   quickTimeOptions,
-  activeQuickTimeFilter,
+  activeQuickTimeFilter: initialActiveQuickTimeFilter,
   defaultQuickTimeFilterString,
   maxDateTime = null,
   minDateTime = null,
@@ -45,6 +45,9 @@ export const DateTimeRangePickerDropDown = ({
   handleApplyButton: (value: StartEndDateTimeType) => void;
   handleResetButton: () => void;
 }) => {
+  // Local state to track the currently selected quick filter within this dropdown
+  const [localQuickTimeFilter, setLocalQuickTimeFilter] = useState<number>(initialActiveQuickTimeFilter);
+  
   const [customStartEndDateTime, setCustomStartEndDateTime] = useState<
     StartEndDateTimeType | undefined
   >(getInitialCustomDateTimePicker());
@@ -52,7 +55,7 @@ export const DateTimeRangePickerDropDown = ({
   const [disableApplyButton, setDisableApplyButton] = useState<boolean>(false);
 
   function getInitialCustomDateTimePicker() {
-    if (activeQuickTimeFilter !== -1) {
+    if (initialActiveQuickTimeFilter !== -1) {
       return undefined;
     }
 
@@ -62,8 +65,13 @@ export const DateTimeRangePickerDropDown = ({
     };
   }
 
+  // Sync local state when prop changes (e.g., when dropdown reopens)
+  useEffect(() => {
+    setLocalQuickTimeFilter(initialActiveQuickTimeFilter);
+  }, [initialActiveQuickTimeFilter]);
+
   const handleQuickTimeFilterChangeSelf = (value: number) => {
-    activeQuickTimeFilter = value;
+    setLocalQuickTimeFilter(value);
     setCustomStartEndDateTime(undefined);
     setDisableApplyButton(false);
     handleQuickTimeFilterChange(value);
@@ -120,8 +128,8 @@ export const DateTimeRangePickerDropDown = ({
   };
 
   const handleApplySelf = () => {
-    if (activeQuickTimeFilter !== -1) {
-      const item = quickTimeOptions[activeQuickTimeFilter];
+    if (localQuickTimeFilter !== -1) {
+      const item = quickTimeOptions[localQuickTimeFilter];
       if (item) {
         handleApplyButton(
           getStartAndEndDateTimeString(item.value, subtractMinutes),
@@ -149,8 +157,9 @@ export const DateTimeRangePickerDropDown = ({
   };
 
   useEffect(() => {
-    if (activeQuickTimeFilter !== -1) {
-      handleQuickTimeFilterChangeSelf(activeQuickTimeFilter);
+    if (localQuickTimeFilter !== -1) {
+      // Initialize custom date/time picker state based on initial filter
+      setCustomStartEndDateTime(undefined);
       setDisableApplyButton(false);
     }
     // eslint-disable-next-line
@@ -207,6 +216,7 @@ export const DateTimeRangePickerDropDown = ({
             minDate={minDateTime ? new Date(minDateTime) : undefined}
             maxDate={maxDateTime ? new Date(maxDateTime) : new Date(Date.now())}
             onChange={handlCustomStartDate}
+            popoverProps={{ withinPortal: false }}
           />
           <DateTimePicker
             value={
@@ -223,6 +233,7 @@ export const DateTimeRangePickerDropDown = ({
             minDate={getMinEndDate()}
             maxDate={maxDateTime ? new Date(maxDateTime) : new Date(Date.now())}
             onChange={handlCustomEndDate}
+            popoverProps={{ withinPortal: false }}
           />
         </Grid.Col>
         <Grid.Col span={1}>
@@ -234,7 +245,7 @@ export const DateTimeRangePickerDropDown = ({
           </Text>
           <QuickDateTimeFilter
             handleChangeFilter={handleQuickTimeFilterChangeSelf}
-            active={activeQuickTimeFilter}
+            active={localQuickTimeFilter}
             defaultQuickTimeOptions={quickTimeOptions}
           />
         </Grid.Col>

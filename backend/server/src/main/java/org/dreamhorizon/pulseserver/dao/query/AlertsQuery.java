@@ -96,6 +96,35 @@ public class AlertsQuery {
               AND ( ? = '' OR A.scope = ?)\s
               AND ( ? = '' OR A.created_by = ?)\s
               AND ( ? = '' OR A.updated_by = ?)\s
+              AND ( ? = '' OR (
+                  CASE
+                      WHEN ? = 'FIRING' THEN EXISTS (
+                          SELECT 1 FROM alert_scope AS2
+                          WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state = 'FIRING'
+                      ) AND (A.snoozed_from IS NULL OR A.snoozed_until IS NULL OR NOW() < A.snoozed_from OR NOW() > A.snoozed_until)
+                      WHEN ? = 'NO_DATA' THEN EXISTS (
+                          SELECT 1 FROM alert_scope AS2
+                          WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state = 'NO_DATA'
+                      ) AND NOT EXISTS (
+                          SELECT 1 FROM alert_scope AS2
+                          WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state = 'FIRING'
+                      ) AND (A.snoozed_from IS NULL OR A.snoozed_until IS NULL OR NOW() < A.snoozed_from OR NOW() > A.snoozed_until)
+                      WHEN ? = 'NORMAL' THEN (
+                          NOT EXISTS (
+                              SELECT 1 FROM alert_scope AS2
+                              WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE AND AS2.state != 'NORMAL'
+                          ) OR NOT EXISTS (
+                              SELECT 1 FROM alert_scope AS2
+                              WHERE AS2.alert_id = A.id AND AS2.is_active = TRUE
+                          )
+                      ) AND (A.snoozed_from IS NULL OR A.snoozed_until IS NULL OR NOW() < A.snoozed_from OR NOW() > A.snoozed_until)
+                      WHEN ? = 'SNOOZED' THEN (
+                          A.snoozed_from IS NOT NULL AND A.snoozed_until IS NOT NULL 
+                          AND NOW() >= A.snoozed_from AND NOW() <= A.snoozed_until
+                      )
+                      ELSE TRUE
+                  END
+              ))
       ),
       TotalAlertCount AS (
           SELECT COUNT(*) AS total_count FROM FilteredAlerts\s

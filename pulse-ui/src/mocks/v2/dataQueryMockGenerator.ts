@@ -11,7 +11,7 @@ import {
   DataQueryRequestBody,
   DataQueryResponse,
 } from "../../hooks/useGetDataQuery/useGetDataQuery.interface";
-import { SpanType } from "../../constants/PulseOtelSemcov";
+import { PulseType } from "../../constants/PulseOtelSemcov";
 
 // Extend dayjs with UTC support
 dayjs.extend(utc);
@@ -142,14 +142,14 @@ export class DataQueryMockGeneratorV2 {
       // Check if this is a network query (has network filter)
       const hasNetworkFilter = filters?.some(
         (f) => {
-          const matches = f.field === "SpanType" &&
+          const matches = f.field === "PulseType" &&
             f.operator === "LIKE" &&
             Array.isArray(f.value) &&
             f.value
               .map((v) => String(v).toLowerCase())
               .some((v: string) => v.includes("network"));
-          if (f.field === "SpanType") {
-            console.log("[DataQueryMockV2] SpanType filter check:", {
+          if (f.field === "PulseType") {
+            console.log("[DataQueryMockV2] PulseType filter check:", {
               field: f.field,
               operator: f.operator,
               value: f.value,
@@ -239,7 +239,7 @@ export class DataQueryMockGeneratorV2 {
         groupBy?.includes("network_provider") &&
         filters?.some(
           (f) =>
-            f.field === "SpanType" &&
+            f.field === "PulseType" &&
             (f.operator === "EQ" || f.operator === "LIKE") &&
             Array.isArray(f.value) &&
             (f.value
@@ -398,7 +398,7 @@ export class DataQueryMockGeneratorV2 {
     const isNetworkQuery =
       filters?.some(
         (f) =>
-          f.field === "SpanType" &&
+          f.field === "PulseType" &&
           f.operator === "LIKE" &&
           Array.isArray(f.value) &&
           f.value
@@ -1156,7 +1156,7 @@ export class DataQueryMockGeneratorV2 {
         // Handle custom expressions based on the expression parameter
         const expression = param?.expression || "";
 
-        // Handle sumIf(Duration, SpanType = 'screen_session') - total time spent on screen
+        // Handle sumIf(Duration, PulseType = 'screen_session') - total time spent on screen
         if (
           expression.includes("sumIf(Duration") &&
           expression.includes("screen_session")
@@ -1177,7 +1177,7 @@ export class DataQueryMockGeneratorV2 {
           return totalNs.toString();
         }
 
-        // Handle sumIf(Duration, SpanType = 'screen_load') - total screen load time
+        // Handle sumIf(Duration, PulseType = 'screen_load') - total screen load time
         if (
           expression.includes("sumIf(Duration") &&
           expression.includes("screen_load")
@@ -1198,7 +1198,7 @@ export class DataQueryMockGeneratorV2 {
           return totalNs.toString();
         }
 
-        // Handle countIf(SpanType = 'screen_session') - session count
+        // Handle countIf(PulseType = 'screen_session') - session count
         if (
           expression.includes("countIf") &&
           expression.includes("screen_session")
@@ -1214,7 +1214,7 @@ export class DataQueryMockGeneratorV2 {
           ).toString();
         }
 
-        // Handle countIf(SpanType = 'screen_load') - load count
+        // Handle countIf(PulseType = 'screen_load') - load count
         if (
           expression.includes("countIf") &&
           expression.includes("screen_load")
@@ -1339,7 +1339,7 @@ export class DataQueryMockGeneratorV2 {
     let normalizedField = groupByField.toLowerCase();
 
     // Extract actual field name from SpanAttributes notation
-    if (normalizedField.includes(`spanattributes['${SpanType.SCREEN_NAME}']`)) {
+    if (normalizedField.includes(`spanattributes['${PulseType.SCREEN_NAME}']`)) {
       normalizedField = "screen_name";
     }
     if (normalizedField.includes("spanattributes['http.url']")) {
@@ -1882,7 +1882,7 @@ export class DataQueryMockGeneratorV2 {
     if (!isDetailQuery) {
       const screenNameFilter = filters?.find(
         (f) =>
-          f.field === `SpanAttributes['${SpanType.SCREEN_NAME}']` && f.operator === "EQ",
+          f.field === `SpanAttributes['${PulseType.SCREEN_NAME}']` && f.operator === "EQ",
       );
       if (screenNameFilter) {
         // In a real scenario, we'd filter by screen name, but for mock we'll return all
@@ -2042,9 +2042,9 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Determine error type from SpanType filter (4xx or 5xx)
+    // Determine error type from PulseType filter (4xx or 5xx)
     const spanTypeFilter = filters?.find(
-      (f) => f.field === "SpanType" && f.operator === "LIKE",
+      (f) => f.field === "PulseType" && f.operator === "LIKE",
     );
     const filterValues = spanTypeFilter?.value
       ? Array.isArray(spanTypeFilter.value)
@@ -2171,10 +2171,10 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Determine error type from SpanType filter
+    // Determine error type from PulseType filter
     const spanTypeFilter = filters?.find(
       (f) =>
-        f.field === "SpanType" &&
+        f.field === "PulseType" &&
         (f.operator === "EQ" || f.operator === "LIKE"),
     );
     const filterValues = spanTypeFilter?.value

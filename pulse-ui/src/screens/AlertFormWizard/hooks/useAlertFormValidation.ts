@@ -13,6 +13,7 @@ import {
   EVAL_INTERVAL_RULES,
   runRules,
   validateExpressionSyntax,
+  validateThresholdValue,
 } from "./useAlertFormValidation.rules";
 
 export const useAlertFormValidation = (): UseAlertFormValidationReturn => {
@@ -43,6 +44,14 @@ export const useAlertFormValidation = (): UseAlertFormValidationReturn => {
       // Threshold must have at least one scope_name -> value entry
       if (!c.threshold || Object.keys(c.threshold).length === 0) {
         errs[`condition_${i}_threshold`] = "Add at least one scope name with threshold";
+      } else {
+        // Validate that all threshold values are non-negative
+        for (const [scopeName, value] of Object.entries(c.threshold)) {
+          const thresholdValidation = validateThresholdValue(value, scopeName);
+          if (!thresholdValidation.isValid) {
+            errs[`condition_${i}_threshold_${scopeName}`] = thresholdValidation.error || "Invalid threshold";
+          }
+        }
       }
       return errs;
     },
