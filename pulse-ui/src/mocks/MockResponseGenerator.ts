@@ -9,6 +9,14 @@ import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
+import { 
+  mockNotificationChannels, 
+  mockAlertSeverities, 
+  mockAlertScopes,
+  mockAlertMetrics,
+  mockAlertFilters,
+  mockAlertTags,
+} from "./responses/alertResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -17,6 +25,18 @@ export class MockResponseGenerator {
   constructor() {
     this.dataStore = MockDataStore.getInstance();
     this.config = MockConfigManager.getInstance();
+  }
+
+  /**
+   * Safely parse a URL string, handling both absolute and relative URLs
+   */
+  private parseURL(urlString: string): URL {
+    try {
+      return new URL(urlString);
+    } catch {
+      // If URL is relative, create a URL with current origin as base
+      return new URL(urlString, window.location.origin);
+    }
   }
 
   async generateResponse(request: MockRequest): Promise<MockResponse> {
@@ -371,7 +391,7 @@ export class MockResponseGenerator {
 
       // Create a mock JWT token that can be decoded
       const mockIdToken = this.createMockJWTToken({
-        email: isDummyLogin ? "dev@dream11.com" : "mock@dream11.com",
+        email: isDummyLogin ? "dev@example.com" : "mock@example.com",
         firstName: isDummyLogin ? "Dev" : "Mock",
         lastName: isDummyLogin ? "User" : "User",
         profilePicture: "https://via.placeholder.com/150",
@@ -394,7 +414,7 @@ export class MockResponseGenerator {
     if (pathname.includes("/refresh") && method === "POST") {
       // Create a mock JWT token for refresh
       const mockIdToken = this.createMockJWTToken({
-        email: "mock@dream11.com",
+        email: "mock@example.com",
         firstName: "Mock",
         lastName: "User",
         profilePicture: "https://via.placeholder.com/150",
@@ -521,9 +541,9 @@ export class MockResponseGenerator {
         data: {
           statuses: statuses,
           createdBy: uniqueUsers.length > 0 ? uniqueUsers : [
-            "user1@dream11.com",
-            "user2@dream11.com",
-            "user3@dream11.com",
+            "user1@example.com",
+            "user2@example.com",
+            "user3@example.com",
           ],
         },
         status: 200,
@@ -611,9 +631,9 @@ export class MockResponseGenerator {
               events: transformedEvents,
               globalBlacklistedEvents: transformedGlobalBlacklistedEvents,
               createdAt: job.createdAt || Date.now(),
-              createdBy: job.createdBy || "mock@dream11.com",
+              createdBy: job.createdBy || "mock@example.com",
               updatedAt: job.updatedAt || Date.now(),
-              updatedBy: job.updatedBy || "mock@dream11.com",
+              updatedBy: job.updatedBy || "mock@example.com",
             },
             status: 200,
           };
@@ -634,7 +654,7 @@ export class MockResponseGenerator {
           pathname.endsWith("/v1/interactions")) &&
         method === "GET"
       ) {
-        const url = new URL(request.url);
+        const url = this.parseURL(request.url);
         const statusFilter = url.searchParams.get("status");
         const userEmailFilter = url.searchParams.get("userEmail");
         const interactionNameFilter = url.searchParams.get("interactionName");
@@ -675,9 +695,9 @@ export class MockResponseGenerator {
           eventSequence: job.eventSequence || [], // Keep for backward compatibility
           globalBlacklistedEvents: job.globalBlacklistedEvents || [],
           createdAt: job.createdAt || Date.now(),
-          createdBy: job.createdBy || "mock@dream11.com",
+          createdBy: job.createdBy || "mock@example.com",
           updatedAt: job.updatedAt || Date.now(),
-          updatedBy: job.updatedBy || "mock@dream11.com",
+          updatedBy: job.updatedBy || "mock@example.com",
         }));
 
         // Apply pagination
@@ -751,9 +771,9 @@ export class MockResponseGenerator {
             isBlacklisted: event.isBlacklisted,
           })),
           createdAt: Date.now(),
-          createdBy: requestBody.createdBy || "mock@dream11.com",
+          createdBy: requestBody.createdBy || "mock@example.com",
           updatedAt: Date.now(),
-          updatedBy: requestBody.updatedBy || "mock@dream11.com",
+          updatedBy: requestBody.updatedBy || "mock@example.com",
         };
 
         this.dataStore.addJob(newJob);
@@ -879,7 +899,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getJobDetails")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const jobId = url.searchParams.get("jobId");
       const useCaseId = url.searchParams.get("useCaseId");
 
@@ -972,7 +992,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getJobStatus")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const jobId = url.searchParams.get("jobId");
 
       if (this.config.shouldLog()) {
@@ -1029,7 +1049,7 @@ export class MockResponseGenerator {
 
       return {
         data: {
-          users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@dream11.com"],
+          users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@example.com"],
           statuses: uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
         },
         status: 200,
@@ -1107,7 +1127,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/deleteJob")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const jobId = url.searchParams.get("jobId");
 
       if (jobId) {
@@ -1132,30 +1152,42 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
+    // GET /v1/alert/scopes - Returns all supported alert scopes
+    // @see backend AlertScopesResponseDto.java
+    if (pathname.includes("/alert/scopes") && method === "GET") {
+      return { data: mockAlertScopes, status: 200 };
+    }
+
+    // GET /v1/alert/severity - Returns severity levels
+    // @see backend AlertSeverityResponseDto.java
+    if (pathname.includes("/alert/severity") && method === "GET") {
+      return { data: mockAlertSeverities, status: 200 };
+    }
+
+    // GET /v1/alert/metrics?scope={scopeId} - Returns metrics for a scope
+    // @see backend AlertMetricsResponseDto.java
+    if (pathname.includes("/alert/metrics") && method === "GET") {
+      const url = new URL(request.url, "http://localhost");
+      const scope = url.searchParams.get("scope") || "interaction";
+      const metricsData = mockAlertMetrics[scope] || { scope, metrics: [] };
+      return { data: metricsData, status: 200 };
+    }
+
+    // GET /v1/alert/notificationChannels - Returns notification channels
+    // @see backend AlertNotificationChannelResponseDto.java
+    if (pathname.includes("/alert/notificationChannels") && method === "GET") {
+      return { data: mockNotificationChannels, status: 200 };
+    }
+
+    // GET /v1/alert/filters - Returns filter options
+    // @see backend AlertFiltersResponseDto.java
     if (pathname.includes("/alert/filters") && method === "GET") {
-      return {
-        data: {
-          created_by: [
-            "user1@dream11.com",
-            "user2@dream11.com",
-            "user3@dream11.com",
-          ],
-          updated_by: [
-            "user1@dream11.com",
-            "user2@dream11.com",
-            "user3@dream11.com",
-          ],
-          job_ids: ["1", "2", "3", "4", "5"],
-          current_states: [
-            "FIRING",
-            "NORMAL",
-            "ERRORED",
-            "SILENCED",
-            "NO_DATA",
-          ],
-        },
-        status: 200,
-      };
+      return { data: mockAlertFilters, status: 200 };
+    }
+
+    // GET /v1/alert/tag - Returns all tags
+    if (pathname.endsWith("/alert/tag") && method === "GET") {
+      return { data: mockAlertTags, status: 200 };
     }
 
     if (
@@ -1180,31 +1212,53 @@ export class MockResponseGenerator {
           );
         }
 
-        // Generate mock evaluation history
+        // Generate mock evaluation history matching AlertEvaluationHistoryResponseDto.java
+        // reading field is a JSON string containing per-scope readings (AlertMetricReading[])
         const history = [];
         const now = Date.now();
-        for (let i = 0; i < 10; i++) {
-          const isFiring = i % 3 === 0;
-          const reading = Math.round((0.1 + Math.random() * 0.8) * 100) / 100; // Random value between 0.1 and 0.9, rounded to 2 decimal places
-          const threshold = 0.5;
-          const totalInteractions = 100 + Math.floor(Math.random() * 200);
-          const successInteractions = Math.floor(
-            totalInteractions * (0.7 + Math.random() * 0.3),
-          );
-          const errorInteractions = totalInteractions - successInteractions;
+        const scopeNames = ["PaymentSubmit", "PaymentConfirm", "PaymentOTP"];
+        const threshold = 0.05; // 5% threshold
+
+        for (let i = 0; i < 15; i++) {
+          const isFiring = i % 4 === 0; // Every 4th evaluation is firing
+          const evalTime = new Date(now - i * 3600000);
+          
+          // Generate readings for each scope name
+          const scopeReadings = scopeNames.map(scopeName => {
+            const scopeTotal = 150 + Math.floor(Math.random() * 350);
+            const scopeSuccess = Math.floor(scopeTotal * (0.85 + Math.random() * 0.14));
+            const scopeErrors = scopeTotal - scopeSuccess;
+            // Randomly make some scope readings exceed threshold when firing
+            const scopeReading = isFiring && Math.random() > 0.5
+              ? threshold + 0.01 + Math.random() * 0.03
+              : threshold - 0.02 - Math.random() * 0.02;
+            return {
+              reading: Math.round(scopeReading * 10000) / 10000,
+              useCaseId: scopeName,
+              successInteractionCount: scopeSuccess,
+              errorInteractionCount: scopeErrors,
+              totalInteractionCount: scopeTotal,
+              timestamp: evalTime.toISOString(),
+            };
+          });
+
+          // Aggregate totals
+          const totalInteractions = scopeReadings.reduce((sum, r) => sum + r.totalInteractionCount, 0);
+          const successInteractions = scopeReadings.reduce((sum, r) => sum + r.successInteractionCount, 0);
+          const errorInteractions = scopeReadings.reduce((sum, r) => sum + r.errorInteractionCount, 0);
 
           history.push({
-            reading: reading,
+            reading: JSON.stringify(scopeReadings), // JSON string of ScopeReading[]
             threshold: threshold,
-            evaluated_at: new Date(now - i * 3600000).toISOString(), // Every hour
+            evaluated_at: evalTime.toISOString(),
             current_state: isFiring ? "FIRING" : "NORMAL",
-            evaluation_time: Math.round((2 + Math.random() * 3) * 100) / 100, // 2-5 seconds, rounded to 2 decimal places
+            evaluation_time: Math.round((1.5 + Math.random() * 2.5) * 100) / 100,
             total_interaction_count: totalInteractions,
             error_interaction_count: errorInteractions,
             success_interaction_count: successInteractions,
-            min_interaction_count: 50,
-            min_success_interaction_count: 40,
-            min_error_interaction_count: 5,
+            min_total_interactions: 100,
+            min_success_interactions: 50,
+            min_error_interactions: 10,
           });
         }
 
@@ -1327,7 +1381,7 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/alert") && method === "DELETE") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const alertId = url.searchParams.get("id");
 
       if (alertId) {
@@ -1383,7 +1437,7 @@ export class MockResponseGenerator {
       pathname.includes("/snooze") &&
       method === "DELETE"
     ) {
-      // Handle resume alert (remove snooze)
+      // Handle resume alert (remove snooze) - returns GenericSuccessResponse
       const alertIdMatch = pathname.match(/\/alert\/(\d+)\/snooze/);
       if (alertIdMatch) {
         const alertId = parseInt(alertIdMatch[1]);
@@ -1395,16 +1449,15 @@ export class MockResponseGenerator {
         // Update alert to remove snooze
         this.dataStore.updateAlert(alertId, {
           is_snoozed: false,
-          snoozed_from: 0,
-          snoozed_until: 0,
-          current_state: "FIRING", // Resume to firing state
+          snoozed_from: null,
+          snoozed_until: null,
+          current_state: "NORMAL",
         });
 
+        // Backend returns GenericSuccessResponse with message field
         return {
           data: {
-            isSnoozed: false,
-            snoozedFrom: 0,
-            snoozedUntil: 0,
+            message: "success",
           },
           status: 200,
         };
@@ -2182,13 +2235,13 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/getColumnNamesOfTable")) {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const tableName = url.searchParams.get("tableName");
 
       const columns = {
         user_events: ["user_id", "event_name", "timestamp", "properties"],
         interaction_metrics: [
-          "interaction_id",
+          "Interaction_id",
           "duration",
           "success",
           "timestamp",
@@ -2590,7 +2643,7 @@ export class MockResponseGenerator {
 
     // Get query history endpoint
     if (pathname.includes("/getQuery/user") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const emailId = url.searchParams.get("emailId");
 
       if (this.config.shouldLog()) {
@@ -2640,7 +2693,7 @@ export class MockResponseGenerator {
 
     // Get column names of table endpoint
     if (pathname.includes("/getColumnNamesOfTable") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const tableName = url.searchParams.get("table");
 
       if (this.config.shouldLog()) {
@@ -2909,8 +2962,8 @@ export class MockResponseGenerator {
     return {
       teamName: `Team${phoneNo.slice(-4)}`,
       userId: Math.floor(Math.random() * 1000000) + 100000,
-      emailId: `user${phoneNo}@dream11.com`,
-      commEmailId: `comm${phoneNo}@dream11.com`,
+      emailId: `user${phoneNo}@example.com`,
+      commEmailId: `comm${phoneNo}@example.com`,
     };
   }
 
@@ -2927,7 +2980,7 @@ export class MockResponseGenerator {
   ): MockResponse {
     // Get analytics report endpoint
     if (pathname.includes("/analytics-report") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const reportId = url.searchParams.get("reportId");
 
       if (this.config.shouldLog()) {
@@ -3152,7 +3205,7 @@ export class MockResponseGenerator {
 
     // Apdex anomalies endpoint
     if (pathname.includes("/anomaly/apdex") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const useCaseId = url.searchParams.get("useCaseId");
       const startTime = url.searchParams.get("startTime");
       const endTime = url.searchParams.get("endTime");
@@ -3184,7 +3237,7 @@ export class MockResponseGenerator {
 
     // Error rate anomalies endpoint
     if (pathname.includes("/anomaly/error-rate") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const useCaseId = url.searchParams.get("useCaseId");
       const startTime = url.searchParams.get("startTime");
       const endTime = url.searchParams.get("endTime");
@@ -3216,7 +3269,7 @@ export class MockResponseGenerator {
 
     // Anomaly details endpoint
     if (pathname.includes("/anomaly/details") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const useCaseId = url.searchParams.get("useCaseId");
       const timestamp = url.searchParams.get("timestamp");
       const appVersion = url.searchParams.get("appVersion");
@@ -3465,7 +3518,7 @@ export class MockResponseGenerator {
 
     // Get request ID from time endpoint
     if (pathname.includes("/v2/events/queryRequestId") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const fromDate = url.searchParams.get("from_date");
       const toDate = url.searchParams.get("to_date");
       const email = url.searchParams.get("email");
@@ -3505,7 +3558,7 @@ export class MockResponseGenerator {
 
     // Get events by request ID endpoint
     if (pathname.includes("/v2/events/eventsByRequestId") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const requestId = url.searchParams.get("requestId");
       const pageToken = url.searchParams.get("pageToken") || "";
 
@@ -3539,7 +3592,7 @@ export class MockResponseGenerator {
 
     // Get event properties endpoint
     if (pathname.includes("/v2/events/eventname") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const eventName = url.searchParams.get("eventName");
       const eventTimestamp = url.searchParams.get("eventTimestamp");
       const userId = url.searchParams.get("userId");
@@ -3576,7 +3629,7 @@ export class MockResponseGenerator {
 
     // Get screen name to event mapping endpoint
     if (pathname.includes("/v1/events") && method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const searchString = url.searchParams.get("search_string");
       const limit = url.searchParams.get("limit") || "10";
 
@@ -4333,7 +4386,7 @@ ${
     request: MockRequest,
   ): MockResponse {
     if (method === "GET") {
-      const url = new URL(request.url);
+      const url = this.parseURL(request.url);
       const searchParams = url.searchParams;
 
       const interactionName = searchParams.get("interactionName") || "";

@@ -17,7 +17,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppulse_root_password"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppulse_root_password" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,7 +42,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -67,7 +67,7 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
     container_name: pulse-otel-collector
-    command: ["--config=/etc/otel-collector.yaml"]
+    command: [ "--config=/etc/otel-collector.yaml" ]
     volumes:
       - ../backend/ingestion/otel-collector.yaml:/etc/otel-collector.yaml:ro
     ports:
@@ -87,7 +87,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector.yaml"]
+      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector.yaml" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -114,7 +114,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthcheck.txt"]
+      test: [ "CMD", "curl", "-f", "http://localhost/healthcheck.txt" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -139,11 +139,12 @@ services:
       - MYSQL_READER_MAX_POOL_SIZE=10
 
       # Application Configuration
-      - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL}
-      - CONFIG_SERVICE_APPLICATION_SERVICEURL=${CONFIG_SERVICE_APPLICATION_SERVICEURL}
+      - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL:-http://pulse-alerts-cron:4000/cron}
+      - CONFIG_SERVICE_APPLICATION_SERVICEURL=${CONFIG_SERVICE_APPLICATION_SERVICEURL:-http://pulse-server:8080}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID=${CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID}
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHENABLED=${GOOGLE_OAUTH_ENABLED:-false}
       - CONFIG_SERVICE_APPLICATION_JWTSECRET=${CONFIG_SERVICE_APPLICATION_JWTSECRET:-dev-secret-key-at-least-32-characters-long-for-local-testing-only}
+      - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/otel
@@ -151,6 +152,14 @@ services:
       - CLICKHOUSE_PASSWORD=pulse_password
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=8123
+
+      # S3 Configuration
+      - S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
+      - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
+
+      # CloudFront Configuration
+      - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
+      - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
     networks:
       - pulse-network
     depends_on:
@@ -160,7 +169,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthcheck"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -168,6 +177,43 @@ services:
     volumes:
       # Mount config files if needed for runtime configuration
       - ../backend/server/src/main/resources/config:/app/config:ro
+
+  # Pulse Alerts Cron Service (Java/Vert.x Cron Manager)
+  pulse-alerts-cron:
+    build:
+      context: ../backend/pulse-alerts-cron
+      dockerfile: Dockerfile
+    container_name: pulse-alerts-cron
+    ports:
+      - "4000:4000"
+    environment:
+      # MySQL Database Configuration
+      - MYSQL_WRITER_HOST=mysql
+      - MYSQL_READER_HOST=mysql
+      - MYSQL_DATABASE=pulse_db
+      - MYSQL_USER=pulse_user
+      - MYSQL_PASSWORD=pulse_password
+
+      # Application Configuration
+      - CONFIG_SERVICE_APPLICATION_PULSESERVERURL=${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}
+      - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
+    networks:
+      - pulse-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      pulse-server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      # Mount config files if needed for runtime configuration
+      - ../backend/pulse-alerts-cron/src/main/resources/config:/app/config:ro
 
 networks:
   pulse-network:

@@ -104,10 +104,10 @@ class CarrierFinderTest {
     fun testPreApi28WithValidName() {
         setupTelephonyCapability(true)
 
-        every { telephonyManager.getSimOperatorName() } returns ""
-        every { telephonyManager.getNetworkOperatorName() } returns "LegacyCarrier"
-        every { telephonyManager.getSimOperator() } returns "31026"
-        every { telephonyManager.getSimCountryIso() } returns "nl"
+        every { telephonyManager.simOperatorName } returns ""
+        every { telephonyManager.networkOperatorName } returns "LegacyCarrier"
+        every { telephonyManager.simOperator } returns "31026"
+        every { telephonyManager.simCountryIso } returns "nl"
 
         val carrier = carrierFinder.get()
 

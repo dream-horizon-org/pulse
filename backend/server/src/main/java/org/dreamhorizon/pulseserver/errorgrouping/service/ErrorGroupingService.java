@@ -274,7 +274,7 @@ public class ErrorGroupingService {
 
                 return StackTraceEvent.builder()
                     .timestamp(formatTs9(logRecord.getObservedTimeUnixNano()))
-                    .eventName(getResourceAttribute(logAttrMap, "pulse.type").orElse(null))
+                    .eventName(logRecord.getEventName())
                     .exceptionStackTraceRaw(stackTrace)  // Raw original stack trace
                     .exceptionStackTrace(symbolicatedStackTrace)  // Complete symbolicated stack trace
                     .exceptionMessage(getResourceAttribute(logAttrMap, "exception.message").orElse(null))
@@ -295,6 +295,9 @@ public class ErrorGroupingService {
                     .signature(result.group().getSignature())
                     .fingerprint(result.group().getFingerprint())
                     .interactions(getInteractionNames(resourceAttrMap))
+                    .resourceAttributes(resourceAttrMap)
+                    .scopeAttributes(attributesToMap(scopeLogs.getScope().getAttributesList()))
+                    .logAttributes(logAttrMap)
                     .build();
               }));
         }

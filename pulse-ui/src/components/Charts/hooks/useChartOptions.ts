@@ -49,7 +49,8 @@ export const useChartOptions = ({
       },
       xAxis: {
         ...(chartType === "area" && { type: "category" }),
-        boundaryGap: false,
+        // Use percentage string for non-ordinal axes to avoid ECharts warning
+        boundaryGap: chartType === "area" ? false : ["0%", "0%"],
         axisLabel: {
           margin: 15,
           fontSize: 12,

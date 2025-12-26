@@ -8,6 +8,67 @@
  * Based on: https://github.com/facebook/react-native/blob/v0.80.0/packages/react-native/Libraries/Blob/URL.js
  */
 
+export class SearchParams {
+  private params: Map<string, string> = new Map();
+
+  constructor(search: string) {
+    if (!search || typeof search !== 'string') {
+      return;
+    }
+
+    // Remove leading '?' if present
+    const queryString = search.startsWith('?') ? search.slice(1) : search;
+
+    if (!queryString) {
+      return;
+    }
+
+    try {
+      // Split by '&' to get individual parameters
+      const pairs = queryString.split('&');
+
+      for (const pair of pairs) {
+        if (!pair) continue;
+
+        // Split by '=' to get key and value
+        const equalIndex = pair.indexOf('=');
+        if (equalIndex === -1) {
+          // Parameter without value
+          const key = decodeURIComponent(pair);
+          if (key) {
+            this.params.set(key, '');
+          }
+        } else {
+          const key = decodeURIComponent(pair.substring(0, equalIndex));
+          const value = decodeURIComponent(pair.substring(equalIndex + 1));
+          if (key) {
+            this.params.set(key, value);
+          }
+        }
+      }
+    } catch (e) {
+      // If decoding fails, params remain empty
+      console.warn('[Pulse] Query parameter parsing failed:', e);
+    }
+  }
+
+  get(name: string): string | null {
+    return this.params.has(name) ? this.params.get(name)! : null;
+  }
+
+  has(name: string): boolean {
+    return this.params.has(name);
+  }
+
+  keys(): string[] {
+    return Array.from(this.params.keys());
+  }
+
+  values(): string[] {
+    return Array.from(this.params.values());
+  }
+}
+
 export interface ParsedUrl {
   protocol: string;
   hostname: string;
@@ -17,6 +78,7 @@ export interface ParsedUrl {
   search: string;
   hash: string;
   href: string;
+  searchParams: SearchParams;
 }
 
 /**
@@ -81,6 +143,9 @@ export function parseUrl(url: string): ParsedUrl | null {
     const hashContent = safeMatch(url, /#([^/]*)/);
     const hash = hashContent ? `#${hashContent}` : '';
 
+    // Create SearchParams instance for query parameters
+    const searchParams = new SearchParams(search);
+
     return {
       protocol: protocolWithColon,
       hostname: hostname,
@@ -90,6 +155,7 @@ export function parseUrl(url: string): ParsedUrl | null {
       search: search,
       hash: hash,
       href: url,
+      searchParams: searchParams,
     };
   } catch (e) {
     // Any unexpected error during parsing - return null

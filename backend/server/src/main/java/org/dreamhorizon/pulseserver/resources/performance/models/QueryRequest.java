@@ -25,9 +25,6 @@ public class QueryRequest {
 
   private Integer limit;
 
-
-  // ---------- Nested types ----------
-
   public enum Direction {
     ASC, DESC
   }
@@ -57,9 +54,6 @@ public class QueryRequest {
   @JsonIgnoreProperties(ignoreUnknown = true)
   @Data
   public static class TimeRange {
-    /**
-     * ISO-8601 instants, e.g. 2025-11-07T08:40:00Z
-     */
     private String start;
     private String end;
   }

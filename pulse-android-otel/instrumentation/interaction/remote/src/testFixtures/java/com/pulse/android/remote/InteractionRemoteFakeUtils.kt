@@ -28,6 +28,7 @@ public object InteractionRemoteFakeUtils {
             uptimeUpperLimitInMs = uptimeUpperLimitInNano / 1000_000,
             thresholdInMs = thresholdInNanos / 1000_000,
             shouldThrowOnWrongConfig = shouldThrowOnWrongConfig,
+            description = "fake-description",
         )
 
     public fun createFakeInteractionAttrsEntry(

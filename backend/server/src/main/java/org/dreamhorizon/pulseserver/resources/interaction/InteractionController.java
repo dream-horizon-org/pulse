@@ -38,15 +38,12 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
-import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Path("/v1/interactions")
 public class InteractionController {
-  private static final String TYPE_EXPERIENCE = "experience";
-  private static final String OPERATION_UPDATE = "update";
   private static final RestInteractionMapper mapper = RestInteractionMapper.INSTANCE;
 
   private final InteractionService interactionService;
@@ -67,16 +64,6 @@ public class InteractionController {
         .collect(Collectors.toList());
 
     return Map.of("errors", messages);
-  }
-
-  @GET
-  @Path("/all-active-interactions")
-  @Consumes(MediaType.WILDCARD)
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<List<InteractionDetails>>> getAllInteractions() {
-
-    return interactionService.getAllActiveAndRunningInteractions()
-        .to(RestResponse.jaxrsRestHandler());
   }
 
   @GET

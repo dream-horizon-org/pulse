@@ -18,4 +18,14 @@ public class ApplicationConfig {
   public String googleOAuthClientId;
   public Boolean googleOAuthEnabled;
   public String jwtSecret;
+  public String otelCollectorUrl;
+  public String interactionConfigUrl;
+  public String logsCollectorUrl;
+  public String metricCollectorUrl;
+  public String spanCollectorUrl;
+  public String s3BucketName;
+  public String configDetailsS3BucketFilePath;
+  public String cloudFrontDistributionId;
+  public String configDetailCloudFrontAssetPath;
+  public String webhookUrl;
 }

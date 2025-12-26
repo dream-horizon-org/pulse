@@ -24,6 +24,7 @@
         <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
         <vertx-rest.version>1.1.0</vertx-rest.version>
         <guice.version>5.1.0</guice.version>
+        <awssdk.version>2.20.8</awssdk.version>
 
         <!-- Use an older version until https://issues.apache.org/jira/browse/MRESOURCES-237 -->
         <maven.resources.plugin.version>2.7</maven.resources.plugin.version>
@@ -108,7 +109,6 @@
             <artifactId>vertx-core</artifactId>
             <version>${vertx.version}</version>
         </dependency>
-
 
 
         <dependency>
@@ -244,7 +244,6 @@
         </dependency>
 
 
-
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
             <artifactId>resteasy-multipart-provider</artifactId>
@@ -284,7 +283,6 @@
         </dependency>
 
 
-
         <!-- ClickHouse R2DBC driver -->
         <dependency>
             <groupId>com.clickhouse</groupId>
@@ -305,6 +303,110 @@
             <version>${r2dbc-pool.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>athena</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-core</artifactId>
+            <version>1.12.772</version>
+            <scope>compile</scope>
+        </dependency>
+
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${awssdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>netty-nio-client</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${awssdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>netty-nio-client</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>${awssdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-core</artifactId>
+            <version>1.2.3</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudfront</artifactId>
+            <version>${awssdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
     </dependencies>
 
@@ -312,18 +414,25 @@
         <repository>
             <id>central</id>
             <url>https://repo1.maven.org/maven2/</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
 
         <repository>
             <id>google</id>
             <url>https://maven.google.com/</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
-
 
 
     <build>
@@ -358,7 +467,8 @@
                     </annotationProcessorPaths>
 
                     <annotationProcessors>
-                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor</annotationProcessor>
+                        <annotationProcessor>lombok.launch.AnnotationProcessorHider$AnnotationProcessor
+                        </annotationProcessor>
                         <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
                     </annotationProcessors>
@@ -388,7 +498,8 @@
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
                                         <Main-Class>org.dreamhorizon.pulseserver.MainApplication</Main-Class>
-                                        <Main-Verticle>org.dreamhorizon.pulseserver.verticle.MainVerticle</Main-Verticle>
+                                        <Main-Verticle>org.dreamhorizon.pulseserver.verticle.MainVerticle
+                                        </Main-Verticle>
                                         <X-Compile-Source-JDK>17</X-Compile-Source-JDK>
                                         <X-Compile-Target-JDK>17</X-Compile-Target-JDK>
                                     </manifestEntries>
@@ -513,11 +624,13 @@
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/error/**</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/resources/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/rest/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <!-- Exclude untestable classes -->
+                                <exclude>org/dreamhorizon/pulseserver/util/RxObjectMapper.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/util/Utils.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>
@@ -548,7 +661,7 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <configLocation>.checkstyle/dream11_checks.xml</configLocation>
+                            <configLocation>.checkstyle/checks.xml</configLocation>
                             <failsOnError>false</failsOnError>
                             <failOnViolation>false</failOnViolation>
                             <consoleOutput>true</consoleOutput>

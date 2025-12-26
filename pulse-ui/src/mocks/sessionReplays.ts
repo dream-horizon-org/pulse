@@ -33,62 +33,90 @@ export const generateMockSessionReplays = ({
   const end = new Date(endTime).getTime();
   const timeRange = end - start;
 
-  const eventTypeOptions: (
-    | "crash"
-    | "anr"
-    | "networkError"
-    | "frozenFrame"
-    | "nonFatal"
-    | "completed"
-  )[] = ["crash", "anr", "networkError", "frozenFrame", "nonFatal", "completed"];
+  // Realistic device distribution (weighted towards popular devices in India)
   const deviceOptions = [
-    "iPhone 14 Pro",
-    "iPhone 13",
-    "Samsung Galaxy S23",
-    "Google Pixel 7",
-    "OnePlus 11",
+    { name: "Samsung Galaxy S23", weight: 0.25, os: "Android" },
+    { name: "Samsung Galaxy A54", weight: 0.20, os: "Android" },
+    { name: "Redmi Note 12", weight: 0.18, os: "Android" },
+    { name: "OnePlus 11", weight: 0.12, os: "Android" },
+    { name: "iPhone 14 Pro", weight: 0.10, os: "iOS" },
+    { name: "iPhone 13", weight: 0.08, os: "iOS" },
+    { name: "Google Pixel 7", weight: 0.04, os: "Android" },
+    { name: "Vivo V27", weight: 0.03, os: "Android" },
   ];
-  const osVersions = [
-    "iOS 17.0",
-    "iOS 16.5",
-    "Android 13",
-    "Android 12",
-    "Android 14",
+  
+  const osVersions: Record<"Android" | "iOS", string[]> = {
+    Android: ["Android 13", "Android 12", "Android 14", "Android 11"],
+    iOS: ["iOS 17.0", "iOS 16.5", "iOS 16.6", "iOS 15.7"],
+  };
+
+  // Realistic event type distribution (most sessions complete successfully)
+  const eventTypeWeights = [
+    { type: "completed" as const, weight: 0.75 },
+    { type: "networkError" as const, weight: 0.10 },
+    { type: "nonFatal" as const, weight: 0.08 },
+    { type: "frozenFrame" as const, weight: 0.04 },
+    { type: "crash" as const, weight: 0.02 },
+    { type: "anr" as const, weight: 0.01 },
   ];
+
+  const getWeightedRandom = <T>(items: { item: T; weight: number }[]): T => {
+    const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+    let random = Math.random() * totalWeight;
+    for (const { item, weight } of items) {
+      random -= weight;
+      if (random <= 0) return item;
+    }
+    return items[0].item;
+  };
 
   const totalSessions = 247;
   const allSessions: SessionReplayData[] = [];
 
   for (let i = 0; i < totalSessions; i++) {
     const sessionStart = new Date(start + Math.random() * timeRange);
-    const eventType =
-      eventTypeOptions[Math.floor(Math.random() * eventTypeOptions.length)];
-    const deviceName =
-      deviceOptions[Math.floor(Math.random() * deviceOptions.length)];
-    const isIOS = deviceName.includes("iPhone");
+    const eventType = getWeightedRandom(
+      eventTypeWeights.map((e) => ({ item: e.type, weight: e.weight }))
+    );
+    const selectedDevice = getWeightedRandom(
+      deviceOptions.map((d) => ({ item: d, weight: d.weight }))
+    );
+    const isIOS = selectedDevice.os === "iOS";
 
     if (device !== "all") {
       const matchesDevice =
         (device === "ios" && isIOS) || (device === "android" && !isIOS);
-      if (!matchesDevice && Math.random() > 0.3) {
-        continue; // Skip this session if it doesn't match device filter
+      if (!matchesDevice) {
+        continue;
       }
     }
 
+    // Realistic duration based on event type
+    let duration_ms: number;
+    if (eventType === "completed") {
+      duration_ms = Math.floor(Math.random() * 180000) + 20000; // 20-200s for completed
+    } else if (eventType === "crash" || eventType === "anr") {
+      duration_ms = Math.floor(Math.random() * 30000) + 5000; // 5-35s for crashes
+    } else {
+      duration_ms = Math.floor(Math.random() * 120000) + 10000; // 10-130s for other errors
+    }
+
+    // Realistic event and screen counts based on duration
+    const eventCount = Math.floor((duration_ms / 1000) * (2 + Math.random() * 3)); // 2-5 events per second
+    const screenCount = Math.floor((duration_ms / 1000) * (0.1 + Math.random() * 0.2)); // 0.1-0.3 screens per second
+
     allSessions.push({
       id: `session_${String(i + 1).padStart(6, "0")}`,
-      user_id: `user_${String(Math.floor(Math.random() * 10000)).padStart(5, "0")}`,
-      phone_number: "",
-      device: deviceName,
-      os_version: osVersions[Math.floor(Math.random() * osVersions.length)],
+      user_id: `user_${String(Math.floor(Math.random() * 50000) + 10000).padStart(5, "0")}`,
+      phone_number: `+91${String(Math.floor(Math.random() * 9000000000) + 1000000000)}`,
+      device: selectedDevice.name,
+      os_version: osVersions[selectedDevice.os as "Android" | "iOS"][Math.floor(Math.random() * osVersions[selectedDevice.os as "Android" | "iOS"].length)],
       start_time: sessionStart.toISOString(),
-      // Backend sends duration in milliseconds (max 200 seconds = 200000 ms)
-      // Frontend will convert to seconds with 2 decimal places
-      duration_ms: Math.floor(Math.random() * 200000) + 1000, // 1000ms to 200000ms (0.001s to 200s)
-      event_count: 0,
-      screen_count: 0,
+      duration_ms: duration_ms,
+      event_count: Math.max(1, eventCount),
+      screen_count: Math.max(1, screenCount),
       event_type: eventType,
-      event_names: undefined, // Optional field
+      event_names: undefined,
       interaction_name: interactionName,
       screens_visited: "",
       trace_id: `trace_${String(i + 1).padStart(6, "0")}`,
@@ -135,3 +163,4 @@ export const generateMockSessionReplays = ({
     },
   };
 };
+
