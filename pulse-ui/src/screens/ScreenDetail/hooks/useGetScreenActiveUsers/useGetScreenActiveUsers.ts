@@ -63,7 +63,7 @@ export function useGetScreenActiveUsers({
     };
   }, [endTime]);
 
-  // Build base filters
+  // Build base filters - using TRACES with screen_session for screen-specific user counts
   const buildFilters = useMemo(() => {
     const filterArray: Array<{
       field: string;
@@ -77,8 +77,8 @@ export function useGetScreenActiveUsers({
       },
       {
         field: "PulseType",
-        operator: "EQ",
-        value: ["app_start"],
+        operator: "IN",
+        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
       },
     ];
 

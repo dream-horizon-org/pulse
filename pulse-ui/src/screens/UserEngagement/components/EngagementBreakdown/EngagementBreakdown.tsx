@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { ChartSkeleton, TableSkeleton } from "../../../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../../../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
+import { PulseType } from "../../../../constants/PulseOtelSemcov";
 
 dayjs.extend(utc);
 
@@ -70,16 +71,16 @@ export function EngagementBreakdown({
   // Build request body based on dimension
   const requestBody = useMemo(() => {
     if (dimension === "custom") {
-      // For custom attributes, use UserAttributes['attributeName'] format
+      // For custom attributes, use LogAttributes['attributeName'] format
       if (!customAttributeName.trim() || attributeValues.length === 0) {
         return null;
       }
 
-      const attributeField = `SpanAttributes['pulse.user.${customAttributeName}']`;
+      const attributeField = `LogAttributes['pulse.user.${customAttributeName}']`;
       const attributeAlias = customAttributeName;
 
       return {
-        dataType: "TRACES" as const,
+        dataType: "LOGS" as const,
         timeRange: {
           start: monthlyStartDate,
           end: monthlyEndDate,
@@ -104,7 +105,7 @@ export function EngagementBreakdown({
           },
         ],
         filters: [
-          { field: "PulseType", operator: "EQ" as const, value: ["app_start"] },
+          { field: "PulseType", operator: "EQ" as const, value: [PulseType.SESSION_START] },
           {
             field: attributeField,
             operator: "IN" as const,
@@ -119,7 +120,7 @@ export function EngagementBreakdown({
     if (!fieldConfig) return null;
 
     return {
-      dataType: "TRACES" as const,
+      dataType: "LOGS" as const,
       timeRange: {
         start: monthlyStartDate,
         end: monthlyEndDate,
@@ -141,9 +142,8 @@ export function EngagementBreakdown({
           alias: "session_count",
         },
       ],
-      // TODO: add app_start to constants
       filters: [
-        { field: "PulseType", operator: "EQ" as const, value: ["app_start"] },
+        { field: "PulseType", operator: "EQ" as const, value: [PulseType.SESSION_START] },
       ],
       groupBy: [fieldConfig.alias],
     };
@@ -167,7 +167,7 @@ export function EngagementBreakdown({
           },
         }
       : {
-          dataType: "TRACES" as const,
+          dataType: "LOGS" as const,
           timeRange: {
             start: dailyStartDate,
             end: dailyEndDate,
@@ -188,7 +188,7 @@ export function EngagementBreakdown({
           },
         }
       : {
-          dataType: "TRACES" as const,
+          dataType: "LOGS" as const,
           timeRange: {
             start: weeklyStartDate,
             end: weeklyEndDate,
@@ -201,7 +201,7 @@ export function EngagementBreakdown({
   // Fetch MAU and Sessions (last 30 days)
   const { data: mauData, isLoading: isLoadingMau } = useGetDataQuery({
     requestBody: requestBody || {
-      dataType: "TRACES" as const,
+      dataType: "LOGS" as const,
       timeRange: {
         start: monthlyStartDate,
         end: monthlyEndDate,

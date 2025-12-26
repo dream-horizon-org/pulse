@@ -9,7 +9,6 @@ export interface UseGetUserEngagementDataProps {
   weekEndDate: string;
   monthStartDate: string;
   monthEndDate: string;
-  spanType?: string;
 }
 
 export interface UserEngagementData {

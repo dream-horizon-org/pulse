@@ -5,6 +5,7 @@ export enum PulseType {
   NAVIGATION = "navigation",
   APP_START = "app_start",
   SCREEN_NAME = "screen.name",
+  SESSION_START = "session.start",
 }
 
 export enum STATUS_CODE {

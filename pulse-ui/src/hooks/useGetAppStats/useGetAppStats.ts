@@ -8,11 +8,11 @@ import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 
 /**
- * Hook to get total users and sessions from app_start spans
+ * Hook to get total users and sessions from session.start logs
  * Used to calculate crash-free/ANR-free percentages on App Vitals page
  * 
- * Note: Uses MATERIALIZED columns from otel_traces table directly:
- * - AppVersion, OsVersion, DeviceModel, UserId, SessionId, PulseType
+ * Note: Uses LOGS table with PulseType = 'session.start' filter
+ * MATERIALIZED columns: AppVersion, OsVersion, DeviceModel, UserId, SessionId, PulseType
  * See: backend/ingestion/clickhouse-otel-schema.sql
  */
 export function useGetAppStats({
@@ -26,7 +26,7 @@ export function useGetAppStats({
   isLoading: boolean;
   error: Error | null;
 } {
-  // Build filters array using MATERIALIZED columns from otel_traces
+  // Build filters array using MATERIALIZED columns from otel_logs
   const filters = useMemo(() => {
     const filterArray: Array<{
       field: string;
@@ -36,7 +36,7 @@ export function useGetAppStats({
       {
         field: COLUMN_NAME.PULSE_TYPE,
         operator: "EQ",
-        value: [PulseType.APP_START],
+        value: [PulseType.SESSION_START],
       },
     ];
 
@@ -85,10 +85,10 @@ export function useGetAppStats({
   }, [endTime]);
 
   // Build request body
-  // Note: TRACES table has direct UserId and SessionId columns (not nested in ResourceAttributes)
+  // Note: LOGS table has direct UserId and SessionId columns
   const requestBody = useMemo(
     () => ({
-      dataType: "TRACES" as const,
+      dataType: "LOGS" as const,
       timeRange: {
         start: formattedStartTime,
         end: formattedEndTime,

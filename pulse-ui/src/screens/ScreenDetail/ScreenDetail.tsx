@@ -254,7 +254,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
-              spanType="screen_session"
             />
             <ActiveSessionsGraph
               screenName={decodedScreenName}
@@ -263,7 +262,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
-              spanType="screen_session"
             />
           </SimpleGrid>
         </Tabs.Panel>

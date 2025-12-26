@@ -128,7 +128,7 @@ export const AppVitals: React.FC = () => {
     storeHandleTimeFilterChange(value);
   };
 
-  // Fetch total users and sessions from app_start spans (TRACES table)
+  // Fetch total users and sessions from session.start logs (LOGS table)
   const { data: appStats } = useGetAppStats({
     startTime: formattedStartTime,
     endTime: formattedEndTime,

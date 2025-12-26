@@ -20,7 +20,6 @@ export function UserEngagementGraph({
   device,
   startTime,
   endTime,
-  spanType = "app_start",
 }: UserEngagementGraphProps = {}) {
   // Always use last 7 days for daily graph (ignore time filter)
   const { dailyStartDate, dailyEndDate } = useMemo(() => {
@@ -62,7 +61,6 @@ export function UserEngagementGraph({
     weekEndDate,
     monthStartDate,
     monthEndDate,
-    spanType,
   });
 
   const { dailyUsers, weeklyUsers, monthlyUsers, trendData } = data;

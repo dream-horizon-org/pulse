@@ -21,7 +21,6 @@ export function ActiveSessionsGraph({
   device,
   startTime,
   endTime,
-  spanType = "app_start",
 }: ActiveSessionsGraphProps = {}) {
   // Calculate date range - use provided time range or default to last 7 days
   const { startDate, endDate, bucketSize } = useMemo(() => {
@@ -57,7 +56,6 @@ export function ActiveSessionsGraph({
     startTime: startDate,
     endTime: endDate,
     bucketSize,
-    spanType,
   });
 
   const { currentSessions, peakSessions, averageSessions, trendData } = data;

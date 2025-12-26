@@ -21,12 +21,17 @@ export function useGetUserEngagementData({
   weekEndDate,
   monthStartDate,
   monthEndDate,
-  spanType = PulseType.APP_START,
 }: UseGetUserEngagementDataProps): {
   data: UserEngagementData;
   isLoading: boolean;
   error: Error | null;
 } {
+
+  // Determine data source based on whether screenName is provided
+  // - With screenName: Use TRACES with screen_session/screen_load (screen-specific users)
+  // - Without screenName: Use LOGS with session.start (overall app users)
+  const useTracesTable = !!screenName;
+  const dataType = useTracesTable ? "TRACES" : "LOGS";
 
   // Build filters array
   const buildFilters = useMemo(() => {
@@ -34,19 +39,26 @@ export function useGetUserEngagementData({
       field: string;
       operator: "IN" | "EQ";
       value: string[];
-    }> = [
-      {
-        field: COLUMN_NAME.PULSE_TYPE,
-        operator: "EQ",
-        value: [spanType],
-      },
-    ];
+    }> = [];
 
-    if (screenName) {
+    if (useTracesTable) {
+      // Screen Detail page: TRACES with screen_session/screen_load
+      filterArray.push({
+        field: COLUMN_NAME.PULSE_TYPE,
+        operator: "IN",
+        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
+      });
       filterArray.push({
         field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "IN",
-        value: [screenName],
+        value: [screenName!],
+      });
+    } else {
+      // User Engagement page: LOGS with session.start
+      filterArray.push({
+        field: COLUMN_NAME.PULSE_TYPE,
+        operator: "EQ",
+        value: [PulseType.SESSION_START],
       });
     }
 
@@ -75,12 +87,12 @@ export function useGetUserEngagementData({
     }
 
     return filterArray;
-  }, [screenName, appVersion, osVersion, device, spanType]);
+  }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
   // Fetch daily unique users for the last 7 days (for graph)
   const { data: dailyData, isLoading: isLoadingDaily } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: dailyStartDate,
         end: dailyEndDate,
@@ -107,7 +119,7 @@ export function useGetUserEngagementData({
   // Fetch weekly unique users for the last 1 month
   const { data: weeklyData, isLoading: isLoadingWeekly } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: weekStartDate,
         end: weekEndDate,
@@ -134,7 +146,7 @@ export function useGetUserEngagementData({
   // Fetch monthly unique users for the last 1 month
   const { data: monthlyData, isLoading: isLoadingMonthly } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: monthStartDate,
         end: monthEndDate,
