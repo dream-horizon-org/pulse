@@ -1,7 +1,7 @@
-import type { ConfigPlugin } from "@expo/config-plugins";
+import type { ConfigPlugin } from '@expo/config-plugins';
 
-import { withPulseMainApplication } from "./android-config/withPulseMainApplication";
-import type { PulsePluginProps } from "./types";
+import { withPulseMainApplication } from './android-config/withPulseMainApplication';
+import type { PulsePluginProps } from './types';
 
 export const withAndroidPulsePlugin: ConfigPlugin<PulsePluginProps> = (
   config,
@@ -11,4 +11,3 @@ export const withAndroidPulsePlugin: ConfigPlugin<PulsePluginProps> = (
 
   return config;
 };
-

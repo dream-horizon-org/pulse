@@ -7,4 +7,3 @@ export interface PulsePluginProps {
   enableAnr?: boolean;
   enableSlowRendering?: boolean;
 }
-

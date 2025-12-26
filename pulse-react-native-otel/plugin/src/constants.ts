@@ -1,4 +1,4 @@
-export const PULSE_IMPORT = "import com.pulse.android.sdk.PulseSDK\n";
+export const PULSE_IMPORT = 'import com.pulse.android.sdk.PulseSDK\n';
 
 export function buildPulseInitializationCode(options: {
   endpointBaseUrl: string;
@@ -45,8 +45,7 @@ export function buildPulseInitializationCode(options: {
     code += `      slowRenderingReporter { enabled(true) }\n`;
   }
 
-  code += "    }\n";
+  code += '    }\n';
 
   return code;
 }
-
