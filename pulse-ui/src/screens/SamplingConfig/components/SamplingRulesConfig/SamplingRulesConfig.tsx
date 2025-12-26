@@ -1,9 +1,13 @@
 /**
  * Sampling Rules Configuration Component
- * Manages default sample rate and version-based sampling rules
+ * Manages default sample rate and device-params-based sampling rules
+ * 
+ * Uses dynamic data from backend:
+ * - GET /v1/configs/rules-features for available rule types
+ * - GET /v1/configs/scopes-sdks for available SDKs
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Text,
@@ -21,6 +25,7 @@ import {
   Divider,
   Tooltip,
   Alert,
+  Loader,
 } from '@mantine/core';
 import {
   IconPercentage,
@@ -31,76 +36,86 @@ import {
   IconBulb,
 } from '@tabler/icons-react';
 import {
-  SamplingConfig,
   SamplingRule,
   SdkEnum,
-  SamplingMatchType,
+  SamplingRuleName,
+  SamplingConfigProps,
 } from '../../SamplingConfig.interface';
 import {
-  SDK_OPTIONS,
-  SAMPLING_MATCH_TYPE_OPTIONS,
+  toSdkOptions,
+  toRuleOptions,
+  SDK_DISPLAY_INFO,
+  RULE_DISPLAY_INFO,
   generateId,
   UI_CONSTANTS,
 } from '../../SamplingConfig.constants';
+import { useGetSdkRulesAndFeatures, useGetSdkScopesAndSdks } from '../../../../hooks/useSdkConfig';
 import classes from '../../SamplingConfig.module.css';
 
-interface SamplingRulesConfigProps {
-  config: SamplingConfig;
-  onChange: (config: SamplingConfig) => void;
-}
-
-export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigProps) {
+export function SamplingRulesConfig({ config, onChange, disabled = false }: SamplingConfigProps) {
+  // Fetch dynamic options from backend
+  const { data: rulesAndFeatures, isLoading: isLoadingRules } = useGetSdkRulesAndFeatures();
+  const { data: scopesAndSdks, isLoading: isLoadingSdks } = useGetSdkScopesAndSdks();
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<SamplingRule | null>(null);
   
   // Form state
-  const [ruleName, setRuleName] = useState('');
-  const [matchType, setMatchType] = useState<SamplingMatchType>('app_version_min');
-  const [matchVersion, setMatchVersion] = useState('');
-  const [matchSdks, setMatchSdks] = useState<SdkEnum[]>([]);
+  const [ruleName, setRuleName] = useState<SamplingRuleName | ''>('');
+  const [ruleValue, setRuleValue] = useState('');
+  const [ruleSdks, setRuleSdks] = useState<SdkEnum[]>([]);
   const [sampleRate, setSampleRate] = useState(0.5);
+
+  // Convert backend data to select options
+  const ruleOptions = useMemo(() => {
+    if (rulesAndFeatures?.data?.rules) {
+      return toRuleOptions(rulesAndFeatures.data.rules);
+    }
+    return [];
+  }, [rulesAndFeatures]);
+
+  const sdkOptions = useMemo(() => {
+    if (scopesAndSdks?.data?.sdks) {
+      return toSdkOptions(scopesAndSdks.data.sdks);
+    }
+    return [];
+  }, [scopesAndSdks]);
+
+  const allSdks = useMemo(() => sdkOptions.map(s => s.value), [sdkOptions]);
 
   const resetForm = () => {
     setRuleName('');
-    setMatchType('app_version_min');
-    setMatchVersion('');
-    setMatchSdks([]);
+    setRuleValue('');
+    setRuleSdks([]);
     setSampleRate(0.5);
     setEditingRule(null);
   };
 
   const openAddModal = () => {
+    if (disabled) return;
     resetForm();
     setIsModalOpen(true);
   };
 
   const openEditModal = (rule: SamplingRule) => {
+    if (disabled) return;
     setEditingRule(rule);
     setRuleName(rule.name);
-    setMatchType(rule.match.type);
-    setMatchVersion(
-      rule.match.type === 'app_version_min' 
-        ? rule.match.app_version_min_inclusive || ''
-        : rule.match.app_version_max_inclusive || ''
-    );
-    setMatchSdks(rule.match.sdks);
-    setSampleRate(rule.session_sample_rate);
+    setRuleValue(rule.value);
+    setRuleSdks(rule.sdks);
+    setSampleRate(rule.sessionSampleRate);
     setIsModalOpen(true);
   };
 
   const handleSaveRule = () => {
+    if (!ruleName) return;
+    
     const newRule: SamplingRule = {
       id: editingRule?.id || generateId(),
-      name: ruleName.trim(),
-      match: {
-        type: matchType,
-        sdks: matchSdks,
-        ...(matchType === 'app_version_min' 
-          ? { app_version_min_inclusive: matchVersion }
-          : { app_version_max_inclusive: matchVersion }
-        ),
-      },
-      session_sample_rate: sampleRate,
+      name: ruleName,
+      value: ruleValue.trim(),
+      sdks: ruleSdks,
+      sessionSampleRate: sampleRate,
     };
 
     if (editingRule) {
@@ -120,6 +135,7 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
   };
 
   const handleRemoveRule = (ruleId: string) => {
+    if (disabled) return;
     onChange({
       ...config,
       rules: config.rules.filter(r => r.id !== ruleId),
@@ -127,11 +143,39 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
   };
 
   const handleDefaultRateChange = (rate: number) => {
+    if (disabled) return;
     onChange({
       ...config,
-      default: { session_sample_rate: rate },
+      default: { sessionSampleRate: rate },
     });
   };
+
+  const getRuleDisplay = (name: SamplingRuleName) => {
+    return RULE_DISPLAY_INFO[name] || { 
+      label: name, 
+      description: 'Custom rule' 
+    };
+  };
+
+  const getSdkLabel = (sdk: SdkEnum) => {
+    return SDK_DISPLAY_INFO[sdk]?.label || sdk;
+  };
+
+  // Get placeholder text based on rule type
+  const getPlaceholder = (rule: SamplingRuleName | '') => {
+    switch (rule) {
+      case 'app_version': return 'e.g., 2.0.0 or 2\\..*';
+      case 'os_version': return 'e.g., 14 or 15\\..*';
+      case 'country': return 'e.g., US, IN, GB (ISO country code)';
+      case 'state': return 'e.g., CA, NY (ISO region code)';
+      case 'device': return 'e.g., Samsung.*, Pixel.*, iPhone.*';
+      case 'network': return 'e.g., wifi, cellular, 4g';
+      case 'platform': return 'e.g., android, ios';
+      default: return 'Enter value or regex pattern';
+    }
+  };
+
+  const isLoading = isLoadingRules || isLoadingSdks;
 
   return (
     <>
@@ -164,7 +208,7 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
             </Text>
             <Text size="xs" mt="xs" c="dimmed">
               💡 <strong>Tip:</strong> Lower sampling reduces data volume and costs. Start at 50% and 
-              adjust based on your debugging needs. Use version-based rules to sample more for newer app versions.
+              adjust based on your debugging needs. Use rules to sample differently based on device parameters.
             </Text>
           </Alert>
 
@@ -175,7 +219,7 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
                 <Group gap="xs">
                   <Text fw={600}>Default Session Sample Rate</Text>
                   <Tooltip 
-                    label="This rate applies to all sessions that don't match any specific rules below. 50% means half of all sessions will be recorded."
+                    label="This rate applies to all sessions that don't match any specific rules below."
                     multiline
                     w={280}
                     withArrow
@@ -186,15 +230,16 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
                 <Text size="xs" c="dimmed">Applied when no specific rules match</Text>
               </Box>
               <Text size="xl" fw={700} style={{ color: '#0ec9c2' }}>
-                {Math.round(config.default.session_sample_rate * 100)}%
+                {Math.round(config.default.sessionSampleRate * 100)}%
               </Text>
             </Group>
             <Slider
-              value={config.default.session_sample_rate}
+              value={config.default.sessionSampleRate}
               onChange={handleDefaultRateChange}
               min={0}
               max={1}
               step={0.05}
+              disabled={disabled}
               marks={[
                 { value: 0, label: '0%' },
                 { value: 0.25, label: '25%' },
@@ -209,12 +254,12 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
                 markLabel: { fontSize: 11, marginTop: 8 },
               }}
             />
-            <Text size="xs" c="dimmed" mt="xs" ta="center">
-              At {Math.round(config.default.session_sample_rate * 100)}%, approximately {Math.round(config.default.session_sample_rate * 1000)} out of 1,000 sessions will be recorded
+            <Text size="xs" c="dimmed" mt="xl" ta="center">
+              At {Math.round(config.default.sessionSampleRate * 100)}%, approximately {Math.round(config.default.sessionSampleRate * 1000)} out of 1,000 sessions will be recorded
             </Text>
           </Box>
 
-          <Divider my="lg" label="Version-Based Rules" labelPosition="center" />
+          <Divider my="lg" label="Conditional Sampling Rules" labelPosition="center" />
 
           {/* Rules Section */}
           <Group justify="space-between" mb="md">
@@ -222,7 +267,7 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
               <Group gap="xs">
                 <Text fw={600}>{UI_CONSTANTS.SECTIONS.SAMPLING_RULES.TITLE}</Text>
                 <Tooltip 
-                  label="Override the default sample rate for specific app versions. Rules are evaluated in order - first matching rule wins."
+                  label="Override the default sample rate based on device parameters. Rules are evaluated in order."
                   multiline
                   w={280}
                   withArrow
@@ -232,9 +277,11 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
               </Group>
               <Text size="xs" c="dimmed">{UI_CONSTANTS.SECTIONS.SAMPLING_RULES.DESCRIPTION}</Text>
             </Box>
-            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openAddModal}>
-              Add Rule
-            </Button>
+            {!disabled && (
+              <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openAddModal}>
+                Add Rule
+              </Button>
+            )}
           </Group>
 
           {config.rules.length === 0 ? (
@@ -246,7 +293,7 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
                 <Group gap="xs" wrap="nowrap">
                   <IconBulb size={16} style={{ color: '#d97706', flexShrink: 0 }} />
                   <Text size="xs" c="yellow.8">
-                    <strong>Example:</strong> Sample 100% of users on v2.0.0+ to catch bugs in new releases, 
+                    <strong>Example:</strong> Sample 100% of users on app_version &gt;= 2.0.0 to catch bugs in new releases, 
                     while keeping 10% for older versions to save costs.
                   </Text>
                 </Group>
@@ -254,44 +301,48 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
             </Box>
           ) : (
             <Stack gap="xs">
-              {config.rules.map(rule => (
-                <Paper key={rule.id} withBorder p="sm">
-                  <Group justify="space-between">
-                    <Box>
-                      <Group gap="xs" mb="xs">
-                        <Text fw={600}>{rule.name}</Text>
-                        <Badge size="sm" color="teal" variant="light">
-                          {Math.round(rule.session_sample_rate * 100)}%
-                        </Badge>
-                      </Group>
-                      <Group gap="xs">
-                        <Badge size="xs" variant="outline">
-                          {rule.match.type === 'app_version_min' ? '≥' : '≤'} v
-                          {rule.match.app_version_min_inclusive || rule.match.app_version_max_inclusive}
-                        </Badge>
-                        {rule.match.sdks.slice(0, 2).map(sdk => (
-                          <Badge key={sdk} size="xs" variant="dot">
-                            {SDK_OPTIONS.find(s => s.value === sdk)?.label || sdk}
+              {config.rules.map(rule => {
+                const display = getRuleDisplay(rule.name);
+                return (
+                  <Paper key={rule.id} withBorder p="sm">
+                    <Group justify="space-between">
+                      <Box>
+                        <Group gap="xs" mb="xs">
+                          <Text fw={600}>{display.label}</Text>
+                          <Badge size="sm" color="teal" variant="light">
+                            {Math.round(rule.sessionSampleRate * 100)}%
                           </Badge>
-                        ))}
-                        {rule.match.sdks.length > 2 && (
-                          <Badge size="xs" variant="dot" color="gray">
-                            +{rule.match.sdks.length - 2}
+                        </Group>
+                        <Group gap="xs">
+                          <Badge size="xs" variant="outline">
+                            {rule.name} = "{rule.value}"
                           </Badge>
-                        )}
-                      </Group>
-                    </Box>
-                    <Group gap="xs">
-                      <ActionIcon variant="subtle" onClick={() => openEditModal(rule)}>
-                        <IconEdit size={16} />
-                      </ActionIcon>
-                      <ActionIcon variant="subtle" color="red" onClick={() => handleRemoveRule(rule.id || '')}>
-                        <IconTrash size={16} />
-                      </ActionIcon>
+                          {rule.sdks.slice(0, 2).map(sdk => (
+                            <Badge key={sdk} size="xs" variant="dot">
+                              {getSdkLabel(sdk)}
+                            </Badge>
+                          ))}
+                          {rule.sdks.length > 2 && (
+                            <Badge size="xs" variant="dot" color="gray">
+                              +{rule.sdks.length - 2}
+                            </Badge>
+                          )}
+                        </Group>
+                      </Box>
+                      {!disabled && (
+                        <Group gap="xs">
+                          <ActionIcon variant="subtle" onClick={() => openEditModal(rule)}>
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                          <ActionIcon variant="subtle" color="red" onClick={() => handleRemoveRule(rule.id || '')}>
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Group>
+                      )}
                     </Group>
-                  </Group>
-                </Paper>
-              ))}
+                  </Paper>
+                );
+              })}
             </Stack>
           )}
         </Box>
@@ -305,80 +356,97 @@ export function SamplingRulesConfig({ config, onChange }: SamplingRulesConfigPro
         size="md"
         centered
       >
-        <Stack gap="md">
-          <TextInput
-            label="Rule Name"
-            placeholder="e.g., high_value_users, beta_testers"
-            value={ruleName}
-            onChange={(e) => setRuleName(e.currentTarget.value)}
-            required
-          />
-
-          <Select
-            label="Match Type"
-            data={SAMPLING_MATCH_TYPE_OPTIONS.map(o => ({ 
-              value: o.value, 
-              label: o.label,
-              description: o.description,
-            }))}
-            value={matchType}
-            onChange={(v) => setMatchType(v as SamplingMatchType)}
-            required
-          />
-
-          <TextInput
-            label={matchType === 'app_version_min' ? 'Minimum Version (inclusive)' : 'Maximum Version (inclusive)'}
-            placeholder="e.g., 1.0.0, 2.5.1"
-            description="Semantic version format: major.minor.patch"
-            value={matchVersion}
-            onChange={(e) => setMatchVersion(e.currentTarget.value)}
-            required
-          />
-
-          <MultiSelect
-            label="Target SDKs"
-            placeholder="Select SDKs this rule applies to"
-            data={SDK_OPTIONS.map(s => ({ value: s.value, label: s.label }))}
-            value={matchSdks}
-            onChange={(v) => setMatchSdks(v as SdkEnum[])}
-            required
-          />
-
-          <Box>
-            <Group justify="space-between" mb="xs">
-              <Text size="sm" fw={500}>Sample Rate</Text>
-              <Text size="sm" fw={700} style={{ color: '#0ec9c2' }}>
-                {Math.round(sampleRate * 100)}%
-              </Text>
-            </Group>
-            <Slider
-              value={sampleRate}
-              onChange={setSampleRate}
-              min={0}
-              max={1}
-              step={0.05}
-              marks={[
-                { value: 0, label: '0%' },
-                { value: 0.5, label: '50%' },
-                { value: 1, label: '100%' },
-              ]}
-            />
+        {isLoading ? (
+          <Box ta="center" py="xl">
+            <Loader size="sm" />
+            <Text size="sm" c="dimmed" mt="sm">Loading options...</Text>
           </Box>
+        ) : (
+          <Stack gap="md">
+            <Select
+              label="Rule Type"
+              description="The device parameter to match against"
+              placeholder="Select rule type"
+              data={ruleOptions.map(o => ({ 
+                value: o.value, 
+                label: o.label,
+              }))}
+              value={ruleName}
+              onChange={(v) => {
+                setRuleName(v as SamplingRuleName);
+                setRuleValue('');
+              }}
+              required
+            />
 
-          <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={() => { setIsModalOpen(false); resetForm(); }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveRule}
-              disabled={!ruleName.trim() || !matchVersion.trim() || matchSdks.length === 0}
-            >
-              {editingRule ? 'Update Rule' : 'Add Rule'}
-            </Button>
-          </Group>
-        </Stack>
+            <TextInput
+              label="Match Value"
+              description="Enter the value or regex pattern to match"
+              placeholder={getPlaceholder(ruleName)}
+              value={ruleValue}
+              onChange={(e) => setRuleValue(e.currentTarget.value)}
+              required
+            />
+
+            <Box>
+              <Group justify="space-between" mb="xs">
+                <Text size="sm" fw={500}>Target SDKs</Text>
+                <Button 
+                  size="compact-xs" 
+                  variant="subtle" 
+                  onClick={() => setRuleSdks(allSdks)}
+                  disabled={sdkOptions.length === 0}
+                >
+                  Select All
+                </Button>
+              </Group>
+              <MultiSelect
+                description="Which SDK platforms this rule applies to"
+                placeholder="Select SDKs"
+                data={sdkOptions.map(s => ({ value: s.value, label: s.label }))}
+                value={ruleSdks}
+                onChange={(v) => setRuleSdks(v as SdkEnum[])}
+                required
+              />
+            </Box>
+
+            <Box>
+              <Group justify="space-between" mb="xs">
+                <Text size="sm" fw={500}>Sample Rate</Text>
+                <Text size="sm" fw={700} style={{ color: '#0ec9c2' }}>
+                  {Math.round(sampleRate * 100)}%
+                </Text>
+              </Group>
+              <Slider
+                value={sampleRate}
+                onChange={setSampleRate}
+                min={0}
+                max={1}
+                step={0.05}
+                marks={[
+                  { value: 0, label: '0%' },
+                  { value: 0.5, label: '50%' },
+                  { value: 1, label: '100%' },
+                ]}
+              />
+            </Box>
+
+            <Group justify="flex-end" mt="md">
+              <Button variant="subtle" onClick={() => { setIsModalOpen(false); resetForm(); }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveRule}
+                disabled={!ruleName || !ruleValue.trim() || ruleSdks.length === 0}
+              >
+                {editingRule ? 'Update Rule' : 'Add Rule'}
+              </Button>
+            </Group>
+          </Stack>
+        )}
       </Modal>
     </>
   );
 }
 
+export default SamplingRulesConfig;

@@ -1,0 +1,2 @@
+export { AttributesToAddConfig } from './AttributesToAddConfig';
+

@@ -3,6 +3,7 @@
  * 
  * Full editor for creating/viewing SDK configurations
  * Supports view mode (read-only) and edit mode (create new)
+ * Uses real API via useCreateSdkConfig hook
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -35,50 +36,28 @@ import {
   IconEdit,
   IconInfoCircle,
   IconEye,
+  IconCircleCheckFilled,
 } from '@tabler/icons-react';
 import {
   PulseConfig,
-  PipelineStats,
-  ConfigEditorMode,
+  ConfigEditorProps,
 } from './SamplingConfig.interface';
 import {
   DEFAULT_PULSE_CONFIG,
-  calculatePipelineStats,
   UI_CONSTANTS,
+  stripUIFields,
+  addUIIds,
 } from './SamplingConfig.constants';
-import { DataPipeline } from './components/DataPipeline';
 import { FiltersConfig } from './components/FiltersConfig';
 import { SamplingRulesConfig } from './components/SamplingRulesConfig';
 import { CriticalEventsConfig } from './components/CriticalEventsConfig';
 import { FeatureToggles } from './components/FeatureToggles';
 import { InfraConfig } from './components/InfraConfig';
-import { makeRequest } from '../../helpers/makeRequest';
-import { API_BASE_URL, API_METHODS } from '../../constants';
+import { AttributesToDropConfig } from './components/AttributesToDropConfig';
+import { AttributesToAddConfig } from './components/AttributesToAddConfig';
+import { useCreateSdkConfig, useGetActiveSdkConfig } from '../../hooks/useSdkConfig';
 import { showNotification } from '../../helpers/showNotification';
 import classes from './SamplingConfig.module.css';
-
-interface ConfigEditorProps {
-  initialConfig?: PulseConfig;
-  mode: ConfigEditorMode;
-  onSave?: (config: PulseConfig) => void;
-  onCancel?: () => void;
-  onEdit?: () => void;
-  viewingVersion?: number | null;
-}
-
-// Helper to strip UI-only fields for API payload
-const stripUIFields = (config: PulseConfig): PulseConfig => {
-  const cleanConfig = JSON.parse(JSON.stringify(config));
-  
-  // Remove id fields from nested objects (used only for UI tracking)
-  cleanConfig.filtersConfig.blacklist.forEach((f: any) => delete f.id);
-  cleanConfig.filtersConfig.whitelist.forEach((f: any) => delete f.id);
-  cleanConfig.samplingConfig.rules.forEach((r: any) => delete r.id);
-  cleanConfig.samplingConfig.criticalEventPolicies.alwaysSend.forEach((e: any) => delete e.id);
-  cleanConfig.featureConfigs.forEach((f: any) => delete f.id);
-  
-  return cleanConfig;
-};
 
 export function ConfigEditor({ 
   initialConfig, 
@@ -89,117 +68,100 @@ export function ConfigEditor({
   viewingVersion,
 }: ConfigEditorProps) {
   const theme = useMantineTheme();
-  const [config, setConfig] = useState<PulseConfig>(initialConfig || DEFAULT_PULSE_CONFIG);
-  const [originalConfig, setOriginalConfig] = useState<PulseConfig>(initialConfig || DEFAULT_PULSE_CONFIG);
-  const [isLoading, setIsLoading] = useState(!initialConfig);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [description, setDescription] = useState('');
+  
+  // Use hook to get active config if no initial config provided
+  const { data: activeConfigData, isLoading: isLoadingActive } = useGetActiveSdkConfig({
+    enabled: !initialConfig && mode === 'create',
+  });
+  
+  // Check if this is a "no config exists" scenario (first time setup)
+  const isFirstTimeSetup = mode === 'create' && !initialConfig && !isLoadingActive && !activeConfigData?.data;
 
-  const isViewMode = mode === 'view';
-
-  // Check if configuration has unsaved changes
-  const isDirty = useMemo(() => {
-    if (isViewMode) return false;
-    return JSON.stringify(stripUIFields(config)) !== JSON.stringify(stripUIFields(originalConfig));
-  }, [config, originalConfig, isViewMode]);
-
-  // Calculate pipeline stats
-  const pipelineStats = useMemo<PipelineStats>(() => {
-    return calculatePipelineStats(config);
-  }, [config]);
-
-  // Formatted JSON for display (without UI fields)
-  const formattedConfig = useMemo(() => {
-    return JSON.stringify(stripUIFields(config), null, 2);
-  }, [config]);
-
-  // Load configuration if not provided
-  const loadConfig = useCallback(async () => {
-    if (initialConfig) {
-      setConfig(initialConfig);
-      setOriginalConfig(initialConfig);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await makeRequest<PulseConfig>({
-        url: `${API_BASE_URL}/v1/sdk-config`,
-        init: { method: API_METHODS.GET },
-      });
-
-      if (response.data) {
-        setConfig(response.data);
-        setOriginalConfig(response.data);
-      } else {
-        setConfig(DEFAULT_PULSE_CONFIG);
-        setOriginalConfig(DEFAULT_PULSE_CONFIG);
-      }
-    } catch {
-      showNotification(
-        'Error',
-        UI_CONSTANTS.NOTIFICATIONS.LOAD_ERROR,
-        <IconSquareRoundedX />,
-        theme.colors.red[6],
-      );
-      setConfig(DEFAULT_PULSE_CONFIG);
-      setOriginalConfig(DEFAULT_PULSE_CONFIG);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [initialConfig, theme.colors.red]);
-
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
-
-  // Save configuration
-  const handleSave = async () => {
-    if (isViewMode) return;
-
-    setIsSaving(true);
-    try {
-      const configToSave = {
-        ...stripUIFields(config),
-        description: description || undefined,
-      };
-
-      const response = await makeRequest<PulseConfig>({
-        url: `${API_BASE_URL}/v1/sdk-config`,
-        init: {
-          method: API_METHODS.PUT,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(configToSave),
-        },
-      });
-
-      if (response.error) {
-        showNotification(
-          'Error',
-          response.error.message || UI_CONSTANTS.NOTIFICATIONS.SAVE_ERROR,
-          <IconSquareRoundedX />,
-          theme.colors.red[6],
-        );
-      } else {
-        const savedConfig = response.data || { ...configToSave, version: config.version + 1 };
-        onSave?.(savedConfig);
-      }
-    } catch {
+  // Create config mutation
+  const createConfigMutation = useCreateSdkConfig((data, error) => {
+    if (error) {
       showNotification(
         'Error',
         UI_CONSTANTS.NOTIFICATIONS.SAVE_ERROR,
         <IconSquareRoundedX />,
         theme.colors.red[6],
       );
-    } finally {
-      setIsSaving(false);
+    } else if (data) {
+      showNotification(
+        'Success',
+        `Configuration v${data.version} created successfully`,
+        <IconCircleCheckFilled />,
+        theme.colors.teal[6],
+      );
+      // Create a minimal config with the new version for callback
+      const savedConfig: PulseConfig = {
+        ...config,
+        version: data.version,
+      };
+      onSave?.(savedConfig);
     }
-  };
+  });
+
+  const [config, setConfig] = useState<PulseConfig>(initialConfig || DEFAULT_PULSE_CONFIG);
+  const [originalConfig, setOriginalConfig] = useState<PulseConfig>(initialConfig || DEFAULT_PULSE_CONFIG);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [description, setDescription] = useState('');
+
+  const isViewMode = mode === 'view';
+  const isLoading = !initialConfig && isLoadingActive;
+  const isSaving = createConfigMutation.isPending;
+
+  // Initialize config from active config when loaded
+  useEffect(() => {
+    if (!initialConfig && activeConfigData?.data) {
+      const configWithIds = addUIIds(activeConfigData.data);
+      setConfig(configWithIds);
+      setOriginalConfig(configWithIds);
+    }
+  }, [initialConfig, activeConfigData]);
+
+  // Initialize from initialConfig when provided
+  useEffect(() => {
+    if (initialConfig) {
+      setConfig(initialConfig);
+      setOriginalConfig(initialConfig);
+    }
+  }, [initialConfig]);
+
+  // Check if configuration has unsaved changes
+  const isDirty = useMemo(() => {
+    if (isViewMode) return false;
+    try {
+      return JSON.stringify(stripUIFields(config)) !== JSON.stringify(stripUIFields(originalConfig));
+    } catch {
+      return false;
+    }
+  }, [config, originalConfig, isViewMode]);
+
+  // Formatted JSON for display (without UI fields)
+  const formattedConfig = useMemo(() => {
+    try {
+      return JSON.stringify(stripUIFields(config), null, 2);
+    } catch {
+      return '{}';
+    }
+  }, [config]);
+
+  // Save configuration using mutation
+  const handleSave = useCallback(async () => {
+    if (isViewMode) return;
+
+    // Update config with description before saving
+    const configToSave: PulseConfig = {
+      ...config,
+      description: description || config.description || 'SDK Configuration',
+    };
+
+    createConfigMutation.mutate({ config: configToSave });
+  }, [config, description, isViewMode, createConfigMutation]);
 
   // Reset to original
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setConfig(originalConfig);
     setDescription('');
     showNotification(
@@ -208,84 +170,117 @@ export function ConfigEditor({
       <IconRefresh />,
       theme.colors.blue[6],
     );
-  };
+  }, [originalConfig, theme.colors.blue]);
 
   return (
     <Box className={classes.pageContainer}>
       <LoadingOverlay visible={isLoading} />
       
+      {/* First-time setup notice */}
+      {isFirstTimeSetup && (
+        <Alert
+          icon={<IconInfoCircle size={18} />}
+          title="First Time Setup"
+          color="blue"
+          mb="md"
+          variant="light"
+        >
+          No existing configuration found. You're creating the first SDK configuration. 
+          Fill in the settings below and save to activate it.
+        </Alert>
+      )}
+      
       {/* Header */}
       <Box className={classes.header}>
-        <Box className={classes.headerLeft}>
-          <Button
-            variant="subtle"
-            leftSection={<IconArrowLeft size={18} />}
-            onClick={onCancel}
-            mr="md"
-          >
-            Back to List
-          </Button>
-          <Box>
-            <Group gap="sm">
-              <Text className={classes.pageTitle}>
-                {isViewMode ? 'View Configuration' : 'Create New Configuration'}
-              </Text>
-              {viewingVersion && (
-                <Badge size="lg" variant="light" color={isViewMode ? 'blue' : 'teal'}>
-                  {isViewMode ? `Viewing v${viewingVersion}` : `Based on v${viewingVersion}`}
-                </Badge>
-              )}
-              {isViewMode && (
-                <Badge size="sm" variant="light" color="gray" leftSection={<IconEye size={12} />}>
-                  Read-only
-                </Badge>
-              )}
-            </Group>
-            <Text className={classes.pageSubtitle}>
-              {isViewMode 
-                ? 'Viewing configuration details. Click "Create from this" to make changes.'
-                : 'Configure sampling, filters, and features. Save to create a new version.'}
-            </Text>
-          </Box>
-        </Box>
-        <Box className={classes.headerActions}>
-          {isDirty && !isViewMode && (
-            <Badge className={classes.unsavedBadge}>Unsaved changes</Badge>
-          )}
-          <Button
-            variant="subtle"
-            leftSection={<IconCode size={18} />}
-            onClick={() => setShowConfigModal(true)}
-          >
-            {UI_CONSTANTS.ACTIONS.VIEW_JSON}
-          </Button>
-          {isViewMode ? (
+        <Box className={classes.headerTop}>
+          {/* Left section: Back button + Title */}
+          <Box className={classes.headerLeft}>
             <Button
-              leftSection={<IconEdit size={18} />}
-              onClick={onEdit}
+              variant="subtle"
+              leftSection={<IconArrowLeft size={16} />}
+              onClick={onCancel}
+              size="sm"
+              style={{ flexShrink: 0 }}
             >
-              Create from this
+              Back
             </Button>
-          ) : (
-            <>
+            
+            <Box className={classes.headerTitleSection}>
+              <Group gap="xs" wrap="wrap">
+                <Text className={classes.pageTitle}>
+                  {isViewMode ? 'View Configuration' : 'New Configuration'}
+                </Text>
+                {viewingVersion && (
+                  <Badge size="md" variant="light" color={isViewMode ? 'blue' : 'teal'}>
+                    {isViewMode ? `v${viewingVersion}` : `Based on v${viewingVersion}`}
+                  </Badge>
+                )}
+                {isViewMode && (
+                  <Badge size="sm" variant="light" color="gray" leftSection={<IconEye size={10} />}>
+                    Read-only
+                  </Badge>
+                )}
+              </Group>
+              <Text className={classes.pageSubtitle}>
+                {isViewMode ? (
+                  <>Viewing saved configuration. Click <Text span fw={600} c="blue.6">"Edit"</Text> to create a new version.</>
+                ) : (
+                  <>Configure SDK behavior and <Text span fw={600} c="teal.6">save</Text> to create a new version.</>
+                )}
+              </Text>
+            </Box>
+          </Box>
+
+          {/* Right section: Actions */}
+          <Box className={classes.headerActions}>
+            {isDirty && !isViewMode && (
+              <Badge className={classes.unsavedBadge} size="sm">
+                Unsaved
+              </Badge>
+            )}
+            
+            <Group gap="xs" className={classes.headerActionsGroup}>
               <Button
                 variant="subtle"
-                leftSection={<IconRefresh size={18} />}
-                onClick={handleReset}
-                disabled={isSaving || !isDirty}
+                leftSection={<IconCode size={16} />}
+                onClick={() => setShowConfigModal(true)}
+                size="sm"
               >
-                {UI_CONSTANTS.ACTIONS.RESET}
+                JSON
               </Button>
-              <Button
-                leftSection={<IconDeviceFloppy size={18} />}
-                onClick={handleSave}
-                loading={isSaving}
-                disabled={!isDirty}
-              >
-                {isSaving ? UI_CONSTANTS.ACTIONS.SAVING : 'Save as New Version'}
-              </Button>
-            </>
-          )}
+              
+              {isViewMode ? (
+                <Button
+                  leftSection={<IconEdit size={16} />}
+                  onClick={onEdit}
+                  size="sm"
+                >
+                  Edit
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="subtle"
+                    leftSection={<IconRefresh size={16} />}
+                    onClick={handleReset}
+                    disabled={isSaving || !isDirty}
+                    size="sm"
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    onClick={handleSave}
+                    loading={isSaving}
+                    disabled={!isDirty && !description}
+                    size="sm"
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </Button>
+                </>
+              )}
+            </Group>
+          </Box>
         </Box>
       </Box>
 
@@ -315,46 +310,89 @@ export function ConfigEditor({
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
             maxLength={200}
+            required
           />
         </Paper>
       )}
 
-      {/* Pipeline Visualization */}
-      <DataPipeline stats={pipelineStats} isLoading={isLoading} />
-
-      {/* Configuration Sections */}
-      <Box className={classes.configPanel} style={{ pointerEvents: isViewMode ? 'none' : 'auto', opacity: isViewMode ? 0.9 : 1 }}>
-        {/* Filters Configuration */}
-        <FiltersConfig
-          config={config.filtersConfig}
-          onChange={(filtersConfig) => !isViewMode && setConfig({ ...config, filtersConfig })}
-        />
-
-        {/* Sampling Configuration */}
-        <SamplingRulesConfig
-          config={config.samplingConfig}
-          onChange={(samplingConfig) => !isViewMode && setConfig({ ...config, samplingConfig })}
-        />
-
-        {/* Critical Events */}
-        <CriticalEventsConfig
-          config={config.samplingConfig.criticalEventPolicies}
-          onChange={(criticalEventPolicies) => !isViewMode && setConfig({
-            ...config,
-            samplingConfig: { ...config.samplingConfig, criticalEventPolicies },
-          })}
-        />
-
-        {/* Feature Configurations */}
+      {/* Configuration Sections - Organized by functionality */}
+      <Box className={classes.configPanel}>
+        
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECTION 1: FEATURES - What to Collect
+            Start by choosing which SDK features are enabled/disabled
+        ═══════════════════════════════════════════════════════════════════ */}
         <FeatureToggles
-          configs={config.featureConfigs}
-          onChange={(featureConfigs) => !isViewMode && setConfig({ ...config, featureConfigs })}
+          configs={config.features}
+          onChange={(features) => setConfig({ ...config, features })}
+          disabled={isViewMode}
         />
 
-        {/* Infrastructure Settings (Read-only) */}
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECTION 2: SAMPLING - How Much to Collect
+            Control what percentage of sessions/events are sampled
+        ═══════════════════════════════════════════════════════════════════ */}
+        <SamplingRulesConfig
+          config={config.sampling}
+          onChange={(sampling) => setConfig({ ...config, sampling })}
+          disabled={isViewMode}
+        />
+
+        {/* Critical Events - Events that bypass sampling rules */}
+        <CriticalEventsConfig
+          config={config.sampling.criticalEventPolicies}
+          onChange={(criticalEventPolicies) => setConfig({
+            ...config,
+            sampling: { ...config.sampling, criticalEventPolicies },
+          })}
+          disabled={isViewMode}
+        />
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECTION 3: FILTERING - What Events to Block/Allow
+            Blacklist or whitelist specific events
+        ═══════════════════════════════════════════════════════════════════ */}
+        <FiltersConfig
+          config={config.signals.filters}
+          onChange={(filters) => setConfig({ 
+            ...config, 
+            signals: { ...config.signals, filters } 
+          })}
+          disabled={isViewMode}
+        />
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECTION 4: DATA TRANSFORMATION - Modify Event Data
+            Add or remove attributes from events
+        ═══════════════════════════════════════════════════════════════════ */}
+        <AttributesToDropConfig
+          attributes={config.signals.attributesToDrop || []}
+          onChange={(attributesToDrop) => setConfig({
+            ...config,
+            signals: { ...config.signals, attributesToDrop }
+          })}
+          disabled={isViewMode}
+        />
+
+        <AttributesToAddConfig
+          attributes={config.signals.attributesToAdd || []}
+          onChange={(attributesToAdd) => setConfig({
+            ...config,
+            signals: { ...config.signals, attributesToAdd }
+          })}
+          disabled={isViewMode}
+        />
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            SECTION 5: INFRASTRUCTURE - Where to Send Data
+            Collector URLs and connection settings
+        ═══════════════════════════════════════════════════════════════════ */}
         <InfraConfig
           signals={config.signals}
           interaction={config.interaction}
+          onSignalsChange={(signals) => setConfig({ ...config, signals })}
+          onInteractionChange={(interaction) => setConfig({ ...config, interaction })}
+          disabled={isViewMode}
         />
       </Box>
 
@@ -366,7 +404,9 @@ export function ConfigEditor({
           <Group gap="sm">
             <IconCode size={20} />
             <Text fw={600}>Configuration JSON</Text>
-            <Badge size="sm" variant="light" color="gray">v{config.version}</Badge>
+            {config.version && (
+              <Badge size="sm" variant="light" color="gray">v{config.version}</Badge>
+            )}
             {isDirty && <Badge color="yellow" size="sm">Unsaved</Badge>}
           </Group>
         }
@@ -418,6 +458,7 @@ export function ConfigEditor({
                 handleSave();
                 setShowConfigModal(false);
               }}
+              loading={isSaving}
             >
               Save as New Version
             </Button>
@@ -427,4 +468,3 @@ export function ConfigEditor({
     </Box>
   );
 }
-

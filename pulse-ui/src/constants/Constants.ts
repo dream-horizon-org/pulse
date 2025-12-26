@@ -593,6 +593,37 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels`,
     method: API_METHODS.GET,
   },
+  // SDK Configuration API Routes
+  GET_ALL_SDK_CONFIGS: {
+    key: "GET_ALL_SDK_CONFIGS",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_CONFIG_BY_VERSION: {
+    key: "GET_SDK_CONFIG_BY_VERSION",
+    apiPath: `/v1/configs/{version}`,
+    method: API_METHODS.GET,
+  },
+  GET_ACTIVE_SDK_CONFIG: {
+    key: "GET_ACTIVE_SDK_CONFIG",
+    apiPath: `/v1/configs/active`,
+    method: API_METHODS.GET,
+  },
+  CREATE_SDK_CONFIG: {
+    key: "CREATE_SDK_CONFIG",
+    apiPath: `/v1/configs`,
+    method: API_METHODS.POST,
+  },
+  GET_SDK_RULES_AND_FEATURES: {
+    key: "GET_SDK_RULES_AND_FEATURES",
+    apiPath: `/v1/configs/rules-features`,
+    method: API_METHODS.GET,
+  },
+  GET_SDK_SCOPES_AND_SDKS: {
+    key: "GET_SDK_SCOPES_AND_SDKS",
+    apiPath: `/v1/configs/scopes-sdks`,
+    method: API_METHODS.GET,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {

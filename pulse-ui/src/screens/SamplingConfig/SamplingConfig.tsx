@@ -11,10 +11,11 @@ import { useState, useCallback } from 'react';
 import { ConfigVersionList } from './components/ConfigVersionList';
 import { ConfigEditor } from './ConfigEditor';
 import { PulseConfig, ConfigEditorMode } from './SamplingConfig.interface';
+import { addUIIds } from './SamplingConfig.constants';
 import { makeRequest } from '../../helpers/makeRequest';
-import { API_BASE_URL, API_METHODS } from '../../constants';
+import { API_BASE_URL, API_ROUTES } from '../../constants';
 import { showNotification } from '../../helpers/showNotification';
-import { IconCircleCheckFilled, IconSquareRoundedX } from '@tabler/icons-react';
+import { IconSquareRoundedX } from '@tabler/icons-react';
 import { useMantineTheme } from '@mantine/core';
 
 type ViewState = 'list' | 'view' | 'edit';
@@ -26,26 +27,22 @@ export function SamplingConfig() {
   const [initialConfig, setInitialConfig] = useState<PulseConfig | undefined>(undefined);
   const [editorMode, setEditorMode] = useState<ConfigEditorMode>('create');
 
-  // Load a specific version's configuration
+  // Load a specific version's configuration using correct API endpoint
   const loadVersionConfig = useCallback(async (version: number): Promise<PulseConfig | null> => {
     try {
+      const apiPath = API_ROUTES.GET_SDK_CONFIG_BY_VERSION.apiPath.replace('{version}', String(version));
       const response = await makeRequest<PulseConfig>({
-        url: `${API_BASE_URL}/v1/sdk-config/versions/${version}`,
-        init: { method: API_METHODS.GET },
+        url: `${API_BASE_URL}${apiPath}`,
+        init: { method: API_ROUTES.GET_SDK_CONFIG_BY_VERSION.method },
       });
 
       if (response.data) {
-        return response.data;
+        // Add UI tracking IDs to config items
+        return addUIIds(response.data);
       }
       
-      // If API doesn't work, try getting current config
-      const currentResponse = await makeRequest<PulseConfig>({
-        url: `${API_BASE_URL}/v1/sdk-config`,
-        init: { method: API_METHODS.GET },
-      });
-      
-      return currentResponse.data || null;
-    } catch (err) {
+      return null;
+    } catch {
       showNotification(
         'Error',
         'Failed to load configuration',
@@ -79,23 +76,17 @@ export function SamplingConfig() {
     } else {
       setInitialConfig(undefined);
     }
-    setSelectedVersion(null);
+    setSelectedVersion(baseVersion ?? null);
     setEditorMode('create');
     setViewState('edit');
   }, [loadVersionConfig]);
 
-  // Handle save from editor
-  const handleSave = useCallback((savedConfig: PulseConfig) => {
-    showNotification(
-      'Success',
-      `Configuration v${savedConfig.version} saved successfully`,
-      <IconCircleCheckFilled />,
-      theme.colors.teal[6],
-    );
+  // Handle save from editor (notification is shown in ConfigEditor)
+  const handleSave = useCallback(() => {
     setViewState('list');
     setInitialConfig(undefined);
     setSelectedVersion(null);
-  }, [theme.colors.teal]);
+  }, []);
 
   // Handle cancel from editor
   const handleCancel = useCallback(() => {

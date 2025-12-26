@@ -1,9 +1,9 @@
 /**
  * Configuration Version List Component
  * Displays all configuration versions with beautiful table styling matching crash list
+ * Uses real API via useGetAllSdkConfigs hook
  */
 
-import { useState, useEffect } from 'react';
 import {
   Box,
   Text,
@@ -22,88 +22,22 @@ import {
   IconCheck,
   IconHistory,
   IconRocket,
+  IconRefresh,
 } from '@tabler/icons-react';
-import { ConfigVersion } from '../../SamplingConfig.interface';
-import { makeRequest } from '../../../../helpers/makeRequest';
-import { API_BASE_URL, API_METHODS } from '../../../../constants';
+import { ConfigVersionListProps, ConfigVersion } from '../../SamplingConfig.interface';
+import { useGetAllSdkConfigs } from '../../../../hooks/useSdkConfig';
 import classes from './ConfigVersionList.module.css';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
 
-interface ConfigVersionListProps {
-  onViewVersion: (version: number) => void;
-  onCreateNew: (baseVersion?: number) => void;
-}
-
 export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionListProps) {
-  const [versions, setVersions] = useState<ConfigVersion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
+  const { data, isLoading, isError, refetch } = useGetAllSdkConfigs();
 
-  const loadVersions = async () => {
-    setIsLoading(true);
-    setIsError(false);
-    try {
-      const response = await makeRequest<{ versions: ConfigVersion[] }>({
-        url: `${API_BASE_URL}/v1/sdk-config/versions`,
-        init: { method: API_METHODS.GET },
-      });
-
-      if (response.data?.versions) {
-        setVersions(response.data.versions);
-      } else {
-        // Mock data for development
-        setVersions([
-          {
-            version: 5,
-            createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-            createdBy: 'john.doe@example.com',
-            description: 'Increased crash reporting sample rate',
-            isActive: true,
-          },
-          {
-            version: 4,
-            createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            createdBy: 'jane.smith@example.com',
-            description: 'Added payment_error to critical events',
-            isActive: false,
-          },
-          {
-            version: 3,
-            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            createdBy: 'john.doe@example.com',
-            description: 'Reduced default sample rate to 50%',
-            isActive: false,
-          },
-          {
-            version: 2,
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            createdBy: 'admin@example.com',
-            description: 'Added blacklist filters for sensitive data',
-            isActive: false,
-          },
-          {
-            version: 1,
-            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            createdBy: 'admin@example.com',
-            description: 'Initial configuration',
-            isActive: false,
-          },
-        ]);
-      }
-    } catch {
-      setIsError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadVersions();
-  }, []);
-
+  // Transform API response to component format
+  const versions: ConfigVersion[] = data?.data?.configDetails ?? [];
+  
   const formatDate = (dateString: string) => {
     if (!dateString || !dayjs(dateString).isValid()) return '-';
     return dayjs(dateString).format('MMM D, YYYY HH:mm');
@@ -114,7 +48,8 @@ export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionL
     return dayjs(dateString).fromNow();
   };
 
-  const activeVersion = versions.find(v => v.isActive);
+  // Find active version (isactive is lowercase from backend)
+  const activeVersion = versions.find(v => v.isactive);
 
   // Loading state
   if (isLoading) {
@@ -145,8 +80,18 @@ export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionL
     return (
       <Box className={classes.pageContainer}>
         <Box className={classes.pageHeader}>
-          <Box className={classes.titleSection}>
-            <Text className={classes.pageTitle}>SDK Configuration</Text>
+          <Box className={classes.headerGroup}>
+            <Box className={classes.titleSection}>
+              <Text className={classes.pageTitle}>SDK Configuration</Text>
+            </Box>
+            <Button
+              leftSection={<IconRefresh size={16} />}
+              onClick={() => refetch()}
+              variant="light"
+              color="teal"
+            >
+              Retry
+            </Button>
           </Box>
         </Box>
         <Box className={classes.issueListTable}>
@@ -210,14 +155,25 @@ export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionL
           <Box className={classes.titleSection}>
             <Text className={classes.pageTitle}>SDK Configuration</Text>
           </Box>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => onCreateNew(activeVersion?.version)}
-            variant="filled"
-            color="teal"
-          >
-            Create New Version
-          </Button>
+          <Group gap="sm">
+            <Tooltip label="Refresh list" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={() => refetch()}
+              >
+                <IconRefresh size={18} />
+              </ActionIcon>
+            </Tooltip>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={() => onCreateNew(activeVersion?.version)}
+              variant="filled"
+              color="teal"
+            >
+              Create New Version
+            </Button>
+          </Group>
         </Box>
       </Box>
 
@@ -303,7 +259,7 @@ export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionL
                       <span className={classes.versionBadge}>
                         v{version.version}
                       </span>
-                      {version.isActive && (
+                      {version.isactive && (
                         <Badge size="xs" color="green" variant="filled">
                           Active
                         </Badge>
@@ -350,7 +306,7 @@ export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionL
                           <IconCopy size={18} />
                         </ActionIcon>
                       </Tooltip>
-                      {version.isActive && (
+                      {version.isactive && (
                         <Tooltip label="Currently active" withArrow>
                           <ActionIcon variant="subtle" color="green">
                             <IconCheck size={18} />
