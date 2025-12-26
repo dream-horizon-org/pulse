@@ -34,7 +34,7 @@ internal class InteractionAttributesSpanAppender(
 
     override fun onEnd(span: ReadableSpan) {
         val pulseType = span.attributes[PulseAttributes.PULSE_TYPE]
-        if (pulseType != null && pulseType in listOfSpanPulseTypeToAddInInteraction) {
+        if (pulseType != null && shouldAddToEvent(pulseType)) {
             interactionManager.addEvent(
                 eventName = pulseType,
                 params =
@@ -69,12 +69,12 @@ internal class InteractionAttributesSpanAppender(
             }
         }
 
-        private val listOfSpanPulseTypeToAddInInteraction =
-            listOf(
-                PulseAttributes.PulseTypeValues.NETWORK,
-                PulseAttributes.PulseTypeValues.SCREEN_LOAD,
-                PulseAttributes.PulseTypeValues.APP_START,
-                PulseAttributes.PulseTypeValues.SCREEN_SESSION,
-            )
+        private fun shouldAddToEvent(pulseType: String) =
+            pulseType in
+                listOf(
+                    PulseAttributes.PulseTypeValues.SCREEN_LOAD,
+                    PulseAttributes.PulseTypeValues.APP_START,
+                    PulseAttributes.PulseTypeValues.SCREEN_SESSION,
+                ) || PulseAttributes.PulseTypeValues.isNetworkType(pulseType)
     }
 }

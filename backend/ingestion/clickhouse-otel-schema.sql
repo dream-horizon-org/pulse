@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
 (
     `Timestamp` DateTime64(9, 'UTC') CODEC(Delta(8), ZSTD(1)),
     `TraceId` String CODEC(ZSTD(1)),
-    `SpanId` FixedString(16) CODEC(ZSTD(1)), 
+    `SpanId` FixedString(16) CODEC(ZSTD(1)),
     `ParentSpanId` FixedString(16) CODEC(ZSTD(1)),
     `TraceState` String CODEC(ZSTD(1)),
     `SpanName` LowCardinality(String) CODEC(ZSTD(1)),
@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `Links.SpanId` Array(String) CODEC(ZSTD(1)),
     `Links.TraceState` Array(String) CODEC(ZSTD(1)),
     `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
-    `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
+    `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''), // TODO: deprecate this column once PulseType is being used.
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
     `SessionId` String MATERIALIZED ifNull(SpanAttributes['session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
@@ -38,7 +39,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (ServiceName, SpanType, SpanName, Timestamp)
+ORDER BY (ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_logs
@@ -68,12 +69,13 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
-    `EventName` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], ''), // TBD
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
+    `EventName` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], ''), // TODO: Change this normal column once PulseType is being used.
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
-ORDER BY (ServiceName, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
+ORDER BY (ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
@@ -149,7 +151,12 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     -- Grouping keys
     `GroupId`               String,
     `Signature`             String,
-    `Fingerprint`           String
+    `Fingerprint`           String,
+
+    `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)

@@ -895,7 +895,7 @@ class InteractionServiceImplTest {
                                         .thenReturn(Single.error(new RuntimeException("Database error")));
 
                         TestObserver<List<InteractionDetails>> actual = interactionService
-                                        .getAllActiveAndRunningInteractions().test();
+                                        .getInteractionConfig().test();
 
                         actual.assertError(RuntimeException.class);
                         Mockito.verify(interactionDao, Mockito.times(1)).getAllActiveAndRunningInteractions();
@@ -944,7 +944,7 @@ class InteractionServiceImplTest {
                                         .thenReturn(Single.just(expectedInteractions));
 
                         TestObserver<List<InteractionDetails>> actual = interactionService
-                                        .getAllActiveAndRunningInteractions().test();
+                                        .getInteractionConfig().test();
 
                         actual.assertNoErrors()
                                         .assertValue(interactions -> {

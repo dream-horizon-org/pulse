@@ -3,7 +3,6 @@ package com.pulse.android.remote
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
 import com.pulse.android.remote.models.InteractionEvent
-import com.pulse.android.remote.models.InteractionStatus
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 

@@ -11,7 +11,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class AllInteractionDetail {
+public class InteractionConfig {
   private Long id;
 
   private String name;
