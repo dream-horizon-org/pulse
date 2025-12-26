@@ -58,9 +58,12 @@ public class MainVerticle extends AbstractVerticle {
                         new HttpServerOptions().setPort(8080)),
                 new DeploymentOptions().setInstances(getNumOfCores()))
         ).ignoreElement()
-        .andThen(vertx.rxDeployVerticle(AnrCrashLogConsumerVerticle::new,
-                new DeploymentOptions().setInstances(getNumOfCores())))
-            .ignoreElement();
+//        .andThen(vertx.rxDeployVerticle(AnrCrashLogConsumerVerticle::new,
+//                new DeploymentOptions().setInstances(getNumOfCores())))
+//            .ignoreElement()
+        .andThen(vertx.rxDeployVerticle(JsonLogConsumerVerticle::new,
+            new DeploymentOptions().setInstances(1)))
+        .ignoreElement();
   }
 
   private Integer getNumOfCores() {

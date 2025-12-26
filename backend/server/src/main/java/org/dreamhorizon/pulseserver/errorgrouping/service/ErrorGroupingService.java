@@ -18,6 +18,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,6 +40,7 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
 import org.dreamhorizon.pulseserver.errorgrouping.utils.ErrorGroupingUtils;
+import org.dreamhorizon.pulseserver.model.VectorLogRecord;
 
 
 @Slf4j
@@ -240,6 +242,71 @@ public class ErrorGroupingService {
         .flatMap(clickhouseQueryService::insertStackTraces);
   }
 
+  public Single<Long> ingest(List<VectorLogRecord> logRecords) {
+    return process(logRecords)
+        .flatMap(clickhouseQueryService::insertStackTraces);
+  }
+
+  public Single<List<StackTraceEvent>> process(List<VectorLogRecord> logRecords) {
+
+    List<Single<StackTraceEvent>> events = new ArrayList<>();
+    for (VectorLogRecord logRecord : logRecords) {
+      Map<String, String> resourceAttrMap = objectMapToStringMap(logRecord.getResources());
+      String appVersion = getResourceAttribute(resourceAttrMap, "app.build_name").orElse(null);
+      String appVersionCode = getResourceAttribute(resourceAttrMap, "app.build_id").orElse(null);
+      String platform = getResourceAttribute(resourceAttrMap, "os.name").orElse(null);
+      Map<String, String> logAttrMap = objectMapToStringMap(logRecord.getAttributes());
+      String stackTrace = getResourceAttribute(logAttrMap, "exception.stacktrace").orElse(null);
+
+      EventMeta eventMeta = EventMeta.builder()
+          .appVersion(appVersion)
+          .appVersionCode(appVersionCode)
+          .platform(platform)
+          .build();
+
+      events.add(processWithCompleteSymbolication(stackTrace, eventMeta)
+          .map(result -> {
+            String symbolicatedStackTrace = result.completeSymbolication().reconstructStackTrace();
+
+            String timestampStr = logRecord.getObservedTimestamp() != null
+                ? logRecord.getObservedTimestamp()
+                : logRecord.getTimestamp();
+            String formattedTimestamp = parseIsoTimestampToFormatTs9(timestampStr);
+
+            return StackTraceEvent.builder()
+                .timestamp(formattedTimestamp)
+                .eventName(null)
+                .exceptionStackTraceRaw(stackTrace)  // Raw original stack trace
+                .exceptionStackTrace(symbolicatedStackTrace)  // Complete symbolicated stack trace
+                .exceptionMessage(getResourceAttribute(logAttrMap, "exception.message").orElse(null))
+                .exceptionType(getResourceAttribute(logAttrMap, "exception.type").orElse(null))
+                .screenName(getResourceAttribute(logAttrMap, "screen.name").orElse(null))
+                .userId(getResourceAttribute(logAttrMap, "user.id").orElse(null))
+                .sessionId(getResourceAttribute(logAttrMap, "session.id").orElse(null))
+                .osVersion(getResourceAttribute(resourceAttrMap, "os.version").orElse(null))
+                .platform(platform)
+                .appVersionCode(appVersionCode)
+                .appVersion(appVersion)
+                .sdkVersion(getResourceAttribute(resourceAttrMap, "rum.sdk.version").orElse(null))
+                .deviceModel(getResourceAttribute(resourceAttrMap, "device.model.name").orElse(null))
+                .spanId(logRecord.getSpanId())
+                .traceId(logRecord.getTraceId())
+                .groupId(result.group().getGroupId())
+                .title(result.group().getDisplayName())
+                .signature(result.group().getSignature())
+                .fingerprint(result.group().getFingerprint())
+                .interactions(getInteractionNames(logAttrMap))
+                .scopeAttributes(objectMapToStringMap(logRecord.getScope()))
+                .logAttributes(logAttrMap)
+                .resourceAttributes(resourceAttrMap)
+                .build();
+          }));
+    }
+    return Observable.fromIterable(events)
+        .flatMapMaybe(s -> s.toMaybe().onErrorComplete())
+        .toList();
+  }
+
   public Single<List<StackTraceEvent>> process(ExportLogsServiceRequest exportLogsServiceRequest) {
     List<Single<StackTraceEvent>> events = new ArrayList<>();
     for (ResourceLogs rl : exportLogsServiceRequest.getResourceLogsList()) {
@@ -330,6 +397,34 @@ public class ErrorGroupingService {
       map.put(kv.getKey(), kv.getValue().getStringValue());
     }
     return map;
+  }
+
+  private Map<String, String> objectMapToStringMap(Map<String, Object> objectMap) {
+    if (objectMap == null) {
+      return new HashMap<>();
+    }
+    Map<String, String> stringMap = new HashMap<>();
+    for (Map.Entry<String, Object> entry : objectMap.entrySet()) {
+      Object value = entry.getValue();
+      if (value != null) {
+        stringMap.put(entry.getKey(), value.toString());
+      }
+    }
+    return stringMap;
+  }
+
+  private String parseIsoTimestampToFormatTs9(String isoTimestamp) {
+    if (isoTimestamp == null || isoTimestamp.isEmpty()) {
+      return formatTs9(System.currentTimeMillis() * 1_000_000L);
+    }
+    try {
+      Instant instant = Instant.parse(isoTimestamp);
+      long epochNanos = instant.getEpochSecond() * 1_000_000_000L + instant.getNano();
+      return formatTs9(epochNanos);
+    } catch (DateTimeParseException e) {
+      log.warn("Failed to parse timestamp: {}, using current time", isoTimestamp, e);
+      return formatTs9(System.currentTimeMillis() * 1_000_000L);
+    }
   }
 
   private Single<List<String>> symbolicate(Lane lane, List<Frame> frames, EventMeta eventMeta) {
