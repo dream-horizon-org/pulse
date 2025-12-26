@@ -62,13 +62,13 @@ export function TimeSpentGraph({
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Time Spent</Text>
           <Text className={classes.metricValue} style={{ color: "#0ec9c2" }}>
-            {avgTimeSpent}ms
+            {avgTimeSpent.toFixed(1)}s
           </Text>
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Load Time</Text>
           <Text className={classes.metricValue} style={{ color: "#0ba09a" }}>
-            {avgLoadTime}ms
+            {avgLoadTime >= 1 ? `${avgLoadTime.toFixed(1)}s` : `${(avgLoadTime * 1000).toFixed(0)}ms`}
           </Text>
         </div>
       </div>

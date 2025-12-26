@@ -24,7 +24,7 @@ public interface InteractionService {
 
   Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest);
 
-  Single<List<InteractionDetails>> getAllActiveAndRunningInteractions();
+  Single<List<InteractionDetails>> getInteractionConfig();
 
   Single<InteractionFilterOptionsResponse> getInteractionFilterOptions();
 

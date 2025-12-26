@@ -53,9 +53,9 @@ export const mockJobResponses = {
         },
       ],
       createdAt: 1705312800000,
-      createdBy: "mock@dream11.com",
+      createdBy: "mock@example.com",
       updatedAt: "1705312800000",
-      updatedBy: "mock@dream11.com",
+      updatedBy: "mock@example.com",
     },
     status: 200,
   }),
@@ -67,7 +67,7 @@ export const mockJobResponses = {
       id: Date.now(),
       status: "STOPPED",
       createdAt: Date.now(),
-      createdBy: "mock@dream11.com",
+      createdBy: "mock@example.com",
     },
     status: 201,
   },
@@ -82,6 +82,7 @@ export const mockJobResponses = {
     status: 200,
   },
 
+  // Matches backend: TelemetryFilterOptionsResponse.java
   getDashboardFilters: {
     data: {
       appVersionCodes: [
@@ -92,6 +93,20 @@ export const mockJobResponses = {
         "2.1.0",
         "2.2.0",
       ],
+      deviceModels: [
+        "Samsung Galaxy S21",
+        "Samsung Galaxy S23",
+        "Samsung Galaxy A53",
+        "iPhone 13 Pro",
+        "iPhone 14",
+        "iPhone 15 Pro",
+        "Redmi Note 11",
+        "Redmi Note 12",
+        "OnePlus Nord 2",
+        "OnePlus 11",
+        "Pixel 7",
+        "Pixel 8 Pro",
+      ],
       networkProviders: [
         "Jio",
         "Airtel",
@@ -100,6 +115,7 @@ export const mockJobResponses = {
         "Idea",
         "Reliance",
       ],
+      platforms: ["Android", "iOS", "Web"],
       osVersions: [
         "Android 12",
         "Android 13",
@@ -108,7 +124,6 @@ export const mockJobResponses = {
         "iOS 16",
         "iOS 17",
       ],
-      platforms: ["Android", "iOS", "Web"],
       states: [
         "Maharashtra",
         "Delhi",

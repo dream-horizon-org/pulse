@@ -30,8 +30,8 @@ class ViewClickEventGenerator(
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
-        val currentCallback = window.callback
-        window.callback = WindowCallbackWrapper(currentCallback, this)
+        val currentCallback: Window.Callback? = window.callback
+        window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
     }
 
     fun generateClick(motionEvent: MotionEvent) {
@@ -76,7 +76,7 @@ class ViewClickEventGenerator(
     private fun viewToName(view: View): String =
         try {
             view.resources?.getResourceEntryName(view.id) ?: view.id.toString()
-        } catch (ignored: Throwable) {
+        } catch (_: Throwable) {
             view.id.toString()
         }
 

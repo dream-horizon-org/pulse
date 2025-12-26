@@ -11,6 +11,10 @@
     0 8px 20px rgba(14, 201, 194, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transform-style: preserve-3d;
+  width: 100%;
+  min-width: 520px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .interactionCard::before {
@@ -99,6 +103,10 @@
   border-radius: 14px;
   margin-bottom: 12px;
   border: 1px solid rgba(14, 201, 194, 0.08);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .metricCard {
@@ -163,4 +171,56 @@
     transparent 50%,
     rgba(255, 255, 255, 0.2)
   );
+}
+
+@media (max-width: 600px) {
+  .interactionCard {
+    padding: 12px;
+  }
+  
+  .interactionName {
+    font-size: 14px !important;
+  }
+  
+  .interactionDescription {
+    font-size: 10px !important;
+  }
+  
+  .metricsGrid {
+    gap: 4px;
+    padding: 8px;
+  }
+  
+  .metricLabel {
+    font-size: 10px !important;
+  }
+  
+  .metricValue {
+    font-size: 12px !important;
+  }
+  
+  .healthBadge {
+    font-size: 9px !important;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .interactionCard {
+    padding: 10px;
+  }
+  
+  .interactionHeader {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+  }
+  
+  .metricsGrid {
+    gap: 2px;
+    padding: 6px;
+  }
+  
+  .metricCard {
+    gap: 2px;
+  }
 }

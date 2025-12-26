@@ -30,8 +30,8 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return true
   }
 
-  override fun startSpan(name: String, attributes: ReadableMap?): String {
-    return PulseReactNativeOtelTracer.startSpan(name, attributes)
+  override fun startSpan(name: String, inheritContext: Boolean, attributes: ReadableMap?): String {
+    return PulseReactNativeOtelTracer.startSpan(name, inheritContext, attributes)
   }
 
   override fun endSpan(spanId: String, statusCode: String?): Boolean {
@@ -54,6 +54,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return  true
   }
 
+  override fun discardSpan(spanId: String): Boolean {
+    PulseReactNativeOtelTracer.discardSpan(spanId)
+    return true
+  }
+
   override fun setUserId(id: String?) {
     PulseSDK.INSTANCE.setUserId(id)
   }
@@ -66,7 +71,7 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     properties?.let { props ->
       PulseSDK.INSTANCE.setUserProperties {
         props.entryIterator.forEach { (key, value) ->
-          value?.let { put(key, it) }
+          put(key, value)
         }
       }
     }

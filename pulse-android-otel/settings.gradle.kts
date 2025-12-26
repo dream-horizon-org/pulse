@@ -25,6 +25,7 @@ include(":opentelemetry-android-bom")
 include(":pulse-android-sdk")
 include(":pulse-semconv")
 include(":pulse-utils")
+includeBuild("pulse-upload-plugin")
 includeFromDir("instrumentation") {
     if (it.contains(":instrumentation:interaction:")) {
         val nameWithInteraction = it.split(":").takeLast(2).joinToString("-")

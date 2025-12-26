@@ -16,27 +16,6 @@ public final class com/pulse/android/remote/InteractionRetrofitClient {
 	public final fun newInstance (Ljava/lang/String;)Lcom/pulse/android/remote/InteractionRetrofitClient;
 }
 
-public final class com/pulse/android/remote/models/ApiResponse {
-	public static final field Companion Lcom/pulse/android/remote/models/ApiResponse$Companion;
-	public final fun getData ()Ljava/lang/Object;
-	public final fun getError ()Ljava/lang/String;
-}
-
-public final class com/pulse/android/remote/models/ApiResponse$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
-	public synthetic fun <init> (Lkotlinx/serialization/KSerializer;)V
-	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
-	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/android/remote/models/ApiResponse;
-	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
-	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
-	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/android/remote/models/ApiResponse;)V
-	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
-	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
-}
-
-public final class com/pulse/android/remote/models/ApiResponse$Companion {
-	public final fun serializer (Lkotlinx/serialization/KSerializer;)Lkotlinx/serialization/KSerializer;
-}
-
 public final class com/pulse/android/remote/models/InteractionAttrsEntry {
 	public static final field Companion Lcom/pulse/android/remote/models/InteractionAttrsEntry$Companion;
 	public final fun getName ()Ljava/lang/String;

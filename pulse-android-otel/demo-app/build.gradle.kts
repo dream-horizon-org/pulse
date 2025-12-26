@@ -6,6 +6,7 @@ plugins {
     alias(rootLibs.plugins.androidApp)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.compose.compiler)
+    id("pulse.plugin")
 }
 
 val localProperties = Properties()
@@ -111,6 +112,16 @@ configurations.all {
                 because("choosing okhttp over okhttp-jvm")
             }
         }
+    }
+}
+
+// Configure Pulse plugin extension
+pulse {
+    sourcemaps {
+        apiUrl.set("http://localhost:8080/v1/symbolicate/file/upload")
+        mappingFile.set(file("/tmp/test-upload/mapping.txt"))
+        appVersion.set("0.0.1")
+        versionCode.set(123)
     }
 }
 

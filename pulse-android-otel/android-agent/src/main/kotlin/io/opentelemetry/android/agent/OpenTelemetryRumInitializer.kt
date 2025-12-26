@@ -16,9 +16,11 @@ import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.agent.session.SessionIdTimeoutHandler
 import io.opentelemetry.android.agent.session.SessionManager
 import io.opentelemetry.android.config.OtelRumConfig
+import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.features.diskbuffering.DiskBufferingConfig
 import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.android.session.SessionProvider
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
@@ -27,6 +29,7 @@ import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import java.util.function.BiFunction
+import java.util.function.Predicate
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
@@ -89,11 +92,18 @@ object OpenTelemetryRumInitializer {
             .builder(application, rumConfig)
             .apply {
                 setSessionProvider(createSessionProvider(application, sessionConfig))
-                addSpanExporterCustomizer {
-                    OtlpHttpSpanExporter
-                        .builder()
-                        .setEndpoint(spanEndpointConnectivity.getUrl())
-                        .setHeaders(spanEndpointConnectivity::getHeaders)
+                addSpanExporterCustomizer { delegate ->
+                    val otlpExporter =
+                        OtlpHttpSpanExporter
+                            .builder()
+                            .setEndpoint(spanEndpointConnectivity.getUrl())
+                            .setHeaders(spanEndpointConnectivity::getHeaders)
+                            .build()
+                    val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
+                    attrRejects[AttributeKey.booleanKey("pulse.internal")] = Predicate<Boolean> { it == true }
+                    FilteringSpanExporter
+                        .builder(otlpExporter)
+                        .rejectSpansWithAttributesMatching(attrRejects)
                         .build()
                 }
                 addLogRecordExporterCustomizer {

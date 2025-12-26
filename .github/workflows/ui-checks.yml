@@ -1,0 +1,102 @@
+name: UI - Lint, Build & Type Check
+
+on:
+  pull_request:
+    paths:
+      - 'pulse-ui/**'
+      - '.github/workflows/ui-checks.yml'
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  check-label:
+    name: "Check UI Label"
+    runs-on: ubuntu-latest
+    outputs:
+      has-ui-label: ${{ steps.check.outputs.has-label }}
+    steps:
+      - name: Check for 'ui' label
+        id: check
+        run: |
+          LABELS="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          if echo "$LABELS" | grep -q "ui"; then
+            echo "has-label=true" >> $GITHUB_OUTPUT
+            echo "✅ PR has 'ui' label - proceeding with checks"
+          else
+            echo "has-label=false" >> $GITHUB_OUTPUT
+            echo "⏭️ PR does not have 'ui' label - skipping checks"
+          fi
+
+  ui-checks:
+    name: "UI Checks (Lint, Build, Type Check)"
+    needs: check-label
+    runs-on: ubuntu-latest
+    if: needs.check-label.outputs.has-ui-label == 'true'
+    defaults:
+      run:
+        working-directory: pulse-ui
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: pulse-ui/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run TypeScript type check
+        run: |
+          echo "🔍 Running TypeScript type check..."
+          npx tsc --noEmit --project tsconfig.json
+          echo "✅ TypeScript type check passed"
+
+      - name: Run ESLint and Build
+        run: |
+          echo "🔍 Running ESLint and production build..."
+          echo "Note: Build process includes ESLint checks"
+          yarn build
+          echo "✅ Build completed successfully (includes ESLint checks)"
+        env:
+          # Minimal env vars for build
+          NODE_ENV: 'production'
+          GENERATE_SOURCEMAP: 'false'
+          # CI mode makes build fail on ESLint warnings/errors
+          CI: 'true'
+
+  required-status-check:
+    name: "Required Status Check"
+    needs:
+      - check-label
+      - ui-checks
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check if UI label exists
+        if: needs.check-label.outputs.has-ui-label != 'true'
+        run: |
+          echo "⏭️ Skipping status check - PR does not have 'ui' label"
+          exit 0
+      
+      - name: Fail if checks failed
+        if: |
+          needs.check-label.outputs.has-ui-label == 'true' &&
+          needs.ui-checks.result != 'success'
+        run: |
+          echo "❌ UI checks failed"
+          exit 1
+      
+      - name: Success
+        if: |
+          needs.check-label.outputs.has-ui-label == 'true' &&
+          needs.ui-checks.result == 'success'
+        run: |
+          echo "✅ All UI checks passed"
+

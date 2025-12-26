@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertNotificationChannelResponseDto;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertNotificationChannelResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;

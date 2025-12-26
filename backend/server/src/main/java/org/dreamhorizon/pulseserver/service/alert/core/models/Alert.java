@@ -16,6 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertConditionDto;
 
 @Getter
@@ -38,8 +39,7 @@ public class Alert {
   @NotNull
   String scope;
 
-  @NotNull
-  List<String> dimensionFilter;
+  String dimensionFilter;
 
   @NotNull
   List<AlertConditionDto> alerts;
@@ -89,4 +89,6 @@ public class Alert {
   LocalDateTime snoozedUntil;
 
   Boolean isSnoozed;
+
+  AlertState status;
 }

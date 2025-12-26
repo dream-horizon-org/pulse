@@ -1,0 +1,49 @@
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-lg);
+}
+
+.groupOperatorContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-sm);
+  background: rgba(14, 201, 194, 0.05);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.groupCard {
+  padding: var(--mantine-spacing-md);
+  background: rgba(14, 201, 194, 0.03);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--mantine-spacing-sm);
+  padding-bottom: var(--mantine-spacing-xs);
+  border-bottom: 1px dashed rgba(14, 201, 194, 0.2);
+}
+
+.groupControls {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+}
+
+.preview {
+  background: var(--mantine-color-gray-0);
+  border-color: var(--mantine-color-gray-3);
+}
+

@@ -5,32 +5,31 @@ import io.vertx.rxjava3.sqlclient.RowSet;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
-import org.dreamhorizon.pulseserver.dto.response.alerts.AlertFiltersResponseDto;
-import org.dreamhorizon.pulseserver.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
+import org.dreamhorizon.pulseserver.resources.alert.models.AlertFiltersResponseDto;
 
 public class AlertMapper {
 
 
   public static AlertFiltersResponseDto mapRowSetToAlertFilters(@NotNull RowSet<Row> rowSet) {
-    List<String> jobIds = new ArrayList<>();
     List<String> createdBy = new ArrayList<>();
     List<String> updatedBy = new ArrayList<>();
+    List<String> scopes = new ArrayList<>();
     List<AlertState> currentStates = new ArrayList<>();
 
     for (Row row : rowSet) {
-      String jobId = row.getString("job_id");
       String createdByValue = row.getString("created_by");
       String updatedByValue = row.getString("updated_by");
+      String scopeValue = row.getString("scope");
 
-
-      if (jobId != null && !jobIds.contains(jobId) && !jobId.isEmpty()) {
-        jobIds.add(jobId);
-      }
       if (createdByValue != null && !createdBy.contains(createdByValue) && !createdByValue.isEmpty()) {
         createdBy.add(createdByValue);
       }
       if (updatedByValue != null && !updatedBy.contains(updatedByValue) && !updatedByValue.isEmpty()) {
         updatedBy.add(updatedByValue);
+      }
+      if (scopeValue != null && !scopes.contains(scopeValue) && !scopeValue.isEmpty()) {
+        scopes.add(scopeValue);
       }
       String currentStateValue = row.getString("current_state");
       if (currentStateValue != null && !currentStateValue.isEmpty() && !currentStates.contains(AlertState.valueOf(currentStateValue))) {
@@ -39,9 +38,9 @@ public class AlertMapper {
     }
 
     return AlertFiltersResponseDto.builder()
-        .jobId(jobIds)
         .createdBy(createdBy)
         .updatedBy(updatedBy)
+        .scope(scopes)
         .currentState(currentStates)
         .build();
   }
