@@ -111,7 +111,7 @@ resource "aws_lb" "otel" {
 
 resource "aws_lb_listener" "otel" {
   load_balancer_arn = aws_lb.otel.arn
-  port              = 443
+  port              = 4318
   protocol          = "TLS"
 
   certificate_arn = var.acm_certificate_arn
