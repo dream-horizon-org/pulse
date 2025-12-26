@@ -212,7 +212,7 @@ class SlowRenderListenerTest {
 
     @Test
     fun activityListenerSkipsFirstFrame() {
-        val listener = PerActivityListener(activity)
+        val listener = PerActivityListener(activity) {}
         every { frameMetrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME) } returns 1L
         listener.onFrameMetricsAvailable(null, frameMetrics, 99)
         every { frameMetrics.getMetric(FrameMetrics.DRAW_DURATION) }
