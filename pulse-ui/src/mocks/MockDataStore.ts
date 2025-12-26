@@ -1358,7 +1358,7 @@ export class MockDataStore {
         version: 1,
         _meta: {
           version: 1,
-          isactive: true,
+          isactive: false,
           description: 'Initial SDK configuration',
           createdBy: 'admin@example.com',
           createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
