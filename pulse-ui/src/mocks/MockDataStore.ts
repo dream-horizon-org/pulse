@@ -1233,4 +1233,331 @@ export class MockDataStore {
     this.sdkConfig = newConfig;
     return JSON.parse(JSON.stringify(this.sdkConfig));
   }
+
+  // ============================================================================
+  // SDK Configuration V1 API Methods (New schema matching backend PulseConfig)
+  // ============================================================================
+
+  private configHistoryV1: PulseConfigV1WithMeta[] = [];
+
+  private getDefaultConfigV1(): PulseConfigV1 {
+    const generateId = () => Math.random().toString(36).substring(2, 11);
+    
+    return {
+      version: 1,
+      description: 'Default SDK configuration',
+      sampling: {
+        default: { sessionSampleRate: 0.5 },
+        rules: [
+          {
+            id: generateId(),
+            name: 'app_version',
+            sdks: ['android_java', 'ios_native'],
+            value: '^2\\..*',
+            sessionSampleRate: 1.0,
+          },
+        ],
+        criticalEventPolicies: {
+          alwaysSend: [
+            {
+              id: generateId(),
+              name: 'crash',
+              props: [{ name: 'severity', value: 'critical' }],
+              scopes: ['traces', 'logs'],
+              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+            },
+            {
+              id: generateId(),
+              name: 'payment_error',
+              props: [{ name: 'error_type', value: '^payment.*' }],
+              scopes: ['traces'],
+              sdks: ['android_java', 'ios_native'],
+            },
+          ],
+        },
+        criticalSessionPolicies: {
+          alwaysSend: [],
+        },
+      },
+      signals: {
+        filters: {
+          mode: 'blacklist',
+          values: [
+            {
+              id: generateId(),
+              name: '^debug_.*',
+              props: [{ name: 'level', value: 'debug' }],
+              scopes: ['logs'],
+              sdks: ['android_java', 'ios_native'],
+            },
+          ],
+        },
+        scheduleDurationMs: 5000,
+        logsCollectorUrl: 'http://localhost:4318/v1/logs',
+        metricCollectorUrl: 'http://localhost:4318/v1/metrics',
+        spanCollectorUrl: 'http://localhost:4318/v1/traces',
+        attributesToDrop: [
+          {
+            id: generateId(),
+            name: '^user\\.email$',
+            props: [],
+            scopes: ['logs', 'traces'],
+            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+          },
+          {
+            id: generateId(),
+            name: '^auth_token$',
+            props: [],
+            scopes: ['logs', 'traces', 'metrics'],
+            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+          },
+        ],
+        attributesToAdd: [],
+      },
+      interaction: {
+        collectorUrl: 'http://localhost:4318/v1/interactions',
+        configUrl: 'http://localhost:8080/v1/configs/active',
+        beforeInitQueueSize: 100,
+      },
+      features: [
+        {
+          id: generateId(),
+          featureName: 'interaction',
+          sessionSampleRate: 1,
+          sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'java_crash',
+          sessionSampleRate: 1,
+          sdks: ['android_java', 'android_rn'],
+        },
+        {
+          id: generateId(),
+          featureName: 'network_instrumentation',
+          sessionSampleRate: 1,
+          sdks: ['android_java', 'ios_native'],
+        },
+        {
+          id: generateId(),
+          featureName: 'screen_session',
+          sessionSampleRate: 0,
+          sdks: ['android_java', 'ios_native'],
+        },
+      ],
+    };
+  }
+
+  private initializeConfigHistoryV1(): void {
+    if (this.configHistoryV1.length > 0) return;
+    
+    const defaultConfig = this.getDefaultConfigV1();
+    this.configHistoryV1 = [
+      {
+        ...defaultConfig,
+        version: 1,
+        _meta: {
+          version: 1,
+          isactive: true,
+          description: 'Initial SDK configuration',
+          createdBy: 'admin@example.com',
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      {
+        ...defaultConfig,
+        version: 2,
+        description: 'Updated sampling rates',
+        sampling: {
+          ...defaultConfig.sampling,
+          default: { sessionSampleRate: 0.75 },
+        },
+        _meta: {
+          version: 2,
+          isactive: false,
+          description: 'Updated sampling rates',
+          createdBy: 'dev@example.com',
+          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+      {
+        ...defaultConfig,
+        version: 3,
+        description: 'Added new filter rules',
+        _meta: {
+          version: 3,
+          isactive: true,
+          description: 'Added new filter rules',
+          createdBy: 'dev@example.com',
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+    ];
+  }
+
+  getActiveConfigV1(): PulseConfigV1 | null {
+    this.initializeConfigHistoryV1();
+    const active = this.configHistoryV1.find(c => c._meta.isactive);
+    if (active) {
+      const { _meta, ...config } = active;
+      return JSON.parse(JSON.stringify(config));
+    }
+    return null;
+  }
+
+  getConfigByVersionV1(version: number): PulseConfigV1 | null {
+    this.initializeConfigHistoryV1();
+    const config = this.configHistoryV1.find(c => c.version === version);
+    if (config) {
+      const { _meta, ...configWithoutMeta } = config;
+      return JSON.parse(JSON.stringify(configWithoutMeta));
+    }
+    return null;
+  }
+
+  getAllConfigsV1(): ConfigVersionMetaV1[] {
+    this.initializeConfigHistoryV1();
+    return this.configHistoryV1
+      .map(c => c._meta)
+      .sort((a, b) => b.version - a.version);
+  }
+
+  createConfigV1(config: Partial<PulseConfigV1>, userEmail: string): number {
+    this.initializeConfigHistoryV1();
+    
+    // Deactivate all existing configs
+    this.configHistoryV1.forEach(c => {
+      c._meta.isactive = false;
+    });
+    
+    // Calculate new version
+    const maxVersion = this.configHistoryV1.length > 0 
+      ? Math.max(...this.configHistoryV1.map(c => c.version || 0))
+      : 0;
+    const newVersion = maxVersion + 1;
+    
+    // Create new config
+    const defaultConfig = this.getDefaultConfigV1();
+    const newConfig: PulseConfigV1WithMeta = {
+      ...defaultConfig,
+      ...config,
+      version: newVersion,
+      _meta: {
+        version: newVersion,
+        isactive: true,
+        description: config.description || `Configuration v${newVersion}`,
+        createdBy: userEmail,
+        createdAt: new Date().toISOString(),
+      },
+    };
+    
+    this.configHistoryV1.push(newConfig);
+    return newVersion;
+  }
+}
+
+// ============================================================================
+// V1 Config Types (matching new backend PulseConfig schema)
+// ============================================================================
+
+type SdkEnumV1 = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
+type ScopeEnumV1 = 'logs' | 'traces' | 'metrics' | 'baggage';
+type FilterModeV1 = 'blacklist' | 'whitelist';
+type SamplingRuleNameV1 = 'os_version' | 'app_version' | 'country' | 'platform' | 'state' | 'device' | 'network';
+type FeatureNameV1 = 'interaction' | 'java_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events';
+
+interface EventPropMatchV1 {
+  name: string;
+  value: string;
+}
+
+interface EventFilterV1 {
+  id?: string;
+  name: string;
+  props: EventPropMatchV1[];
+  scopes: ScopeEnumV1[];
+  sdks: SdkEnumV1[];
+}
+
+interface AttributeValueV1 {
+  name: string;
+  value: string;
+}
+
+interface AttributeToAddV1 {
+  id?: string;
+  values: AttributeValueV1[];
+  condition: EventFilterV1;
+}
+
+interface FilterConfigV1 {
+  mode: FilterModeV1;
+  values: EventFilterV1[];
+}
+
+interface SamplingRuleV1 {
+  id?: string;
+  name: SamplingRuleNameV1;
+  sdks: SdkEnumV1[];
+  value: string;
+  sessionSampleRate: number;
+}
+
+interface CriticalPolicyRuleV1 {
+  id?: string;
+  name: string;
+  props: EventPropMatchV1[];
+  scopes: ScopeEnumV1[];
+  sdks: SdkEnumV1[];
+}
+
+interface SamplingConfigV1 {
+  default: { sessionSampleRate: number };
+  rules: SamplingRuleV1[];
+  criticalEventPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
+  criticalSessionPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
+}
+
+interface SignalsConfigV1 {
+  filters: FilterConfigV1;
+  scheduleDurationMs: number;
+  logsCollectorUrl?: string;
+  metricCollectorUrl?: string;
+  spanCollectorUrl?: string;
+  attributesToDrop: EventFilterV1[];
+  attributesToAdd?: AttributeToAddV1[];
+}
+
+interface InteractionConfigV1 {
+  collectorUrl?: string;
+  configUrl?: string;
+  beforeInitQueueSize: number;
+}
+
+interface FeatureConfigV1 {
+  id?: string;
+  featureName: FeatureNameV1;
+  sessionSampleRate: number;
+  sdks: SdkEnumV1[];
+}
+
+interface PulseConfigV1 {
+  version?: number;
+  description: string;
+  sampling: SamplingConfigV1;
+  signals: SignalsConfigV1;
+  interaction: InteractionConfigV1;
+  features: FeatureConfigV1[];
+}
+
+interface ConfigVersionMetaV1 {
+  version: number;
+  isactive: boolean;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface PulseConfigV1WithMeta extends PulseConfigV1 {
+  _meta: ConfigVersionMetaV1;
 }
