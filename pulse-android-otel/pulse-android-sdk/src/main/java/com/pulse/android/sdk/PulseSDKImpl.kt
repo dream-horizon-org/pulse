@@ -92,7 +92,7 @@ internal class PulseSDKImpl :
             apiCache.mkdirs()
             val newConfig =
                 PulseSdkConfigRestProvider(apiCache) {
-                    "$endpointBaseUrl/v1/configs"
+                    "${endpointBaseUrl.replace(":4318", ":8080")}/v1/configs/active/"
                 }.provide() ?: return@launch
             sharedPrefs.edit(commit = true) {
                 putString(PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
