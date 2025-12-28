@@ -31,9 +31,9 @@ import org.junit.jupiter.api.TestInstance
 class PulseSignalProcessorTest {
     private val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create()
     private val logExporter: InMemoryLogRecordExporter = InMemoryLogRecordExporter.create()
-    private lateinit var processor: PulseSignalProcessor
-    private lateinit var logAppender: PulseSignalProcessor.PulseLogTypeAttributesAppender
-    private lateinit var spanAppender: PulseSignalProcessor.PulseSpanTypeAttributesAppender
+    private lateinit var processor: PulseSdkSignalProcessors
+    private lateinit var logAppender: PulseSdkSignalProcessors.PulseLogTypeAttributesAppender
+    private lateinit var spanAppender: PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender
     private lateinit var tracer: Tracer
     private lateinit var logger: Logger
 
@@ -42,9 +42,9 @@ class PulseSignalProcessorTest {
         spanExporter.reset()
         logExporter.reset()
 
-        processor = PulseSignalProcessor()
+        processor = PulseSdkSignalProcessors()
         logAppender = processor.PulseLogTypeAttributesAppender()
-        spanAppender = PulseSignalProcessor.PulseSpanTypeAttributesAppender()
+        spanAppender = PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender()
 
         val sdkTracerProvider =
             SdkTracerProvider
@@ -117,7 +117,7 @@ class PulseSignalProcessorTest {
                 .setAllAttributes(
                     Attributes
                         .builder()
-                        .put("app.jank.threshold", PulseSignalProcessor.FROZEN_THRESHOLD_MICRO)
+                        .put("app.jank.threshold", PulseSdkSignalProcessors.FROZEN_THRESHOLD_MICRO)
                         .build(),
                 ).emit()
 
@@ -135,7 +135,7 @@ class PulseSignalProcessorTest {
                 .setAllAttributes(
                     Attributes
                         .builder()
-                        .put("app.jank.threshold", PulseSignalProcessor.SLOW_THRESHOLD_MICRO)
+                        .put("app.jank.threshold", PulseSdkSignalProcessors.SLOW_THRESHOLD_MICRO)
                         .build(),
                 ).emit()
 
