@@ -14,6 +14,7 @@ import io.opentelemetry.android.instrumentation.common.ScreenNameExtractor
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension
 import io.opentelemetry.sdk.trace.data.EventData
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -29,6 +30,7 @@ internal class ActivityCallbacksTest {
 
     private lateinit var tracers: ActivityTracerCache
     private lateinit var visibleScreenTracker: VisibleScreenTracker
+    private lateinit var foregroundBackgroundTracker: ForegroundBackgroundTracker
 
     @BeforeEach
     fun setup() {
@@ -39,11 +41,19 @@ internal class ActivityCallbacksTest {
         val extractor = mockk<ScreenNameExtractor>(relaxed = true)
         every { extractor.extract(any<Activity>()) } returns "Activity"
         tracers = ActivityTracerCache(tracer, visibleScreenTracker, startupTimer, extractor)
+        val logger =
+            otelTesting.openTelemetry.logsBridge
+                .loggerBuilder("test")
+                .build()
+        foregroundBackgroundTracker = ForegroundBackgroundTracker(logger)
+        otelTesting.clearLogRecords()
     }
+
+    private fun createActivityCallbacks(): ActivityCallbacks = ActivityCallbacks(tracers, foregroundBackgroundTracker)
 
     @Test
     fun appStartup() {
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         val activity = mockk<Activity>()
@@ -85,7 +95,7 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityCreation() {
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
         startupAppAndClearSpans(testHarness)
 
@@ -132,7 +142,7 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityRestart() {
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -172,7 +182,7 @@ internal class ActivityCallbacksTest {
     @Test
     fun activityResumed() {
         every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -209,7 +219,7 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityDestroyedFromStopped() {
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -243,7 +253,7 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityDestroyedFromPaused() {
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -297,7 +307,7 @@ internal class ActivityCallbacksTest {
 
     @Test
     fun activityStoppedFromRunning() {
-        val activityCallbacks = ActivityCallbacks(tracers)
+        val activityCallbacks = createActivityCallbacks()
         val testHarness = ActivityCallbackTestHarness(activityCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -355,5 +365,69 @@ internal class ActivityCallbacksTest {
     ) {
         val event = events.any { e: EventData -> e.name == eventName }
         assertTrue(event, "Event with name $eventName not found")
+    }
+
+    @Test
+    fun `emits device app lifecycle created event on first activity resume`() {
+        val activityCallbacks = createActivityCallbacks()
+        val testHarness = ActivityCallbackTestHarness(activityCallbacks)
+
+        val activity = mockk<Activity>()
+        testHarness.runAppStartupLifecycle(activity)
+
+        val logRecords = otelTesting.logRecords
+        assertThat(logRecords).hasSize(1)
+        val log = logRecords[0]
+        assertThat(log.eventName).isEqualTo("device.app.lifecycle")
+        assertThat(log.attributes.get(RumConstants.Android.APP_STATE)).isEqualTo("created")
+    }
+
+    @Test
+    fun `emits device app lifecycle background event when activity is paused`() {
+        val activityCallbacks = createActivityCallbacks()
+        val testHarness = ActivityCallbackTestHarness(activityCallbacks)
+
+        val activity = mockk<Activity>()
+        every { activity.isChangingConfigurations } returns false
+        // Start app
+        testHarness.runAppStartupLifecycle(activity)
+        otelTesting.clearLogRecords()
+
+        // Pause activity (goes to background)
+        testHarness.runActivityPausedLifecycle(activity)
+        testHarness.runActivityStoppedFromPausedLifecycle(activity)
+
+        val logRecords = otelTesting.logRecords
+        assertThat(logRecords).hasSize(1)
+        val log = logRecords[0]
+        assertThat(log.eventName).isEqualTo("device.app.lifecycle")
+        assertThat(log.attributes.get(RumConstants.Android.APP_STATE)).isEqualTo("background")
+    }
+
+    @Test
+    fun `emits device app lifecycle foreground event when activity is started`() {
+        val activityCallbacks = createActivityCallbacks()
+        val testHarness = ActivityCallbackTestHarness(activityCallbacks)
+
+        val activity = mockk<Activity>()
+        every { activity.isChangingConfigurations } returns false
+        // Start app
+        testHarness.runAppStartupLifecycle(activity)
+
+        // Pause activity (goes to background)
+        testHarness.runActivityPausedLifecycle(activity)
+        testHarness.runActivityStoppedFromPausedLifecycle(activity)
+
+        // Clear the background event so we only check for foreground
+        otelTesting.clearLogRecords()
+
+        // Start activity again (comes back to foreground)
+        testHarness.runActivityStartedLifecycle(activity)
+
+        val logRecords = otelTesting.logRecords
+        assertThat(logRecords).hasSize(1)
+        val log = logRecords[0]
+        assertThat(log.eventName).isEqualTo("device.app.lifecycle")
+        assertThat(log.attributes.get(RumConstants.Android.APP_STATE)).isEqualTo("foreground")
     }
 }
