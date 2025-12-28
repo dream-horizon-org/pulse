@@ -4,6 +4,10 @@ plugins {
 
 android {
     namespace = "com.pulse.sampling.core"
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 kotlin {
@@ -17,6 +21,9 @@ dependencies {
     implementation(libs.opentelemetry.sdk)
     implementation(projects.pulseSamplingRemote)
     implementation(projects.pulseSamplingModels)
+    implementation(libs.kotlin.coroutines)
     testImplementation(testFixtures(projects.pulseSamplingModels))
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlin.coroutinesTest)
     implementation(projects.pulseUtils)
 }
