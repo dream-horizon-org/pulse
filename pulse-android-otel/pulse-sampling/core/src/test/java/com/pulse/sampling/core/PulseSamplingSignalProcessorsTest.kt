@@ -4,6 +4,7 @@ package com.pulse.sampling.core
 
 import android.content.Context
 import com.pulse.otel.utils.toAttributes
+import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCondition
@@ -491,6 +492,204 @@ class PulseSamplingSignalProcessorsTest {
             OpenTelemetryAssertions
                 .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("key1", "value1")
+        }
+    }
+
+    @Nested
+    inner class `With attributes to add` {
+        private val attributesToAdd =
+            listOf(
+                PulseSdkConfigFakeUtils.createFakeAttributesToAddEntry(
+                    values =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeAttributeValue(
+                                name = "NewAddedKeyName",
+                                value = "NewAddedValueOfThatKey",
+                                type = PulseAttributeType.STRING,
+                            ),
+                        ),
+                    matcher =
+                        createFakeSignalMatchCondition(
+                            name = "test-span",
+                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("State", ".*Haryana.*")),
+                        ),
+                ),
+            )
+        private val attributesAddingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToAdd = attributesToAdd)
+        val attributesAddingProcessors = createSamplingSignalProcessors(attributesAddingConfig)
+        val attributesAddingSpanExporter = attributesAddingProcessors.SampledSpanExporter(spanExporter)
+        val attributesAddingLogExporter = attributesAddingProcessors.SampledLogExporter(logExporter)
+
+        @Test
+        fun `in span, export adds attributes when attributes match add conditions`() {
+            val mockSpan = createSpanData("test-span", mapOf("State" to "Haryana"))
+
+            attributesAddingSpanExporter.export(listOf(mockSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                .containsEntry("NewAddedKeyName", "NewAddedValueOfThatKey")
+        }
+
+        @Test
+        fun `in span, export adds new attribute when condition matches`() {
+            val mockSpan = createSpanData("test-span", mapOf("State" to "Haryana", "key2" to "value2"))
+
+            attributesAddingSpanExporter.export(listOf(mockSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("test-span")
+            val attributes = spanExporter.finishedSpanItems[0].attributes
+            OpenTelemetryAssertions
+                .assertThat(attributes)
+                .containsEntry("NewAddedKeyName", "NewAddedValueOfThatKey")
+            OpenTelemetryAssertions
+                .assertThat(attributes)
+                .containsEntry("key2", "value2")
+        }
+
+        @Test
+        fun `in span, export does not add when no attributes match add conditions`() {
+            val mockSpan = createSpanData("test-span", mapOf("otherKey" to "value1"))
+
+            attributesAddingSpanExporter.export(listOf(mockSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                .doesNotContainKey("State")
+        }
+
+        @Test
+        fun `in span, export does not add when value doesn't match but key match`() {
+            val mockSpan = createSpanData("test-span", mapOf("State" to "Delhi"))
+
+            attributesAddingSpanExporter.export(listOf(mockSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                .containsEntry("State", "Delhi")
+                .doesNotContainKey("NewAddedKeyName")
+        }
+
+        @Test
+        fun `in span, export does not add when name doesn't match but value and key match`() {
+            val mockSpan = createSpanData("test-span2", mapOf("State" to "Haryana"))
+
+            attributesAddingSpanExporter.export(listOf(mockSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("test-span2")
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                .containsEntry("State", "Haryana")
+                .doesNotContainKey("NewAddedKeyName")
+        }
+
+        @Test
+        fun `in log, export adds attributes when attributes match add conditions`() {
+            val sampleLogRecord = createLogRecordData("test-span", mapOf("State" to "Haryana"))
+
+            attributesAddingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry("NewAddedKeyName", "NewAddedValueOfThatKey")
+        }
+
+        @Test
+        fun `in log, export adds new attribute when condition matches`() {
+            val sampleLogRecord = createLogRecordData("test-span", mapOf("State" to "Haryana", "key2" to "value2"))
+
+            attributesAddingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span")
+            val attributes = logExporter.finishedLogRecordItems[0].attributes
+            OpenTelemetryAssertions
+                .assertThat(attributes)
+                .containsEntry("NewAddedKeyName", "NewAddedValueOfThatKey")
+            OpenTelemetryAssertions
+                .assertThat(attributes)
+                .containsEntry("key2", "value2")
+        }
+
+        @Test
+        fun `in log, export does not add when no attributes match add conditions`() {
+            val sampleLogRecord = createLogRecordData("test-span", mapOf("otherKey" to "value1"))
+
+            attributesAddingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .doesNotContainKey("State")
+        }
+
+        @Test
+        fun `in log, export does not add when value doesn't match but key match`() {
+            val sampleLogRecord = createLogRecordData("test-span", mapOf("State" to "Delhi"))
+
+            attributesAddingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry("State", "Delhi")
+                .doesNotContainKey("NewAddedKeyName")
+        }
+
+        @Test
+        fun `in log, export does not add when name doesn't match but value and key match`() {
+            val sampleLogRecord = createLogRecordData("test-span2", mapOf("State" to "Haryana"))
+
+            attributesAddingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span2")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry("State", "Haryana")
+                .doesNotContainKey("NewAddedKeyName")
         }
     }
 

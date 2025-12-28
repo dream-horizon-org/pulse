@@ -273,6 +273,38 @@ class PulseSdkConfigRetrofitClientTest {
                                         "ios_rn"
                                     ]
                                 }
+                            ],
+                            "attributesToAdd": [
+                                {
+                                    "values": [
+                                        {
+                                            "name": "NewAddedKeyName",
+                                            "value": "NewAddedValueOfThatKey",
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "matcher": {
+                                        "name": "password",
+                                        "props": [
+                                            {
+                                                "name": "severity",
+                                                "value": "critical"
+                                            }
+                                        ],
+                                        "scopes": [
+                                            "logs",
+                                            "traces",
+                                            "metrics",
+                                            "baggage"
+                                        ],
+                                        "sdks": [
+                                            "android_java",
+                                            "android_rn",
+                                            "ios_native",
+                                            "ios_rn"
+                                        ]
+                                    }
+                                }
                             ]
                         },
                         "interaction": {
@@ -433,6 +465,7 @@ class PulseSdkConfigRetrofitClientTest {
                             "metricCollectorUrl": "http://localhost:4318/v1/traces",
                             "spanCollectorUrl": "http://localhost:4318/v1/traces",
                             "attributesToDrop": [],
+                            "attributesToAdd": [],
                             "filters": {
                                 "mode": "blacklist",
                                 "values": []
