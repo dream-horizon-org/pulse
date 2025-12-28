@@ -10,7 +10,7 @@ public object PulseSdkConfigFakeUtils {
         sessionSampleRate: Float = 1.0f,
         scheduleDurationMs: Long = 1000L,
         collectorUrl: String = "https://example.com/",
-        configUrl: String = "https://example.com/config/",
+        configUrl: String = "https://example.com/configs/active",
         beforeInitQueueSize: Int = 100,
         filterMode: PulseSignalFilterMode = PulseSignalFilterMode.WHITELIST,
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
