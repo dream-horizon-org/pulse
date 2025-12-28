@@ -9,8 +9,9 @@ import android.app.Activity
 import android.os.Bundle
 import io.opentelemetry.android.internal.services.visiblescreen.activities.DefaultingActivityLifecycleCallbacks
 
-class ActivityCallbacks(
+internal class ActivityCallbacks(
     private val tracers: ActivityTracerCache,
+    private val foregroundBackgroundTracker: ForegroundBackgroundTracker,
 ) : DefaultingActivityLifecycleCallbacks {
     override fun onActivityPreCreated(
         activity: Activity,
@@ -39,6 +40,7 @@ class ActivityCallbacks(
 
     override fun onActivityStarted(activity: Activity) {
         tracers.addEvent(activity, "activityStarted")
+        foregroundBackgroundTracker.onActivityStarted(activity)
     }
 
     override fun onActivityPostStarted(activity: Activity) {
@@ -80,6 +82,7 @@ class ActivityCallbacks(
 
     override fun onActivityStopped(activity: Activity) {
         tracers.addEvent(activity, "activityStopped")
+        foregroundBackgroundTracker.onActivityStopped(activity)
     }
 
     override fun onActivityPostStopped(activity: Activity) {

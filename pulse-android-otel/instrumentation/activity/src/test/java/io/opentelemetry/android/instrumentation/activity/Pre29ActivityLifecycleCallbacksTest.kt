@@ -32,6 +32,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
     }
 
     private lateinit var tracers: ActivityTracerCache
+    private lateinit var foregroundBackgroundTracker: ForegroundBackgroundTracker
 
     @RelaxedMockK
     private lateinit var visibleScreenTracker: VisibleScreenTracker
@@ -44,11 +45,18 @@ internal class Pre29ActivityLifecycleCallbacksTest {
         every { extractor.extract(any<Activity>()) } returns "Activity"
         tracers = ActivityTracerCache(tracer, visibleScreenTracker, appStartupTimer, extractor)
         every { visibleScreenTracker.previouslyVisibleScreen } returns null
+        val logger =
+            otelTesting.openTelemetry.logsBridge
+                .loggerBuilder("test")
+                .build()
+        foregroundBackgroundTracker = ForegroundBackgroundTracker(logger)
     }
+
+    private fun createPre29ActivityCallbacks(): Pre29ActivityCallbacks = Pre29ActivityCallbacks(tracers, foregroundBackgroundTracker)
 
     @Test
     fun appStartup() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         val activity = mockk<Activity>()
@@ -82,7 +90,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityCreation() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
         startupAppAndClearSpans(testHarness)
 
@@ -121,7 +129,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityRestart() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -157,7 +165,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
     fun activityResumed() {
         every { visibleScreenTracker.previouslyVisibleScreen } returns "previousScreen"
 
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -192,7 +200,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityDestroyedFromStopped() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -224,7 +232,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityDestroyedFromPaused() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)
@@ -274,7 +282,7 @@ internal class Pre29ActivityLifecycleCallbacksTest {
 
     @Test
     fun activityStoppedFromRunning() {
-        val rumLifecycleCallbacks = Pre29ActivityCallbacks(tracers)
+        val rumLifecycleCallbacks = createPre29ActivityCallbacks()
         val testHarness = Pre29ActivityCallbackTestHarness(rumLifecycleCallbacks)
 
         startupAppAndClearSpans(testHarness)

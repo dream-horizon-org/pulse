@@ -92,7 +92,7 @@ object OpenTelemetryRumInitializer {
             .builder(application, rumConfig)
             .apply {
                 setSessionProvider(createSessionProvider(application, sessionConfig))
-                addSpanExporterCustomizer { delegate ->
+                addSpanExporterCustomizer { _ ->
                     val otlpExporter =
                         OtlpHttpSpanExporter
                             .builder()

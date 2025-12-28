@@ -9,8 +9,9 @@ import android.app.Activity
 import android.os.Bundle
 import io.opentelemetry.android.internal.services.visiblescreen.activities.DefaultingActivityLifecycleCallbacks
 
-class Pre29ActivityCallbacks(
+internal class Pre29ActivityCallbacks(
     private val tracers: ActivityTracerCache,
+    private val foregroundBackgroundTracker: ForegroundBackgroundTracker,
 ) : DefaultingActivityLifecycleCallbacks {
     override fun onActivityCreated(
         activity: Activity,
@@ -21,6 +22,7 @@ class Pre29ActivityCallbacks(
 
     override fun onActivityStarted(activity: Activity) {
         tracers.initiateRestartSpanIfNecessary(activity).addEvent("activityStarted")
+        foregroundBackgroundTracker.onActivityStarted(activity)
     }
 
     override fun onActivityResumed(activity: Activity) {
@@ -43,6 +45,7 @@ class Pre29ActivityCallbacks(
             .startSpanIfNoneInProgress(activity, "Stopped")
             .addEvent("activityStopped")
             .endActiveSpan()
+        foregroundBackgroundTracker.onActivityStopped(activity)
     }
 
     override fun onActivityDestroyed(activity: Activity) {
