@@ -32,10 +32,6 @@ resource "aws_instance" "clickhouse" {
   iam_instance_profile   = var.iam_instance_profile
   associate_public_ip_address = false
 
-  instance_market_options {
-    market_type = "spot"
-  }
-
   # Tag each instance with cluster + shard index
   tags = {
     Name             = "${var.cluster_name}-shard-${count.index + 1}"
