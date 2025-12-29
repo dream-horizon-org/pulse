@@ -1,0 +1,114 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+    send_batch_max_size: 1500
+
+exporters:
+  debug:
+    verbosity: detailed
+
+  # ---------------- Single Kafka exporter for traces + metrics --------
+  kafka/pulse:
+    brokers: ["kafka:9092"]          # make sure this matches your Kafka service/port
+    protocol_version: "3.5.0"        # set to your Kafka cluster version
+
+    # Per-signal config
+    traces:
+      topic: "pulse.traces"
+      encoding: otlp_proto           # ExportTraceServiceRequest
+
+    metrics:
+      topic: "pulse.metrics"
+      encoding: otlp_proto           # ExportMetricsServiceRequest
+
+    # you can also add logs: {} here later if you want a generic logs topic
+
+  # ---------------- Kafka exporters for logs --------------------------
+  # ANR / crash / non_fatal logs
+  kafka/logs-anr-crash:
+    brokers: ["kafka:9092"]
+    protocol_version: "3.5.0"
+    logs:
+      topic: "pulse.logs.anr_crash"
+      encoding: otlp_proto           # ExportLogsServiceRequest
+
+  # All other logs
+  kafka/logs-other:
+    brokers: ["kafka:9092"]
+    protocol_version: "3.5.0"
+    logs:
+      topic: "pulse.logs.other"
+      encoding: otlp_proto
+
+connectors:
+  routing/pulse:
+    # Logs that do NOT match the rule below go here by default
+    default_pipelines: [logs/to-other-logs]
+
+    table:
+      - context: log
+        # Match ANR / crash / non_fatal logs based on pulse.type
+        statement: >
+          route()
+          where attributes["pulse.type"] != nil
+            and (
+              attributes["pulse.type"] == "device.anr" or
+              attributes["pulse.type"] == "device.crash" or
+              attributes["pulse.type"] == "non_fatal"
+            )
+        # These logs go to the ANR/Crash pipeline
+        pipelines: [logs/to-anr-crash-logs]
+
+service:
+  extensions: [health_check]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+
+  pipelines:
+    # ---------------- Traces ----------------
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [kafka/pulse, debug]
+
+    # ---------------- Metrics ---------------
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [kafka/pulse, debug]
+
+    # -------- Entry pipeline for logs -------
+    logs/in:
+      receivers: [otlp]
+      exporters: [routing/pulse, debug]
+
+    # Matched: ANR / Crash / non_fatal logs
+    # -> Kafka topic pulse.logs.anr_crash
+    logs/to-anr-crash-logs:
+      receivers: [routing/pulse]
+      processors: [batch]
+      exporters: [kafka/logs-anr-crash, debug]
+
+    # Default: all other logs
+    # -> Kafka topic pulse.logs.other
+    logs/to-other-logs:
+      receivers: [routing/pulse]
+      processors: [batch]
+      exporters: [kafka/logs-other, debug]
