@@ -15,6 +15,7 @@ import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
+import org.dreamhorizon.pulseserver.service.interaction.UploadInteractionDetailService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
@@ -27,6 +28,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteraction
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class InteractionServiceImpl implements InteractionService {
   private final InteractionDao interactionDao;
+  private final UploadInteractionDetailService uploadInteractionDetailService;
 
   private static final InteractionMapper mapper = InteractionMapper.INSTANCE;
 
@@ -35,6 +37,9 @@ public class InteractionServiceImpl implements InteractionService {
     return validateInteractionAlreadyPresent(request)
         .flatMap(resp -> interactionDao.createInteractionAndUploadMetadata(mapper.toInteractionDetails(request)))
         .flatMap(resp -> Single.just(resp.getInteractionDetails()))
+        .doOnSuccess(resp -> uploadInteractionDetailService
+            .pushInteractionDetailsToObjectStore()
+            .subscribe())
         .doOnError(err -> log.error("error while creating interaction", err));
   }
 
@@ -55,6 +60,9 @@ public class InteractionServiceImpl implements InteractionService {
     return getInteractionDetails(request.getName())
         .flatMap(interaction -> this.patchInteraction(request, interaction))
         .flatMap(resp -> Single.just(EmptyResponse.emptyResponse))
+        .doOnSuccess(resp -> uploadInteractionDetailService
+            .pushInteractionDetailsToObjectStore()
+            .subscribe())
         .doOnError(err -> log.error("error while updating interaction", err));
   }
 
@@ -120,7 +128,10 @@ public class InteractionServiceImpl implements InteractionService {
   public Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest) {
     return interactionDao
         .deleteInteractionAndCreateUploadMetadata(deleteInteractionRequest)
-        .map(res -> EmptyResponse.emptyResponse);
+        .map(res -> EmptyResponse.emptyResponse)
+        .doOnSuccess(resp -> uploadInteractionDetailService
+            .pushInteractionDetailsToObjectStore()
+            .subscribe());
   }
 
   @Override
