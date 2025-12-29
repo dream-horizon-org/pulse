@@ -4,7 +4,7 @@ import {
   createReactNavigationIntegration,
   type ReactNavigationIntegration,
   type NavigationIntegrationOptions,
-} from './reactNavigation';
+} from './navigation';
 import { initializeNetworkInterceptor } from './network-interceptor/initialization';
 
 export type PulseConfig = {
@@ -59,6 +59,7 @@ export function createNavigationIntegrationWithConfig(
   if (!isSupportedPlatform()) {
     return {
       registerNavigationContainer: (_: unknown) => () => {},
+      markContentReady: () => {},
     };
   }
   if (!currentConfig.autoDetectNavigation) {
@@ -71,6 +72,7 @@ export function createNavigationIntegrationWithConfig(
           '[Pulse Navigation] auto-detection disabled via Pulse.start; registerNavigationContainer() returning no-op.'
         );
       },
+      markContentReady: () => {},
     };
     return noop;
   }

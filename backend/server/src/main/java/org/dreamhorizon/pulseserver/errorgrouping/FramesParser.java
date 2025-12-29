@@ -262,7 +262,7 @@ public final class FramesParser {
     private static final Pattern JAVA_CAUSED_BY =
         Pattern.compile("^\\s*Caused by:\\s*([\\w.$]+)(?::.*)?$");
     private static final Pattern JAVA_AT_LINE =
-        Pattern.compile("^\\s*at\\s+([^\\s(]+)\\(([^)]*)\\)\\s*$"); // left(file:line)
+        Pattern.compile("^\\s*(?:at\\s+)?([^\\s(]+)\\(([^)]*)\\)\\s*$"); // left(file:line) - "at " is optional
 
     // React Native JavascriptException pattern
     private static final Pattern RN_JS_EXCEPTION =
@@ -271,9 +271,9 @@ public final class FramesParser {
     private static final Pattern JS_ERR_LINE =
         Pattern.compile("^\\s*([A-Za-z_$][A-Za-z0-9_$]*(?:Error|Exception)|Invariant Violation)\\s*:?.*$");
     private static final Pattern JS_AT_FUNC_FILE_LINE_COL =
-        Pattern.compile("^\\s*at\\s+([^\\s(]+)\\s*\\(([^:]+):(\\d+):(\\d+)\\)\\s*$");
+        Pattern.compile("^\\s*(?:at\\s+)?([^\\s(]+)\\s*\\(([^:]+):(\\d+):(\\d+)\\)\\s*$"); // "at " is optional
     private static final Pattern JS_AT_FILE_LINE_COL =
-        Pattern.compile("^\\s*at\\s+([^:]+):(\\d+):(\\d+)\\s*$");
+        Pattern.compile("^\\s*(?:at\\s+)?([^:]+):(\\d+):(\\d+)\\s*$"); // "at " is optional
 
     // React Native compact format: functionName@bundleId:line:col or functionName@bundleId:line
     private static final Pattern RN_COMPACT_FRAME_WITH_COL =

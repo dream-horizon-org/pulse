@@ -6,7 +6,7 @@ import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
 import { ErrorBoundary, withErrorBoundary } from './errorBoundary';
-import { useNavigationTracking } from './reactNavigation';
+import { useNavigationTracking, markContentReady } from './navigation';
 
 export type { Span } from './trace';
 export type { PulseConfig, PulseStartOptions } from './config';
@@ -15,7 +15,7 @@ export type {
   ReactNavigationIntegration,
   NavigationRoute,
   NavigationIntegrationOptions,
-} from './reactNavigation';
+} from './navigation';
 
 export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 
@@ -24,6 +24,7 @@ export const Pulse = {
   start,
   isInitialized,
   useNavigationTracking,
+  markContentReady,
   trackEvent,
   reportException,
   trackSpan,

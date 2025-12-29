@@ -11,6 +11,9 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import java.util.function.BiFunction
 
 /**
  * Interface defining the public API for the PulseSDK
@@ -46,6 +49,8 @@ public interface PulseSDK {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )
 
@@ -56,7 +61,7 @@ public interface PulseSDK {
     public fun setUserId(id: String?)
 
     /**
-     * Set user property for this session
+     * Set user property for this session. Passing null will remove the property from the key
      * Also see [setUserId]
      */
     public fun setUserProperty(
@@ -65,10 +70,10 @@ public interface PulseSDK {
     )
 
     /**
-     * Set user properties for this session
+     * Set user properties for this session. Passing null will remove the property from the key
      * Also see [setUserProperty] and [setUserId]
      */
-    public fun setUserProperties(builderAction: MutableMap<String, Any>.() -> Unit)
+    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit)
 
     public fun trackEvent(
         name: String,

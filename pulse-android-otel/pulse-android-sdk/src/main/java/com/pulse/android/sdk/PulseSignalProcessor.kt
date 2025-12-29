@@ -11,6 +11,7 @@ import io.opentelemetry.sdk.logs.ReadWriteLogRecord
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.internal.ExtendedSpanProcessor
+import io.opentelemetry.semconv.HttpAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 
@@ -41,6 +42,7 @@ internal class PulseSignalProcessor {
                                 null -> {
                                     null
                                 }
+
                                 FROZEN_THRESHOLD_MICRO -> {
                                     PulseAttributes.PulseTypeValues.FROZEN
                                 }
@@ -58,9 +60,19 @@ internal class PulseSignalProcessor {
                         "app.screen.click", "app.widget.click" -> {
                             PulseAttributes.PulseTypeValues.TOUCH
                         }
+
                         "network.change" -> {
                             PulseAttributes.PulseTypeValues.NETWORK_CHANGE
                         }
+
+                        PulseSDKImpl.CUSTOM_NON_FATAL_EVENT_NAME -> {
+                            PulseAttributes.PulseTypeValues.NON_FATAL
+                        }
+
+                        "session.start" -> {
+                            PulseAttributes.PulseTypeValues.APP_SESSION_START
+                        }
+
                         "session.end" -> {
                             logRecord.setAllAttributes(
                                 PulseSessionAttributes.createSessionEndAttributes(
@@ -68,7 +80,7 @@ internal class PulseSignalProcessor {
                                 ),
                             )
                             recordedRelevantLogEvents.clear()
-                            null
+                            PulseAttributes.PulseTypeValues.APP_SESSION_END
                         }
 
                         else -> {
@@ -92,6 +104,18 @@ internal class PulseSignalProcessor {
             parentContext: Context,
             span: ReadWriteSpan,
         ) {
+            // no-op
+        }
+
+        override fun isStartRequired(): Boolean = false
+
+        override fun onEnd(span: ReadableSpan) {
+            // no-op
+        }
+
+        override fun isEndRequired(): Boolean = false
+
+        override fun onEnding(span: ReadWriteSpan) {
             if (span.attributes.get(PulseAttributes.PULSE_TYPE) == null) {
                 val type =
                     when {
@@ -109,6 +133,20 @@ internal class PulseSignalProcessor {
                             PulseAttributes.PulseTypeValues.SCREEN_LOAD
                         }
 
+                        PulseOtelUtils.isNetworkSpan(span) -> {
+                            PulseAttributes.PulseTypeValues.PULSE_NETWORK
+                                .getAttributeKey(
+                                    @Suppress("DEPRECATION")
+                                    span.attributes.get(HttpAttributes.HTTP_RESPONSE_STATUS_CODE)?.toString()
+                                        ?:
+                                        @Suppress("DEPRECATION")
+                                        span.attributes
+                                            .get(HttpIncubatingAttributes.HTTP_STATUS_CODE)
+                                            ?.toString()
+                                        ?: "0",
+                                ).key
+                        }
+
                         else -> {
                             null
                         }
@@ -117,17 +155,7 @@ internal class PulseSignalProcessor {
                     span.setAttribute(PulseAttributes.PULSE_TYPE, it)
                 }
             }
-        }
 
-        override fun isStartRequired(): Boolean = true
-
-        override fun onEnd(span: ReadableSpan) {
-            // no-op
-        }
-
-        override fun isEndRequired(): Boolean = false
-
-        override fun onEnding(span: ReadWriteSpan) {
             if (PulseOtelUtils.isNetworkSpan(span)) {
                 // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
                 //  use the new not deprecated attributes

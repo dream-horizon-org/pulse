@@ -26,18 +26,20 @@ object PulseReactNativeOtelTracer {
     private val idToSpan = ConcurrentHashMap<String, Span>()
     private val idToScope = ConcurrentHashMap<String, Scope>()
 
-    fun startSpan(name: String, attributes: ReadableMap?): String {
+    fun startSpan(name: String, inheritContext: Boolean, attributes: ReadableMap?): String {
         val span = tracer.spanBuilder(name)
             .setSpanKind(SpanKind.INTERNAL)
             .startSpan()
-
-        val scope = span.makeCurrent()
 
         attributes?.applyTo(span)
 
         val id = UUID.randomUUID().toString()
         idToSpan[id] = span
-        idToScope[id] = scope
+        
+        if (inheritContext) {
+            val scope = span.makeCurrent()
+            idToScope[id] = scope
+        }
 
         return id
     }
@@ -80,6 +82,17 @@ object PulseReactNativeOtelTracer {
                 "ERROR" -> span.setStatus(StatusCode.ERROR)
                 else -> span.setStatus(StatusCode.UNSET)
             }
+            span.end()
+        }
+        idToScope.remove(spanId)?.close()
+    }
+
+    fun discardSpan(spanId: String) {
+        idToSpan.remove(spanId)?.let { span ->
+            span.setAttribute(
+                AttributeKey.booleanKey("pulse.internal"),
+                true
+            )
             span.end()
         }
         idToScope.remove(spanId)?.close()

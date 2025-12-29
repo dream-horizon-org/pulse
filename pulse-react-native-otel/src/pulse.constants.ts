@@ -5,6 +5,7 @@
 export enum SPAN_NAMES {
   SCREEN_SESSION = 'ScreenSession',
   NAVIGATED = 'Navigated',
+  SCREEN_INTERACTIVE = 'ScreenInteractive',
 }
 
 export enum ATTRIBUTE_KEYS {
@@ -15,13 +16,23 @@ export enum ATTRIBUTE_KEYS {
   LAST_SCREEN_NAME = 'last.screen.name',
   ROUTE_HAS_BEEN_SEEN = 'routeHasBeenSeen',
   PLATFORM = 'platform',
+  GRAPHQL_OPERATION_NAME = 'graphql.operation.name',
+  GRAPHQL_OPERATION_TYPE = 'graphql.operation.type',
+  HTTP_METHOD = 'http.method',
+  HTTP_URL = 'http.url',
+  HTTP_STATUS_CODE = 'http.status_code',
+  HTTP_REQUEST_TYPE = 'http.request.type',
+  ERROR_MESSAGE = 'error.message',
+  ERROR_STACK = 'error.stack',
 }
 
 export enum PULSE_TYPES {
   SCREEN_SESSION = 'screen_session',
   SCREEN_LOAD = 'screen_load',
+  SCREEN_INTERACTIVE = 'screen_interactive',
 }
 
 export enum PHASE_VALUES {
   START = 'start',
+  NETWORK = 'network',
 }
