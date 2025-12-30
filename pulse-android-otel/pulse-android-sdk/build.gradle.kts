@@ -7,6 +7,12 @@ description = "Pulse SDK for mobile observability"
 
 android {
     namespace = "com.pulse.android.sdk"
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 kotlin {
