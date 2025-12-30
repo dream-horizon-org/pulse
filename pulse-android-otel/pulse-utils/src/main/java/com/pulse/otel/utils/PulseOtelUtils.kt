@@ -1,5 +1,6 @@
 package com.pulse.otel.utils
 
+import android.util.Log
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
@@ -38,7 +39,18 @@ public object PulseOtelUtils {
 
         return normalized
     }
+
+    public inline fun logError(
+        tag: String,
+        throwable: Throwable,
+        body: () -> String,
+    ) {
+        Log.e("$TAG:$tag", body(), throwable)
+    }
 }
+
+@PublishedApi
+internal const val TAG: String = "PulseOtelSdk"
 
 public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): AttributesBuilder =
     apply {

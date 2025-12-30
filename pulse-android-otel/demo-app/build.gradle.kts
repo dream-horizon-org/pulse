@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.opentelemetry.instrumentation.fragment)
     implementation(libs.opentelemetry.instrumentation.view.click)
     implementation(libs.opentelemetry.instrumentation.slowrendering)
+    implementation(libs.opentelemetry.instrumentation.location)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

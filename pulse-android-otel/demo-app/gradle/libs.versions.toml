@@ -19,6 +19,7 @@ opentelemetry-instrumentation-fragment = { module = "io.opentelemetry.android.in
 opentelemetry-instrumentation-sessions = { module = "io.opentelemetry.android.instrumentation:sessions" }
 opentelemetry-instrumentation-slowrendering = { module = "io.opentelemetry.android.instrumentation:slowrendering" }
 opentelemetry-instrumentation-view-click = { module = "io.opentelemetry.android.instrumentation:view-click" }
+opentelemetry-instrumentation-location = { module = "io.opentelemetry.android.instrumentation:location" }
 pulse-android-sdk = { module = "io.opentelemetry.android:pulse-android-sdk" }
 gson = "com.google.code.gson:gson:2.13.2"
 
