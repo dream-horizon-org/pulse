@@ -1,0 +1,28 @@
+public final class io/opentelemetry/android/instrumentation/location/LocationInstrumentation : io/opentelemetry/android/instrumentation/AndroidInstrumentation {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/location/LocationInstrumentation$Companion;
+	public static final field INSTRUMENTATION_NAME Ljava/lang/String;
+	public fun <init> ()V
+	public static final fun createLogProcessor (Lio/opentelemetry/android/instrumentation/location/LocationProvider;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public static final fun createSpanProcessor (Lio/opentelemetry/android/instrumentation/location/LocationProvider;)Lio/opentelemetry/sdk/trace/SpanProcessor;
+	public fun getName ()Ljava/lang/String;
+	public fun install (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/LocationInstrumentation$Companion {
+	public final fun createLogProcessor (Lio/opentelemetry/android/instrumentation/location/LocationProvider;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public final fun createSpanProcessor (Lio/opentelemetry/android/instrumentation/location/LocationProvider;)Lio/opentelemetry/sdk/trace/SpanProcessor;
+}
+
+public final class io/opentelemetry/android/instrumentation/location/LocationProvider : kotlinx/coroutines/CoroutineScope {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/location/LocationProvider$Companion;
+	public fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;)V
+	public fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;J)V
+	public fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;JLkotlinx/coroutines/CoroutineDispatcher;)V
+	public synthetic fun <init> (Landroid/content/Context;Landroid/content/SharedPreferences;JLkotlinx/coroutines/CoroutineDispatcher;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun getCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
+	public final fun getLocationAttributes ()Lio/opentelemetry/api/common/Attributes;
+}
+
+public final class io/opentelemetry/android/instrumentation/location/LocationProvider$Companion {
+}
+
