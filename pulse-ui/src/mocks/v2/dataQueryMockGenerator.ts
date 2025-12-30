@@ -1794,6 +1794,14 @@ export class DataQueryMockGeneratorV2 {
       case "FROZEN_FRAME":
         return this.randomCount(5, 25, interactionName, groupValue).toString();
 
+      case "UNANALYSED_FRAME":
+        // Unanalysed frames - frames that couldn't be processed
+        return this.randomCount(10, 50, interactionName, groupValue).toString();
+
+      case "ANALYSED_FRAME":
+        // Analysed frames - successfully processed frames (should be larger than frozen)
+        return this.randomCount(200, 500, interactionName, groupValue).toString();
+
       case "ANR":
         return this.randomCount(3, 15, interactionName, groupValue).toString();
 
