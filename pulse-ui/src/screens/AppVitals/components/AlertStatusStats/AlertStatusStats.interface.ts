@@ -1,4 +1,6 @@
 export interface AlertStatusStatsProps {
-  startTime: string;
-  endTime: string;
+  /** @deprecated Not used - alerts API doesn't filter by time */
+  startTime?: string;
+  /** @deprecated Not used - alerts API doesn't filter by time */
+  endTime?: string;
 }

@@ -7,7 +7,7 @@ import type {
   ANRIssue,
   NonFatalIssue,
 } from "../../AppVitals.interface";
-
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 interface UseIssueDetailDataParams {
   groupId: string;
   startTime?: string;
@@ -67,7 +67,7 @@ export function useIssueDetailData({
         {
           function: "COL" as const,
           param: {
-            field: "EventName",
+            field: "PulseType",
           },
           alias: "event_name",
         },
@@ -95,7 +95,7 @@ export function useIssueDetailData({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "arrayStringConcat(groupUniqArray(AppVersionCode), ', ')",
+            expression: `arrayStringConcat(groupUniqArray(${COLUMN_NAME.APP_VERSION}), ', ')`,
           },
           alias: "app_versions",
         },
@@ -186,7 +186,7 @@ export function useIssueDetailData({
     // Use GroupId as the ID
     const id = groupId;
 
-    // Determine issue type from EventName
+    // Determine issue type from PulseType
     let issueType: "crash" | "anr" | "nonfatal" = "crash";
     if (eventName === "device.anr") {
       issueType = "anr";

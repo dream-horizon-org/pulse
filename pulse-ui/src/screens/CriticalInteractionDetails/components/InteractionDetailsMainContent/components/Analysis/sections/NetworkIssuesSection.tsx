@@ -1,11 +1,9 @@
 import TopIssuesCharts, { SectionConfig } from "../components/TopIssuesCharts";
-import { LoaderWithMessage } from "../../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
+import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
 import {
   ANALYSIS_ERROR_MESSAGES,
-  ANALYSIS_LOADING_MESSAGES,
 } from "../Analysis.constants";
-import commonStyles from "../../../common.module.css";
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetNetworkIssues } from "../hooks/useGetNetworkIssues";
 import { useMemo } from "react";
@@ -91,12 +89,7 @@ export const NetworkIssuesSection: React.FC<AnalysisSectionProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={ANALYSIS_LOADING_MESSAGES.NETWORK_ISSUES}
-      />
-    );
+    return <AnalysisSectionSkeleton chartCount={3} layout="grid" chartHeight={250} />;
   }
 
   const hasData =

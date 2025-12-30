@@ -1,6 +1,7 @@
-import { Table, Text, Badge, Box, Loader } from "@mantine/core";
+import { Table, Text, Badge, Box } from "@mantine/core";
 import dayjs from "dayjs";
 import type { ExceptionTableProps } from "./ExceptionTable.interface";
+import { TableSkeleton } from "../../../../components/Skeletons";
 import classes from "../../AppVitals.module.css";
 
 /**
@@ -70,8 +71,8 @@ export const ExceptionTable: React.FC<ExceptionTableProps> = ({
             <Text className={classes.tableHeaderTitle}>{title}</Text>
           </Box>
         </Box>
-        <Box className={classes.issueTableWrapper} style={{ padding: "2rem" }}>
-          <Loader size="sm" />
+        <Box className={classes.issueTableWrapper}>
+          <TableSkeleton columns={showTypeColumn ? 7 : 6} rows={5} />
         </Box>
       </Box>
     );

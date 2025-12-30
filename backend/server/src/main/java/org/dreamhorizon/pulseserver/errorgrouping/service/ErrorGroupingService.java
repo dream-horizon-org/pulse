@@ -274,7 +274,7 @@ public class ErrorGroupingService {
 
                 return StackTraceEvent.builder()
                     .timestamp(formatTs9(logRecord.getObservedTimeUnixNano()))
-                    .eventName(logRecord.getEventName())
+                    .pulseType(logRecord.getEventName())
                     .exceptionStackTraceRaw(stackTrace)  // Raw original stack trace
                     .exceptionStackTrace(symbolicatedStackTrace)  // Complete symbolicated stack trace
                     .exceptionMessage(getResourceAttribute(logAttrMap, "exception.message").orElse(null))

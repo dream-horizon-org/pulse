@@ -66,9 +66,10 @@ public class AlertsDao {
   }
 
   private static @NotNull List<Object> getParameters(String name, String scope, Integer limit, Integer offset,
-                                                     String createdBy, String updatedBy) {
+                                                     String createdBy, String updatedBy, String status) {
     // Create a list to hold query parameters
     List<Object> parameters = new ArrayList<>();
+    String statusValue = status == null ? "" : status;
 
     // Add parameters dynamically
     parameters.add(name == null ? "" : name);
@@ -79,6 +80,11 @@ public class AlertsDao {
     parameters.add(createdBy == null ? "" : createdBy);
     parameters.add(updatedBy == null ? "" : updatedBy);
     parameters.add(updatedBy == null ? "" : updatedBy);
+    parameters.add(statusValue);
+    parameters.add(statusValue);
+    parameters.add(statusValue);
+    parameters.add(statusValue);
+    parameters.add(statusValue); // For SNOOZED case
     parameters.add(limit == null ? 10 : limit);
     parameters.add(offset == null ? 0 : offset);
     return parameters;
@@ -517,8 +523,8 @@ public class AlertsDao {
   }
 
   public Single<GetAlertsResponse> getAlerts(String name, String scope, @NotNull Integer limit, @NotNull Integer offset,
-                                             String createdBy, String updatedBy) {
-    final var parameters = getParameters(name, scope, limit, offset, createdBy, updatedBy);
+                                             String createdBy, String updatedBy, String status) {
+    final var parameters = getParameters(name, scope, limit, offset, createdBy, updatedBy, status);
     Pool pool = d11MysqlClient.getWriterPool();
 
     return pool.preparedQuery(AlertsQuery.GET_ALERTS)

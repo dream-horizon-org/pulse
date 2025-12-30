@@ -241,8 +241,8 @@ class QueryRequestTest {
     @Test
     void shouldSetAndGetField() {
       QueryRequest.Filter filter = new QueryRequest.Filter();
-      filter.setField("SpanType");
-      assertEquals("SpanType", filter.getField());
+      filter.setField("PulseType");
+      assertEquals("PulseType", filter.getField());
     }
 
     @Test

@@ -12,6 +12,37 @@ import { Button } from "@mantine/core";
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { useGetScreensHealthData } from "../../../../hooks/useGetScreensHealthData";
+import { SkeletonLoader } from "../../../../components/Skeletons";
+
+// Skeleton card that matches the ScreenCard layout
+function ScreenCardSkeleton() {
+  return (
+    <div className={classes.skeletonCard}>
+      <div className={classes.skeletonMockup}>
+        <SkeletonLoader height={56} width={56} radius="md" />
+        <SkeletonLoader height={14} width="70%" radius="sm" />
+      </div>
+      <div className={classes.skeletonMetrics}>
+        <div className={classes.skeletonMetricItem}>
+          <SkeletonLoader height={8} width="60%" radius="sm" />
+          <SkeletonLoader height={16} width="40%" radius="sm" />
+        </div>
+        <div className={classes.skeletonMetricItem}>
+          <SkeletonLoader height={8} width="60%" radius="sm" />
+          <SkeletonLoader height={16} width="40%" radius="sm" />
+        </div>
+        <div className={classes.skeletonMetricItem}>
+          <SkeletonLoader height={8} width="60%" radius="sm" />
+          <SkeletonLoader height={16} width="40%" radius="sm" />
+        </div>
+        <div className={classes.skeletonMetricItem}>
+          <SkeletonLoader height={8} width="60%" radius="sm" />
+          <SkeletonLoader height={16} width="40%" radius="sm" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ScreensHealth({
   startTime,
@@ -35,7 +66,7 @@ export function ScreensHealth({
     };
   }, [startTime, endTime]);
 
-  const { data: screensData } = useGetScreensHealthData({
+  const { data: screensData, isLoading } = useGetScreensHealthData({
     startTime: startDate,
     endTime: endDate,
     limit: 5,
@@ -70,22 +101,36 @@ export function ScreensHealth({
         </Button>
       </div>
       <div className={classes.screensGrid}>
-        {screensData.map((screen, index) => {
-          const Icon = getScreenIcon(screen.screenType);
+        {isLoading ? (
+          <>
+            <ScreenCardSkeleton />
+            <ScreenCardSkeleton />
+            <ScreenCardSkeleton />
+            <ScreenCardSkeleton />
+            <ScreenCardSkeleton />
+          </>
+        ) : screensData.length === 0 ? (
+          <div className={classes.emptyState}>
+            <span className={classes.emptyStateText}>No screen data available</span>
+          </div>
+        ) : (
+          screensData.map((screen, index) => {
+            const Icon = getScreenIcon(screen.screenType);
 
-          return (
-            <ScreenCard
-              key={index}
-              screenName={screen.screenName}
-              icon={Icon}
-              staticAvgTimeSpent={screen.avgTimeSpent}
-              staticCrashRate={screen.crashRate}
-              staticLoadTime={screen.loadTime}
-              staticUsers={screen.users}
-              onClick={() => onCardClick(screen.screenName)}
-            />
-          );
-        })}
+            return (
+              <ScreenCard
+                key={index}
+                screenName={screen.screenName}
+                icon={Icon}
+                staticAvgTimeSpent={screen.avgTimeSpent}
+                staticCrashRate={screen.crashRate}
+                staticLoadTime={screen.loadTime}
+                staticUsers={screen.users}
+                onClick={() => onCardClick(screen.screenName)}
+              />
+            );
+          })
+        )}
       </div>
     </div>
   );

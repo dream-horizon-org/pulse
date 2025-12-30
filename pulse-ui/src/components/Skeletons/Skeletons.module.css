@@ -1,0 +1,240 @@
+/* Base skeleton animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(14, 201, 194, 0.06) 25%,
+    rgba(14, 201, 194, 0.12) 50%,
+    rgba(14, 201, 194, 0.06) 75%
+  );
+  background-size: 200% 100%;
+  display: inline-block;
+}
+
+.animated {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Graph Card Skeleton */
+.graphCard {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.08);
+}
+
+.graphTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0ba09a;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.titleSkeleton {
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.metricsGrid {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.metricCard {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(14, 201, 194, 0.1) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.metricValue {
+  margin-top: auto;
+}
+
+.chartContainer {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Chart Skeleton */
+.chartWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+}
+
+.chartTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-6);
+}
+
+.legendRow {
+  display: flex;
+  gap: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xs);
+}
+
+/* Table Skeleton */
+.tableWrapper {
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--mantine-radius-md);
+}
+
+.tableHeader {
+  display: flex;
+  background-color: var(--mantine-color-gray-0);
+  padding: 10px 12px;
+  gap: 12px;
+}
+
+.tableHeaderCell {
+  flex: 1;
+}
+
+.tableBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.tableRow {
+  display: flex;
+  padding: 12px;
+  gap: 12px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.tableCell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* Metrics Grid Skeleton */
+.metricsGridWrapper {
+  display: flex;
+  gap: var(--mantine-spacing-md);
+}
+
+.metricItem {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(14, 201, 194, 0.1) 100%
+  );
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Card Skeleton */
+.cardSkeleton {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.08);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Analysis Section Skeleton */
+.analysisChartSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-md);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: var(--mantine-radius-lg);
+}
+
+/* Info Card Skeleton */
+.infoCardSkeleton {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-lg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.topAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0.5;
+}
+
+.infoCardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0ba09a;
+  letter-spacing: -0.2px;
+}
+
+.infoGrid {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+}
+
+.infoItemSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+

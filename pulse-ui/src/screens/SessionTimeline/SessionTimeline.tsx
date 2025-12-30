@@ -1,40 +1,54 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Box, Button } from "@mantine/core";
-import { IconArrowLeft } from "@tabler/icons-react";
-import { SessionHeader } from "./components/SessionHeader";
-import { ResourceAttributesPanel } from "./components/ResourceAttributesPanel";
-import { SpanFilters } from "./components/SpanFilters";
-import { TimelineView } from "./components/TimelineView";
-import { AttributesPanel } from "./components/AttributesPanel";
-import { SessionTimelineEvent } from "./SessionTimeline.interface";
-import { OtelEventType } from "./constants/otelConstants";
-import { filterSpans } from "./utils/filters";
-import { calculateMaxTimeFromSpans } from "./utils/formatters";
-import { transformApiResponse } from "./utils/transformApiResponse";
-import { DataQueryRequestBody, useGetDataQuery } from "../../hooks";
+import { Box, Button, Paper, Group, Text, Badge, Loader } from "@mantine/core";
+import { IconArrowLeft, IconClock, IconDeviceMobile, IconHash } from "@tabler/icons-react";
+import { FlameChart } from "./components/FlameChart";
+import { DetailsSidebar } from "./components/DetailsSidebar";
+import { FlameChartNode, transformToFlameChart } from "./utils/flameChartTransform";
+import { useGetSessionData } from "../../hooks";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import relativeTime from "dayjs/plugin/relativeTime";
+import { SkeletonLoader, MetricsGridSkeleton } from "../../components/Skeletons";
 import { ErrorAndEmptyStateWithNotification } from "../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/ErrorAndEmptyStateWithNotification";
 import classes from "./SessionTimeline.module.css";
 
 dayjs.extend(utc);
+dayjs.extend(relativeTime);
 
+/**
+ * Format duration for display
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms.toFixed(0)}ms`;
+  }
+  if (ms < 60000) {
+    return `${(ms / 1000).toFixed(2)}s`;
+  }
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
+
+/**
+ * SessionTimeline - Displays a flame chart visualization of all traces and logs for a session
+ * 
+ * URL params:
+ * - id: Session ID (required)
+ * - traceId: Trace ID to highlight (optional)
+ * - startTime: Start time for data query (optional, defaults to 30 days ago)
+ * - endTime: End time for data query (optional, defaults to now)
+ */
 export function SessionTimeline() {
-  const { id } = useParams<{ id: string }>();
+  const { id: sessionId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const traceId = searchParams.get("traceId");
+  const highlightTraceId = searchParams.get("traceId");
 
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Set<OtelEventType>>(
-    new Set(),
-  );
-  const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set());
-  const [selectedSpan, setSelectedSpan] = useState<SessionTimelineEvent | null>(
-    null,
-  );
+  const [selectedItem, setSelectedItem] = useState<FlameChartNode | null>(null);
+  const flameChartContainerRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToTrace = useRef(false);
 
   // Get time range from URL params, or fallback to last 30 days
   const timeRange = useMemo(() => {
@@ -56,226 +70,91 @@ export function SessionTimeline() {
       end: end.toISOString(),
     };
   }, [searchParams]);
-  // Build request body
-  const requestBody = useMemo(
-    (): DataQueryRequestBody => ({
-      dataType: "TRACES",
-      timeRange,
-      select: [
-        {
-          function: "COL",
-          param: { field: "TraceId" },
-          alias: "traceid",
-        },
-        {
-          function: "COL",
-          param: { field: "SpanId" },
-          alias: "spanid",
-        },
-        {
-          function: "COL",
-          param: { field: "SpanName" },
-          alias: "spanname",
-        },
-        {
-          function: "COL",
-          param: { field: "Timestamp" },
-          alias: "timestamp",
-        },
-        {
-          function: "COL",
-          param: { field: "Duration" },
-          alias: "duration",
-        },
-        {
-          function: "COL",
-          param: { field: "DeviceModel" },
-          alias: "device",
-        },
-        {
-          function: "COL",
-          param: { field: "OsVersion" },
-          alias: "os_version",
-        },
-        {
-          function: "COL",
-          param: { field: "Platform" },
-          alias: "os_name",
-        },
-        {
-          function: "COL",
-          param: { field: "GeoState" },
-          alias: "state",
-        },
-        { function: "CUSTOM", 
-          param: {
-            expression:
-              "toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count'])",
-          },
-          alias: "frozen_frame" },
-        { function: "CUSTOM",
-          param: {
-            expression:
-              "toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])",
-          },
-          alias: "analysed_frame" },
-        { function: "CUSTOM",
-          param: {
-            expression:
-              "toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])",
-          },
-          alias: "unanalysed_frame" },
-        {
-          function: "CUSTOM",
-          param: {
-            expression:
-              "(arrayCount(x -> x LIKE '%device.anr%', Events.Name))",
-          },
-          alias: "anr",
-        },
-        {
-          function: "CUSTOM",
-          param: {
-            expression:
-              "(arrayCount(x -> x LIKE '%device.crash%', Events.Name))",
-          },
-          alias: "crash",
-        },
-      ],
-      filters: [
-        {
-          field: "TraceId" as const,
-          operator: "EQ" as const,
-          value: [traceId || ""],
-        },
-      ],
-    }),
-    [timeRange, traceId],
-  );
 
-  // Fetch session data
-  const { data, isLoading, error } = useGetDataQuery({
-    requestBody,
-    enabled: !!id,
+  // Fetch session data (traces and logs)
+  const { data: sessionData, isLoading, error } = useGetSessionData({
+    sessionId: sessionId || "",
+      timeRange,
+    enabled: !!sessionId,
   });
 
-  // Transform API response
-  const { summary, events } = useMemo(() => {
-    if (!data?.data) {
+  // Transform data to flame chart format
+  const {
+    flameChartData,
+    sessionDuration,
+    sessionStartTime,
+    orphanItems,
+    totalDepth,
+  } = useMemo(() => {
+    if (!sessionData?.traces && !sessionData?.logs && !sessionData?.exceptions) {
       return {
-        summary: {
-          sessionId: id || "unknown",
-          platform: "unknown",
-          status: "completed" as const,
-          duration: 0,
-          crashes: 0,
-          anrs: 0,
-          frozenFrames: 0,
-          totalEvents: 0,
-        },
-        events: [],
+        flameChartData: [],
+        sessionDuration: 0,
+        sessionStartTime: Date.now(),
+        orphanItems: [],
+        itemsMap: new Map(),
+        totalDepth: 0,
       };
     }
 
-    return transformApiResponse(data.data, id || "unknown");
-  }, [data, id]);
+    return transformToFlameChart(sessionData.traces, sessionData.logs, sessionData.exceptions);
+  }, [sessionData]);
 
-  // Build request body for interaction spans query (using spanName from summary)
-  const interactionSpansRequestBody = useMemo((): DataQueryRequestBody => {
-    const filters: DataQueryRequestBody["filters"] = [
-      {
-        field: "SessionId",
-        operator: "EQ",
-        value: [id || ""],
-      },
-    ];
+  // Session summary stats
+  const sessionSummary = useMemo(() => {
+    const totalSpans = sessionData?.traces?.rows?.length || 0;
+    const totalLogs = sessionData?.logs?.rows?.length || 0;
+    const totalExceptions = sessionData?.exceptions?.rows?.length || 0;
+    const orphanCount = orphanItems.length;
 
-    // Add has() filter if spanName is available in summary
-    if (summary.spanName) {
-      filters.push({
-        field: "SpanAttributes['pulse.interaction.active.names']",
-        operator: "LIKE",
-        value: [`%${summary.spanName}%`],
-      });
+    // Get service name from first trace if available
+    let serviceName = "";
+    if (sessionData?.traces?.rows?.[0]) {
+      const fields = sessionData.traces.fields;
+      const row = sessionData.traces.rows[0];
+      
+      const serviceNameIdx = fields.findIndex((f) => f.toLowerCase() === "servicename");
+      if (serviceNameIdx >= 0) {
+        serviceName = String(row[serviceNameIdx] || "");
+      }
     }
 
     return {
-      dataType: "TRACES",
-      timeRange,
-      select: [
-        {
-          function: "COL",
-          param: { field: "TraceId" },
-          alias: "traceid",
-        },
-        {
-          function: "COL",
-          param: { field: "SpanId" },
-          alias: "spanid",
-        },
-        {
-          function: "COL",
-          param: { field: "SpanName" },
-          alias: "spanname",
-        },
-        {
-          function: "COL",
-          param: { field: "Timestamp" },
-          alias: "timestamp",
-        },
-        {
-          function: "COL",
-          param: { field: "Duration" },
-          alias: "duration",
-        },
-      ],
-      filters,
+      totalSpans,
+      totalLogs,
+      totalExceptions,
+      totalItems: totalSpans + totalLogs + totalExceptions,
+      orphanCount,
+      duration: sessionDuration,
+      startTime: sessionStartTime,
+      serviceName,
     };
-  }, [timeRange, id, summary.spanName]);
+  }, [sessionData, sessionDuration, sessionStartTime, orphanItems]);
 
-  console.log("interactionSpansRequestBody", interactionSpansRequestBody);
-
-  // TODO: Uncomment this when we have the interaction spans data
-  // Fetch interaction spans data
-  // const {
-  //   data: interactionSpansData,
-  //   isLoading: isLoadingInteractionSpans,
-  //   error: interactionSpansError,
-  // } = useGetDataQuery({
-  //   requestBody: interactionSpansRequestBody,
-  //   enabled: !!id && !!summary.spanName,
-  // });
-
-  const toggleFilter = (type: OtelEventType) => {
-    const newFilters = new Set(activeFilters);
-    if (newFilters.has(type)) {
-      newFilters.delete(type);
-    } else {
-      newFilters.add(type);
-    }
-    setActiveFilters(newFilters);
+  // Handle item click - open details sidebar
+  const handleItemClick = (item: FlameChartNode) => {
+    setSelectedItem(item);
   };
 
-  const toggleSpanExpansion = (spanId: string) => {
-    const newExpanded = new Set(expandedSpans);
-    if (newExpanded.has(spanId)) {
-      newExpanded.delete(spanId);
-    } else {
-      newExpanded.add(spanId);
-    }
-    setExpandedSpans(newExpanded);
+  // Close details sidebar
+  const handleCloseSidebar = () => {
+    setSelectedItem(null);
   };
 
-  const filteredSpans = useMemo(
-    () => filterSpans(events, activeFilters, searchQuery),
-    [events, activeFilters, searchQuery],
-  );
+  // Scroll to highlighted trace on initial load
+  useEffect(() => {
+    if (
+      highlightTraceId &&
+      flameChartData.length > 0 &&
+      !hasScrolledToTrace.current &&
+      flameChartContainerRef.current
+    ) {
+      // The FlameChart component handles scrolling internally
+      hasScrolledToTrace.current = true;
+    }
+  }, [highlightTraceId, flameChartData]);
 
-  const maxTime = useMemo(
-    () => calculateMaxTimeFromSpans(filteredSpans),
-    [filteredSpans],
-  );
-
+  // Loading state
   if (isLoading) {
     return (
       <Box className={classes.container}>
@@ -289,11 +168,28 @@ export function SessionTimeline() {
         >
           Back
         </Button>
-        <LoaderWithMessage loadingMessage="Loading session timeline..." />
+
+        {/* Session Header Skeleton */}
+        <Paper className={classes.sessionHeaderSkeleton} mb="md">
+          <Group gap="sm" mb="md">
+            <SkeletonLoader height={20} width={20} radius="sm" />
+            <SkeletonLoader height={18} width={80} radius="sm" />
+            <SkeletonLoader height={16} width={200} radius="sm" />
+          </Group>
+          <MetricsGridSkeleton count={5} />
+        </Paper>
+
+        {/* Timeline Skeleton */}
+        <Paper p="md" className={classes.timelinePaper}>
+          <Box style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 400 }}>
+            <Loader color="teal" size="lg" />
+              </Box>
+        </Paper>
       </Box>
     );
   }
 
+  // Error state
   if (error) {
     return (
       <Box className={classes.container}>
@@ -319,6 +215,7 @@ export function SessionTimeline() {
 
   return (
     <Box className={classes.container}>
+      {/* Back Button */}
       <Button
         variant="subtle"
         color="teal"
@@ -330,25 +227,102 @@ export function SessionTimeline() {
         Back
       </Button>
 
-      <SessionHeader summary={summary} />
+      {/* Session Header */}
+      <Paper className={classes.sessionHeader} mb="md">
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
+          <Box>
+            <Group gap="sm" align="center" mb="xs">
+              <IconHash size={20} color="#0ec9c2" />
+              <Text className={classes.sessionTitle}>Session Timeline</Text>
+              {highlightTraceId && (
+                <Badge color="yellow" size="sm" variant="light">
+                  Highlighting Trace
+                </Badge>
+              )}
+            </Group>
+            <Text className={classes.sessionId} c="dimmed">
+              {sessionId}
+            </Text>
+          </Box>
 
-      <ResourceAttributesPanel events={events} />
+          <Group gap="md">
+            {sessionSummary.serviceName && (
+              <Box className={classes.statItem}>
+                <IconDeviceMobile size={14} className={classes.statIcon} />
+                <Text size="xs" c="dimmed">App</Text>
+                <Text size="sm" fw={500}>{sessionSummary.serviceName}</Text>
+              </Box>
+            )}
+          </Group>
+        </Group>
 
-      <SpanFilters searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        {/* Stats Row */}
+        <Group gap="xl" mt="md" className={classes.statsRow}>
+          <Box className={classes.statCard}>
+            <Text className={classes.statValue}>{sessionSummary.totalSpans}</Text>
+            <Text className={classes.statLabel}>Spans</Text>
+          </Box>
+          <Box className={classes.statCard}>
+            <Text className={classes.statValue}>{sessionSummary.totalLogs}</Text>
+            <Text className={classes.statLabel}>Logs</Text>
+          </Box>
+          {sessionSummary.totalExceptions > 0 && (
+            <Box className={classes.statCardError}>
+              <Text className={classes.statValue}>{sessionSummary.totalExceptions}</Text>
+              <Text className={classes.statLabel}>Exceptions</Text>
+            </Box>
+          )}
+          <Box className={classes.statCard}>
+            <Text className={classes.statValue}>{formatDuration(sessionSummary.duration)}</Text>
+            <Text className={classes.statLabel}>Duration</Text>
+          </Box>
+          {sessionSummary.orphanCount > 0 && (
+            <Box className={classes.statCardWarning}>
+              <Text className={classes.statValue}>{sessionSummary.orphanCount}</Text>
+              <Text className={classes.statLabel}>Orphan Items</Text>
+            </Box>
+          )}
+          <Box className={classes.statCard}>
+            <Text className={classes.statValue}>
+              <IconClock size={14} style={{ marginRight: 4 }} />
+              {sessionSummary.startTime ? dayjs(sessionSummary.startTime).format("MMM D, HH:mm:ss") : "—"}
+            </Text>
+            <Text className={classes.statLabel}>Start Time</Text>
+          </Box>
+        </Group>
+      </Paper>
 
-      <TimelineView
-        spans={filteredSpans}
-        maxTime={maxTime}
-        expandedSpans={expandedSpans}
-        onToggleExpand={toggleSpanExpansion}
-        activeFilters={activeFilters}
-        onFilterToggle={toggleFilter}
-        onSpanClick={setSelectedSpan}
-      />
+      {/* Highlighted Trace Info */}
+      {highlightTraceId && (
+        <Paper className={classes.highlightInfo} mb="md">
+          <Group gap="sm">
+            <Badge color="yellow" size="lg" variant="light">
+              🎯 Trace Highlighted
+            </Badge>
+            <Text size="sm" c="dimmed">
+              Trace ID: <Text component="span" ff="monospace" size="sm">{highlightTraceId}</Text>
+            </Text>
+          </Group>
+        </Paper>
+      )}
 
-      <AttributesPanel
-        selectedSpan={selectedSpan}
-        onClose={() => setSelectedSpan(null)}
+      {/* Flame Chart */}
+      <Paper className={classes.timelinePaper} ref={flameChartContainerRef}>
+        <FlameChart
+          data={flameChartData}
+          sessionDuration={sessionDuration}
+          sessionStartTime={sessionStartTime}
+          totalDepth={totalDepth}
+          highlightTraceId={highlightTraceId}
+          onItemClick={handleItemClick}
+          isLoading={isLoading}
+        />
+      </Paper>
+
+      {/* Details Sidebar */}
+      <DetailsSidebar
+        item={selectedItem}
+        onClose={handleCloseSidebar}
       />
     </Box>
   );

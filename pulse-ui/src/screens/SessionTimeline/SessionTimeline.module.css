@@ -15,3 +15,203 @@
   margin-bottom: var(--mantine-spacing-md);
   font-weight: 600;
 }
+
+/* Session Header */
+.sessionHeader {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-lg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.sessionHeader::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+}
+
+.sessionTitle {
+  font-size: var(--mantine-font-size-xl);
+  font-weight: 700;
+  color: var(--mantine-color-gray-8);
+}
+
+.sessionId {
+  font-family: monospace;
+  font-size: var(--mantine-font-size-xs);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statsRow {
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.05) 0%,
+    rgba(14, 201, 194, 0.02) 100%
+  );
+  border-radius: var(--mantine-radius-md);
+  min-width: 80px;
+}
+
+.statCardWarning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 152, 0, 0.1) 0%,
+    rgba(255, 152, 0, 0.05) 100%
+  );
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  min-width: 80px;
+}
+
+.statCardError {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  background: linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.1) 0%,
+    rgba(220, 38, 38, 0.05) 100%
+  );
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  min-width: 80px;
+}
+
+.statValue {
+  font-size: var(--mantine-font-size-lg);
+  font-weight: 700;
+  color: var(--mantine-color-gray-8);
+  display: flex;
+  align-items: center;
+}
+
+.statLabel {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.statIcon {
+  color: #0ec9c2;
+  margin-bottom: 2px;
+}
+
+/* Highlight Info Banner */
+.highlightInfo {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.1) 0%,
+    rgba(255, 215, 0, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: var(--mantine-radius-md);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+}
+
+/* Timeline Paper */
+.timelinePaper {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-lg);
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Skeleton Styles */
+.sessionHeaderSkeleton,
+.resourcePanelSkeleton {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.sessionHeaderSkeleton::before,
+.resourcePanelSkeleton::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  opacity: 0.5;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-xl) * 2;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--mantine-color-gray-4);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+/* Device Info Section */
+.deviceInfoSection {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: var(--mantine-radius-lg);
+  padding: var(--mantine-spacing-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.deviceInfoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deviceInfoLabel {
+  font-size: 11px;
+  color: var(--mantine-color-gray-6);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.deviceInfoValue {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mantine-color-gray-8);
+  word-break: break-word;
+}

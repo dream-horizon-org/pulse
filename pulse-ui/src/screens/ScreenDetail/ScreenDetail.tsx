@@ -29,8 +29,7 @@ import {
 import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import {
-  CRITICAL_INTERACTION_QUICK_TIME_FILTERS,
-  CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS,
+  DEFAULT_QUICK_TIME_FILTER,
   ROUTES,
 } from "../../constants";
 import { useFilterStore } from "../../stores/useFilterStore";
@@ -52,8 +51,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     quickTimeRangeString,
     quickTimeRangeFilterIndex,
     handleTimeFilterChange: storeHandleTimeFilterChange,
-    setQuickTimeRange,
-    initializeFromUrlParams
+    initializeFromUrlParams,
+    selectedTimeFilter,
   } = useFilterStore();
 
   // Tab state
@@ -67,12 +66,9 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   // Performance & Stability filters (separate state for issue type)
   const [issueType, setIssueType] = useState<IssueType>(ISSUE_TYPES.CRASHES);
 
-  // Initialize default time values (LAST_1_HOUR) if not set in store
+  // Initialize default time values (Last 24 hours) if not set in store
   const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(
-      CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-      2,
-    );
+    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
   };
 
   // Use store values if available, otherwise use defaults
@@ -84,38 +80,10 @@ export function ScreenDetail(_props: ScreenDetailProps) {
     return storeEndTime || getDefaultTimeRange().endDate;
   }, [storeEndTime]);
 
-  // Initialize filter store with LAST_1_HOUR on mount if not already set
-  useEffect(() => {
-    if (!storeStartTime || !storeEndTime) {
-      const defaultRange = getDefaultTimeRange();
-      // Find the index for LAST_1_HOUR in the time filter options
-      const last1HourIndex =
-        CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS.findIndex(
-          (option) =>
-            option.value ===
-            CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-        );
-      setQuickTimeRange(
-        CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_1_HOUR,
-        last1HourIndex >= 0 ? last1HourIndex : 3,
-      );
-      storeHandleTimeFilterChange({
-        startDate: defaultRange.startDate,
-        endDate: defaultRange.endDate,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Filter handlers
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
+    // Update time filter options which now also updates startTime and endTime
     storeHandleTimeFilterChange(value);
-    const store = useFilterStore.getState();
-    store.handleFilterChange(
-      {} as any,
-      value.startDate || "",
-      value.endDate || "",
-    );
   };
 
   const handleIssueTypeChange = (value: string) => {
@@ -250,8 +218,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               handleTimefilterChange={handleTimeFilterChange}
               selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex || 0}
               defaultQuickTimeFilterString={quickTimeRangeString || ""}
-              defaultEndTime={endTime}
-              defaultStartTime={startTime}
+              defaultEndTime={selectedTimeFilter?.endDate || endTime}
+              defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />
           </div>
         </div> 
@@ -267,8 +235,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
           {/* Detailed Graphs */}
           <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
             <TimeSpentGraph
-              avgTimeSpent={engagementData?.avgTimeSpent || 0}
-              avgLoadTime={engagementData?.avgLoadTime || 0}
+              avgTimeSpent={engagementData?.avgTimeSpent ?? null}
+              avgLoadTime={engagementData?.avgLoadTime ?? null}
               trendData={
                 engagementData?.trendData.map((d) => ({
                   timestamp: d.timestamp,
@@ -286,7 +254,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
-              spanType="screen_session"
             />
             <ActiveSessionsGraph
               screenName={decodedScreenName}
@@ -295,7 +262,6 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               device={device !== "all" ? device : undefined}
               startTime={startTime || undefined}
               endTime={endTime || undefined}
-              spanType="screen_session"
             />
           </SimpleGrid>
         </Tabs.Panel>
@@ -320,6 +286,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               osVersion={osVersion !== "all" ? osVersion : undefined}
               device={device !== "all" ? device : undefined}
               screenName={decodedScreenName}
+              externalTotalUsers={engagementData?.totalUsers}
+              externalTotalSessions={engagementData?.totalSessions}
             />
             <ANRMetricsStats
               startTime={formattedStartTime}
@@ -328,6 +296,8 @@ export function ScreenDetail(_props: ScreenDetailProps) {
               osVersion={osVersion !== "all" ? osVersion : undefined}
               device={device !== "all" ? device : undefined}
               screenName={decodedScreenName}
+              externalTotalUsers={engagementData?.totalUsers}
+              externalTotalSessions={engagementData?.totalSessions}
             />
             {/* Section 3: Performance Metrics */}
             <Box className={vitalsClasses.statSection}>
@@ -337,12 +307,15 @@ export function ScreenDetail(_props: ScreenDetailProps) {
                   <Text className={vitalsClasses.statLabel}>
                     Screen Load Time
                   </Text>
-                  <Text className={vitalsClasses.statValue} c="teal">
-                    {engagementData?.avgLoadTime
+                  <Text 
+                    className={vitalsClasses.statValue} 
+                    c={engagementData?.avgLoadTime !== null && engagementData?.avgLoadTime !== undefined ? "teal" : "dimmed"}
+                  >
+                    {engagementData?.avgLoadTime !== null && engagementData?.avgLoadTime !== undefined
                       ? engagementData.avgLoadTime >= 1
                         ? `${engagementData.avgLoadTime.toFixed(1)}s`
                         : `${(engagementData.avgLoadTime * 1000).toFixed(0)}ms`
-                      : "0ms"}
+                      : "N/A"}
                   </Text>
                 </Box>
               </Box>

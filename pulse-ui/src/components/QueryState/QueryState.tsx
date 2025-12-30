@@ -1,6 +1,6 @@
 import { Box, Text, Alert } from "@mantine/core";
 import { QueryStateProps } from "./QueryState.interface";
-import { GraphSkeleton } from "../GraphSkeleton";
+import { GraphCardSkeleton } from "../Skeletons";
 import classes from "./QueryState.module.css";
 
 export function QueryState({
@@ -20,9 +20,15 @@ export function QueryState({
     if (loadingComponent) {
       return <>{loadingComponent}</>;
     }
-    // Use GraphSkeleton for trend graphs if title is provided
+    // Use GraphCardSkeleton for trend graphs if title is provided
     if (skeletonTitle) {
-      return <GraphSkeleton title={skeletonTitle} height={skeletonHeight} />;
+      return (
+        <GraphCardSkeleton
+          title={skeletonTitle}
+          chartHeight={skeletonHeight}
+          metricsCount={0}
+        />
+      );
     }
     return (
       <Box className={classes.loadingContainer}>

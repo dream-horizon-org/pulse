@@ -3,6 +3,9 @@ retry_wait_time = 5
 max_retries = 6
 max_concurrency = 4
 
+# Accept insecure certificates (for self-signed or expired certs)
+insecure = true
+
 # Check link anchors
 include_fragments = true
 

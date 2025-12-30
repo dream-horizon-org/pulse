@@ -38,7 +38,7 @@ export function useTrendData({
   const filters = useMemo(() => {
     const filterArray: FilterField[] = [
       {
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ",
         value: [eventName],
       },

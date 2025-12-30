@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { FilterField, useGetDataQuery } from "../../../../../../../../hooks";
-import { COLUMN_NAME, SpanType } from "../../../../../../../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../../../../../../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import {
   UseGetRegionalInsightsParams,
@@ -20,7 +20,7 @@ export const useGetRegionalInsights = ({
 
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: "PulseType", operator: "EQ", value: [PulseType.INTERACTION] },
     ];
 
     if (interactionName) {
@@ -83,6 +83,12 @@ export const useGetRegionalInsights = ({
     const userPoorIndex = responseData.fields.indexOf("user_poor");
     const regionIndex = responseData.fields.indexOf("region");
 
+    // Helper to normalize empty region names to "Unknown"
+    const normalizeRegionName = (value: unknown): string => {
+      const region = String(value || "").trim();
+      return region === "" ? "Unknown" : region;
+    };
+
     const errorRateByRegion = responseData.rows.map((row) => {
       const successCount = parseFloat(String(row[successCountIndex])) || 0;
       const errorCount = parseFloat(String(row[errorCountIndex])) || 0;
@@ -92,7 +98,7 @@ export const useGetRegionalInsights = ({
           ? Number(((errorCount / totalCount) * 100).toFixed(1))
           : 0;
       return {
-        name: String(row[regionIndex] || ""),
+        name: normalizeRegionName(row[regionIndex]),
         value: errorRate,
       };
     });
@@ -104,7 +110,7 @@ export const useGetRegionalInsights = ({
       const poorPercentage =
         totalCount > 0 ? Number(((userPoor / totalCount) * 100).toFixed(2)) : 0;
       return {
-        name: String(row[regionIndex] || ""),
+        name: normalizeRegionName(row[regionIndex]),
         value: poorPercentage,
       };
     });

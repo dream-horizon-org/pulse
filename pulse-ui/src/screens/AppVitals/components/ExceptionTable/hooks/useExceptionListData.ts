@@ -11,7 +11,7 @@ import type {
   NonFatalIssue,
 } from "../../../AppVitals.interface";
 import { useExceptionTimestamps } from "./useExceptionTimestamps";
-
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 export type ExceptionType = "crash" | "anr" | "nonfatal";
 
 interface UseExceptionListDataParams {
@@ -42,19 +42,19 @@ export function useExceptionListData({
     // Add event type filter based on exception type
     if (exceptionType === "crash") {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["device.crash"],
       });
     } else if (exceptionType === "anr") {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["device.anr"],
       });
     } else if (exceptionType === "nonfatal") {
       filterArray.push({
-        field: "EventName",
+        field: "PulseType",
         operator: "EQ" as const,
         value: ["non_fatal"],
       });
@@ -72,7 +72,7 @@ export function useExceptionListData({
     // Add other filters
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ" as const,
         value: [appVersion],
       });
@@ -119,7 +119,7 @@ export function useExceptionListData({
       baseFields.push({
         function: "COL",
         param: {
-          field: "ExceptionType",
+          field: COLUMN_NAME.EXCEPTION_TYPE,
         },
         alias: "error_type",
       });
@@ -129,7 +129,7 @@ export function useExceptionListData({
       {
         function: "CUSTOM",
         param: {
-          expression: "arrayStringConcat(groupUniqArray(AppVersionCode), ', ')",
+          expression: `arrayStringConcat(groupUniqArray(${COLUMN_NAME.APP_VERSION}), ', ')`,
         },
         alias: "app_versions",
       },
@@ -143,7 +143,7 @@ export function useExceptionListData({
       {
         function: "CUSTOM",
         param: {
-          expression: "uniqCombined(UserId)",
+          expression: `uniqCombined(${COLUMN_NAME.USER_ID})`,
         },
         alias: "affected_users",
       },

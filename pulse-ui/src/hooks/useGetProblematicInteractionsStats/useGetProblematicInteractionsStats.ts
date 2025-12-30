@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { useGetDataQuery, DataQueryRequestBody, FilterField } from "../useGetDataQuery";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetProblematicInteractionsStatsParams,
   UseGetProblematicInteractionsStatsReturn,
@@ -18,7 +18,7 @@ export const useGetProblematicInteractionsStats = ({
 
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: COLUMN_NAME.SPAN_TYPE, operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: COLUMN_NAME.PULSE_TYPE, operator: "EQ", value: [PulseType.INTERACTION] },
     ];
 
     if (interactionName) {

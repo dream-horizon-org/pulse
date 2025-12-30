@@ -6,7 +6,7 @@ import {
   getTimeBucketSize,
   TimeBucketSize,
 } from "../../../../../utils/TimeBucketUtil";
-
+import { COLUMN_NAME } from "../../../../../constants/PulseOtelSemcov";
 export function getBucketSize(
   startTime: string,
   endTime: string,
@@ -71,7 +71,7 @@ export function buildCommonFilters(
 
   if (appVersion && appVersion !== "all") {
     filterArray.push({
-      field: "AppVersionCode",
+      field: COLUMN_NAME.APP_VERSION,
       operator: "EQ" as const,
       value: [appVersion],
     });

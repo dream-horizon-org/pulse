@@ -88,6 +88,13 @@ export function ErrorMetricsGraph({
     series: getEChartsSeries(),
   };
 
+  const formatMetric = (value: number | null | undefined, suffix: string = "") => {
+    if (value === null || value === undefined) {
+      return "N/A";
+    }
+    return value.toFixed(2) + suffix;
+  };
+
   return (
     <div className={`${classes.graphContainer} ${className}`}>
       <div className={errorMetricsClasses.graphTitleContainer}>
@@ -96,24 +103,24 @@ export function ErrorMetricsGraph({
 
       <div className={classes.absoluteCardContainer}>
         <AbsoluteNumbersForGraphs
-          data={`${metrics?.errorRate?.toFixed(2) || "0"}%`}
+          data={formatMetric(metrics?.errorRate, "%")}
           title="Error Rate"
-          color="red-6"
+          color={metrics?.errorRate !== null ? "red-6" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={`${metrics?.crashRate?.toFixed(2) || "0"}%`}
+          data={formatMetric(metrics?.crashRate, "%")}
           title="Crashes"
-          color="gray-7"
+          color={metrics?.crashRate !== null ? "gray-7" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={`${metrics?.anrRate?.toFixed(2) || "0"}%`}
+          data={formatMetric(metrics?.anrRate, "%")}
           title="ANR"
-          color="gray-7"
+          color={metrics?.anrRate !== null ? "gray-7" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={`${metrics?.networkErrorRate?.toFixed(2) || "0"}%`}
+          data={formatMetric(metrics?.networkErrorRate, "%")}
           title="Network Errors"
-          color="gray-7"
+          color={metrics?.networkErrorRate !== null ? "gray-7" : "gray-5"}
         />
       </div>
 

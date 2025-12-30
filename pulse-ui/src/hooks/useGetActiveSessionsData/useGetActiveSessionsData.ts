@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetActiveSessionsDataProps,
   ActiveSessionsData,
@@ -18,12 +18,17 @@ export function useGetActiveSessionsData({
   startTime,
   endTime,
   bucketSize,
-  spanType = SpanType.APP_START,
 }: UseGetActiveSessionsDataProps): {
   data: ActiveSessionsData;
   isLoading: boolean;
   error: Error | null;
 } {
+
+  // Determine data source based on whether screenName is provided
+  // - With screenName: Use TRACES with screen_session/screen_load (screen-specific sessions)
+  // - Without screenName: Use LOGS with session.start (overall app sessions)
+  const useTracesTable = !!screenName;
+  const dataType = useTracesTable ? "TRACES" : "LOGS";
 
   // Build filters array
   const buildFilters = useMemo(() => {
@@ -31,25 +36,32 @@ export function useGetActiveSessionsData({
       field: string;
       operator: "IN" | "EQ";
       value: string[];
-    }> = [
-      {
-        field: COLUMN_NAME.SPAN_TYPE,
-        operator: "EQ",
-        value: [spanType],
-      },
-    ];
+    }> = [];
 
-    if (screenName) {
+    if (useTracesTable) {
+      // Screen Detail page: TRACES with screen_session/screen_load
       filterArray.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: COLUMN_NAME.PULSE_TYPE,
         operator: "IN",
-        value: [screenName],
+        value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
+      });
+      filterArray.push({
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
+        operator: "IN",
+        value: [screenName!],
+      });
+    } else {
+      // User Engagement page: LOGS with session.start
+      filterArray.push({
+        field: COLUMN_NAME.PULSE_TYPE,
+        operator: "EQ",
+        value: [PulseType.SESSION_START],
       });
     }
 
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: `ResourceAttributes['${COLUMN_NAME.APP_VERSION}']`,
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ",
         value: [appVersion],
       });
@@ -72,12 +84,12 @@ export function useGetActiveSessionsData({
     }
 
     return filterArray;
-  }, [screenName, appVersion, osVersion, device, spanType]);
+  }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
   // Fetch active sessions
   const { data, isLoading } = useGetDataQuery({
     requestBody: {
-      dataType: "TRACES",
+      dataType,
       timeRange: {
         start: startTime,
         end: endTime,
@@ -102,7 +114,7 @@ export function useGetActiveSessionsData({
   });
 
   // Transform data and calculate metrics
-  const { currentSessions, peakSessions, averageSessions, trendData } =
+  const { currentSessions, peakSessions, averageSessions, trendData, hasData } =
     useMemo(() => {
       const responseData = data?.data;
       if (
@@ -111,10 +123,11 @@ export function useGetActiveSessionsData({
         responseData.rows.length === 0
       ) {
         return {
-          currentSessions: 0,
-          peakSessions: 0,
-          averageSessions: 0,
+          currentSessions: null,
+          peakSessions: null,
+          averageSessions: null,
           trendData: [],
+          hasData: false,
         };
       }
 
@@ -139,6 +152,7 @@ export function useGetActiveSessionsData({
         peakSessions: Math.round(peak),
         averageSessions: average,
         trendData: trend,
+        hasData: true,
       };
     }, [data]);
 
@@ -150,6 +164,7 @@ export function useGetActiveSessionsData({
       peakSessions,
       averageSessions,
       trendData,
+      hasData,
     },
     isLoading,
     error,

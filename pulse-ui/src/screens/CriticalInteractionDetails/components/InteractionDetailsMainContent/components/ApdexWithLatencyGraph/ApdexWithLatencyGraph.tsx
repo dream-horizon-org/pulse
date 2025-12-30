@@ -84,12 +84,22 @@ export function ApdexWithLatencyGraph({
     series: getEChartsSeries(),
   };
 
-  const getLatencyFormattString = (latency: number) => {
+  const getLatencyFormattString = (latency: number | null | undefined) => {
+    if (latency === null || latency === undefined) {
+      return "N/A";
+    }
     // if the latency is greater than 1000, then format it as seconds
     if (latency > 1000) {
       return (latency / 1000).toFixed(2) + "s";
     }
     return latency.toFixed(2) + "ms";
+  };
+
+  const formatMetric = (value: number | null | undefined, suffix: string = "") => {
+    if (value === null || value === undefined) {
+      return "N/A";
+    }
+    return value.toFixed(2) + suffix;
   };
 
   return (
@@ -100,24 +110,24 @@ export function ApdexWithLatencyGraph({
 
       <div className={classes.absoluteCardContainer}>
         <AbsoluteNumbersForGraphs
-          data={metrics?.apdex?.toFixed(2) || "0"}
+          data={formatMetric(metrics?.apdex)}
           title="Apdex Score"
-          color="blue-6"
+          color={metrics?.apdex !== null ? "blue-6" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={`${getLatencyFormattString(metrics?.p50 || 0)}`}
+          data={getLatencyFormattString(metrics?.p50)}
           title="p50 Latency"
-          color="gray-7"
+          color={metrics?.p50 !== null ? "gray-7" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={`${getLatencyFormattString(metrics?.p95 || 0)}`}
+          data={getLatencyFormattString(metrics?.p95)}
           title="p95 Latency"
-          color="gray-7"
+          color={metrics?.p95 !== null ? "gray-7" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={`${metrics?.frozenFrameRate?.toFixed(2) || "0"}%`}
+          data={formatMetric(metrics?.frozenFrameRate, "%")}
           title="Frozen Frames"
-          color="gray-7"
+          color={metrics?.frozenFrameRate !== null ? "gray-7" : "gray-5"}
         />
       </div>
 

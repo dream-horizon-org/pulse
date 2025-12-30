@@ -200,7 +200,8 @@ public class AlertService {
         getAlertsListRequestDto.getLimit(),
         getAlertsListRequestDto.getOffset(),
         getAlertsListRequestDto.getCreatedBy(),
-        getAlertsListRequestDto.getUpdatedBy()
+        getAlertsListRequestDto.getUpdatedBy(),
+        getAlertsListRequestDto.getStatus()
     ).flatMap(alertsResponse -> {
       List<Alert> updatedAlerts = alertsResponse
           .getAlerts()

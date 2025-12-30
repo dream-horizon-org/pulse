@@ -38,7 +38,8 @@ export function AlertCard({
 
   const getStatusConfig = () => {
     if (is_snoozed) return { label: "Snoozed", color: "#94a3b8", bgColor: "rgba(148, 163, 184, 0.1)", icon: IconBellOff };
-    if (isFiring || current_state === "NO_DATA") return { label: current_state, color: "#ef4444", bgColor: "rgba(239, 68, 68, 0.08)", icon: IconBellRinging };
+    if (current_state === "NO_DATA") return { label: "No Data", color: "#9ca3af", bgColor: "rgba(156, 163, 175, 0.1)", icon: IconBell };
+    if (isFiring) return { label: current_state, color: "#ef4444", bgColor: "rgba(239, 68, 68, 0.08)", icon: IconBellRinging };
     return { label: current_state, color: "#10b981", bgColor: "rgba(16, 185, 129, 0.08)", icon: IconBell };
   };
 
