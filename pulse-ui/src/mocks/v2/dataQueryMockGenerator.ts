@@ -40,6 +40,8 @@ export class DataQueryMockGeneratorV2 {
       timeRange,
       selectCount: select.length,
       limit,
+      dataType: requestBody.dataType,
+      filters: filters?.map((f) => ({ field: f.field, operator: f.operator })),
     });
 
     // Check if this is a time-series query (has TIME_BUCKET)
@@ -49,9 +51,30 @@ export class DataQueryMockGeneratorV2 {
     const hasGroupBy = groupBy && groupBy.length > 0 && !groupBy.includes("t1");
 
     // Check if this is a session records query (has event_names, traceid, spanid)
+    // Use case-insensitive matching for aliases
     const hasEventNames = select.some((s) => s.alias === "event_names");
-    const hasTraceId = select.some((s) => s.alias === "traceid");
-    const hasSpanId = select.some((s) => s.alias === "spanid");
+    const hasTraceId = select.some((s) => s.alias?.toLowerCase() === "traceid");
+    const hasSpanId = select.some((s) => s.alias?.toLowerCase() === "spanid");
+
+    // Check if this is a Session Timeline query (has SessionId filter)
+    const sessionIdFilter = filters?.find(
+      (f) => f.field === "SessionId" && f.operator === "EQ",
+    );
+    const isSessionTimelineQuery = !!sessionIdFilter && !hasGroupBy && !hasTimeBucket;
+
+    // Check if this is a Span/Log Details query (TraceId + SpanId filter with toJSONString attributes)
+    const traceIdFilter = filters?.find(
+      (f) => f.field === "TraceId" && f.operator === "EQ",
+    );
+    const spanIdFilter = filters?.find(
+      (f) => f.field === "SpanId" && f.operator === "EQ",
+    );
+    const hasJsonAttributes = select.some(
+      (s) => s.function === "CUSTOM" && 
+        s.param?.expression?.includes("toJSONString")
+    );
+    const isSpanDetailsQuery = !!traceIdFilter && !!spanIdFilter && hasJsonAttributes && limit === 1;
+    const isLogDetailsQuery = requestBody.dataType === "LOGS" && !!traceIdFilter && hasJsonAttributes && limit === 1;
 
     // Check if this is an exceptions query
     const isExceptionsQuery = requestBody.dataType === "EXCEPTIONS";
@@ -127,6 +150,34 @@ export class DataQueryMockGeneratorV2 {
         "[DataQueryMockV2] Generated exceptions list response:",
         response.rows.length,
         "rows",
+      );
+      return response;
+    } else if (isSpanDetailsQuery) {
+      // Span Details query - return detailed attributes for a specific span
+      const response = this.generateSpanDetailsResponse(requestBody);
+      console.log(
+        "[DataQueryMockV2] Generated span details response:",
+        response.rows.length,
+        "rows",
+      );
+      return response;
+    } else if (isLogDetailsQuery) {
+      // Log Details query - return detailed attributes for a specific log
+      const response = this.generateLogDetailsResponse(requestBody);
+      console.log(
+        "[DataQueryMockV2] Generated log details response:",
+        response.rows.length,
+        "rows",
+      );
+      return response;
+    } else if (isSessionTimelineQuery) {
+      // Session Timeline query - return traces/logs/exceptions for a specific session
+      const response = this.generateSessionTimelineResponse(requestBody);
+      console.log(
+        "[DataQueryMockV2] Generated session timeline response:",
+        response.rows.length,
+        "rows for dataType:",
+        requestBody.dataType,
       );
       return response;
     } else if (hasTimeBucket) {
@@ -982,6 +1033,658 @@ export class DataQueryMockGeneratorV2 {
     }
 
     return { fields, rows };
+  }
+
+  /**
+   * Generate Session Timeline response for traces, logs, or exceptions filtered by SessionId
+   * This handles the waterfall/flame chart view for a single session
+   */
+  private generateSessionTimelineResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters, dataType } = requestBody;
+
+    // Extract SessionId from filter
+    const sessionIdFilter = filters?.find(
+      (f) => f.field === "SessionId" && f.operator === "EQ",
+    );
+    const sessionId = Array.isArray(sessionIdFilter?.value)
+      ? String(sessionIdFilter.value[0])
+      : String(sessionIdFilter?.value || "mock-session-123");
+
+    console.log("[DataQueryMockV2] Generating session timeline response:", {
+      sessionId,
+      dataType,
+      fieldCount: select.length,
+    });
+
+    // Extract fields (aliases)
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Use a fixed time window for better visualization (last 5 minutes of activity)
+    const now = dayjs().utc();
+    const startTime = now.subtract(5, "minute");
+    const sessionDurationMs = 5 * 60 * 1000; // 5 minutes
+
+    const rows: string[][] = [];
+
+    if (dataType === "TRACES") {
+      // Generate trace spans for session timeline - create a realistic span hierarchy
+      const traceSpans = this.generateSessionTraceSpans(sessionId, startTime, sessionDurationMs);
+      
+      console.log("[DataQueryMockV2] Generated", traceSpans.length, "trace spans");
+      
+      for (const span of traceSpans) {
+        const row: string[] = select.map((selectField) => {
+          const alias = selectField.alias?.toLowerCase() || selectField.alias;
+          
+          switch (alias) {
+            case "traceid":
+              return span.traceId;
+            case "spanid":
+              return span.spanId;
+            case "parentspanid":
+              return span.parentSpanId;
+            case "spanname":
+              return span.spanName;
+            case "spankind":
+              return span.spanKind;
+            case "servicename":
+              return span.serviceName;
+            case "timestamp":
+              return span.timestamp;
+            case "duration":
+              return span.duration.toString();
+            case "statuscode":
+              return span.statusCode;
+            case "pulsetype":
+              return span.pulseType;
+            default:
+              return "";
+          }
+        });
+        rows.push(row);
+      }
+    } else if (dataType === "LOGS") {
+      // Generate more logs for the session - 25-40 logs
+      const numLogs = 25 + Math.floor(Math.random() * 15);
+      
+      const logBodies = [
+        "Application initialized",
+        "User session started",
+        "Fetching user preferences from cache",
+        "Cache hit: user_preferences",
+        "Loading HomeScreen",
+        "HomeScreen rendered successfully",
+        "Network request: GET /api/v1/user/profile",
+        "Response received: 200 OK (234ms)",
+        "Updating UI with profile data",
+        "User tapped: 'Settings' button",
+        "Navigating to SettingsScreen",
+        "SettingsScreen loaded",
+        "Fetching notification settings",
+        "Push token registered",
+        "Analytics event: screen_view (SettingsScreen)",
+        "User changed theme preference",
+        "Saving preferences to local storage",
+        "Database write completed (12ms)",
+        "Background sync initiated",
+        "Syncing 3 pending items",
+        "Sync completed successfully",
+        "Memory usage: 128MB (normal)",
+        "Location permission requested",
+        "Location permission granted",
+        "GPS coordinates received",
+        "Map tiles loaded (8 tiles)",
+        "Image loaded: profile_photo.jpg",
+        "Image cached successfully",
+        "Checking for app updates",
+        "App is up to date",
+        "Session heartbeat sent",
+        "WebSocket connection established",
+        "Real-time updates enabled",
+        "User returned to HomeScreen",
+        "Refreshing home feed",
+        "Feed updated with 5 new items",
+      ];
+
+      const severities = ["INFO", "DEBUG", "INFO", "DEBUG", "INFO", "WARN", "INFO", "DEBUG"];
+
+      for (let i = 0; i < numLogs; i++) {
+        const progress = i / (numLogs - 1);
+        const logTime = startTime.add(progress * sessionDurationMs * 0.95, "millisecond");
+        
+        const row: string[] = select.map((selectField) => {
+          const alias = selectField.alias?.toLowerCase() || selectField.alias;
+          
+          switch (alias) {
+            case "traceid":
+              return `${sessionId}-trace-${Math.floor(i / 3)}`;
+            case "spanid":
+              return this.generateHexString(16).toUpperCase();
+            case "timestamp":
+              return logTime.toISOString();
+            case "severitytext":
+              return severities[i % severities.length];
+            case "body":
+              return logBodies[i % logBodies.length];
+            case "pulsetype":
+              return "log";
+            default:
+              return "";
+          }
+        });
+        rows.push(row);
+      }
+    } else if (dataType === "EXCEPTIONS") {
+      // Always generate 1-2 exceptions for demo visualization
+      const numExceptions = 1 + Math.floor(Math.random() * 2);
+      
+      const exceptionDetails = [
+        { type: "non_fatal", title: "NetworkTimeoutException", message: "Connection timed out after 30000ms", screen: "HomeScreen" },
+        { type: "crash", title: "NullPointerException", message: "Cannot invoke method 'getString()' on null object reference", screen: "ProfileScreen" },
+        { type: "anr", title: "Application Not Responding", message: "Input dispatching timed out (Waiting to send non-key event)", screen: "CheckoutScreen" },
+        { type: "non_fatal", title: "OutOfMemoryError", message: "Failed to allocate 4194304 bytes", screen: "ImageGalleryScreen" },
+      ];
+
+      for (let i = 0; i < numExceptions; i++) {
+        const progress = 0.3 + (i * 0.3); // Space exceptions throughout session
+        const exceptionTime = startTime.add(progress * sessionDurationMs, "millisecond");
+        const exception = exceptionDetails[i % exceptionDetails.length];
+        
+        const row: string[] = select.map((selectField) => {
+          const alias = selectField.alias?.toLowerCase() || selectField.alias;
+          
+          switch (alias) {
+            case "timestamp":
+              return exceptionTime.toISOString();
+            case "pulsetype":
+              return `device.${exception.type}`;
+            case "title":
+              return exception.title;
+            case "exceptionmessage":
+              return exception.message;
+            case "exceptiontype":
+              return exception.type;
+            case "screenname":
+              return exception.screen;
+            case "traceid":
+              return `${sessionId}-exception-trace-${i}`;
+            case "spanid":
+              return this.generateHexString(16).toUpperCase();
+            case "groupid":
+              return `group-${exception.type}-${Date.now()}-${i}`;
+            default:
+              return "";
+          }
+        });
+        rows.push(row);
+      }
+    }
+
+    console.log("[DataQueryMockV2] Session timeline generated:", {
+      dataType,
+      rowCount: rows.length,
+      fields,
+    });
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate realistic trace spans for a session with proper parent-child hierarchy
+   * Creates a rich hierarchy for flame chart visualization
+   */
+  private generateSessionTraceSpans(
+    sessionId: string,
+    startTime: dayjs.Dayjs,
+    sessionDurationMs: number,
+  ): Array<{
+    traceId: string;
+    spanId: string;
+    parentSpanId: string;
+    spanName: string;
+    spanKind: string;
+    serviceName: string;
+    timestamp: string;
+    duration: number;
+    statusCode: string;
+    pulseType: string;
+  }> {
+    const spans: Array<{
+      traceId: string;
+      spanId: string;
+      parentSpanId: string;
+      spanName: string;
+      spanKind: string;
+      serviceName: string;
+      timestamp: string;
+      duration: number;
+      statusCode: string;
+      pulseType: string;
+    }> = [];
+
+    // Screen names for realistic navigation flow
+    const screens = ["HomeScreen", "ProfileScreen", "SettingsScreen", "SearchScreen", "DetailsScreen", "CheckoutScreen"];
+    
+    // Define rich interaction templates with nested operations
+    const interactionTemplates = [
+      {
+        name: "AppStart",
+        pulseType: PulseType.APP_START,
+        baseDuration: 2500,
+        children: [
+          { name: "SDK Initialization", type: "internal", duration: 150, children: [
+            { name: "Config Load", type: "internal", duration: 30 },
+            { name: "Analytics Init", type: "internal", duration: 50 },
+            { name: "Crash Reporter Init", type: "internal", duration: 40 },
+          ]},
+          { name: "Database Migration", type: "database", duration: 200, children: [
+            { name: "Schema Check", type: "database", duration: 50 },
+            { name: "Run Migrations", type: "database", duration: 120 },
+          ]},
+          { name: "User Session Restore", type: "internal", duration: 300, children: [
+            { name: "Token Validation", type: "network", duration: 180 },
+            { name: "Profile Fetch", type: "network", duration: 100 },
+          ]},
+          { name: "Initial Screen Render", type: "render", duration: 400, children: [
+            { name: "Layout Inflation", type: "render", duration: 80 },
+            { name: "View Binding", type: "render", duration: 60 },
+            { name: "Data Binding", type: "render", duration: 100 },
+          ]},
+        ],
+      },
+      {
+        name: "ScreenLoad",
+        pulseType: PulseType.SCREEN_LOAD,
+        baseDuration: 800,
+        screenName: true,
+        children: [
+          { name: "View Creation", type: "render", duration: 100 },
+          { name: "Data Fetch", type: "network", duration: 350, children: [
+            { name: "API Request", type: "network", duration: 280 },
+            { name: "Response Parse", type: "internal", duration: 50 },
+          ]},
+          { name: "Render Content", type: "render", duration: 200, children: [
+            { name: "RecyclerView Bind", type: "render", duration: 120 },
+            { name: "Image Decode", type: "internal", duration: 60 },
+          ]},
+        ],
+      },
+      {
+        name: "UserInteraction",
+        pulseType: PulseType.INTERACTION,
+        baseDuration: 400,
+        children: [
+          { name: "Click Handler", type: "internal", duration: 20 },
+          { name: "State Update", type: "internal", duration: 50 },
+          { name: "API Call", type: "network", duration: 250, children: [
+            { name: "Request Prepare", type: "internal", duration: 15 },
+            { name: "Network Request", type: "network", duration: 200 },
+            { name: "Response Handle", type: "internal", duration: 30 },
+          ]},
+          { name: "UI Update", type: "render", duration: 80 },
+        ],
+      },
+      {
+        name: "Navigation",
+        pulseType: PulseType.NAVIGATION,
+        baseDuration: 600,
+        children: [
+          { name: "Route Resolve", type: "internal", duration: 30 },
+          { name: "Screen Transition", type: "render", duration: 250, children: [
+            { name: "Exit Animation", type: "render", duration: 100 },
+            { name: "Enter Animation", type: "render", duration: 120 },
+          ]},
+          { name: "New Screen Init", type: "internal", duration: 150 },
+          { name: "Data Prefetch", type: "network", duration: 170 },
+        ],
+      },
+      {
+        name: "NetworkRequest",
+        pulseType: "network.request",
+        baseDuration: 500,
+        children: [
+          { name: "DNS Lookup", type: "network", duration: 20 },
+          { name: "TCP Connect", type: "network", duration: 40 },
+          { name: "TLS Handshake", type: "network", duration: 60 },
+          { name: "Request Send", type: "network", duration: 30 },
+          { name: "Server Processing", type: "network", duration: 200 },
+          { name: "Response Receive", type: "network", duration: 100 },
+          { name: "Body Parse", type: "internal", duration: 50 },
+        ],
+      },
+    ];
+
+    // Generate 8-12 traces distributed across the session
+    const numTraces = 8 + Math.floor(Math.random() * 5);
+    const timeSlotSize = sessionDurationMs / numTraces;
+    
+    for (let t = 0; t < numTraces; t++) {
+      const traceId = this.generateHexString(32).toUpperCase();
+      const template = interactionTemplates[t % interactionTemplates.length];
+      
+      // Calculate trace start time with some randomness within the slot
+      const slotStart = t * timeSlotSize;
+      const randomOffset = Math.random() * (timeSlotSize * 0.3);
+      const traceStartTime = startTime.add(slotStart + randomOffset, "millisecond");
+      
+      // Duration variation: 70-130% of base
+      const durationMultiplier = 0.7 + Math.random() * 0.6;
+      const traceDuration = Math.floor(template.baseDuration * durationMultiplier);
+      
+      // Determine span name (add screen name for screen-related spans)
+      let spanName = template.name;
+      if (template.screenName) {
+        spanName = `${screens[t % screens.length]} Load`;
+      }
+      
+      // Create root span
+      const rootSpanId = this.generateHexString(16).toUpperCase();
+      spans.push({
+        traceId,
+        spanId: rootSpanId,
+        parentSpanId: "",
+        spanName,
+        spanKind: "INTERNAL",
+        serviceName: "pulse-mobile-app",
+        timestamp: traceStartTime.toISOString(),
+        duration: traceDuration * 1_000_000, // Convert ms to nanoseconds
+        statusCode: Math.random() < 0.95 ? "OK" : "ERROR",
+        pulseType: template.pulseType,
+      });
+      
+      // Create child spans recursively
+      let childOffset = 5; // Start 5ms after parent
+      
+      for (const child of template.children) {
+        const childDuration = Math.floor(child.duration * durationMultiplier);
+        this.addSpanWithChildren(
+          spans,
+          traceId,
+          rootSpanId,
+          child,
+          traceStartTime.add(childOffset, "millisecond"),
+          durationMultiplier,
+        );
+        childOffset += childDuration + 5;
+      }
+    }
+
+    // Sort spans by timestamp for proper visualization
+    spans.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf());
+
+    return spans;
+  }
+
+  /**
+   * Recursively add a span and its children
+   */
+  private addSpanWithChildren(
+    spans: Array<{
+      traceId: string;
+      spanId: string;
+      parentSpanId: string;
+      spanName: string;
+      spanKind: string;
+      serviceName: string;
+      timestamp: string;
+      duration: number;
+      statusCode: string;
+      pulseType: string;
+    }>,
+    traceId: string,
+    parentSpanId: string,
+    spanDef: { name: string; type: string; duration: number; children?: Array<{ name: string; type: string; duration: number; children?: any[] }> },
+    startTime: dayjs.Dayjs,
+    durationMultiplier: number,
+  ): void {
+    const spanId = this.generateHexString(16).toUpperCase();
+    const duration = Math.floor(spanDef.duration * durationMultiplier);
+    
+    // Map type to spanKind
+    const spanKindMap: Record<string, string> = {
+      "internal": "INTERNAL",
+      "network": "CLIENT",
+      "database": "CLIENT",
+      "render": "INTERNAL",
+      "cache": "INTERNAL",
+    };
+    
+    // Map type to pulseType
+    const pulseTypeMap: Record<string, string> = {
+      "internal": "internal",
+      "network": "network.request",
+      "database": "database.query",
+      "render": "ui.render",
+      "cache": "cache.operation",
+    };
+    
+    spans.push({
+      traceId,
+      spanId,
+      parentSpanId,
+      spanName: spanDef.name,
+      spanKind: spanKindMap[spanDef.type] || "INTERNAL",
+      serviceName: "pulse-mobile-app",
+      timestamp: startTime.toISOString(),
+      duration: duration * 1_000_000, // Convert ms to nanoseconds
+      statusCode: Math.random() < 0.92 ? "OK" : "ERROR",
+      pulseType: pulseTypeMap[spanDef.type] || "internal",
+    });
+    
+    // Add children if present
+    if (spanDef.children && spanDef.children.length > 0) {
+      let childOffset = 3; // Small offset for child spans
+      for (const child of spanDef.children) {
+        const childDuration = Math.floor(child.duration * durationMultiplier);
+        this.addSpanWithChildren(
+          spans,
+          traceId,
+          spanId,
+          child,
+          startTime.add(childOffset, "millisecond"),
+          durationMultiplier,
+        );
+        childOffset += childDuration + 2;
+      }
+    }
+  }
+
+  /**
+   * Generate Span Details response with rich attribute data
+   * Returns resourceAttributes, spanAttributes, events, and links as JSON strings
+   */
+  private generateSpanDetailsResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select } = requestBody;
+
+    // Extract fields (aliases)
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Generate rich mock data for span details
+    const resourceAttributes = {
+      "service.name": "pulse-mobile-app",
+      "service.version": "3.2.1",
+      "telemetry.sdk.name": "pulse-otel-sdk",
+      "telemetry.sdk.version": "1.4.0",
+      "device.id": "ABC123XYZ789",
+      "device.model.name": "iPhone 14 Pro",
+      "device.manufacturer": "Apple",
+      "os.type": "iOS",
+      "os.version": "17.2",
+      "os.name": "iOS",
+      "deployment.environment": "production",
+      "host.arch": "arm64",
+      "process.runtime.name": "iOS",
+      "process.runtime.version": "17.2",
+    };
+
+    const spanAttributes = {
+      "pulse.type": "screen_load",
+      "pulse.screen.name": "HomeScreen",
+      "pulse.session.id": "session-abc-123",
+      "http.method": "GET",
+      "http.url": "https://api.example.com/v1/user/profile",
+      "http.status_code": "200",
+      "http.response_content_length": "2458",
+      "http.request_content_length": "0",
+      "net.peer.name": "api.example.com",
+      "net.peer.port": "443",
+      "user_agent.original": "PulseApp/3.2.1 (iOS 17.2; iPhone14,2)",
+      "thread.id": "1",
+      "thread.name": "main",
+      "code.function": "loadHomeScreen",
+      "code.filepath": "HomeViewController.swift",
+      "code.lineno": "142",
+      "enduser.id": "user-12345",
+      "app.screen.previous": "SplashScreen",
+      "app.navigation.type": "push",
+    };
+
+    // Generate some events
+    const now = dayjs().utc();
+    const events = [
+      {
+        timestamp: now.subtract(100, "millisecond").toISOString(),
+        name: "view.created",
+        attributes: { "view.class": "HomeViewController", "view.id": "home_root" },
+      },
+      {
+        timestamp: now.subtract(50, "millisecond").toISOString(),
+        name: "data.loaded",
+        attributes: { "data.source": "cache", "data.items": "12" },
+      },
+      {
+        timestamp: now.toISOString(),
+        name: "view.rendered",
+        attributes: { "view.frame_time": "16.7ms", "view.dropped_frames": "0" },
+      },
+    ];
+
+    // Generate some links
+    const links = [
+      {
+        traceId: this.generateHexString(32).toUpperCase(),
+        spanId: this.generateHexString(16).toUpperCase(),
+        attributes: { "link.type": "parent_request", "link.source": "api_gateway" },
+      },
+    ];
+
+    // Build the row based on select fields
+    const row: string[] = select.map((selectField) => {
+      const alias = selectField.alias?.toLowerCase() || selectField.alias;
+      
+      switch (alias) {
+        case "resourceattributes":
+          return JSON.stringify(resourceAttributes);
+        case "spanattributes":
+          return JSON.stringify(spanAttributes);
+        case "eventstimestamp":
+          return events.map((e) => e.timestamp).join("|||");
+        case "eventsname":
+          return events.map((e) => e.name).join("|||");
+        case "eventsattributes":
+          return events.map((e) => JSON.stringify(e.attributes)).join("|||");
+        case "linkstraceid":
+          return links.map((l) => l.traceId).join("|||");
+        case "linksspanid":
+          return links.map((l) => l.spanId).join("|||");
+        case "linksattributes":
+          return links.map((l) => JSON.stringify(l.attributes)).join("|||");
+        default:
+          return "";
+      }
+    });
+
+    return { fields, rows: [row] };
+  }
+
+  /**
+   * Generate Log Details response with rich attribute data
+   * Returns resourceAttributes, logAttributes, scopeAttributes, body, severityText, severityNumber
+   */
+  private generateLogDetailsResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select } = requestBody;
+
+    // Extract fields (aliases)
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Generate rich mock data for log details
+    const resourceAttributes = {
+      "service.name": "pulse-mobile-app",
+      "service.version": "3.2.1",
+      "telemetry.sdk.name": "pulse-otel-sdk",
+      "telemetry.sdk.version": "1.4.0",
+      "device.id": "ABC123XYZ789",
+      "device.model.name": "iPhone 14 Pro",
+      "device.manufacturer": "Apple",
+      "os.type": "iOS",
+      "os.version": "17.2",
+      "deployment.environment": "production",
+    };
+
+    const logAttributes = {
+      "log.file.name": "AppLogger.swift",
+      "log.file.path": "/Sources/Logging/AppLogger.swift",
+      "log.record.uid": "log-rec-" + this.generateHexString(8),
+      "code.function": "logEvent",
+      "code.lineno": "87",
+      "thread.id": "1",
+      "thread.name": "main",
+      "event.domain": "app",
+      "event.name": "user_action",
+      "user.id": "user-12345",
+      "screen.name": "HomeScreen",
+      "session.id": "session-abc-123",
+      "app.state": "foreground",
+      "network.type": "wifi",
+    };
+
+    const scopeAttributes = {
+      "scope.name": "com.pulse.app.logger",
+      "scope.version": "1.0.0",
+    };
+
+    const logBodies = [
+      "User completed profile update successfully",
+      "Network request completed: GET /api/v1/user/profile (200 OK)",
+      "Screen transition: HomeScreen -> ProfileScreen",
+      "Cache hit for user preferences data",
+      "Background sync completed with 3 items",
+    ];
+
+    const severities = ["INFO", "DEBUG", "WARN"];
+    const severityNumbers = [9, 5, 13]; // INFO=9, DEBUG=5, WARN=13
+
+    const randomIndex = Math.floor(Math.random() * logBodies.length);
+
+    // Build the row based on select fields
+    const row: string[] = select.map((selectField) => {
+      const alias = selectField.alias?.toLowerCase() || selectField.alias;
+      
+      switch (alias) {
+        case "resourceattributes":
+          return JSON.stringify(resourceAttributes);
+        case "logattributes":
+          return JSON.stringify(logAttributes);
+        case "scopeattributes":
+          return JSON.stringify(scopeAttributes);
+        case "body":
+          return logBodies[randomIndex];
+        case "severitytext":
+          return severities[randomIndex % severities.length];
+        case "severitynumber":
+          return severityNumbers[randomIndex % severityNumbers.length].toString();
+        default:
+          return "";
+      }
+    });
+
+    return { fields, rows: [row] };
   }
 
   /**
