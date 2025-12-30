@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.pulse.instrumentation.fragment)
     implementation(libs.pulse.instrumentation.view.click)
     implementation(libs.pulse.instrumentation.slowrendering)
+    implementation(libs.pulse.instrumentation.location)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

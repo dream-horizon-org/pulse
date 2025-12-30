@@ -43,6 +43,14 @@ public object PulseOtelUtils {
         return normalized
     }
 
+    public inline fun logError(
+        tag: String,
+        throwable: Throwable,
+        body: () -> String,
+    ) {
+        Log.e("$TAG:$tag", body(), throwable)
+    }
+
     public inline fun logDebug(
         tag: String,
         body: () -> String,

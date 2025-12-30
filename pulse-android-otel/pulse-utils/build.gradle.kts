@@ -20,4 +20,8 @@ dependencies {
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
     implementation(libs.kotlin.serialisation)
+    implementation(libs.kotlin.coroutines)
+    implementation(libs.play.services.tasks)
+    testImplementation(libs.bundles.junit)
+    testImplementation(projects.testCommon)
 }

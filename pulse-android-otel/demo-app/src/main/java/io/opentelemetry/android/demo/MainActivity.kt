@@ -11,7 +11,9 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -97,6 +99,20 @@ class MainActivity : ComponentActivity() {
 
                         LauncherButton(text = "Crash here", onClick = {
                             viewModel.performSomeWork()
+                        })
+
+                        val locationPermissionLauncher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.RequestPermission(),
+                        ) { isGranted: Boolean ->
+                            if (isGranted) {
+                                Log.d(TAG, "Location permission granted")
+                            } else {
+                                Log.d(TAG, "Location permission denied")
+                            }
+                        }
+
+                        LauncherButton(text = "Ask location permission", onClick = {
+                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
                         })
 
                     }

@@ -48,6 +48,8 @@ includeBuild("..") {
             .using(project(":instrumentation:interaction:interaction-remote"))
         substitute(module("org.dreamhorizon:interaction-core"))
             .using(project(":instrumentation:interaction:interaction-core"))
+        substitute(module("io.opentelemetry.android.instrumentation:location"))
+            .using(project(":instrumentation:location"))
         substitute(module("org.dreamhorizon:pulse-android-sdk"))
             .using(project(":pulse-android-sdk"))
     }
