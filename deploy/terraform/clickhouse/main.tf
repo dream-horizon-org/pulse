@@ -14,41 +14,66 @@ provider "aws" {
 }
 
 locals {
-  # Subnet chosen based on AZ name
-  selected_subnet_id = var.subnets[var.availability_zone]
+  azs = sort(keys(var.subnets))  # stable ordering
+
+  # Create all (shard, replica) pairs
+  shard_replica_pairs = setproduct(
+    range(var.shard_count),   # 0..shard_count-1
+    range(var.replica_count)  # 0..replica_count-1
+  )
+
+  # Keyed map for for_each
+  clickhouse_instances = {
+    for pair in local.shard_replica_pairs :
+    "shard-${pair[0] + 1}-replica-${pair[1] + 1}" => {
+      shard_index   = pair[0] + 1
+      replica_index = pair[1] + 1
+      az            = local.azs[pair[1]]                 # replica 1 -> az[0], replica 2 -> az[1], etc.
+      subnet_id     = var.subnets[local.azs[pair[1]]]
+    }
+  }
 }
 
 # -------------------------------
 # EC2 instances for ClickHouse
 # -------------------------------
 resource "aws_instance" "clickhouse" {
-  count                  = var.shard_count
+  for_each               = local.clickhouse_instances
   ami                    = var.ami_id
   instance_type          = var.instance_type
+  availability_zone      = each.value.az
+  subnet_id              = each.value.subnet_id
 
-  subnet_id              = local.selected_subnet_id
   vpc_security_group_ids = var.vpc_security_group_ids
   key_name               = var.key_name
   iam_instance_profile   = var.iam_instance_profile
   associate_public_ip_address = false
+  depends_on = [aws_route53_record.keeper]
 
   # Tag each instance with cluster + shard index
   tags = {
-    Name             = "${var.cluster_name}-shard-${count.index + 1}"
+    Name             = "${var.cluster_name}-shard-${each.value.shard_index}-replica-${each.value.replica_index}"
     ClusterName      = var.cluster_name
-    ShardIndex       = count.index + 1
-    AvailabilityZone = var.availability_zone
+    ShardIndex       = each.value.shard_index
+    ReplicaIndex     = each.value.replica_index
+    AvailabilityZone = each.value.az
     service          = "pulse"
   }
 
   # Bootstrap script: mount secondary volume & configure ClickHouse
   user_data = templatefile("${path.module}/user_data.sh.tpl", {
     cluster_name    = var.cluster_name
-    shard_index     = count.index + 1
+    shard_index     = each.value.shard_index
     shard_count     = var.shard_count
+    replica_index   = each.value.replica_index
+    replica_count   = var.replica_count
     data_device     = "/dev/xvdb"             # device name we'll attach below
     data_mount_path = "/var/lib/clickhouse"   # adjust to your AMI's ClickHouse data path
     private_zone    = var.private_zone_domain # used to build hostnames
+    keeper_count    = var.keeper_count
+    keeper_port     = 9181
+    user_name       = var.clickhouse_user
+    password        = var.clickhouse_password
   })
 
   # Root volume (OS)
@@ -70,11 +95,16 @@ resource "aws_instance" "clickhouse" {
   }
 
   volume_tags = {
-    Name        = "${var.cluster_name}-shard-${count.index + 1}-volume"
+    Name        = "${var.cluster_name}-shard-${each.value.shard_index}-replica-${each.value.replica_index}-volume"
     ClusterName = var.cluster_name
-    ShardIndex  = count.index + 1
+    ShardIndex  = each.value.shard_index
+    ReplicaIndex= each.value.replica_index
     Role        = "clickhouse"
     service     = "pulse"
+  }
+
+  metadata_options {
+    http_tokens = "required"
   }
 }
 
@@ -82,29 +112,80 @@ resource "aws_instance" "clickhouse" {
 # Route53 records for each shard
 # These hostnames will be used in cluster config
 # -------------------------------
-resource "aws_route53_record" "clickhouse_shard" {
-  count   = var.shard_count
+resource "aws_route53_record" "clickhouse_node" {
+  for_each = local.clickhouse_instances
   zone_id = var.private_zone_id
 
-  # e.g. shard-1.my-clickhouse-cluster.internal.example.com
-  name = "shard-${count.index + 1}.${var.cluster_name}.${var.private_zone_domain}"
+  # e.g. shard-1-replica-2.cluster.internal.example.com
+  name = "${each.key}.${var.cluster_name}.${var.private_zone_domain}"
   type = "A"
   ttl  = 10
 
-  records = [aws_instance.clickhouse[count.index].private_ip]
+  records = [aws_instance.clickhouse[each.key].private_ip]
+}
+
+resource "aws_route53_record" "keeper" {
+  count   = var.keeper_count
+  zone_id = var.private_zone_id
+
+  # keeper-1.<cluster>.<zone>, keeper-2....
+  name = "keeper-${count.index + 1}.${var.cluster_name}.${var.private_zone_domain}"
+  type = "A"
+  ttl  = 10
+
+  records = [aws_instance.keeper[count.index].private_ip]
+}
+
+resource "aws_instance" "keeper" {
+  count                  = var.keeper_count
+  ami                    = var.keeper_ami_id
+  instance_type          = var.keeper_instance_type
+  key_name               = var.key_name
+  vpc_security_group_ids = var.vpc_security_group_ids
+  iam_instance_profile   = var.iam_instance_profile
+
+  availability_zone      = local.azs[count.index]
+  subnet_id              = var.subnets[local.azs[count.index]]
+  associate_public_ip_address = false
+  user_data = templatefile("${path.module}/keeper_user_data.sh.tpl", {
+      cluster_name = var.cluster_name
+      private_zone = var.private_zone_domain
+      keeper_count = var.keeper_count
+      keeper_id    = count.index + 1
+      raft_port    = 9234
+      keeper_port  = 9181
+    })
+
+  tags = {
+    Name                = "pulse-clickhouse-keeper-${count.index + 1}"
+    component_name      = "pulse-clickhouse-keeper"
+    service             = "pulse"
+  }
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
+  volume_tags = {
+    Name                = "zookeeper-node-${count.index + 1}-root"
+    component_name      = "clickhouse-keeper"
+    service             = "pulse"
+  }
+
+  metadata_options {
+    http_tokens = "required"
+  }
 }
 
 # -------------------------------
 # Outputs
 # -------------------------------
 output "clickhouse_private_ips" {
-  value = [for i in aws_instance.clickhouse : i.private_ip]
-  description = "clickhouse private IPs"
+  value = { for k, inst in aws_instance.clickhouse : k => inst.private_ip }
 }
 
 output "clickhouse_hostnames" {
-  value = [for i in range(var.shard_count) :
-    "shard-${i + 1}.${var.cluster_name}.${var.private_zone_domain}"
+  value = [for k in keys(local.clickhouse_instances) :
+    "${k}.${var.cluster_name}.${var.private_zone_domain}"
   ]
-  description = "hostnames of the clickhouse shards"
 }

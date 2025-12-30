@@ -14,13 +14,43 @@ variable "shard_count" {
   type        = number
 }
 
+variable "replica_count" {
+  description = "Number of replicas per shard"
+  type        = number
+
+  validation {
+    condition     = var.replica_count >= 1 && var.replica_count <= length(var.subnets)
+    error_message = "replica_count must be between 1 and the number of AZ subnets provided in var.subnets."
+  }
+}
+
+variable "keeper_count" {
+  description = "Number of ClickHouse keeper servers"
+  type        = number
+
+  validation {
+    condition     = var.keeper_count <= length(var.subnets)
+    error_message = "keeper_count must be <= number of subnets/AZs provided in var.subnets."
+  }
+}
+
 variable "ami_id" {
   description = "AMI ID for pre-baked ClickHouse image"
   type        = string
 }
 
+variable "keeper_ami_id" {
+  description = "AMI ID for pre-baked ClickHouse keeper image"
+  type        = string
+}
+
 variable "instance_type" {
   description = "EC2 instance type for ClickHouse servers"
+  type        = string
+}
+
+variable "keeper_instance_type" {
+  description = "EC2 instance type for ClickHouse keepers"
   type        = string
 }
 
@@ -32,16 +62,6 @@ variable "key_name" {
 variable "subnets" {
   description = "Map of AZ name -> subnet ID (e.g., ap-south-1a = subnet-xxxx)"
   type        = map(string)
-}
-
-variable "availability_zone" {
-  description = "AZ whose subnet should be used for ClickHouse (must be a key in var.subnets)"
-  type        = string
-
-  validation {
-    condition     = contains(keys(var.subnets), var.availability_zone)
-    error_message = "availability_zone must be one of the keys in var.subnets."
-  }
 }
 
 variable "vpc_security_group_ids" {
@@ -74,4 +94,15 @@ variable "private_zone_id" {
 variable "private_zone_domain" {
   description = "Domain name of the private hosted zone, e.g. internal.example.com"
   type        = string
+}
+
+variable "clickhouse_user" {
+    description = "username for clickhouse"
+    type        = string
+}
+
+
+variable "clickhouse_password" {
+    description = "password for clickhouse"
+    type        = string
 }
