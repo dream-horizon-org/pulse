@@ -347,6 +347,7 @@ export function AlertListingPage({
                   shadow="md"
                   onChange={handleFilterToggle}
                   closeOnEscape
+                  closeOnClickOutside={false}
                 >
                   <Popover.Target>
                     <Tooltip label="Filter alerts">
