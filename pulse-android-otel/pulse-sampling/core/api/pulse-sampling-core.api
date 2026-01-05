@@ -1,5 +1,5 @@
 public final class com/pulse/sampling/core/PulseSamplingSignalProcessors {
-	public final fun getEnabledFeatures ()Ljava/util/List;
+	public final fun getDisabledFeatures ()Ljava/util/List;
 }
 
 public final class com/pulse/sampling/core/PulseSamplingSignalProcessors$SampledLogExporter : io/opentelemetry/sdk/logs/export/LogRecordExporter {
