@@ -282,6 +282,36 @@ class SqlQueryValidatorTest {
 
       assertTrue(result.isValid());
     }
+
+    @Test
+    void shouldHandleQueryWithYearMonthDayButMissingHour() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("timestamp filter");
+    }
+
+    @Test
+    void shouldHandleQueryWithYearMonthButMissingDayAndHour() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("timestamp filter");
+    }
+
+    @Test
+    void shouldHandleQueryWithOnlyYear() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("timestamp filter");
+    }
   }
 
   @Nested

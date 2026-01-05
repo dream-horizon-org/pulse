@@ -394,6 +394,49 @@ class QueryTimestampEnricherTest {
 
       assertThat(result).contains("year = 2025");
     }
+
+    @Test
+    void shouldHandleTimeFormatWithoutPadding() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "1:2:3";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("hour = 1");
+    }
+
+    @Test
+    void shouldHandleTimeFormatWithPadding() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "01:02:03";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("hour = 1");
+    }
+
+    @Test
+    void shouldHandleInvalidTimeFormat() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String timestamp = "25:99:99";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).isEqualTo(query);
+    }
+
+    @Test
+    void shouldHandleQueryWithAllThreeClauses() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data GROUP BY col1 ORDER BY col2 LIMIT 10";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      int whereIndex = result.indexOf("WHERE");
+      int groupByIndex = result.indexOf("GROUP BY");
+      assertThat(whereIndex).isLessThan(groupByIndex);
+    }
   }
 }
 
