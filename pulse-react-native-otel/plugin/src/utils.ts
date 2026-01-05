@@ -1,4 +1,4 @@
-export const PULSE_IMPORT = 'import com.pulse.android.sdk.PulseSDK\n';
+export const PULSE_IMPORT = 'import com.pulsereactnativeotel.Pulse\n';
 
 export function buildPulseInitializationCode(options: {
   endpointBaseUrl: string;
@@ -19,7 +19,7 @@ export function buildPulseInitializationCode(options: {
     enableSlowRendering = true,
   } = options;
 
-  let code = `\n    PulseSDK.INSTANCE.initialize(this, "${endpointBaseUrl}") {\n`;
+  let code = `\n    Pulse.initialize(this, "${endpointBaseUrl}") {\n`;
 
   if (enableInteraction) {
     if (interactionConfigUrl) {
