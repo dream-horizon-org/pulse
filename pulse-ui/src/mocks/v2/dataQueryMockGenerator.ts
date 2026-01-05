@@ -671,6 +671,49 @@ export class DataQueryMockGeneratorV2 {
       return { fields: [], rows: [] };
     }
 
+    // Parse ADDITIONAL filters for event type filtering
+    const additionalFilter = filters?.find(
+      (f) => f.operator === "ADDITIONAL"
+    );
+    
+    // Extract which event types are being filtered
+    const eventTypeFilters: Set<string> = new Set();
+    let hasErrorFilter = false;
+    let hasCompletedFilter = false;
+    
+    if (additionalFilter && Array.isArray(additionalFilter.value)) {
+      const filterExpression = String(additionalFilter.value[0] || "");
+      
+      // Check for specific event type filters
+      if (filterExpression.includes("device.crash")) {
+        eventTypeFilters.add("crash");
+      }
+      if (filterExpression.includes("device.anr")) {
+        eventTypeFilters.add("anr");
+      }
+      if (filterExpression.includes("app.jank.frozen")) {
+        eventTypeFilters.add("frozenFrame");
+      }
+      if (filterExpression.includes("non_fatal")) {
+        eventTypeFilters.add("nonFatal");
+      }
+      if (filterExpression.includes("StatusCode = 'Error'")) {
+        hasErrorFilter = true;
+      }
+      if (filterExpression.includes("StatusCode != 'Error'")) {
+        hasCompletedFilter = true;
+      }
+    }
+    
+    const hasEventTypeFilter = eventTypeFilters.size > 0 || hasErrorFilter || hasCompletedFilter;
+    
+    console.log("[DataQueryMockV2] Event type filters:", {
+      eventTypeFilters: Array.from(eventTypeFilters),
+      hasErrorFilter,
+      hasCompletedFilter,
+      hasEventTypeFilter,
+    });
+
     // Generate number of rows
     // For SessionTimeline: generate multiple spans (15-25) for the same traceId to show waterfall
     // For SessionReplays: generate multiple sessions (default 10)
@@ -804,55 +847,113 @@ export class DataQueryMockGeneratorV2 {
       // For SessionReplays, generate events per session
       const rand = Math.random();
       const events: string[] = [];
+      
+      // Determine StatusCode for this row (used for error/completed filtering)
+      let statusCode = "Ok";
 
-      // For SessionTimeline: generate events for the single span
-      // For SessionReplays, 40% chance to generate multiple events
-      const hasMultipleEvents = isSessionTimeline
-        ? true // Single span can have multiple events
-        : Math.random() < 0.4;
-
-      if (rand < 0.2) {
-        // P1: device.crash (highest priority)
-        events.push("device.crash");
-        if (hasMultipleEvents) {
-          // Add lower priority events to test priority selection
-          events.push("device.anr");
-          events.push("non_fatal");
-          events.push("app.jank.frozen");
+      // If event type filters are active, generate events that match the filters
+      if (hasEventTypeFilter) {
+        // When filters are active, generate data that matches the selected filters
+        const filterArray = Array.from(eventTypeFilters);
+        
+        if (filterArray.length > 0) {
+          // Cycle through the event type filters to distribute them evenly
+          const selectedFilter = filterArray[i % filterArray.length];
+          
+          switch (selectedFilter) {
+            case "crash":
+              events.push("device.crash");
+              statusCode = "Error";
+              break;
+            case "anr":
+              events.push("device.anr");
+              statusCode = "Error";
+              break;
+            case "frozenFrame":
+              events.push("app.jank.frozen");
+              break;
+            case "nonFatal":
+              events.push("non_fatal");
+              break;
+          }
         }
-      } else if (rand < 0.4) {
-        // P2: device.anr
-        events.push("device.anr");
-        if (hasMultipleEvents) {
-          // Add lower priority events
-          events.push("non_fatal");
-          events.push("app.jank.frozen");
-        }
-      } else if (rand < 0.6) {
-        // P3: non_fatal
-        events.push("non_fatal");
-        if (hasMultipleEvents) {
-          // Add lower priority events
-          events.push("app.jank.frozen");
-        }
-      } else if (rand < 0.8) {
-        // P4: app.jank.frozen (lowest priority event)
-        events.push("app.jank.frozen");
-        // No lower priority events to add
-      } else if (rand < 0.9) {
-        // Test combination: anr + frozen (should pick anr)
-        events.push("device.anr");
-        if (hasMultipleEvents) {
-          events.push("app.jank.frozen");
+        
+        // Handle error/completed filters
+        if (hasErrorFilter && !hasCompletedFilter) {
+          // Only errors - ensure StatusCode is Error
+          statusCode = "Error";
+          // If no event was added and we need errors, add a generic error event
+          if (events.length === 0) {
+            // Generate varied error types
+            const errorRand = Math.random();
+            if (errorRand < 0.3) {
+              events.push("device.crash");
+            } else if (errorRand < 0.6) {
+              events.push("device.anr");
+            } else {
+              events.push("non_fatal");
+            }
+          }
+        } else if (hasCompletedFilter && !hasErrorFilter) {
+          // Only completed - ensure StatusCode is Ok and no error events
+          statusCode = "Ok";
+          // Clear any error events if completed filter is active alone
+          if (eventTypeFilters.size === 0) {
+            events.length = 0;
+          }
+        } else if (hasCompletedFilter && hasErrorFilter) {
+          // Both selected - alternate between completed and error
+          if (i % 2 === 0) {
+            statusCode = "Ok";
+            if (eventTypeFilters.size === 0) {
+              events.length = 0;
+            }
+          } else {
+            statusCode = "Error";
+          }
         }
       } else {
-        // Test combination: non_fatal + frozen (should pick non_fatal)
-        events.push("non_fatal");
-        if (hasMultipleEvents) {
+        // No filters - generate random events as before
+        // For SessionTimeline: generate events for the single span
+        // For SessionReplays, 40% chance to generate multiple events
+        const hasMultipleEvents = isSessionTimeline
+          ? true // Single span can have multiple events
+          : Math.random() < 0.4;
+
+        if (rand < 0.15) {
+          // P1: device.crash (highest priority)
+          events.push("device.crash");
+          statusCode = "Error";
+          if (hasMultipleEvents) {
+            events.push("device.anr");
+            events.push("non_fatal");
+            events.push("app.jank.frozen");
+          }
+        } else if (rand < 0.30) {
+          // P2: device.anr
+          events.push("device.anr");
+          statusCode = "Error";
+          if (hasMultipleEvents) {
+            events.push("non_fatal");
+            events.push("app.jank.frozen");
+          }
+        } else if (rand < 0.45) {
+          // P3: non_fatal
+          events.push("non_fatal");
+          if (hasMultipleEvents) {
+            events.push("app.jank.frozen");
+          }
+        } else if (rand < 0.60) {
+          // P4: app.jank.frozen (lowest priority event)
           events.push("app.jank.frozen");
+        } else if (rand < 0.70) {
+          // Error status without specific event
+          statusCode = "Error";
+        } else {
+          // Completed - no events, Ok status
+          statusCode = "Ok";
         }
       }
-      // Note: rand >= 0.95 would be empty (completed session), but we're not handling that range
 
       // Generate event names
       const eventNames = events.join(",");
@@ -1017,6 +1118,10 @@ export class DataQueryMockGeneratorV2 {
             if (eventNames.toLowerCase().includes("anr"))
               return "Application not responding";
             return "";
+          case "status_code":
+            return statusCode;
+          case "is_error":
+            return statusCode === "Error" ? "true" : "false";
           default:
             // For other fields, use the standard function generator
             return this.generateValueForFunction(
