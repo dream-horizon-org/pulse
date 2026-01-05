@@ -8,7 +8,10 @@
       // https://github.com/rafgraph/spa-github-pages
       // This script redirects 404 errors to the index.html with the path encoded
       // in the query string, which is then decoded by the script in index.html
-      var pathSegmentsToKeep = 1; // Keep /demo prefix
+      
+      // Dynamically calculate path segments from PUBLIC_URL
+      var publicUrl = '%PUBLIC_URL%' || '';
+      var pathSegmentsToKeep = publicUrl.replace(/^\/|\/$/g, '').split('/').filter(Boolean).length;
 
       var l = window.location;
       l.replace(
