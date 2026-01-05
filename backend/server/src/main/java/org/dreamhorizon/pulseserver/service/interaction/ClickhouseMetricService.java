@@ -112,19 +112,19 @@ public class ClickhouseMetricService implements PerformanceMetricService {
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX_RATE.getDisplayName()));
           case NET_5XX_RATE -> String.format("%s as %s", Functions.NET_5XX_RATE.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_RATE.getDisplayName()));
-          // Network metrics for alerts (uses SpanType)
-          case NET_0_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_0_BY_SPAN_TYPE.getChSelectClause(),
-              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_0_BY_SPAN_TYPE.getDisplayName()));
-          case NET_2XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_2XX_BY_SPAN_TYPE.getChSelectClause(),
-              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_2XX_BY_SPAN_TYPE.getDisplayName()));
-          case NET_3XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_3XX_BY_SPAN_TYPE.getChSelectClause(),
-              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_3XX_BY_SPAN_TYPE.getDisplayName()));
-          case NET_4XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_4XX_BY_SPAN_TYPE.getChSelectClause(),
-              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX_BY_SPAN_TYPE.getDisplayName()));
-          case NET_5XX_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_5XX_BY_SPAN_TYPE.getChSelectClause(),
-              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_BY_SPAN_TYPE.getDisplayName()));
-          case NET_COUNT_BY_SPAN_TYPE -> String.format("%s as %s", Functions.NET_COUNT_BY_SPAN_TYPE.getChSelectClause(),
-              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_COUNT_BY_SPAN_TYPE.getDisplayName()));
+          // Network metrics for alerts (uses PulseType)
+          case NET_0_BY_PULSE_TYPE -> String.format("%s as %s", Functions.NET_0_BY_PULSE_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_0_BY_PULSE_TYPE.getDisplayName()));
+          case NET_2XX_BY_PULSE_TYPE -> String.format("%s as %s", Functions.NET_2XX_BY_PULSE_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_2XX_BY_PULSE_TYPE.getDisplayName()));
+          case NET_3XX_BY_PULSE_TYPE -> String.format("%s as %s", Functions.NET_3XX_BY_PULSE_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_3XX_BY_PULSE_TYPE.getDisplayName()));
+          case NET_4XX_BY_PULSE_TYPE -> String.format("%s as %s", Functions.NET_4XX_BY_PULSE_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_4XX_BY_PULSE_TYPE.getDisplayName()));
+          case NET_5XX_BY_PULSE_TYPE -> String.format("%s as %s", Functions.NET_5XX_BY_PULSE_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_5XX_BY_PULSE_TYPE.getDisplayName()));
+          case NET_COUNT_BY_PULSE_TYPE -> String.format("%s as %s", Functions.NET_COUNT_BY_PULSE_TYPE.getChSelectClause(),
+              Objects.requireNonNullElse(selectItem.getAlias(), Functions.NET_COUNT_BY_PULSE_TYPE.getDisplayName()));
           case CRASH_FREE_USERS_PERCENTAGE -> String.format("%s as %s", Functions.CRASH_FREE_USERS_PERCENTAGE.getChSelectClause(),
               Objects.requireNonNullElse(selectItem.getAlias(), Functions.CRASH_FREE_USERS_PERCENTAGE.getDisplayName()));
           case CRASH_FREE_SESSIONS_PERCENTAGE -> String.format("%s as %s", Functions.CRASH_FREE_SESSIONS_PERCENTAGE.getChSelectClause(),

@@ -22,6 +22,9 @@ public class GetAlertsListRequestDto {
   @QueryParam("updated_by")
   String updatedBy;
 
+  @QueryParam("status")
+  String status;
+
   @QueryParam("limit")
   @DefaultValue("10")
   Integer limit;

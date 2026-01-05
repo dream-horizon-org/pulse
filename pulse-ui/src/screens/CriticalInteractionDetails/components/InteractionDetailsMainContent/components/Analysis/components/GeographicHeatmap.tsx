@@ -14,33 +14,51 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
 }) => {
   const theme = useMantineTheme();
   const sortedData = [...data].sort((a, b) => b.value - a.value);
-  const maxValue = Math.max(...data.map((d) => d.value));
-  const minValue = Math.min(...data.map((d) => d.value));
+  const maxValue = Math.max(...data.map((d) => d.value), 0);
+  const minValue = Math.min(...data.map((d) => d.value), 0);
 
+  // Color scale: Red (high/bad) -> Orange -> Yellow (low/better)
+  // For error rate and poor users, higher values = worse = more red
   const getColorIntensity = (value: number) => {
+    // Handle edge cases: all zeros or all same values
+    if (maxValue === 0) {
+      // All values are 0 - use a neutral gray/light color
+      return {
+        bg: theme.colors.gray[0],
+        border: theme.colors.gray[3],
+        text: theme.colors.gray[7],
+      };
+    }
+    
+    if (maxValue === minValue) {
+      // All values are the same - use middle color (orange)
+      return {
+        bg: theme.colors.orange[0],
+        border: theme.colors.orange[3],
+        text: theme.colors.orange[7],
+      };
+    }
+
     const normalized = (value - minValue) / (maxValue - minValue);
+    
+    // Red to Yellow scale: higher normalized = redder (worse)
     if (normalized > 0.7)
       return {
         bg: theme.colors.red[0],
         border: theme.colors.red[3],
         text: theme.colors.red[7],
       };
-    if (normalized > 0.5)
+    if (normalized > 0.4)
       return {
         bg: theme.colors.orange[0],
         border: theme.colors.orange[3],
         text: theme.colors.orange[7],
       };
-    if (normalized > 0.3)
-      return {
-        bg: theme.colors.yellow[0],
-        border: theme.colors.yellow[3],
-        text: theme.colors.yellow[8],
-      };
+    // Low values (better) get yellow
     return {
-      bg: theme.colors.green[0],
-      border: theme.colors.green[3],
-      text: theme.colors.green[7],
+      bg: theme.colors.yellow[0],
+      border: theme.colors.yellow[4],
+      text: theme.colors.yellow[8],
     };
   };
 
@@ -81,14 +99,15 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
         <Box style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {sortedData.map((location) => {
             const colors = getColorIntensity(location.value);
-            const percentage = ((location.value / maxValue) * 100).toFixed(0);
+            const percentage = maxValue > 0 ? ((location.value / maxValue) * 100).toFixed(0) : "0";
             const displayValue = metricSuffix
               ? `${location.value}${metricSuffix}`
               : location.value;
+            const displayName = location.name || "Unknown";
 
             return (
               <Tooltip
-                key={location.name}
+                key={displayName}
                 label={`${displayValue} ${metricLabel} (${percentage}% of max)`}
                 withArrow
               >
@@ -119,7 +138,7 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
                 >
                   <Box style={{ flex: "0 0 110px" }}>
                     <Text size="xs" fw={600} c={colors.text}>
-                      {location.name}
+                      {displayName}
                     </Text>
                   </Box>
                   <Box style={{ flex: 1 }}>
@@ -163,20 +182,11 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
             style={{
               width: 16,
               height: 16,
-              backgroundColor: theme.colors.green[0],
-              border: `1px solid ${theme.colors.green[3]}`,
-            }}
-          />
-          <Text size="xs">Excellent</Text>
-          <Box
-            style={{
-              width: 16,
-              height: 16,
               backgroundColor: theme.colors.yellow[0],
-              border: `1px solid ${theme.colors.yellow[3]}`,
+              border: `1px solid ${theme.colors.yellow[4]}`,
             }}
           />
-          <Text size="xs">Good</Text>
+          <Text size="xs">Low</Text>
           <Box
             style={{
               width: 16,
@@ -185,7 +195,7 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
               border: `1px solid ${theme.colors.orange[3]}`,
             }}
           />
-          <Text size="xs">Average</Text>
+          <Text size="xs">Medium</Text>
           <Box
             style={{
               width: 16,
@@ -194,7 +204,7 @@ const GeographicHeatmap: React.FC<GeographicHeatmapProps> = ({
               border: `1px solid ${theme.colors.red[3]}`,
             }}
           />
-          <Text size="xs">Poor</Text>
+          <Text size="xs">High</Text>
         </Box>
       </Box>
     </Card>

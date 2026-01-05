@@ -3,9 +3,9 @@ import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
 import TopIssuesCharts, {
   SectionConfig,
 } from "../../../CriticalInteractionDetails/components/InteractionDetailsMainContent/components/Analysis/components/TopIssuesCharts";
-import { LoaderWithMessage } from "../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
-import { Box, Text } from "@mantine/core";
+import { Box, Text, SimpleGrid } from "@mantine/core";
+import { ChartSkeleton, SkeletonLoader } from "../../../../components/Skeletons";
 import classes from "./NetworkIssuesByProvider.module.css";
 
 interface NetworkIssuesByProviderProps {
@@ -46,7 +46,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       ],
       groupBy: ["network_provider"],
       filters: [
-        { field: "SpanType", operator: "EQ" as const, value: ["network.0"] },
+        { field: "PulseType", operator: "EQ" as const, value: ["network.0"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
@@ -72,7 +72,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       ],
       groupBy: ["network_provider"],
       filters: [
-        { field: "SpanType", operator: "LIKE" as const, value: ["network.4%"] },
+        { field: "PulseType", operator: "LIKE" as const, value: ["network.4%"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
@@ -98,7 +98,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       ],
       groupBy: ["network_provider"],
       filters: [
-        { field: "SpanType", operator: "LIKE" as const, value: ["network.5%"] },
+        { field: "PulseType", operator: "LIKE" as const, value: ["network.5%"] },
         { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
@@ -204,7 +204,21 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
   }
 
   if (isLoading) {
-    return <LoaderWithMessage loadingMessage="Loading network issues..." />;
+    return (
+      <Box mih={200}>
+        {showHeader && (
+          <>
+            <SkeletonLoader height={18} width={200} radius="sm" />
+            <SkeletonLoader height={14} width={350} radius="xs" />
+          </>
+        )}
+        <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md" mt="md">
+          <ChartSkeleton height={180} />
+          <ChartSkeleton height={180} />
+          <ChartSkeleton height={180} />
+        </SimpleGrid>
+      </Box>
+    );
   }
 
   if (sections.length === 0) {

@@ -1,0 +1,359 @@
+.flameChartContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0.5) 0%,
+    rgba(255, 255, 255, 1) 100%
+  );
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+}
+
+.flameChartCanvas {
+  display: block;
+  background: #fafafa;
+}
+
+.loadingOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: var(--mantine-color-gray-6);
+}
+
+.emptyIcon {
+  margin-bottom: var(--mantine-spacing-md);
+  opacity: 0.5;
+}
+
+.controls {
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  background: linear-gradient(
+    180deg,
+    rgba(14, 201, 194, 0.08) 0%,
+    rgba(14, 201, 194, 0.02) 100%
+  );
+  border-bottom: 1px solid rgba(14, 201, 194, 0.15);
+}
+
+.controlButton {
+  color: var(--mantine-color-gray-7);
+  transition: all 0.15s ease;
+}
+
+.controlButton:hover {
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ec9c2;
+}
+
+.zoomInfo {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-6);
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  border-top: 1px solid rgba(14, 201, 194, 0.15);
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-gray-7);
+}
+
+.legendColor {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.highlightedTrace {
+  position: relative;
+}
+
+.highlightedTrace::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid #ffd700;
+  border-radius: 4px;
+  pointer-events: none;
+  animation: pulseHighlight 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseHighlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 215, 0, 0);
+  }
+}
+
+.orphanBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #616161;
+  background: #eeeeee;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.timeAxis {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--mantine-spacing-md);
+  background: rgba(248, 250, 252, 0.95);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+  font-size: 10px;
+  color: var(--mantine-color-gray-6);
+  z-index: 5;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 320px;
+  padding: var(--mantine-spacing-sm);
+  background: rgba(30, 30, 30, 0.95);
+  border-radius: var(--mantine-radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  margin-top: -10px;
+}
+
+.tooltipTitle {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.tooltipMeta {
+  font-size: var(--mantine-font-size-xs);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-md);
+}
+
+.tooltipLabel {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tooltipValue {
+  color: #0ec9c2;
+  font-family: monospace;
+}
+
+/* Main Content Layout */
+.mainContent {
+  display: flex;
+  flex: 1;
+  min-height: 400px;
+  position: relative;
+}
+
+.canvasContainer {
+  flex: 1;
+  min-height: 400px;
+  position: relative;
+  overflow: auto;
+}
+
+/* Minimap Styles */
+.minimap {
+  width: 60px;
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0.95) 0%,
+    rgba(255, 255, 255, 0.95) 100%
+  );
+  border-left: 1px solid rgba(14, 201, 194, 0.15);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.minimapHeader {
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+  margin-bottom: 8px;
+}
+
+.minimapTrack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  background: rgba(14, 201, 194, 0.03);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.minimapBar {
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    #0ec9c2 0%,
+    #42a5f5 100%
+  );
+  border-radius: 2px;
+  margin-left: auto;
+  margin-right: auto;
+  transition: all 0.2s ease;
+}
+
+.minimapViewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(14, 201, 194, 0.3);
+  border: 1px solid rgba(14, 201, 194, 0.6);
+  border-radius: 3px;
+  pointer-events: none;
+  min-height: 10px;
+}
+
+.minimapFooter {
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid rgba(14, 201, 194, 0.1);
+  margin-top: 8px;
+}
+
+/* Scroll Indicators */
+.scrollIndicators {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-md);
+  padding: 6px var(--mantine-spacing-md);
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0.95) 0%,
+    rgba(255, 255, 255, 0.95) 100%
+  );
+  border-top: 1px solid rgba(14, 201, 194, 0.1);
+  flex-wrap: wrap;
+}
+
+.scrollIndicatorUp {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(66, 165, 245, 0.1) 0%,
+    rgba(66, 165, 245, 0.05) 100%
+  );
+  border: 1px solid rgba(66, 165, 245, 0.3);
+  border-radius: 12px;
+  color: #42a5f5;
+  animation: pulseUp 1.5s ease-in-out infinite;
+}
+
+.scrollIndicatorDown {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 167, 38, 0.1) 0%,
+    rgba(255, 167, 38, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 167, 38, 0.3);
+  border-radius: 12px;
+  color: #ffa726;
+  animation: pulseDown 1.5s ease-in-out infinite;
+}
+
+.scrollIndicatorEnd {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(102, 187, 106, 0.1) 0%,
+    rgba(102, 187, 106, 0.05) 100%
+  );
+  border: 1px solid rgba(102, 187, 106, 0.3);
+  border-radius: 12px;
+  color: #66bb6a;
+}
+
+@keyframes pulseUp {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseDown {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(2px);
+    opacity: 1;
+  }
+}
+

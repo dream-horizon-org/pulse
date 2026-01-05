@@ -9,6 +9,7 @@ import utc from "dayjs/plugin/utc";
 import { useMemo } from "react";
 import { UserEngagementGraphProps } from "./UserEngagementGraph.interface";
 import { useGetUserEngagementData } from "../../../../hooks/useGetUserEngagementData";
+import { GraphCardSkeleton } from "../../../../components/Skeletons";
 
 dayjs.extend(utc);
 
@@ -19,7 +20,6 @@ export function UserEngagementGraph({
   device,
   startTime,
   endTime,
-  spanType = "app_start",
 }: UserEngagementGraphProps = {}) {
   // Always use last 7 days for daily graph (ignore time filter)
   const { dailyStartDate, dailyEndDate } = useMemo(() => {
@@ -50,7 +50,7 @@ export function UserEngagementGraph({
     };
   }, []);
 
-  const { data } = useGetUserEngagementData({
+  const { data, isLoading } = useGetUserEngagementData({
     screenName,
     appVersion,
     osVersion,
@@ -61,10 +61,24 @@ export function UserEngagementGraph({
     weekEndDate,
     monthStartDate,
     monthEndDate,
-    spanType,
   });
 
   const { dailyUsers, weeklyUsers, monthlyUsers, trendData } = data;
+
+  if (isLoading) {
+    return <GraphCardSkeleton title="User Engagement" chartHeight={260} metricsCount={3} />;
+  }
+
+  const formatMetricValue = (value: number | null, color: string) => {
+    if (value === null) {
+      return <Text className={classes.metricValue} c="dimmed">N/A</Text>;
+    }
+    return (
+      <Text className={classes.metricValue} style={{ color }}>
+        {value.toLocaleString()}
+      </Text>
+    );
+  };
 
   return (
     <div className={classes.graphCard}>
@@ -72,21 +86,15 @@ export function UserEngagementGraph({
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Daily Users</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ec9c2" }}>
-            {dailyUsers.toLocaleString()}
-          </Text>
+          {formatMetricValue(dailyUsers, "#0ec9c2")}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Weekly Users</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ba09a" }}>
-            {weeklyUsers.toLocaleString()}
-          </Text>
+          {formatMetricValue(weeklyUsers, "#0ba09a")}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Monthly Users</Text>
-          <Text className={classes.metricValue} style={{ color: "#2c3e50" }}>
-            {monthlyUsers.toLocaleString()}
-          </Text>
+          {formatMetricValue(monthlyUsers, "#2c3e50")}
         </div>
       </div>
       <div className={classes.chartContainer}>

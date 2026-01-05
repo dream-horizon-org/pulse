@@ -45,8 +45,9 @@ import { InteractionCard } from "./components/InteractionCard";
 import { filtersToQueryString } from "../../helpers/filtersToQueryString";
 import { ErrorAndEmptyState } from "../../components/ErrorAndEmptyState";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
+import { CardSkeleton } from "../../components/Skeletons";
 import { useGetDataQuery } from "../../hooks";
-import { SpanType } from "../../constants/PulseOtelSemcov";
+import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 
@@ -179,6 +180,15 @@ export function CriticalInteractionList() {
   );
 
   const handleFilterChange = (filter: FiltersType) => {
+    // Check if filters have actually changed to prevent duplicate fetches
+    const hasFilterChanged =
+      filter.users !== filters.users || filter.status !== filters.status;
+
+    if (!hasFilterChanged) {
+      close();
+      return;
+    }
+
     setPagination({
       page: 0,
       size: defaultPageSize,
@@ -269,7 +279,7 @@ export function CriticalInteractionList() {
       ],
       filters: [
         { field: "SpanName", operator: "IN", value: interactionNames },
-        { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+        { field: "PulseType", operator: "EQ", value: [PulseType.INTERACTION] },
       ],
       groupBy: ["interaction_name"],
     },
@@ -357,9 +367,18 @@ export function CriticalInteractionList() {
     // Show loading state while fetching interactions or metrics
     if (isLoading || isLoadingMetrics) {
       return (
-        <Box className={classes.loader}>
-          <LoaderWithMessage loadingMessage="Fetching Interactions..." />
-        </Box>
+        <ScrollArea className={classes.scrollArea}>
+          <Box className={classes.criticalInteractionsTableContainer}>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <CardSkeleton 
+                key={index} 
+                height={180} 
+                showHeader 
+                contentRows={3} 
+              />
+            ))}
+          </Box>
+        </ScrollArea>
       );
     }
 
@@ -404,7 +423,7 @@ export function CriticalInteractionList() {
           })}
         </Box>
         {isFetching && hasMore && (
-          <Box ref={ref} className={classes.loader}>
+          <Box ref={ref} className={classes.loadMoreLoader}>
             <LoaderWithMessage loadingMessage="Loading more interactions..." />
           </Box>
         )}

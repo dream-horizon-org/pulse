@@ -9,16 +9,17 @@ export type InteractionDetailsGraphsData = {
 };
 
 export type InteractionDetailsMetricsData = {
-  apdex: number;
-  errorRate: number;
-  p50: number;
-  p95: number;
-  frozenFrameRate: number;
-  crashRate: number;
-  anrRate: number;
-  networkErrorRate: number;
-  excellentUsersPercentage: string;
-  goodUsersPercentage: string;
-  averageUsersPercentage: string;
-  poorUsersPercentage: string;
+  apdex: number | null;
+  errorRate: number | null;
+  p50: number | null;
+  p95: number | null;
+  frozenFrameRate: number | null;
+  crashRate: number | null;
+  anrRate: number | null;
+  networkErrorRate: number | null;
+  excellentUsersPercentage: string | null;
+  goodUsersPercentage: string | null;
+  averageUsersPercentage: string | null;
+  poorUsersPercentage: string | null;
+  hasData?: boolean;
 };

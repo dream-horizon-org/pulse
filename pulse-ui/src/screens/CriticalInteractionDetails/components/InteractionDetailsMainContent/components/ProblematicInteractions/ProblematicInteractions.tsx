@@ -19,7 +19,6 @@ import {
   IconClock,
   IconArrowNarrowRight,
   IconActivity,
-  IconNetworkOff,
   IconX,
   IconCheck,
 } from "@tabler/icons-react";
@@ -32,8 +31,8 @@ import type {
   ProblematicInteractionsProps,
 } from "./ProblematicInteractions.interface";
 import { AbsoluteNumbersForGraphs } from "../AbsoluteNumbersForGraphs/AbsoluteNumbersForGraphs";
-import { LoaderWithMessage } from "../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../ErrorAndEmptyStateWithNotification";
+import { MetricsGridSkeleton, TableSkeleton } from "../../../../../../components/Skeletons";
 import {
   useGetProblematicInteractionsStats,
   useGetProblematicInteractions,
@@ -41,10 +40,8 @@ import {
 import type { ProblematicInteractionData } from "../../../../../../hooks";
 import {
   PROBLEMATIC_INTERACTIONS_ERROR_MESSAGES,
-  PROBLEMATIC_INTERACTIONS_LOADING_MESSAGE,
   DEFAULT_PAGE_SIZE,
 } from "./ProblematicInteractions.constants";
-import commonStyles from "../../common.module.css";
 import classes from "./ProblematicInteractions.module.css";
 
 dayjs.extend(utc);
@@ -90,18 +87,14 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
 
   const eventTypeConfig = {
     crash: { label: "Crash", color: "red", icon: IconAlertCircle },
-    anr: { label: "Anr", color: "orange", icon: IconActivity },
-    networkError: {
-      label: "Network Errors",
-      color: "grape",
-      icon: IconNetworkOff,
-    },
+    anr: { label: "ANR", color: "orange", icon: IconActivity },
     frozenFrame: {
       label: "Frozen Frames",
       color: "yellow",
       icon: IconSnowflake,
     },
-    nonFatal: { label: "Error", color: "red", icon: IconAlertCircle },
+    nonFatal: { label: "Non-Fatal", color: "pink", icon: IconAlertCircle },
+    error: { label: "Error", color: "red", icon: IconX },
     completed: { label: "Completed", color: "green", icon: IconCheck },
   };
 
@@ -127,50 +120,8 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
     setCurrentPage(0);
   };
 
-  const getEventTypeFromEventNames = (
-    eventNames: string | undefined | null,
-  ): ProblematicInteractionData["event_type"] | "completed" => {
-    if (!eventNames || eventNames.trim() === "") {
-      return "nonFatal";
-    }
-
-    const events = eventNames
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e.length > 0);
-
-    for (const event of events) {
-      const eventLower = event.toLowerCase();
-
-      if (eventLower === "device.crash") {
-        return "crash";
-      }
-
-      if (eventLower === "device.anr") {
-        return "anr";
-      }
-
-      if (eventLower === "non_fatal") {
-        return "networkError";
-      }
-
-      if (eventLower === "app.jank.frozen") {
-        return "frozenFrame";
-      }
-    }
-
-    return "completed";
-  };
-
   const getEventTypeConfig = (eventType: ProblematicInteractionData["event_type"]) => {
-    return eventTypeConfig[eventType] || eventTypeConfig.nonFatal;
-  };
-
-  const getEventTypeForInteraction = (interaction: ProblematicInteractionData) => {
-    if (interaction.event_names !== undefined && interaction.event_names !== null) {
-      return getEventTypeFromEventNames(interaction.event_names);
-    }
-    return interaction.event_type;
+    return eventTypeConfig[eventType] || eventTypeConfig.completed;
   };
 
   const paginatedInteractions = useMemo(() => {
@@ -185,10 +136,29 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
 
   if (isLoading) {
     return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={PROBLEMATIC_INTERACTIONS_LOADING_MESSAGE}
-      />
+      <Box>
+        {/* Stats skeleton */}
+        <Flex mt="lg" mb="lg" wrap="wrap" gap="md">
+          <MetricsGridSkeleton count={5} />
+        </Flex>
+        
+        {/* Filters skeleton */}
+        <Card p="md" mb="md" withBorder>
+          <Box mb="xs">
+            <Text size="sm" fw={600}>Interaction Filters</Text>
+          </Box>
+          <Flex gap="xs">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Box key={i} style={{ height: 28, width: 100, background: 'rgba(14, 201, 194, 0.08)', borderRadius: 4 }} />
+            ))}
+          </Flex>
+        </Card>
+        
+        {/* Table skeleton */}
+        <Card withBorder>
+          <TableSkeleton columns={7} rows={8} />
+        </Card>
+      </Box>
     );
   }
 
@@ -306,9 +276,9 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
                   </td>
                 </tr>
               ) : (
-                paginatedInteractions.map((interaction: ProblematicInteractionData) => (
+                paginatedInteractions.map((interaction: ProblematicInteractionData, index: number) => (
                   <tr
-                    key={interaction.sessionId}
+                    key={`${interaction.trace_id}-${interaction.sessionId}-${index}`}
                     style={{
                       cursor: "pointer",
                       borderBottom: "1px solid #dee2e6",
@@ -367,8 +337,7 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
                     </td>
                     <td>
                       {(() => {
-                        const eventType = getEventTypeForInteraction(interaction);
-                        const config = getEventTypeConfig(eventType);
+                        const config = getEventTypeConfig(interaction.event_type);
                         const Icon = config.icon;
                         return (
                           <Badge color={config.color} size="md">

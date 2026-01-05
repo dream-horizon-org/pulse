@@ -1,10 +1,11 @@
-export enum SpanType {
+export enum PulseType {
   INTERACTION = "interaction",
   SCREEN_SESSION = "screen_session",
   SCREEN_LOAD = "screen_load",
   NAVIGATION = "navigation",
   APP_START = "app_start",
   SCREEN_NAME = "screen.name",
+  SESSION_START = "session.start",
 }
 
 export enum STATUS_CODE {
@@ -13,6 +14,7 @@ export enum STATUS_CODE {
   OK = "Ok",
 }
 export enum COLUMN_NAME {
+  EXCEPTION_TYPE = "ExceptionType",
   DEVICE_MODEL = "DeviceModel",
   NETWORK_PROVIDER = "NetworkProvider",
   OS_VERSION = "OsVersion",
@@ -24,10 +26,10 @@ export enum COLUMN_NAME {
   DURATION = "Duration",
   USER_ID = "UserId",
   TIMESTAMP = "Timestamp",
-  SPAN_ID = "SpanId", 
+  SPAN_ID = "SpanId",
   TRACE_ID = "TraceId",
   SESSION_ID = "SessionId",
-  SPAN_TYPE = "SpanType",
+  PULSE_TYPE = "PulseType",
   SPAN_NAME = "SpanName",
   DEVICE_MANUFACTURER = "device.manufacturer",
   OS_TYPE = "os.type",

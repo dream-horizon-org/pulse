@@ -22,29 +22,36 @@ export function UserCategorisationGraph({
 }: GraphDataProps) {
   const theme = useMantineTheme();
 
+  const formatPercentageMetric = (value: string | null | undefined) => {
+    if (value === null || value === undefined) {
+      return "N/A";
+    }
+    return value;
+  };
+
   return (
     <div className={classes.graphContainer}>
       <div className={classes.graphTitle}>User Experience Distribution</div>
       <div className={classes.absoluteCardContainer}>
         <AbsoluteNumbersForGraphs
-          data={metrics?.excellentUsersPercentage || "0"}
+          data={formatPercentageMetric(metrics?.excellentUsersPercentage)}
           title="Excellent"
-          color="green-6"
+          color={metrics?.excellentUsersPercentage !== null ? "green-6" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={metrics?.goodUsersPercentage || "0"}
+          data={formatPercentageMetric(metrics?.goodUsersPercentage)}
           title="Good"
-          color="yellow-6"
+          color={metrics?.goodUsersPercentage !== null ? "yellow-6" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={metrics?.averageUsersPercentage || "0"}
+          data={formatPercentageMetric(metrics?.averageUsersPercentage)}
           title="Average"
-          color="orange-6"
+          color={metrics?.averageUsersPercentage !== null ? "orange-6" : "gray-5"}
         />
         <AbsoluteNumbersForGraphs
-          data={metrics?.poorUsersPercentage || "0"}
+          data={formatPercentageMetric(metrics?.poorUsersPercentage)}
           title="Poor"
-          color="red-9"
+          color={metrics?.poorUsersPercentage !== null ? "red-9" : "gray-5"}
         />
       </div>
       <AreaChart

@@ -8,12 +8,13 @@
 // GET /v1/alert/scopes - AlertScopesResponseDto
 // =============================================================================
 // Scope IDs must match AlertScopeType enum values in the frontend
+// Interface: { id: number, name: string, label: string }
 export const mockAlertScopes = {
   scopes: [
-    { id: "interaction", label: "Interactions" },
-    { id: "network_api", label: "Network APIs" },
-    { id: "app_vitals", label: "App Vitals" },
-    { id: "screen", label: "Screen" },
+    { id: 1, name: "interaction", label: "Interactions" },
+    { id: 2, name: "network_api", label: "Network APIs" },
+    { id: 3, name: "app_vitals", label: "App Vitals" },
+    { id: 4, name: "screen", label: "Screen" },
   ],
 };
 
@@ -109,6 +110,7 @@ export const mockAlertFilters = {
   job_id: ["job_1", "job_2", "job_3"],
   created_by: ["chirag@example.com", "john@example.com", "admin@example.com"],
   updated_by: ["chirag@example.com", "john@example.com", "admin@example.com"],
+  scope: ["interaction", "network_api", "app_vitals", "screen"],
   current_state: ["ACTIVE", "FIRING", "SNOOZED"],
 };
 
@@ -250,7 +252,7 @@ const generateMockAlerts = () => {
       created_at: new Date(Date.now() - createdDaysAgo * 86400000).toISOString(),
       updated_at: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
       is_active: true,
-      current_state: isFiring ? "FIRING" : isSnoozed ? "SNOOZED" : "NORMAL",
+      status: isFiring ? "FIRING" : isSnoozed ? "SNOOZED" : "NORMAL",
       is_snoozed: isSnoozed,
       last_snoozed_at: isSnoozed ? new Date().toISOString() : null,
       snoozed_from: isSnoozed ? Date.now() : null,

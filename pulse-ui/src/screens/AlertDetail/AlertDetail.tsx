@@ -25,8 +25,18 @@ const OPERATOR_SYMBOLS: Record<string, string> = {
 
 const formatDuration = (seconds: number): string => {
   if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  let result = `${hrs}h`;
+  if (mins > 0) result += ` ${mins}m`;
+  if (secs > 0) result += ` ${secs}s`;
+  return result;
 };
 
 const formatDate = (date: string | Date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -177,9 +187,10 @@ export function AlertDetail(_props: AlertDetailProps) {
     );
   }
 
+  const isNoData = alert.status === "NO_DATA";
   const StatusIcon = alert.is_snoozed ? IconBellOff : isFiring ? IconBellRinging : IconBell;
-  const statusColor = alert.is_snoozed ? "#94a3b8" : isFiring || alert.status === "NO_DATA" ? "#ef4444" : "#10b981";
-  const statusLabel = alert.is_snoozed ? "Snoozed" : alert.status;
+  const statusColor = alert.is_snoozed ? "#94a3b8" : isNoData ? "#9ca3af" : isFiring ? "#ef4444" : "#10b981";
+  const statusLabel = alert.is_snoozed ? "Snoozed" : isNoData ? "No Data" : alert.status;
 
   // Format snooze end time
   const formatSnoozeUntil = (timestamp: number | null) => {

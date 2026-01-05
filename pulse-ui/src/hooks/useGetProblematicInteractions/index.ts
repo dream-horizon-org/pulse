@@ -4,5 +4,6 @@ export type {
   UseGetProblematicInteractionsReturn,
   EventTypeFilter,
   ProblematicInteractionData,
+  InteractionEventType,
 } from "./useGetProblematicInteractions.interface";
 

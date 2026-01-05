@@ -5,6 +5,7 @@ import { useQueryError } from "../../../../hooks/useQueryError";
 import { StatsSkeleton } from "../../../../components/StatsSkeleton";
 import type { DataQueryResponse } from "../../../../hooks/useGetDataQuery/useGetDataQuery.interface";
 import classes from "./ANRMetricsStats.module.css";
+import { COLUMN_NAME } from "../../../../constants/PulseOtelSemcov";
 
 interface ANRMetricsStatsProps {
   startTime: string;
@@ -13,6 +14,10 @@ interface ANRMetricsStatsProps {
   osVersion?: string;
   device?: string;
   screenName?: string;
+  /** External total users count (from screen engagement data) - used when users exist but no ANRs */
+  externalTotalUsers?: number;
+  /** External total sessions count (from screen engagement data) - used when sessions exist but no ANRs */
+  externalTotalSessions?: number;
 }
 
 export function ANRMetricsStats({
@@ -22,6 +27,8 @@ export function ANRMetricsStats({
   osVersion = "all",
   device = "all",
   screenName,
+  externalTotalUsers,
+  externalTotalSessions,
 }: ANRMetricsStatsProps) {
   // Build filters array for API request
   const filters = useMemo(() => {
@@ -38,7 +45,7 @@ export function ANRMetricsStats({
 
     if (appVersion && appVersion !== "all") {
       filterArray.push({
-        field: "AppVersionCode",
+        field: COLUMN_NAME.APP_VERSION,
         operator: "EQ" as const,
         value: [appVersion],
       });
@@ -63,6 +70,8 @@ export function ANRMetricsStats({
     return filterArray.length > 0 ? filterArray : undefined;
   }, [appVersion, osVersion, device, screenName]);
 
+  // Query only ANR users/sessions from EXCEPTIONS table
+  // Total users/sessions come from external source (TRACES via useGetAppStats)
   const queryResult = useGetDataQuery({
     requestBody: {
       dataType: "EXCEPTIONS",
@@ -75,30 +84,16 @@ export function ANRMetricsStats({
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(UserId, EventName = 'device.anr')",
+            expression: "uniqCombinedIf(UserId, PulseType = 'device.anr')",
           },
           alias: "anr_users",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(SessionId, EventName = 'device.anr')",
+            expression: "uniqCombinedIf(SessionId, PulseType = 'device.anr')",
           },
           alias: "anr_sessions",
-        },
-        {
-          function: "CUSTOM",
-          param: {
-            expression: "uniqCombined(UserId)",
-          },
-          alias: "all_users",
-        },
-        {
-          function: "CUSTOM",
-          param: {
-            expression: "uniqCombined(SessionId)",
-          },
-          alias: "all_sessions",
         },
       ],
     },
@@ -110,35 +105,46 @@ export function ANRMetricsStats({
 
   const metrics = useMemo(() => {
     const responseData = data?.data;
-    if (!responseData || !responseData.rows || responseData.rows.length === 0) {
+
+    // Get ANR users/sessions from EXCEPTIONS table
+    let anrUsers = 0;
+    let anrSessions = 0;
+
+    if (responseData && responseData.rows && responseData.rows.length > 0) {
+      const fields = responseData.fields;
+      const anrUsersIndex = fields.indexOf("anr_users");
+      const anrSessionsIndex = fields.indexOf("anr_sessions");
+
+      const row = responseData.rows[0];
+      anrUsers = parseFloat(row[anrUsersIndex]) || 0;
+      anrSessions = parseFloat(row[anrSessionsIndex]) || 0;
+    }
+
+    // Total users/sessions from TRACES table (passed as props)
+    const totalUsers = externalTotalUsers ?? 0;
+    const totalSessions = externalTotalSessions ?? 0;
+
+    // If there are no users/sessions, we have no data to calculate from
+    if (totalUsers === 0 && totalSessions === 0) {
       return {
-        anrFreeUsers: 0,
-        anrFreeSessions: 0,
+        anrFreeUsers: null,
+        anrFreeSessions: null,
+        hasData: false,
       };
     }
 
-    const fields = responseData.fields;
-    const anrUsersIndex = fields.indexOf("anr_users");
-    const anrSessionsIndex = fields.indexOf("anr_sessions");
-    const allUsersIndex = fields.indexOf("all_users");
-    const allSessionsIndex = fields.indexOf("all_sessions");
-
-    const row = responseData.rows[0];
-    const anrUsers = parseFloat(row[anrUsersIndex]) || 0;
-    const anrSessions = parseFloat(row[anrSessionsIndex]) || 0;
-    const allUsers = parseFloat(row[allUsersIndex]) || 0;
-    const allSessions = parseFloat(row[allSessionsIndex]) || 0;
-
+    // Calculate ANR-free percentage: (total - anr) / total * 100
     const anrFreeUsers =
-      allUsers > 0 ? ((allUsers - anrUsers) / allUsers) * 100 : 0;
+      totalUsers > 0 ? ((totalUsers - anrUsers) / totalUsers) * 100 : null;
     const anrFreeSessions =
-      allSessions > 0 ? ((allSessions - anrSessions) / allSessions) * 100 : 0;
+      totalSessions > 0 ? ((totalSessions - anrSessions) / totalSessions) * 100 : null;
 
     return {
-      anrFreeUsers: parseFloat(anrFreeUsers.toFixed(2)),
-      anrFreeSessions: parseFloat(anrFreeSessions.toFixed(2)),
+      anrFreeUsers: anrFreeUsers !== null ? parseFloat(anrFreeUsers.toFixed(2)) : null,
+      anrFreeSessions: anrFreeSessions !== null ? parseFloat(anrFreeSessions.toFixed(2)) : null,
+      hasData: true,
     };
-  }, [data]);
+  }, [data, externalTotalUsers, externalTotalSessions]);
 
   if (queryState.isLoading) {
     return <StatsSkeleton title="ANR Metrics" itemCount={2} />;
@@ -155,20 +161,25 @@ export function ANRMetricsStats({
     );
   }
 
+  const formatMetricValue = (value: number | null) => {
+    if (value === null) return "N/A";
+    return `${value}%`;
+  };
+
   return (
     <Box className={`${classes.statSection} ${classes.fadeIn}`}>
       <Text className={classes.sectionTitle}>ANR Metrics</Text>
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>ANR-Free Users</Text>
-          <Text className={classes.statValue} c="orange">
-            {`${metrics.anrFreeUsers}%`}
+          <Text className={classes.statValue} c={metrics.anrFreeUsers !== null ? "orange" : "dimmed"}>
+            {formatMetricValue(metrics.anrFreeUsers)}
           </Text>
         </Box>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>ANR-Free Sessions</Text>
-          <Text className={classes.statValue} c="orange">
-            {`${metrics.anrFreeSessions}%`}
+          <Text className={classes.statValue} c={metrics.anrFreeSessions !== null ? "orange" : "dimmed"}>
+            {formatMetricValue(metrics.anrFreeSessions)}
           </Text>
         </Box>
       </Box>
