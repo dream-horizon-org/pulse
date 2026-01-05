@@ -437,6 +437,124 @@ class QueryTimestampEnricherTest {
       int groupByIndex = result.indexOf("GROUP BY");
       assertThat(whereIndex).isLessThan(groupByIndex);
     }
+
+    @Test
+    void shouldHandleQueryWithUTF8Recovery() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "2025-12-23 11:29:35";
+      String queryWithUTF8 = query + "\uFFFD";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(queryWithUTF8, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleAppendPartitionFilterWithWhitespaceAfterWhere() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE    column1 = 'value'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("column1 = 'value'");
+    }
+
+    @Test
+    void shouldHandleAppendPartitionFilterWhenAfterIsEmpty() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleExtractTimestampWithMultipleMatches() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("hour = 11");
+    }
+
+    @Test
+    void shouldHandleExtractTimestampWhenFirstMatchFails() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleAppendPartitionFilterWhenAfterStartsWithLowercaseAnd() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE and column1 = 'value'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("column1 = 'value'");
+    }
+
+    @Test
+    void shouldHandleWhereAtEndOfQuery() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("month = 12");
+      assertThat(result).contains("day = 23");
+      assertThat(result).contains("hour = 11");
+      assertThat(result).contains("WHERE");
+    }
+
+    @Test
+    void shouldHandleQueryWithOnlyGroupBy() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data GROUP BY col1";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+      int whereIndex = result.indexOf("WHERE");
+      int groupByIndex = result.indexOf("GROUP BY");
+      assertThat(whereIndex).isLessThan(groupByIndex);
+    }
+
+    @Test
+    void shouldHandleQueryWithOnlyOrderBy() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data ORDER BY col1";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+      int whereIndex = result.indexOf("WHERE");
+      int orderByIndex = result.indexOf("ORDER BY");
+      assertThat(whereIndex).isLessThan(orderByIndex);
+    }
+
+    @Test
+    void shouldHandleQueryWithOnlyLimit() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data LIMIT 10";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+      int whereIndex = result.indexOf("WHERE");
+      int limitIndex = result.indexOf("LIMIT");
+      assertThat(whereIndex).isLessThan(limitIndex);
+    }
   }
 }
 

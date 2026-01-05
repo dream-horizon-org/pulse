@@ -312,6 +312,79 @@ class SqlQueryValidatorTest {
       assertFalse(result.isValid());
       assertThat(result.getErrorMessage()).contains("timestamp filter");
     }
+
+    @Test
+    void shouldHandleQueryWithUTF8Recovery() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithUTF8 = query + "\uFFFD";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithUTF8);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithYearMonthDayHourInDifferentCase() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE Year = 2025 AND Month = 12 AND Day = 23 AND Hour = 11";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithTimestampLiteralInDifferentCase() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= timestamp '2025-12-23 11:00:00'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithYearMonthDayHourWithSpaces() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithTimestampLiteralWithDoubleQuotes() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP \"2025-12-23 11:00:00\"";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithTimestampLiteralWithSingleQuotes() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithMixedCasePartitionFilters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE Year = 2025 AND MONTH = 12 AND day = 23 AND HOUR = 11";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithTimestampLiteralAndPartitionFilters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
   }
 
   @Nested
