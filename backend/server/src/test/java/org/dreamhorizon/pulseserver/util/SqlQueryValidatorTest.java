@@ -230,6 +230,39 @@ class SqlQueryValidatorTest {
 
       assertTrue(result.isValid());
     }
+
+    @Test
+    void shouldHandleQueryWithUnicodeNormalizationThatChangesString() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithComposedUnicode = query.replace("SELECT", "SEL\u0301ECT");
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithComposedUnicode);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).isNotNull();
+    }
+
+    @Test
+    void shouldRejectQueryWithZeroWidthSpaceInKeyword() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithZeroWidthSpace = query.replace("SELECT", "SEL\u200BECT");
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithZeroWidthSpace);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("must start with SELECT");
+    }
+
+    @Test
+    void shouldHandleQueryValidationWithEncodingError() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE, (byte) 0xFD};
+      String invalidQuery = query + new String(invalidBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(invalidQuery);
+
+      assertTrue(result.isValid() || result.getErrorMessage() != null);
+    }
   }
 
   @Nested

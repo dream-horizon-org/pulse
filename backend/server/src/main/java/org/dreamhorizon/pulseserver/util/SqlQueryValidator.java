@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.util;
 
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,7 +29,7 @@ public class SqlQueryValidator {
     }
 
     String trimmedQuery = query.trim();
-    String upperQuery = trimmedQuery.toUpperCase();
+    String upperQuery = trimmedQuery.toUpperCase(Locale.ROOT);
 
     if (!upperQuery.startsWith("SELECT")) {
       return ValidationResult.invalid("Query must start with SELECT");
@@ -50,7 +51,7 @@ public class SqlQueryValidator {
   }
 
   private static boolean hasTimestampInWhereClause(String query) {
-    String upperQuery = query.toUpperCase();
+    String upperQuery = query.toUpperCase(Locale.ROOT);
     
     int whereIndex = upperQuery.indexOf("WHERE");
     if (whereIndex == -1) {

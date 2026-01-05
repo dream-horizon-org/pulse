@@ -279,6 +279,64 @@ class QueryTimestampEnricherTest {
 
       assertThat(result).isEqualTo(query);
     }
+
+    @Test
+    void shouldHandleInvalidTimestampFormat() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String invalidTimestamp = "2025-13-45 25:99:99";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, invalidTimestamp);
+
+      assertThat(result).isEqualTo(query);
+    }
+
+
+    @Test
+    void shouldHandleAddWhereClauseWithNoAfterClause() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+      assertThat(result).endsWith("hour = 11");
+    }
+
+    @Test
+    void shouldHandleMultipleClausesInQuery() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data GROUP BY col1 ORDER BY col2 LIMIT 10";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      int whereIndex = result.indexOf("WHERE");
+      int groupByIndex = result.indexOf("GROUP BY");
+      assertThat(whereIndex).isLessThan(groupByIndex);
+    }
+
+    @Test
+    void shouldHandleAppendPartitionFilterWhenWhereStartsWithAnd() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE AND column1 = 'value'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("AND column1");
+    }
+
+    @Test
+    void shouldHandleAppendPartitionFilterWhenWhereDoesNotStartWithAnd() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("AND column1");
+    }
   }
 }
 

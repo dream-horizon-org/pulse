@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,7 +33,7 @@ public class QueryTimestampEnricher {
     }
     
     LocalDateTime dateTime = null;
-    String upperQuery = query.toUpperCase();
+    String upperQuery = query.toUpperCase(Locale.ROOT);
     int whereIndex = upperQuery.indexOf("WHERE");
     
     if (whereIndex != -1) {
@@ -60,7 +61,7 @@ public class QueryTimestampEnricher {
         year, month, day, hour
     );
 
-    upperQuery = query.toUpperCase();
+    upperQuery = query.toUpperCase(Locale.ROOT);
     whereIndex = upperQuery.indexOf("WHERE");
 
     if (whereIndex == -1) {
@@ -77,7 +78,7 @@ public class QueryTimestampEnricher {
   }
 
   private static String addWhereClause(String query, String filter) {
-    String upperQuery = query.toUpperCase();
+    String upperQuery = query.toUpperCase(Locale.ROOT);
     int groupByIndex = upperQuery.indexOf("GROUP BY");
     int orderByIndex = upperQuery.indexOf("ORDER BY");
     int limitIndex = upperQuery.indexOf("LIMIT");
@@ -108,7 +109,7 @@ public class QueryTimestampEnricher {
     String before = query.substring(0, whereEnd);
     String after = query.substring(whereEnd).trim();
     
-    if (after.toUpperCase().startsWith("AND")) {
+    if (after.toUpperCase(Locale.ROOT).startsWith("AND")) {
       after = after.substring(3).trim();
       return before + partitionFilter + " AND " + after;
     } else {
@@ -117,7 +118,7 @@ public class QueryTimestampEnricher {
   }
 
   private static boolean containsPartitionFilters(String whereClause) {
-    String upper = whereClause.toUpperCase();
+    String upper = whereClause.toUpperCase(Locale.ROOT);
     return upper.contains("YEAR =") && upper.contains("MONTH =") 
         && upper.contains("DAY =") && upper.contains("HOUR =");
   }
