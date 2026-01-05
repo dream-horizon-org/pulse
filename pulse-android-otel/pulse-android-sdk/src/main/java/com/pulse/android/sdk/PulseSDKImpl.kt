@@ -56,7 +56,7 @@ internal class PulseSDKImpl :
     CoroutineScope by MainScope() {
     override fun isInitialized(): Boolean = isInitialised
 
-    @Suppress("LongParameterList", "LongMethod")
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
@@ -175,6 +175,42 @@ internal class PulseSDKImpl :
         val logExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
         val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
+        instrumentations?.let { configure ->
+            InstrumentationConfiguration(config).configure()
+            pulseSamplingProcessors?.run {
+                getDisabledFeatures().forEach {
+                    when (it) {
+                        PulseFeatureName.JAVA_CRASH -> {
+                            config.suppressInstrumentation("crash")
+                        }
+
+                        PulseFeatureName.NETWORK_CHANGE -> {
+                            config.disableNetworkAttributes()
+                        }
+
+                        PulseFeatureName.JAVA_ANR -> {
+                            config.suppressInstrumentation("anr")
+                        }
+
+                        PulseFeatureName.INTERACTION -> {
+                            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                        }
+
+                        PulseFeatureName.CPP_CRASH -> {
+                            // no-op
+                        }
+
+                        PulseFeatureName.CPP_ANR -> {
+                            // no-op
+                        }
+
+                        PulseFeatureName.UNKNOWN -> {
+                            // no-op
+                        }
+                    }
+                }
+            }
+        }
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -187,25 +223,26 @@ internal class PulseSDKImpl :
                 logEndpointConnectivity = finalLogEndpointConnectivity,
                 metricEndpointConnectivity = finalMetricEndpointConnectivity,
                 sessionConfig = sessionConfig,
-                globalAttributes = {
-                    val attributesBuilder = Attributes.builder()
-                    if (userProps.isNotEmpty()) {
-                        for ((key, value) in userProps) {
-                            attributesBuilder.put(
-                                PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
-                                value.toString(),
-                            )
+                globalAttributes =
+                    {
+                        val attributesBuilder = Attributes.builder()
+                        if (userProps.isNotEmpty()) {
+                            for ((key, value) in userProps) {
+                                attributesBuilder.put(
+                                    PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
+                                    value.toString(),
+                                )
+                            }
                         }
-                    }
-                    if (userSessionEmitter.userId != null) {
-                        attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
-                    }
-                    attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
-                    if (globalAttributes != null) {
-                        attributesBuilder.putAll(globalAttributes.invoke())
-                    }
-                    attributesBuilder.build()
-                },
+                        if (userSessionEmitter.userId != null) {
+                            attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
+                        }
+                        attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
+                        if (globalAttributes != null) {
+                            attributesBuilder.putAll(globalAttributes.invoke())
+                        }
+                        attributesBuilder.build()
+                    },
                 diskBuffering = diskBuffering,
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
@@ -214,33 +251,6 @@ internal class PulseSDKImpl :
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
             )
-        instrumentations?.let { configure ->
-            InstrumentationConfiguration(config).configure()
-            pulseSamplingProcessors?.let {
-                val enabledFeatures = it.getEnabledFeatures()
-                when {
-                    PulseFeatureName.JAVA_CRASH in enabledFeatures -> {
-                        config.suppressInstrumentation("crash")
-                    }
-
-                    PulseFeatureName.NETWORK_CHANGE in enabledFeatures -> {
-                        config.disableNetworkAttributes()
-                    }
-
-                    PulseFeatureName.JAVA_ANR in enabledFeatures -> {
-                        config.suppressInstrumentation("anr")
-                    }
-
-                    PulseFeatureName.INTERACTION in enabledFeatures -> {
-                        config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                    }
-
-                    else -> {
-                        // no-op
-                    }
-                }
-            }
-        }
         isInitialised = true
     }
 
