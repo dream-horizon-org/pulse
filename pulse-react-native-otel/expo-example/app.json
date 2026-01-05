@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "expo-example",
+    "slug": "expo-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sg43245.expoexample"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.sg43245.expoexample"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "./plugins/withMavenLocal",
+      [
+        "@dreamhorizonorg/pulse-react-native",
+        {
+          "endpointBaseUrl": "http://10.0.2.2:4318",
+          "enableInteraction": true,
+          "interactionConfigUrl": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
+          "enableActivity": true,
+          "enableNetwork": true,
+          "enableAnr": true,
+          "enableSlowRendering": true
+        }
+      ]
+    ]
+  }
+}
