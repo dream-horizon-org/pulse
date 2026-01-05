@@ -1,10 +1,13 @@
 package org.dreamhorizon.pulseserver.util;
 
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -13,8 +16,21 @@ public class QueryTimestampEnricher {
   private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
   private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("H:m:s");
   private static final DateTimeFormatter TIME_FORMATTER_PADDED = DateTimeFormatter.ofPattern("HH:mm:ss");
+  
+  private static final Pattern VALID_TIMESTAMP_PATTERN = Pattern.compile("^[0-9\\-\\s:]+$");
+  private static final Pattern CONTROL_CHAR_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
 
   public static String enrichQueryWithTimestamp(String query, String timestampString) {
+    if (query == null) {
+      throw new IllegalArgumentException("Query cannot be null");
+    }
+    
+    query = normalizeAndValidateQuery(query);
+    
+    if (timestampString != null) {
+      timestampString = normalizeAndValidateTimestamp(timestampString);
+    }
+    
     LocalDateTime dateTime = null;
     String upperQuery = query.toUpperCase();
     int whereIndex = upperQuery.indexOf("WHERE");
@@ -109,7 +125,7 @@ public class QueryTimestampEnricher {
   private static LocalDateTime extractTimestampFromWhereClause(String whereClause) {
     java.util.regex.Pattern timestampPattern = java.util.regex.Pattern.compile(
         "TIMESTAMP\\s+['\"](\\d{4}-\\d{2}-\\d{2}\\s+\\d{1,2}:\\d{2}:\\d{2})['\"]",
-        java.util.regex.Pattern.CASE_INSENSITIVE
+        java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.UNICODE_CASE
     );
     
     java.util.regex.Matcher matcher = timestampPattern.matcher(whereClause);
@@ -153,6 +169,67 @@ public class QueryTimestampEnricher {
       log.error("Failed to parse timestamp string: {}", timestampString, e);
       return null;
     }
+  }
+
+  private static String normalizeAndValidateQuery(String query) {
+    if (query == null) {
+      throw new IllegalArgumentException("Query cannot be null");
+    }
+    
+    String normalized = Normalizer.normalize(query, Normalizer.Form.NFKC);
+    
+    if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
+      log.warn("Query contains control characters, removing them");
+      normalized = normalized.replaceAll("[\\x00-\\x1F\\x7F]", "");
+    }
+    
+    try {
+      byte[] bytes = normalized.getBytes(StandardCharsets.UTF_8);
+      String decoded = new String(bytes, StandardCharsets.UTF_8);
+      
+      if (!decoded.equals(normalized)) {
+        log.warn("Query contains invalid UTF-8 sequences, attempting to recover");
+        normalized = decoded;
+      }
+    } catch (Exception e) {
+      log.error("Failed to validate UTF-8 encoding for query", e);
+      throw new IllegalArgumentException("Query contains invalid UTF-8 encoding", e);
+    }
+    
+    return normalized;
+  }
+
+  private static String normalizeAndValidateTimestamp(String timestampString) {
+    if (timestampString == null) {
+      return null;
+    }
+    
+    String normalized = Normalizer.normalize(timestampString.trim(), Normalizer.Form.NFKC);
+    
+    if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
+      log.warn("Timestamp contains control characters: {}", timestampString);
+      throw new IllegalArgumentException("Timestamp contains invalid control characters");
+    }
+    
+    if (!VALID_TIMESTAMP_PATTERN.matcher(normalized).matches()) {
+      log.warn("Timestamp contains invalid characters: {}", timestampString);
+      throw new IllegalArgumentException("Timestamp contains invalid characters. Only digits, hyphens, spaces, and colons are allowed.");
+    }
+    
+    try {
+      byte[] bytes = normalized.getBytes(StandardCharsets.UTF_8);
+      String decoded = new String(bytes, StandardCharsets.UTF_8);
+      
+      if (!decoded.equals(normalized)) {
+        log.warn("Timestamp contains invalid UTF-8 sequences");
+        throw new IllegalArgumentException("Timestamp contains invalid UTF-8 sequences");
+      }
+    } catch (Exception e) {
+      log.error("Failed to validate UTF-8 encoding for timestamp", e);
+      throw new IllegalArgumentException("Timestamp contains invalid UTF-8 encoding", e);
+    }
+    
+    return normalized;
   }
 }
 
