@@ -93,7 +93,7 @@ function safeMatch(
   try {
     const match = text.match(regex);
     return match && match[groupIndex] ? match[groupIndex] : '';
-  } catch {
+  } catch (e) {
     return '';
   }
 }
