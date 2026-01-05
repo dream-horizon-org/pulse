@@ -28,9 +28,9 @@ variable "security_group_id" {
   type        = string
 }
 
-variable "alb_security_group_id" {
-  description = "alb Security group to attach to all resources"
-  type        = string
+variable "nlb_security_group_ids" {
+  description = "Security group IDs to attach to the OTEL ALB"
+  type        = list(string)
 }
 
 variable "ssh_key_name" {
@@ -71,4 +71,14 @@ variable "healthcheck_port" {
 variable "vector_listen_port" {
   description = "vector port"
   type        = number
+}
+
+variable "public_subnet_ids" {
+  description = "List of public subnets for the NLB"
+  type        = list(string)
+}
+
+variable "acm_certificate_arn" {
+  description = "acm certificate to add to the listener"
+  type        = string
 }

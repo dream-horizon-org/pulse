@@ -61,36 +61,35 @@ resource "aws_launch_template" "vector" {
 
 resource "aws_lb" "vector" {
   name               = "pulse-vector-alb"
-  internal           = true
-  load_balancer_type = "application"
-  security_groups    = [var.alb_security_group_id]
-  subnets            = var.subnet_ids
+  internal           = false
+  load_balancer_type = "network"
+  security_groups    = var.nlb_security_group_ids
+  subnets            = var.public_subnet_ids
+  drop_invalid_header_fields = true
 }
 
 resource "aws_lb_target_group" "vector" {
   name        = "pulse-vector-tg"
   port        = var.vector_listen_port
-  protocol    = "HTTP"
+  protocol    = "TCP"
   vpc_id      = var.vpc_id
   target_type = "instance"
 
   health_check {
-    enabled             = true
-    healthy_threshold   = 2
-    unhealthy_threshold = 3
-    interval            = 30
-    timeout             = 5
     path                = var.healthcheck_path
     port                = tostring(var.healthcheck_port)
     matcher             = "200-399"
+    protocol            = "HTTP"
   }
 }
 
-resource "aws_lb_listener" "http" {
+resource "aws_lb_listener" "vector" {
   load_balancer_arn = aws_lb.vector.arn
   port              = var.vector_listen_port
-  protocol          = "HTTP"
+  protocol          = "TLS"
 
+  certificate_arn = var.acm_certificate_arn
+  ssl_policy = "ELBSecurityPolicy-2016-08"
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.vector.arn
