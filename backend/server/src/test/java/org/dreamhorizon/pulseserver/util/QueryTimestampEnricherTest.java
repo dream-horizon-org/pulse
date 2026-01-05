@@ -217,6 +217,68 @@ class QueryTimestampEnricherTest {
 
       assertThat(result).isEqualTo(query);
     }
+
+    @Test
+    void shouldHandleUnicodeNormalizationInQuery() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String timestamp = "2025-12-23 11:29:35";
+      String queryWithUnicode = query.replace("SELECT", "SELECT\u200B");
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(queryWithUnicode, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldRejectTimestampWithInvalidUnicodeCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String timestamp = "2025-12-23 11:29:35";
+      String timestampWithUnicode = timestamp.replace("-", "-\u200B");
+
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestampWithUnicode);
+      });
+    }
+
+    @Test
+    void shouldRejectTimestampWithInvalidUTF8Encoding() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE, (byte) 0xFD};
+      String invalidTimestamp = "2025-12-23 " + new String(invalidBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(query, invalidTimestamp);
+      });
+    }
+
+    @Test
+    void shouldHandleQueryWithUnicodeCharactersInStringLiterals() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND name = 'José'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("José");
+    }
+
+    @Test
+    void shouldHandleTimestampWithOnlySpaces() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, "    ");
+
+      assertThat(result).isEqualTo(query);
+    }
+
+    @Test
+    void shouldHandleNullTimestampAfterNormalization() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).isEqualTo(query);
+    }
   }
 }
 

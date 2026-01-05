@@ -210,6 +210,26 @@ class SqlQueryValidatorTest {
 
       assertTrue(result.isValid() || result.getErrorMessage().contains("encoding"));
     }
+
+    @Test
+    void shouldHandleUnicodeNormalizationInQuery() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithUnicode = query.replace("SELECT", "SELECT\u200B");
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithUnicode);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithMultipleControlCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithControl = "\u0000\u0001\u0002" + query + "\u007F\u001F";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithControl);
+
+      assertTrue(result.isValid());
+    }
   }
 
   @Nested
