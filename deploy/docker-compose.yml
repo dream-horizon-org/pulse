@@ -115,7 +115,7 @@ services:
       context: ../vector
       dockerfile: Dockerfile
       args:
-        VECTOR_REPO: https://github.com/hemanthbee/vector
+        VECTOR_REPO: https://github.com/rorylshanks/vector
         VECTOR_REF: add-parquet
         DEBIAN_VERSION: "12"
     container_name: vector
