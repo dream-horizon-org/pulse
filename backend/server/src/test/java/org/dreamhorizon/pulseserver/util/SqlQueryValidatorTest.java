@@ -263,6 +263,25 @@ class SqlQueryValidatorTest {
 
       assertTrue(result.isValid() || result.getErrorMessage() != null);
     }
+
+    @Test
+    void shouldHandleQueryWithPartialTimestampFilters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).contains("timestamp filter");
+    }
+
+    @Test
+    void shouldHandleQueryWithTimestampLiteralButMissingPartitionFilters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
   }
 
   @Nested

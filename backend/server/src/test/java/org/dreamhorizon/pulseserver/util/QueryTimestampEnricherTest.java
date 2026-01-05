@@ -337,6 +337,63 @@ class QueryTimestampEnricherTest {
       assertThat(result).contains("year = 2025");
       assertThat(result).contains("AND column1");
     }
+
+    @Test
+    void shouldHandleWhereClauseWithMultipleWhitespaces() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE    column1 = 'value'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("column1");
+    }
+
+    @Test
+    void shouldHandleExtractTimestampWithInvalidFormatInWhereClause() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid-format'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).isEqualTo(query);
+    }
+
+    @Test
+    void shouldHandleExtractTimestampWithMultipleInvalidFormats() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid1' AND \"timestamp\" <= TIMESTAMP 'invalid2'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).isEqualTo(query);
+    }
+
+    @Test
+    void shouldHandleTimestampWithDoubleQuotes() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP \"2025-12-23 11:00:00\"";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleTimestampWithSingleQuotes() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWhereTimestampExtractionFailsButTimestampStringProvided() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
   }
 }
 
