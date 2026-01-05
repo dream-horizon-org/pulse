@@ -385,6 +385,60 @@ class SqlQueryValidatorTest {
 
       assertTrue(result.isValid());
     }
+
+    @Test
+    void shouldHandleQueryWithWhereInDifferentCase() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data where year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithComplexWhereClause() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE (year = 2025 AND month = 12) AND (day = 23 AND hour = 11)";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithTimestampLiteralInComplexWhere() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND column2 = 'value2'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithMultipleTimestampLiterals() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithYearMonthDayHourWithExtraSpaces() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year=2025 AND month=12 AND day=23 AND hour=11";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithYearMonthDayHourWithTabs() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year\t=\t2025 AND month\t=\t12 AND day\t=\t23 AND hour\t=\t11";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
   }
 
   @Nested

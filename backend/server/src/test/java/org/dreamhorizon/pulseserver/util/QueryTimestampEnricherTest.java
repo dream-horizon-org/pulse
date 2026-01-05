@@ -555,6 +555,82 @@ class QueryTimestampEnricherTest {
       int limitIndex = result.indexOf("LIMIT");
       assertThat(whereIndex).isLessThan(limitIndex);
     }
+
+    @Test
+    void shouldHandleQueryWithMultipleWhereKeywords() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value' AND WHERE column2 = 'value2'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWithWhereInSubquery() {
+      String query = "SELECT * FROM (SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value') WHERE column2 = 'value2'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWithCaseInsensitiveWhere() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data where column1 = 'value'";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWithCaseInsensitiveGroupBy() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data group by col1";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWithCaseInsensitiveOrderBy() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data order by col1";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWithCaseInsensitiveLimit() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data limit 10";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("WHERE");
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryWithAllClausesCaseInsensitive() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data where col1 = 'val' group by col2 order by col3 limit 10";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result.toLowerCase()).contains("group by");
+      assertThat(result.toLowerCase()).contains("order by");
+      assertThat(result.toLowerCase()).contains("limit");
+    }
   }
 }
 
