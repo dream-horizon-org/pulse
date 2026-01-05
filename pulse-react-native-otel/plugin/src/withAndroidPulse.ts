@@ -7,19 +7,11 @@ import type { PulsePluginProps } from './types';
 
 export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
   config,
-  props: PulsePluginProps = {}
+  props: PulsePluginProps
 ) => {
   return withMainApplication(config, (modConfig) => {
     try {
-      const {
-        endpointBaseUrl = 'https://your-backend-url.com',
-        enableInteraction = true,
-        interactionConfigUrl,
-        enableActivity = true,
-        enableNetwork = true,
-        enableAnr = true,
-        enableSlowRendering = true,
-      } = props;
+      const { endpointBaseUrl, instrumentation } = props;
 
       // 1. Add import statement
       modConfig.modResults.contents = mergeContents({
@@ -33,12 +25,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
 
       const initCode = buildPulseInitializationCode({
         endpointBaseUrl,
-        enableInteraction,
-        interactionConfigUrl,
-        enableActivity,
-        enableNetwork,
-        enableAnr,
-        enableSlowRendering,
+        instrumentation,
       });
 
       // 2. Add initialization code after super.onCreate()

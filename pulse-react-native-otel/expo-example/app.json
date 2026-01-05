@@ -25,12 +25,12 @@
         "@dreamhorizonorg/pulse-react-native",
         {
           "endpointBaseUrl": "http://10.0.2.2:4318",
-          "enableInteraction": true,
-          "interactionConfigUrl": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
-          "enableActivity": true,
-          "enableNetwork": true,
-          "enableAnr": true,
-          "enableSlowRendering": true
+          "instrumentation": {
+            "interaction": {
+              "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
+              "enabled": true
+            }
+          }
         }
       ]
     ]
