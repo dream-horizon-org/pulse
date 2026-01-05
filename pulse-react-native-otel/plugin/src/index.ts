@@ -1,7 +1,7 @@
 import { createRunOncePlugin, type ConfigPlugin } from '@expo/config-plugins';
 
 import type { PulsePluginProps } from './types';
-import { withAndroidPulsePlugin } from './withAndroidPulsePlugin';
+import { withAndroidPulse } from './withAndroidPulse';
 
 const pkg = require('../../package.json');
 
@@ -9,7 +9,7 @@ const withPulsePlugin: ConfigPlugin<PulsePluginProps> = (
   config,
   props: PulsePluginProps = {}
 ) => {
-  config = withAndroidPulsePlugin(config, props);
+  config = withAndroidPulse(config, props);
 
   return config;
 };

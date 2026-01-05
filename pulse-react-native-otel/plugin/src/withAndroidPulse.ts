@@ -2,10 +2,10 @@ import type { ConfigPlugin } from '@expo/config-plugins';
 import { withMainApplication } from '@expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 
-import { PULSE_IMPORT, buildPulseInitializationCode } from '../constants';
-import type { PulsePluginProps } from '../types';
+import { PULSE_IMPORT, buildPulseInitializationCode } from './utils';
+import type { PulsePluginProps } from './types';
 
-export const withPulseMainApplication: ConfigPlugin<PulsePluginProps> = (
+export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
   config,
   props: PulsePluginProps = {}
 ) => {

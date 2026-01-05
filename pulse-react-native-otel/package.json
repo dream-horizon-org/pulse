@@ -10,8 +10,7 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
-    "./package.json": "./package.json",
-    "./app.plugin.js": "./app.plugin.js"
+    "./package.json": "./package.json"
   },
   "bin": {
     "pulse-cli": "./scripts/pulse-cli.js"
@@ -176,7 +175,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "app.plugin": "./app.plugin.js",
   "peerDependencies": {
     "@expo/config-plugins": "*",
     "react": "*",
