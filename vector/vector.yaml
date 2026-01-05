@@ -15,14 +15,10 @@ sinks:
     type: aws_s3
     inputs:
       - otlp_logs.logs
-    bucket:
-    region:
+    bucket: xyz
+    region: ap-south-1
     compression: none
     key_prefix: "year=%Y/month=%m/day=%d/hour=%H/"
-    auth:
-      access_key_id:
-      secret_access_key:
-      session_token:
     batch:
       max_events: 2
       timeout_secs: 2
