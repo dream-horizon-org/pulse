@@ -10,8 +10,11 @@ const withMavenLocal = (config) => {
   config = withDangerousMod(config, [
     'android',
     async (config) => {
-      const buildGradlePath = path.join(config.modRequest.platformProjectRoot, 'build.gradle');
-      
+      const buildGradlePath = path.join(
+        config.modRequest.platformProjectRoot,
+        'build.gradle'
+      );
+
       if (!fs.existsSync(buildGradlePath)) {
         console.warn(`build.gradle not found at ${buildGradlePath}`);
         return config;
@@ -23,7 +26,11 @@ const withMavenLocal = (config) => {
         // Add mavenLocal() to buildscript repositories block
         if (buildGradleContents.includes('buildscript')) {
           // Check if mavenLocal() already exists in buildscript repositories
-          if (!buildGradleContents.match(/buildscript\s*\{[\s\S]*?repositories\s*\{[\s\S]*?mavenLocal\(\)/)) {
+          if (
+            !buildGradleContents.match(
+              /buildscript\s*\{[\s\S]*?repositories\s*\{[\s\S]*?mavenLocal\(\)/
+            )
+          ) {
             // Find repositories { inside buildscript and add mavenLocal() after it
             buildGradleContents = buildGradleContents.replace(
               /(buildscript\s*\{[\s\S]*?repositories\s*\{)/,
@@ -41,7 +48,11 @@ const withMavenLocal = (config) => {
         // Add mavenLocal() to allprojects repositories block
         if (buildGradleContents.includes('allprojects')) {
           // Check if mavenLocal() already exists in allprojects repositories
-          if (!buildGradleContents.match(/allprojects\s*\{[\s\S]*?repositories\s*\{[\s\S]*?mavenLocal\(\)/)) {
+          if (
+            !buildGradleContents.match(
+              /allprojects\s*\{[\s\S]*?repositories\s*\{[\s\S]*?mavenLocal\(\)/
+            )
+          ) {
             // Find repositories { inside allprojects and add mavenLocal() after it
             buildGradleContents = buildGradleContents.replace(
               /(allprojects\s*\{[\s\S]*?repositories\s*\{)/,
@@ -69,4 +80,3 @@ const withMavenLocal = (config) => {
 };
 
 module.exports = withMavenLocal;
-
