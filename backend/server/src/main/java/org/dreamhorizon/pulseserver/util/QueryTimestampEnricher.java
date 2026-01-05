@@ -204,7 +204,12 @@ public class QueryTimestampEnricher {
       return null;
     }
     
-    String normalized = Normalizer.normalize(timestampString.trim(), Normalizer.Form.NFKC);
+    String trimmed = timestampString.trim();
+    if (trimmed.isEmpty()) {
+      return null;
+    }
+    
+    String normalized = Normalizer.normalize(trimmed, Normalizer.Form.NFKC);
     
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
       log.warn("Timestamp contains control characters: {}", timestampString);
