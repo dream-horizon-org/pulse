@@ -17,6 +17,7 @@ public class SqlQueryValidator {
 
   private static final Pattern CONTROL_CHAR_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
   private static final Pattern WHERE_PATTERN = Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+  private static final int MAX_QUERY_LENGTH = 100000;
 
   public static ValidationResult validateQuery(String query) {
     if (query == null || query.trim().isEmpty()) {
@@ -91,15 +92,26 @@ public class SqlQueryValidator {
       throw new IllegalArgumentException("Query cannot be null");
     }
 
+    if (query.length() > MAX_QUERY_LENGTH) {
+      throw new IllegalArgumentException("Query exceeds maximum length");
+    }
+
     String normalized;
     try {
       normalized = Normalizer.normalize(query, Normalizer.Form.NFKC);
       if (normalized == null) {
         throw new IllegalArgumentException("Unicode normalization returned null");
       }
+    } catch (IllegalArgumentException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to normalize query Unicode", e);
       throw new IllegalArgumentException("Query contains invalid Unicode characters", e);
+    }
+
+    if (normalized.length() > MAX_QUERY_LENGTH) {
+      log.warn("Normalized query exceeds maximum length, rejecting");
+      throw new IllegalArgumentException("Normalized query exceeds maximum length");
     }
 
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
@@ -115,6 +127,14 @@ public class SqlQueryValidator {
         log.warn("Query contains invalid UTF-8 sequences, attempting to recover");
         normalized = decoded;
       }
+
+      byte[] reencoded = normalized.getBytes(StandardCharsets.UTF_8);
+      if (reencoded.length != bytes.length) {
+        log.warn("Query encoding validation failed after normalization");
+        throw new IllegalArgumentException("Query contains invalid UTF-8 encoding after normalization");
+      }
+    } catch (IllegalArgumentException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to validate UTF-8 encoding for query", e);
       throw new IllegalArgumentException("Query contains invalid UTF-8 encoding", e);

@@ -21,6 +21,7 @@ public class QueryTimestampEnricher {
 
   private static final Pattern VALID_TIMESTAMP_PATTERN = Pattern.compile("^[0-9\\-\\s:]+$");
   private static final Pattern CONTROL_CHAR_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
+  private static final int MAX_TIMESTAMP_LENGTH = 50;
   private static final Pattern WHERE_PATTERN = Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
   private static final Pattern GROUP_BY_PATTERN = Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
   private static final Pattern ORDER_BY_PATTERN = Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -176,9 +177,15 @@ public class QueryTimestampEnricher {
     }
   }
 
+  private static final int MAX_QUERY_LENGTH = 100000;
+
   private static String normalizeAndValidateQuery(String query) {
     if (query == null) {
       throw new IllegalArgumentException("Query cannot be null");
+    }
+
+    if (query.length() > MAX_QUERY_LENGTH) {
+      throw new IllegalArgumentException("Query exceeds maximum length");
     }
 
     String normalized;
@@ -187,9 +194,16 @@ public class QueryTimestampEnricher {
       if (normalized == null) {
         throw new IllegalArgumentException("Unicode normalization returned null");
       }
+    } catch (IllegalArgumentException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to normalize query Unicode", e);
       throw new IllegalArgumentException("Query contains invalid Unicode characters", e);
+    }
+
+    if (normalized.length() > MAX_QUERY_LENGTH) {
+      log.warn("Normalized query exceeds maximum length, rejecting");
+      throw new IllegalArgumentException("Normalized query exceeds maximum length");
     }
 
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
@@ -205,6 +219,14 @@ public class QueryTimestampEnricher {
         log.warn("Query contains invalid UTF-8 sequences, attempting to recover");
         normalized = decoded;
       }
+
+      byte[] reencoded = normalized.getBytes(StandardCharsets.UTF_8);
+      if (reencoded.length != bytes.length) {
+        log.warn("Query encoding validation failed after normalization");
+        throw new IllegalArgumentException("Query contains invalid UTF-8 encoding after normalization");
+      }
+    } catch (IllegalArgumentException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to validate UTF-8 encoding for query", e);
       throw new IllegalArgumentException("Query contains invalid UTF-8 encoding", e);
@@ -218,6 +240,10 @@ public class QueryTimestampEnricher {
       return null;
     }
 
+    if (timestampString.length() > MAX_TIMESTAMP_LENGTH) {
+      throw new IllegalArgumentException("Timestamp exceeds maximum length");
+    }
+
     String trimmed = timestampString.trim();
     if (trimmed.isEmpty()) {
       return null;
@@ -229,9 +255,16 @@ public class QueryTimestampEnricher {
       if (normalized == null || normalized.isEmpty()) {
         return null;
       }
+    } catch (IllegalArgumentException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to normalize timestamp Unicode", e);
       throw new IllegalArgumentException("Timestamp contains invalid Unicode characters", e);
+    }
+
+    if (normalized.length() > MAX_TIMESTAMP_LENGTH) {
+      log.warn("Normalized timestamp exceeds maximum length, rejecting");
+      throw new IllegalArgumentException("Normalized timestamp exceeds maximum length");
     }
 
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
@@ -252,6 +285,14 @@ public class QueryTimestampEnricher {
         log.warn("Timestamp contains invalid UTF-8 sequences");
         throw new IllegalArgumentException("Timestamp contains invalid UTF-8 sequences");
       }
+
+      byte[] reencoded = normalized.getBytes(StandardCharsets.UTF_8);
+      if (reencoded.length != bytes.length) {
+        log.warn("Timestamp encoding validation failed after normalization");
+        throw new IllegalArgumentException("Timestamp contains invalid UTF-8 encoding after normalization");
+      }
+    } catch (IllegalArgumentException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Failed to validate UTF-8 encoding for timestamp", e);
       throw new IllegalArgumentException("Timestamp contains invalid UTF-8 encoding", e);

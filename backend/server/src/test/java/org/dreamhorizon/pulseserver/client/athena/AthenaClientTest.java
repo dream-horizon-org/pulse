@@ -25,10 +25,14 @@ import software.amazon.awssdk.services.athena.model.GetQueryExecutionRequest;
 import software.amazon.awssdk.services.athena.model.GetQueryExecutionResponse;
 import software.amazon.awssdk.services.athena.model.GetQueryResultsRequest;
 import software.amazon.awssdk.services.athena.model.GetQueryResultsResponse;
+import software.amazon.awssdk.services.athena.model.ColumnInfo;
+import software.amazon.awssdk.services.athena.model.Datum;
 import software.amazon.awssdk.services.athena.model.QueryExecution;
 import software.amazon.awssdk.services.athena.model.QueryExecutionStatus;
 import software.amazon.awssdk.services.athena.model.QueryExecutionState;
 import software.amazon.awssdk.services.athena.model.ResultSet;
+import software.amazon.awssdk.services.athena.model.ResultSetMetadata;
+import software.amazon.awssdk.services.athena.model.Row;
 import software.amazon.awssdk.services.athena.model.StartQueryExecutionRequest;
 import software.amazon.awssdk.services.athena.model.StartQueryExecutionResponse;
 
@@ -360,6 +364,98 @@ class AthenaClientTest {
 
       testObserver.assertError(Throwable.class);
     }
+
+    @Test
+    void shouldHandleNullResponseInGetQueryResults() {
+      String queryExecutionId = "abc-123-def-456";
+
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
+          .thenReturn(CompletableFuture.completedFuture(null));
+
+      var testObserver = athenaClient.getQueryResults(queryExecutionId, 100, null).test();
+
+      testObserver.assertError(Throwable.class);
+    }
+
+    @Test
+    void shouldHandleGetQueryResultsWithNextTokenAndMetadata() {
+      String queryExecutionId = "abc-123-def-456";
+      String nextToken = "token-123";
+
+      ResultSetMetadata metadata = ResultSetMetadata.builder()
+          .columnInfo(ColumnInfo.builder().name("col1").build())
+          .build();
+      ResultSet resultSet = ResultSet.builder()
+          .resultSetMetadata(metadata)
+          .rows(Row.builder()
+              .data(Datum.builder().varCharValue("value1").build())
+              .build())
+          .build();
+
+      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
+          .resultSet(resultSet)
+          .nextToken("next-token")
+          .build();
+
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
+          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 100, nextToken)
+          .blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getResultSet()).isNotNull();
+      assertThat(result.getNextToken()).isEqualTo("next-token");
+    }
+
+    @Test
+    void shouldHandleGetQueryResultsWithMaxResultsAndNullNextToken() {
+      String queryExecutionId = "abc-123-def-456";
+
+      ResultSetMetadata metadata = ResultSetMetadata.builder()
+          .columnInfo(ColumnInfo.builder().name("col1").build())
+          .build();
+      ResultSet resultSet = ResultSet.builder()
+          .resultSetMetadata(metadata)
+          .rows(Row.builder()
+              .data(Datum.builder().varCharValue("value1").build())
+              .build())
+          .build();
+
+      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
+          .resultSet(resultSet)
+          .nextToken(null)
+          .build();
+
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
+          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 50, null)
+          .blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getResultSet()).isNotNull();
+      assertThat(result.getNextToken()).isNull();
+    }
+
+    @Test
+    void shouldHandleGetQueryResultsWithEmptyNextToken() {
+      String queryExecutionId = "abc-123-def-456";
+
+      ResultSet resultSet = ResultSet.builder().build();
+      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
+          .resultSet(resultSet)
+          .nextToken("")
+          .build();
+
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
+          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 100, "").blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getNextToken()).isEmpty();
+    }
   }
 
   @Nested
@@ -419,6 +515,18 @@ class AthenaClientTest {
 
       when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
           .thenReturn(CompletableFuture.completedFuture(mockResponse));
+
+      var testObserver = athenaClient.getQueryExecution(queryExecutionId).test();
+
+      testObserver.assertError(Throwable.class);
+    }
+
+    @Test
+    void shouldHandleNullResponseInGetQueryExecution() {
+      String queryExecutionId = "abc-123-def-456";
+
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
+          .thenReturn(CompletableFuture.completedFuture(null));
 
       var testObserver = athenaClient.getQueryExecution(queryExecutionId).test();
 
