@@ -181,7 +181,16 @@ public class QueryTimestampEnricher {
       throw new IllegalArgumentException("Query cannot be null");
     }
 
-    String normalized = Normalizer.normalize(query, Normalizer.Form.NFKC);
+    String normalized;
+    try {
+      normalized = Normalizer.normalize(query, Normalizer.Form.NFKC);
+      if (normalized == null) {
+        throw new IllegalArgumentException("Unicode normalization returned null");
+      }
+    } catch (Exception e) {
+      log.error("Failed to normalize query Unicode", e);
+      throw new IllegalArgumentException("Query contains invalid Unicode characters", e);
+    }
 
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
       log.warn("Query contains control characters, removing them");
@@ -214,10 +223,15 @@ public class QueryTimestampEnricher {
       return null;
     }
 
-    String normalized = Normalizer.normalize(trimmed, Normalizer.Form.NFKC);
-
-    if (normalized == null || normalized.isEmpty()) {
-      return null;
+    String normalized;
+    try {
+      normalized = Normalizer.normalize(trimmed, Normalizer.Form.NFKC);
+      if (normalized == null || normalized.isEmpty()) {
+        return null;
+      }
+    } catch (Exception e) {
+      log.error("Failed to normalize timestamp Unicode", e);
+      throw new IllegalArgumentException("Timestamp contains invalid Unicode characters", e);
     }
 
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
