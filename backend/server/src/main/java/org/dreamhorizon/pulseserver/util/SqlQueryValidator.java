@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.util;
 
 import java.nio.charset.StandardCharsets;
-import java.text.Normalizer;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,42 +95,26 @@ public class SqlQueryValidator {
       throw new IllegalArgumentException("Query exceeds maximum length");
     }
 
-    String normalized;
-    try {
-      normalized = Normalizer.normalize(query, Normalizer.Form.NFKC);
-      if (normalized == null) {
-        throw new IllegalArgumentException("Unicode normalization returned null");
-      }
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("Failed to normalize query Unicode", e);
-      throw new IllegalArgumentException("Query contains invalid Unicode characters", e);
-    }
+    String validated = query;
 
-    if (normalized.length() > MAX_QUERY_LENGTH) {
-      log.warn("Normalized query exceeds maximum length, rejecting");
-      throw new IllegalArgumentException("Normalized query exceeds maximum length");
-    }
-
-    if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
+    if (CONTROL_CHAR_PATTERN.matcher(validated).find()) {
       log.warn("Query contains control characters, removing them");
-      normalized = normalized.replaceAll("[\\x00-\\x1F\\x7F]", "");
+      validated = validated.replaceAll("[\\x00-\\x1F\\x7F]", "");
     }
 
     try {
-      byte[] bytes = normalized.getBytes(StandardCharsets.UTF_8);
+      byte[] bytes = validated.getBytes(StandardCharsets.UTF_8);
       String decoded = new String(bytes, StandardCharsets.UTF_8);
 
-      if (!decoded.equals(normalized)) {
+      if (!decoded.equals(validated)) {
         log.warn("Query contains invalid UTF-8 sequences, attempting to recover");
-        normalized = decoded;
+        validated = decoded;
       }
 
-      byte[] reencoded = normalized.getBytes(StandardCharsets.UTF_8);
+      byte[] reencoded = validated.getBytes(StandardCharsets.UTF_8);
       if (reencoded.length != bytes.length) {
-        log.warn("Query encoding validation failed after normalization");
-        throw new IllegalArgumentException("Query contains invalid UTF-8 encoding after normalization");
+        log.warn("Query encoding validation failed");
+        throw new IllegalArgumentException("Query contains invalid UTF-8 encoding");
       }
     } catch (IllegalArgumentException e) {
       throw e;
@@ -140,7 +123,12 @@ public class SqlQueryValidator {
       throw new IllegalArgumentException("Query contains invalid UTF-8 encoding", e);
     }
 
-    return normalized;
+    if (validated.length() > MAX_QUERY_LENGTH) {
+      log.warn("Validated query exceeds maximum length, rejecting");
+      throw new IllegalArgumentException("Validated query exceeds maximum length");
+    }
+
+    return validated;
   }
 
   public static class ValidationResult {
