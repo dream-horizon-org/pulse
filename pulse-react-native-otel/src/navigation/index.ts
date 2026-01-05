@@ -25,6 +25,8 @@ import {
   INITIAL_SCREEN_SESSION_STATE,
 } from './screen-session';
 import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
+import { isSupportedPlatform } from '../initialization';
+import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
 
 export type { NavigationRoute, NavigationIntegrationOptions };
 
@@ -80,6 +82,12 @@ export function createReactNavigationIntegration(
     screenSessionState
   );
 
+  const setCurrentScreenName = (screenName: string): void => {
+    if (isSupportedPlatform()) {
+      PulseReactNativeOtel.setCurrentScreenName(screenName);
+    }
+  };
+
   const onNavigationDispatch = (): void => {
     try {
       if (screenInteractiveTracking) {
@@ -120,6 +128,10 @@ export function createReactNavigationIntegration(
       const currentRoute = navigationContainer.getCurrentRoute();
       if (!currentRoute) {
         return;
+      }
+
+      if (currentRoute.name) {
+        setCurrentScreenName(currentRoute.name);
       }
 
       screenLoadTracker.handleStateChange(currentRoute);
@@ -233,6 +245,9 @@ export function createReactNavigationIntegration(
       if (currentRoute) {
         screenLoadState.latestRoute = currentRoute;
         recentRouteKeys = pushRecentRouteKey(recentRouteKeys, currentRoute.key);
+        if (currentRoute.name) {
+          setCurrentScreenName(currentRoute.name);
+        }
 
         const appState = AppState.currentState as AppStateStatus;
         if (

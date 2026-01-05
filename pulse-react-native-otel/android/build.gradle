@@ -84,6 +84,7 @@ dependencies {
   }
   implementation("org.dreamhorizon:pulse-semconv:0.0.1-alpha")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
+  implementation("io.opentelemetry:opentelemetry-sdk")
 }
 
 configurations.all {
