@@ -189,6 +189,27 @@ class SqlQueryValidatorTest {
 
       assertTrue(result.isValid());
     }
+
+    @Test
+    void shouldHandleQueryWithControlCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithControl = query + "\u0000\u0001";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithControl);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldRejectQueryWithInvalidEncoding() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE};
+      String invalidQuery = query + new String(invalidBytes);
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(invalidQuery);
+
+      assertTrue(result.isValid() || result.getErrorMessage().contains("encoding"));
+    }
   }
 
   @Nested

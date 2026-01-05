@@ -169,6 +169,54 @@ class QueryTimestampEnricherTest {
 
       assertThat(result).contains("hour = 10");
     }
+
+    @Test
+    void shouldRejectNullQuery() {
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(null, "2025-12-23 11:29:35");
+      });
+    }
+
+    @Test
+    void shouldHandleQueryWithControlCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "2025-12-23 11:29:35";
+      String queryWithControl = query + "\u0000\u0001";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(queryWithControl, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).doesNotContain("\u0000");
+    }
+
+    @Test
+    void shouldRejectTimestampWithControlCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "2025-12-23\u000011:29:35";
+
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+      });
+    }
+
+    @Test
+    void shouldRejectTimestampWithInvalidCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "2025-12-23 11:29:35abc";
+
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+      });
+    }
+
+    @Test
+    void shouldHandleWhitespaceOnlyTimestamp() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, "   ");
+
+      assertThat(result).isEqualTo(query);
+    }
   }
 }
 
