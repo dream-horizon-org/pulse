@@ -211,6 +211,10 @@ public class QueryTimestampEnricher {
     
     String normalized = Normalizer.normalize(trimmed, Normalizer.Form.NFKC);
     
+    if (normalized == null || normalized.isEmpty()) {
+      return null;
+    }
+    
     if (CONTROL_CHAR_PATTERN.matcher(normalized).find()) {
       log.warn("Timestamp contains control characters: {}", timestampString);
       throw new IllegalArgumentException("Timestamp contains invalid control characters");
