@@ -1,7 +1,3 @@
-locals {
-  vector_config = file("${path.module}/vector.yaml")
-}
-
 terraform {
   required_version = ">= 1.3.0"
 
@@ -56,11 +52,11 @@ resource "aws_launch_template" "vector" {
 }
 
 # -------------------------------------------------------------------
-# ALB + Target Group + Listener
+# NLB + Target Group + Listener
 # -------------------------------------------------------------------
 
 resource "aws_lb" "vector" {
-  name               = "pulse-vector-alb"
+  name               = "pulse-vector-nlb"
   internal           = false
   load_balancer_type = "network"
   security_groups    = var.nlb_security_group_ids
