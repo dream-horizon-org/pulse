@@ -25,6 +25,7 @@ import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.semconv.ExceptionAttributes
+import io.opentelemetry.semconv.incubating.AppIncubatingAttributes
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -97,6 +98,7 @@ internal class PulseSDKImpl : PulseSDK {
                     if (userSessionEmitter.userId != null) {
                         attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                     }
+                    attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
                     if (globalAttributes != null) {
                         attributesBuilder.putAll(globalAttributes.invoke())
                     }
@@ -302,6 +304,10 @@ internal class PulseSDKImpl : PulseSDK {
 
     private val userSessionEmitter: PulseUserSessionEmitter by lazy {
         PulseUserSessionEmitter({ logger }, sharedPrefsData)
+    }
+
+    private val installationIdManager: PulseInstallationIdManager by lazy {
+        PulseInstallationIdManager(sharedPrefsData) { logger }
     }
 
     private var isInitialised: Boolean = false
