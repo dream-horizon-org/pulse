@@ -75,8 +75,12 @@ class AthenaServiceTest {
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
           .dataScannedInBytes(1000L)
           .build();
+      ResultConfiguration resultConfig = ResultConfiguration.builder()
+          .outputLocation("s3://bucket/path")
+          .build();
       QueryExecution execution = QueryExecution.builder()
           .statistics(stats)
+          .resultConfiguration(resultConfig)
           .build();
       when(athenaClient.getQueryExecution(anyString())).thenReturn(Single.just(execution));
       when(athenaJobDao.updateJobWithExecutionId(anyString(), anyString(), any())).thenReturn(Single.just(true));
@@ -98,6 +102,7 @@ class AthenaServiceTest {
       AthenaJob job = AthenaJob.builder()
           .jobId(jobId)
           .status(AthenaJobStatus.COMPLETED)
+          .resultLocation("s3://bucket/path")
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(job));
 
@@ -218,7 +223,8 @@ class AthenaServiceTest {
     void shouldReturnErrorWhenJobNotFound() {
       String jobId = "job-123";
 
-      when(athenaJobDao.getJobById(jobId)).thenReturn(Single.just(null));
+      RuntimeException error = new RuntimeException("Job not found");
+      when(athenaJobDao.getJobById(jobId)).thenReturn(Single.error(error));
 
       var testObserver = athenaService.getJobStatus(jobId, null, null).test();
       testObserver.assertError(Throwable.class);
@@ -233,7 +239,15 @@ class AthenaServiceTest {
           .queryExecutionId("exec-123")
           .build();
 
-      when(athenaJobDao.getJobById(jobId)).thenReturn(Single.just(job));
+      AthenaJob updatedJob = AthenaJob.builder()
+          .jobId(jobId)
+          .status(AthenaJobStatus.COMPLETED)
+          .resultLocation("s3://bucket/path")
+          .build();
+
+      when(athenaJobDao.getJobById(anyString()))
+          .thenReturn(Single.just(job))
+          .thenReturn(Single.just(updatedJob));
       when(athenaClient.getQueryStatus(anyString())).thenReturn(Single.just(QueryExecutionState.SUCCEEDED));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
@@ -248,12 +262,6 @@ class AthenaServiceTest {
           .build();
       when(athenaClient.getQueryExecution(anyString())).thenReturn(Single.just(execution));
       when(athenaJobDao.updateJobCompleted(anyString(), anyString())).thenReturn(Single.just(true));
-
-      AthenaJob updatedJob = AthenaJob.builder()
-          .jobId(jobId)
-          .status(AthenaJobStatus.COMPLETED)
-          .build();
-      when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(updatedJob));
 
       ResultSetMetadata metadata = ResultSetMetadata.builder()
           .columnInfo(ColumnInfo.builder().name("col1").build())
@@ -285,7 +293,15 @@ class AthenaServiceTest {
           .queryExecutionId("exec-123")
           .build();
 
-      when(athenaJobDao.getJobById(jobId)).thenReturn(Single.just(job));
+      AthenaJob completedJob = AthenaJob.builder()
+          .jobId(jobId)
+          .status(AthenaJobStatus.COMPLETED)
+          .resultLocation("s3://bucket/path")
+          .build();
+
+      when(athenaJobDao.getJobById(anyString()))
+          .thenReturn(Single.just(job))
+          .thenReturn(Single.just(completedJob));
       when(athenaClient.waitForQueryCompletion(anyString())).thenReturn(Single.just(QueryExecutionState.SUCCEEDED));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
@@ -301,12 +317,6 @@ class AthenaServiceTest {
       when(athenaClient.getQueryExecution(anyString())).thenReturn(Single.just(execution));
       when(athenaJobDao.updateJobCompleted(anyString(), anyString())).thenReturn(Single.just(true));
 
-      AthenaJob completedJob = AthenaJob.builder()
-          .jobId(jobId)
-          .status(AthenaJobStatus.COMPLETED)
-          .build();
-      when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(completedJob));
-
       AthenaJob result = athenaService.waitForJobCompletion(jobId).blockingGet();
 
       assertThat(result).isNotNull();
@@ -317,7 +327,8 @@ class AthenaServiceTest {
     void shouldReturnErrorWhenJobNotFound() {
       String jobId = "job-123";
 
-      when(athenaJobDao.getJobById(jobId)).thenReturn(Single.just(null));
+      RuntimeException error = new RuntimeException("Job not found");
+      when(athenaJobDao.getJobById(jobId)).thenReturn(Single.error(error));
 
       var testObserver = athenaService.waitForJobCompletion(jobId).test();
       testObserver.assertError(Throwable.class);

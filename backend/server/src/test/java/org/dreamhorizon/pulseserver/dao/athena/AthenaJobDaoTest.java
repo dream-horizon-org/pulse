@@ -211,16 +211,15 @@ class AthenaJobDaoTest {
     }
 
     @Test
-    void shouldReturnNullWhenJobNotFound() {
+    void shouldReturnErrorWhenJobNotFound() {
       String jobId = "job-123";
 
       when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(0);
 
-      AthenaJob job = athenaJobDao.getJobById(jobId).blockingGet();
-
-      assertThat(job).isNull();
+      var testObserver = athenaJobDao.getJobById(jobId).test();
+      testObserver.assertError(Throwable.class);
     }
 
     @Test
