@@ -109,37 +109,6 @@ services:
     restart: unless-stopped
 
     # OpenTelemetry Collector (Data Ingestion Pipeline)
-
-  vector:
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/rorylshanks/vector
-        VECTOR_REF: add-parquet
-        DEBIAN_VERSION: "12"
-    container_name: vector
-    command: [ ]
-    volumes:
-      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - vector-data:/var/lib/vector
-    networks:
-      - pulse-network
-    depends_on:
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    ports:
-      - "8686:8686"
-
-
-
   otel-collector-1:
     image: otel/opentelemetry-collector-contrib:0.137.0
     container_name: pulse-otel-collector-1
@@ -324,7 +293,5 @@ volumes:
   mysql-data:
     driver: local
   clickhouse-data:
-    driver: local
-  vector-data:
     driver: local
 
