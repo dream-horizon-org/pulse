@@ -53,6 +53,7 @@ public abstract class com/pulse/android/core/InteractionRunningStatus {
 
 public final class com/pulse/android/core/InteractionRunningStatus$NoOngoingMatch : com/pulse/android/core/InteractionRunningStatus {
 	public final fun getOldOngoingInteractionRunningStatus ()Lcom/pulse/android/core/InteractionRunningStatus;
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/core/InteractionRunningStatus$OngoingMatch : com/pulse/android/core/InteractionRunningStatus {
@@ -60,6 +61,7 @@ public final class com/pulse/android/core/InteractionRunningStatus$OngoingMatch 
 	public final fun getInteraction ()Lcom/pulse/android/core/Interaction;
 	public final fun getInteractionConfig ()Lcom/pulse/android/remote/models/InteractionConfig;
 	public final fun getInteractionId ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/pulse/android/core/InteractionUtilKt {
