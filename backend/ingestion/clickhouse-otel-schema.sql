@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `AppVersionCode`        LowCardinality(String),
     `AppVersion`            LowCardinality(String),
     `SdkVersion`            LowCardinality(String),
+    `BundleId`              String,
 
     -- Tracing (stored as hex strings; ensure lower-case at ingest)
     `TraceId`               String,
