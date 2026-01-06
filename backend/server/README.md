@@ -731,32 +731,31 @@ curl -X POST http://localhost:8080/v1/logs \
 - The endpoint processes logs asynchronously and returns a completion stage
 - Stack traces are automatically symbolicated based on the detected platform (JS, Java, or NDK)
 
-## Athena Queries
+## Query Service
 
-Athena query endpoints allow you to execute SQL queries against AWS Athena and retrieve results with pagination support.
-Queries are automatically optimized with partition filters for better performance.
+The query service provides a generic interface for executing SQL queries against various query engines (AWS Athena, BigQuery, etc.) with pagination support. Queries are automatically optimized with partition filters for better performance.
 
-**Base Path:** `/athena`
+**Base Path:** `/query`
 
 **Authentication:** These endpoints may require authentication depending on your server configuration.
 
+**Note:** The service is designed to be engine-agnostic. Currently, AWS Athena is the default implementation, but the architecture supports plugging in other query engines (e.g., BigQuery, GCP) by implementing the `QueryClient` and `QueryJobDao` interfaces.
+
 ### Submit Query
 
-**Description:** Submits a SQL query to AWS Athena for execution. The service validates the query, enriches it with
-timestamp-based partition filters for optimal performance, and executes it. If the query completes within 3 seconds,
-results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+**Description:** Submits a SQL query for execution. The service validates the query, enriches it with timestamp-based partition filters for optimal performance, and executes it. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
 
 **Business Logic:** The endpoint:
 
 - Validates SQL query syntax and ensures it's a safe SELECT query
 - Automatically enriches queries with partition filters (year, month, day, hour) based on timestamp conditions
 - Extracts timestamp from `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals in WHERE clauses if present
-- Submits query to Athena and polls for completion (up to 3 seconds)
+- Submits query to the configured query engine and polls for completion (up to 3 seconds)
 - Returns results immediately if query completes within 3 seconds
 - Returns job ID for asynchronous status checking if query takes longer
 
 ```http
-POST /athena/query
+POST /query
 Content-Type: application/json
 ```
 
@@ -849,7 +848,7 @@ Content-Type: application/json
 **Example Request (using curl):**
 
 ```bash
-curl --location 'http://localhost:8080/athena/query' \
+curl --location 'http://localhost:8080/query' \
   --header 'Content-Type: application/json' \
   --data '{
     "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '\''2025-12-23 11:00:00'\'' AND \"timestamp\" <= TIMESTAMP '\''2025-12-23 11:59:59'\'' LIMIT 10",
@@ -859,21 +858,21 @@ curl --location 'http://localhost:8080/athena/query' \
 
 **Notes:**
 
-- Queries are automatically enriched with partition filters (`year`, `month`, `day`, `hour`) for optimal Athena
-  performance
+- Queries are automatically enriched with partition filters (`year`, `month`, `day`, `hour`) for optimal performance
 - If the query contains `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals, those are automatically extracted and used to add
   partition filters
 - Queries that complete within 3 seconds return results immediately in the response
 - For longer-running queries, use the job ID to check status and retrieve results
 - The service includes retry logic to handle cases where results aren't immediately available after query completion
+- The service architecture is engine-agnostic and supports multiple query engines through pluggable implementations
 
 ### Get Job Status
 
-**Description:** Retrieves the status and results of an Athena query job. If the job is completed, results can be
+**Description:** Retrieves the status and results of a query job. If the job is completed, results can be
 retrieved with pagination support.
 
 ```http
-GET /athena/job/{jobId}?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...
+GET /query/job/{jobId}?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...
 ```
 
 **Path Parameters:**
@@ -914,12 +913,12 @@ GET /athena/job/{jobId}?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...
 **Example Request (using curl):**
 
 ```bash
-curl --location 'http://localhost:8080/athena/job/e8a98c57-c987-40bd-b1f5-a6f534e371df?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...'
+curl --location 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e371df?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...'
 ```
 
 **Notes:**
 
-- Results are fetched from Athena API at runtime, not stored in the database
+- Results are fetched from the query engine API at runtime, not stored in the database
 - Pagination is supported using `maxResults` and `nextToken` parameters
 - The `nextToken` is URL-encoded and should be passed as-is in subsequent requests
 - If the job is still running, the status will be "RUNNING" and `resultData` will be null
@@ -2093,7 +2092,11 @@ VAULT_SERVICE_GOOGLE_CLIENT_ID=your-google-client-id
 VAULT_SERVICE_JWT_SECRET=your-jwt-secret
 ```
 
-**Athena Configuration**
+**Query Engine Configuration**
+
+The query service supports multiple query engines through pluggable implementations. Currently, AWS Athena is the default implementation.
+
+**Athena Configuration:**
 
 Configuration is done via `src/main/resources/conf/athena-default.conf` or environment-specific config files:
 
@@ -2120,6 +2123,17 @@ following order:
 
 **Note:** Credentials are not configured in the config file. Use environment variables, IAM roles, or AWS credential
 files for authentication.
+
+**Adding Support for Other Query Engines:**
+
+To add support for a new query engine (e.g., BigQuery, GCP):
+
+1. Implement the `QueryClient` interface with engine-specific logic
+2. Implement the `QueryJobDao` interface (or reuse existing implementation if compatible)
+3. Create a Guice module that binds `QueryClient` and `QueryJobDao` to your implementations
+4. The `QueryService` implementation will automatically work with your new engine
+
+The service architecture is designed to be engine-agnostic, making it easy to switch between or support multiple query engines simultaneously.
 
 ### Running Tests
 

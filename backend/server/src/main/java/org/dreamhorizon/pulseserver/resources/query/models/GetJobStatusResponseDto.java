@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.athena.models;
+package org.dreamhorizon.pulseserver.resources.query.models;
 
 import io.vertx.core.json.JsonArray;
 import java.sql.Timestamp;
@@ -11,18 +11,18 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubmitQueryResponseDto {
+public class GetJobStatusResponseDto {
   private String jobId;
-  private String status;
-  private String message;
+  private String queryString;
   private String queryExecutionId;
+  private String status;
   private String resultLocation;
-  private JsonArray resultData; // Included if query completed within 3 seconds
-  private String nextToken; // For pagination if results are included
-  private Long dataScannedInBytes; // Data scanned by the query (in bytes)
+  private String errorMessage;
+  private JsonArray resultData;
+  private String nextToken;
+  private Long dataScannedInBytes;
   private Timestamp createdAt;
+  private Timestamp updatedAt;
   private Timestamp completedAt;
 }
-
-
 

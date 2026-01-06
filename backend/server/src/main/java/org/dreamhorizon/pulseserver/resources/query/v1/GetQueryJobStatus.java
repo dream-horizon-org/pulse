@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.athena.v1;
+package org.dreamhorizon.pulseserver.resources.query.v1;
 
 import com.google.inject.Inject;
 import jakarta.ws.rs.DefaultValue;
@@ -11,16 +11,16 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.resources.athena.models.GetJobStatusResponseDto;
+import org.dreamhorizon.pulseserver.resources.query.models.GetJobStatusResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.service.athena.AthenaService;
+import org.dreamhorizon.pulseserver.service.query.QueryService;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/athena")
-public class GetAthenaJobStatus {
-  private final AthenaService athenaService;
+@Path("/query")
+public class GetQueryJobStatus {
+  private final QueryService queryService;
 
   @GET
   @Path("/job/{jobId}")
@@ -35,12 +35,12 @@ public class GetAthenaJobStatus {
       log.debug("Fixed nextToken: replaced spaces with +");
     }
     
-    return athenaService.getJobStatus(jobId, maxResults, nextToken)
+    return queryService.getJobStatus(jobId, maxResults, nextToken)
         .map(this::mapToResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
 
-  private GetJobStatusResponseDto mapToResponse(org.dreamhorizon.pulseserver.service.athena.models.AthenaJob job) {
+  private GetJobStatusResponseDto mapToResponse(org.dreamhorizon.pulseserver.service.query.models.QueryJob job) {
     return GetJobStatusResponseDto.builder()
         .jobId(job.getJobId())
         .queryString(job.getQueryString())
@@ -57,5 +57,4 @@ public class GetAthenaJobStatus {
         .build();
   }
 }
-
 

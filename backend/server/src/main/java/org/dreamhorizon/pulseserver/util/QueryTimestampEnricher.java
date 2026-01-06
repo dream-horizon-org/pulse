@@ -20,11 +20,19 @@ public class QueryTimestampEnricher {
 
   private static final Pattern VALID_TIMESTAMP_PATTERN = Pattern.compile("^[0-9\\-\\s:]+$");
   private static final Pattern CONTROL_CHAR_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
-  private static final int MAX_TIMESTAMP_LENGTH = 50;
   private static final Pattern WHERE_PATTERN = Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
   private static final Pattern GROUP_BY_PATTERN = Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
   private static final Pattern ORDER_BY_PATTERN = Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
   private static final Pattern LIMIT_PATTERN = Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+  private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(
+      "TIMESTAMP\\s+['\"](\\d{4}-\\d{2}-\\d{2}\\s+\\d{1,2}:\\d{2}:\\d{2})['\"]",
+      Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+  );
+
+  private static final int MAX_TIMESTAMP_LENGTH = 50;
+  private static final int MAX_QUERY_LENGTH = 100000;
+  private static final int TIMESTAMP_SEARCH_BACKWARD_CHARS = 100;
+  private static final int END_TIMESTAMP_SEARCH_BACKWARD_CHARS = 50;
 
   public static String enrichQueryWithTimestamp(String query, String timestampString) {
     if (query == null) {
@@ -37,71 +45,134 @@ public class QueryTimestampEnricher {
       timestampString = normalizeAndValidateTimestamp(timestampString);
     }
 
-    LocalDateTime dateTime = null;
-    Matcher whereMatcher = WHERE_PATTERN.matcher(query);
-    if (whereMatcher.find()) {
-      int whereIndex = whereMatcher.start();
-      String whereClause = query.substring(whereIndex);
-      dateTime = extractTimestampFromWhereClause(whereClause);
+    LocalDateTime startDateTime = extractStartTimestamp(query);
+    if (startDateTime == null && timestampString != null && !timestampString.trim().isEmpty()) {
+      startDateTime = parseTimestamp(timestampString.trim());
     }
 
-    if (dateTime == null && timestampString != null && !timestampString.trim().isEmpty()) {
-      dateTime = parseTimestamp(timestampString.trim());
-    }
-    if (dateTime == null) {
-      log.debug("No timestamp found in query or provided timestamp string, skipping enrichment");
+    if (startDateTime == null) {
+      log.warn("No timestamp found in query or provided timestamp string, skipping enrichment. Query: {}", query);
       return query;
     }
 
-    int year = dateTime.getYear();
-    int month = dateTime.getMonthValue();
-    int day = dateTime.getDayOfMonth();
-    int hour = dateTime.getHour();
+    log.info("Successfully extracted timestamp: {} from query, will add partition filters", startDateTime);
 
-    log.debug("Parsed timestamp {} to year={}, month={}, day={}, hour={}", timestampString, year, month, day, hour);
+    LocalDateTime endDateTime = extractEndTimestamp(query);
+    String partitionFilter = buildPartitionFilter(startDateTime, endDateTime, query);
 
-    String partitionFilter = String.format(
-        "year = %d AND month = %d AND day = %d AND hour = %d",
-        year, month, day, hour
-    );
-
-    whereMatcher = WHERE_PATTERN.matcher(query);
+    Matcher whereMatcher = WHERE_PATTERN.matcher(query);
     if (!whereMatcher.find()) {
       return addWhereClause(query, partitionFilter);
-    } else {
-      int whereIndex = whereMatcher.start();
-      String whereClause = query.substring(whereIndex);
-      if (containsPartitionFilters(whereClause)) {
-        log.debug("Query already contains partition filters (year/month/day/hour), skipping enrichment");
-        return query;
-      }
-
-      return appendPartitionFilterToWhereClause(query, whereIndex, partitionFilter);
     }
+
+    int whereIndex = whereMatcher.start();
+    String whereClause = query.substring(whereIndex);
+    if (containsPartitionFilters(whereClause)) {
+      log.debug("Query already contains partition filters (year/month/day/hour), skipping enrichment");
+      return query;
+    }
+
+    return appendPartitionFilterToWhereClause(query, whereIndex, partitionFilter);
+  }
+
+  private static LocalDateTime extractStartTimestamp(String query) {
+    Matcher whereMatcher = WHERE_PATTERN.matcher(query);
+    if (!whereMatcher.find()) {
+      return null;
+    }
+
+    String whereClause = query.substring(whereMatcher.start());
+    return extractTimestampFromWhereClause(whereClause);
+  }
+
+  private static LocalDateTime extractEndTimestamp(String query) {
+    Matcher whereMatcher = WHERE_PATTERN.matcher(query);
+    if (!whereMatcher.find()) {
+      return null;
+    }
+
+    String whereClause = query.substring(whereMatcher.start());
+    return extractEndTimestampFromWhereClause(whereClause);
+  }
+
+  private static String buildPartitionFilter(LocalDateTime startDateTime, LocalDateTime endDateTime, String query) {
+    int startYear = startDateTime.getYear();
+    int startMonth = startDateTime.getMonthValue();
+    int startDay = startDateTime.getDayOfMonth();
+    int startHour = startDateTime.getHour();
+
+    log.debug("Parsed start timestamp {} to year={}, month={}, day={}, hour={}",
+        startDateTime, startYear, startMonth, startDay, startHour);
+
+    if (endDateTime == null) {
+      return buildPartitionFilterForStartOnly(startYear, startMonth, startDay, startHour, query);
+    }
+
+    int endYear = endDateTime.getYear();
+    int endMonth = endDateTime.getMonthValue();
+    int endDay = endDateTime.getDayOfMonth();
+    int endHour = endDateTime.getHour();
+
+    log.debug("Parsed end timestamp {} to year={}, month={}, day={}, hour={}",
+        endDateTime, endYear, endMonth, endDay, endHour);
+
+    if (startYear == endYear && startMonth == endMonth && startDay == endDay && startHour == endHour) {
+      log.debug("Start and end in same partition, using equality filter for better performance");
+      return String.format("year = %d AND month = %d AND day = %d AND hour = %d",
+          startYear, startMonth, startDay, startHour);
+    }
+
+    return buildPartitionFilterForRange(startYear, startMonth, startDay, startHour,
+        endYear, endMonth, endDay, endHour);
+  }
+
+  private static String buildPartitionFilterForStartOnly(int startYear, int startMonth, int startDay,
+      int startHour, String query) {
+    Matcher whereMatcher = WHERE_PATTERN.matcher(query);
+    if (whereMatcher.find()) {
+      String whereClause = query.substring(whereMatcher.start());
+      String upperClause = whereClause.toUpperCase(Locale.ROOT);
+      boolean hasGreaterThanOrEqual = upperClause.contains("TIMESTAMP") && upperClause.contains(">=");
+
+      if (hasGreaterThanOrEqual) {
+        log.debug("Using >= partition filter for start-only timestamp");
+        return String.format("(year, month, day, hour) >= (%d, %d, %d, %d)",
+            startYear, startMonth, startDay, startHour);
+      }
+    }
+
+    return String.format("year = %d AND month = %d AND day = %d AND hour = %d",
+        startYear, startMonth, startDay, startHour);
+  }
+
+  private static String buildPartitionFilterForRange(int startYear, int startMonth, int startDay, int startHour,
+      int endYear, int endMonth, int endDay, int endHour) {
+    return String.format(
+        "(year, month, day, hour) >= (%d, %d, %d, %d) AND (year, month, day, hour) <= (%d, %d, %d, %d)",
+        startYear, startMonth, startDay, startHour,
+        endYear, endMonth, endDay, endHour
+    );
   }
 
   private static String addWhereClause(String query, String filter) {
     int insertPosition = query.length();
 
-    Matcher groupByMatcher = GROUP_BY_PATTERN.matcher(query);
-    if (groupByMatcher.find()) {
-      insertPosition = Math.min(insertPosition, groupByMatcher.start());
-    }
-
-    Matcher orderByMatcher = ORDER_BY_PATTERN.matcher(query);
-    if (orderByMatcher.find()) {
-      insertPosition = Math.min(insertPosition, orderByMatcher.start());
-    }
-
-    Matcher limitMatcher = LIMIT_PATTERN.matcher(query);
-    if (limitMatcher.find()) {
-      insertPosition = Math.min(insertPosition, limitMatcher.start());
-    }
+    insertPosition = findEarliestPosition(query, insertPosition, GROUP_BY_PATTERN);
+    insertPosition = findEarliestPosition(query, insertPosition, ORDER_BY_PATTERN);
+    insertPosition = findEarliestPosition(query, insertPosition, LIMIT_PATTERN);
 
     String before = query.substring(0, insertPosition).trim();
     String after = query.substring(insertPosition).trim();
 
     return before + " WHERE " + filter + (after.isEmpty() ? "" : " " + after);
+  }
+
+  private static int findEarliestPosition(String query, int currentPosition, Pattern pattern) {
+    Matcher matcher = pattern.matcher(query);
+    if (matcher.find()) {
+      return Math.min(currentPosition, matcher.start());
+    }
+    return currentPosition;
   }
 
   private static String appendPartitionFilterToWhereClause(String query, int whereIndex, String partitionFilter) {
@@ -112,13 +183,13 @@ public class QueryTimestampEnricher {
 
     String before = query.substring(0, whereEnd);
     String after = query.substring(whereEnd).trim();
+    String upperAfter = after.toUpperCase(Locale.ROOT);
 
-    if (after.toUpperCase(Locale.ROOT).startsWith("AND")) {
+    if (upperAfter.startsWith("AND")) {
       after = after.substring(3).trim();
-      return before + partitionFilter + " AND " + after;
-    } else {
-      return before + partitionFilter + " AND " + after;
     }
+
+    return before + partitionFilter + " AND " + after;
   }
 
   private static boolean containsPartitionFilters(String whereClause) {
@@ -128,27 +199,95 @@ public class QueryTimestampEnricher {
   }
 
   private static LocalDateTime extractTimestampFromWhereClause(String whereClause) {
-    java.util.regex.Pattern timestampPattern = java.util.regex.Pattern.compile(
-        "TIMESTAMP\\s+['\"](\\d{4}-\\d{2}-\\d{2}\\s+\\d{1,2}:\\d{2}:\\d{2})['\"]",
-        java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.UNICODE_CASE
-    );
+    log.debug("Extracting timestamp from WHERE clause: {}", whereClause);
+    Matcher matcher = TIMESTAMP_PATTERN.matcher(whereClause);
 
-    java.util.regex.Matcher matcher = timestampPattern.matcher(whereClause);
+    LocalDateTime startDateTime = null;
+    LocalDateTime endDateTime = null;
+
+    if (!matcher.find()) {
+      log.debug("No TIMESTAMP literals found in WHERE clause");
+      return null;
+    }
+
+    matcher.reset();
+    while (matcher.find()) {
+      String timestampStr = matcher.group(1);
+      log.debug("Found TIMESTAMP literal: {}", timestampStr);
+      try {
+        LocalDateTime dateTime = parseTimestamp(timestampStr);
+        if (dateTime != null) {
+          int matchStart = matcher.start();
+          int searchStart = Math.max(0, matchStart - TIMESTAMP_SEARCH_BACKWARD_CHARS);
+          String beforeMatch = whereClause.substring(searchStart, matchStart).toUpperCase(Locale.ROOT);
+
+          log.debug("Context before TIMESTAMP (last {} chars): {}", TIMESTAMP_SEARCH_BACKWARD_CHARS, beforeMatch);
+
+          if (isStartTimeOperator(beforeMatch)) {
+            if (startDateTime == null || dateTime.isBefore(startDateTime)) {
+              startDateTime = dateTime;
+              log.info("Extracted start timestamp from WHERE clause: {}", timestampStr);
+            }
+          } else if (isEndTimeOperator(beforeMatch)) {
+            if (endDateTime == null || dateTime.isAfter(endDateTime)) {
+              endDateTime = dateTime;
+              log.info("Extracted end timestamp from WHERE clause: {}", timestampStr);
+            }
+          } else if (startDateTime == null) {
+            startDateTime = dateTime;
+            log.info("Extracted timestamp from WHERE clause (no operator found): {}", timestampStr);
+          }
+        }
+      } catch (Exception e) {
+        log.warn("Failed to parse extracted timestamp: {}", timestampStr, e);
+      }
+    }
+
+    if (startDateTime != null) {
+      return startDateTime;
+    }
+
+    if (endDateTime != null) {
+      log.debug("Using end timestamp for partition filtering: {}", endDateTime);
+      return endDateTime;
+    }
+
+    return null;
+  }
+
+  private static boolean isStartTimeOperator(String beforeMatch) {
+    return beforeMatch.contains(">=") || (beforeMatch.contains(">") && !beforeMatch.contains("<>"));
+  }
+
+  private static boolean isEndTimeOperator(String beforeMatch) {
+    return beforeMatch.contains("<=") || (beforeMatch.contains("<") && !beforeMatch.contains("<>"));
+  }
+
+  private static LocalDateTime extractEndTimestampFromWhereClause(String whereClause) {
+    Matcher matcher = TIMESTAMP_PATTERN.matcher(whereClause);
+    LocalDateTime endDateTime = null;
 
     while (matcher.find()) {
       String timestampStr = matcher.group(1);
       try {
         LocalDateTime dateTime = parseTimestamp(timestampStr);
         if (dateTime != null) {
-          log.debug("Extracted timestamp from WHERE clause: {}", timestampStr);
-          return dateTime;
+          int matchStart = matcher.start();
+          String beforeMatch = whereClause.substring(
+              Math.max(0, matchStart - END_TIMESTAMP_SEARCH_BACKWARD_CHARS), matchStart).toUpperCase(Locale.ROOT);
+
+          if (isEndTimeOperator(beforeMatch)) {
+            if (endDateTime == null || dateTime.isAfter(endDateTime)) {
+              endDateTime = dateTime;
+            }
+          }
         }
       } catch (Exception e) {
-        log.debug("Failed to parse extracted timestamp: {}", timestampStr, e);
+        log.debug("Failed to parse extracted end timestamp: {}", timestampStr, e);
       }
     }
 
-    return null;
+    return endDateTime;
   }
 
   private static LocalDateTime parseTimestamp(String timestampString) {
@@ -176,8 +315,6 @@ public class QueryTimestampEnricher {
     }
   }
 
-  private static final int MAX_QUERY_LENGTH = 100000;
-
   private static String normalizeAndValidateQuery(String query) {
     if (query == null) {
       throw new IllegalArgumentException("Query cannot be null");
@@ -194,26 +331,7 @@ public class QueryTimestampEnricher {
       validated = validated.replaceAll("[\\x00-\\x1F\\x7F]", "");
     }
 
-    try {
-      byte[] bytes = validated.getBytes(StandardCharsets.UTF_8);
-      String decoded = new String(bytes, StandardCharsets.UTF_8);
-
-      if (!decoded.equals(validated)) {
-        log.warn("Query contains invalid UTF-8 sequences, attempting to recover");
-        validated = decoded;
-      }
-
-      byte[] reencoded = validated.getBytes(StandardCharsets.UTF_8);
-      if (reencoded.length != bytes.length) {
-        log.warn("Query encoding validation failed");
-        throw new IllegalArgumentException("Query contains invalid UTF-8 encoding");
-      }
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("Failed to validate UTF-8 encoding for query", e);
-      throw new IllegalArgumentException("Query contains invalid UTF-8 encoding", e);
-    }
+    validated = validateUtf8Encoding(validated, "Query");
 
     if (validated.length() > MAX_QUERY_LENGTH) {
       log.warn("Validated query exceeds maximum length, rejecting");
@@ -249,26 +367,7 @@ public class QueryTimestampEnricher {
       throw new IllegalArgumentException("Timestamp contains invalid characters. Only digits, hyphens, spaces, and colons are allowed.");
     }
 
-    try {
-      byte[] bytes = validated.getBytes(StandardCharsets.UTF_8);
-      String decoded = new String(bytes, StandardCharsets.UTF_8);
-
-      if (!decoded.equals(validated)) {
-        log.warn("Timestamp contains invalid UTF-8 sequences");
-        throw new IllegalArgumentException("Timestamp contains invalid UTF-8 sequences");
-      }
-
-      byte[] reencoded = validated.getBytes(StandardCharsets.UTF_8);
-      if (reencoded.length != bytes.length) {
-        log.warn("Timestamp encoding validation failed");
-        throw new IllegalArgumentException("Timestamp contains invalid UTF-8 encoding");
-      }
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("Failed to validate UTF-8 encoding for timestamp", e);
-      throw new IllegalArgumentException("Timestamp contains invalid UTF-8 encoding", e);
-    }
+    validated = validateUtf8Encoding(validated, "Timestamp");
 
     if (validated.length() > MAX_TIMESTAMP_LENGTH) {
       log.warn("Validated timestamp exceeds maximum length, rejecting");
@@ -277,6 +376,29 @@ public class QueryTimestampEnricher {
 
     return validated;
   }
+
+  private static String validateUtf8Encoding(String input, String type) {
+    try {
+      byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
+      String decoded = new String(bytes, StandardCharsets.UTF_8);
+
+      if (!decoded.equals(input)) {
+        log.warn("{} contains invalid UTF-8 sequences, attempting to recover", type);
+        input = decoded;
+      }
+
+      byte[] reencoded = input.getBytes(StandardCharsets.UTF_8);
+      if (reencoded.length != bytes.length) {
+        log.warn("{} encoding validation failed", type);
+        throw new IllegalArgumentException(type + " contains invalid UTF-8 encoding");
+      }
+    } catch (IllegalArgumentException e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("Failed to validate UTF-8 encoding for {}", type, e);
+      throw new IllegalArgumentException(type + " contains invalid UTF-8 encoding", e);
+    }
+
+    return input;
+  }
 }
-
-

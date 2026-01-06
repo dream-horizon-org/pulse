@@ -35,4 +35,13 @@ public final class Constants {
   public static final String ALERT_EVALUATION_QUERY_TIME = "timeTaken";
   public static final String ALERT_EVALUATION_START_TIME = "evaluationStartTime";
   public static final String ALERT_EVALUATION_END_TIME = "evaluationEndTime";
+
+  public static final int QUERY_TIMEOUT_SECONDS = 3;
+  public static final int RESULT_FETCH_DELAY_MS = 200;
+  public static final int MAX_RESULT_FETCH_RETRIES = 5;
+  public static final int RESULT_FETCH_RETRY_DELAY_MS = 300;
+  public static final int QUERY_POLL_INTERVAL_MS = 200;
+  public static final int MAX_QUERY_RESULTS = 1000;
+  public static final int MIN_QUERY_RESULTS = 1;
+  public static final int ATHENA_WAIT_COMPLETION_DELAY_MS = 2000;
 }

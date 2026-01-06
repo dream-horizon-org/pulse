@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.athena.models;
+package org.dreamhorizon.pulseserver.service.query.models;
 
 import io.vertx.core.json.JsonArray;
 import java.sql.Timestamp;
@@ -11,20 +11,18 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GetJobStatusResponseDto {
+public class QueryJob {
   private String jobId;
   private String queryString;
   private String queryExecutionId;
-  private String status;
+  private QueryJobStatus status;
   private String resultLocation;
   private String errorMessage;
-  private JsonArray resultData; // Paginated results
-  private String nextToken; // For pagination
-  private Long dataScannedInBytes; // Data scanned by the query (in bytes)
+  private JsonArray resultData;
+  private String nextToken;
+  private Long dataScannedInBytes;
   private Timestamp createdAt;
   private Timestamp updatedAt;
   private Timestamp completedAt;
 }
-
-
 
