@@ -7,7 +7,7 @@ const pkg = require('../../package.json');
 
 const withPulsePlugin: ConfigPlugin<PulsePluginProps> = (
   config,
-  props: PulsePluginProps = {}
+  props: PulsePluginProps
 ) => {
   config = withAndroidPulse(config, props);
 
