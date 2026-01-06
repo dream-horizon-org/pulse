@@ -1,4 +1,4 @@
-variable "region" {
+variable "aws_region" {
   description = "AWS region"
   type        = string
 }
@@ -19,7 +19,7 @@ variable "instance_count" {
 }
 
 variable "subnet_ids" {
-  description = "List of subnet IDs for ALB and instances"
+  description = "List of subnet IDs for NLB and instances"
   type        = list(string)
 }
 
@@ -29,7 +29,7 @@ variable "security_group_id" {
 }
 
 variable "nlb_security_group_ids" {
-  description = "Security group IDs to attach to the OTEL ALB"
+  description = "Security group IDs to attach to the OTEL NLB"
   type        = list(string)
 }
 

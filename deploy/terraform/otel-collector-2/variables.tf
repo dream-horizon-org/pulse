@@ -25,11 +25,6 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
-variable "vpc_id" {
-  description = "VPC ID where collectors/ALB live"
-  type        = string
-}
-
 variable "vpc_security_group_ids" {
   description = "Security group IDs to attach to OTEL instances"
   type        = list(string)

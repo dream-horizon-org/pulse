@@ -182,9 +182,9 @@ resource "aws_instance" "clickhouse" {
     device_name           = "/dev/xvdb"
     volume_type           = var.data_volume_type
     volume_size           = var.data_volume_size
-    iops                  = 3000
-    throughput            = 125
-    encrypted             = false
+    iops                  = var.data_volume_iops
+    throughput            = var.data_volume_throughput
+    encrypted             = true
     delete_on_termination = true
   }
 

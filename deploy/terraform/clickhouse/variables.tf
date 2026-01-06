@@ -106,3 +106,15 @@ variable "clickhouse_password" {
     description = "password for clickhouse"
     type        = string
 }
+
+variable "data_volume_iops" {
+  description = "IOPS for ClickHouse data volume"
+  type        = number
+  default     = 3000
+}
+
+variable "data_volume_throughput" {
+  description = "Throughput (MB/s) for ClickHouse data volume"
+  type        = number
+  default     = 125
+}

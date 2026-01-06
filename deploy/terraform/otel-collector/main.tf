@@ -77,6 +77,10 @@ resource "aws_launch_template" "otel" {
         ManagedBy   = "terraform"
       }
     }
+
+  metadata_options {
+      http_tokens = "required"
+    }
 }
 
 # -------------------------------
@@ -107,6 +111,7 @@ resource "aws_lb" "otel" {
   security_groups    = var.nlb_security_group_ids
   subnets            = var.public_subnet_ids
   drop_invalid_header_fields = true
+  enable_deletion_protection = false
 }
 
 resource "aws_lb_listener" "otel" {
@@ -155,7 +160,7 @@ resource "aws_autoscaling_group" "otel" {
 }
 
 # -------------------------------
-# Route53 record pointing to ALB
+# Route53 record pointing to NLB
 # -------------------------------
 resource "aws_route53_record" "otel" {
   zone_id = var.route53_zone_id
@@ -172,8 +177,8 @@ resource "aws_route53_record" "otel" {
 # -------------------------------
 # Outputs
 # -------------------------------
-output "otel_alb_dns_name" {
-  description = "dns name of the otel alb route53 record"
+output "otel_nlb_dns_name" {
+  description = "dns name of the otel nlb route53 record"
   value = aws_lb.otel.dns_name
 }
 

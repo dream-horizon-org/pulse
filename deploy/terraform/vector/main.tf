@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region = var.region
+  region = var.aws_region
 
   # Default tags applied to all resources
   default_tags {
@@ -49,6 +49,19 @@ resource "aws_launch_template" "vector" {
       service = "pulse"
     }
   }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = {
+      Name      = "pulse-otel-vector-volume"
+      service   = "pulse"
+      ManagedBy = "terraform"
+    }
+  }
+
+   metadata_options {
+      http_tokens = "required"
+    }
 }
 
 # -------------------------------------------------------------------
@@ -62,6 +75,7 @@ resource "aws_lb" "vector" {
   security_groups    = var.nlb_security_group_ids
   subnets            = var.public_subnet_ids
   drop_invalid_header_fields = true
+  enable_deletion_protection = false
 }
 
 resource "aws_lb_target_group" "vector" {

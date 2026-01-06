@@ -66,6 +66,19 @@ resource "aws_launch_template" "otel" {
       service = "pulse"
     }
   }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = {
+      Name      = "pulse-otel-collector-volume"
+      service   = "pulse"
+      ManagedBy = "terraform"
+    }
+  }
+
+   metadata_options {
+      http_tokens = "required"
+    }
 }
 
 # -------------------------------
