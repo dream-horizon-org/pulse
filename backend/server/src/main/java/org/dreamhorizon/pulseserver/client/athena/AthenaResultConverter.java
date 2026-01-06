@@ -1,17 +1,17 @@
 package org.dreamhorizon.pulseserver.client.athena;
 
-import com.google.inject.Inject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.services.athena.model.ResultSet;
 import software.amazon.awssdk.services.athena.model.Row;
 
-@RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AthenaResultConverter {
-  
+
+  public AthenaResultConverter() {
+  }
+
   public JsonArray convertToJsonArray(ResultSet resultSet) {
     JsonArray result = new JsonArray();
 
@@ -43,14 +43,20 @@ public class AthenaResultConverter {
 
   private JsonObject convertRowToJsonObject(Row row, List<String> columnNames) {
     JsonObject rowObject = new JsonObject();
+    if (row.data() == null) {
+      return rowObject;
+    }
+
     int maxColumns = Math.min(columnNames.size(), row.data().size());
-    
+
     for (int i = 0; i < maxColumns; i++) {
       String columnName = columnNames.get(i);
-      String value = row.data().get(i).varCharValue();
-      rowObject.put(columnName, value);
+      if (row.data().get(i) != null) {
+        String value = row.data().get(i).varCharValue();
+        rowObject.put(columnName, value);
+      }
     }
-    
+
     return rowObject;
   }
 }
