@@ -1,0 +1,45 @@
+aws_region = "ap-south-1"
+
+ami_id        = "ami-0123456789abcdef0"   # dummy OTEL collector AMI
+instance_type = "t3.large"
+
+collector_count = 1
+
+
+// private subnets
+private_subnet_ids = [
+  "subnet-0aaaaaaaaaaaaaaa1",  # ap-south-1a
+  "subnet-0bbbbbbbbbbbbbbb2",  # ap-south-1b
+  "subnet-0ccccccccccccccc3",  # ap-south-1c
+]
+
+// public subnets
+public_subnet_ids = [
+  "subnet-0ddddddddddddddd4",  # ap-south-1a
+  "subnet-0eeeeeeeeeeeeeee5",  # ap-south-1b
+  "subnet-0fffffffffffffff6",  # ap-south-1c
+]
+
+vpc_id = "vpc-0abcdabcdabcdabcd"
+
+# Instance SG: allow HTTP collector_port from NLB SG
+vpc_security_group_ids = [
+  "sg-0123456789abcdef0",
+]
+
+# NLB SG
+nlb_security_group_ids = [
+  "sg-0fedcba9876543210",
+]
+
+key_name             = "DemoKeyPair"            # or null if you don't need SSH
+iam_instance_profile = "demo_service_role"      # or null
+
+collector_port    = 4318
+health_check_path = "/"
+health_check_port = 13133
+
+route53_zone_id     = "Z0DUMMYZONEID12345"
+route53_record_name = "demo-otel-collector"
+
+acm_certificate_arn = "arn:aws:acm:ap-south-1:111122223333:certificate/00000000-1111-2222-3333-444444444444"

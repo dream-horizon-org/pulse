@@ -10,7 +10,6 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-*.tfvars.*
 *.tfvars
 .terraformrc
 terraform.rc
