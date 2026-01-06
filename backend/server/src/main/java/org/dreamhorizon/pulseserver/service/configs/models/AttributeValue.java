@@ -18,5 +18,15 @@ public class AttributeValue {
 
   @JsonProperty("value")
   private String value;
+
+  @JsonProperty("type")
+  public String getType() {
+    return "string";
+  }
+
+  @JsonProperty("type")
+  public void setType(String type) {
+    // Ignore the incoming type value - we always return "string"
+  }
 }
 
