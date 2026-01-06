@@ -96,6 +96,6 @@ public class PulseAttributeValue internal constructor(
 public class PulseAttributesToAddEntry internal constructor(
     @SerialName("values")
     public val values: List<PulseAttributeValue>,
-    @SerialName("matcher")
-    public val matcher: PulseSignalMatchCondition,
+    @SerialName("condition")
+    public val condition: PulseSignalMatchCondition,
 )

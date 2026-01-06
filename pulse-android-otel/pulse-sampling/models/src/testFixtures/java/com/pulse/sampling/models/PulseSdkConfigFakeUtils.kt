@@ -121,6 +121,6 @@ public object PulseSdkConfigFakeUtils {
     ): PulseAttributesToAddEntry =
         PulseAttributesToAddEntry(
             values = values,
-            matcher = matcher,
+            condition = matcher,
         )
 }

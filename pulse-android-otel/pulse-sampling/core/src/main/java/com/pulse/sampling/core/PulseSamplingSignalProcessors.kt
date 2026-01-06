@@ -47,7 +47,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         sdkConfig
             .signals
             .attributesToAdd
-            .filter { it.matcher.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.matcher.sdks }
+            .filter { it.condition.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.condition.sdks }
 
     private val shouldSampleThisSession by lazy {
         val samplingRate = sessionParser.parses(context, sdkConfig.sampling)
@@ -343,7 +343,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         val matchingEntries =
             attributesToAdd
                 .filter {
-                    signalName.matchesFromRegexCache(it.matcher.name)
+                    signalName.matchesFromRegexCache(it.condition.name)
                 }
 
         if (matchingEntries.isEmpty()) {
@@ -357,7 +357,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                     scope,
                     signalName,
                     spanAttributes,
-                    entry.matcher,
+                    entry.condition,
                 )
             }
 

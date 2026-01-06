@@ -283,7 +283,7 @@ class PulseSdkConfigRetrofitClientTest {
                                             "type": "string"
                                         }
                                     ],
-                                    "matcher": {
+                                    "condition": {
                                         "name": "password",
                                         "props": [
                                             {

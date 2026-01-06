@@ -46,7 +46,7 @@ public final class com/pulse/sampling/models/PulseAttributeValue$Companion {
 
 public final class com/pulse/sampling/models/PulseAttributesToAddEntry {
 	public static final field Companion Lcom/pulse/sampling/models/PulseAttributesToAddEntry$Companion;
-	public final fun getMatcher ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
+	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
 	public final fun getValues ()Ljava/util/List;
 }
 
