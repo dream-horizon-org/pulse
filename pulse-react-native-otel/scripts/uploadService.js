@@ -24,7 +24,13 @@ async function uploadFiles(commandName, options) {
   const version =
     platform === 'ios' ? options.bundleVersion : options.appVersion;
 
-  const metadata = buildMetadata(files, version, options.versionCode, platform, options.bundleId);
+  const metadata = buildMetadata(
+    files,
+    version,
+    options.versionCode,
+    platform,
+    options.bundleId
+  );
 
   const formData = new FormData();
   const metadataContent = JSON.stringify(metadata, null, 2);
