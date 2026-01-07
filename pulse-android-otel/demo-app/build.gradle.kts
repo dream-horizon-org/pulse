@@ -81,12 +81,12 @@ dependencies {
     // These are sourced from local project dirs. See settings.gradle.kts for the
     // configured substitutions.
     implementation(libs.pulse.android.sdk)    //parent dir
-    implementation(libs.opentelemetry.instrumentation.compose.click)
-    implementation(libs.opentelemetry.instrumentation.sessions)
-    implementation(libs.opentelemetry.instrumentation.activity)
-    implementation(libs.opentelemetry.instrumentation.fragment)
-    implementation(libs.opentelemetry.instrumentation.view.click)
-    implementation(libs.opentelemetry.instrumentation.slowrendering)
+    implementation(libs.pulse.instrumentation.compose.click)
+    implementation(libs.pulse.instrumentation.sessions)
+    implementation(libs.pulse.instrumentation.activity)
+    implementation(libs.pulse.instrumentation.fragment)
+    implementation(libs.pulse.instrumentation.view.click)
+    implementation(libs.pulse.instrumentation.slowrendering)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
