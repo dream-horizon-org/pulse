@@ -9,15 +9,15 @@ const withMavenLocal = (config) => {
   // Add mavenLocal() to both buildscript and allprojects repositories in root build.gradle
   config = withDangerousMod(config, [
     'android',
-    async (config) => {
+    async (modConfig) => {
       const buildGradlePath = path.join(
-        config.modRequest.platformProjectRoot,
+        modConfig.modRequest.platformProjectRoot,
         'build.gradle'
       );
 
       if (!fs.existsSync(buildGradlePath)) {
         console.warn(`build.gradle not found at ${buildGradlePath}`);
-        return config;
+        return modConfig;
       }
 
       try {
@@ -72,7 +72,7 @@ const withMavenLocal = (config) => {
         console.error('Error modifying build.gradle:', error);
       }
 
-      return config;
+      return modConfig;
     },
   ]);
 

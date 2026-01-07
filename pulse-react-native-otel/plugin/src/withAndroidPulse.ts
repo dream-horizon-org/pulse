@@ -2,7 +2,11 @@ import type { ConfigPlugin } from '@expo/config-plugins';
 import { withMainApplication } from '@expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 
-import { PULSE_IMPORT, buildPulseInitializationCode } from './utils';
+import {
+  PULSE_IMPORT,
+  ATTRIBUTES_IMPORT,
+  buildPulseInitializationCode,
+} from './utils';
 import type { PulsePluginProps } from './types';
 
 export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
@@ -11,9 +15,14 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
 ) => {
   return withMainApplication(config, (modConfig) => {
     try {
-      const { endpointBaseUrl, instrumentation } = props;
+      const {
+        endpointBaseUrl,
+        endpointHeaders,
+        globalAttributes,
+        instrumentation,
+      } = props;
 
-      // 1. Add import statement
+      // 1. Add import statements
       modConfig.modResults.contents = mergeContents({
         src: modConfig.modResults.contents,
         newSrc: PULSE_IMPORT,
@@ -23,8 +32,21 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
         offset: 1,
       }).contents;
 
+      if (globalAttributes && Object.keys(globalAttributes).length > 0) {
+        modConfig.modResults.contents = mergeContents({
+          src: modConfig.modResults.contents,
+          newSrc: ATTRIBUTES_IMPORT,
+          tag: 'pulse-attributes-import',
+          comment: '//',
+          anchor: /import\s+com\.pulsereactnativeotel\.Pulse/,
+          offset: 1,
+        }).contents;
+      }
+
       const initCode = buildPulseInitializationCode({
         endpointBaseUrl,
+        endpointHeaders,
+        globalAttributes,
         instrumentation,
       });
 

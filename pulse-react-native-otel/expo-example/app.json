@@ -25,11 +25,31 @@
         "@dreamhorizonorg/pulse-react-native",
         {
           "endpointBaseUrl": "http://10.0.2.2:4318",
+          "endpointHeaders": {
+            "Header": "Value"
+          },
+          "globalAttributes": {
+            "string": "value",
+            "numberFloatNegative": -9.05,
+            "boolean": true,
+            "emptyString": "",
+            "emptyArray": [],
+            "stringArray": ["a", "b", "c"],
+            "numberArrayMixed": [1, 2.5, 3],
+            "booleanArray": [true, false, true],
+            "null": null
+          },
           "instrumentation": {
             "interaction": {
               "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
               "enabled": true
-            }
+            },
+            "activity": true,
+            "network": true,
+            "anr": false,
+            "crash": true,
+            "slowRendering": false,
+            "fragment": true
           }
         }
       ]
