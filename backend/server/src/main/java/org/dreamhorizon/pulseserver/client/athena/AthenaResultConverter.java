@@ -15,7 +15,7 @@ public class AthenaResultConverter {
   public JsonArray convertToJsonArray(ResultSet resultSet) {
     JsonArray result = new JsonArray();
 
-    if (resultSet.resultSetMetadata() == null || resultSet.resultSetMetadata().columnInfo() == null) {
+    if (resultSet == null || resultSet.resultSetMetadata() == null || resultSet.resultSetMetadata().columnInfo() == null) {
       return result;
     }
 
@@ -47,13 +47,14 @@ public class AthenaResultConverter {
       return rowObject;
     }
 
-    int maxColumns = Math.min(columnNames.size(), row.data().size());
-
-    for (int i = 0; i < maxColumns; i++) {
+    for (int i = 0; i < columnNames.size() && i < row.data().size(); i++) {
       String columnName = columnNames.get(i);
       if (row.data().get(i) != null) {
         String value = row.data().get(i).varCharValue();
         rowObject.put(columnName, value);
+      } else {
+        // Add key with null value for missing Datum
+        rowObject.put(columnName, null);
       }
     }
 
