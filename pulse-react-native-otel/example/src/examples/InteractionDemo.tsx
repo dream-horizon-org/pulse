@@ -46,7 +46,7 @@ function HomeScreen({ navigation }: any) {
         status: response.status,
       });
       Alert.alert('Success', 'Network call completed');
-    } catch (error) {
+    } catch {
       Pulse.trackEvent('network_call_end', {
         url: 'https://jsonplaceholder.typicode.com/posts/1',
         error: 'true',

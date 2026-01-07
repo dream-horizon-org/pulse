@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "expo-example",
+    "slug": "expo-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.expoexample"
+    },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "package": "com.example.expoexample"
+    },
+    "plugins": [
+      "./plugins/withMavenLocal",
+      [
+        "@dreamhorizonorg/pulse-react-native",
+        {
+          "endpointBaseUrl": "http://10.0.2.2:4318",
+          "endpointHeaders": {
+            "Header": "Value"
+          },
+          "globalAttributes": {
+            "string": "value",
+            "numberFloatNegative": -9.05,
+            "boolean": true,
+            "emptyString": "",
+            "emptyArray": [],
+            "stringArray": ["a", "b", "c"],
+            "numberArrayMixed": [1, 2.5, 3],
+            "booleanArray": [true, false, true],
+            "null": null
+          },
+          "instrumentation": {
+            "interaction": {
+              "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
+              "enabled": true
+            },
+            "activity": true,
+            "network": true,
+            "anr": false,
+            "crash": true,
+            "slowRendering": false,
+            "fragment": true
+          }
+        }
+      ]
+    ]
+  }
+}
