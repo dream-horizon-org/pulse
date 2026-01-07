@@ -15,6 +15,8 @@ import io.opentelemetry.android.instrumentation.InstallationContext
 import io.opentelemetry.android.internal.services.Services
 import io.opentelemetry.android.internal.services.visiblescreen.VisibleScreenTracker
 import io.opentelemetry.android.session.SessionProvider
+import io.opentelemetry.api.logs.Logger
+import io.opentelemetry.api.logs.LoggerProvider
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanBuilder
 import io.opentelemetry.api.trace.Tracer
@@ -48,7 +50,12 @@ class ActivityLifecycleInstrumentationTest {
         val startupSpanBuilder: SpanBuilder = mockk()
         val startupSpan: Span = mockk()
 
+        val loggerProvider: LoggerProvider = mockk()
+        val logger: Logger = mockk()
         every { openTelemetry.getTracer("io.opentelemetry.lifecycle") }.returns(tracer)
+        every { openTelemetry.logsBridge }.returns(loggerProvider)
+        every { loggerProvider.loggerBuilder(any()) }.returns(mockk())
+        every { loggerProvider.loggerBuilder(any()).build() }.returns(logger)
         every { tracer.spanBuilder("AppStart") }.returns(startupSpanBuilder)
         every { startupSpanBuilder.setStartTimestamp(any(), any()) }.returns(startupSpanBuilder)
         every { startupSpanBuilder.setAttribute(RumConstants.START_TYPE_KEY, "cold") }.returns(

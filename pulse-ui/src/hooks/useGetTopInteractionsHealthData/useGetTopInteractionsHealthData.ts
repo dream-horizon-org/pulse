@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetTopInteractionsHealthDataProps,
   TopInteractionHealthData,
@@ -45,9 +45,9 @@ export function useGetTopInteractionsHealthData({
       ],
       filters: [
         {
-          field: COLUMN_NAME.SPAN_TYPE,
+          field: COLUMN_NAME.PULSE_TYPE,
           operator: "EQ",
-          value: [SpanType.INTERACTION],
+          value: [PulseType.INTERACTION],
         },
       ],
       groupBy: ["interaction_name"],

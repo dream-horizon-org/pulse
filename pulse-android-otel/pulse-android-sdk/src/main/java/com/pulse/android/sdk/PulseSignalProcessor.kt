@@ -27,14 +27,6 @@ internal class PulseSignalProcessor {
             if (logRecord.attributes.get(PulseAttributes.PULSE_TYPE) == null) {
                 val type =
                     when (logRecord.eventName) {
-                        "device.crash" -> {
-                            PulseAttributes.PulseTypeValues.CRASH
-                        }
-
-                        "device.anr" -> {
-                            PulseAttributes.PulseTypeValues.ANR
-                        }
-
                         "app.jank" -> {
                             val threshold =
                                 logRecord.attributes.get(AttributeKey.doubleKey("app.jank.threshold"))
@@ -61,16 +53,8 @@ internal class PulseSignalProcessor {
                             PulseAttributes.PulseTypeValues.TOUCH
                         }
 
-                        "network.change" -> {
-                            PulseAttributes.PulseTypeValues.NETWORK_CHANGE
-                        }
-
                         PulseSDKImpl.CUSTOM_NON_FATAL_EVENT_NAME -> {
                             PulseAttributes.PulseTypeValues.NON_FATAL
-                        }
-
-                        "session.start" -> {
-                            PulseAttributes.PulseTypeValues.APP_SESSION_START
                         }
 
                         "session.end" -> {
@@ -84,7 +68,7 @@ internal class PulseSignalProcessor {
                         }
 
                         else -> {
-                            null
+                            logRecord.eventName
                         }
                     }
                 type?.let {

@@ -1,10 +1,16 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../examples/NavigationExample';
 import { Text, View, Button, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function SettingsScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Settings'>) {
+  useEffect(() => {
+    Pulse.markContentReady();
+  }, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Settings Screen</Text>
@@ -28,6 +34,9 @@ export default function SettingsScreen({
       </View>
 
       <Text style={styles.info}>🔙 Back navigation is also tracked!</Text>
+      <Text style={styles.infoDetail}>
+        ✅ Screen interactive marked ready immediately (no async loading)
+      </Text>
     </View>
   );
 }

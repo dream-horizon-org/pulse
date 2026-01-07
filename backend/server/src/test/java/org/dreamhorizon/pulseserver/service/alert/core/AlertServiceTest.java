@@ -412,7 +412,7 @@ class AlertServiceTest {
     @Test
     void shouldGetAlertsSuccessfully() {
       GetAlertsListRequestDto request = new GetAlertsListRequestDto(
-          "name", "scope", "createdBy", "updatedBy", 10, 0
+          "name", "scope", "createdBy", "updatedBy", null, 10, 0
       );
 
       List<Alert> alerts = List.of(createBaseAlert(1, null, null), createBaseAlert(2, null, null));
@@ -423,7 +423,7 @@ class AlertServiceTest {
           .limit(10)
           .build();
 
-      when(alertsDao.getAlerts(anyString(), anyString(), anyInt(), anyInt(), anyString(), anyString()))
+      when(alertsDao.getAlerts(anyString(), anyString(), anyInt(), anyInt(), anyString(), anyString(), any()))
           .thenReturn(Single.just(response));
 
       GetAlertsResponse result = alertService.getAlerts(request).blockingGet();
@@ -450,7 +450,7 @@ class AlertServiceTest {
           .limit(10)
           .build();
 
-      when(alertsDao.getAlerts(any(), any(), any(), any(), any(), any()))
+      when(alertsDao.getAlerts(any(), any(), any(), any(), any(), any(), any()))
           .thenReturn(Single.just(response));
 
       GetAlertsResponse result = alertService.getAlerts(request).blockingGet();

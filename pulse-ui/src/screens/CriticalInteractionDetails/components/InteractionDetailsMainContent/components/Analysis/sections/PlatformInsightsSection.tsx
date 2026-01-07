@@ -1,12 +1,10 @@
 import { Box, Flex, Text } from "@mantine/core";
 import PlatformDonutChart from "../components/PlatformDonutChart";
-import { LoaderWithMessage } from "../../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
+import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
 import {
   ANALYSIS_ERROR_MESSAGES,
-  ANALYSIS_LOADING_MESSAGES,
 } from "../Analysis.constants";
-import commonStyles from "../../../common.module.css";
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetPlatformInsights } from "../hooks/useGetPlatformInsights";
 
@@ -44,12 +42,7 @@ export const PlatformInsightsSection: React.FC<AnalysisSectionProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={ANALYSIS_LOADING_MESSAGES.PLATFORM_INSIGHTS}
-      />
-    );
+    return <AnalysisSectionSkeleton chartCount={2} layout="horizontal" chartHeight={250} />;
   }
 
   const hasData = poorUsersByPlatform.length > 0 || errorsByPlatform.length > 0;

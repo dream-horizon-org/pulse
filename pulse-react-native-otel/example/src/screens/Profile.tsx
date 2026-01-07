@@ -7,19 +7,23 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import React from 'react';
+import { useEffect, useState } from 'react';
+import { Pulse } from '@dreamhorizonorg/pulse-react-native';
 
 export default function ProfileScreen({
   route,
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Profile'>) {
   const { userId } = route.params;
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // Simulate loading data
-  React.useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
+  useEffect(() => {
+    const loadData = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setLoading(false);
+      Pulse.markContentReady();
+    };
+    loadData();
   }, []);
 
   return (
@@ -34,6 +38,9 @@ export default function ProfileScreen({
           <Text style={styles.content}>Profile loaded successfully!</Text>
           <Text style={styles.info}>
             ✅ Navigation performance was tracked automatically
+          </Text>
+          <Text style={styles.infoDetail}>
+            ✅ Screen interactive (TTFD) was marked ready after data load
           </Text>
         </>
       )}

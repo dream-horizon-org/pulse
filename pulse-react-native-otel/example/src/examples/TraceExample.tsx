@@ -1,12 +1,72 @@
-import React from 'react';
+import { useState } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
 import { Pulse, SpanStatusCode } from '@dreamhorizonorg/pulse-react-native';
+import { discardSpan } from '../../../src/trace';
 
 const TAG = 'Pulse Trace Demo';
-const createNestedSpans = async () => {
-  console.log(`${TAG} Starting nested spans demo...`);
+const TEST_TAG = '[Inactive Span Test]';
+const NESTED_TEST_TAG = '[Nested Cancellation Test]';
 
-  // Start parent span
+// Test inactive span behavior
+const testInactiveSpan = async () => {
+  try {
+    const p1 = Pulse.startSpan('parent_active', {
+      attributes: { level: 'parent', type: 'active' },
+    });
+
+    const c1 = Pulse.startSpan('child_inactive', {
+      attributes: { level: 'child', type: 'inactive' },
+      inheritContext: false, // Don't inherit context (independent span)
+    });
+
+    const c2 = Pulse.startSpan('child_active', {
+      attributes: { level: 'child', type: 'active' },
+    });
+
+    c2.end();
+    c1.end();
+    p1.end();
+    console.log(`${TEST_TAG} Test complete`);
+  } catch (error) {
+    console.error(`${TEST_TAG} Error:`, error);
+  }
+};
+
+// Test nested span cancellation
+const testNestedSpanCancellation = async () => {
+  let p1: ReturnType<typeof Pulse.startSpan> | null = null;
+  let c1: ReturnType<typeof Pulse.startSpan> | null = null;
+  let g1: ReturnType<typeof Pulse.startSpan> | null = null;
+
+  try {
+    p1 = Pulse.startSpan('parent_p1', {
+      attributes: { level: 'parent', test: 'nested_cancellation' },
+    });
+
+    c1 = Pulse.startSpan('child_c1', {
+      attributes: { level: 'child', operation: 'child_operation' },
+      inheritContext: false, // Don't inherit context (independent span)
+    });
+
+    g1 = Pulse.startSpan('grandchild_g1', {
+      attributes: { level: 'grandchild', operation: 'grandchild_operation' },
+    });
+
+    // Discard C1 span (cleanup without sending to backend)
+    if (c1?.spanId) {
+      discardSpan(c1.spanId);
+    }
+    c1 = null;
+
+    g1?.end();
+    p1?.end();
+    console.log(`${NESTED_TEST_TAG} Test complete`);
+  } catch (error) {
+    console.error(`${NESTED_TEST_TAG} Error:`, error);
+  }
+};
+
+const createNestedSpans = async () => {
   const parentSpan = Pulse.startSpan('parent_operation', {
     attributes: {
       operation: 'data_processing',
@@ -14,92 +74,73 @@ const createNestedSpans = async () => {
       batch_size: 100,
     },
   });
-  console.log(`${TAG} Parent span started:`, parentSpan.spanId);
 
-  // Simulate some work
   await new Promise((resolve) => setTimeout(resolve, 200));
 
-  // Create first child span
   const child1Span = Pulse.startSpan('child_fetch_data', {
     attributes: {
       source: 'database',
       table: 'users',
     },
   });
-  console.log(`${TAG} Child 1 span started:`, child1Span.spanId);
 
   child1Span.addEvent('query_executed', { query_time_ms: 45 });
   await new Promise((resolve) => setTimeout(resolve, 150));
   child1Span.setAttributes({ rows_fetched: 100 });
   child1Span.end();
-  console.log(`${TAG} Child 1 span ended`);
 
-  // Simulate some gap between child spans
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // Create second child span
   const child2Span = Pulse.startSpan('child_process_data', {
     attributes: {
       processor: 'transformer',
       format: 'json',
     },
   });
-  console.log(`${TAG} Child 2 span started:`, child2Span.spanId);
 
-  // Create a grandchild span (nested deeper)
   const grandchildSpan = Pulse.startSpan('grandchild_validate', {
     attributes: {
       validator: 'schema_validator',
       rules: 5,
     },
   });
-  console.log(`${TAG} Grandchild span started:`, grandchildSpan.spanId);
 
   grandchildSpan.addEvent('validation_started');
   await new Promise((resolve) => setTimeout(resolve, 100));
   grandchildSpan.setAttributes({ valid: true, errors: 0 });
   grandchildSpan.end();
-  console.log(`${TAG} Grandchild span ended`);
 
   child2Span.addEvent('transformation_complete', { items_processed: 100 });
   await new Promise((resolve) => setTimeout(resolve, 100));
   child2Span.end();
-  console.log(`${TAG} Child 2 span ended`);
 
-  // Simulate some gap between child spans
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // Create third child span
   const child3Span = Pulse.startSpan('child_save_results', {
     attributes: {
       destination: 'cache',
       ttl: 3600,
     },
   });
-  console.log(`${TAG} Child 3 span started:`, child3Span.spanId);
 
   await new Promise((resolve) => setTimeout(resolve, 120));
   child3Span.setAttributes({ saved: true, cache_hit: false });
   child3Span.end();
-  console.log(`${TAG} Child 3 span ended`);
 
-  // Add final event to parent
   parentSpan.addEvent('all_children_completed', { total_time_ms: 570 });
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  // End parent span
   parentSpan.end();
-  console.log(`${TAG} Parent span ended - nested spans demo complete`);
+  console.log(`${TAG} nested spans demo complete`);
 };
 
 export default function TraceDemo() {
-  const [manualSpan, setManualSpan] = React.useState<ReturnType<
+  const [manualSpan, setManualSpan] = useState<ReturnType<
     typeof Pulse.startSpan
   > | null>(null);
-  const [syncResult, setSyncResult] = React.useState<number | null>(null);
-  const [asyncNoReturnDone, setAsyncNoReturnDone] =
-    React.useState<boolean>(false);
-  const [asyncResult, setAsyncResult] = React.useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<number | null>(null);
+  const [asyncNoReturnDone, setAsyncNoReturnDone] = useState<boolean>(false);
+  const [asyncResult, setAsyncResult] = useState<string | null>(null);
 
   return (
     <View style={styles.fullContainer}>
@@ -248,6 +289,32 @@ export default function TraceDemo() {
             title="Create Nested Spans"
             onPress={createNestedSpans}
             color="#FF9800"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Inactive Span Test</Text>
+          <Text style={styles.description}>
+            Test that inactive spans don't become children of active spans
+          </Text>
+          <View style={styles.space} />
+          <Button
+            title="Test Inactive Span"
+            onPress={testInactiveSpan}
+            color="#9C27B0"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Nested Cancellation Test</Text>
+          <Text style={styles.description}>
+            Test nested span cancellation: P1 → C1 (inactive) → G1, cancel C1
+          </Text>
+          <View style={styles.space} />
+          <Button
+            title="Test Nested Cancellation"
+            onPress={testNestedSpanCancellation}
+            color="#E91E63"
           />
         </View>
       </ScrollView>

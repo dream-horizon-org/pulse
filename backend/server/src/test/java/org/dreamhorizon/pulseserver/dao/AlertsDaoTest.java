@@ -445,7 +445,7 @@ class AlertsDaoTest {
       when(alertPq.rxExecute(any(Tuple.class))).thenReturn(Single.just(alertRowSet));
       when(scopePq.rxExecute(any(Tuple.class))).thenReturn(Single.just(scopeRowSet));
 
-      GetAlertsResponse result = alertsDao.getAlerts("Test", "Interaction", 10, 0, "user1", "user2").blockingGet();
+      GetAlertsResponse result = alertsDao.getAlerts("Test", "Interaction", 10, 0, "user1", "user2", null).blockingGet();
 
       assertNotNull(result);
       assertEquals(1, result.getTotalAlerts());
@@ -458,7 +458,7 @@ class AlertsDaoTest {
       when(rowSet.size()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      GetAlertsResponse result = alertsDao.getAlerts(null, null, 10, 0, null, null).blockingGet();
+      GetAlertsResponse result = alertsDao.getAlerts(null, null, 10, 0, null, null, null).blockingGet();
 
       assertNotNull(result);
       assertEquals(0, result.getTotalAlerts());
@@ -472,7 +472,7 @@ class AlertsDaoTest {
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> alertsDao.getAlerts("Test", null, 10, 0, null, null).blockingGet());
+          () -> alertsDao.getAlerts("Test", null, 10, 0, null, null, null).blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
     }
   }

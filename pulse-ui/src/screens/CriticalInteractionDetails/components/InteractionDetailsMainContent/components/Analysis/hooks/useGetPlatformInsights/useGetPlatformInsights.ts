@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { FilterField, useGetDataQuery } from "../../../../../../../../hooks";
-import { COLUMN_NAME, SpanType } from "../../../../../../../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../../../../../../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import {
   UseGetPlatformInsightsParams,
@@ -20,7 +20,7 @@ export const useGetPlatformInsights = ({
 
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: "PulseType", operator: "EQ", value: [PulseType.INTERACTION] },
     ];
 
     if (interactionName) {
@@ -81,10 +81,16 @@ export const useGetPlatformInsights = ({
     const userPoorIndex = responseData.fields.indexOf("user_poor");
     const platformIndex = responseData.fields.indexOf("platform");
 
+    // Helper to normalize empty platform names to "Unknown"
+    const normalizePlatformName = (value: unknown): string => {
+      const platform = String(value || "").trim();
+      return platform === "" ? "Unknown" : platform;
+    };
+
     const poorUsersByPlatform = responseData.rows.map((row) => {
       const poorUsers = parseFloat(String(row[userPoorIndex])) || 0;
       return {
-        platform: String(row[platformIndex] || ""),
+        platform: normalizePlatformName(row[platformIndex]),
         value: poorUsers,
       };
     });
@@ -92,7 +98,7 @@ export const useGetPlatformInsights = ({
     const errorsByPlatform = responseData.rows.map((row) => {
       const errorCount = parseFloat(String(row[errorCountIndex])) || 0;
       return {
-        platform: String(row[platformIndex] || ""),
+        platform: normalizePlatformName(row[platformIndex]),
         value: errorCount,
       };
     });

@@ -1,12 +1,10 @@
 import { Box, Text } from "@mantine/core";
 import ReleaseComparisonChart from "../components/ReleaseComparisonChart";
-import { LoaderWithMessage } from "../../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
+import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
 import {
   ANALYSIS_ERROR_MESSAGES,
-  ANALYSIS_LOADING_MESSAGES,
 } from "../Analysis.constants";
-import commonStyles from "../../../common.module.css";
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetReleasePerformance } from "../hooks/useGetReleasePerformance";
 
@@ -42,12 +40,7 @@ export const ReleasePerformanceSection: React.FC<AnalysisSectionProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={ANALYSIS_LOADING_MESSAGES.RELEASE_PERFORMANCE}
-      />
-    );
+    return <AnalysisSectionSkeleton chartCount={1} layout="vertical" chartHeight={350} />;
   }
 
   const hasData = releaseData && releaseData.length > 0;

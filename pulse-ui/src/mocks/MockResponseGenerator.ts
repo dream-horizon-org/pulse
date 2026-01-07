@@ -1343,76 +1343,158 @@ export class MockResponseGenerator {
           );
         }
 
-        // Generate mock evaluation history matching AlertEvaluationHistoryResponseDto.java
-        // reading field is a JSON string containing per-scope readings (AlertMetricReading[])
-        const history = [];
+        // Generate mock evaluation history matching GetAlertEvaluationHistoryResponse
+        // Format: Array of ScopeEvaluationHistory, each with scope_id, scope_name, and evaluation_history
         const now = Date.now();
-        const scopeNames = ["PaymentSubmit", "PaymentConfirm", "PaymentOTP"];
-        const threshold = 0.05; // 5% threshold
-
-        for (let i = 0; i < 15; i++) {
-          const isFiring = i % 4 === 0; // Every 4th evaluation is firing
-          const evalTime = new Date(now - i * 3600000);
-          
-          // Generate readings for each scope name
-          const scopeReadings = scopeNames.map(scopeName => {
-            const scopeTotal = 150 + Math.floor(Math.random() * 350);
-            const scopeSuccess = Math.floor(scopeTotal * (0.85 + Math.random() * 0.14));
-            const scopeErrors = scopeTotal - scopeSuccess;
-            // Randomly make some scope readings exceed threshold when firing
-            const scopeReading = isFiring && Math.random() > 0.5
-              ? threshold + 0.01 + Math.random() * 0.03
-              : threshold - 0.02 - Math.random() * 0.02;
-            return {
-              reading: Math.round(scopeReading * 10000) / 10000,
-              useCaseId: scopeName,
-              successInteractionCount: scopeSuccess,
-              errorInteractionCount: scopeErrors,
-              totalInteractionCount: scopeTotal,
-              timestamp: evalTime.toISOString(),
-            };
-          });
-
-          // Aggregate totals
-          const totalInteractions = scopeReadings.reduce((sum, r) => sum + r.totalInteractionCount, 0);
-          const successInteractions = scopeReadings.reduce((sum, r) => sum + r.successInteractionCount, 0);
-          const errorInteractions = scopeReadings.reduce((sum, r) => sum + r.errorInteractionCount, 0);
-
-          history.push({
-            reading: JSON.stringify(scopeReadings), // JSON string of ScopeReading[]
-            threshold: threshold,
-            evaluated_at: evalTime.toISOString(),
-            current_state: isFiring ? "FIRING" : "NORMAL",
-            evaluation_time: Math.round((1.5 + Math.random() * 2.5) * 100) / 100,
-            total_interaction_count: totalInteractions,
-            error_interaction_count: errorInteractions,
-            success_interaction_count: successInteractions,
-            min_total_interactions: 100,
-            min_success_interactions: 50,
-            min_error_interactions: 10,
-          });
+        
+        // Get the alert's actual data from the datastore
+        const alerts = this.dataStore.getAlerts();
+        const alert = alerts.find((a: any) => a.alert_id === alertId);
+        
+        if (!alert) {
+          return { data: [], status: 200 };
         }
-
-        const response = {
-          data: history, // Return the array directly - processServerResponse will wrap it
-          status: 200,
+        
+        const alertStatus = alert.status || "NORMAL";
+        const isAlertFiring = alertStatus === "FIRING";
+        const isAlertNoData = alertStatus === "NO_DATA";
+        const isAlertSnoozed = alertStatus === "SNOOZED" || alert.is_snoozed;
+        
+        // Extract actual scope names and metrics from alert conditions
+        // Each condition has: { alias, metric, metric_operator, threshold: { scopeName: value, ... } }
+        const alertConditions = alert.alerts || [];
+        
+        // Build scope configs from actual alert thresholds
+        // Collect all unique scope names from all conditions
+        const scopeNameSet = new Set<string>();
+        const scopeMetrics: Record<string, { metric: string; operator: string; threshold: number }[]> = {};
+        
+        alertConditions.forEach((condition: any) => {
+          const thresholds = condition.threshold || {};
+          Object.entries(thresholds).forEach(([scopeName, thresholdValue]) => {
+            scopeNameSet.add(scopeName);
+            if (!scopeMetrics[scopeName]) {
+              scopeMetrics[scopeName] = [];
+            }
+            scopeMetrics[scopeName].push({
+              metric: condition.metric,
+              operator: condition.metric_operator,
+              threshold: thresholdValue as number,
+            });
+          });
+        });
+        
+        const scopeNames = Array.from(scopeNameSet);
+        
+        // Helper to generate human-readable metric values based on threshold
+        const generateMetricValue = (metric: string, threshold: number, operator: string, isFiring: boolean): string => {
+          // Determine if we should be above or below threshold based on operator and firing state
+          const shouldExceed = (operator === "GREATER_THAN" && isFiring) || (operator === "LESS_THAN" && !isFiring);
+          
+          if (metric.includes("DURATION") || metric.includes("LOAD_TIME") || metric.includes("LATENCY")) {
+            // Duration metrics - values in ms
+            const value = shouldExceed 
+              ? threshold + Math.floor(Math.random() * 5) * 100 + 100  // Above threshold
+              : Math.max(100, threshold - Math.floor(Math.random() * 5) * 100 - 500); // Below threshold
+            return `${Math.round(value)}ms`;
+          } else if (metric.includes("RATE") || metric.includes("5XX")) {
+            // Rate metrics - typically 0-1 or 0-100
+            if (threshold < 1) {
+              // Decimal rate (0.05 = 5%)
+              const pctThreshold = threshold * 100;
+              const value = shouldExceed 
+                ? pctThreshold + 2 + Math.floor(Math.random() * 3)
+                : Math.max(0.1, pctThreshold - 2 - Math.floor(Math.random() * 2));
+              return `${value.toFixed(1)}%`;
+            } else {
+              // Percentage already
+              const value = shouldExceed 
+                ? threshold + 5 + Math.floor(Math.random() * 5)
+                : Math.max(1, threshold - 5 - Math.floor(Math.random() * 5));
+              return `${value.toFixed(1)}%`;
+            }
+          } else if (metric === "APDEX") {
+            // APDEX score 0-1
+            const value = shouldExceed 
+              ? Math.min(0.99, threshold + 0.05 + Math.random() * 0.05)
+              : Math.max(0.5, threshold - 0.1 - Math.random() * 0.1);
+            return value.toFixed(2);
+          } else if (metric.includes("COUNT")) {
+            // Count metrics
+            const value = shouldExceed 
+              ? threshold + Math.floor(Math.random() * 50) + 20
+              : Math.max(0, threshold - Math.floor(Math.random() * 30) - 10);
+            return `${Math.round(value)}`;
+          } else {
+            // Generic numeric
+            const value = shouldExceed 
+              ? threshold * 1.2 + Math.random() * threshold * 0.2
+              : threshold * 0.7 + Math.random() * threshold * 0.2;
+            return typeof threshold === 'number' && threshold < 1 
+              ? value.toFixed(2) 
+              : `${Math.round(value)}`;
+          }
         };
 
-        console.log("[Mock Server] EVALUATION_HISTORY - Returning:", response);
-        console.log(
-          "[Mock Server] EVALUATION_HISTORY - History type:",
-          typeof history,
-        );
-        console.log(
-          "[Mock Server] EVALUATION_HISTORY - History isArray:",
-          Array.isArray(history),
-        );
-        console.log(
-          "[Mock Server] EVALUATION_HISTORY - History length:",
-          history.length,
-        );
+        // Generate ScopeEvaluationHistory for each actual scope
+        const history = scopeNames.map((scopeName, idx) => {
+          const evaluationHistory = [];
+          const metricsForScope = scopeMetrics[scopeName] || [];
+          
+          for (let i = 0; i < 12; i++) {
+            // Determine state for this evaluation entry
+            let isFiring: boolean;
+            let stateValue: string;
+            
+            if (isAlertNoData && i < 3) {
+              stateValue = "NO_DATA";
+              isFiring = false;
+            } else if (isAlertSnoozed && i === 0) {
+              isFiring = Math.random() > 0.5;
+              stateValue = isFiring ? "FIRING" : "NORMAL";
+            } else if (i < 3) {
+              isFiring = isAlertFiring;
+              stateValue = isAlertFiring ? "FIRING" : "NORMAL";
+            } else {
+              if (isAlertFiring) {
+                isFiring = i < 8;
+              } else {
+                isFiring = i >= 5 && i < 9;
+              }
+              stateValue = isFiring ? "FIRING" : "NORMAL";
+            }
+            
+            const evalTime = now - i * 3600000;
+            
+            // Generate evaluation_result with actual metrics for this scope
+            const metricReadings: Record<string, string> = {};
+            metricsForScope.forEach(({ metric, operator, threshold }) => {
+              metricReadings[metric] = generateMetricValue(metric, threshold, operator, isFiring);
+            });
 
-        return response;
+            evaluationHistory.push({
+              evaluation_id: (idx + 1) * 1000 + i,
+              evaluation_result: JSON.stringify(metricReadings),
+              state: stateValue,
+              evaluated_at: evalTime,
+            });
+          }
+
+          return {
+            scope_id: idx + 1,
+            scope_name: scopeName,
+            evaluation_history: evaluationHistory,
+          };
+        });
+
+        if (this.config.shouldLog()) {
+          console.log("[Mock Server] EVALUATION_HISTORY - Generated", history.length, "scopes");
+        }
+
+        return {
+          data: history,
+          status: 200,
+        };
       }
     }
 
@@ -1452,13 +1534,58 @@ export class MockResponseGenerator {
     }
 
     if (pathname.includes("/alert") && method === "GET") {
-      const alerts = this.dataStore.getAlerts();
+      const url = this.parseURL(request.url);
+      let alerts = this.dataStore.getAlerts();
+      
+      // Apply status filter
+      const statusFilter = url.searchParams.get("status");
+      if (statusFilter) {
+        alerts = alerts.filter((a: any) => a.status === statusFilter);
+      }
+      
+      // Apply scope filter
+      const scopeFilter = url.searchParams.get("scope");
+      if (scopeFilter) {
+        alerts = alerts.filter((a: any) => a.scope === scopeFilter);
+      }
+      
+      // Apply name search filter
+      const nameFilter = url.searchParams.get("name");
+      if (nameFilter) {
+        alerts = alerts.filter((a: any) => 
+          a.name.toLowerCase().includes(nameFilter.toLowerCase())
+        );
+      }
+      
+      // Apply created_by filter
+      const createdByFilter = url.searchParams.get("created_by");
+      if (createdByFilter) {
+        alerts = alerts.filter((a: any) => a.created_by === createdByFilter);
+      }
+      
+      // Apply updated_by filter
+      const updatedByFilter = url.searchParams.get("updated_by");
+      if (updatedByFilter) {
+        alerts = alerts.filter((a: any) => a.updated_by === updatedByFilter);
+      }
+      
+      // Apply pagination
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+      const limit = parseInt(url.searchParams.get("limit") || "12");
+      const totalAlerts = alerts.length;
+      const paginatedAlerts = alerts.slice(offset, offset + limit);
+      
+      if (this.config.shouldLog()) {
+        console.log(`[Mock Server] GET_ALERTS - Filters: status=${statusFilter}, scope=${scopeFilter}, name=${nameFilter}`);
+        console.log(`[Mock Server] GET_ALERTS - Total: ${totalAlerts}, Returning: ${paginatedAlerts.length}`);
+      }
+      
       return {
         data: {
-          total_alerts: alerts.length,
-          alerts: alerts,
-          limit: 10,
-          offset: 0,
+          total_alerts: totalAlerts,
+          alerts: paginatedAlerts,
+          limit,
+          offset,
         },
         status: 200,
       };

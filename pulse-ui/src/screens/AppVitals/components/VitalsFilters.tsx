@@ -14,6 +14,17 @@ interface VitalsFiltersProps {
   stats: VitalsStats;
 }
 
+// Format large numbers for better display (e.g., 1234 → "1.2K", 12345 → "12K")
+const formatCount = (count: number): string => {
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  }
+  return count.toString();
+};
+
 export const VitalsFilters: React.FC<VitalsFiltersProps> = ({
   issueType,
   onIssueTypeChange,
@@ -30,16 +41,16 @@ export const VitalsFilters: React.FC<VitalsFiltersProps> = ({
         data={[
           {
             label: (
-              <Group gap={6} wrap="nowrap">
+              <Group gap={8} wrap="nowrap">
                 <IconBug size={16} />
                 <span>Crashes</span>
                 <Badge
                   size="sm"
                   variant="filled"
                   color="red"
-                  style={{ minWidth: 24 }}
+                  className={classes.countBadge}
                 >
-                  {stats.crashes}
+                  {formatCount(stats.crashes)}
                 </Badge>
               </Group>
             ),
@@ -47,16 +58,16 @@ export const VitalsFilters: React.FC<VitalsFiltersProps> = ({
           },
           {
             label: (
-              <Group gap={6} wrap="nowrap">
+              <Group gap={8} wrap="nowrap">
                 <IconAlertTriangle size={16} />
                 <span>ANRs</span>
                 <Badge
                   size="sm"
                   variant="filled"
                   color="orange"
-                  style={{ minWidth: 24 }}
+                  className={classes.countBadge}
                 >
-                  {stats.anrs}
+                  {formatCount(stats.anrs)}
                 </Badge>
               </Group>
             ),
@@ -64,16 +75,16 @@ export const VitalsFilters: React.FC<VitalsFiltersProps> = ({
           },
           {
             label: (
-              <Group gap={6} wrap="nowrap">
+              <Group gap={8} wrap="nowrap">
                 <IconExclamationCircle size={16} />
                 <span>Non-Fatal</span>
                 <Badge
                   size="sm"
                   variant="filled"
                   color="blue"
-                  style={{ minWidth: 24 }}
+                  className={classes.countBadge}
                 >
-                  {stats.nonFatals}
+                  {formatCount(stats.nonFatals)}
                 </Badge>
               </Group>
             ),

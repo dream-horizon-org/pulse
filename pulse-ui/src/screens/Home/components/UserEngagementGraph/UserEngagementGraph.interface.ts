@@ -18,5 +18,4 @@ export interface UserEngagementGraphProps {
   device?: string;
   startTime?: string;
   endTime?: string;
-  spanType?: string;
 }

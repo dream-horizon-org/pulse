@@ -27,6 +27,7 @@ public object PulseAttributes {
         public const val SCREEN_SESSION: String = "screen_session"
         public const val APP_SESSION_START: String = "session.start"
         public const val APP_SESSION_END: String = "session.end"
+        public const val APP_INSTALLATION_START: String = "pulse.app.installation.start"
         public const val SCREEN_LOAD: String = "screen_load"
         public const val FROZEN: String = "app.jank.frozen"
         public const val SLOW: String = "app.jank.slow"

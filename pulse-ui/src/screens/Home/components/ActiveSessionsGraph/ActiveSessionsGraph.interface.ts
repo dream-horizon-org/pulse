@@ -16,5 +16,4 @@ export interface ActiveSessionsGraphProps {
   device?: string;
   startTime?: string;
   endTime?: string;
-  spanType?: string;
 }

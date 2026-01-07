@@ -930,12 +930,13 @@ class AlertModelsTest {
 
     @Test
     void shouldCreateWithAllArgs() {
-      GetAlertsListRequestDto dto = new GetAlertsListRequestDto("Test", "Interaction", "user1", "user2", 10, 0);
+      GetAlertsListRequestDto dto = new GetAlertsListRequestDto("Test", "Interaction", "user1", "user2", "active", 10, 0);
 
       assertEquals("Test", dto.getName());
       assertEquals("Interaction", dto.getScope());
       assertEquals("user1", dto.getCreatedBy());
       assertEquals("user2", dto.getUpdatedBy());
+      assertEquals("active", dto.getStatus());
       assertEquals(10, dto.getLimit());
       assertEquals(0, dto.getOffset());
     }
@@ -961,8 +962,8 @@ class AlertModelsTest {
 
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
-      GetAlertsListRequestDto dto1 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", 10, 0);
-      GetAlertsListRequestDto dto2 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", 10, 0);
+      GetAlertsListRequestDto dto1 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", null, 10, 0);
+      GetAlertsListRequestDto dto2 = new GetAlertsListRequestDto("Test", "Interaction", "user", "user", null, 10, 0);
 
       assertEquals(dto1, dto2);
       assertEquals(dto1.hashCode(), dto2.hashCode());

@@ -20,6 +20,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return PulseSDK.INSTANCE.isInitialized()
   }
 
+  override fun setCurrentScreenName(screenName: String): Boolean {
+    ReactNativeScreenNameTracker.setCurrentScreenName(screenName)
+    return true
+  }
+
   override fun trackEvent(event: String, observedTimeMs: Double, properties: ReadableMap?): Boolean {
     PulseReactNativeOtelLogger.trackEvent(event, observedTimeMs.toLong(), properties)
     return true
@@ -30,8 +35,8 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return true
   }
 
-  override fun startSpan(name: String, attributes: ReadableMap?): String {
-    return PulseReactNativeOtelTracer.startSpan(name, attributes)
+  override fun startSpan(name: String, inheritContext: Boolean, attributes: ReadableMap?): String {
+    return PulseReactNativeOtelTracer.startSpan(name, inheritContext, attributes)
   }
 
   override fun endSpan(spanId: String, statusCode: String?): Boolean {
@@ -52,6 +57,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
   override fun recordSpanException(spanId: String, errorMessage: String, stackTrace: String?): Boolean {
     PulseReactNativeOtelTracer.recordException(spanId, errorMessage, stackTrace)
     return  true
+  }
+
+  override fun discardSpan(spanId: String): Boolean {
+    PulseReactNativeOtelTracer.discardSpan(spanId)
+    return true
   }
 
   override fun setUserId(id: String?) {

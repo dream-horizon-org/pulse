@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { ActiveSessionsGraphProps } from "./ActiveSessionsGraph.interface";
 import { useGetActiveSessionsData } from "../../../../hooks/useGetActiveSessionsData";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
+import { GraphCardSkeleton } from "../../../../components/Skeletons";
 
 dayjs.extend(utc);
 
@@ -20,7 +21,6 @@ export function ActiveSessionsGraph({
   device,
   startTime,
   endTime,
-  spanType = "app_start",
 }: ActiveSessionsGraphProps = {}) {
   // Calculate date range - use provided time range or default to last 7 days
   const { startDate, endDate, bucketSize } = useMemo(() => {
@@ -48,7 +48,7 @@ export function ActiveSessionsGraph({
     };
   }, [startTime, endTime]);
 
-  const { data } = useGetActiveSessionsData({
+  const { data, isLoading } = useGetActiveSessionsData({
     screenName,
     appVersion,
     osVersion,
@@ -56,10 +56,24 @@ export function ActiveSessionsGraph({
     startTime: startDate,
     endTime: endDate,
     bucketSize,
-    spanType,
   });
 
   const { currentSessions, peakSessions, averageSessions, trendData } = data;
+
+  if (isLoading) {
+    return <GraphCardSkeleton title="Active Sessions" chartHeight={260} metricsCount={3} />;
+  }
+
+  const formatMetricValue = (value: number | null, color: string) => {
+    if (value === null) {
+      return <Text className={classes.metricValue} c="dimmed">N/A</Text>;
+    }
+    return (
+      <Text className={classes.metricValue} style={{ color }}>
+        {value.toLocaleString()}
+      </Text>
+    );
+  };
 
   return (
     <div className={classes.graphCard}>
@@ -67,21 +81,15 @@ export function ActiveSessionsGraph({
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Current</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ec9c2" }}>
-            {currentSessions.toLocaleString()}
-          </Text>
+          {formatMetricValue(currentSessions, "#0ec9c2")}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Peak</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ba09a" }}>
-            {peakSessions.toLocaleString()}
-          </Text>
+          {formatMetricValue(peakSessions, "#0ba09a")}
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Average</Text>
-          <Text className={classes.metricValue} style={{ color: "#2c3e50" }}>
-            {averageSessions.toLocaleString()}
-          </Text>
+          {formatMetricValue(averageSessions, "#2c3e50")}
         </div>
       </div>
       <div className={classes.chartContainer}>

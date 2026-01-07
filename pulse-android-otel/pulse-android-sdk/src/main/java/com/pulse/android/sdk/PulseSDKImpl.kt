@@ -25,6 +25,7 @@ import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.semconv.ExceptionAttributes
+import io.opentelemetry.semconv.incubating.AppIncubatingAttributes
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -44,6 +45,8 @@ internal class PulseSDKImpl : PulseSDK {
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
+        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (isInitialized()) {
@@ -52,7 +55,26 @@ internal class PulseSDKImpl : PulseSDK {
         this.application = application
         pulseSpanProcessor = PulseSignalProcessor()
         val config = OtelRumConfig()
-        val (tracerProviderCustomizer, loggerProviderCustomizer) = createSignalsProcessors(config)
+        val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
+        val mergedTracerProviderCustomizer =
+            if (tracerProviderCustomizer != null) {
+                BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
+                    val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, app)
+                    tracerProviderCustomizer.apply(builderWithInternal, app)
+                }
+            } else {
+                internalTracerProviderCustomizer
+            }
+
+        val mergedLoggerProviderCustomizer =
+            if (loggerProviderCustomizer != null) {
+                BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
+                    val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, app)
+                    loggerProviderCustomizer.apply(builderWithInternal, app)
+                }
+            } else {
+                internalLoggerProviderCustomizer
+            }
 
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
@@ -76,6 +98,7 @@ internal class PulseSDKImpl : PulseSDK {
                     if (userSessionEmitter.userId != null) {
                         attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
                     }
+                    attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
                     if (globalAttributes != null) {
                         attributesBuilder.putAll(globalAttributes.invoke())
                     }
@@ -84,8 +107,8 @@ internal class PulseSDKImpl : PulseSDK {
                 diskBuffering = diskBuffering,
                 instrumentations = instrumentations,
                 rumConfig = config,
-                tracerProviderCustomizer = tracerProviderCustomizer,
-                loggerProviderCustomizer = loggerProviderCustomizer,
+                tracerProviderCustomizer = mergedTracerProviderCustomizer,
+                loggerProviderCustomizer = mergedLoggerProviderCustomizer,
             )
         isInitialised = true
     }
@@ -281,6 +304,10 @@ internal class PulseSDKImpl : PulseSDK {
 
     private val userSessionEmitter: PulseUserSessionEmitter by lazy {
         PulseUserSessionEmitter({ logger }, sharedPrefsData)
+    }
+
+    private val installationIdManager: PulseInstallationIdManager by lazy {
+        PulseInstallationIdManager(sharedPrefsData) { logger }
     }
 
     private var isInitialised: Boolean = false

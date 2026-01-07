@@ -203,29 +203,29 @@ public class AlertEvaluationService {
     }
 
     if (!isAppVitals && alertDetails.getScope() != null && !alertDetails.getScope().isEmpty()) {
-      QueryRequest.Filter spanTypeFilter = new QueryRequest.Filter();
-      spanTypeFilter.setField("SpanType");
+      QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
+      pulseTypeFilter.setField("PulseType");
 
       if ("SCREEN".equalsIgnoreCase(alertDetails.getScope())) {
-        spanTypeFilter.setOperator(QueryRequest.Operator.IN);
-        spanTypeFilter.setValue(List.of("screen_session", "screen_load"));
+        pulseTypeFilter.setOperator(QueryRequest.Operator.IN);
+        pulseTypeFilter.setValue(List.of("screen_session", "screen_load"));
       } else if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope())) {
-        // Network SpanTypes are like "network.200", "network.404", etc.
-        spanTypeFilter.setOperator(QueryRequest.Operator.LIKE);
-        spanTypeFilter.setValue(List.of("network.%"));
+        // Network PulseTypes are like "network.200", "network.404", etc.
+        pulseTypeFilter.setOperator(QueryRequest.Operator.LIKE);
+        pulseTypeFilter.setValue(List.of("network.%"));
       } else {
-        spanTypeFilter.setOperator(QueryRequest.Operator.IN);
-        spanTypeFilter.setValue(List.of(alertDetails.getScope()));
+        pulseTypeFilter.setOperator(QueryRequest.Operator.IN);
+        pulseTypeFilter.setValue(List.of(alertDetails.getScope()));
       }
 
-      filters.add(spanTypeFilter);
+      filters.add(pulseTypeFilter);
     }
 
     if (alertDetails.getDimensionFilter() != null && !alertDetails.getDimensionFilter().isEmpty()) {
       String dimensionFilterSql = extractSqlCondition(alertDetails.getDimensionFilter());
       if (dimensionFilterSql != null && !dimensionFilterSql.isEmpty()) {
         QueryRequest.Filter additionalFilter = new QueryRequest.Filter();
-        additionalFilter.setField(isAppVitals ? "Additional" : "SpanType");
+        additionalFilter.setField(isAppVitals ? "Additional" : "PulseType");
         additionalFilter.setOperator(QueryRequest.Operator.ADDITIONAL);
         additionalFilter.setValue(List.of(dimensionFilterSql));
         filters.add(additionalFilter);

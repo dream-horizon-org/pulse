@@ -214,4 +214,16 @@ function copyPublicFolder() {
     dereference: true,
     filter: file => file !== paths.appHtml,
   });
+  
+  // Process 404.html to substitute %PUBLIC_URL% placeholder
+  // This is needed for GitHub Pages SPA routing
+  const notFoundPath = path.join(paths.appBuild, '404.html');
+  if (fs.existsSync(notFoundPath)) {
+    let notFoundContent = fs.readFileSync(notFoundPath, 'utf8');
+    // Remove trailing slash from publicUrlOrPath for consistency
+    const publicUrl = paths.publicUrlOrPath.replace(/\/$/, '');
+    notFoundContent = notFoundContent.replace(/%PUBLIC_URL%/g, publicUrl);
+    fs.writeFileSync(notFoundPath, notFoundContent);
+    console.log(chalk.green('Processed 404.html with PUBLIC_URL: ' + (publicUrl || '(empty)')));
+  }
 }

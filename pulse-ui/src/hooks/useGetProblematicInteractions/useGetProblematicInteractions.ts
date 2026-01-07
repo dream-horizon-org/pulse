@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { useGetDataQuery, DataQueryRequestBody, FilterField } from "../useGetDataQuery";
-import { COLUMN_NAME, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetProblematicInteractionsParams,
   UseGetProblematicInteractionsReturn,
   EventTypeFilter,
   ProblematicInteractionData,
+  InteractionEventType,
 } from "./useGetProblematicInteractions.interface";
 import { EVENT_TYPE, FILTER_MAPPING } from "../hooks.interface";
 
@@ -21,7 +22,7 @@ export const useGetProblematicInteractions = ({
 
   const requestFilters: FilterField[] = useMemo(() => {
     const baseFilters: FilterField[] = [
-      { field: "SpanType", operator: "EQ", value: [SpanType.INTERACTION] },
+      { field: "PulseType", operator: "EQ", value: [PulseType.INTERACTION] },
     ];
 
     if (interactionName) {
@@ -38,24 +39,50 @@ export const useGetProblematicInteractions = ({
 
     // Event type filters
     if (eventTypeFilters.length > 0) {
-      const eventTypeMap: Record<EventTypeFilter, string> = {
+      // Separate event-based filters from StatusCode-based filters
+      const eventBasedFilters: string[] = [];
+      const statusCodeFilters: string[] = [];
+
+      const eventTypeMap: Partial<Record<EventTypeFilter, string>> = {
         crash: `has(Events.Name, '${EVENT_TYPE.CRASH}')`,
         anr: `has(Events.Name, '${EVENT_TYPE.ANR}')`,
-        networkError: `has(Events.Name, '${EVENT_TYPE.NETWORK_ERROR}')`,
         frozenFrame: `has(Events.Name, '${EVENT_TYPE.FROZEN_FRAME}')`,
         nonFatal: `has(Events.Name, '${EVENT_TYPE.NON_FATAL}')`,
       };
 
-      const eventFilter = eventTypeFilters
-        .map((type) => eventTypeMap[type])
-        .filter(Boolean)
-        .join(" + ");
+      eventTypeFilters.forEach((type) => {
+        if (type === "error") {
+          // Error interactions: StatusCode = 'Error'
+          statusCodeFilters.push("StatusCode = 'Error'");
+        } else if (type === "completed") {
+          // Completed interactions: StatusCode != 'Error'
+          statusCodeFilters.push("StatusCode != 'Error'");
+        } else if (eventTypeMap[type]) {
+          eventBasedFilters.push(eventTypeMap[type]!);
+        }
+      });
 
-      if (eventFilter) {
+      // Combine all filter conditions with OR logic
+      const allConditions: string[] = [];
+
+      if (eventBasedFilters.length > 0) {
+        allConditions.push(`(${eventBasedFilters.join(" + ")}) > 0`);
+      }
+
+      if (statusCodeFilters.length > 0) {
+        // If both error and completed are selected, combine with OR
+        allConditions.push(`(${statusCodeFilters.join(" OR ")})`);
+      }
+
+      if (allConditions.length > 0) {
+        const combinedFilter = allConditions.length === 1 
+          ? allConditions[0] 
+          : `(${allConditions.join(" OR ")})`;
+        
         baseFilters.push({
           field: "",
           operator: "ADDITIONAL",
-          value: [`(${eventFilter}) > 0`],
+          value: [combinedFilter],
         });
       }
     }
@@ -169,6 +196,11 @@ export const useGetProblematicInteractions = ({
           function: "COL",
           param: { field: `SpanAttributes['${COLUMN_NAME.IS_ERROR}']` },
           alias: "is_error",
+        },
+        {
+          function: "COL",
+          param: { field: "StatusCode" },
+          alias: "status_code",
         }
       ],
       filters: requestFilters,
@@ -182,41 +214,46 @@ export const useGetProblematicInteractions = ({
     };
   }, [startTime, endTime, requestFilters]);
 
-  const { data, isLoading, error } = useGetDataQuery({
+  const { data, isLoading, isFetching, error } = useGetDataQuery({
     requestBody,
     enabled: enabled && !!interactionName && !!startTime && !!endTime,
   });
 
-  const getEventTypeFromEventNames = (
+  const getEventType = (
     eventNames: string | undefined | null,
-  ): ProblematicInteractionData["event_type"] => {
-    if (!eventNames || eventNames.trim() === "") {
-      return "completed";
+    statusCode: string | undefined | null,
+  ): InteractionEventType => {
+    // First check for specific event types from Events.Name
+    if (eventNames && eventNames.trim() !== "") {
+      const events = eventNames
+        .split(",")
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+
+      for (const event of events) {
+        const eventLower = event.toLowerCase();
+
+        if (eventLower === "device.crash") {
+          return "crash";
+        }
+
+        if (eventLower === "device.anr") {
+          return "anr";
+        }
+
+        if (eventLower === "non_fatal") {
+          return "nonFatal";
+        }
+
+        if (eventLower === "app.jank.frozen") {
+          return "frozenFrame";
+        }
+      }
     }
 
-    const events = eventNames
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e.length > 0);
-
-    for (const event of events) {
-      const eventLower = event.toLowerCase();
-
-      if (eventLower === "device.crash") {
-        return "crash";
-      }
-
-      if (eventLower === "device.anr") {
-        return "anr";
-      }
-
-      if (eventLower === "non_fatal") {
-        return "nonFatal";
-      }
-
-      if (eventLower === "app.jank.frozen") {
-        return "frozenFrame";
-      }
+    // Determine based on StatusCode
+    if (statusCode === "Error") {
+      return "error";
     }
 
     return "completed";
@@ -237,6 +274,7 @@ export const useGetProblematicInteractions = ({
     const userIdIndex = fields.indexOf("userid");
     const osVersionIndex = fields.indexOf("os_version");
     const interactionTimestampIndex = fields.indexOf("interaction_timestamp");
+    const statusCodeIndex = fields.indexOf("status_code");
 
     const transformedInteractions: ProblematicInteractionData[] = [];
 
@@ -249,6 +287,7 @@ export const useGetProblematicInteractions = ({
       const osVersion = String(row[osVersionIndex] || "unknown");
       const timestamp = String(row[interactionTimestampIndex] || "");
       const sessionId = String(row[sessionIdIndex] || "");
+      const statusCode = String(row[statusCodeIndex] || "");
 
       if (!traceId) return;
 
@@ -263,7 +302,7 @@ export const useGetProblematicInteractions = ({
         duration_ms: durationMs,
         event_count: 0,
         screen_count: 0,
-        event_type: getEventTypeFromEventNames(eventNames),
+        event_type: getEventType(eventNames, statusCode),
         event_names: eventNames,
         interaction_name: interactionName,
         screens_visited: "",
@@ -273,9 +312,12 @@ export const useGetProblematicInteractions = ({
     return transformedInteractions;
   }, [data, interactionName]);
 
+  // Return empty interactions while fetching to prevent showing stale data
+  const finalInteractions = isFetching ? [] : interactions;
+
   return {
-    interactions,
-    isLoading,
+    interactions: finalInteractions,
+    isLoading: isLoading || isFetching,
     isError: !!error || !!data?.error,
     error: error || data?.error || null,
   };

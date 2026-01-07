@@ -1,12 +1,10 @@
 import { Box, Flex, Text } from "@mantine/core";
 import GeographicHeatmap from "../components/GeographicHeatmap";
-import { LoaderWithMessage } from "../../../../../../../components/LoaderWithMessage";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
+import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
 import {
   ANALYSIS_ERROR_MESSAGES,
-  ANALYSIS_LOADING_MESSAGES,
 } from "../Analysis.constants";
-import commonStyles from "../../../common.module.css";
 import { AnalysisSectionProps } from "../Analysis.interface";
 import { useGetRegionalInsights } from "../hooks/useGetRegionalInsights";
 
@@ -44,12 +42,7 @@ export const RegionalInsightsSection: React.FC<AnalysisSectionProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <LoaderWithMessage
-        className={commonStyles.centeredContainer}
-        loadingMessage={ANALYSIS_LOADING_MESSAGES.REGIONAL_INSIGHTS}
-      />
-    );
+    return <AnalysisSectionSkeleton chartCount={2} layout="horizontal" chartHeight={300} />;
   }
 
   const hasData =
