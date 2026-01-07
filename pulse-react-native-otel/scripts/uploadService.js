@@ -13,7 +13,7 @@ function buildMetadata(files, appVersion, versionCode, platform, bundleId) {
     versionCode: versionCode,
     platform: platform,
     fileName: file.fileName,
-    bundleid: bundleId || null,
+    bundleId: bundleId || null,
   }));
   return metadata;
 }
