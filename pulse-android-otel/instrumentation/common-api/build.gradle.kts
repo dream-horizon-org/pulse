@@ -14,7 +14,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":common"))
+    implementation(projects.common)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
