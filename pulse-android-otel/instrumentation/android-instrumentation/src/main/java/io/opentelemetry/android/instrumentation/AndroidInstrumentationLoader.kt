@@ -20,6 +20,14 @@ interface AndroidInstrumentationLoader {
     fun <T : AndroidInstrumentation> getByType(type: Class<out T>): T?
 
     /**
+     * Provides a single instrumentation if available.
+     *
+     * @param name The name of the instrumentation to retrieve.
+     * @return The instrumentation instance if available, null otherwise.
+     */
+    fun <T : AndroidInstrumentation> getByName(name: String): T?
+
+    /**
      * Provides all registered instrumentations.
      *
      * @return All registered instrumentations.

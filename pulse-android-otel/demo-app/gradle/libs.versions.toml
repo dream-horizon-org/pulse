@@ -20,7 +20,7 @@ pulse-instrumentation-fragment = { module = "org.dreamhorizon.instrumentation:fr
 pulse-instrumentation-slowrendering = { module = "org.dreamhorizon.instrumentation:slowrendering", version.ref = "pulse" }
 pulse-instrumentation-view-click = { module = "org.dreamhorizon.instrumentation:view-click", version.ref = "pulse" }
 pulse-instrumentation-sessions = { module = "org.dreamhorizon:session", version.ref = "pulse" }
-pulse-instrumentation-location = { module = "org.dreamhorizon.instrumentation:location" }
+pulse-instrumentation-locationLibrary = { module = "org.dreamhorizon.instrumentation:location-library" }
 pulse-android-sdk = { module = "org.dreamhorizon:pulse-android-sdk", version.ref = "pulse" }
 gson = "com.google.code.gson:gson:2.13.2"
 

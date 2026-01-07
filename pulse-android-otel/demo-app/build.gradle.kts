@@ -33,8 +33,8 @@ android {
         all {
             val accessToken = localProperties["rum.access.token"] as String?
             resValue("string", "rum_access_token", accessToken ?: "fakebroken")
-            manifestPlaceholders.put("appName", "OpenTelemetry Android Demo")
-            manifestPlaceholders.put("appNameSuffix", "default")
+            manifestPlaceholders["appName"] = "OpenTelemetry Android Demo"
+            manifestPlaceholders["appNameSuffix"] = "default"
         }
         release {
             isMinifyEnabled = true
@@ -87,7 +87,7 @@ dependencies {
     implementation(libs.pulse.instrumentation.fragment)
     implementation(libs.pulse.instrumentation.view.click)
     implementation(libs.pulse.instrumentation.slowrendering)
-    implementation(libs.pulse.instrumentation.location)
+    implementation(libs.pulse.instrumentation.locationLibrary)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

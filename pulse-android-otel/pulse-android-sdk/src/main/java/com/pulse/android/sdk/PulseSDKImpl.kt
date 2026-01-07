@@ -23,9 +23,13 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.config.OtelRumConfig
+import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
+import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
+import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
+import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
 import io.opentelemetry.android.instrumentation.location.LocationInstrumentation
 import io.opentelemetry.android.instrumentation.location.LocationProvider
 import io.opentelemetry.api.common.AttributeKey
@@ -261,7 +265,14 @@ internal class PulseSDKImpl :
     ): Pair<
         BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>,
         BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>,
+        // @formatter:off
     > {
+        // @formatter:on
+        val shouldAddLocationProcessor =
+            AndroidInstrumentationLoader
+                .get()
+                .getByName<AndroidInstrumentation>(LocationInstrumentationConstants.INSTRUMENTATION_NAME) != null &&
+                !config.isSuppressed(LocationInstrumentationConstants.INSTRUMENTATION_NAME)
         val tracerProviderCustomizer =
             BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
                 tracerProviderBuilder.addSpanProcessor(
@@ -279,17 +290,14 @@ internal class PulseSDKImpl :
                     )
                 }
                 // location attributes
-                if (!config.isSuppressed(LocationInstrumentation.INSTRUMENTATION_NAME)) {
-                    val locationProvider =
-                        LocationProvider(
-                            app,
-                            app.getSharedPreferences(
-                                PrefsName.LOCATION_PREF_FILE_NAME,
-                                Context.MODE_PRIVATE,
-                            ),
+                if (shouldAddLocationProcessor) {
+                    val sharedPreferences =
+                        app.getSharedPreferences(
+                            PrefsName.LOCATION_PREF_FILE_NAME,
+                            Context.MODE_PRIVATE,
                         )
                     tracerProviderBuilder.addSpanProcessor(
-                        LocationInstrumentation.createSpanProcessor(locationProvider),
+                        LocationAttributesSpanAppender.create(sharedPreferences),
                     )
                 }
                 tracerProviderBuilder
@@ -311,17 +319,14 @@ internal class PulseSDKImpl :
                     )
                 }
                 // location attributes
-                if (!config.isSuppressed(LocationInstrumentation.INSTRUMENTATION_NAME)) {
-                    val locationProvider =
-                        LocationProvider(
-                            app,
-                            app.getSharedPreferences(
-                                PrefsName.LOCATION_PREF_FILE_NAME,
-                                Context.MODE_PRIVATE,
-                            ),
+                if (shouldAddLocationProcessor) {
+                    val sharedPreferences =
+                        app.getSharedPreferences(
+                            PrefsName.LOCATION_PREF_FILE_NAME,
+                            Context.MODE_PRIVATE,
                         )
                     loggerProviderBuilder.addLogRecordProcessor(
-                        LocationInstrumentation.createLogProcessor(locationProvider),
+                        LocationAttributesLogRecordAppender.create(sharedPreferences),
                     )
                 }
                 loggerProviderBuilder

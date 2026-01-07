@@ -8,6 +8,10 @@ description = "Internal module for Pulse utils for mobile observability"
 
 android {
     namespace = "com.pulse.utils"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 kotlin {
