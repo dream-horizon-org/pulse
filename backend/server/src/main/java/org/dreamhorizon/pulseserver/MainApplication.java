@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
-import org.dreamhorizon.pulseserver.module.AthenaModule;
+import org.dreamhorizon.pulseserver.module.QueryEngineModule;
 import org.dreamhorizon.pulseserver.module.ConfigModule;
 import org.dreamhorizon.pulseserver.module.InteractionModule;
 import org.dreamhorizon.pulseserver.module.UploadInteractionDetailModule;
@@ -65,7 +65,7 @@ public class MainApplication extends Launcher {
         new ValidationModule(),
         new UploadInteractionDetailModule(vertx),
         new InteractionModule(),
-        new AthenaModule()
+        new QueryEngineModule()
     };
   }
 }

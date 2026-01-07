@@ -44,4 +44,10 @@ public final class Constants {
   public static final int MAX_QUERY_RESULTS = 1000;
   public static final int MIN_QUERY_RESULTS = 1;
   public static final int ATHENA_WAIT_COMPLETION_DELAY_MS = 2000;
+
+  // Query Engine Configuration
+  public static final String QUERY_ENGINE_ENV_VAR = "CONFIG_SERVICE_APPLICATION_QUERY_ENGINE";
+  public static final String DEFAULT_QUERY_ENGINE = "athena";
+  public static final String ATHENA_ENGINE = "athena";
+  public static final String GCP_ENGINE = "gcp";
 }
