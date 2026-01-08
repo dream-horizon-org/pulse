@@ -495,8 +495,8 @@ Content-Type: application/json
     "end": "2025-12-12T23:59:59.999Z"
   },
   "select": [
-    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(UserId, EventName = 'device.crash')" }, "alias": "crash_users" },
-    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(SessionId, EventName = 'device.crash')" }, "alias": "crash_sessions" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(UserId, PulseType = 'device.crash')" }, "alias": "crash_users" },
+    { "function": "CUSTOM", "param": { "expression": "uniqCombinedIf(SessionId, PulseType = 'device.crash')" }, "alias": "crash_sessions" },
     { "function": "CUSTOM", "param": { "expression": "uniqCombined(UserId)" }, "alias": "all_users" },
     { "function": "CUSTOM", "param": { "expression": "uniqCombined(SessionId)" }, "alias": "all_sessions" },
     { "function": "CRASH_FREE_USERS_PERCENTAGE", "alias": "crash_free_users_percentage" },
@@ -599,7 +599,7 @@ Content-Type: application/json
     "end": "2025-12-12T23:59:59.999Z"
   },
   "filters": [
-    { "field": "EventName", "operator": "EQ", "value": ["non_fatal"] }
+    { "field": "PulseType", "operator": "EQ", "value": ["non_fatal"] }
   ],
   "select": [
     { "function": "NON_FATAL_USERS", "alias": "non_fatal_users" },

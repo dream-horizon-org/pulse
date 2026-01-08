@@ -18,10 +18,10 @@ android {
 }
 
 dependencies {
-    api(project(":instrumentation:android-instrumentation"))
-    implementation(project(":services"))
-    implementation(project(":instrumentation:common-api"))
-    implementation(project(":common"))
+    api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.services)
+    implementation(projects.instrumentation.commonApi)
+    implementation(projects.common)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.api)
     implementation(libs.androidx.core)

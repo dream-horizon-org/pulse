@@ -184,3 +184,12 @@
     background: rgba(14, 201, 194, 0.08);
   }
 }
+
+/* Skeleton loading styles */
+.tabsSkeleton {
+  display: flex;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.15);
+}

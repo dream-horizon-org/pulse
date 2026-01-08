@@ -190,8 +190,28 @@ class PulseSignalProcessorTest {
         }
 
         @Test
-        fun `in log, does not set type for unknown event`() {
+        fun `in log, sets CUSTOM_EVENT type for unknown event with event name`() {
             logger.logRecordBuilder().setEventName("unknown.event").emit()
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry(PulseAttributes.PULSE_TYPE, "unknown.event")
+        }
+
+        @Test
+        fun `in log, when event name is not set then pulse type is not set`() {
+            logger.logRecordBuilder().emit()
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .doesNotContainKey(PulseAttributes.PULSE_TYPE)
+        }
+
+        @Test
+        fun `in log, does not set type for log without event name`() {
+            logger.logRecordBuilder().emit()
 
             assertThat(logExporter.finishedLogRecordItems).hasSize(1)
             OpenTelemetryAssertions

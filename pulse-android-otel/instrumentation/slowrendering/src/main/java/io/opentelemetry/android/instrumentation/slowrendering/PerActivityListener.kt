@@ -22,6 +22,7 @@ private val NANOS_ROUNDING_VALUE: Int = NANOS_PER_MS / 2
 @RequiresApi(api = Build.VERSION_CODES.N)
 internal class PerActivityListener(
     private val activity: Activity,
+    private val onDataAvailable: (FrameData) -> Unit,
 ) : OnFrameMetricsAvailableListener {
     private val lock = Any()
 
@@ -40,22 +41,21 @@ internal class PerActivityListener(
             return
         }
 
-        SlowRenderListener.totalDroppedFrames += dropCountSinceLastInvocation
-        SlowRenderListener.totalUndroppedFrames++
-
         val drawDurationsNs = frameMetrics.getMetric(FrameMetrics.DRAW_DURATION)
         // ignore values < 0; something must have gone wrong
         if (drawDurationsNs >= 0) {
             synchronized(lock) {
                 // calculation copied from FrameMetricsAggregator
                 val durationMs = ((drawDurationsNs + NANOS_ROUNDING_VALUE) / NANOS_PER_MS).toInt()
+                var frameType: Byte = FrameData.NORMAL
                 if (durationMs > FROZEN_THRESHOLD_MS) {
-                    SlowRenderListener.frozenFrames++
+                    frameType = FrameData.FROZEN
                 } else if (durationMs > SLOW_THRESHOLD_MS) {
-                    SlowRenderListener.slowFrames++
+                    frameType = FrameData.SLOW
                 }
                 val oldValue: Int = drawDurationHistogram.getOrDefault(durationMs, 0)
                 drawDurationHistogram[durationMs] = oldValue + 1
+                onDataAvailable(FrameData(dropCountSinceLastInvocation, frameType))
             }
         }
     }
@@ -65,6 +65,17 @@ internal class PerActivityListener(
             val metrics = HashMap(drawDurationHistogram)
             drawDurationHistogram.clear()
             return metrics
+        }
+    }
+
+    internal data class FrameData(
+        val unanalysedFrameSinceLastCall: Int,
+        val type: Byte,
+    ) {
+        companion object Companion {
+            internal const val FROZEN: Byte = 0
+            internal const val SLOW: Byte = 1
+            internal const val NORMAL: Byte = 2
         }
     }
 }

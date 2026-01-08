@@ -1,7 +1,8 @@
 import { Text } from "@mantine/core";
 import { LineChart, createTooltipFormatter } from "../../../components/Charts";
-import { GraphSkeleton } from "../../../components/GraphSkeleton";
+import { GraphCardSkeleton } from "../../../components/Skeletons";
 import { ErrorAndEmptyState } from "../../../components/ErrorAndEmptyState";
+import { formatDuration, formatDurationCompact } from "../../../utils";
 import classes from "./EngagementGraph.module.css";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -15,8 +16,8 @@ interface TimeSpentTrendData {
 }
 
 interface TimeSpentGraphProps {
-  avgTimeSpent: number;
-  avgLoadTime: number;
+  avgTimeSpent: number | null;
+  avgLoadTime: number | null;
   trendData: TimeSpentTrendData[];
   isLoading?: boolean;
   error?: Error | null;
@@ -30,7 +31,7 @@ export function TimeSpentGraph({
   error = null,
 }: TimeSpentGraphProps) {
   if (isLoading) {
-    return <GraphSkeleton title="Average Time Spent" height={240} />;
+    return <GraphCardSkeleton title="Average Time Spent" chartHeight={240} metricsCount={2} />;
   }
 
 
@@ -61,14 +62,14 @@ export function TimeSpentGraph({
       <div className={classes.metricsGrid}>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Time Spent</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ec9c2" }}>
-            {avgTimeSpent.toFixed(1)}s
+          <Text className={classes.metricValue} style={{ color: avgTimeSpent !== null ? "#0ec9c2" : "var(--mantine-color-dimmed)" }}>
+            {avgTimeSpent !== null ? formatDuration(avgTimeSpent) : "N/A"}
           </Text>
         </div>
         <div className={classes.metricCard}>
           <Text className={classes.metricLabel}>Avg Load Time</Text>
-          <Text className={classes.metricValue} style={{ color: "#0ba09a" }}>
-            {avgLoadTime >= 1 ? `${avgLoadTime.toFixed(1)}s` : `${(avgLoadTime * 1000).toFixed(0)}ms`}
+          <Text className={classes.metricValue} style={{ color: avgLoadTime !== null ? "#0ba09a" : "var(--mantine-color-dimmed)" }}>
+            {avgLoadTime !== null ? formatDuration(avgLoadTime) : "N/A"}
           </Text>
         </div>
       </div>
@@ -83,7 +84,15 @@ export function TimeSpentGraph({
               formatter: createTooltipFormatter({
                 valueFormatter: (value: any) => {
                   const numericValue = Array.isArray(value) ? value[1] : value;
-                  return `${parseFloat(numericValue).toFixed(1)}s`;
+                  const parsed = parseFloat(numericValue);
+
+                  // Handle zero or very small values
+                  if (parsed === 0 || isNaN(parsed)) {
+                    return "N/A";
+                  }
+
+                  // Use human-readable format for all duration values
+                  return formatDuration(parsed);
                 },
                 customHeaderFormatter: (axisValue: any) => {
                   if (axisValue && typeof axisValue === "number") {
@@ -106,12 +115,12 @@ export function TimeSpentGraph({
             },
             yAxis: {
               type: "value",
-              name: "Seconds",
+              name: "Duration",
               nameGap: 40,
               nameTextStyle: { fontSize: 11 },
               axisLabel: {
                 fontSize: 10,
-                formatter: (value: number) => `${value}s`,
+                formatter: (value: number) => formatDurationCompact(value),
               },
             },
             series: [

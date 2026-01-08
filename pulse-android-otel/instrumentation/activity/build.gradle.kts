@@ -11,16 +11,22 @@ android {
     defaultConfig {
         consumerProguardFiles("consumer-rules.pro")
     }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.api)
-    api(project(":instrumentation:common-api"))
-    api(project(":instrumentation:android-instrumentation"))
-    implementation(project(":services"))
-    implementation(project(":session"))
-    implementation(project(":common"))
+    api(projects.instrumentation.commonApi)
+    api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.services)
+    implementation(projects.session)
+    implementation(projects.common)
     implementation(libs.opentelemetry.sdk)
     implementation(libs.androidx.core)
     implementation(libs.opentelemetry.instrumentation.api)

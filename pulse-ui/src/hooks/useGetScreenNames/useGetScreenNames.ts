@@ -1,4 +1,4 @@
-import { SpanType } from "../../constants/PulseOtelSemcov";
+import { PulseType } from "../../constants/PulseOtelSemcov";
 import { OperatorType, useGetDataQuery } from "../useGetDataQuery";
 import { useMemo } from "react";
 
@@ -32,16 +32,16 @@ export const useGetScreenNames = ({
       // Add filter with search string
       // The API may support text search even without explicit LIKE operator
       filters.push({
-        field: `SpanAttributes['${SpanType.SCREEN_NAME}']`,
+        field: `SpanAttributes['${PulseType.SCREEN_NAME}']`,
         operator: "LIKE" as const,
         // Send search string - API might handle partial matching
         // If not, we filter client-side in the screenNames useMemo
-        value: `${searchStr.trim()}`,
+        value: [`%${searchStr.trim()}%`],
       });
     }
 
     filters.push({
-      field: "SpanType",
+      field: "PulseType",
       operator: "IN" as const,
       value: ["screen_session", "screen_load"],
     });
@@ -51,7 +51,7 @@ export const useGetScreenNames = ({
     const selectFields = [
       {
         function: "COL" as const,
-        param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+        param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
         alias: "screen_name",
       },
       {

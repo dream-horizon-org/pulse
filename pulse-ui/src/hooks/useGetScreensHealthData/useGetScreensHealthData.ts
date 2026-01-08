@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useGetDataQuery } from "../useGetDataQuery";
-import { COLUMN_NAME, STATUS_CODE, SpanType } from "../../constants/PulseOtelSemcov";
+import { COLUMN_NAME, STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
 import {
   UseGetScreensHealthDataProps,
   ScreenHealthData,
@@ -27,34 +27,34 @@ export function  useGetScreensHealthData({
       select: [
         {
           function: "COL",
-          param: { field: `SpanAttributes['${SpanType.SCREEN_NAME}']` },
+          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
           alias: "screen_name",
         },
         {
           function: "CUSTOM",
             param: {
-            expression: `countIf(SpanType = '${SpanType.SCREEN_SESSION}')`,
+            expression: `countIf(PulseType = '${PulseType.SCREEN_SESSION}')`,
           },
           alias: "session_count",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: `countIf(SpanType = '${SpanType.SCREEN_LOAD}')`,
+            expression: `countIf(PulseType = '${PulseType.SCREEN_LOAD}')`,
           },
           alias: "load_count",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: `sumIf(Duration,SpanType = '${SpanType.SCREEN_SESSION}')`,
+            expression: `sumIf(Duration,PulseType = '${PulseType.SCREEN_SESSION}')`,
           },
           alias: "total_time_spent",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: `sumIf(Duration,SpanType = '${SpanType.SCREEN_LOAD}')`,
+            expression: `sumIf(Duration,PulseType = '${PulseType.SCREEN_LOAD}')`,
           },
           alias: "total_load_time",
         },
@@ -75,9 +75,9 @@ export function  useGetScreensHealthData({
       orderBy: [{field: "load_count", direction: "DESC" }, { field: "session_count", direction: "DESC" }],
       filters: [
         {
-          field: "SpanType",
+          field: "PulseType",
           operator: "IN",
-          value: [SpanType.SCREEN_SESSION, SpanType.SCREEN_LOAD],
+          value: [PulseType.SCREEN_SESSION, PulseType.SCREEN_LOAD],
         },
       ],
       limit,

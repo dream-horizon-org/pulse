@@ -19,9 +19,9 @@ android {
 }
 
 dependencies {
-    api(project(":instrumentation:android-instrumentation"))
-    implementation(project(":services"))
-    implementation(project(":common"))
+    api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.services)
+    implementation(projects.common)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.api)
     implementation(libs.androidx.core)
@@ -29,8 +29,8 @@ dependencies {
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.sdk.extension.incubator)
     implementation(libs.opentelemetry.instrumentation.api)
-    testImplementation(project(":test-common"))
-    testImplementation(project(":session"))
+    testImplementation(projects.testCommon)
+    testImplementation(projects.session)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
 }

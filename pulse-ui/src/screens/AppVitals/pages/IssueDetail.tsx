@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Text, Button, Paper, Loader } from "@mantine/core";
+import { Box, Text, Button, Paper, Group } from "@mantine/core";
 import { IconArrowLeft } from "@tabler/icons-react";
 import {
   IssueDetailsCard,
@@ -14,6 +14,7 @@ import {
   useIssueScreenBreakdown,
   useIssueTrendData,
 } from "./hooks";
+import { SkeletonLoader, ChartSkeleton } from "../../../components/Skeletons";
 import dayjs from "dayjs";
 import classes from "./IssueDetail.module.css";
 
@@ -94,15 +95,66 @@ export const IssueDetail: React.FC = () => {
   });
 
 
-  // Loading state
+  // Loading state - show skeleton layout matching actual content
   if (issueQueryState.isLoading) {
     return (
       <Box className={classes.pageContainer}>
-        <Paper className={classes.notFoundCard}>
-          <Loader size="md" />
-          <Text className={classes.notFoundText} mt="md">
-            Loading issue details...
-          </Text>
+        {/* Back Button Skeleton */}
+        <SkeletonLoader height={32} width={160} radius="md" className={classes.backButton} />
+
+        {/* Issue Details Card Skeleton */}
+        <Paper className={classes.issueCardSkeleton}>
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <Group gap="md" align="center" style={{ flex: 1 }}>
+              <SkeletonLoader height={20} width={20} radius="sm" />
+              <SkeletonLoader height={24} width={60} radius="md" />
+              <SkeletonLoader height={18} width="40%" radius="sm" />
+            </Group>
+            <Group gap="xl">
+              <SkeletonLoader height={20} width={100} radius="sm" />
+              <SkeletonLoader height={20} width={80} radius="sm" />
+              <SkeletonLoader height={20} width={100} radius="sm" />
+            </Group>
+          </Group>
+        </Paper>
+
+        {/* Occurrence Section Skeleton */}
+        <Paper className={classes.sectionSkeleton}>
+          <SkeletonLoader height={18} width={100} radius="sm" />
+          <Box mt="md">
+            <SkeletonLoader height={36} width={320} radius="md" />
+          </Box>
+          <Box mt="md">
+            <ChartSkeleton height={280} />
+          </Box>
+        </Paper>
+
+        {/* Stack Trace Section Skeleton */}
+        <Paper className={classes.sectionSkeleton}>
+          <Group justify="space-between" align="center" mb="md">
+            <SkeletonLoader height={18} width={100} radius="sm" />
+            <Group gap="sm">
+              <SkeletonLoader height={28} width={28} radius="sm" />
+              <SkeletonLoader height={16} width={140} radius="sm" />
+              <SkeletonLoader height={28} width={28} radius="sm" />
+            </Group>
+          </Group>
+          <Paper className={classes.traceHeaderSkeleton}>
+            <Group gap="lg">
+              <SkeletonLoader height={14} width={120} radius="sm" />
+              <SkeletonLoader height={14} width={100} radius="sm" />
+              <SkeletonLoader height={14} width={80} radius="sm" />
+            </Group>
+            <SkeletonLoader height={24} width={100} radius="md" />
+          </Paper>
+          <Box className={classes.traceContentSkeleton}>
+            <SkeletonLoader height={12} width="90%" radius="xs" />
+            <SkeletonLoader height={12} width="85%" radius="xs" />
+            <SkeletonLoader height={12} width="70%" radius="xs" />
+            <SkeletonLoader height={12} width="95%" radius="xs" />
+            <SkeletonLoader height={12} width="60%" radius="xs" />
+            <SkeletonLoader height={12} width="80%" radius="xs" />
+          </Box>
         </Paper>
       </Box>
     );
@@ -166,7 +218,7 @@ export const IssueDetail: React.FC = () => {
       </Button>
 
       {/* Issue Details */}
-      <IssueDetailsCard issue={issue} issueType={issueType} />
+      <IssueDetailsCard issue={issue} issueType={issueType} groupId={groupId || ""}/>
 
       {/* Occurrence Section */}
       <OccurrenceSection

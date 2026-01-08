@@ -11,11 +11,13 @@ import classes from "./IssueDetailsCard.module.css";
 interface IssueDetailsCardProps {
   issue: any;
   issueType: string;
+  groupId: string;
 }
 
 export const IssueDetailsCard: React.FC<IssueDetailsCardProps> = ({
   issue,
   issueType,
+  groupId,
 }) => {
   const getIssueIcon = () => {
     switch (issueType.toLowerCase()) {
@@ -58,7 +60,7 @@ export const IssueDetailsCard: React.FC<IssueDetailsCardProps> = ({
             </Badge>
           )}
           <Text className={classes.errorMessage}>
-            {issue.errorMessage || issue.anrMessage || issue.message}
+            {issue.errorMessage || issue.anrMessage || issue.message || groupId}
           </Text>
         </Group>
 

@@ -23,7 +23,7 @@ export interface ProblematicInteractionData {
 }
 
 export interface FiltersState {
-  eventTypes: ("crash" | "anr" | "networkError" | "frozenFrame" | "nonFatal")[];
+  eventTypes: ("crash" | "anr" | "frozenFrame" | "nonFatal" | "error" | "completed")[];
   device: "all" | "ios" | "android";
   timeRange: "all" | "24h" | "7d";
 }

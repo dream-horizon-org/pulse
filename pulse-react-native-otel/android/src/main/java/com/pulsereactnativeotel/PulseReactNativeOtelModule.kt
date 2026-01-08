@@ -20,6 +20,11 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
     return PulseSDK.INSTANCE.isInitialized()
   }
 
+  override fun setCurrentScreenName(screenName: String): Boolean {
+    ReactNativeScreenNameTracker.setCurrentScreenName(screenName)
+    return true
+  }
+
   override fun trackEvent(event: String, observedTimeMs: Double, properties: ReadableMap?): Boolean {
     PulseReactNativeOtelLogger.trackEvent(event, observedTimeMs.toLong(), properties)
     return true
