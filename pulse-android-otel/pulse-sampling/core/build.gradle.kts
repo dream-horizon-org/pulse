@@ -17,7 +17,7 @@ kotlin {
 
 dependencies {
     implementation(platform(libs.opentelemetry.platform.alpha))
-    implementation(projects.testCommon)
+    implementation(projects.core)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
     implementation(projects.pulseSamplingRemote)
