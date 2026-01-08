@@ -522,6 +522,7 @@ class ErrorGroupingServiceTest {
       EventMeta meta = EventMeta.builder()
           .appVersion("1.0.0")
           .platform("android")
+          .bundleId("com.example.app")
           .build();
 
       // Mock symbolication responses
@@ -549,6 +550,7 @@ class ErrorGroupingServiceTest {
       EventMeta meta = EventMeta.builder()
           .appVersion("1.0.0")
           .platform("android")
+          .bundleId("com.example.android.app")
           .build();
 
       when(symbolicator.retrace(anyList(), eq(meta)))
@@ -573,6 +575,7 @@ class ErrorGroupingServiceTest {
       EventMeta meta = EventMeta.builder()
           .appVersion("1.0.0")
           .platform("android")
+          .bundleId(null)
           .build();
 
       lenient().when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
@@ -626,6 +629,10 @@ class ErrorGroupingServiceTest {
               .setKey("os.name")
               .setValue(AnyValue.newBuilder().setStringValue("android").build())
               .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("bundle_id")
+              .setValue(AnyValue.newBuilder().setStringValue("com.example.app").build())
+              .build())
           .build();
 
       ScopeLogs scopeLogs = ScopeLogs.newBuilder()
@@ -656,6 +663,7 @@ class ErrorGroupingServiceTest {
       assertEquals("1.0.0", event.getAppVersion());
       assertEquals("100", event.getAppVersionCode());
       assertEquals("android", event.getPlatform());
+      assertEquals("com.example.app", event.getBundleId());
       assertEquals("Test error", event.getExceptionMessage());
       assertEquals("Error", event.getExceptionType());
       assertNotNull(event.getExceptionStackTrace());
