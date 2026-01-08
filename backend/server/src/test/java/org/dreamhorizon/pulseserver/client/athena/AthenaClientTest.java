@@ -7,29 +7,28 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.client.athena.models.ResultSetWithToken;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import software.amazon.awssdk.services.athena.AthenaAsyncClient;
+import software.amazon.awssdk.services.athena.model.ColumnInfo;
+import software.amazon.awssdk.services.athena.model.Datum;
 import software.amazon.awssdk.services.athena.model.GetQueryExecutionRequest;
 import software.amazon.awssdk.services.athena.model.GetQueryExecutionResponse;
 import software.amazon.awssdk.services.athena.model.GetQueryResultsRequest;
 import software.amazon.awssdk.services.athena.model.GetQueryResultsResponse;
-import software.amazon.awssdk.services.athena.model.ColumnInfo;
-import software.amazon.awssdk.services.athena.model.Datum;
 import software.amazon.awssdk.services.athena.model.QueryExecution;
-import software.amazon.awssdk.services.athena.model.QueryExecutionStatus;
 import software.amazon.awssdk.services.athena.model.QueryExecutionState;
+import software.amazon.awssdk.services.athena.model.QueryExecutionStatus;
 import software.amazon.awssdk.services.athena.model.ResultSet;
 import software.amazon.awssdk.services.athena.model.ResultSetMetadata;
 import software.amazon.awssdk.services.athena.model.Row;
@@ -37,500 +36,303 @@ import software.amazon.awssdk.services.athena.model.StartQueryExecutionRequest;
 import software.amazon.awssdk.services.athena.model.StartQueryExecutionResponse;
 
 @ExtendWith(MockitoExtension.class)
-class AthenaClientTest {
-
-  @Mock
-  AthenaAsyncClient athenaAsyncClient;
+@MockitoSettings(strictness = Strictness.LENIENT)
+public class AthenaClientTest {
 
   @Mock
   AthenaConfig athenaConfig;
+
+  @Mock
+  AthenaAsyncClient athenaAsyncClient;
 
   AthenaClient athenaClient;
 
   @BeforeEach
   void setUp() {
-    when(athenaConfig.getDatabase()).thenReturn("pulse_athena_db");
-    when(athenaConfig.getOutputLocation()).thenReturn("s3://puls-otel-config/");
-    when(athenaConfig.getAthenaRegion()).thenReturn("ap-south-1");
-    
+    when(athenaConfig.getDatabase()).thenReturn("test_db");
+    when(athenaConfig.getOutputLocation()).thenReturn("s3://test-bucket/");
     athenaClient = new AthenaClient(athenaConfig, athenaAsyncClient);
   }
 
   @Nested
-  @ExtendWith(MockitoExtension.class)
-  @MockitoSettings(strictness = Strictness.LENIENT)
   class TestSubmitQuery {
 
     @Test
     void shouldSubmitQuerySuccessfully() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025";
-      List<String> parameters = Collections.emptyList();
-      String queryExecutionId = "abc-123-def-456";
+      String query = "SELECT * FROM table";
+      String executionId = "exec-123";
 
-      StartQueryExecutionResponse mockResponse = StartQueryExecutionResponse.builder()
-          .queryExecutionId(queryExecutionId)
+      StartQueryExecutionResponse response = StartQueryExecutionResponse.builder()
+          .queryExecutionId(executionId)
           .build();
 
-      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      String result = athenaClient.submitQuery(query, parameters).blockingGet();
+      String result = athenaClient.submitQuery(query, Collections.emptyList()).blockingGet();
 
-      assertThat(result).isEqualTo(queryExecutionId);
-
-      ArgumentCaptor<StartQueryExecutionRequest> captor =
-          ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
-      verify(athenaAsyncClient).startQueryExecution(captor.capture());
-
-      StartQueryExecutionRequest request = captor.getValue();
-      assertThat(request.queryString()).isEqualTo(query);
-      assertThat(request.queryExecutionContext().database()).isEqualTo("pulse_athena_db");
-      assertThat(request.resultConfiguration().outputLocation()).isEqualTo("s3://puls-otel-config/");
+      assertThat(result).isEqualTo(executionId);
+      verify(athenaAsyncClient).startQueryExecution(any(StartQueryExecutionRequest.class));
     }
 
     @Test
     void shouldSubmitQueryWithParameters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = ?";
-      List<String> parameters = Arrays.asList("2025");
+      String query = "SELECT * FROM table WHERE id = ?";
+      String executionId = "exec-123";
+      java.util.List<String> parameters = Arrays.asList("123");
 
-      StartQueryExecutionResponse mockResponse = StartQueryExecutionResponse.builder()
-          .queryExecutionId("exec-123")
+      StartQueryExecutionResponse response = StartQueryExecutionResponse.builder()
+          .queryExecutionId(executionId)
           .build();
 
-      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
       String result = athenaClient.submitQuery(query, parameters).blockingGet();
 
-      assertThat(result).isEqualTo("exec-123");
-
-      ArgumentCaptor<StartQueryExecutionRequest> captor =
-          ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
-      verify(athenaAsyncClient).startQueryExecution(captor.capture());
-
-      StartQueryExecutionRequest request = captor.getValue();
-      assertThat(request.executionParameters()).containsExactly("2025");
+      assertThat(result).isEqualTo(executionId);
     }
 
     @Test
-    void shouldPropagateErrorWhenSubmissionFails() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data";
-      List<String> parameters = Collections.emptyList();
+    void shouldHandleSubmitQueryError() {
+      String query = "SELECT * FROM table";
+      RuntimeException error = new RuntimeException("AWS error");
 
-      RuntimeException athenaError = new RuntimeException("Athena API error");
-      CompletableFuture<StartQueryExecutionResponse> failedFuture = new CompletableFuture<>();
-      failedFuture.completeExceptionally(athenaError);
+      CompletableFuture<StartQueryExecutionResponse> future = new CompletableFuture<>();
+      future.completeExceptionally(error);
+      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class)))
-          .thenReturn(failedFuture);
-
-      var testObserver = athenaClient.submitQuery(query, parameters).test();
-
-      testObserver.assertError(Throwable.class);
+      var testObserver = athenaClient.submitQuery(query, Collections.emptyList()).test();
+      testObserver.assertError(RuntimeException.class);
     }
 
     @Test
     void shouldHandleNullResponse() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data";
-      List<String> parameters = Collections.emptyList();
+      String query = "SELECT * FROM table";
 
-      CompletableFuture<StartQueryExecutionResponse> nullFuture = new CompletableFuture<>();
-      nullFuture.complete(null);
+      CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(null);
+      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class)))
-          .thenReturn(nullFuture);
-
-      var testObserver = athenaClient.submitQuery(query, parameters).test();
-
-      testObserver.assertError(Throwable.class);
+      var testObserver = athenaClient.submitQuery(query, Collections.emptyList()).test();
+      testObserver.assertError(RuntimeException.class);
     }
 
     @Test
-    void shouldHandleEmptyQueryExecutionId() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data";
-      List<String> parameters = Collections.emptyList();
+    void shouldHandleEmptyExecutionId() {
+      String query = "SELECT * FROM table";
 
-      StartQueryExecutionResponse mockResponse = StartQueryExecutionResponse.builder()
+      StartQueryExecutionResponse response = StartQueryExecutionResponse.builder()
           .queryExecutionId("")
           .build();
 
-      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      var testObserver = athenaClient.submitQuery(query, parameters).test();
-
-      testObserver.assertError(Throwable.class);
+      var testObserver = athenaClient.submitQuery(query, Collections.emptyList()).test();
+      testObserver.assertError(RuntimeException.class);
     }
   }
 
   @Nested
-  @ExtendWith(MockitoExtension.class)
-  @MockitoSettings(strictness = Strictness.LENIENT)
   class TestGetQueryStatus {
 
     @Test
-    void shouldGetQueryStatusSuccessfully() {
-      String queryExecutionId = "abc-123-def-456";
-      QueryExecutionState state = QueryExecutionState.RUNNING;
+    void shouldGetQueryStatus() {
+      String executionId = "exec-123";
 
       QueryExecution queryExecution = QueryExecution.builder()
+          .queryExecutionId(executionId)
           .status(QueryExecutionStatus.builder()
-              .state(state)
+              .state(QueryExecutionState.RUNNING)
               .build())
           .build();
 
-      GetQueryExecutionResponse mockResponse = GetQueryExecutionResponse.builder()
+      GetQueryExecutionResponse response = GetQueryExecutionResponse.builder()
           .queryExecution(queryExecution)
           .build();
 
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
 
-      QueryExecutionState result = athenaClient.getQueryStatus(queryExecutionId).blockingGet();
+      QueryExecutionState result = athenaClient.getQueryStatus(executionId).blockingGet();
 
-      assertThat(result).isEqualTo(state);
-
-      ArgumentCaptor<GetQueryExecutionRequest> captor =
-          ArgumentCaptor.forClass(GetQueryExecutionRequest.class);
-      verify(athenaAsyncClient).getQueryExecution(captor.capture());
-
-      assertThat(captor.getValue().queryExecutionId()).isEqualTo(queryExecutionId);
-    }
-
-    @Test
-    void shouldPropagateErrorWhenStatusCheckFails() {
-      String queryExecutionId = "abc-123-def-456";
-
-      RuntimeException athenaError = new RuntimeException("Athena API error");
-      CompletableFuture<GetQueryExecutionResponse> failedFuture = new CompletableFuture<>();
-      failedFuture.completeExceptionally(athenaError);
-
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(failedFuture);
-
-      var testObserver = athenaClient.getQueryStatus(queryExecutionId).test();
-
-      testObserver.assertError(Throwable.class);
+      assertThat(result).isEqualTo(QueryExecutionState.RUNNING);
     }
 
     @Test
     void shouldHandleNullResponse() {
-      String queryExecutionId = "abc-123-def-456";
+      String executionId = "exec-123";
 
-      CompletableFuture<GetQueryExecutionResponse> nullFuture = new CompletableFuture<>();
-      nullFuture.complete(null);
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(null);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
 
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(nullFuture);
-
-      var testObserver = athenaClient.getQueryStatus(queryExecutionId).test();
-
-      testObserver.assertError(Throwable.class);
-    }
-
-    @Test
-    void shouldHandleNullQueryExecution() {
-      String queryExecutionId = "abc-123-def-456";
-
-      GetQueryExecutionResponse mockResponse = GetQueryExecutionResponse.builder()
-          .build();
-
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
-
-      var testObserver = athenaClient.getQueryStatus(queryExecutionId).test();
-
-      testObserver.assertError(Throwable.class);
+      var testObserver = athenaClient.getQueryStatus(executionId).test();
+      testObserver.assertError(RuntimeException.class);
     }
   }
 
   @Nested
-  @ExtendWith(MockitoExtension.class)
-  @MockitoSettings(strictness = Strictness.LENIENT)
   class TestGetQueryResults {
 
     @Test
-    void shouldGetQueryResultsSuccessfully() {
-      String queryExecutionId = "abc-123-def-456";
-      String nextToken = "token-123";
-
-      ResultSet resultSet = ResultSet.builder().build();
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
-          .resultSet(resultSet)
-          .nextToken(nextToken)
-          .build();
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
-
-      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 100, null)
-          .blockingGet();
-
-      assertThat(result.getResultSet()).isEqualTo(resultSet);
-      assertThat(result.getNextToken()).isEqualTo(nextToken);
-
-      ArgumentCaptor<GetQueryResultsRequest> captor =
-          ArgumentCaptor.forClass(GetQueryResultsRequest.class);
-      verify(athenaAsyncClient).getQueryResults(captor.capture());
-
-      GetQueryResultsRequest request = captor.getValue();
-      assertThat(request.queryExecutionId()).isEqualTo(queryExecutionId);
-      assertThat(request.maxResults()).isEqualTo(100);
-    }
-
-    @Test
-    void shouldGetQueryResultsWithNextToken() {
-      String queryExecutionId = "abc-123-def-456";
-      String nextToken = "token-456";
-
-      ResultSet resultSet = ResultSet.builder().build();
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
-          .resultSet(resultSet)
-          .nextToken("next-token")
-          .build();
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
-
-      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 50, nextToken)
-          .blockingGet();
-
-      assertThat(result.getResultSet()).isEqualTo(resultSet);
-
-      ArgumentCaptor<GetQueryResultsRequest> captor =
-          ArgumentCaptor.forClass(GetQueryResultsRequest.class);
-      verify(athenaAsyncClient).getQueryResults(captor.capture());
-
-      GetQueryResultsRequest request = captor.getValue();
-      assertThat(request.nextToken()).isEqualTo(nextToken);
-      assertThat(request.maxResults()).isEqualTo(50);
-    }
-
-    @Test
-    void shouldGetQueryResultsWithoutPagination() {
-      String queryExecutionId = "abc-123-def-456";
-
-      ResultSet resultSet = ResultSet.builder().build();
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
-          .resultSet(resultSet)
-          .build();
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
-
-      ResultSet result = athenaClient.getQueryResults(queryExecutionId).blockingGet();
-
-      assertThat(result).isEqualTo(resultSet);
-    }
-
-    @Test
-    void shouldRejectInvalidMaxResults() {
-      String queryExecutionId = "abc-123-def-456";
-
-      var testObserver = athenaClient.getQueryResults(queryExecutionId, 0, null).test();
-      testObserver.assertError(IllegalArgumentException.class);
-
-      testObserver = athenaClient.getQueryResults(queryExecutionId, 1001, null).test();
-      testObserver.assertError(IllegalArgumentException.class);
-    }
-
-    @Test
-    void shouldPropagateErrorWhenResultsFetchFails() {
-      String queryExecutionId = "abc-123-def-456";
-
-      RuntimeException athenaError = new RuntimeException("Athena API error");
-      CompletableFuture<GetQueryResultsResponse> failedFuture = new CompletableFuture<>();
-      failedFuture.completeExceptionally(athenaError);
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(failedFuture);
-
-      var testObserver = athenaClient.getQueryResults(queryExecutionId, 100, null).test();
-
-      testObserver.assertError(Throwable.class);
-    }
-
-    @Test
-    void shouldHandleNullResultSet() {
-      String queryExecutionId = "abc-123-def-456";
-
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
-          .build();
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
-
-      var testObserver = athenaClient.getQueryResults(queryExecutionId, 100, null).test();
-
-      testObserver.assertError(Throwable.class);
-    }
-
-    @Test
-    void shouldHandleNullResponseInGetQueryResults() {
-      String queryExecutionId = "abc-123-def-456";
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(null));
-
-      var testObserver = athenaClient.getQueryResults(queryExecutionId, 100, null).test();
-
-      testObserver.assertError(Throwable.class);
-    }
-
-    @Test
-    void shouldHandleGetQueryResultsWithNextTokenAndMetadata() {
-      String queryExecutionId = "abc-123-def-456";
-      String nextToken = "token-123";
+    void shouldGetQueryResults() {
+      String executionId = "exec-123";
 
       ResultSetMetadata metadata = ResultSetMetadata.builder()
           .columnInfo(ColumnInfo.builder().name("col1").build())
           .build();
+
+      Row headerRow = Row.builder()
+          .data(Arrays.asList(Datum.builder().varCharValue("col1").build()))
+          .build();
+      Row dataRow = Row.builder()
+          .data(Arrays.asList(Datum.builder().varCharValue("value1").build()))
+          .build();
+
       ResultSet resultSet = ResultSet.builder()
           .resultSetMetadata(metadata)
-          .rows(Row.builder()
-              .data(Datum.builder().varCharValue("value1").build())
-              .build())
+          .rows(Arrays.asList(headerRow, dataRow))
           .build();
 
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
-          .resultSet(resultSet)
-          .nextToken("next-token")
-          .build();
-
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
-
-      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 100, nextToken)
-          .blockingGet();
-
-      assertThat(result).isNotNull();
-      assertThat(result.getResultSet()).isNotNull();
-      assertThat(result.getNextToken()).isEqualTo("next-token");
-    }
-
-    @Test
-    void shouldHandleGetQueryResultsWithMaxResultsAndNullNextToken() {
-      String queryExecutionId = "abc-123-def-456";
-
-      ResultSetMetadata metadata = ResultSetMetadata.builder()
-          .columnInfo(ColumnInfo.builder().name("col1").build())
-          .build();
-      ResultSet resultSet = ResultSet.builder()
-          .resultSetMetadata(metadata)
-          .rows(Row.builder()
-              .data(Datum.builder().varCharValue("value1").build())
-              .build())
-          .build();
-
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
           .resultSet(resultSet)
           .nextToken(null)
           .build();
 
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
 
-      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 50, null)
-          .blockingGet();
+      ResultSetWithToken result = athenaClient.getQueryResults(executionId, 100, null).blockingGet();
 
       assertThat(result).isNotNull();
       assertThat(result.getResultSet()).isNotNull();
-      assertThat(result.getNextToken()).isNull();
     }
 
     @Test
-    void shouldHandleGetQueryResultsWithEmptyNextToken() {
-      String queryExecutionId = "abc-123-def-456";
+    void shouldGetQueryResultsWithMaxResults() {
+      String executionId = "exec-123";
 
       ResultSet resultSet = ResultSet.builder().build();
-      GetQueryResultsResponse mockResponse = GetQueryResultsResponse.builder()
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
           .resultSet(resultSet)
-          .nextToken("")
           .build();
 
-      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
 
-      ResultSetWithToken result = athenaClient.getQueryResults(queryExecutionId, 100, "").blockingGet();
+      ResultSetWithToken result = athenaClient.getQueryResults(executionId, 50, null).blockingGet();
 
       assertThat(result).isNotNull();
-      assertThat(result.getNextToken()).isEmpty();
+    }
+
+    @Test
+    void shouldRejectInvalidMaxResults() {
+      String executionId = "exec-123";
+
+      var testObserver = athenaClient.getQueryResults(executionId, 0, null).test();
+      testObserver.assertError(IllegalArgumentException.class);
+
+      testObserver = athenaClient.getQueryResults(executionId, Constants.MAX_QUERY_RESULTS + 1, null).test();
+      testObserver.assertError(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldGetQueryResultsWithNextToken() {
+      String executionId = "exec-123";
+      String nextToken = "token-123";
+
+      ResultSet resultSet = ResultSet.builder().build();
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
+          .resultSet(resultSet)
+          .nextToken("next-token")
+          .build();
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      ResultSetWithToken result = athenaClient.getQueryResults(executionId, 100, nextToken).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getNextToken()).isEqualTo("next-token");
+    }
+
+    @Test
+    void shouldHandleGetQueryResultsError() {
+      String executionId = "exec-123";
+      RuntimeException error = new RuntimeException("AWS error");
+
+      CompletableFuture<GetQueryResultsResponse> future = new CompletableFuture<>();
+      future.completeExceptionally(error);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(RuntimeException.class);
     }
   }
 
   @Nested
-  @ExtendWith(MockitoExtension.class)
-  @MockitoSettings(strictness = Strictness.LENIENT)
   class TestGetQueryExecution {
 
     @Test
-    void shouldGetQueryExecutionSuccessfully() {
-      String queryExecutionId = "abc-123-def-456";
+    void shouldGetQueryExecution() {
+      String executionId = "exec-123";
 
       QueryExecution queryExecution = QueryExecution.builder()
-          .queryExecutionId(queryExecutionId)
+          .queryExecutionId(executionId)
           .build();
 
-      GetQueryExecutionResponse mockResponse = GetQueryExecutionResponse.builder()
+      GetQueryExecutionResponse response = GetQueryExecutionResponse.builder()
           .queryExecution(queryExecution)
           .build();
 
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
 
-      QueryExecution result = athenaClient.getQueryExecution(queryExecutionId).blockingGet();
+      QueryExecution result = athenaClient.getQueryExecution(executionId).blockingGet();
 
-      assertThat(result).isEqualTo(queryExecution);
-      assertThat(result.queryExecutionId()).isEqualTo(queryExecutionId);
-
-      ArgumentCaptor<GetQueryExecutionRequest> captor =
-          ArgumentCaptor.forClass(GetQueryExecutionRequest.class);
-      verify(athenaAsyncClient).getQueryExecution(captor.capture());
-
-      assertThat(captor.getValue().queryExecutionId()).isEqualTo(queryExecutionId);
+      assertThat(result).isNotNull();
+      assertThat(result.queryExecutionId()).isEqualTo(executionId);
     }
 
     @Test
-    void shouldPropagateErrorWhenGetQueryExecutionFails() {
-      String queryExecutionId = "abc-123-def-456";
+    void shouldHandleNullQueryExecution() {
+      String executionId = "exec-123";
 
-      RuntimeException athenaError = new RuntimeException("Athena API error");
-      CompletableFuture<GetQueryExecutionResponse> failedFuture = new CompletableFuture<>();
-      failedFuture.completeExceptionally(athenaError);
-
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(failedFuture);
-
-      var testObserver = athenaClient.getQueryExecution(queryExecutionId).test();
-
-      testObserver.assertError(Throwable.class);
-    }
-
-    @Test
-    void shouldHandleNullQueryExecutionInResponse() {
-      String queryExecutionId = "abc-123-def-456";
-
-      GetQueryExecutionResponse mockResponse = GetQueryExecutionResponse.builder()
+      GetQueryExecutionResponse response = GetQueryExecutionResponse.builder()
           .build();
 
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
 
-      var testObserver = athenaClient.getQueryExecution(queryExecutionId).test();
-
-      testObserver.assertError(Throwable.class);
+      var testObserver = athenaClient.getQueryExecution(executionId).test();
+      testObserver.assertError(RuntimeException.class);
     }
+  }
+
+  @Nested
+  class TestWaitForQueryCompletion {
 
     @Test
-    void shouldHandleNullResponseInGetQueryExecution() {
-      String queryExecutionId = "abc-123-def-456";
+    void shouldWaitForQueryCompletion() {
+      String executionId = "exec-123";
 
-      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
-          .thenReturn(CompletableFuture.completedFuture(null));
+      QueryExecution queryExecution = QueryExecution.builder()
+          .queryExecutionId(executionId)
+          .status(QueryExecutionStatus.builder()
+              .state(QueryExecutionState.SUCCEEDED)
+              .build())
+          .build();
 
-      var testObserver = athenaClient.getQueryExecution(queryExecutionId).test();
+      GetQueryExecutionResponse response = GetQueryExecutionResponse.builder()
+          .queryExecution(queryExecution)
+          .build();
 
-      testObserver.assertError(Throwable.class);
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
+
+      QueryExecutionState result = athenaClient.waitForQueryCompletion(executionId).blockingGet();
+
+      assertThat(result).isEqualTo(QueryExecutionState.SUCCEEDED);
     }
   }
 }

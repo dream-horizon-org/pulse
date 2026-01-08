@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.athena.models;
+package org.dreamhorizon.pulseserver.resources.query.models;
 
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
@@ -17,5 +17,4 @@ public class SubmitQueryRequestDto {
   
   private String timestamp;
 }
-
 
