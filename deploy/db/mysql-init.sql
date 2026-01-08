@@ -185,7 +185,13 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
     ('SCREEN_DAILY_USERS', 'Daily Users Count', 'screen'),
     ('ERROR_RATE', 'Error Rate (%)', 'screen'),
     ('SCREEN_TIME', 'Screen Time (s)', 'screen'),
-    ('LOAD_TIME', 'Load Time (ms)', 'screen');
+    ('LOAD_TIME', 'Load Time (ms)', 'screen'),
+    ('CRASH_FREE_USERS_PERCENTAGE', 'Crash Free Users Percentage (%)', 'screen'),
+    ('CRASH_FREE_SESSIONS_PERCENTAGE', 'Crash Free Sessions Percentage (%)', 'screen'),
+    ('ANR_FREE_USERS_PERCENTAGE', 'ANR Free Users Percentage (%)', 'screen'),
+    ('ANR_FREE_SESSIONS_PERCENTAGE', 'ANR Free Sessions Percentage (%)', 'screen'),
+    ('NON_FATAL_FREE_USERS_PERCENTAGE', 'Non-Fatal Free Users Percentage (%)', 'screen'),
+    ('NON_FATAL_FREE_SESSIONS_PERCENTAGE', 'Non-Fatal Free Sessions Percentage (%)', 'screen');
 
 -- Insert network_api scope metrics
 INSERT INTO alert_metrics (name, label, scope) VALUES

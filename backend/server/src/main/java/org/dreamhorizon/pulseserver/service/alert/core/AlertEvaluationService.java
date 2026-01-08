@@ -84,12 +84,30 @@ public class AlertEvaluationService {
             return Single.just(new ArrayList<>());
           }
 
-          QueryRequest queryRequest = buildQueryRequest(alertDetails, scopes);
-          return clickhouseMetricService.getMetricDistribution(queryRequest)
-              .map(result -> evaluateMetrics(alertDetails, scopes, result));
+          Map<QueryRequest.DataType, List<String>> metricsByDataType = groupMetricsByDataType(scopes, alertDetails.getScope());
+          
+          List<Single<PerformanceMetricDistributionRes>> querySingles = new ArrayList<>();
+          for (Map.Entry<QueryRequest.DataType, List<String>> entry : metricsByDataType.entrySet()) {
+            QueryRequest.DataType dataType = entry.getKey();
+            List<String> metrics = entry.getValue();
+            log.debug("Building {} query for metrics: {}", dataType, metrics);
+            QueryRequest queryRequest = buildQueryRequest(alertDetails, scopes, metrics, dataType);
+            querySingles.add(clickhouseMetricService.getMetricDistribution(queryRequest));
+          }
+
+          if (querySingles.isEmpty()) {
+            return Single.just(new ArrayList<>());
+          }
+
+          return Single.zip(querySingles, results -> {
+            List<PerformanceMetricDistributionRes> resultList = new ArrayList<>();
+            for (Object result : results) {
+              resultList.add((PerformanceMetricDistributionRes) result);
+            }
+            return mergeQueryResults(resultList);
+          }).map(mergedResult -> evaluateMetrics(alertDetails, scopes, mergedResult));
         })
         .doOnSuccess(evaluationResults -> {
-          @SuppressWarnings("unchecked")
           List<EvaluationResult> results = (List<EvaluationResult>) evaluationResults;
           for (EvaluationResult result : results) {
             AlertEvaluationResponseDto responseDto = AlertEvaluationResponseDto
@@ -120,7 +138,56 @@ public class AlertEvaluationService {
         .subscribe();
   }
 
-  private QueryRequest buildQueryRequest(AlertsDao.AlertDetails alertDetails, List<AlertsDao.AlertScopeDetails> scopes) {
+  private Map<QueryRequest.DataType, List<String>> groupMetricsByDataType(
+      List<AlertsDao.AlertScopeDetails> scopes, String alertScope) {
+    Map<QueryRequest.DataType, List<String>> metricsByDataType = new HashMap<>();
+    Set<String> compositeMetrics = new HashSet<>();
+    
+    for (AlertsDao.AlertScopeDetails scope : scopes) {
+      List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
+      if (alerts != null) {
+        for (Map<String, Object> alert : alerts) {
+          String metric = (String) alert.get("metric");
+          if (metric != null) {
+            if (MetricToFunctionMapper.isCompositeMetric(metric)) {
+              compositeMetrics.add(metric);
+              MetricToFunctionMapper.CompositeMetricComponents components = 
+                  MetricToFunctionMapper.getCompositeMetricComponents(metric, alertScope);
+              if (components != null) {
+                metricsByDataType.computeIfAbsent(components.totalMetricDataType, k -> new ArrayList<>())
+                    .add(components.tracesMetric);
+                metricsByDataType.computeIfAbsent(QueryRequest.DataType.EXCEPTIONS, k -> new ArrayList<>())
+                    .add(components.exceptionsMetric);
+                log.debug("Composite metric {} requires {} ({}) and {} (EXCEPTIONS)", 
+                    metric, components.tracesMetric, components.totalMetricDataType, components.exceptionsMetric);
+              }
+            } else {
+              QueryRequest.DataType dataType = MetricToFunctionMapper.getDataTypeForMetric(metric, alertScope);
+              if (dataType != null) {
+                metricsByDataType.computeIfAbsent(dataType, k -> new ArrayList<>()).add(metric);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    for (Map.Entry<QueryRequest.DataType, List<String>> entry : metricsByDataType.entrySet()) {
+      List<String> uniqueMetrics = new ArrayList<>(new HashSet<>(entry.getValue()));
+      entry.setValue(uniqueMetrics);
+    }
+    
+    if (metricsByDataType.size() > 1 || !compositeMetrics.isEmpty()) {
+      log.debug("Metrics grouped by datatype: {}, composite metrics: {}", metricsByDataType, compositeMetrics);
+    }
+    
+    return metricsByDataType;
+  }
+
+  private QueryRequest buildQueryRequest(AlertsDao.AlertDetails alertDetails, 
+                                        List<AlertsDao.AlertScopeDetails> scopes,
+                                        List<String> metrics,
+                                        QueryRequest.DataType dataType) {
     Integer evaluationPeriod = alertDetails.getEvaluationPeriod();
     String bucket = evaluationPeriod + "m";
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
@@ -144,19 +211,6 @@ public class AlertEvaluationService {
       selectItems.add(timeBucket);
     }
 
-    Set<String> metrics = new HashSet<>();
-    for (AlertsDao.AlertScopeDetails scope : scopes) {
-      List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
-      if (alerts != null) {
-        for (Map<String, Object> alert : alerts) {
-          String metric = (String) alert.get("metric");
-          if (metric != null) {
-            metrics.add(metric);
-          }
-        }
-      }
-    }
-
     for (String metric : metrics) {
       Functions function = MetricToFunctionMapper.mapMetricToFunction(metric, alertDetails.getScope());
       if (function != null) {
@@ -167,7 +221,7 @@ public class AlertEvaluationService {
       }
     }
 
-    String scopeField = getScopeField(alertDetails.getScope());
+    String scopeField = getScopeField(alertDetails.getScope(), dataType);
     String scopeFieldAlias = getScopeFieldAlias(alertDetails.getScope());
 
     if (!isAppVitals) {
@@ -178,48 +232,43 @@ public class AlertEvaluationService {
       scopeFieldItem.setParam(scopeFieldParams);
       scopeFieldItem.setAlias(scopeFieldAlias);
       selectItems.add(scopeFieldItem);
+
+      if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
+        QueryRequest.SelectItem methodFieldItem = new QueryRequest.SelectItem();
+        methodFieldItem.setFunction(Functions.COL);
+        Map<String, String> methodFieldParams = new HashMap<>();
+        methodFieldParams.put("field", "SpanAttributes['http.method']");
+        methodFieldItem.setParam(methodFieldParams);
+        methodFieldItem.setAlias("method");
+        selectItems.add(methodFieldItem);
+      }
     }
 
     List<QueryRequest.Filter> filters = new ArrayList<>();
 
     if (!isAppVitals && !scopes.isEmpty()) {
-      List<String> scopeNames = new ArrayList<>();
-      for (AlertsDao.AlertScopeDetails scope : scopes) {
-        if (scope.getName() != null && !scope.getName().isEmpty()) {
-          scopeNames.add(scope.getName());
+      if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
+        Set<String> urls = extractUrlsFromScopes(scopes);
+        if (!urls.isEmpty()) {
+          QueryRequest.Filter scopeNameFilter = new QueryRequest.Filter();
+          scopeNameFilter.setField(scopeField);
+          scopeNameFilter.setOperator(urls.size() == 1 ? QueryRequest.Operator.EQ : QueryRequest.Operator.IN);
+          scopeNameFilter.setValue(new ArrayList<Object>(urls));
+          filters.add(scopeNameFilter);
         }
-      }
-      if (!scopeNames.isEmpty()) {
-        QueryRequest.Filter scopeNameFilter = new QueryRequest.Filter();
-        scopeNameFilter.setField(scopeField);
-        if (scopeNames.size() == 1) {
-          scopeNameFilter.setOperator(QueryRequest.Operator.EQ);
-        } else {
-          scopeNameFilter.setOperator(QueryRequest.Operator.IN);
-        }
-        scopeNameFilter.setValue(new ArrayList<>(scopeNames));
-        filters.add(scopeNameFilter);
-      }
-    }
-
-    if (!isAppVitals && alertDetails.getScope() != null && !alertDetails.getScope().isEmpty()) {
-      QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
-      pulseTypeFilter.setField("PulseType");
-
-      if ("SCREEN".equalsIgnoreCase(alertDetails.getScope())) {
-        pulseTypeFilter.setOperator(QueryRequest.Operator.IN);
-        pulseTypeFilter.setValue(List.of("screen_session", "screen_load"));
-      } else if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope())) {
-        // Network PulseTypes are like "network.200", "network.404", etc.
-        pulseTypeFilter.setOperator(QueryRequest.Operator.LIKE);
-        pulseTypeFilter.setValue(List.of("network.%"));
       } else {
-        pulseTypeFilter.setOperator(QueryRequest.Operator.IN);
-        pulseTypeFilter.setValue(List.of(alertDetails.getScope()));
+        List<String> scopeNames = extractScopeNames(scopes);
+        if (!scopeNames.isEmpty()) {
+          QueryRequest.Filter scopeNameFilter = new QueryRequest.Filter();
+          scopeNameFilter.setField(scopeField);
+          scopeNameFilter.setOperator(scopeNames.size() == 1 ? QueryRequest.Operator.EQ : QueryRequest.Operator.IN);
+          scopeNameFilter.setValue(new ArrayList<Object>(scopeNames));
+          filters.add(scopeNameFilter);
+        }
       }
-
-      filters.add(pulseTypeFilter);
     }
+
+    addPulseTypeFilter(filters, dataType, isAppVitals, alertDetails.getScope());
 
     if (alertDetails.getDimensionFilter() != null && !alertDetails.getDimensionFilter().isEmpty()) {
       String dimensionFilterSql = extractSqlCondition(alertDetails.getDimensionFilter());
@@ -227,7 +276,7 @@ public class AlertEvaluationService {
         QueryRequest.Filter additionalFilter = new QueryRequest.Filter();
         additionalFilter.setField(isAppVitals ? "Additional" : "PulseType");
         additionalFilter.setOperator(QueryRequest.Operator.ADDITIONAL);
-        additionalFilter.setValue(List.of(dimensionFilterSql));
+        additionalFilter.setValue(new ArrayList<Object>(List.of(dimensionFilterSql)));
         filters.add(additionalFilter);
       }
     }
@@ -236,10 +285,14 @@ public class AlertEvaluationService {
     if (!isAppVitals) {
       groupBy.add("t1");
       groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
+      
+      if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
+        groupBy.add("method");
+      }
     }
 
     QueryRequest queryRequest = new QueryRequest();
-    queryRequest.setDataType(isAppVitals ? QueryRequest.DataType.EXCEPTIONS : QueryRequest.DataType.TRACES);
+    queryRequest.setDataType(dataType);
     queryRequest.setTimeRange(timeRange);
     queryRequest.setSelect(selectItems);
     queryRequest.setFilters(filters);
@@ -249,12 +302,182 @@ public class AlertEvaluationService {
     return queryRequest;
   }
 
+  private Set<String> extractUrlsFromScopes(List<AlertsDao.AlertScopeDetails> scopes) {
+    Set<String> urls = new HashSet<>();
+    for (AlertsDao.AlertScopeDetails scope : scopes) {
+      if (scope.getName() != null && !scope.getName().isEmpty()) {
+        String scopeName = scope.getName();
+        int underscoreIndex = scopeName.indexOf('_');
+        if (underscoreIndex > 0 && underscoreIndex < scopeName.length() - 1) {
+          urls.add(scopeName.substring(underscoreIndex + 1));
+        } else {
+          urls.add(scopeName);
+        }
+      }
+    }
+    return urls;
+  }
+
+  private List<String> extractScopeNames(List<AlertsDao.AlertScopeDetails> scopes) {
+    List<String> scopeNames = new ArrayList<>();
+    for (AlertsDao.AlertScopeDetails scope : scopes) {
+      if (scope.getName() != null && !scope.getName().isEmpty()) {
+        scopeNames.add(scope.getName());
+      }
+    }
+    return scopeNames;
+  }
+
+  private void addPulseTypeFilter(List<QueryRequest.Filter> filters, QueryRequest.DataType dataType, 
+                                  boolean isAppVitals, String scope) {
+    if (dataType == QueryRequest.DataType.LOGS && isAppVitals) {
+      QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
+      pulseTypeFilter.setField("PulseType");
+      pulseTypeFilter.setOperator(QueryRequest.Operator.EQ);
+      pulseTypeFilter.setValue(new ArrayList<Object>(List.of("session.start")));
+      filters.add(pulseTypeFilter);
+    } else if (!isAppVitals && dataType == QueryRequest.DataType.TRACES 
+        && scope != null && !scope.isEmpty()) {
+      QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
+      pulseTypeFilter.setField("PulseType");
+
+      if ("SCREEN".equalsIgnoreCase(scope)) {
+        pulseTypeFilter.setOperator(QueryRequest.Operator.IN);
+        pulseTypeFilter.setValue(new ArrayList<Object>(List.of("screen_session", "screen_load")));
+      } else if ("NETWORK_API".equalsIgnoreCase(scope)) {
+        pulseTypeFilter.setOperator(QueryRequest.Operator.LIKE);
+        pulseTypeFilter.setValue(new ArrayList<Object>(List.of("network.%")));
+      } else {
+        pulseTypeFilter.setOperator(QueryRequest.Operator.IN);
+        pulseTypeFilter.setValue(new ArrayList<Object>(List.of(scope)));
+      }
+
+      filters.add(pulseTypeFilter);
+    }
+  }
+
+  private PerformanceMetricDistributionRes mergeQueryResults(List<PerformanceMetricDistributionRes> results) {
+    if (results.isEmpty()) {
+      return PerformanceMetricDistributionRes.builder()
+          .fields(new ArrayList<>())
+          .rows(new ArrayList<>())
+          .build();
+    }
+
+    if (results.size() == 1) {
+      return results.get(0);
+    }
+
+    List<String> mergedFields = new ArrayList<>();
+    Set<String> seenFields = new HashSet<>();
+    
+    for (PerformanceMetricDistributionRes result : results) {
+      if (result.getFields() != null) {
+        for (String field : result.getFields()) {
+          String lowerField = field.toLowerCase();
+          if ((lowerField.equals("t1") || lowerField.equals("method") || lowerField.contains("name")) 
+              && !seenFields.contains(field)) {
+            mergedFields.add(field);
+            seenFields.add(field);
+          }
+        }
+      }
+    }
+    
+    for (PerformanceMetricDistributionRes result : results) {
+      if (result.getFields() != null) {
+        for (String field : result.getFields()) {
+          String lowerField = field.toLowerCase();
+          if (!lowerField.equals("t1") && !lowerField.equals("method") && !lowerField.contains("name") 
+              && !seenFields.contains(field)) {
+            mergedFields.add(field);
+            seenFields.add(field);
+          }
+        }
+      }
+    }
+
+    Map<String, Map<String, String>> mergedRowsMap = new HashMap<>();
+
+    for (PerformanceMetricDistributionRes result : results) {
+      if (result.getFields() == null || result.getRows() == null) {
+        continue;
+      }
+
+      Map<String, Integer> fieldIndexMap = new HashMap<>();
+      for (int i = 0; i < result.getFields().size(); i++) {
+        fieldIndexMap.put(result.getFields().get(i), i);
+      }
+
+      for (List<String> row : result.getRows()) {
+        String rowKey = buildRowKey(row, fieldIndexMap);
+        Map<String, String> mergedRow = mergedRowsMap.computeIfAbsent(rowKey, k -> new HashMap<>());
+        
+        for (int i = 0; i < result.getFields().size() && i < row.size(); i++) {
+          String fieldName = result.getFields().get(i);
+          String value = row.get(i);
+          if (value != null && (!value.isEmpty() || !mergedRow.containsKey(fieldName))) {
+            mergedRow.put(fieldName, value);
+          }
+        }
+      }
+    }
+
+    List<List<String>> mergedRows = new ArrayList<>();
+    for (Map<String, String> rowMap : mergedRowsMap.values()) {
+      List<String> row = new ArrayList<>();
+      for (String field : mergedFields) {
+        row.add(rowMap.getOrDefault(field, ""));
+      }
+      mergedRows.add(row);
+    }
+
+    return PerformanceMetricDistributionRes.builder()
+        .fields(mergedFields)
+        .rows(mergedRows)
+        .build();
+  }
+
+  private String buildRowKey(List<String> row, Map<String, Integer> fieldIndexMap) {
+    Integer t1Index = fieldIndexMap.get("t1");
+    Integer scopeIndex = findScopeFieldIndex(fieldIndexMap);
+    Integer methodIndex = fieldIndexMap.get("method");
+    
+    StringBuilder keyBuilder = new StringBuilder();
+    
+    if (t1Index != null && row.size() > t1Index) {
+      keyBuilder.append(row.get(t1Index));
+    }
+    keyBuilder.append("|");
+    
+    if (methodIndex != null && row.size() > methodIndex) {
+      keyBuilder.append(row.get(methodIndex));
+      keyBuilder.append("|");
+    }
+    
+    if (scopeIndex != null && row.size() > scopeIndex) {
+      keyBuilder.append(row.get(scopeIndex));
+    }
+    
+    String key = keyBuilder.toString();
+    return key.isEmpty() || key.equals("|") ? "default" : key;
+  }
+
+  private Integer findScopeFieldIndex(Map<String, Integer> fieldIndexMap) {
+    for (Map.Entry<String, Integer> entry : fieldIndexMap.entrySet()) {
+      String fieldName = entry.getKey().toLowerCase();
+      if (fieldName.contains("name") && !fieldName.equals("t1")) {
+        return entry.getValue();
+      }
+    }
+    return null;
+  }
+
   private List<EvaluationResult> evaluateMetrics(AlertsDao.AlertDetails alertDetails,
                                                  List<AlertsDao.AlertScopeDetails> scopes,
                                                  PerformanceMetricDistributionRes queryResult) {
     List<EvaluationResult> results = new ArrayList<>();
 
-    // If query returned no rows, fields will be empty - treat all scopes as NO_DATA
     if (queryResult.getFields() == null || queryResult.getFields().isEmpty()) {
       log.info("No data returned from query for alert {}. All scopes will be set to NO_DATA.",
           alertDetails.getId());
@@ -301,70 +524,16 @@ public class AlertEvaluationService {
           continue;
         }
 
-        Float threshold;
-        if (thresholdObj instanceof Number) {
-          threshold = ((Number) thresholdObj).floatValue();
-        } else if (thresholdObj instanceof String) {
-          try {
-            threshold = Float.parseFloat((String) thresholdObj);
-          } catch (NumberFormatException e) {
-            log.warn("Could not parse threshold value: {}", thresholdObj);
-            variableValues.put(alias, false);
-            continue;
-          }
-        } else {
-          log.warn("Threshold is not a Number or String for alert {}", alias);
+        Float threshold = parseThreshold(thresholdObj);
+        if (threshold == null) {
           variableValues.put(alias, false);
           continue;
         }
 
-        Integer metricIndex = fieldIndexMap.get(metric.toLowerCase());
-        if (metricIndex == null) {
-          log.warn("Metric {} not found in query results", metric);
-          variableValues.put(alias, false);
-          continue;
-        }
+        Float metricValue = getMetricValue(metric, queryResult, fieldIndexMap, interactionName, 
+            scopeFieldAlias, isAppVitals, alertDetails.getScope());
 
-        boolean isFiring = false;
-        Float metricValue = null;
-
-        if (isAppVitals) {
-          if (!queryResult.getRows().isEmpty()) {
-            List<String> row = queryResult.getRows().get(0);
-            if (row.size() > metricIndex) {
-              try {
-                metricValue = Float.parseFloat(row.get(metricIndex));
-                MetricOperator metricOp = MetricOperator.valueOf(operator);
-                isFiring = metricOperatorFactory.getProcessor(metricOp).isFiring(threshold, metricValue);
-              } catch (NumberFormatException e) {
-                log.warn("Could not parse metric value: {}", row.get(metricIndex));
-              }
-            }
-          }
-        } else {
-          Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
-          if (scopeFieldIndex == null) {
-            log.warn("Scope field {} not found in query results", scopeFieldAlias);
-            variableValues.put(alias, false);
-            continue;
-          }
-
-          for (List<String> row : queryResult.getRows()) {
-            if (row.size() > metricIndex && row.size() > scopeFieldIndex) {
-              String rowScopeName = row.get(scopeFieldIndex);
-              if (interactionName.equals(rowScopeName)) {
-                try {
-                  metricValue = Float.parseFloat(row.get(metricIndex));
-                  MetricOperator metricOp = MetricOperator.valueOf(operator);
-                  isFiring = metricOperatorFactory.getProcessor(metricOp).isFiring(threshold, metricValue);
-                  break;
-                } catch (NumberFormatException e) {
-                  log.warn("Could not parse metric value: {}", row.get(metricIndex));
-                }
-              }
-            }
-          }
-        }
+        boolean isFiring = evaluateMetric(metricValue, threshold, operator);
 
         if (metricValue != null) {
           Float normalizedValue = normalizeRateOrPercentage(metric, metricValue);
@@ -391,6 +560,204 @@ public class AlertEvaluationService {
     }
 
     return results;
+  }
+
+  private Float parseThreshold(Object thresholdObj) {
+    if (thresholdObj instanceof Number) {
+      return ((Number) thresholdObj).floatValue();
+    } else if (thresholdObj instanceof String) {
+      try {
+        return Float.parseFloat((String) thresholdObj);
+      } catch (NumberFormatException e) {
+        log.warn("Could not parse threshold value: {}", thresholdObj);
+        return null;
+      }
+    } else {
+      log.warn("Threshold is not a Number or String: {}", thresholdObj);
+      return null;
+    }
+  }
+
+  private Float getMetricValue(String metric, PerformanceMetricDistributionRes queryResult,
+                               Map<String, Integer> fieldIndexMap, String interactionName,
+                               String scopeFieldAlias, boolean isAppVitals, String scope) {
+    if (MetricToFunctionMapper.isCompositeMetric(metric)) {
+      return calculateCompositeMetric(metric, queryResult, fieldIndexMap, 
+          interactionName, scopeFieldAlias, isAppVitals, scope);
+    }
+
+    Integer metricIndex = fieldIndexMap.get(metric.toLowerCase());
+    if (metricIndex == null) {
+      log.warn("Metric {} not found in query results", metric);
+      return null;
+    }
+
+    if (isAppVitals) {
+      return getMetricValueFromFirstRow(queryResult, metricIndex);
+    }
+
+    return getMetricValueFromRows(queryResult, metricIndex, fieldIndexMap, interactionName, 
+        scopeFieldAlias, scope);
+  }
+
+  private Float getMetricValueFromFirstRow(PerformanceMetricDistributionRes queryResult, Integer metricIndex) {
+    if (!queryResult.getRows().isEmpty()) {
+      List<String> row = queryResult.getRows().get(0);
+      if (row.size() > metricIndex) {
+        return parseMetricValue(row.get(metricIndex));
+      }
+    }
+    return null;
+  }
+
+  private Float getMetricValueFromRows(PerformanceMetricDistributionRes queryResult, Integer metricIndex,
+                                      Map<String, Integer> fieldIndexMap, String interactionName,
+                                      String scopeFieldAlias, String scope) {
+    Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
+    if (scopeFieldIndex == null) {
+      log.warn("Scope field {} not found in query results", scopeFieldAlias);
+      return null;
+    }
+
+    boolean isNetworkApi = "NETWORK_API".equalsIgnoreCase(scope);
+    Integer methodIndex = isNetworkApi ? fieldIndexMap.get("method") : null;
+
+    for (List<String> row : queryResult.getRows()) {
+      if (row.size() > metricIndex && row.size() > scopeFieldIndex) {
+        String rowScopeName = row.get(scopeFieldIndex);
+        
+        if (isNetworkApi && methodIndex != null && row.size() > methodIndex) {
+          if (matchesNetworkApiScope(interactionName, row.get(methodIndex), rowScopeName)) {
+            return parseMetricValue(row.get(metricIndex));
+          }
+        } else if (interactionName.equals(rowScopeName)) {
+          return parseMetricValue(row.get(metricIndex));
+        }
+      }
+    }
+    return null;
+  }
+
+  private boolean matchesNetworkApiScope(String interactionName, String rowMethod, String rowUrl) {
+    int underscoreIndex = interactionName.indexOf('_');
+    if (underscoreIndex > 0 && underscoreIndex < interactionName.length() - 1) {
+      String expectedMethod = interactionName.substring(0, underscoreIndex).toLowerCase();
+      String expectedUrl = interactionName.substring(underscoreIndex + 1);
+      return expectedMethod.equalsIgnoreCase(rowMethod) && expectedUrl.equals(rowUrl);
+    }
+    return interactionName.equals(rowUrl);
+  }
+
+  private Float parseMetricValue(String valueStr) {
+    if (valueStr == null || valueStr.isEmpty() || valueStr.equalsIgnoreCase("NULL")) {
+      return null;
+    }
+    try {
+      Float value = Float.parseFloat(valueStr);
+      if (Float.isNaN(value) || Float.isInfinite(value)) {
+        return null;
+      }
+      return value;
+    } catch (NumberFormatException e) {
+      log.warn("Could not parse metric value: {}", valueStr);
+      return null;
+    }
+  }
+
+  private boolean evaluateMetric(Float metricValue, Float threshold, String operator) {
+    if (metricValue == null) {
+      return false;
+    }
+    try {
+      MetricOperator metricOp = MetricOperator.valueOf(operator);
+      return metricOperatorFactory.getProcessor(metricOp).isFiring(threshold, metricValue);
+    } catch (IllegalArgumentException e) {
+      log.warn("Unknown metric operator: {}", operator);
+      return false;
+    }
+  }
+
+  private Float calculateCompositeMetric(String compositeMetric, 
+                                        PerformanceMetricDistributionRes queryResult,
+                                        Map<String, Integer> fieldIndexMap,
+                                        String interactionName,
+                                        String scopeFieldAlias,
+                                        boolean isAppVitals,
+                                        String scope) {
+    MetricToFunctionMapper.CompositeMetricComponents components = 
+        MetricToFunctionMapper.getCompositeMetricComponents(compositeMetric, scope);
+    
+    if (components == null) {
+      log.warn("Could not get components for composite metric: {}", compositeMetric);
+      return null;
+    }
+
+    Integer tracesMetricIndex = fieldIndexMap.get(components.tracesMetric.toLowerCase());
+    Integer exceptionsMetricIndex = fieldIndexMap.get(components.exceptionsMetric.toLowerCase());
+
+    if (tracesMetricIndex == null || exceptionsMetricIndex == null) {
+      log.warn("Base metrics not found for composite metric {}: {}={}, {}={}", 
+          compositeMetric, components.tracesMetric, tracesMetricIndex, 
+          components.exceptionsMetric, exceptionsMetricIndex);
+      return null;
+    }
+
+    Float totalValue = null;
+    Float exceptionValue = null;
+
+    if (isAppVitals) {
+      if (!queryResult.getRows().isEmpty()) {
+        List<String> row = queryResult.getRows().get(0);
+        if (row.size() > tracesMetricIndex && row.size() > exceptionsMetricIndex) {
+          totalValue = parseMetricValue(row.get(tracesMetricIndex));
+          exceptionValue = parseMetricValue(row.get(exceptionsMetricIndex));
+        }
+      }
+    } else {
+      Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
+      if (scopeFieldIndex == null) {
+        log.warn("Scope field {} not found for composite metric calculation", scopeFieldAlias);
+        return null;
+      }
+
+      boolean isNetworkApi = "NETWORK_API".equalsIgnoreCase(scope);
+      Integer methodIndex = isNetworkApi ? fieldIndexMap.get("method") : null;
+
+      for (List<String> row : queryResult.getRows()) {
+        if (row.size() > tracesMetricIndex && row.size() > exceptionsMetricIndex 
+            && row.size() > scopeFieldIndex) {
+          String rowScopeName = row.get(scopeFieldIndex);
+          
+          boolean matches = false;
+          if (isNetworkApi && methodIndex != null && row.size() > methodIndex) {
+            matches = matchesNetworkApiScope(interactionName, row.get(methodIndex), rowScopeName);
+          } else {
+            matches = interactionName.equals(rowScopeName);
+          }
+          
+          if (matches) {
+            totalValue = parseMetricValue(row.get(tracesMetricIndex));
+            exceptionValue = parseMetricValue(row.get(exceptionsMetricIndex));
+            break;
+          }
+        }
+      }
+    }
+
+    if (totalValue == null || exceptionValue == null) {
+      log.warn("Could not get base metric values for composite metric: {}", compositeMetric);
+      return null;
+    }
+
+    if (totalValue == 0) {
+      return null;
+    }
+
+    float percentage = ((totalValue - exceptionValue) / totalValue) * 100.0f;
+    log.debug("Calculated {}: total={}, exception={}, percentage={}", 
+        compositeMetric, totalValue, exceptionValue, percentage);
+    
+    return percentage;
   }
 
   private List<Map<String, Object>> parseConditionsArray(String json) {
@@ -466,6 +833,17 @@ public class AlertEvaluationService {
   private Float normalizeRateOrPercentage(String metricName, Float value) {
     if (value == null) {
       return null;
+    }
+
+    if (Float.isNaN(value) || Float.isInfinite(value)) {
+      String upperMetricName = metricName.toUpperCase();
+      boolean isRateOrPercentage = upperMetricName.contains("RATE")
+          || upperMetricName.contains("PERCENTAGE");
+      if (isRateOrPercentage) {
+        log.debug("NaN or Infinity detected for rate/percentage metric {}: {}, returning null", metricName, value);
+        return null;
+      }
+      return value;
     }
 
     String upperMetricName = metricName.toUpperCase();
@@ -761,10 +1139,19 @@ public class AlertEvaluationService {
     log.error("Error while parsing response to update scope state: {}", e.getMessage());
   }
 
-  private String getScopeField(String scope) {
+  private String getScopeField(String scope, QueryRequest.DataType dataType) {
     if (scope == null || scope.isEmpty()) {
       return "SpanName";
     }
+    
+    if (dataType == QueryRequest.DataType.EXCEPTIONS) {
+      return switch (scope.toUpperCase()) {
+        case "SCREEN" -> "ScreenName";
+        case "APP_VITALS" -> "GroupId";
+        default -> "SpanName";
+      };
+    }
+    
     return switch (scope.toUpperCase()) {
       case "INTERACTION" -> "SpanName";
       case "SCREEN" -> "SpanAttributes['screen.name']";
@@ -792,4 +1179,3 @@ public class AlertEvaluationService {
     private String evaluationResult;
   }
 }
-
