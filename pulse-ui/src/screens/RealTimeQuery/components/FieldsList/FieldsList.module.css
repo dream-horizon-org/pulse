@@ -1,0 +1,39 @@
+.container {
+  width: 100%;
+}
+
+.searchInput input {
+  font-size: 12px;
+  border-color: rgba(14, 201, 194, 0.15);
+}
+
+.searchInput input:focus {
+  border-color: #0ba09a;
+}
+
+.fieldItem {
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  display: flex;
+  width: 100%;
+}
+
+.fieldItem:hover {
+  background: rgba(14, 201, 194, 0.08);
+}
+
+.fieldName {
+  flex: 1;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
+  font-size: 11px;
+  color: var(--mantine-color-dark-6);
+}
+
+.typeBadge {
+  flex-shrink: 0;
+  font-size: 9px;
+  text-transform: uppercase;
+  padding: 2px 4px;
+  height: auto;
+}

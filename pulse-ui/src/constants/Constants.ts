@@ -12,6 +12,7 @@ import {
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
+  IconDatabaseSearch,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -45,6 +46,7 @@ import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 
 export const APP_NAME: string = "Pulse";
 
@@ -205,6 +207,12 @@ export const ROUTES: Routes = {
     path: "/configure-alert/*",
     element: AlertForm,
   },
+  REALTIME_QUERY: {
+    key: "REALTIME_QUERY",
+    basePath: "/realtime-query",
+    path: "/realtime-query",
+    element: RealTimeQuery,
+  },
 };
 
 export const NAVBAR_ITEMS: NavbarItems = [
@@ -255,6 +263,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconBell,
     routeTo: ROUTES.ALERTS.basePath,
     path: ROUTES.ALERTS.path,
+    iconSize: 25,
+  },
+  {
+    tabName: "Query Builder",
+    icon: IconDatabaseSearch,
+    routeTo: ROUTES.REALTIME_QUERY.basePath,
+    path: ROUTES.REALTIME_QUERY.path,
     iconSize: 25,
   },
 ];

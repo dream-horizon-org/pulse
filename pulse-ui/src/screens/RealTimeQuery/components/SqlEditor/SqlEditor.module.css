@@ -1,0 +1,42 @@
+.container {
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+}
+
+.header {
+  padding: 12px 16px;
+  background: linear-gradient(145deg, rgba(14, 201, 194, 0.04) 0%, rgba(14, 201, 194, 0.08) 100%);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.editorWrapper {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.footer {
+  padding: 8px 16px;
+  background: rgba(14, 201, 194, 0.02);
+}
+
+.examplesDropdown {
+  padding: 12px 16px;
+  background: rgba(14, 201, 194, 0.04);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.exampleCard {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  border: 1px solid rgba(14, 201, 194, 0.1);
+  background: var(--mantine-color-white);
+}
+
+.exampleCard:hover {
+  background: rgba(14, 201, 194, 0.08);
+  border-color: rgba(14, 201, 194, 0.25);
+  transform: translateX(2px);
+}

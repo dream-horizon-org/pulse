@@ -1,0 +1,74 @@
+.container {
+  width: 100%;
+}
+
+.emptyState {
+  border-style: dashed;
+  border-color: rgba(14, 201, 194, 0.2);
+  background: rgba(14, 201, 194, 0.02);
+  border-radius: 8px;
+}
+
+.filterRow {
+  border-radius: 8px;
+  background: var(--mantine-color-white);
+  border: 1px solid rgba(14, 201, 194, 0.1);
+  transition: all 0.15s ease;
+}
+
+.filterRow:hover {
+  border-color: rgba(14, 201, 194, 0.25);
+  box-shadow: 0 2px 4px rgba(14, 201, 194, 0.08);
+}
+
+.logicSwitch {
+  background: rgba(14, 201, 194, 0.06);
+  border-radius: 6px;
+}
+
+.logicSwitch [data-active] {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%) !important;
+  color: white !important;
+}
+
+.logicBadge {
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: center;
+}
+
+.fieldSelect {
+  flex: 1;
+  min-width: 120px;
+  max-width: 160px;
+}
+
+.operatorSelect {
+  flex: 1;
+  min-width: 130px;
+  max-width: 170px;
+}
+
+.valueInput {
+  flex: 2;
+  min-width: 100px;
+}
+
+.removeButton {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.filterRow:hover .removeButton {
+  opacity: 1;
+}
+
+.addButton {
+  align-self: flex-start;
+  color: #0ba09a;
+}
+
+.addButton:hover {
+  background: rgba(14, 201, 194, 0.08);
+}

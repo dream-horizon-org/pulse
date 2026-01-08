@@ -1,0 +1,46 @@
+.container {
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  min-height: 200px;
+}
+
+.loadingState,
+.errorState,
+.emptyState {
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tableWrapper {
+  max-height: 500px;
+}
+
+.table {
+  font-size: 13px;
+}
+
+.table th {
+  background: rgba(14, 201, 194, 0.06);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--mantine-color-dark-7);
+}
+
+.table td {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tr:hover td {
+  background: rgba(14, 201, 194, 0.04);
+}
+
+.chartWrapper {
+  min-height: 400px;
+}
