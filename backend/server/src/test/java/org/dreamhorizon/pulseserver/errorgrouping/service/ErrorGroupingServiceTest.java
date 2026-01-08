@@ -670,6 +670,153 @@ class ErrorGroupingServiceTest {
       assertNotNull(event.getExceptionStackTraceRaw());
       assertTrue(event.getGroupId().startsWith("EXC-"));
     }
+
+    @Test
+    void shouldSetBundleIdToNullWhenMissingInResource() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("app.build_name")
+              .setValue(AnyValue.newBuilder().setStringValue("1.0.0").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+
+      ExportLogsServiceRequest request = ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<List<StackTraceEvent>> result = errorGroupingService.process(request);
+
+      List<StackTraceEvent> events = result.blockingGet();
+      assertEquals(1, events.size());
+      assertNull(events.get(0).getBundleId());
+    }
+
+    @Test
+    void shouldHandleEmptyBundleIdString() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("app.build_name")
+              .setValue(AnyValue.newBuilder().setStringValue("1.0.0").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("ios").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("bundle_id")
+              .setValue(AnyValue.newBuilder().setStringValue("").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+
+      ExportLogsServiceRequest request = ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<List<StackTraceEvent>> result = errorGroupingService.process(request);
+
+      List<StackTraceEvent> events = result.blockingGet();
+      assertEquals(1, events.size());
+      assertEquals("", events.get(0).getBundleId());
+    }
+
+    @Test
+    void shouldExtractBundleIdForIosPlatform() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("app.build_name")
+              .setValue(AnyValue.newBuilder().setStringValue("1.0.0").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("ios").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("bundle_id")
+              .setValue(AnyValue.newBuilder().setStringValue("com.example.iosapp").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+
+      ExportLogsServiceRequest request = ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<List<StackTraceEvent>> result = errorGroupingService.process(request);
+
+      List<StackTraceEvent> events = result.blockingGet();
+      assertEquals(1, events.size());
+      assertEquals("com.example.iosapp", events.get(0).getBundleId());
+      assertEquals("ios", events.get(0).getPlatform());
+    }
   }
 }
 
