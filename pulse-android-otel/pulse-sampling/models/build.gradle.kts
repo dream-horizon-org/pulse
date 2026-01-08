@@ -2,6 +2,7 @@
 
 plugins {
     id("otel.android-library-conventions")
+    id("otel.publish-conventions")
     alias(libs.plugins.kotlinSerialisation)
 }
 
