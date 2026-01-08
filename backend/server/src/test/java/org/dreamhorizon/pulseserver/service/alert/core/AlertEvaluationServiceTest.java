@@ -14,11 +14,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
-import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.eventbus.EventBus;
 import io.vertx.rxjava3.core.eventbus.Message;
@@ -37,13 +34,14 @@ import org.dreamhorizon.pulseserver.dao.AlertsDao;
 import org.dreamhorizon.pulseserver.resources.alert.enums.AlertState;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertEvaluationResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.EvaluateAlertResponseDto;
+import org.dreamhorizon.pulseserver.resources.performance.models.Functions;
 import org.dreamhorizon.pulseserver.resources.performance.models.PerformanceMetricDistributionRes;
 import org.dreamhorizon.pulseserver.resources.performance.models.QueryRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorFactory;
 import org.dreamhorizon.pulseserver.service.alert.core.operatror.MetricOperatorProcessor;
+import org.dreamhorizon.pulseserver.service.alert.core.util.MetricToFunctionMapper;
 import org.dreamhorizon.pulseserver.service.interaction.ClickhouseMetricService;
-import org.dreamhorizon.pulseserver.util.RxObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -372,7 +370,7 @@ class AlertEvaluationServiceTest {
       metricReadings.put("error_rate", 0.5f);
       Map<String, Boolean> variableValues = new HashMap<>();
       variableValues.put("A", true);
-      
+
       String result = (String) method.invoke(alertEvaluationService, metricReadings, variableValues, true);
       assertNotNull(result);
       assertTrue(result.contains("error_rate"));
@@ -467,14 +465,14 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "shouldCreateIncident", AlertState.class, AlertEvaluationResponseDto.class, AlertState.class);
       method.setAccessible(true);
-      
+
       LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder()
           .snoozedFrom(now.minusHours(1))
           .snoozedUntil(now.plusHours(1))
           .build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder().alert(alert).build();
-      
+
       assertFalse((Boolean) method.invoke(alertEvaluationService, AlertState.FIRING, dto, AlertState.NORMAL));
     }
 
@@ -583,7 +581,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
@@ -602,14 +600,14 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
           .evaluationStartTime("2023-01-01 00:00:00")
           .evaluationEndTime("2023-01-01 01:00:00")
           .build();
-      
+
       String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", 0.5f);
       assertNotNull(result);
       assertTrue(result.contains("0.5"));
@@ -620,7 +618,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
@@ -639,7 +637,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
@@ -657,7 +655,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
@@ -665,7 +663,7 @@ class AlertEvaluationServiceTest {
           .evaluationEndTime("2023-01-01 01:00:00")
           .evaluationResult("{}")
           .build();
-      
+
       String result = (String) method.invoke(alertEvaluationService, dto, "TestScope", null);
       assertNotNull(result);
     }
@@ -675,7 +673,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildNotificationMessage", AlertEvaluationResponseDto.class, String.class, Float.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alert = AlertsDao.AlertDetails.builder().name("Test Alert").build();
       AlertEvaluationResponseDto dto = AlertEvaluationResponseDto.builder()
           .alert(alert)
@@ -698,7 +696,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -712,8 +710,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"ERROR_RATE\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
       assertEquals(QueryRequest.DataType.TRACES, result.getDataType());
     }
@@ -723,13 +722,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("SCREEN")
           .evaluationPeriod(60)
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -737,8 +736,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"LOAD_TIME\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("LOAD_TIME"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("LOAD_TIME"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
       assertEquals(QueryRequest.DataType.TRACES, result.getDataType());
     }
@@ -748,7 +748,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("NETWORK_API")
@@ -762,8 +762,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"NET_4XX\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("NET_4XX"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("NET_4XX"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
       assertEquals(QueryRequest.DataType.TRACES, result.getDataType());
       assertTrue(result.getSelect().stream().anyMatch(s -> "method".equals(s.getAlias())));
@@ -774,7 +775,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("APP_VITALS")
@@ -788,8 +789,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"CRASH_USERS\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("CRASH_USERS"), QueryRequest.DataType.EXCEPTIONS);
+
+      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("CRASH_USERS"),
+          QueryRequest.DataType.EXCEPTIONS);
       assertNotNull(result);
       assertEquals(QueryRequest.DataType.EXCEPTIONS, result.getDataType());
     }
@@ -799,14 +801,14 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .evaluationPeriod(60)
           .dimensionFilter("{\"os\":\"Android\"}")
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -814,8 +816,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"ERROR_RATE\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
       assertTrue(result.getFilters().stream().anyMatch(f -> f.getOperator() == QueryRequest.Operator.ADDITIONAL));
     }
@@ -825,7 +828,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("SCREEN")
@@ -836,8 +839,9 @@ class AlertEvaluationServiceTest {
           AlertsDao.AlertScopeDetails.builder().id(1).name("Screen1").conditions("[{\"metric\":\"LOAD_TIME\",\"alias\":\"A\"}]").build(),
           AlertsDao.AlertScopeDetails.builder().id(2).name("Screen2").conditions("[{\"metric\":\"SCREEN_TIME\",\"alias\":\"B\"}]").build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("LOAD_TIME", "SCREEN_TIME"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("LOAD_TIME", "SCREEN_TIME"),
+          QueryRequest.DataType.TRACES);
       assertNotNull(result);
       assertTrue(result.getFilters().stream().anyMatch(f -> f.getOperator() == QueryRequest.Operator.IN));
     }
@@ -847,13 +851,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .evaluationPeriod(60)
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -861,8 +865,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"ERROR_RATE\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
     }
 
@@ -871,13 +876,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .evaluationPeriod(60)
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -885,8 +890,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"ERROR_RATE\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
     }
 
@@ -895,13 +901,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .evaluationPeriod(60)
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -909,8 +915,9 @@ class AlertEvaluationServiceTest {
               .conditions(null)
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
     }
 
@@ -919,13 +926,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .evaluationPeriod(60)
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -933,8 +940,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ERROR_RATE"), QueryRequest.DataType.TRACES);
       assertNotNull(result);
     }
 
@@ -943,7 +951,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("APP_VITALS")
@@ -957,11 +965,12 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"ALL_USERS\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ALL_USERS"), QueryRequest.DataType.LOGS);
+
+      QueryRequest result =
+          (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("ALL_USERS"), QueryRequest.DataType.LOGS);
       assertNotNull(result);
       assertEquals(QueryRequest.DataType.LOGS, result.getDataType());
-      assertTrue(result.getFilters().stream().anyMatch(f -> 
+      assertTrue(result.getFilters().stream().anyMatch(f ->
           "PulseType".equals(f.getField()) && f.getValue().contains("session.start")));
     }
 
@@ -970,13 +979,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "buildQueryRequest", AlertsDao.AlertDetails.class, List.class, List.class, QueryRequest.DataType.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("SCREEN")
           .evaluationPeriod(60)
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -984,8 +993,9 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"CRASH_USERS\",\"alias\":\"A\"}]")
               .build()
       );
-      
-      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("CRASH_USERS"), QueryRequest.DataType.EXCEPTIONS);
+
+      QueryRequest result = (QueryRequest) method.invoke(alertEvaluationService, alertDetails, scopes, List.of("CRASH_USERS"),
+          QueryRequest.DataType.EXCEPTIONS);
       assertNotNull(result);
       assertEquals(QueryRequest.DataType.EXCEPTIONS, result.getDataType());
       assertTrue(result.getFilters().stream().anyMatch(f -> "ScreenName".equals(f.getField())));
@@ -1000,7 +1010,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1014,11 +1024,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"ERROR_RATE\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(new ArrayList<>());
       queryResult.setRows(new ArrayList<>());
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1030,7 +1040,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1039,16 +1049,16 @@ class AlertEvaluationServiceTest {
 
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
-          .id(1)
+              .id(1)
               .name("TestScope")
               .conditions("[{\"metric\":\"ERROR_RATE\",\"alias\":\"A\"}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(null);
       queryResult.setRows(new ArrayList<>());
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1060,7 +1070,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1074,14 +1084,14 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
       when(metricOperatorProcessor.isFiring(any(), any())).thenReturn(true);
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1092,7 +1102,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("APP_VITALS")
@@ -1106,14 +1116,14 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"crash_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.1}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("crash_rate"));
       queryResult.setRows(List.of(List.of("0.2")));
-      
+
       when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
       when(metricOperatorProcessor.isFiring(any(), any())).thenReturn(true);
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1124,7 +1134,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1133,16 +1143,16 @@ class AlertEvaluationServiceTest {
 
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
-          .id(1)
+              .id(1)
               .name("TestScope")
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":\"invalid\"}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1153,7 +1163,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1167,14 +1177,14 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":\"0.5\"}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       when(metricOperatorFactory.getProcessor(MetricOperator.GREATER_THAN)).thenReturn(metricOperatorProcessor);
       when(metricOperatorProcessor.isFiring(any(), any())).thenReturn(true);
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1185,7 +1195,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1199,11 +1209,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\"}]") // Missing alias, operator, threshold
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1214,7 +1224,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1228,11 +1238,11 @@ class AlertEvaluationServiceTest {
               .conditions("[]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1244,7 +1254,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1258,11 +1268,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"missing_metric\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "other_metric", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1273,7 +1283,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1287,12 +1297,12 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       // No scope field
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1303,7 +1313,7 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
@@ -1317,11 +1327,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "not_a_number", "TestScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1332,13 +1342,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .conditionExpression("A")
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -1346,11 +1356,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "OtherScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1361,13 +1371,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .conditionExpression("A")
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -1375,11 +1385,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.5}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01"))); // Insufficient columns
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1390,13 +1400,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("APP_VITALS")
           .conditionExpression("A")
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -1404,11 +1414,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"crash_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.1}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("crash_rate"));
       queryResult.setRows(new ArrayList<>());
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1419,13 +1429,13 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("APP_VITALS")
           .conditionExpression("A")
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
@@ -1433,11 +1443,11 @@ class AlertEvaluationServiceTest {
               .conditions("[{\"metric\":\"crash_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":0.1}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("crash_rate"));
       queryResult.setRows(List.of(List.of("not_a_number")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1448,25 +1458,26 @@ class AlertEvaluationServiceTest {
       Method method = AlertEvaluationService.class.getDeclaredMethod(
           "evaluateMetrics", AlertsDao.AlertDetails.class, List.class, PerformanceMetricDistributionRes.class);
       method.setAccessible(true);
-      
+
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
           .id(1)
           .scope("INTERACTION")
           .conditionExpression("A")
           .build();
-      
+
       List<AlertsDao.AlertScopeDetails> scopes = List.of(
           AlertsDao.AlertScopeDetails.builder()
               .id(1)
               .name("TestScope")
-              .conditions("[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":{\"nested\":\"value\"}}]")
+              .conditions(
+                  "[{\"metric\":\"error_rate\",\"alias\":\"A\",\"metric_operator\":\"GREATER_THAN\",\"threshold\":{\"nested\":\"value\"}}]")
               .build()
       );
-      
+
       PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
       queryResult.setFields(List.of("t1", "error_rate", "interactionName"));
       queryResult.setRows(List.of(List.of("2023-01-01", "0.8", "TestScope")));
-      
+
       @SuppressWarnings("unchecked")
       List<Object> results = (List<Object>) method.invoke(alertEvaluationService, alertDetails, scopes, queryResult);
       assertNotNull(results);
@@ -1494,11 +1505,11 @@ class AlertEvaluationServiceTest {
     void shouldEvaluateAlertByIdWithEmptyScopes() throws InterruptedException {
       Integer alertId = 1;
       AlertsDao.AlertDetails alertDetails = AlertsDao.AlertDetails.builder()
-        .id(alertId)
-        .name("Test Alert")
-        .scope("INTERACTION")
-        .evaluationPeriod(60)
-        .build();
+          .id(alertId)
+          .name("Test Alert")
+          .scope("INTERACTION")
+          .evaluationPeriod(60)
+          .build();
 
       when(alertsDao.getAlertDetailsForEvaluation(alertId)).thenReturn(Single.just(alertDetails));
       when(alertsDao.getAlertScopesForEvaluation(alertId)).thenReturn(Single.just(new ArrayList<>()));
@@ -1986,7 +1997,7 @@ class AlertEvaluationServiceTest {
       );
 
       @SuppressWarnings("unchecked")
-      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>) 
+      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>)
           method.invoke(alertEvaluationService, scopes, "SCREEN");
 
       assertNotNull(result);
@@ -2011,7 +2022,7 @@ class AlertEvaluationServiceTest {
       );
 
       @SuppressWarnings("unchecked")
-      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>) 
+      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>)
           method.invoke(alertEvaluationService, scopes, "SCREEN");
 
       assertNotNull(result);
@@ -2036,7 +2047,7 @@ class AlertEvaluationServiceTest {
       );
 
       @SuppressWarnings("unchecked")
-      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>) 
+      Map<QueryRequest.DataType, List<String>> result = (Map<QueryRequest.DataType, List<String>>)
           method.invoke(alertEvaluationService, scopes, "APP_VITALS");
 
       assertNotNull(result);
@@ -2068,7 +2079,7 @@ class AlertEvaluationServiceTest {
           List.of("2026-01-08T10:00:00Z", "HomeScreen", "5")
       ));
 
-      PerformanceMetricDistributionRes merged = (PerformanceMetricDistributionRes) 
+      PerformanceMetricDistributionRes merged = (PerformanceMetricDistributionRes)
           method.invoke(alertEvaluationService, List.of(result1, result2));
 
       assertNotNull(merged);
@@ -2084,7 +2095,7 @@ class AlertEvaluationServiceTest {
           "mergeQueryResults", List.class);
       method.setAccessible(true);
 
-      PerformanceMetricDistributionRes result = (PerformanceMetricDistributionRes) 
+      PerformanceMetricDistributionRes result = (PerformanceMetricDistributionRes)
           method.invoke(alertEvaluationService, List.of());
 
       assertNotNull(result);
@@ -2102,7 +2113,7 @@ class AlertEvaluationServiceTest {
       input.setFields(List.of("t1", "metric1"));
       input.setRows(List.of(List.of("2026-01-08T10:00:00Z", "10")));
 
-      PerformanceMetricDistributionRes result = (PerformanceMetricDistributionRes) 
+      PerformanceMetricDistributionRes result = (PerformanceMetricDistributionRes)
           method.invoke(alertEvaluationService, List.of(input));
 
       assertNotNull(result);
@@ -2132,8 +2143,8 @@ class AlertEvaluationServiceTest {
       fieldIndexMap.put("crash_users", 3);
       fieldIndexMap.put("screenName", 1);
 
-      Float result = (Float) method.invoke(alertEvaluationService, 
-          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap, 
+      Float result = (Float) method.invoke(alertEvaluationService,
+          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap,
           "HomeScreen", "screenName", false, "SCREEN");
 
       assertNotNull(result);
@@ -2158,8 +2169,8 @@ class AlertEvaluationServiceTest {
       fieldIndexMap.put("crash_users", 3);
       fieldIndexMap.put("screenName", 1);
 
-      Float result = (Float) method.invoke(alertEvaluationService, 
-          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap, 
+      Float result = (Float) method.invoke(alertEvaluationService,
+          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap,
           "HomeScreen", "screenName", false, "SCREEN");
 
       assertNull(result);
@@ -2180,8 +2191,8 @@ class AlertEvaluationServiceTest {
       fieldIndexMap.put("all_users", 0);
       fieldIndexMap.put("crash_users", 1);
 
-      Float result = (Float) method.invoke(alertEvaluationService, 
-          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap, 
+      Float result = (Float) method.invoke(alertEvaluationService,
+          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap,
           "VitalsScope", "scopeName", true, "APP_VITALS");
 
       assertNotNull(result);
@@ -2299,7 +2310,7 @@ class AlertEvaluationServiceTest {
           "matchesNetworkApiScope", String.class, String.class, String.class);
       method.setAccessible(true);
 
-      Boolean result = (Boolean) method.invoke(alertEvaluationService, 
+      Boolean result = (Boolean) method.invoke(alertEvaluationService,
           "get_https://api.test.com", "get", "https://api.test.com");
       assertTrue(result);
     }
@@ -2310,7 +2321,7 @@ class AlertEvaluationServiceTest {
           "matchesNetworkApiScope", String.class, String.class, String.class);
       method.setAccessible(true);
 
-      Boolean result = (Boolean) method.invoke(alertEvaluationService, 
+      Boolean result = (Boolean) method.invoke(alertEvaluationService,
           "get_https://api.test.com", "post", "https://api.test.com");
       assertFalse(result);
     }
@@ -2321,7 +2332,7 @@ class AlertEvaluationServiceTest {
           "matchesNetworkApiScope", String.class, String.class, String.class);
       method.setAccessible(true);
 
-      Boolean result = (Boolean) method.invoke(alertEvaluationService, 
+      Boolean result = (Boolean) method.invoke(alertEvaluationService,
           "https://api.test.com", "get", "https://api.test.com");
       assertTrue(result);
     }
@@ -2405,6 +2416,189 @@ class AlertEvaluationServiceTest {
       assertNotNull(result);
       assertEquals(1, result.size());
       assertTrue(result.contains("Screen1"));
+    }
+  }
+
+  @Nested
+  class ExtractUrlsFromScopesEdgeCasesTests {
+
+    @Test
+    void shouldHandleUrlWithUnderscoreAtStart() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("extractUrlsFromScopes", List.class);
+      method.setAccessible(true);
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder().name("_https://api.test.com").build()
+      );
+
+      @SuppressWarnings("unchecked")
+      Set<String> result = (Set<String>) method.invoke(alertEvaluationService, scopes);
+
+      assertNotNull(result);
+      assertTrue(result.contains("_https://api.test.com"));
+    }
+
+    @Test
+    void shouldHandleUrlWithUnderscoreAtEnd() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("extractUrlsFromScopes", List.class);
+      method.setAccessible(true);
+
+      List<AlertsDao.AlertScopeDetails> scopes = List.of(
+          AlertsDao.AlertScopeDetails.builder().name("get_").build()
+      );
+
+      @SuppressWarnings("unchecked")
+      Set<String> result = (Set<String>) method.invoke(alertEvaluationService, scopes);
+
+      assertNotNull(result);
+      assertTrue(result.contains("get_"));
+    }
+  }
+
+  @Nested
+  class AddPulseTypeFilterEdgeCasesTests {
+
+    @Test
+    void shouldAddPulseTypeFilterForInteractionScope() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "addPulseTypeFilter", List.class, QueryRequest.DataType.class, boolean.class, String.class);
+      method.setAccessible(true);
+
+      List<QueryRequest.Filter> filters = new ArrayList<>();
+      method.invoke(alertEvaluationService, filters, QueryRequest.DataType.TRACES, false, "INTERACTION");
+
+      assertTrue(filters.stream().anyMatch(f -> "PulseType".equals(f.getField())));
+      QueryRequest.Filter filter = filters.stream()
+          .filter(f -> "PulseType".equals(f.getField()))
+          .findFirst()
+          .orElse(null);
+      assertNotNull(filter);
+      assertEquals(QueryRequest.Operator.IN, filter.getOperator());
+    }
+
+    @Test
+    void shouldNotAddPulseTypeFilterForNullScope() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "addPulseTypeFilter", List.class, QueryRequest.DataType.class, boolean.class, String.class);
+      method.setAccessible(true);
+
+      List<QueryRequest.Filter> filters = new ArrayList<>();
+      method.invoke(alertEvaluationService, filters, QueryRequest.DataType.TRACES, false, null);
+
+      assertFalse(filters.stream().anyMatch(f -> "PulseType".equals(f.getField())));
+    }
+  }
+
+  @Nested
+  class CalculateCompositeMetricEdgeCasesTests {
+
+    @Test
+    void shouldHandleEmptyRowsForAppVitals() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "calculateCompositeMetric", String.class, PerformanceMetricDistributionRes.class,
+          Map.class, String.class, String.class, boolean.class, String.class);
+      method.setAccessible(true);
+
+      PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
+      queryResult.setFields(List.of("all_users", "crash_users"));
+      queryResult.setRows(new ArrayList<>());
+
+      Map<String, Integer> fieldIndexMap = new HashMap<>();
+      fieldIndexMap.put("all_users", 0);
+      fieldIndexMap.put("crash_users", 1);
+
+      Float result = (Float) method.invoke(alertEvaluationService,
+          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap,
+          "VitalsScope", "scopeName", true, "APP_VITALS");
+
+      assertNull(result);
+    }
+
+    @Test
+    void shouldHandleInsufficientRowSizeForAppVitals() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod(
+          "calculateCompositeMetric", String.class, PerformanceMetricDistributionRes.class,
+          Map.class, String.class, String.class, boolean.class, String.class);
+      method.setAccessible(true);
+
+      PerformanceMetricDistributionRes queryResult = new PerformanceMetricDistributionRes();
+      queryResult.setFields(List.of("all_users", "crash_users"));
+      queryResult.setRows(List.of(List.of("100")));
+
+      Map<String, Integer> fieldIndexMap = new HashMap<>();
+      fieldIndexMap.put("all_users", 0);
+      fieldIndexMap.put("crash_users", 1);
+
+      Float result = (Float) method.invoke(alertEvaluationService,
+          "CRASH_FREE_USERS_PERCENTAGE", queryResult, fieldIndexMap,
+          "VitalsScope", "scopeName", true, "APP_VITALS");
+
+      assertNull(result);
+    }
+  }
+
+  @Nested
+  class ParseConditionsArrayEdgeCasesTests {
+
+    @Test
+    void shouldHandleInvalidJson() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("parseConditionsArray", String.class);
+      method.setAccessible(true);
+
+      List<Map<String, Object>> result = (List<Map<String, Object>>)
+          method.invoke(alertEvaluationService, "invalid json");
+
+      assertNotNull(result);
+      assertTrue(result.isEmpty());
+    }
+  }
+
+  @Nested
+  class ExtractSqlConditionEdgeCasesTests {
+
+    @Test
+    void shouldHandleSqlStartingWithParenthesis() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("extractSqlCondition", String.class);
+      method.setAccessible(true);
+
+      String result = (String) method.invoke(alertEvaluationService, "(os = 'Android')");
+
+      assertNotNull(result);
+      assertEquals("(os = 'Android')", result);
+    }
+
+    @Test
+    void shouldHandleInvalidJsonFilter() throws Exception {
+      Method method = AlertEvaluationService.class.getDeclaredMethod("extractSqlCondition", String.class);
+      method.setAccessible(true);
+
+      String result = (String) method.invoke(alertEvaluationService, "invalid json");
+
+      assertNotNull(result);
+    }
+  }
+
+  @Nested
+  class MetricToFunctionMapperEdgeCasesTests {
+
+    @Test
+    void shouldHandleNetworkMetricWithInvalidPulseTypeVariant() {
+      Functions result = MetricToFunctionMapper.mapMetricToFunction("NET_INVALID", "NETWORK_API");
+      assertNull(result);
+    }
+
+    @Test
+    void shouldGetDataTypeForNullMetric() {
+      QueryRequest.DataType result = MetricToFunctionMapper.getDataTypeForMetric(null, "SCREEN");
+      assertEquals(QueryRequest.DataType.TRACES, result);
+    }
+
+    @Test
+    void shouldGetCompositeMetricComponentsWithNullScope() {
+      MetricToFunctionMapper.CompositeMetricComponents components =
+          MetricToFunctionMapper.getCompositeMetricComponents("CRASH_FREE_USERS_PERCENTAGE", null);
+      assertNotNull(components);
+      assertEquals(QueryRequest.DataType.TRACES, components.totalMetricDataType);
     }
   }
 }
