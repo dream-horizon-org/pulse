@@ -6,20 +6,21 @@ spotless = "8.0.0"
 kotlin = "2.2.20"
 navigation-compose = "2.7.7"
 okhttp = "5.2.1"
+pulse-android = "0.0.1-alpha-SNAPSHOT"
 
 
 [libraries]
 androidx-appcompat = "androidx.appcompat:appcompat:1.7.1"
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "opentelemetry" }
 opentelemetry-api-incubator = { module = "io.opentelemetry:opentelemetry-api-incubator", version.ref = "opentelemetry-alpha" }
-pulse-android-agent = { module = "org.dreamhorizon:android-agent" }
-pulse-instrumentation-activity = { module = "org.dreamhorizon:activity" }
-pulse-instrumentation-compose-click = { module = "org.dreamhorizon:compose-click" }
-pulse-instrumentation-fragment = { module = "org.dreamhorizon:fragment" }
-pulse-instrumentation-sessions = { module = "org.dreamhorizon:sessions" }
-pulse-instrumentation-slowrendering = { module = "org.dreamhorizon:slowrendering" }
-pulse-instrumentation-view-click = { module = "org.dreamhorizon:view-click" }
-pulse-android-sdk = { module = "org.dreamhorizon:pulse-android-sdk" }
+pulse-android-agent = { module = "org.dreamhorizon1:android-agent", version.ref = "pulse-android" }
+pulse-instrumentation-activity = { module = "org.dreamhorizon1.instrumentation:activity", version.ref = "pulse-android" }
+pulse-instrumentation-compose-click = { module = "org.dreamhorizon1.instrumentation:compose-click", version.ref = "pulse-android" }
+pulse-instrumentation-fragment = { module = "org.dreamhorizon1.instrumentation:fragment", version.ref = "pulse-android" }
+pulse-instrumentation-sessions = { module = "org.dreamhorizon1.instrumentation:sessions", version.ref = "pulse-android" }
+pulse-instrumentation-slowrendering = { module = "org.dreamhorizon1.instrumentation:slowrendering", version.ref = "pulse-android" }
+pulse-instrumentation-view-click = { module = "org.dreamhorizon1.instrumentation:view-click", version.ref = "pulse-android" }
+pulse-android-sdk = { module = "org.dreamhorizon1:pulse-android-sdk", version.ref = "pulse-android" }
 gson = "com.google.code.gson:gson:2.13.2"
 
 #Test tools

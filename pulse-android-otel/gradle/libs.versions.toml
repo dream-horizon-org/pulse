@@ -112,5 +112,6 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinSerialisation = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 androidApp = { id = "com.android.application", version.ref = "androidPlugin" }
+androidFusedLibrary = { id = "com.android.fused-library", version.ref = "androidPlugin" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "koverGradlePlugin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

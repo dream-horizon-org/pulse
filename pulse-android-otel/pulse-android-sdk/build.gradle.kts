@@ -1,6 +1,5 @@
 plugins {
     id("otel.android-library-conventions")
-    id("otel.publish-conventions")
 }
 
 description = "Pulse SDK for mobile observability"
@@ -23,8 +22,6 @@ dependencies {
     api(projects.androidAgent)
     implementation(projects.common)
     implementation(projects.pulseSemconv)
-    implementation(projects.pulseSamplingModels)
-    implementation(projects.pulseSamplingCore)
     implementation(projects.pulseUtils)
     implementation(projects.instrumentation.interaction.interactionLibrary)
     implementation(platform(libs.opentelemetry.platform.alpha))

@@ -16,6 +16,8 @@ kotlin {
 
 dependencies {
     implementation(platform(libs.opentelemetry.platform.alpha))
+    // testCommon is only used in tests, but declared as implementation for compilation
+    // In the fused library, this will be included transitively
     implementation(projects.testCommon)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
