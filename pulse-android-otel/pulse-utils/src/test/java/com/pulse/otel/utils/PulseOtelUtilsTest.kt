@@ -1,5 +1,7 @@
 package com.pulse.otel.utils
 
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SdkTracerProvider
@@ -44,7 +46,7 @@ class PulseOtelUtilsTest {
             tracer
                 .spanBuilder("test-span")
                 .setAttribute(
-                    io.opentelemetry.api.common.AttributeKey
+                    AttributeKey
                         .stringKey("other.attribute"),
                     "value",
                 ).startSpan()
@@ -67,20 +69,71 @@ class PulseOtelUtilsTest {
             tracer
                 .spanBuilder("test-span")
                 .setAttribute(
-                    io.opentelemetry.api.common.AttributeKey
+                    AttributeKey
                         .stringKey("span.kind"),
                     "server",
                 ).setAttribute(
-                    io.opentelemetry.api.common.AttributeKey
+                    AttributeKey
                         .stringKey("service.name"),
                     "test-service",
                 ).setAttribute(
-                    io.opentelemetry.api.common.AttributeKey
+                    AttributeKey
                         .longKey("duration"),
                     100L,
                 ).startSpan()
 
         assertIsNetworkSpan(span, false)
+    }
+
+    @Test
+    fun `putAttributesFrom transforms map with different value types to attributes`() {
+        val nestedAttributes =
+            Attributes
+                .builder()
+                .put("nested.key1", "nested.value1")
+                .put("nested.key2", 42L)
+                .build()
+
+        val map =
+            mapOf(
+                "string.key" to "string.value",
+                "long.key" to 123L,
+                "double.key" to 45.67,
+                "boolean.key" to true,
+                "attributes.key" to nestedAttributes,
+                "int.key" to 999, // Int will be converted to string via else branch
+                "null.key" to null, // null will be converted to null string
+            )
+
+        val attributesBuilder = Attributes.builder()
+        attributesBuilder putAttributesFrom map
+        val attributes = attributesBuilder.build()
+
+        assertThat(attributes.get(AttributeKey.stringKey("string.key"))).isEqualTo("string.value")
+        assertThat(attributes.get(AttributeKey.longKey("long.key"))).isEqualTo(123L)
+        assertThat(attributes.get(AttributeKey.doubleKey("double.key"))).isEqualTo(45.67)
+        assertThat(attributes.get(AttributeKey.booleanKey("boolean.key"))).isEqualTo(true)
+        assertThat(attributes.get(AttributeKey.stringKey("nested.key1"))).isEqualTo("nested.value1")
+        assertThat(attributes.get(AttributeKey.longKey("nested.key2"))).isEqualTo(42L)
+        assertThat(attributes.get(AttributeKey.stringKey("int.key"))).isEqualTo("999")
+        assertThat(attributes.get(AttributeKey.stringKey("null.key"))).isNull()
+    }
+
+    @Test
+    fun `putAttributesFrom excludes attributes with pulse internal prefix`() {
+        val map =
+            mapOf(
+                "pulse.internal.debug" to "also.should.not.appear",
+                "pulse.internal" to "also.should.not.appear",
+            )
+
+        val attributesBuilder = Attributes.builder()
+        attributesBuilder putAttributesFrom map
+        val attributes = attributesBuilder.build()
+
+        assertThat(attributes.get(AttributeKey.stringKey("pulse.internal.debug"))).isNull()
+        assertThat(attributes.get(AttributeKey.stringKey("pulse.internal"))).isNull()
+        assertThat(attributes.size()).isZero
     }
 
     private fun assertIsNetworkSpan(
