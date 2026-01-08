@@ -15,6 +15,7 @@ public object PulseSdkConfigFakeUtils {
         filterMode: PulseSignalFilterMode = PulseSignalFilterMode.WHITELIST,
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseSignalMatchCondition> = emptyList(),
+        attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
     ): PulseSdkConfig =
         PulseSdkConfig(
             version = version,
@@ -34,6 +35,7 @@ public object PulseSdkConfigFakeUtils {
                     spanCollectorUrl = collectorUrl + "v1/spans/",
                     metricCollectorUrl = collectorUrl + "v1/metrics/",
                     attributesToDrop = attributesToDrop,
+                    attributesToAdd = attributesToAdd,
                     filters =
                         PulseSignalFilter(
                             mode = filterMode,
@@ -100,5 +102,25 @@ public object PulseSdkConfigFakeUtils {
         PulseProp(
             name = name,
             value = value,
+        )
+
+    public fun createFakeAttributeValue(
+        name: String = "fake-attr-name",
+        value: String = "fake-attr-value",
+        type: PulseAttributeType = PulseAttributeType.STRING,
+    ): PulseAttributeValue =
+        PulseAttributeValue(
+            name = name,
+            value = value,
+            type = type,
+        )
+
+    public fun createFakeAttributesToAddEntry(
+        values: List<PulseAttributeValue> = listOf(createFakeAttributeValue()),
+        matcher: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+    ): PulseAttributesToAddEntry =
+        PulseAttributesToAddEntry(
+            values = values,
+            condition = matcher,
         )
 }

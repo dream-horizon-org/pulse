@@ -5,6 +5,65 @@ public final class com/pulse/sampling/models/BuildConfig {
 	public fun <init> ()V
 }
 
+public final class com/pulse/sampling/models/PulseAttributeType : java/lang/Enum {
+	public static final field BOOLEAN Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field BOOLEAN_ARRAY Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field Companion Lcom/pulse/sampling/models/PulseAttributeType$Companion;
+	public static final field DOUBLE Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field DOUBLE_ARRAY Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field LONG Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field LONG_ARRAY Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field STRING Lcom/pulse/sampling/models/PulseAttributeType;
+	public static final field STRING_ARRAY Lcom/pulse/sampling/models/PulseAttributeType;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/sampling/models/PulseAttributeType;
+	public static fun values ()[Lcom/pulse/sampling/models/PulseAttributeType;
+}
+
+public final class com/pulse/sampling/models/PulseAttributeType$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/sampling/models/PulseAttributeValue {
+	public static final field Companion Lcom/pulse/sampling/models/PulseAttributeValue$Companion;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getType ()Lcom/pulse/sampling/models/PulseAttributeType;
+	public final fun getValue ()Ljava/lang/String;
+}
+
+public final class com/pulse/sampling/models/PulseAttributeValue$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/sampling/models/PulseAttributeValue$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/sampling/models/PulseAttributeValue;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseAttributeValue;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/sampling/models/PulseAttributeValue$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/sampling/models/PulseAttributesToAddEntry {
+	public static final field Companion Lcom/pulse/sampling/models/PulseAttributesToAddEntry$Companion;
+	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
+	public final fun getValues ()Ljava/util/List;
+}
+
+public final class com/pulse/sampling/models/PulseAttributesToAddEntry$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/sampling/models/PulseAttributesToAddEntry$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/sampling/models/PulseAttributesToAddEntry;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseAttributesToAddEntry;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/sampling/models/PulseAttributesToAddEntry$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class com/pulse/sampling/models/PulseCriticalEventPolicies {
 	public static final field Companion Lcom/pulse/sampling/models/PulseCriticalEventPolicies$Companion;
 	public final fun getAlwaysSend ()Ljava/util/List;
@@ -249,6 +308,7 @@ public final class com/pulse/sampling/models/PulseSessionSamplingRule$Companion 
 
 public final class com/pulse/sampling/models/PulseSignalConfig {
 	public static final field Companion Lcom/pulse/sampling/models/PulseSignalConfig$Companion;
+	public final fun getAttributesToAdd ()Ljava/util/List;
 	public final fun getAttributesToDrop ()Ljava/util/List;
 	public final fun getFilters ()Lcom/pulse/sampling/models/PulseSignalFilter;
 	public final fun getLogsCollectorUrl ()Ljava/lang/String;

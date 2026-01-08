@@ -18,6 +18,8 @@ public class PulseSignalConfig internal constructor(
     public val spanCollectorUrl: String,
     @SerialName("attributesToDrop")
     public val attributesToDrop: List<PulseSignalMatchCondition>,
+    @SerialName("attributesToAdd")
+    public val attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
     @SerialName("filters")
     public val filters: PulseSignalFilter,
 )
@@ -48,4 +50,52 @@ public class PulseProp internal constructor(
     public val name: String,
     @SerialName("value")
     public val value: String?,
+)
+
+@Keep
+@Serializable
+public enum class PulseAttributeType {
+    @SerialName("string")
+    STRING,
+
+    @SerialName("boolean")
+    BOOLEAN,
+
+    @SerialName("long")
+    LONG,
+
+    @SerialName("double")
+    DOUBLE,
+
+    @SerialName("string_array")
+    STRING_ARRAY,
+
+    @SerialName("boolean_array")
+    BOOLEAN_ARRAY,
+
+    @SerialName("long_array")
+    LONG_ARRAY,
+
+    @SerialName("double_array")
+    DOUBLE_ARRAY,
+}
+
+@Keep
+@Serializable
+public class PulseAttributeValue internal constructor(
+    @SerialName("name")
+    public val name: String,
+    @SerialName("value")
+    public val value: String,
+    @SerialName("type")
+    public val type: PulseAttributeType,
+)
+
+@Keep
+@Serializable
+public class PulseAttributesToAddEntry internal constructor(
+    @SerialName("values")
+    public val values: List<PulseAttributeValue>,
+    @SerialName("condition")
+    public val condition: PulseSignalMatchCondition,
 )
