@@ -43,6 +43,7 @@ public object PulseOtelUtils {
 public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): AttributesBuilder =
     apply {
         map.forEach { (key, value) ->
+            if (key.startsWith("pulse.internal")) return@forEach
             when (value) {
                 is Attributes -> {
                     putAll(value)
