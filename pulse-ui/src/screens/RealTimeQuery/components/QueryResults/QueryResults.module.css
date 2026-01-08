@@ -4,18 +4,57 @@
   border: 1px solid rgba(14, 201, 194, 0.12);
   box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
   min-height: 200px;
+  overflow: hidden;
 }
 
 .loadingState,
 .errorState,
 .emptyState {
-  min-height: 300px;
+  min-height: 350px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* Enhanced Loading Indicator */
+.loadingIndicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loadingPulse {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(14, 201, 194, 0.1);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+}
+
 .tableWrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.scrollArea {
   max-height: 500px;
 }
 
@@ -24,23 +63,70 @@
 }
 
 .table th {
-  background: rgba(14, 201, 194, 0.06);
+  background: #e8f9f8;
   font-weight: 600;
   white-space: nowrap;
   color: var(--mantine-color-dark-7);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .table td {
-  max-width: 300px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 350px;
+  min-width: 80px;
+  vertical-align: top;
+  padding: 8px 12px !important;
 }
 
 .table tr:hover td {
   background: rgba(14, 201, 194, 0.04);
 }
 
+.tableCell {
+  position: relative;
+}
+
+.cellContent {
+  width: 100%;
+}
+
+.truncatedText {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+  flex: 1;
+}
+
+.copyButton {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.table tr:hover .copyButton {
+  opacity: 1;
+}
+
+.tooltipContent {
+  padding: 4px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .chartWrapper {
   min-height: 400px;
+}
+
+.paginationFooter {
+  padding: var(--mantine-spacing-md);
+  border-top: 1px solid rgba(14, 201, 194, 0.1);
+  background: rgba(14, 201, 194, 0.02);
+}
+
+.loadMoreButton {
+  font-weight: 600;
 }

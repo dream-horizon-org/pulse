@@ -129,6 +129,11 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # AWS Credentials for S3/Athena access
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql

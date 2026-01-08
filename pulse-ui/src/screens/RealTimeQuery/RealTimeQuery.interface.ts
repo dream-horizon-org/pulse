@@ -1,160 +1,65 @@
-// Data source types
-export type DataSourceType = "events" | "users" | "sessions";
+/**
+ * Real-time Query Interfaces
+ * Types for SQL query execution and results display
+ */
 
-export interface DataSource {
-  id: DataSourceType;
-  label: string;
-  description: string;
-  icon: string;
-  estimatedRows?: number;
-  lastUpdated?: string;
-}
+// Re-export types from hooks for convenience
+export type {
+  ColumnMetadata,
+  TableMetadataResponse,
+} from "../../hooks/useQueryMetadata";
 
-// Filter types
-export type FilterOperator =
-  | "equals"
-  | "not_equals"
-  | "contains"
-  | "not_contains"
-  | "starts_with"
-  | "ends_with"
-  | "greater_than"
-  | "less_than"
-  | "greater_than_or_equal"
-  | "less_than_or_equal"
-  | "in"
-  | "not_in"
-  | "is_null"
-  | "is_not_null";
+export type {
+  QueryJobStatus,
+  SubmitQueryRequest,
+  SubmitQueryResponse,
+  GetJobStatusResponse,
+} from "../../hooks/useSubmitQuery";
 
-export type FilterLogic = "AND" | "OR";
-
-export interface FilterCondition {
-  id: string;
-  field: string;
-  operator: FilterOperator;
-  value: string | string[] | number | null;
-}
-
-export interface FilterGroup {
-  id: string;
-  logic: FilterLogic;
-  conditions: FilterCondition[];
-}
-
-// Metric types
-export type AggregationType =
-  | "count"
-  | "count_distinct"
-  | "sum"
-  | "avg"
-  | "min"
-  | "max"
-  | "percentile_50"
-  | "percentile_90"
-  | "percentile_95"
-  | "percentile_99";
-
-export interface Metric {
-  id: string;
-  aggregation: AggregationType;
-  field: string | null; // null for COUNT(*)
-  alias?: string;
-}
-
-// Group by types
-export type DateGranularity =
-  | "minute"
-  | "hour"
-  | "day"
-  | "week"
-  | "month"
-  | "quarter"
-  | "year";
-
-export interface GroupByDimension {
-  id: string;
-  field: string;
-  granularity?: DateGranularity; // Only for date fields
-  limit?: number;
-}
-
-// Time range types
-export interface TimeRange {
-  type: "preset" | "custom";
-  preset?: string;
-  startDate?: Date;
-  endDate?: Date;
-}
-
-// Visualization types
-export type ChartType = "line" | "bar" | "pie" | "area" | "table";
-
-export interface VisualizationConfig {
-  chartType: ChartType;
-  showLegend: boolean;
-  stacked?: boolean;
-  colorScheme?: string;
-}
-
-// Query state
-export interface QueryState {
-  dataSource: DataSourceType;
-  metrics: Metric[];
-  filters: FilterGroup;
-  groupBy: GroupByDimension[];
-  timeRange: TimeRange;
-  visualization: VisualizationConfig;
-  orderBy?: {
-    field: string;
-    direction: "asc" | "desc";
-  };
-  limit?: number;
-}
-
-// Field metadata
-export interface FieldMetadata {
-  name: string;
-  type: "string" | "number" | "date" | "boolean" | "array" | "object";
-  description?: string;
-  isNullable?: boolean;
-  sampleValues?: string[];
-}
-
-// Query results
+// Query result column
 export interface QueryResultColumn {
   name: string;
   type: string;
 }
 
+// Query result row (dynamic based on query)
 export interface QueryResultRow {
-  [key: string]: string | number | boolean | null;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
+// Processed query result for display
 export interface QueryResult {
   columns: QueryResultColumn[];
   rows: QueryResultRow[];
   totalRows: number;
-  executionTimeMs: number;
+  executionTimeMs?: number;
+  dataScannedInBytes?: number;
   hasMore: boolean;
-  pageToken?: string;
+  nextToken?: string | null;
 }
 
-// Saved query
-export interface SavedQuery {
-  id: string;
-  name: string;
-  description?: string;
-  query: QueryState;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string;
-  tags?: string[];
-  isFavorite?: boolean;
+// Query execution state
+export type QueryExecutionStatus =
+  | "idle"
+  | "submitting"
+  | "polling"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+// Query execution state interface
+export interface QueryExecutionState {
+  status: QueryExecutionStatus;
+  jobId: string | null;
+  errorMessage: string | null;
+  pollCount: number;
 }
 
-// Component Props
-export interface RealTimeQueryProps {
-  initialQuery?: Partial<QueryState>;
-}
+// Visualization configuration for results
+export type ChartType = "table" | "line" | "bar" | "area" | "pie";
 
+export interface VisualizationConfig {
+  chartType: ChartType;
+  showLegend?: boolean;
+  stacked?: boolean;
+}

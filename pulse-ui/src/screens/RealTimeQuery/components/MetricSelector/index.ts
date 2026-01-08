@@ -1,2 +1,0 @@
-export { MetricSelector } from "./MetricSelector";
-
