@@ -29,6 +29,7 @@ public final class ConfigUtils {
             .addStore(hoconFile("conf/mysql-default.conf", false))
             .addStore(hoconFile("conf/application-default.conf", false))
             .addStore(hoconFile("conf/webclient-default.conf", false))
+            .addStore(hoconFile("conf/athena-default.conf", false))
             .setScanPeriod(5000)
     );
   }

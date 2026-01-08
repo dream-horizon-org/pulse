@@ -1,0 +1,64 @@
+package org.dreamhorizon.pulseserver.client.athena;
+
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import java.util.ArrayList;
+import java.util.List;
+import software.amazon.awssdk.services.athena.model.ResultSet;
+import software.amazon.awssdk.services.athena.model.Row;
+
+public class AthenaResultConverter {
+
+  public AthenaResultConverter() {
+  }
+
+  public JsonArray convertToJsonArray(ResultSet resultSet) {
+    JsonArray result = new JsonArray();
+
+    if (resultSet == null || resultSet.resultSetMetadata() == null || resultSet.resultSetMetadata().columnInfo() == null) {
+      return result;
+    }
+
+    List<String> columnNames = extractColumnNames(resultSet);
+
+    if (resultSet.rows() != null && !resultSet.rows().isEmpty()) {
+      boolean isFirstRow = true;
+      for (Row row : resultSet.rows()) {
+        if (isFirstRow) {
+          isFirstRow = false;
+          continue;
+        }
+        result.add(convertRowToJsonObject(row, columnNames));
+      }
+    }
+
+    return result;
+  }
+
+  private List<String> extractColumnNames(ResultSet resultSet) {
+    List<String> columnNames = new ArrayList<>();
+    resultSet.resultSetMetadata().columnInfo().forEach(column -> columnNames.add(column.name()));
+    return columnNames;
+  }
+
+  private JsonObject convertRowToJsonObject(Row row, List<String> columnNames) {
+    JsonObject rowObject = new JsonObject();
+    if (row.data() == null) {
+      return rowObject;
+    }
+
+    for (int i = 0; i < columnNames.size() && i < row.data().size(); i++) {
+      String columnName = columnNames.get(i);
+      if (row.data().get(i) != null) {
+        String value = row.data().get(i).varCharValue();
+        rowObject.put(columnName, value);
+      } else {
+        // Add key with null value for missing Datum
+        rowObject.put(columnName, null);
+      }
+    }
+
+    return rowObject;
+  }
+}
+

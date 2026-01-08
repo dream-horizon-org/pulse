@@ -206,6 +206,22 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- GRANT ALL PRIVILEGES ON pulse_db.* TO 'pulse_user'@'%' IDENTIFIED BY 'pulse_password';
 -- FLUSH PRIVILEGES;
 
+-- Athena job tracking table
+CREATE TABLE IF NOT EXISTS athena_job (
+    job_id VARCHAR(255) PRIMARY KEY,
+    query_string TEXT NOT NULL,
+    query_execution_id VARCHAR(255),
+    status VARCHAR(50) NOT NULL DEFAULT 'RUNNING',
+    result_location VARCHAR(500),
+    error_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    INDEX idx_status (status),
+    INDEX idx_query_execution_id (query_execution_id),
+    INDEX idx_created_at (created_at)
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';

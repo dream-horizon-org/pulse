@@ -20,6 +20,13 @@
 - [Technology Stack](#-technology-stack)
 - [Getting Started](#-getting-started)
 - [API Documentation](#api-documentation)
+    - [Authentication](#authentication)
+    - [Metrics](#metrics)
+    - [OpenTelemetry Logs Ingestion](#opentelemetry-logs-ingestion)
+
+    - [Symbol File Upload](#symbol-file-upload)
+    - [Critical Interactions](#critical-interactions)
+    - [Alerts](#alerts)
 - [Database Schema](#-database-schema)
 - [Configuration](#-configuration)
 - [Testing](#testing)
@@ -723,6 +730,198 @@ curl -X POST http://localhost:8080/v1/logs \
 - Error messages in responses are sanitized (newlines and carriage returns are replaced with spaces)
 - The endpoint processes logs asynchronously and returns a completion stage
 - Stack traces are automatically symbolicated based on the detected platform (JS, Java, or NDK)
+
+## Query Service
+
+The query service provides a generic interface for executing SQL queries against various query engines (AWS Athena, BigQuery, etc.) with pagination support. Queries are automatically optimized with partition filters for better performance.
+
+**Base Path:** `/query`
+
+**Authentication:** These endpoints may require authentication depending on your server configuration.
+
+**Note:** The service is designed to be engine-agnostic. Currently, AWS Athena is the default implementation, but the architecture supports plugging in other query engines (e.g., BigQuery, GCP) by implementing the `QueryClient` and `QueryJobDao` interfaces.
+
+### Submit Query
+
+**Description:** Submits a SQL query for execution. The service validates the query, enriches it with timestamp-based partition filters for optimal performance, and executes it. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+
+**Business Logic:** The endpoint:
+
+- Validates SQL query syntax and ensures it's a safe SELECT query
+- Automatically enriches queries with partition filters (year, month, day, hour) based on timestamp conditions
+- Extracts timestamp from `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals in WHERE clauses if present
+- Submits query to the configured query engine and polls for completion (up to 3 seconds)
+- Returns results immediately if query completes within 3 seconds
+- Returns job ID for asynchronous status checking if query takes longer
+
+```http
+POST /query
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10",
+  "parameters": [],
+  "timestamp": "2025-12-23 11:00:00"
+}
+```
+
+**Request Fields:**
+
+- `queryString` (required): SQL query string. Must be a SELECT query. The query can include
+  `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals in WHERE clauses, which will be automatically used to add partition
+  filters.
+- `parameters` (optional): Query parameters array (currently not used, pass empty array)
+- `timestamp` (optional): Timestamp string in format "YYYY-MM-DD HH:MM:SS" or "H:M:S". If provided, partition filters
+  will be added based on this timestamp. If not provided but the query contains `TIMESTAMP` literals, those will be used
+  instead.
+
+**Success Response (Query completed within 3 seconds):**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "COMPLETED",
+    "message": "Query completed successfully within 3 seconds",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+    "resultData": [
+      {
+        "column1": "value1",
+        "column2": "value2"
+      }
+    ],
+    "nextToken": "AXzl4c3EaYUFTNQNmBrZsT9jIA...",
+    "dataScannedInBytes": 2639,
+    "createdAt": 1766738293000,
+    "completedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Success Response (Query still running after 3 seconds):**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "RUNNING",
+    "message": "Query submitted successfully. Use GET /athena/job/{jobId} to check status and get results.",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "dataScannedInBytes": null,
+    "createdAt": 1766738293000
+  },
+  "error": null
+}
+```
+
+**Response Fields:**
+
+- `jobId`: Unique identifier for the query job
+- `status`: Job status (COMPLETED, RUNNING, FAILED, CANCELLED)
+- `message`: Human-readable status message
+- `queryExecutionId`: AWS Athena query execution ID
+- `resultLocation`: S3 location where results are stored (if completed)
+- `resultData`: Array of result rows (if completed within 3 seconds)
+- `nextToken`: Token for pagination (if more results available)
+- `dataScannedInBytes`: Amount of data scanned by the query in bytes
+- `createdAt`: Job creation timestamp
+- `completedAt`: Job completion timestamp (if completed)
+
+**Error Response:**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Invalid SQL query: Query must include timestamp filter in WHERE clause (year, month, day, hour)",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '\''2025-12-23 11:00:00'\'' AND \"timestamp\" <= TIMESTAMP '\''2025-12-23 11:59:59'\'' LIMIT 10",
+    "parameters": []
+  }'
+```
+
+**Notes:**
+
+- Queries are automatically enriched with partition filters (`year`, `month`, `day`, `hour`) for optimal performance
+- If the query contains `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals, those are automatically extracted and used to add
+  partition filters
+- Queries that complete within 3 seconds return results immediately in the response
+- For longer-running queries, use the job ID to check status and retrieve results
+- The service includes retry logic to handle cases where results aren't immediately available after query completion
+- The service architecture is engine-agnostic and supports multiple query engines through pluggable implementations
+
+### Get Job Status
+
+**Description:** Retrieves the status and results of a query job. If the job is completed, results can be
+retrieved with pagination support.
+
+```http
+GET /query/job/{jobId}?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...
+```
+
+**Path Parameters:**
+
+- `jobId` (required): The job ID returned from the submit query endpoint
+
+**Query Parameters:**
+
+- `maxResults` (optional): Maximum number of results to return (1-1000). Defaults to 1000 if not specified.
+- `nextToken` (optional): Token for pagination. Use the `nextToken` from the previous response to get the next page of
+  results.
+
+**Success Response:**
+
+```json
+{
+  "data": {
+    "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
+    "status": "COMPLETED",
+    "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10",
+    "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
+    "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
+    "resultData": [
+      {
+        "column1": "value1",
+        "column2": "value2"
+      }
+    ],
+    "nextToken": "AXzl4c3EaYUFTNQNmBrZsT9jIA...",
+    "dataScannedInBytes": 2639,
+    "createdAt": 1766738293000,
+    "completedAt": 1766738295000
+  },
+  "error": null
+}
+```
+
+**Example Request (using curl):**
+
+```bash
+curl --location 'http://localhost:8080/query/job/e8a98c57-c987-40bd-b1f5-a6f534e371df?maxResults=100&nextToken=AXzl4c3EaYUFTNQNmBrZsT9jIA...'
+```
+
+**Notes:**
+
+- Results are fetched from the query engine API at runtime, not stored in the database
+- Pagination is supported using `maxResults` and `nextToken` parameters
+- The `nextToken` is URL-encoded and should be passed as-is in subsequent requests
+- If the job is still running, the status will be "RUNNING" and `resultData` will be null
 
 ## Symbol File Upload
 
@@ -1892,6 +2091,49 @@ CONFIG_SERVICE_APPLICATION_SERVER_HOST=0.0.0.0
 VAULT_SERVICE_GOOGLE_CLIENT_ID=your-google-client-id
 VAULT_SERVICE_JWT_SECRET=your-jwt-secret
 ```
+
+**Query Engine Configuration**
+
+The query service supports multiple query engines through pluggable implementations. Currently, AWS Athena is the default implementation.
+
+**Athena Configuration:**
+
+Configuration is done via `src/main/resources/conf/athena-default.conf` or environment-specific config files:
+
+```hocon
+athena {
+  athenaRegion = "ap-south-1"
+  database = "pulse_athena_db"
+  outputLocation = "s3://puls-otel-config/"
+}
+```
+
+**AWS Credentials:**
+
+The application uses AWS SDK's default credential provider chain, which automatically looks for credentials in the
+following order:
+
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
+2. Java system properties
+3. Web identity token from AWS STS
+4. Shared credentials file (`~/.aws/credentials`)
+5. EC2 instance profile credentials
+6. ECS container credentials
+7. Lambda execution environment credentials
+
+**Note:** Credentials are not configured in the config file. Use environment variables, IAM roles, or AWS credential
+files for authentication.
+
+**Adding Support for Other Query Engines:**
+
+To add support for a new query engine (e.g., BigQuery, GCP):
+
+1. Implement the `QueryClient` interface with engine-specific logic
+2. Implement the `QueryJobDao` interface (or reuse existing implementation if compatible)
+3. Create a Guice module that binds `QueryClient` and `QueryJobDao` to your implementations
+4. The `QueryService` implementation will automatically work with your new engine
+
+The service architecture is designed to be engine-agnostic, making it easy to switch between or support multiple query engines simultaneously.
 
 ### Running Tests
 

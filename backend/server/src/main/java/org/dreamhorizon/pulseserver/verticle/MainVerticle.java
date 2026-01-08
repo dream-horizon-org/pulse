@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
@@ -47,6 +48,8 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
           JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
+          JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
+          SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           return config;
