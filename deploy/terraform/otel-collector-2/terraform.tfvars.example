@@ -1,0 +1,22 @@
+aws_region = "ap-south-1"
+
+ami_id        = "ami-0123456789abcdef0"   # dummy OTEL collector AMI
+instance_type = "t3.large"
+
+collector_count = 1
+
+subnet_ids = [
+  "subnet-0aaaaaaaaaaaaaaa1",  # ap-south-1a
+  "subnet-0bbbbbbbbbbbbbbb2",  # ap-south-1b
+  "subnet-0ccccccccccccccc3",  # ap-south-1c
+]
+
+vpc_id = "vpc-0abcdabcdabcdabcd"
+
+# Instance SG: allow HTTP collector_port from ALB SG
+vpc_security_group_ids = [
+  "sg-0123456789abcdef0",
+]
+
+key_name             = "DemoKeyPair"        # or null if you don't need SSH
+iam_instance_profile = "demo_service_role"  # or null
