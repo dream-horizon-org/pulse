@@ -1679,6 +1679,83 @@ Authorization: Bearer {token}
 }
 ```
 
+### Alert Evaluation and Metrics
+
+#### Data Sources
+
+Alert evaluation queries data from multiple ClickHouse tables based on metric type:
+
+- **TRACES**: Used for most metrics (screen metrics, network API metrics, interaction metrics)
+- **EXCEPTIONS**: Used for crash/ANR/non-fatal user and session counts
+- **LOGS**: Used for total users/sessions in APP_VITALS scope (with `PulseType = 'session.start'`)
+
+#### Composite Metrics
+
+Some metrics require data from multiple tables and are calculated after merging results:
+
+**Screen Scope:**
+
+- `CRASH_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `CRASH_USERS` (EXCEPTIONS)
+- `CRASH_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `CRASH_SESSIONS` (EXCEPTIONS)
+- `ANR_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `ANR_USERS` (EXCEPTIONS)
+- `ANR_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `ANR_SESSIONS` (EXCEPTIONS)
+- `NON_FATAL_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (TRACES) and `NON_FATAL_USERS` (EXCEPTIONS)
+- `NON_FATAL_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (TRACES) and `NON_FATAL_SESSIONS` (EXCEPTIONS)
+
+**APP_VITALS Scope:**
+
+- `CRASH_FREE_USERS_PERCENTAGE`: Calculated from `ALL_USERS` (LOGS) and `CRASH_USERS` (EXCEPTIONS)
+- `CRASH_FREE_SESSIONS_PERCENTAGE`: Calculated from `ALL_SESSIONS` (LOGS) and `CRASH_SESSIONS` (EXCEPTIONS)
+- Similar pattern for ANR and non-fatal metrics
+
+**Formula:** `((total - exception) / total) * 100`
+
+#### Network API Scope
+
+For `network_api` scope, alerts support HTTP method differentiation:
+
+- Scope names use format: `{method}_{url}` (e.g., `get_https://www.fancode.com/graphql`)
+- Queries include `http.method` in SELECT and GROUP BY clauses
+- Evaluation matches both method and URL from query results
+
+#### Evaluation Process
+
+1. **Metric Grouping**: Metrics are grouped by required data type (TRACES, EXCEPTIONS, LOGS)
+2. **Parallel Queries**: Separate queries are executed in parallel for each data type
+3. **Result Merging**: Results are merged by time bucket and scope name (and method for NETWORK_API)
+4. **Composite Calculation**: Composite metrics are calculated from base metrics after merging
+5. **Evaluation**: Each metric is evaluated against its threshold using the specified operator
+
+#### Available Metrics by Scope
+
+**Screen Scope:**
+
+- `SCREEN_DAILY_USERS`, `ERROR_RATE`, `SCREEN_TIME`, `LOAD_TIME`
+- `CRASH_FREE_USERS_PERCENTAGE`, `CRASH_FREE_SESSIONS_PERCENTAGE`
+- `ANR_FREE_USERS_PERCENTAGE`, `ANR_FREE_SESSIONS_PERCENTAGE`
+- `NON_FATAL_FREE_USERS_PERCENTAGE`, `NON_FATAL_FREE_SESSIONS_PERCENTAGE`
+
+**Network API Scope:**
+
+- `NET_0`, `NET_2XX`, `NET_3XX`, `NET_4XX`, `NET_5XX`, `NET_COUNT`
+- `NET_4XX_RATE`, `NET_5XX_RATE`, `ERROR_RATE`
+- `DURATION_P99`, `DURATION_P95`, `DURATION_P50`
+
+**APP_VITALS Scope:**
+
+- `CRASH_FREE_USERS_PERCENTAGE`, `CRASH_FREE_SESSIONS_PERCENTAGE`
+- `ANR_FREE_USERS_PERCENTAGE`, `ANR_FREE_SESSIONS_PERCENTAGE`
+- `NON_FATAL_FREE_USERS_PERCENTAGE`, `NON_FATAL_FREE_SESSIONS_PERCENTAGE`
+- `CRASH_USERS`, `CRASH_SESSIONS`, `ANR_USERS`, `ANR_SESSIONS`
+- `NON_FATAL_USERS`, `NON_FATAL_SESSIONS`, `ALL_USERS`, `ALL_SESSIONS`
+
+**Interaction Scope:**
+
+- `APDEX`, `CRASH`, `ANR`, `ERROR_RATE`, `CRASH_RATE`, `ANR_RATE`
+- `FROZEN_FRAME_RATE`, `POOR_USER_RATE`, `AVERAGE_USER_RATE`, `GOOD_USER_RATE`, `EXCELLENT_USER_RATE`
+- `DURATION_P99`, `DURATION_P95`, `DURATION_P50`
+- `INTERACTION_SUCCESS_COUNT`, `INTERACTION_ERROR_COUNT`, `INTERACTION_ERROR_DISTINCT_USERS`
+
 ### Get Alert Filters
 
 **Description:** Returns available filter options for alert queries, including creators, updaters, and alert states.
