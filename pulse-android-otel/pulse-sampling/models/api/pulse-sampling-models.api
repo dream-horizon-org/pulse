@@ -83,28 +83,6 @@ public final class com/pulse/sampling/models/PulseCriticalEventPolicies$Companio
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
-public final class com/pulse/sampling/models/PulseCriticalEventPolicy {
-	public static final field Companion Lcom/pulse/sampling/models/PulseCriticalEventPolicy$Companion;
-	public final fun getName ()Ljava/lang/String;
-	public final fun getProps ()Ljava/util/Set;
-	public final fun getScopes ()Ljava/util/Set;
-	public final fun getSdks ()Ljava/util/Set;
-}
-
-public final class com/pulse/sampling/models/PulseCriticalEventPolicy$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
-	public static final field INSTANCE Lcom/pulse/sampling/models/PulseCriticalEventPolicy$$serializer;
-	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
-	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/sampling/models/PulseCriticalEventPolicy;
-	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
-	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
-	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseCriticalEventPolicy;)V
-	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
-}
-
-public final class com/pulse/sampling/models/PulseCriticalEventPolicy$Companion {
-	public final fun serializer ()Lkotlinx/serialization/KSerializer;
-}
-
 public final class com/pulse/sampling/models/PulseDefaultSamplingConfig {
 	public static final field Companion Lcom/pulse/sampling/models/PulseDefaultSamplingConfig$Companion;
 	public final fun getSessionSampleRate ()F

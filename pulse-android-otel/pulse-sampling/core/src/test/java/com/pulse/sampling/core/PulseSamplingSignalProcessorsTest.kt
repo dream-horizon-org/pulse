@@ -5,10 +5,15 @@ package com.pulse.sampling.core
 import android.content.Context
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.models.PulseAttributeType
+import com.pulse.sampling.models.PulseCriticalEventPolicies
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils
+import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies
+import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeProp
+import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSamplingConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCondition
 import com.pulse.sampling.models.PulseSignalFilterMode
+import com.pulse.sampling.models.PulseSignalScope
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
@@ -901,6 +906,273 @@ class PulseSamplingSignalProcessorsTest {
             sampledLogExporter.export(listOf(testLog))
 
             assertThat(logExporter.finishedLogRecordItems).isEmpty()
+        }
+    }
+
+    @Nested
+    inner class `Critical Event Policy` {
+        @Test
+        fun `in log, crash event matches critical event policy by name and is always sent when session sampling is off`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "device\\.crash",
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val crashLog = createLogRecordData("device.crash", emptyMap())
+            sampledLogExporter.export(listOf(crashLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+            assertThat(
+                logExporter.finishedLogRecordItems
+                    .first()
+                    .bodyValue
+                    ?.asString(),
+            ).isEqualTo("device.crash")
+        }
+
+        @Test
+        fun `in log, crash event with matching property matches critical event policy and is always sent`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "device\\.crash",
+                                props = setOf(createFakeProp("severity", "critical")),
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val crashLog =
+                createLogRecordData(
+                    "device.crash",
+                    mapOf("severity" to "critical"),
+                )
+            sampledLogExporter.export(listOf(crashLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+            assertThat(
+                logExporter.finishedLogRecordItems
+                    .first()
+                    .bodyValue
+                    ?.asString(),
+            ).isEqualTo("device.crash")
+        }
+
+        @Test
+        fun `in log, crash event with non-matching property does not match critical event policy and is filtered out`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "device\\.crash",
+                                props = setOf(createFakeProp("severity", "critical")),
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val crashLog =
+                createLogRecordData(
+                    "device.crash",
+                    mapOf("severity" to "non-critical"),
+                )
+            sampledLogExporter.export(listOf(crashLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .isEmpty()
+        }
+
+        @Test
+        fun `in log, non-critical event does not match critical event policy and is filtered out when session sampling is off`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "device\\.crash",
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val regularLog = createLogRecordData("app.screen.click", emptyMap())
+            sampledLogExporter.export(listOf(regularLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .isEmpty()
+        }
+
+        @Test
+        fun `in span, critical span matches critical event policy by name and is always sent when session sampling is off`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "critical\\.error",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+
+            val criticalSpan = createSpanData("critical.error", emptyMap())
+            sampledSpanExporter.export(listOf(criticalSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("critical.error")
+        }
+
+        @Test
+        fun `in span, critical span with matching property matches critical event policy and is always sent`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "error\\.span",
+                                props = setOf(createFakeProp("error.type", "fatal")),
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+
+            val errorSpan =
+                createSpanData(
+                    "error.span",
+                    mapOf("error.type" to "fatal"),
+                )
+            sampledSpanExporter.export(listOf(errorSpan))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("error.span")
+        }
+
+        @Test
+        fun `in span, span with non-matching scope does not match critical event policy and is filtered out`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "critical\\.span",
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+
+            val span = createSpanData("critical.span", emptyMap())
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .isEmpty()
+        }
+
+        @Test
+        fun `in log, when critical event policy is null all events are filtered out when session sampling is off`() {
+            val config = createConfigWithCriticalEventPolicy(null)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val crashLog = createLogRecordData("device.crash", emptyMap())
+            sampledLogExporter.export(listOf(crashLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .isEmpty()
+        }
+
+        @Test
+        fun `in log, when critical event policy is empty all events are filtered out when session sampling is off`() {
+            val config =
+                createConfigWithCriticalEventPolicy(
+                    createFakeCriticalEventPolicies(
+                        alwaysSend = emptyList(),
+                    ),
+                )
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val crashLog = createLogRecordData("device.crash", emptyMap())
+            sampledLogExporter.export(listOf(crashLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .isEmpty()
+        }
+
+        @Test
+        fun `in log, when session sampling is on all events are sent regardless of critical event policy`() {
+            val criticalEventPolicy =
+                createFakeCriticalEventPolicies(
+                    alwaysSend =
+                        listOf(
+                            createFakeSignalMatchCondition(
+                                name = "device\\.crash",
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        ),
+                )
+            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
+            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOn)
+            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+
+            val regularLog = createLogRecordData("app.screen.click", emptyMap())
+            sampledLogExporter.export(listOf(regularLog))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+            assertThat(
+                logExporter.finishedLogRecordItems
+                    .first()
+                    .bodyValue
+                    ?.asString(),
+            ).isEqualTo("app.screen.click")
+        }
+
+        private fun createConfigWithCriticalEventPolicy(criticalEventPolicy: PulseCriticalEventPolicies?): PulseSdkConfig {
+            val samplingConfig =
+                createFakeSamplingConfig(
+                    criticalEventPolicies = criticalEventPolicy,
+                )
+            return PulseSdkConfigFakeUtils.createFakeConfig(
+                sampling = samplingConfig,
+            )
         }
     }
 
