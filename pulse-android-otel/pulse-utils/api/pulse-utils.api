@@ -20,14 +20,14 @@ public final class com/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer$Com
 
 public final class com/pulse/otel/utils/PulseOtelUtils {
 	public static final field INSTANCE Lcom/pulse/otel/utils/PulseOtelUtils;
+	public final fun getTag (Lkotlin/jvm/functions/Function0;)Ljava/lang/String;
 	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
-	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
 	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
 	public final fun normaliseUrl (Ljava/lang/String;)Ljava/lang/String;
 }
 
 public final class com/pulse/otel/utils/PulseOtelUtilsKt {
-	public static final field TAG Ljava/lang/String;
 	public static final field TAG Ljava/lang/String;
 	public static final fun matchesFromRegexCache (Ljava/lang/String;Ljava/lang/String;)Z
 	public static final fun putAttributesFrom (Lio/opentelemetry/api/common/AttributesBuilder;Ljava/util/Map;)Lio/opentelemetry/api/common/AttributesBuilder;

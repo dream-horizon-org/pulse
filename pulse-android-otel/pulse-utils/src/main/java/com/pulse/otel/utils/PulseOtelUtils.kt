@@ -43,19 +43,22 @@ public object PulseOtelUtils {
         return normalized
     }
 
+    @PublishedApi
+    internal inline fun getTag(tag: () -> String): String = "$TAG:${tag()}"
+
     public inline fun logError(
         tag: String,
         throwable: Throwable,
         body: () -> String,
     ) {
-        Log.e("$TAG:$tag", body(), throwable)
+        Log.e(getTag { tag }, body(), throwable)
     }
 
     public inline fun logDebug(
         tag: String,
         body: () -> String,
     ) {
-        Log.d("$TAG:$tag", body())
+        Log.d(getTag { tag }, body())
     }
 }
 
