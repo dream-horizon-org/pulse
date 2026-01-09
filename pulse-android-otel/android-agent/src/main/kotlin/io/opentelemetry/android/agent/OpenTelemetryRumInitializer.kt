@@ -7,6 +7,8 @@ package io.opentelemetry.android.agent
 
 import android.app.Application
 import android.content.Context
+import com.pulse.sampling.models.PulseSdkName
+import com.pulse.sampling.models.TelemetrySdkName
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -111,6 +113,14 @@ object OpenTelemetryRumInitializer {
         val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
         resource?.invoke(resourceBuilder)
         val finalResource = resourceBuilder.build()
+
+        // Set CURRENT_SDK_NAME based on telemetry.sdk.name from resource
+        finalResource.getAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("telemetry.sdk.name"))
+            ?.let { sdkNameString ->
+                TelemetrySdkName.fromString(sdkNameString)?.let { telemetrySdkName ->
+                    PulseSdkName.CURRENT_SDK_NAME = TelemetrySdkName.toPulseSdkName(telemetrySdkName)
+                }
+            }
 
         return OpenTelemetryRum
             .builder(application, rumConfig)

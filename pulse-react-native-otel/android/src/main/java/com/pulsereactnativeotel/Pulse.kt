@@ -8,6 +8,7 @@ import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
@@ -29,6 +30,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        resource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
@@ -59,6 +61,11 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             rnLoggerProviderCustomizer
         }
 
+        val rnResource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit) = {
+            put(AttributeKey.stringKey("telemetry.sdk.name"), "pulse-android-rn")
+            resource?.invoke(this)
+        }
+
         PulseSDK.INSTANCE.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
@@ -69,6 +76,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
             diskBuffering = diskBuffering,
+            resource = rnResource,
             tracerProviderCustomizer = mergedTracerProviderCustomizer,
             loggerProviderCustomizer = mergedLoggerProviderCustomizer,
             instrumentations = instrumentations,

@@ -28,7 +28,7 @@ public enum class PulseSdkName {
     ;
 
     public companion object {
-        public val CURRENT_SDK_NAME: PulseSdkName = ANDROID_JAVA
+        public var CURRENT_SDK_NAME: PulseSdkName = ANDROID_JAVA
         internal const val ANDROID_JAVA_SDK_NAME_STR = "android_java"
     }
 }
