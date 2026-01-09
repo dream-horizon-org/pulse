@@ -12,8 +12,10 @@ import com.pulse.sampling.core.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
+import com.pulse.sampling.models.PulseSdkName
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseUserAttributes
+import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
@@ -67,6 +69,7 @@ internal class PulseSDKImpl :
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        resource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
@@ -99,11 +102,24 @@ internal class PulseSDKImpl :
             }
         }
 
+        // Build resource once - used for both currentSdkName and passed to OpenTelemetryRumInitializer
+        val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
+        resourceBuilder.put(TELEMETRY_SDK_NAME_KEY, PULSE_ANDROID_JAVA_SDK_NAME)
+        resource?.invoke(resourceBuilder)
+        val finalResource = resourceBuilder.build()
+
+        // Determine current SDK name from resource attribute
+        val currentSdkName =
+            PulseSdkName.fromTelemetrySdkName(
+                finalResource.getAttribute(TELEMETRY_SDK_NAME_KEY),
+            )
+
         pulseSamplingProcessors =
             currentSdkConfig?.let {
                 PulseSamplingSignalProcessors(
                     context = application,
                     sdkConfig = currentSdkConfig,
+                    currentSdkName = currentSdkName,
                 )
             }
         pulseSpanProcessor = PulseSdkSignalProcessors()
@@ -211,6 +227,7 @@ internal class PulseSDKImpl :
                 }
             }
         }
+
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -244,6 +261,7 @@ internal class PulseSDKImpl :
                         attributesBuilder.build()
                     },
                 diskBuffering = diskBuffering,
+                prebuiltResource = finalResource,
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
                 loggerProviderCustomizer = mergedLoggerProviderCustomizer,
@@ -465,5 +483,12 @@ internal class PulseSDKImpl :
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val PULSE_SDK_CONFIG_KEY = "sdk_config"
+
+        // OpenTelemetry resource attribute key for telemetry SDK name
+        // See: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
+        private val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = AttributeKey.stringKey("telemetry.sdk.name")
+
+        // SDK name identifiers per OTel spec (custom SDKs use their own identifier, not "opentelemetry")
+        private const val PULSE_ANDROID_JAVA_SDK_NAME = "pulse-android-java"
     }
 }

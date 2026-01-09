@@ -122,4 +122,7 @@ dependencies {
     
     implementation("org.dreamhorizon.instrumentation:okhttp3-library:0.0.1-alpha")
     byteBuddy("org.dreamhorizon.instrumentation:okhttp3-agent:0.0.1-alpha")
+    
+    // OpenTelemetry SDK for ResourceBuilder
+    implementation("io.opentelemetry:opentelemetry-sdk")
 }

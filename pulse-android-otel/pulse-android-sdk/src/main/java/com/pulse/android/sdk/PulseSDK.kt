@@ -49,6 +49,7 @@ public interface PulseSDK {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
+        resource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,

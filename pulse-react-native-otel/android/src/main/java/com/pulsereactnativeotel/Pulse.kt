@@ -8,6 +8,7 @@ import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
@@ -18,6 +19,9 @@ import java.util.function.BiFunction
  * This ensures React Native screen names override Android Activity/Fragment names in telemetry.
  */
 public object Pulse : PulseSDK by PulseSDK.INSTANCE {
+    // OTel resource attribute key for telemetry SDK name
+    private val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = AttributeKey.stringKey("telemetry.sdk.name")
+    private const val PULSE_ANDROID_RN_SDK_NAME = "pulse-android-rn"
 
     public override fun initialize(
         application: Application,
@@ -29,6 +33,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        resource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
@@ -59,6 +64,12 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             rnLoggerProviderCustomizer
         }
 
+        // Set telemetry.sdk.name for React Native SDK (read in PulseSDKImpl for sampling)
+        val rnResource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit) = {
+            put(TELEMETRY_SDK_NAME_KEY, PULSE_ANDROID_RN_SDK_NAME)
+            resource?.invoke(this)
+        }
+
         PulseSDK.INSTANCE.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
@@ -69,6 +80,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
             diskBuffering = diskBuffering,
+            resource = rnResource,
             tracerProviderCustomizer = mergedTracerProviderCustomizer,
             loggerProviderCustomizer = mergedLoggerProviderCustomizer,
             instrumentations = instrumentations,

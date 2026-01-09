@@ -33,6 +33,7 @@ import kotlin.experimental.ExperimentalTypeInference
 public class PulseSamplingSignalProcessors internal constructor(
     private val context: Context,
     private val sdkConfig: PulseSdkConfig,
+    private val currentSdkName: PulseSdkName,
     private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
     private val sessionParser: PulseSessionParser = PulseSessionConfigParser(),
     private val randomIdGenerator: Random = SecureRandom(),
@@ -41,16 +42,16 @@ public class PulseSamplingSignalProcessors internal constructor(
         sdkConfig
             .signals
             .attributesToDrop
-            .filter { it.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.sdks }
+            .filter { it.scopes.contains(scope) && currentSdkName in it.sdks }
 
     private fun getAddedAttributesConfig(scope: PulseSignalScope): List<PulseAttributesToAddEntry> =
         sdkConfig
             .signals
             .attributesToAdd
-            .filter { it.condition.scopes.contains(scope) && PulseSdkName.CURRENT_SDK_NAME in it.condition.sdks }
+            .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
 
     private val shouldSampleThisSession by lazy {
-        val samplingRate = sessionParser.parses(context, sdkConfig.sampling)
+        val samplingRate = sessionParser.parses(context, sdkConfig.sampling, currentSdkName)
         val localRandomValue = randomIdGenerator.nextFloat()
         localRandomValue <= samplingRate
     }
@@ -123,6 +124,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                         name,
                         propsMap,
                         matchCondition,
+                        currentSdkName,
                     )
                 }
 
@@ -207,6 +209,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                         name,
                         propsMap,
                         matchCondition,
+                        currentSdkName,
                     )
                 }
 
@@ -252,6 +255,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                     name,
                     emptyMap(),
                     matchCondition,
+                    currentSdkName,
                 )
             }
 
@@ -273,7 +277,7 @@ public class PulseSamplingSignalProcessors internal constructor(
     public fun getDisabledFeatures(): List<PulseFeatureName> =
         sdkConfig
             .features
-            .filter { PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.sessionSampleRate == 0F }
+            .filter { currentSdkName in it.sdks && it.sessionSampleRate == 0F }
             .map { it.featureName }
 
     private inline fun <E> List<E>.anyOrNone(
@@ -358,6 +362,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                     signalName,
                     spanAttributes,
                     entry.condition,
+                    currentSdkName,
                 )
             }
 
@@ -437,10 +442,12 @@ public class PulseSamplingSignalProcessors internal constructor(
 public fun PulseSamplingSignalProcessors(
     context: Context,
     sdkConfig: PulseSdkConfig,
+    currentSdkName: PulseSdkName,
 ): PulseSamplingSignalProcessors =
     PulseSamplingSignalProcessors(
         context,
         sdkConfig,
+        currentSdkName,
         PulseSignalsAttrMatcher(),
         PulseSessionConfigParser(),
         SecureRandom(),

@@ -6,6 +6,7 @@
 package io.opentelemetry.android.agent
 
 import android.app.Application
+import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
@@ -26,6 +27,8 @@ import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.export.MetricExporter
+import io.opentelemetry.sdk.resources.Resource
+import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import java.util.function.BiFunction
@@ -44,6 +47,7 @@ object OpenTelemetryRumInitializer {
      * @param sessionConfig The session configuration, which includes inactivity timeout and maximum lifetime durations.
      * @param globalAttributes Configures the set of global attributes to emit with every span and event.
      * @param diskBuffering Configures the disk buffering feature.
+     * @param resource Configures the resource attributes that are used globally by acting on a [ResourceBuilder].
      * @param instrumentations Configurations for all the default instrumentations.
      */
     @Suppress("LongParameterList")
@@ -70,6 +74,8 @@ object OpenTelemetryRumInitializer {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
+        resource: (ResourceBuilder.() -> Unit)? = null,
+        prebuiltResource: Resource? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
@@ -100,9 +106,19 @@ object OpenTelemetryRumInitializer {
         globalAttributes?.let {
             rumConfig.setGlobalAttributes(it::invoke)
         }
+
+        // Use prebuilt resource if provided, otherwise build from lambda
+        val finalResource =
+            prebuiltResource ?: run {
+                val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
+                resource?.invoke(resourceBuilder)
+                resourceBuilder.build()
+            }
+
         return OpenTelemetryRum
             .builder(application, rumConfig)
             .apply {
+                setResource(finalResource)
                 setSessionProvider(createSessionProvider(application, sessionConfig))
                 addSpanExporterCustomizer { spanExporter }
                 addLogRecordExporterCustomizer { logRecordExporter }

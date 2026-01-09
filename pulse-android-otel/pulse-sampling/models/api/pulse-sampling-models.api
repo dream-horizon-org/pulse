@@ -279,7 +279,7 @@ public final class com/pulse/sampling/models/PulseSdkName : java/lang/Enum {
 }
 
 public final class com/pulse/sampling/models/PulseSdkName$Companion {
-	public final fun getCURRENT_SDK_NAME ()Lcom/pulse/sampling/models/PulseSdkName;
+	public final fun fromTelemetrySdkName (Ljava/lang/String;)Lcom/pulse/sampling/models/PulseSdkName;
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
