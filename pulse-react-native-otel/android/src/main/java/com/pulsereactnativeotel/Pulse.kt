@@ -19,6 +19,9 @@ import java.util.function.BiFunction
  * This ensures React Native screen names override Android Activity/Fragment names in telemetry.
  */
 public object Pulse : PulseSDK by PulseSDK.INSTANCE {
+    // OTel resource attribute key for telemetry SDK name
+    private val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = AttributeKey.stringKey("telemetry.sdk.name")
+    private const val PULSE_ANDROID_RN_SDK_NAME = "pulse-android-rn"
 
     public override fun initialize(
         application: Application,
@@ -61,8 +64,9 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             rnLoggerProviderCustomizer
         }
 
+        // Set telemetry.sdk.name for React Native SDK (read in PulseSDKImpl for sampling)
         val rnResource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit) = {
-            put(AttributeKey.stringKey("telemetry.sdk.name"), "pulse-android-rn")
+            put(TELEMETRY_SDK_NAME_KEY, PULSE_ANDROID_RN_SDK_NAME)
             resource?.invoke(this)
         }
 

@@ -48,7 +48,7 @@ class OtelDemoApplication : Application() {
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
                 resource = {
-                    put(AttributeKey.stringKey("telemetry.sdk.name"), "pulse-android")
+                    put(AttributeKey.stringKey("telemetry.sdk.name"), "pulse-android-test")
                 },
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")

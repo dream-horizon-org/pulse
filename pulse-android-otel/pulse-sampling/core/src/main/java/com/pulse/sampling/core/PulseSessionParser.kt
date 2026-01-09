@@ -9,19 +9,20 @@ public fun interface PulseSessionParser {
     public fun parses(
         context: Context,
         samplingConfig: PulseSamplingConfig,
+        currentSdkName: PulseSdkName,
     ): SamplingRate
 
     public companion object {
-        internal val alwaysOn = PulseSessionParser { _, _ -> 1F }
-        internal val alwaysOff = PulseSessionParser { _, _ -> 0F }
+        internal val alwaysOn = PulseSessionParser { _, _, _ -> 1F }
+        internal val alwaysOff = PulseSessionParser { _, _, _ -> 0F }
     }
 }
 
 @Suppress("FunctionName")
 internal fun PulseSessionConfigParser() =
-    PulseSessionParser { context, samplingConfig ->
+    PulseSessionParser { context, samplingConfig, currentSdkName ->
         samplingConfig.rules
             .firstOrNull {
-                PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.matches(context)
+                currentSdkName in it.sdks && it.matches(context)
             }?.sessionSampleRate ?: samplingConfig.default.sessionSampleRate
     }

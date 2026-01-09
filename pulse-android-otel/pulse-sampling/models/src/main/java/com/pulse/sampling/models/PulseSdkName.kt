@@ -28,8 +28,16 @@ public enum class PulseSdkName {
     ;
 
     public companion object {
-        public var CURRENT_SDK_NAME: PulseSdkName = ANDROID_JAVA
         internal const val ANDROID_JAVA_SDK_NAME_STR = "android_java"
+
+        public fun fromTelemetrySdkName(telemetrySdkName: String?): PulseSdkName =
+            when (telemetrySdkName?.lowercase()) {
+                "pulse-android-java" -> ANDROID_JAVA
+                "pulse-android-rn" -> ANDROID_RN
+                "pulse-ios-swift" -> IOS_SWIFT
+                "pulse-ios-rn" -> IOS_RN
+                else -> ANDROID_JAVA // Default fallback
+            }
     }
 }
 

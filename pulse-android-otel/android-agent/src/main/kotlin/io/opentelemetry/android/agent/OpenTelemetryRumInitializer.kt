@@ -6,9 +6,6 @@
 package io.opentelemetry.android.agent
 
 import android.app.Application
-import android.content.Context
-import com.pulse.sampling.models.PulseSdkName
-import com.pulse.sampling.models.TelemetrySdkName
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -78,6 +75,7 @@ object OpenTelemetryRumInitializer {
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         resource: (ResourceBuilder.() -> Unit)? = null,
+        prebuiltResource: Resource? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         meterProviderCustomizer: BiFunction<SdkMeterProviderBuilder, Application, SdkMeterProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
@@ -109,17 +107,12 @@ object OpenTelemetryRumInitializer {
             rumConfig.setGlobalAttributes(it::invoke)
         }
 
-        // Build resource with optional customization
-        val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
-        resource?.invoke(resourceBuilder)
-        val finalResource = resourceBuilder.build()
-
-        // Set CURRENT_SDK_NAME based on telemetry.sdk.name from resource
-        finalResource.getAttribute(io.opentelemetry.api.common.AttributeKey.stringKey("telemetry.sdk.name"))
-            ?.let { sdkNameString ->
-                TelemetrySdkName.fromString(sdkNameString)?.let { telemetrySdkName ->
-                    PulseSdkName.CURRENT_SDK_NAME = TelemetrySdkName.toPulseSdkName(telemetrySdkName)
-                }
+        // Use prebuilt resource if provided, otherwise build from lambda
+        val finalResource =
+            prebuiltResource ?: run {
+                val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
+                resource?.invoke(resourceBuilder)
+                resourceBuilder.build()
             }
 
         return OpenTelemetryRum
