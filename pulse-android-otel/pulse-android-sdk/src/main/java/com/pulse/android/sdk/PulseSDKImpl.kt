@@ -182,34 +182,37 @@ internal class PulseSDKImpl :
         instrumentations?.let { configure ->
             InstrumentationConfiguration(config).configure()
             pulseSamplingProcessors?.run {
-                getDisabledFeatures().forEach {
-                    when (it) {
-                        PulseFeatureName.JAVA_CRASH -> {
-                            config.suppressInstrumentation("crash")
-                        }
+                val enabledFeatures = getEnabledFeatures()
+                enumValues<PulseFeatureName>().forEach { feature ->
+                    if (feature !in enabledFeatures) {
+                        when (feature) {
+                            PulseFeatureName.JAVA_CRASH -> {
+                                config.suppressInstrumentation("crash")
+                            }
 
-                        PulseFeatureName.NETWORK_CHANGE -> {
-                            config.disableNetworkAttributes()
-                        }
+                            PulseFeatureName.NETWORK_CHANGE -> {
+                                config.disableNetworkAttributes()
+                            }
 
-                        PulseFeatureName.JAVA_ANR -> {
-                            config.suppressInstrumentation("anr")
-                        }
+                            PulseFeatureName.JAVA_ANR -> {
+                                config.suppressInstrumentation("anr")
+                            }
 
-                        PulseFeatureName.INTERACTION -> {
-                            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                        }
+                            PulseFeatureName.INTERACTION -> {
+                                config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                            }
 
-                        PulseFeatureName.CPP_CRASH -> {
-                            // no-op
-                        }
+                            PulseFeatureName.CPP_CRASH -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.CPP_ANR -> {
-                            // no-op
-                        }
+                            PulseFeatureName.CPP_ANR -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.UNKNOWN -> {
-                            // no-op
+                            PulseFeatureName.UNKNOWN -> {
+                                // no-op
+                            }
                         }
                     }
                 }

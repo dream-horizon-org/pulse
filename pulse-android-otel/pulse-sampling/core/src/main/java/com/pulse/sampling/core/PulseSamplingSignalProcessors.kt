@@ -270,10 +270,10 @@ public class PulseSamplingSignalProcessors internal constructor(
         ): DefaultAggregationSelector? = delegateExporter.with(instrumentType, aggregation)
     }
 
-    public fun getDisabledFeatures(): List<PulseFeatureName> =
+    public fun getEnabledFeatures(): List<PulseFeatureName> =
         sdkConfig
             .features
-            .filter { PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.sessionSampleRate == 0F }
+            .filter { PulseSdkName.CURRENT_SDK_NAME in it.sdks && it.sessionSampleRate == 1F }
             .map { it.featureName }
 
     private inline fun <E> List<E>.anyOrNone(
