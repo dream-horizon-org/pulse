@@ -24,6 +24,9 @@ class AndroidInstrumentationLoaderImpl : AndroidInstrumentationLoader {
     @Suppress("UNCHECKED_CAST")
     override fun <T : AndroidInstrumentation> getByType(type: Class<out T>): T? = instrumentations[type] as? T
 
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : AndroidInstrumentation> getByName(name: String): T? = instrumentations.values.firstOrNull { it.name == name } as? T
+
     override fun getAll(): Collection<AndroidInstrumentation> = instrumentations.values.toList()
 
     @Throws(IllegalStateException::class)

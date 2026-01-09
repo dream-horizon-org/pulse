@@ -1,0 +1,40 @@
+public final class io/opentelemetry/android/instrumentation/location/models/BuildConfig {
+	public static final field BUILD_TYPE Ljava/lang/String;
+	public static final field DEBUG Z
+	public static final field LIBRARY_PACKAGE_NAME Ljava/lang/String;
+	public fun <init> ()V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/models/CachedLocation {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/location/models/CachedLocation$Companion;
+	public fun <init> (DDJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public final fun getCountryIsoCode ()Ljava/lang/String;
+	public final fun getLatitude ()D
+	public final fun getLocalityName ()Ljava/lang/String;
+	public final fun getLongitude ()D
+	public final fun getPostalCode ()Ljava/lang/String;
+	public final fun getRegionIsoCode ()Ljava/lang/String;
+	public final fun getTimestamp ()J
+	public final fun isExpired (J)Z
+}
+
+public final class io/opentelemetry/android/instrumentation/location/models/CachedLocation$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/location/models/CachedLocation$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lio/opentelemetry/android/instrumentation/location/models/CachedLocation;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lio/opentelemetry/android/instrumentation/location/models/CachedLocation;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/models/CachedLocation$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class io/opentelemetry/android/instrumentation/location/models/LocationConstants {
+	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/location/models/LocationConstants;
+	public static final field LOCATION_CACHE_KEY Ljava/lang/String;
+	public final fun getDEFAULT_CACHE_INVALIDATION_TIME_MS ()J
+}
+

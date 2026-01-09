@@ -8,6 +8,10 @@ description = "Internal module for Pulse utils for mobile observability"
 
 android {
     namespace = "com.pulse.utils"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 kotlin {
@@ -20,4 +24,8 @@ dependencies {
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
     implementation(libs.kotlin.serialisation)
+    implementation(libs.kotlin.coroutines)
+    implementation(libs.play.services.tasks)
+    testImplementation(libs.bundles.junit)
+    testImplementation(projects.testCommon)
 }
