@@ -64,6 +64,7 @@ detekt-plugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", v
 binary-compat-validator = { module = "org.jetbrains.kotlinx:binary-compatibility-validator", version.ref = "binaryCompatValidator" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 kotlin-serialisation = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinSerialisation" }
+kotlin-serialisationCore = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinSerialisation" }
 kotlin-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinCoroutines" }
 kotlin-coroutinesTest = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinCoroutines" }
 

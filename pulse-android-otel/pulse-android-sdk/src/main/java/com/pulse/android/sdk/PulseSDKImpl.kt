@@ -5,36 +5,58 @@ package com.pulse.android.sdk
 
 import android.app.Application
 import android.content.Context
+import androidx.core.content.edit
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
+import com.pulse.sampling.core.PulseSamplingSignalProcessors
+import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
+import com.pulse.sampling.models.PulseFeatureName
+import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseUserAttributes
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
+import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.config.OtelRumConfig
+import io.opentelemetry.android.export.FilteringSpanExporter
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
+import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.logs.export.LogRecordExporter
+import io.opentelemetry.sdk.metrics.export.MetricExporter
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
+import io.opentelemetry.sdk.trace.export.SpanExporter
 import io.opentelemetry.semconv.ExceptionAttributes
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
+import java.util.function.Predicate
 
-internal class PulseSDKImpl : PulseSDK {
+internal class PulseSDKImpl :
+    PulseSDK,
+    CoroutineScope by MainScope() {
     override fun isInitialized(): Boolean = isInitialised
 
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
@@ -53,7 +75,38 @@ internal class PulseSDKImpl : PulseSDK {
             return
         }
         this.application = application
-        pulseSpanProcessor = PulseSignalProcessor()
+
+        val sharedPrefs =
+            application.getSharedPreferences(
+                "pulse_sdk_config",
+                Context.MODE_PRIVATE,
+            )
+
+        val json = Json {}
+        val currentSdkConfig =
+            sharedPrefs.getString(PULSE_SDK_CONFIG_KEY, null)?.let {
+                json.decodeFromString<PulseSdkConfig>(it)
+            }
+        launch {
+            val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
+            apiCache.mkdirs()
+            val newConfig =
+                PulseSdkConfigRestProvider(apiCache) {
+                    "${endpointBaseUrl.replace(":4318", ":8080")}/v1/configs/active/"
+                }.provide() ?: return@launch
+            sharedPrefs.edit(commit = true) {
+                putString(PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
+            }
+        }
+
+        pulseSamplingProcessors =
+            currentSdkConfig?.let {
+                PulseSamplingSignalProcessors(
+                    context = application,
+                    sdkConfig = currentSdkConfig,
+                )
+            }
+        pulseSpanProcessor = PulseSdkSignalProcessors()
         val config = OtelRumConfig()
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
@@ -76,39 +129,127 @@ internal class PulseSDKImpl : PulseSDK {
                 internalLoggerProviderCustomizer
             }
 
+        val finalSpanEndpointConnectivity =
+            currentSdkConfig?.let {
+                HttpEndpointConnectivity.forTraces(it.signals.spanCollectorUrl)
+            } ?: spanEndpointConnectivity
+        val finalLogEndpointConnectivity =
+            currentSdkConfig?.let {
+                HttpEndpointConnectivity.forLogs(it.signals.logsCollectorUrl)
+            } ?: logEndpointConnectivity
+        val finalMetricEndpointConnectivity =
+            currentSdkConfig?.let {
+                HttpEndpointConnectivity.forMetrics(it.signals.metricCollectorUrl)
+            } ?: metricEndpointConnectivity
+
+        val otlpSpanExporter: SpanExporter =
+            OtlpHttpSpanExporter
+                .builder()
+                .setEndpoint(finalSpanEndpointConnectivity.getUrl())
+                .setHeaders(finalSpanEndpointConnectivity::getHeaders)
+                .build()
+
+        val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
+        attrRejects[AttributeKey.booleanKey("pulse.internal")] = Predicate<Boolean> { it == true }
+        val filteredSpanExporter =
+            FilteringSpanExporter
+                .builder(otlpSpanExporter)
+                .rejectSpansWithAttributesMatching(attrRejects)
+                .build()
+
+        val otlpLogExporter: LogRecordExporter =
+            OtlpHttpLogRecordExporter
+                .builder()
+                .setEndpoint(finalLogEndpointConnectivity.getUrl())
+                .setHeaders(finalLogEndpointConnectivity::getHeaders)
+                .build()
+
+        val otlMetricExporter: MetricExporter =
+            OtlpHttpMetricExporter
+                .builder()
+                .setEndpoint(finalMetricEndpointConnectivity.getUrl())
+                .setHeaders(finalMetricEndpointConnectivity::getHeaders)
+                .build()
+
+        val spanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
+        val logExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
+        val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
+
+        instrumentations?.let { configure ->
+            InstrumentationConfiguration(config).configure()
+            pulseSamplingProcessors?.run {
+                getDisabledFeatures().forEach {
+                    when (it) {
+                        PulseFeatureName.JAVA_CRASH -> {
+                            config.suppressInstrumentation("crash")
+                        }
+
+                        PulseFeatureName.NETWORK_CHANGE -> {
+                            config.disableNetworkAttributes()
+                        }
+
+                        PulseFeatureName.JAVA_ANR -> {
+                            config.suppressInstrumentation("anr")
+                        }
+
+                        PulseFeatureName.INTERACTION -> {
+                            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                        }
+
+                        PulseFeatureName.CPP_CRASH -> {
+                            // no-op
+                        }
+
+                        PulseFeatureName.CPP_ANR -> {
+                            // no-op
+                        }
+
+                        PulseFeatureName.UNKNOWN -> {
+                            // no-op
+                        }
+                    }
+                }
+            }
+        }
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
                 endpointHeaders = endpointHeaders,
-                spanEndpointConnectivity = spanEndpointConnectivity,
-                logEndpointConnectivity = logEndpointConnectivity,
-                metricEndpointConnectivity = metricEndpointConnectivity,
+                // todo make it explicit as to which config should be chosen
+                //  1. Either remove this value
+                //  2. Or give options like LocalOnly, ConfigOrFallback
+                spanEndpointConnectivity = finalSpanEndpointConnectivity,
+                logEndpointConnectivity = finalLogEndpointConnectivity,
+                metricEndpointConnectivity = finalMetricEndpointConnectivity,
                 sessionConfig = sessionConfig,
-                globalAttributes = {
-                    val attributesBuilder = Attributes.builder()
-                    if (userProps.isNotEmpty()) {
-                        for ((key, value) in userProps) {
-                            attributesBuilder.put(
-                                PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
-                                value.toString(),
-                            )
+                globalAttributes =
+                    {
+                        val attributesBuilder = Attributes.builder()
+                        if (userProps.isNotEmpty()) {
+                            for ((key, value) in userProps) {
+                                attributesBuilder.put(
+                                    PulseUserAttributes.PULSE_USER_PARAMETER.getAttributeKey(key),
+                                    value.toString(),
+                                )
+                            }
                         }
-                    }
-                    if (userSessionEmitter.userId != null) {
-                        attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
-                    }
-                    attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
-                    if (globalAttributes != null) {
-                        attributesBuilder.putAll(globalAttributes.invoke())
-                    }
-                    attributesBuilder.build()
-                },
+                        if (userSessionEmitter.userId != null) {
+                            attributesBuilder.put(UserIncubatingAttributes.USER_ID, userSessionEmitter.userId)
+                        }
+                        attributesBuilder.put(AppIncubatingAttributes.APP_INSTALLATION_ID, installationIdManager.installationId)
+                        if (globalAttributes != null) {
+                            attributesBuilder.putAll(globalAttributes.invoke())
+                        }
+                        attributesBuilder.build()
+                    },
                 diskBuffering = diskBuffering,
-                instrumentations = instrumentations,
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
                 loggerProviderCustomizer = mergedLoggerProviderCustomizer,
+                spanExporter = spanExporter,
+                logRecordExporter = logExporter,
+                metricExporter = metricExporter,
             )
         isInitialised = true
     }
@@ -122,7 +263,7 @@ internal class PulseSDKImpl : PulseSDK {
         val tracerProviderCustomizer =
             BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
                 tracerProviderBuilder.addSpanProcessor(
-                    PulseSignalProcessor.PulseSpanTypeAttributesAppender(),
+                    PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender(),
                 )
                 // interaction specific attributed present in other spans
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
@@ -312,7 +453,8 @@ internal class PulseSDKImpl : PulseSDK {
 
     private var isInitialised: Boolean = false
 
-    private lateinit var pulseSpanProcessor: PulseSignalProcessor
+    private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
+    private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
     private var otelInstance: OpenTelemetryRum? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
@@ -322,5 +464,6 @@ internal class PulseSDKImpl : PulseSDK {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
+        private const val PULSE_SDK_CONFIG_KEY = "sdk_config"
     }
 }

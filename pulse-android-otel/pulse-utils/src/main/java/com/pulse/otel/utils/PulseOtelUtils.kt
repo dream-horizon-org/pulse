@@ -1,10 +1,14 @@
 package com.pulse.otel.utils
 
+import android.util.Log
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
+import java.util.concurrent.ConcurrentHashMap
+import java.util.regex.Matcher
+import java.util.regex.Pattern
 
 public object PulseOtelUtils {
     // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
@@ -37,6 +41,13 @@ public object PulseOtelUtils {
         }
 
         return normalized
+    }
+
+    public inline fun logDebug(
+        tag: String,
+        body: () -> String,
+    ) {
+        Log.d("$TAG:$tag", body())
     }
 }
 
@@ -72,4 +83,24 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
         }
     }
 
+@PublishedApi
+internal const val TAG: String = "PulseOtelSdk"
+
 public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()
+
+public fun Attributes.toMap(): Map<String, Any?> = this.asMap().mapKeys { it.key.key }
+
+internal val regexCache = ConcurrentHashMap<String, ThreadLocal<Matcher>>()
+
+public fun String.matchesFromRegexCache(regexStr: String): Boolean {
+    val threadLocalMatcher =
+        regexCache.computeIfAbsent(regexStr) {
+            val pattern = Pattern.compile(regexStr)
+            object : ThreadLocal<Matcher>() {
+                override fun initialValue(): Matcher = pattern.matcher("")
+            }
+        }
+    val matcher = threadLocalMatcher.get() ?: error("matcher should not be null here")
+    matcher.reset(this)
+    return matcher.matches()
+}
