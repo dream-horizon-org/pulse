@@ -30,8 +30,6 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
 import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
-import io.opentelemetry.android.instrumentation.location.LocationInstrumentation
-import io.opentelemetry.android.instrumentation.location.LocationProvider
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
