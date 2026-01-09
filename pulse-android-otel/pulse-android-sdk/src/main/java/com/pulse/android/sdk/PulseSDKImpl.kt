@@ -67,6 +67,7 @@ internal class PulseSDKImpl :
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        resource: (io.opentelemetry.sdk.resources.ResourceBuilder.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
@@ -244,6 +245,7 @@ internal class PulseSDKImpl :
                         attributesBuilder.build()
                     },
                 diskBuffering = diskBuffering,
+                resource = resource,
                 rumConfig = config,
                 tracerProviderCustomizer = mergedTracerProviderCustomizer,
                 loggerProviderCustomizer = mergedLoggerProviderCustomizer,
