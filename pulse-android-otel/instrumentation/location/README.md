@@ -36,7 +36,7 @@ If you're using the [pulse-android-sdk](../../pulse-android-sdk), the location i
 
 ```kotlin
 dependencies {
-    implementation("io.opentelemetry.android.instrumentation:location-library:0.15.0-alpha")
+    implementation("org.dreamhorizon.instrumentation:location-location-library:<latest-version>")
 }
 ```
 
