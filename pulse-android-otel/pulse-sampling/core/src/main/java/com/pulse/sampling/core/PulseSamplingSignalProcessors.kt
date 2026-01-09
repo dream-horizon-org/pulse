@@ -67,7 +67,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         }
 
         override fun export(spans: Collection<SpanData>): CompletableResultCode =
-            sampleSession {
+            sampleSpansInSession(spans) {
                 val filteredSpans =
                     spans
                         .asSequence()
@@ -143,7 +143,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         }
 
         override fun export(logs: Collection<LogRecordData>): CompletableResultCode =
-            sampleSession {
+            sampleLogsInSession(logs) {
                 val filteredLogs =
                     logs
                         .asSequence()
@@ -232,7 +232,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         private val delegateExporter: MetricExporter,
     ) : MetricExporter by delegateExporter {
         override fun export(metrics: Collection<MetricData>): CompletableResultCode =
-            sampleSession {
+            sampleMetricsInSession(metrics) {
                 val filteredLogs =
                     metrics
                         .asSequence()
@@ -426,12 +426,52 @@ public class PulseSamplingSignalProcessors internal constructor(
 
     private fun parseDoubleArray(value: String): List<Double> = value.split(",").mapNotNull { it.trim().toDoubleOrNull() }
 
-    private inline fun sampleSession(block: () -> CompletableResultCode): CompletableResultCode =
-        if (shouldSampleThisSession) {
-            block()
+    private inline fun sampleLogsInSession(
+        signals: Collection<LogRecordData>,
+        block: (Collection<LogRecordData>) -> CompletableResultCode,
+    ): CompletableResultCode = sampleSession(PulseSignalScope.LOGS, signals, LogRecordData::toSignalValues, block)
+
+    private inline fun sampleSpansInSession(
+        signals: Collection<SpanData>,
+        block: (Collection<SpanData>) -> CompletableResultCode,
+    ): CompletableResultCode = sampleSession(PulseSignalScope.TRACES, signals, SpanData::toSignalValues, block)
+
+    private inline fun sampleMetricsInSession(
+        signals: Collection<MetricData>,
+        block: (Collection<MetricData>) -> CompletableResultCode,
+    ): CompletableResultCode = sampleSession(PulseSignalScope.METRICS, signals, MetricData::toSignalValues, block)
+
+    private inline fun <M> sampleSession(
+        scope: PulseSignalScope,
+        signals: Collection<M>,
+        signalValuesProvider: M.() -> SignalMatchValues,
+        block: (Collection<M>) -> CompletableResultCode,
+    ): CompletableResultCode {
+        val sampledSignals =
+            if (shouldSampleThisSession) {
+                signals
+            } else {
+                sdkConfig.sampling.criticalEventPolicies
+                    ?.run {
+                        signals.filter { signal ->
+                            val (name, props) = signal.signalValuesProvider()
+                            alwaysSend.any { matchCondition ->
+                                signalMatcher.matches(
+                                    scope,
+                                    name,
+                                    props,
+                                    matchCondition,
+                                )
+                            }
+                        }
+                    }.orEmpty()
+            }
+        return if (sampledSignals.isNotEmpty()) {
+            block(sampledSignals)
         } else {
             CompletableResultCode.ofSuccess()
         }
+    }
 }
 
 public fun PulseSamplingSignalProcessors(
@@ -445,3 +485,14 @@ public fun PulseSamplingSignalProcessors(
         PulseSessionConfigParser(),
         SecureRandom(),
     )
+
+private data class SignalMatchValues(
+    val name: String,
+    val props: Map<String, Any?>,
+)
+
+private fun LogRecordData.toSignalValues() = SignalMatchValues(bodyValue?.asString().orEmpty(), attributes.toMap())
+
+private fun SpanData.toSignalValues() = SignalMatchValues(name.orEmpty(), attributes.toMap())
+
+private fun MetricData.toSignalValues() = SignalMatchValues(this.name, emptyMap())

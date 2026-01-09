@@ -16,18 +16,19 @@ public object PulseSdkConfigFakeUtils {
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseSignalMatchCondition> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+        sampling: PulseSamplingConfig =
+            PulseSamplingConfig(
+                default =
+                    PulseDefaultSamplingConfig(
+                        sessionSampleRate = sessionSampleRate,
+                    ),
+                rules = emptyList(),
+            ),
     ): PulseSdkConfig =
         PulseSdkConfig(
             version = version,
             description = "This is test description",
-            sampling =
-                PulseSamplingConfig(
-                    default =
-                        PulseDefaultSamplingConfig(
-                            sessionSampleRate = sessionSampleRate,
-                        ),
-                    rules = emptyList(),
-                ),
+            sampling = sampling,
             signals =
                 PulseSignalConfig(
                     scheduleDurationMs = scheduleDurationMs,
@@ -122,5 +123,12 @@ public object PulseSdkConfigFakeUtils {
         PulseAttributesToAddEntry(
             values = values,
             condition = matcher,
+        )
+
+    public fun createFakeCriticalEventPolicies(
+        alwaysSend: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
+    ): PulseCriticalEventPolicies =
+        PulseCriticalEventPolicies(
+            alwaysSend = alwaysSend,
         )
 }
