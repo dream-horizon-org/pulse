@@ -93,4 +93,7 @@ public class StackTraceEvent {
 
   @JsonProperty("ResourceAttributes")
   private Map<String, String> resourceAttributes;
+
+  @JsonProperty("BundleId")
+  private String bundleId;
 }

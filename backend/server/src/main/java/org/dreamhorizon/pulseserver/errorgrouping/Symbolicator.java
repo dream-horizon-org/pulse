@@ -80,6 +80,7 @@ public class Symbolicator {
             .versionCode(eventMeta.getAppVersionCode())
             .appVersion(eventMeta.getAppVersion())
             .platform(eventMeta.getPlatform())
+            .bundleId(eventMeta.getBundleId())
             .type("JS")
             .build())
         .map(sourcemap -> {
