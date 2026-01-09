@@ -74,7 +74,6 @@ interface InteractionConfig {
 interface FeatureConfig {
   id?: string;
   featureName: string;
-  enabled: boolean;
   session_sample_rate: number;
   sdks: SdkEnum[];
 }
@@ -216,29 +215,25 @@ export class MockDataStore {
         {
           id: generateId(),
           featureName: 'crash_reporting',
-          enabled: true,
           session_sample_rate: 1.0,
           sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'network_monitoring',
-          enabled: true,
           session_sample_rate: 0.8,
           sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'performance_monitoring',
-          enabled: true,
           session_sample_rate: 0.6,
           sdks: ['android_native', 'ios_native'],
         },
         {
           id: generateId(),
           featureName: 'user_interaction_tracking',
-          enabled: false,
-          session_sample_rate: 0.3,
+          session_sample_rate: 0.0,
           sdks: ['android_native', 'ios_native'],
         },
       ],
