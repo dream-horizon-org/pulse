@@ -56,21 +56,25 @@ import classes from '../../SamplingConfig.module.css';
 const FEATURE_ICONS: Record<string, React.ReactNode> = {
   interaction: <IconClick size={22} />,
   java_crash: <IconBug size={22} />,
+  js_crash: <IconBug size={22} />,
   java_anr: <IconAlertTriangle size={22} />,
   network_change: <IconWifi size={22} />,
   network_instrumentation: <IconNetwork size={22} />,
   screen_session: <IconDeviceMobile size={22} />,
   custom_events: <IconTag size={22} />,
+  rn_navigation: <IconDeviceMobile size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
   interaction: '#f59e0b',
   java_crash: '#ef4444',
+  js_crash: '#ef4444',
   java_anr: '#dc2626',
   network_change: '#06b6d4',
   network_instrumentation: '#3b82f6',
   screen_session: '#8b5cf6',
   custom_events: '#10b981',
+  rn_navigation: '#8b5cf6',
 };
 
 export function FeatureToggles({ configs, onChange, disabled = false }: FeatureConfigsProps) {

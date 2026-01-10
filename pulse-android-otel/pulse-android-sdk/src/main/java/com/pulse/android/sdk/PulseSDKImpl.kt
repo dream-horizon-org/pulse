@@ -184,6 +184,10 @@ internal class PulseSDKImpl :
                             config.suppressInstrumentation("crash")
                         }
 
+                        PulseFeatureName.JS_CRASH -> {
+                            // no-op
+                        }
+
                         PulseFeatureName.NETWORK_CHANGE -> {
                             config.disableNetworkAttributes()
                         }
@@ -194,6 +198,10 @@ internal class PulseSDKImpl :
 
                         PulseFeatureName.INTERACTION -> {
                             config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                        }
+
+                        PulseFeatureName.RN_NAVIGATION -> {
+                            // no-op
                         }
 
                         PulseFeatureName.CPP_CRASH -> {
