@@ -1433,6 +1433,12 @@ export class MockDataStore {
         },
         {
           id: generateId(),
+          featureName: 'js_crash',
+          sessionSampleRate: 1,
+          sdks: ['android_rn', 'ios_rn'],
+        },
+        {
+          id: generateId(),
           featureName: 'network_instrumentation',
           sessionSampleRate: 1,
           sdks: ['android_java', 'ios_native'],
@@ -1442,6 +1448,12 @@ export class MockDataStore {
           featureName: 'screen_session',
           sessionSampleRate: 0,
           sdks: ['android_java', 'ios_native'],
+        },
+        {
+          id: generateId(),
+          featureName: 'rn_navigation',
+          sessionSampleRate: 0,
+          sdks: ['android_rn', 'ios_rn'],
         },
       ],
     };
@@ -1563,7 +1575,7 @@ type SdkEnumV1 = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
 type ScopeEnumV1 = 'logs' | 'traces' | 'metrics' | 'baggage';
 type FilterModeV1 = 'blacklist' | 'whitelist';
 type SamplingRuleNameV1 = 'os_version' | 'app_version' | 'country' | 'platform' | 'state' | 'device' | 'network';
-type FeatureNameV1 = 'interaction' | 'java_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events';
+type FeatureNameV1 = 'interaction' | 'java_crash' | 'js_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events' | 'rn_navigation';
 
 interface EventPropMatchV1 {
   name: string;

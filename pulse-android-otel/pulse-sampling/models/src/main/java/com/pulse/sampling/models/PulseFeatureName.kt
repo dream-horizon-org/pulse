@@ -11,6 +11,9 @@ public enum class PulseFeatureName {
     @SerialName("java_crash")
     JAVA_CRASH,
 
+    @SerialName("js_crash")
+    JS_CRASH,
+
     @SerialName("cpp_crash")
     CPP_CRASH,
 
@@ -19,6 +22,9 @@ public enum class PulseFeatureName {
 
     @SerialName("cpp_anr")
     CPP_ANR,
+
+    @SerialName("rn_navigation")
+    RN_NAVIGATION,
 
     @SerialName("interaction")
     INTERACTION,

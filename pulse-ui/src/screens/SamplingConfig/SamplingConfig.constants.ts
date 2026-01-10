@@ -51,11 +51,13 @@ export const RULE_DISPLAY_INFO: Record<string, { label: string; description: str
 export const FEATURE_DISPLAY_INFO: Record<string, { label: string; description: string; icon: string }> = {
   interaction: { label: 'User Interactions', description: 'Track taps, scrolls, and navigation patterns', icon: 'click' },
   java_crash: { label: 'Java Crash', description: 'Capture Java/Kotlin crashes', icon: 'bug' },
+  js_crash: { label: 'JS Crash', description: 'Capture JavaScript crashes', icon: 'bug' },
   java_anr: { label: 'Java ANR', description: 'Capture Application Not Responding events', icon: 'alert' },
   network_change: { label: 'Network Change', description: 'Track network state changes', icon: 'wifi' },
   network_instrumentation: { label: 'Network Instrumentation', description: 'Track API calls and network performance', icon: 'network' },
   screen_session: { label: 'Screen Session', description: 'Track screen views and sessions', icon: 'screen' },
   custom_events: { label: 'Custom Events', description: 'User-defined custom events', icon: 'tag' },
+  rn_navigation: { label: 'React Native Navigation', description: 'Track React Native Screen Sessions, Screen Loads and Screen Interaactive Events', icon: 'navigation' },
 };
 
 // ============================================================================

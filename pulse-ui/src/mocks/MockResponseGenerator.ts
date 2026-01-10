@@ -398,11 +398,13 @@ export class MockResponseGenerator {
           features: [
             "interaction",
             "java_crash",
+            "js_crash",
             "java_anr",
             "network_change",
             "network_instrumentation",
             "screen_session",
-            "custom_events"
+            "custom_events",
+            "rn_navigation",
           ]
         },
         status: 200,
