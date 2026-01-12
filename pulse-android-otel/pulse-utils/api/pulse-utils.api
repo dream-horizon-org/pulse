@@ -1,3 +1,8 @@
+public final class com/pulse/otel/utils/PulseCoroutineUtilsKt {
+	public static final fun await (Lcom/google/android/gms/tasks/Task;Lcom/google/android/gms/tasks/CancellationTokenSource;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static final fun await (Lcom/google/android/gms/tasks/Task;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+}
+
 public class com/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer : kotlinx/serialization/KSerializer {
 	public static final field Companion Lcom/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer$Companion;
 	public static final field UNKNOWN_KEY_NAME Ljava/lang/String;
@@ -15,8 +20,10 @@ public final class com/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer$Com
 
 public final class com/pulse/otel/utils/PulseOtelUtils {
 	public static final field INSTANCE Lcom/pulse/otel/utils/PulseOtelUtils;
+	public final fun getTag (Lkotlin/jvm/functions/Function0;)Ljava/lang/String;
 	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
 	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
+	public final fun logError (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
 	public final fun normaliseUrl (Ljava/lang/String;)Ljava/lang/String;
 }
 
@@ -67,5 +74,12 @@ public final class com/pulse/otel/utils/models/PulseApiResponse$$serializer : ko
 
 public final class com/pulse/otel/utils/models/PulseApiResponse$Companion {
 	public final fun serializer (Lkotlinx/serialization/KSerializer;)Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/utils/BuildConfig {
+	public static final field BUILD_TYPE Ljava/lang/String;
+	public static final field DEBUG Z
+	public static final field LIBRARY_PACKAGE_NAME Ljava/lang/String;
+	public fun <init> ()V
 }
 

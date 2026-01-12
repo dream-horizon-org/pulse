@@ -27,6 +27,7 @@ dependencies {
     implementation(projects.pulseSamplingCore)
     implementation(projects.pulseUtils)
     implementation(projects.instrumentation.interaction.interactionLibrary)
+    implementation(projects.instrumentation.location.locationProcessors)
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.exporter.otlp)
     implementation(libs.opentelemetry.api)

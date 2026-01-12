@@ -24,8 +24,12 @@ import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfigu
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.android.config.OtelRumConfig
 import io.opentelemetry.android.export.FilteringSpanExporter
+import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.android.instrumentation.interaction.library.InteractionInstrumentation
+import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesLogRecordAppender
+import io.opentelemetry.android.instrumentation.location.processors.LocationAttributesSpanAppender
+import io.opentelemetry.android.instrumentation.location.processors.LocationInstrumentationConstants
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
@@ -84,7 +88,7 @@ internal class PulseSDKImpl :
 
         val json = Json {}
         val currentSdkConfig =
-            sharedPrefs.getString(PULSE_SDK_CONFIG_KEY, null)?.let {
+            sharedPrefs.getString(PrefsName.PULSE_SDK_CONFIG_KEY, null)?.let {
                 json.decodeFromString<PulseSdkConfig>(it)
             }
         launch {
@@ -95,7 +99,7 @@ internal class PulseSDKImpl :
                     "${endpointBaseUrl.replace(":4318", ":8080")}/v1/configs/active/"
                 }.provide() ?: return@launch
             sharedPrefs.edit(commit = true) {
-                putString(PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
+                putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
             }
         }
 
@@ -178,54 +182,57 @@ internal class PulseSDKImpl :
         instrumentations?.let { configure ->
             InstrumentationConfiguration(config).configure()
             pulseSamplingProcessors?.run {
-                getDisabledFeatures().forEach {
-                    when (it) {
-                        PulseFeatureName.JAVA_CRASH -> {
-                            config.suppressInstrumentation("crash")
-                        }
+                val enabledFeatures = getEnabledFeatures()
+                enumValues<PulseFeatureName>().forEach { feature ->
+                    if (feature !in enabledFeatures) {
+                        when (feature) {
+                            PulseFeatureName.JAVA_CRASH -> {
+                                config.suppressInstrumentation("crash")
+                            }
 
-                        PulseFeatureName.JS_CRASH -> {
-                            // no-op
-                        }
+                            PulseFeatureName.JS_CRASH -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.NETWORK_CHANGE -> {
-                            config.disableNetworkAttributes()
-                        }
+                            PulseFeatureName.NETWORK_CHANGE -> {
+                                config.disableNetworkAttributes()
+                            }
 
-                        PulseFeatureName.JAVA_ANR -> {
-                            config.suppressInstrumentation("anr")
-                        }
+                            PulseFeatureName.JAVA_ANR -> {
+                                config.suppressInstrumentation("anr")
+                            }
 
-                        PulseFeatureName.INTERACTION -> {
-                            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                        }
+                            PulseFeatureName.INTERACTION -> {
+                                config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                            }
 
-                        PulseFeatureName.RN_NAVIGATION -> {
-                            // no-op
-                        }
+                            PulseFeatureName.RN_NAVIGATION -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.CPP_CRASH -> {
-                            // no-op
-                        }
+                            PulseFeatureName.CPP_CRASH -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.CPP_ANR -> {
-                            // no-op
-                        }
+                            PulseFeatureName.CPP_ANR -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.NETWORK_INSTRUMENTATION -> {
-                            // no-op
-                        }
+                            PulseFeatureName.NETWORK_INSTRUMENTATION -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.SCREEN_SESSION -> {
-                            // no-op
-                        }
+                            PulseFeatureName.SCREEN_SESSION -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.CUSTOM_EVENTS -> {
-                            isCustomEventEnabled = false
-                        }
+                            PulseFeatureName.CUSTOM_EVENTS -> {
+                                isCustomEventEnabled = false
+                            }
 
-                        PulseFeatureName.UNKNOWN -> {
-                            // no-op
+                            PulseFeatureName.UNKNOWN -> {
+                                // no-op
+                            }
                         }
                     }
                 }
@@ -279,9 +286,16 @@ internal class PulseSDKImpl :
     ): Pair<
         BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>,
         BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>,
+        // @formatter:off
     > {
+        // @formatter:on
+        val shouldAddLocationProcessor =
+            AndroidInstrumentationLoader
+                .get()
+                .getByName<AndroidInstrumentation>(LocationInstrumentationConstants.INSTRUMENTATION_NAME) != null &&
+                !config.isSuppressed(LocationInstrumentationConstants.INSTRUMENTATION_NAME)
         val tracerProviderCustomizer =
-            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
+            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
                 tracerProviderBuilder.addSpanProcessor(
                     PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender(),
                 )
@@ -296,11 +310,22 @@ internal class PulseSDKImpl :
                         ),
                     )
                 }
+                // location attributes
+                if (shouldAddLocationProcessor) {
+                    val sharedPreferences =
+                        app.getSharedPreferences(
+                            PrefsName.LOCATION_PREF_FILE_NAME,
+                            Context.MODE_PRIVATE,
+                        )
+                    tracerProviderBuilder.addSpanProcessor(
+                        LocationAttributesSpanAppender.create(sharedPreferences),
+                    )
+                }
                 tracerProviderBuilder
             }
 
         val loggerProviderCustomizer =
-            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, _ ->
+            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
                 loggerProviderBuilder.addLogRecordProcessor(
                     pulseSpanProcessor.PulseLogTypeAttributesAppender(),
                 )
@@ -312,6 +337,17 @@ internal class PulseSDKImpl :
                                     InteractionInstrumentation::class.java,
                                 ).interactionManagerInstance,
                         ),
+                    )
+                }
+                // location attributes
+                if (shouldAddLocationProcessor) {
+                    val sharedPreferences =
+                        app.getSharedPreferences(
+                            PrefsName.LOCATION_PREF_FILE_NAME,
+                            Context.MODE_PRIVATE,
+                        )
+                    loggerProviderBuilder.addLogRecordProcessor(
+                        LocationAttributesLogRecordAppender.create(sharedPreferences),
                     )
                 }
                 loggerProviderBuilder
@@ -487,6 +523,10 @@ internal class PulseSDKImpl :
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
-        private const val PULSE_SDK_CONFIG_KEY = "sdk_config"
+
+        internal object PrefsName {
+            internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
+            internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
+        }
     }
 }

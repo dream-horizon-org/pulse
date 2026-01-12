@@ -33,7 +33,7 @@ include(":pulse-sampling-remote")
 project(":pulse-sampling-remote").projectDir = File("./pulse-sampling/remote")
 includeBuild("pulse-upload-plugin")
 includeFromDir("instrumentation") {
-    if (it.contains(":instrumentation:interaction:")) {
+    if (it.contains(":instrumentation:interaction:") || it.contains(":instrumentation:location:")) {
         val nameWithInteraction = it.split(":").takeLast(2).joinToString("-")
         println("Name for projectPath = $it is $nameWithInteraction")
         nameWithInteraction
