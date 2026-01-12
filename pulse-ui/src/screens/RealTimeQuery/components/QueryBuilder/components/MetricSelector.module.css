@@ -1,0 +1,50 @@
+.container {
+  padding: var(--mantine-spacing-md);
+  background: linear-gradient(145deg, rgba(14, 201, 194, 0.04) 0%, rgba(14, 201, 194, 0.08) 100%);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 10px;
+}
+
+.iconWrapper {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(14, 201, 194, 0.15);
+  color: var(--mantine-color-teal-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyState {
+  padding: var(--mantine-spacing-md);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  border: 1px dashed rgba(14, 201, 194, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.metricRow {
+  padding: var(--mantine-spacing-xs);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  border: 1px solid rgba(14, 201, 194, 0.1);
+  transition: all 0.15s ease;
+}
+
+.metricRow:hover {
+  border-color: rgba(14, 201, 194, 0.25);
+  background: rgba(255, 255, 255, 1);
+}
+
+.select {
+  border-color: rgba(14, 201, 194, 0.2);
+  font-size: 12px;
+}
+
+.select:focus {
+  border-color: var(--mantine-color-teal-5);
+}
+

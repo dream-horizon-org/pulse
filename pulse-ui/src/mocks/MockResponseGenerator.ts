@@ -17,6 +17,13 @@ import {
   mockAlertFilters,
   mockAlertTags,
 } from "./responses/alertResponses";
+import {
+  mockTableMetadata,
+  generateMockQueryResults,
+  createQueryJob,
+  getQueryJobStatus,
+  shouldReturnImmediate,
+} from "./responses/realtimeQueryResponses";
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -150,9 +157,18 @@ export class MockResponseGenerator {
       return this.handleDashboardFiltersEndpoint(pathname, method, request);
     }
 
-    // Job endpoints
+    // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
     if (
-      pathname.includes("/job") ||
+      pathname.includes("/query/metadata/table") ||
+      pathname.includes("/query/job/") ||
+      (pathname.endsWith("/query") && method === "POST")
+    ) {
+      return this.handleRealtimeQueryEndpoints(pathname, method, request);
+    }
+
+    // Job endpoints (CI Job endpoints, not query jobs)
+    if (
+      (pathname.includes("/job") && !pathname.includes("/query/job/")) ||
       pathname.includes("/getJobs") ||
       pathname.includes("/v1/interactions") ||
       pathname.includes("/getJobDetails") ||
@@ -2239,6 +2255,176 @@ export class MockResponseGenerator {
         },
       },
       status: 200,
+    };
+  }
+
+  /**
+   * Handle Real-time Querying endpoints
+   * - POST /query/metadata/table - Get table metadata (columns, types)
+   * - POST /query - Submit a SQL query
+   * - GET /query/job/{jobId} - Get job status and results
+   */
+  private handleRealtimeQueryEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // Get table metadata
+    if (pathname.includes("/query/metadata/table") && method === "POST") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] Returning table metadata for otel_data");
+      }
+      return {
+        data: mockTableMetadata,
+        status: 200,
+      };
+    }
+
+    // Submit query
+    if (pathname.endsWith("/query") && method === "POST") {
+      let requestBody: { queryString?: string; sql?: string } = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Invalid request body",
+            cause: "Could not parse JSON body",
+          },
+        };
+      }
+
+      // Support both 'queryString' (interface) and 'sql' (legacy)
+      const sql = requestBody.queryString || requestBody.sql || "";
+      if (!sql.trim()) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_QUERY",
+            message: "SQL query is required",
+            cause: "Empty SQL query provided",
+          },
+        };
+      }
+
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] Submitting query:", sql.substring(0, 100) + "...");
+      }
+
+      // Check if we should return immediate results
+      if (shouldReturnImmediate(sql)) {
+        const results = generateMockQueryResults(sql);
+        return {
+          data: {
+            jobId: `query_${Date.now()}`,
+            status: "COMPLETED",
+            message: "Query completed successfully",
+            resultData: results.rows,
+            nextToken: results.nextToken,
+            dataScannedInBytes: results.dataScannedInBytes,
+            createdAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+          },
+          status: 200,
+        };
+      }
+
+      // Otherwise, create a job for async execution
+      const job = createQueryJob(sql);
+      return {
+        data: {
+          jobId: job.jobId,
+          status: job.status,
+          message: "Query queued for execution",
+          resultData: null,
+          createdAt: new Date().toISOString(),
+        },
+        status: 200,
+      };
+    }
+
+    // Get job status
+    if (pathname.includes("/query/job/") && method === "GET") {
+      // Extract job ID from pathname (stop at / or ? or end of string)
+      const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
+      let jobId = jobIdMatch ? jobIdMatch[1] : "";
+      
+      // Also strip query params if somehow included
+      if (jobId.includes("?")) {
+        jobId = jobId.split("?")[0];
+      }
+
+      if (!jobId) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Job ID is required",
+            cause: "No job ID provided in URL",
+          },
+        };
+      }
+
+      console.log("[Mock Server] Getting job status for:", jobId);
+
+      const jobStatus = getQueryJobStatus(jobId);
+      console.log("[Mock Server] Job status result:", JSON.stringify(jobStatus));
+      
+      // Map SUCCEEDED to COMPLETED to match interface expectations
+      const statusMap: Record<string, string> = {
+        "SUCCEEDED": "COMPLETED",
+        "QUEUED": "QUEUED",
+        "RUNNING": "RUNNING",
+        "FAILED": "FAILED",
+      };
+      const mappedStatus = statusMap[jobStatus.status] || jobStatus.status;
+      
+      let response;
+      if (mappedStatus === "COMPLETED" && jobStatus.results) {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+            resultData: jobStatus.results.rows,
+            nextToken: jobStatus.results.nextToken,
+            dataScannedInBytes: jobStatus.results.dataScannedInBytes,
+            completedAt: new Date().toISOString(),
+          },
+          status: 200,
+        };
+      } else if (mappedStatus === "FAILED") {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+            errorMessage: jobStatus.error || "Query execution failed",
+          },
+          status: 200,
+        };
+      } else {
+        response = {
+          data: {
+            jobId: jobStatus.jobId,
+            status: mappedStatus,
+          },
+          status: 200,
+        };
+      }
+
+      console.log("[Mock Server] Returning job status response:", JSON.stringify(response));
+      return response;
+    }
+
+    return {
+      data: { message: "Real-time query endpoint not implemented" },
+      status: 404,
     };
   }
 

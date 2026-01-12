@@ -35,7 +35,7 @@ function generateExampleQueries(tableName: string) {
       description: "Get last 100 events",
       query: `SELECT *
 FROM ${tableName}
-ORDER BY eventTimestamp DESC
+ORDER BY timestamp DESC
 LIMIT 100;`,
     },
     {
@@ -45,7 +45,7 @@ LIMIT 100;`,
     eventName,
     COUNT(*) as event_count
 FROM ${tableName}
-WHERE eventTimestamp >= date_add('hour', -24, current_timestamp)
+WHERE timestamp >= date_add('hour', -24, current_timestamp)
 GROUP BY eventName
 ORDER BY event_count DESC
 LIMIT 20;`,
@@ -58,7 +58,7 @@ LIMIT 20;`,
     COUNT(DISTINCT sessionId) as sessions,
     COUNT(DISTINCT userId) as users
 FROM ${tableName}
-WHERE eventTimestamp >= date_add('day', -7, current_timestamp)
+WHERE timestamp >= date_add('day', -7, current_timestamp)
 GROUP BY platform
 ORDER BY sessions DESC;`,
     },
@@ -66,11 +66,11 @@ ORDER BY sessions DESC;`,
       name: "Hourly Trend",
       description: "Events per hour (last 24h)",
       query: `SELECT 
-    date_trunc('hour', eventTimestamp) as hour,
+    date_trunc('hour', timestamp) as hour,
     COUNT(*) as event_count
 FROM ${tableName}
-WHERE eventTimestamp >= date_add('hour', -24, current_timestamp)
-GROUP BY date_trunc('hour', eventTimestamp)
+WHERE timestamp >= date_add('hour', -24, current_timestamp)
+GROUP BY date_trunc('hour', timestamp)
 ORDER BY hour DESC;`,
     },
   ];

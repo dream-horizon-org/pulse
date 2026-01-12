@@ -68,6 +68,17 @@
   flex-wrap: wrap;
 }
 
+.modeToggle {
+  background: rgba(14, 201, 194, 0.08);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 8px;
+}
+
+.modeToggle [data-active] {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  color: white;
+}
+
 /* Schema Card - Combined Data Source & Columns */
 .schemaCard {
   background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);

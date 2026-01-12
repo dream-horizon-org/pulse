@@ -15,12 +15,12 @@ import {
   TextInput,
   Group,
   Divider,
+  SegmentedControl,
 } from "@mantine/core";
 import {
   IconPlayerPlay,
   IconPlayerStop,
   IconHistory,
-  IconSparkles,
   IconDatabase,
   IconTable,
   IconSearch,
@@ -33,12 +33,15 @@ import {
   IconClock,
   IconPlayerPause,
   IconActivity,
+  IconCode,
+  IconWand,
 } from "@tabler/icons-react";
 import { useState, useMemo, useCallback } from "react";
 import { notifications } from "@mantine/notifications";
 
 import { SqlEditor } from "./components/SqlEditor";
 import { QueryResults } from "./components/QueryResults";
+import { QueryBuilder } from "./components/QueryBuilder";
 
 import { QueryResult, VisualizationConfig, ColumnMetadata } from "./RealTimeQuery.interface";
 import { useQueryExecution } from "./hooks";
@@ -53,9 +56,17 @@ import {
 
 import classes from "./RealTimeQuery.module.css";
 
+// Query mode type
+type QueryMode = "builder" | "sql";
+
 export function RealTimeQuery() {
-  // SQL query state
+  // Query mode state
+  const [queryMode, setQueryMode] = useState<QueryMode>("builder");
+  
+  // SQL query state (for SQL mode)
   const [sqlQuery, setSqlQuery] = useState<string>("");
+  // Builder generated SQL (for Builder mode)
+  const [builderSql, setBuilderSql] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Always use table view
@@ -122,7 +133,8 @@ export function RealTimeQuery() {
   }, []);
 
   const handleRunQuery = useCallback(() => {
-    if (!sqlQuery.trim()) {
+    const queryToRun = queryMode === "sql" ? sqlQuery : builderSql;
+    if (!queryToRun.trim()) {
       notifications.show({
         title: "Error",
         message: REALTIME_QUERY_TEXTS.EMPTY_QUERY,
@@ -130,8 +142,13 @@ export function RealTimeQuery() {
       });
       return;
     }
-    executeQuery(sqlQuery);
-  }, [sqlQuery, executeQuery]);
+    executeQuery(queryToRun);
+  }, [queryMode, sqlQuery, builderSql, executeQuery]);
+
+  // Handle builder SQL changes
+  const handleBuilderSqlChange = useCallback((sql: string) => {
+    setBuilderSql(sql);
+  }, []);
 
   const handleCancelQuery = useCallback(() => {
     cancelQuery();
@@ -142,7 +159,7 @@ export function RealTimeQuery() {
     });
   }, [cancelQuery]);
 
-  const canRunQuery = sqlQuery.trim().length > 0;
+  const canRunQuery = queryMode === "sql" ? sqlQuery.trim().length > 0 : builderSql.trim().length > 0;
   const isRunning = executionState.status === "submitting" || executionState.status === "polling";
 
   // Get status message
@@ -173,16 +190,40 @@ export function RealTimeQuery() {
             <p className={classes.pageSubtitle}>{REALTIME_QUERY_TEXTS.PAGE_SUBTITLE}</p>
           </Box>
           <Box className={classes.actionsSection}>
+            {/* Mode Toggle */}
+            <SegmentedControl
+              value={queryMode}
+              onChange={(value) => setQueryMode(value as QueryMode)}
+              data={[
+                {
+                  value: "builder",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <IconWand size={14} />
+                      <Text size="xs">Builder</Text>
+                    </Group>
+                  ),
+                },
+                {
+                  value: "sql",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <IconCode size={14} />
+                      <Text size="xs">SQL</Text>
+                    </Group>
+                  ),
+                },
+              ]}
+              size="xs"
+              className={classes.modeToggle}
+            />
+            
             <Tooltip label="Query History (Coming Soon)">
               <ActionIcon variant="light" size="lg" color="teal" disabled>
                 <IconHistory size={18} />
               </ActionIcon>
             </Tooltip>
-            <Tooltip label="Templates (Coming Soon)">
-              <ActionIcon variant="light" size="lg" color="teal" disabled>
-                <IconSparkles size={18} />
-              </ActionIcon>
-            </Tooltip>
+            
             {isRunning ? (
               <Button
                 color="red"
@@ -339,14 +380,24 @@ export function RealTimeQuery() {
           </Box>
         </Grid.Col>
 
-        {/* Main - SQL Editor */}
+        {/* Main - SQL Editor or Query Builder */}
         <Grid.Col span={{ base: 12, md: 6 }}>
-          <SqlEditor
-            value={sqlQuery}
-            onChange={handleSqlChange}
-            tableName={fullTableName || undefined}
-            isLoading={isLoadingMetadata}
-          />
+          {queryMode === "sql" ? (
+            <SqlEditor
+              value={sqlQuery}
+              onChange={handleSqlChange}
+              tableName={fullTableName || undefined}
+              isLoading={isLoadingMetadata}
+            />
+          ) : (
+            <QueryBuilder
+              tableName={tableName}
+              databaseName={databaseName}
+              columns={columns}
+              onQueryChange={handleBuilderSqlChange}
+              isLoading={isLoadingMetadata}
+            />
+          )}
         </Grid.Col>
 
         {/* Right Sidebar - Query Status */}
