@@ -32,6 +32,15 @@ public enum class PulseFeatureName {
     @SerialName("network_change")
     NETWORK_CHANGE,
 
+    @SerialName("network_instrumentation")
+    NETWORK_INSTRUMENTATION,
+
+    @SerialName("screen_session")
+    SCREEN_SESSION,
+
+    @SerialName("custom_events")
+    CUSTOM_EVENTS,
+
     @SerialName(PulseFallbackToUnknownEnumSerializer.UNKNOWN_KEY_NAME)
     UNKNOWN,
 }
