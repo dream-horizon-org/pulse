@@ -41,18 +41,9 @@ export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
     return cachedFeatures;
   }
 
-  try {
-    const features = PulseReactNativeOtel.getAllFeatures();
-    cachedFeatures = features as PulseFeatureConfig;
-    return cachedFeatures;
-  } catch (e) {
-    console.warn(
-      '[Pulse] Failed to get features from SDK config, using empty cache',
-      e
-    );
-    cachedFeatures = null;
-    return cachedFeatures;
-  }
+  const features = PulseReactNativeOtel.getAllFeatures();
+  cachedFeatures = features as PulseFeatureConfig;
+  return cachedFeatures;
 }
 
 function configure(config: PulseConfig): void {

@@ -99,7 +99,6 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
   override fun getAllFeatures(): WritableMap {
     val features = Arguments.createMap()
 
-    try {
       val context = reactApplicationContext
       val sharedPrefs = context.getSharedPreferences(
         "pulse_sdk_config",
@@ -127,10 +126,6 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
           }
         }
       }
-    } catch (e: Exception) {
-      Log.e("PulseReactNativeOtel", "Error reading feature config from SharedPreferences", e)
-    }
-
     return features
   }
 
