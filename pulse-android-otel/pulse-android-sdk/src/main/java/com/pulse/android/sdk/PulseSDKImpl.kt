@@ -351,18 +351,18 @@ internal class PulseSDKImpl :
     ) {
         if (isCustomEventEnabled) {
             logger
-            .logRecordBuilder()
-            .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
-                setBody(name)
-                setEventName(CUSTOM_EVENT_NAME)
-                setAttribute(
-                    PulseAttributes.PULSE_TYPE,
-                    PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
-                )
-                setAllAttributes(params.toAttributes())
-                emit()
-            }
+                .logRecordBuilder()
+                .apply {
+                    setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                    setBody(name)
+                    setEventName(CUSTOM_EVENT_NAME)
+                    setAttribute(
+                        PulseAttributes.PULSE_TYPE,
+                        PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
+                    )
+                    setAllAttributes(params.toAttributes())
+                    emit()
+                }
         }
     }
 
