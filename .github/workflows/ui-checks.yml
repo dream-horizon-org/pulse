@@ -55,7 +55,11 @@ jobs:
       - name: Run TypeScript type check
         run: |
           echo "🔍 Running TypeScript type check..."
-          npx tsc --noEmit --project tsconfig.json --explainFiles --traceResolution
+          # Clear TypeScript incremental build cache to avoid stale type information
+          rm -rf node_modules/.cache/tsconfig.tsbuildinfo
+          rm -rf .tsbuildinfo
+          npx tsc --build --clean 2>&1 || true
+          npx tsc --noEmit --project tsconfig.json
           echo "✅ TypeScript type check passed"
 
       - name: Run ESLint and Build
