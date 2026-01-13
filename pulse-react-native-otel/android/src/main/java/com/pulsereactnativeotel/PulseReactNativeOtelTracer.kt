@@ -35,7 +35,7 @@ object PulseReactNativeOtelTracer {
 
         val id = UUID.randomUUID().toString()
         idToSpan[id] = span
-        
+
         if (inheritContext) {
             val scope = span.makeCurrent()
             idToScope[id] = scope
@@ -122,13 +122,16 @@ object PulseReactNativeOtelTracer {
 
         when (array.getType(0)) {
             ReadableType.String -> {
-                span.setAttribute(AttributeKey.stringArrayKey(key), array.toArrayList() as List<String>)
+              @Suppress("UNCHECKED_CAST")
+              span.setAttribute(AttributeKey.stringArrayKey(key), array.toArrayList() as List<String>)
             }
             ReadableType.Number -> {
-                span.setAttribute(AttributeKey.doubleArrayKey(key), array.toArrayList() as List<Double>)
+              @Suppress("UNCHECKED_CAST")
+              span.setAttribute(AttributeKey.doubleArrayKey(key), array.toArrayList() as List<Double>)
             }
             ReadableType.Boolean -> {
-                span.setAttribute(AttributeKey.booleanArrayKey(key), array.toArrayList() as List<Boolean>)
+              @Suppress("UNCHECKED_CAST")
+              span.setAttribute(AttributeKey.booleanArrayKey(key), array.toArrayList() as List<Boolean>)
             }
             else -> {
                 span.setAttribute(AttributeKey.stringKey(key), array.toString())
