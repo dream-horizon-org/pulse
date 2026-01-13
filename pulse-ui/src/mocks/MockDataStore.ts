@@ -1351,7 +1351,7 @@ export class MockDataStore {
           {
             id: generateId(),
             name: 'app_version',
-            sdks: ['pulse_android_java', 'pulse_ios_swift'],
+            sdks: ['android_java', 'ios_native'],
             value: '^2\\..*',
             sessionSampleRate: 1.0,
           },
@@ -1363,14 +1363,14 @@ export class MockDataStore {
               name: 'crash',
               props: [{ name: 'severity', value: 'critical' }],
               scopes: ['traces', 'logs'],
-              sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
             },
             {
               id: generateId(),
               name: 'payment_error',
               props: [{ name: 'error_type', value: '^payment.*' }],
               scopes: ['traces'],
-              sdks: ['pulse_android_java', 'pulse_ios_swift'],
+              sdks: ['android_java', 'ios_native'],
             },
           ],
         },
@@ -1387,7 +1387,7 @@ export class MockDataStore {
               name: '^debug_.*',
               props: [{ name: 'level', value: 'debug' }],
               scopes: ['logs'],
-              sdks: ['pulse_android_java', 'pulse_ios_swift'],
+              sdks: ['android_java', 'ios_native'],
             },
           ],
         },
@@ -1401,14 +1401,14 @@ export class MockDataStore {
             name: '^user\\.email$',
             props: [],
             scopes: ['logs', 'traces'],
-            sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
           },
           {
             id: generateId(),
             name: '^auth_token$',
             props: [],
             scopes: ['logs', 'traces', 'metrics'],
-            sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
           },
         ],
         attributesToAdd: [],
@@ -1423,49 +1423,49 @@ export class MockDataStore {
           id: generateId(),
           featureName: 'interaction',
           sessionSampleRate: 1,
-          sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+          sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'java_crash',
           sessionSampleRate: 1,
-          sdks: ['pulse_android_java', 'pulse_android_rn'],
+          sdks: ['android_java', 'android_rn'],
         },
         {
           id: generateId(),
           featureName: 'js_crash',
           sessionSampleRate: 1,
-          sdks: ['pulse_android_rn', 'pulse_ios_rn'],
+          sdks: ['android_rn', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'network_instrumentation',
           sessionSampleRate: 1,
-          sdks: ['pulse_android_java', 'pulse_ios_swift'],
+          sdks: ['android_java', 'ios_native'],
         },
         {
           id: generateId(),
           featureName: 'screen_session',
           sessionSampleRate: 0,
-          sdks: ['pulse_android_java', 'pulse_ios_swift'],
+          sdks: ['android_java', 'ios_native'],
         },
         {
           id: generateId(),
           featureName: 'rn_navigation',
           sessionSampleRate: 0,
-          sdks: ['pulse_android_rn', 'pulse_ios_rn'],
+          sdks: ['android_rn', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'rn_screen_load',
           sessionSampleRate: 0,
-          sdks: ['pulse_android_rn', 'pulse_ios_rn'],
+          sdks: ['android_rn', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'rn_screen_interactive',
           sessionSampleRate: 0,
-          sdks: ['pulse_android_rn', 'pulse_ios_rn'],
+          sdks: ['android_rn', 'ios_rn'],
         },
       ],
     };
@@ -1583,7 +1583,7 @@ export class MockDataStore {
 // V1 Config Types (matching new backend PulseConfig schema)
 // ============================================================================
 
-type SdkEnumV1 = 'pulse_android_java' | 'pulse_android_rn' | 'pulse_ios_swift' | 'pulse_ios_rn';
+type SdkEnumV1 = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
 type ScopeEnumV1 = 'logs' | 'traces' | 'metrics' | 'baggage';
 type FilterModeV1 = 'blacklist' | 'whitelist';
 type SamplingRuleNameV1 = 'os_version' | 'app_version' | 'country' | 'platform' | 'state' | 'device' | 'network';

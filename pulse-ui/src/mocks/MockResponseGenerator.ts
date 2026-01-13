@@ -398,11 +398,15 @@ export class MockResponseGenerator {
           features: [
             "interaction",
             "java_crash",
+            "js_crash",
             "java_anr",
             "network_change",
             "network_instrumentation",
             "screen_session",
-            "custom_events"
+            "custom_events",
+            "rn_navigation",
+            "rn_screen_load",
+            "rn_screen_interactive",
           ]
         },
         status: 200,
@@ -414,7 +418,7 @@ export class MockResponseGenerator {
       return {
         data: {
           scope: ["logs", "traces", "metrics", "baggage"],
-          sdks: ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"]
         },
         status: 200,
       };
