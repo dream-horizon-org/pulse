@@ -182,34 +182,57 @@ internal class PulseSDKImpl :
         instrumentations?.let { configure ->
             InstrumentationConfiguration(config).configure()
             pulseSamplingProcessors?.run {
-                getDisabledFeatures().forEach {
-                    when (it) {
-                        PulseFeatureName.JAVA_CRASH -> {
-                            config.suppressInstrumentation("crash")
-                        }
+                val enabledFeatures = getEnabledFeatures()
+                enumValues<PulseFeatureName>().forEach { feature ->
+                    if (feature !in enabledFeatures) {
+                        when (feature) {
+                            PulseFeatureName.JAVA_CRASH -> {
+                                config.suppressInstrumentation("crash")
+                            }
 
-                        PulseFeatureName.NETWORK_CHANGE -> {
-                            config.disableNetworkAttributes()
-                        }
+                            PulseFeatureName.JS_CRASH -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.JAVA_ANR -> {
-                            config.suppressInstrumentation("anr")
-                        }
+                            PulseFeatureName.NETWORK_CHANGE -> {
+                                config.disableNetworkAttributes()
+                            }
 
-                        PulseFeatureName.INTERACTION -> {
-                            config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                        }
+                            PulseFeatureName.JAVA_ANR -> {
+                                config.suppressInstrumentation("anr")
+                            }
 
-                        PulseFeatureName.CPP_CRASH -> {
-                            // no-op
-                        }
+                            PulseFeatureName.INTERACTION -> {
+                                config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
+                            }
 
-                        PulseFeatureName.CPP_ANR -> {
-                            // no-op
-                        }
+                            PulseFeatureName.RN_NAVIGATION -> {
+                                // no-op
+                            }
 
-                        PulseFeatureName.UNKNOWN -> {
-                            // no-op
+                            PulseFeatureName.CPP_CRASH -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.CPP_ANR -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.NETWORK_INSTRUMENTATION -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.SCREEN_SESSION -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.CUSTOM_EVENTS -> {
+                                isCustomEventEnabled = false
+                            }
+
+                            PulseFeatureName.UNKNOWN -> {
+                                // no-op
+                            }
                         }
                     }
                 }
@@ -362,19 +385,21 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        logger
-            .logRecordBuilder()
-            .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
-                setBody(name)
-                setEventName(CUSTOM_EVENT_NAME)
-                setAttribute(
-                    PulseAttributes.PULSE_TYPE,
-                    PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
-                )
-                setAllAttributes(params.toAttributes())
-                emit()
-            }
+        if (isCustomEventEnabled) {
+            logger
+                .logRecordBuilder()
+                .apply {
+                    setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                    setBody(name)
+                    setEventName(CUSTOM_EVENT_NAME)
+                    setAttribute(
+                        PulseAttributes.PULSE_TYPE,
+                        PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
+                    )
+                    setAllAttributes(params.toAttributes())
+                    emit()
+                }
+        }
     }
 
     override fun trackNonFatal(
@@ -488,6 +513,7 @@ internal class PulseSDKImpl :
 
     private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
+    private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()

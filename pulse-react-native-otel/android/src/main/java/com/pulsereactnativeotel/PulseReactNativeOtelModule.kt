@@ -1,12 +1,19 @@
 package com.pulsereactnativeotel
 
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.pulse.android.sdk.PulseSDK
+import android.content.Context
 import android.os.Looper
 import android.util.Log
 import android.os.Handler
+import com.pulse.sampling.models.PulseSdkConfig
+import com.pulse.sampling.models.PulseSdkName
+import com.pulse.sampling.models.PulseFeatureName
+import kotlinx.serialization.json.Json
 
 @ReactModule(name = PulseReactNativeOtelModule.NAME)
 class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
@@ -87,6 +94,39 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
       Log.d("[Pulse]", "Now running PostAtFrontQueue: ${Thread.currentThread().name}")
       Thread.sleep(10_000)
     }
+  }
+
+  override fun getAllFeatures(): WritableMap {
+    val features = Arguments.createMap()
+
+      val context = reactApplicationContext
+      val sharedPrefs = context.getSharedPreferences(
+        "pulse_sdk_config",
+        Context.MODE_PRIVATE
+      )
+
+      val configJson = sharedPrefs.getString("sdk_config", null)
+      if (configJson != null) {
+        val json = Json {
+          ignoreUnknownKeys = true
+          isLenient = true
+        }
+        val config = json.decodeFromString<PulseSdkConfig>(configJson)
+
+        config.features.forEach { featureConfig ->
+          if (PulseSdkName.ANDROID_RN in featureConfig.sdks) {
+            if (featureConfig.featureName == PulseFeatureName.UNKNOWN) {
+              return@forEach
+            }
+            
+            val featureNameStr = featureConfig.featureName.name.lowercase()
+            val isEnabled = featureConfig.sessionSampleRate > 0F
+            
+            features.putBoolean(featureNameStr, isEnabled)
+          }
+        }
+      }
+    return features
   }
 
   companion object {

@@ -25,6 +25,7 @@ CREATE TABLE symbol_files (
   platform          ENUM('ios','android') NOT NULL,
   framework         ENUM('java','js')   NOT NULL,
   file_content      LONGBLOB            NOT NULL,
+  bundleid          VARCHAR(255)        ,
   PRIMARY KEY (app_version, app_version_code, platform, framework)
 );
 

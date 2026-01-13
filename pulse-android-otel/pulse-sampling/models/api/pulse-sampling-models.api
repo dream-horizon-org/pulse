@@ -83,28 +83,6 @@ public final class com/pulse/sampling/models/PulseCriticalEventPolicies$Companio
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
-public final class com/pulse/sampling/models/PulseCriticalEventPolicy {
-	public static final field Companion Lcom/pulse/sampling/models/PulseCriticalEventPolicy$Companion;
-	public final fun getName ()Ljava/lang/String;
-	public final fun getProps ()Ljava/util/Set;
-	public final fun getScopes ()Ljava/util/Set;
-	public final fun getSdks ()Ljava/util/Set;
-}
-
-public final class com/pulse/sampling/models/PulseCriticalEventPolicy$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
-	public static final field INSTANCE Lcom/pulse/sampling/models/PulseCriticalEventPolicy$$serializer;
-	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
-	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/sampling/models/PulseCriticalEventPolicy;
-	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
-	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
-	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseCriticalEventPolicy;)V
-	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
-}
-
-public final class com/pulse/sampling/models/PulseCriticalEventPolicy$Companion {
-	public final fun serializer ()Lkotlinx/serialization/KSerializer;
-}
-
 public final class com/pulse/sampling/models/PulseDefaultSamplingConfig {
 	public static final field Companion Lcom/pulse/sampling/models/PulseDefaultSamplingConfig$Companion;
 	public final fun getSessionSampleRate ()F
@@ -165,11 +143,16 @@ public final class com/pulse/sampling/models/PulseFeatureConfig$Companion {
 public final class com/pulse/sampling/models/PulseFeatureName : java/lang/Enum {
 	public static final field CPP_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CPP_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field CUSTOM_EVENTS Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field Companion Lcom/pulse/sampling/models/PulseFeatureName$Companion;
 	public static final field INTERACTION Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field JS_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field NETWORK_CHANGE Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field NETWORK_INSTRUMENTATION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field RN_NAVIGATION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field SCREEN_SESSION Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field UNKNOWN Lcom/pulse/sampling/models/PulseFeatureName;
 	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/sampling/models/PulseFeatureName;
 	public static fun values ()[Lcom/pulse/sampling/models/PulseFeatureName;

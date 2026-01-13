@@ -30,9 +30,9 @@ public class MysqlSymbolFileService extends SymbolFileService {
   public Single<Boolean> uploadFile(String fileName, InputStream fileInputStream, UploadMetadata metadata) {
     final String sql =
         "INSERT INTO symbol_files "
-            + "  (app_version, app_version_code, platform, framework, file_content) "
-            + "VALUES (?,?,?,?,?) "
-            + "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content)";
+            + "  (app_version, app_version_code, platform, framework, file_content, bundleid) "
+            + "VALUES (?,?,?,?,?,?) "
+            + "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content), bundleid = VALUES(bundleid)";
 
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)
@@ -40,7 +40,8 @@ public class MysqlSymbolFileService extends SymbolFileService {
             metadata.getVersionCode(),
             metadata.getPlatform(),
             metadata.getType(),
-            toBuffer(fileInputStream))))
+            toBuffer(fileInputStream),
+            metadata.getBundleId())))
         .map(rows -> true)
         .onErrorResumeNext(err -> {
           log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());

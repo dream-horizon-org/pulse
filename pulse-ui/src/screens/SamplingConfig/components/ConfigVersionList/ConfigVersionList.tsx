@@ -29,23 +29,29 @@ import { useGetAllSdkConfigs } from '../../../../hooks/useSdkConfig';
 import classes from './ConfigVersionList.module.css';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import utc from 'dayjs/plugin/utc';
 
 dayjs.extend(relativeTime);
+dayjs.extend(utc);
 
 export function ConfigVersionList({ onViewVersion, onCreateNew }: ConfigVersionListProps) {
   const { data, isLoading, isError, refetch } = useGetAllSdkConfigs();
 
-  // Transform API response to component format
-  const versions: ConfigVersion[] = data?.data?.configDetails ?? [];
+  // Transform API response to component format, sorted by version descending (latest first)
+  const versions: ConfigVersion[] = [...(data?.data?.configDetails ?? [])].sort(
+    (a, b) => b.version - a.version
+  );
   
+  // Parse UTC timestamp from API and convert to local time
   const formatDate = (dateString: string) => {
     if (!dateString || !dayjs(dateString).isValid()) return '-';
-    return dayjs(dateString).format('MMM D, YYYY HH:mm');
+    return dayjs.utc(dateString).local().format('MMM D, YYYY HH:mm');
   };
 
+  // Parse UTC timestamp from API and convert to local time for relative display
   const formatRelativeTime = (dateString: string) => {
     if (!dateString || !dayjs(dateString).isValid()) return '';
-    return dayjs(dateString).fromNow();
+    return dayjs.utc(dateString).local().fromNow();
   };
 
   // Find active version (isactive is lowercase from backend)

@@ -150,6 +150,11 @@ class ErrorGroupingServiceTest {
     }
 
     @Test
+    void shouldReturnNullForNullByteString() {
+      assertNull(ErrorGroupingService.spanIdHex(null));
+    }
+
+    @Test
     void shouldReturnNullForInvalidLength() {
       ByteString bs = ByteString.copyFrom(new byte[16]); // Invalid length
       assertNull(ErrorGroupingService.spanIdHex(bs));
@@ -269,6 +274,48 @@ class ErrorGroupingServiceTest {
 
       assertEquals(Lane.JAVA, result); // Falls back to frame count
     }
+
+    @Test
+    void shouldPrioritizeNdkWhenPrimaryExceptionLaneIsNdk() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(Lane.NDK)
+          .jsFrames(Collections.emptyList())
+          .javaFrames(List.of(createJavaFrame(0)))
+          .ndkFrames(List.of(createNdkFrame(1)))
+          .build();
+
+      Lane result = ErrorGroupingService.choosePrimary(parsed);
+
+      assertEquals(Lane.NDK, result);
+    }
+
+    @Test
+    void shouldFallbackToFrameCountWhenNdkExceptionLaneHasNoFrames() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(Lane.NDK)
+          .jsFrames(Collections.emptyList())
+          .javaFrames(List.of(createJavaFrame(0)))
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      Lane result = ErrorGroupingService.choosePrimary(parsed);
+
+      assertEquals(Lane.JAVA, result); // Falls back to frame count
+    }
+
+    @Test
+    void shouldReturnNdkWhenMoreNdkFrames() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(null)
+          .jsFrames(List.of(createJsFrame(0)))
+          .javaFrames(List.of(createJavaFrame(1)))
+          .ndkFrames(List.of(createNdkFrame(2), createNdkFrame(3)))
+          .build();
+
+      Lane result = ErrorGroupingService.choosePrimary(parsed);
+
+      assertEquals(Lane.NDK, result);
+    }
   }
 
   @Nested
@@ -327,6 +374,49 @@ class ErrorGroupingServiceTest {
       List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.UNKNOWN);
 
       assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldReturnNdkTypesForNdkLane() {
+      List<String> ndkTypes = List.of("SIGSEGV", "SIGABRT");
+      ParsedFrames parsed = ParsedFrames.builder()
+          .jsTypes(Collections.emptyList())
+          .javaTypes(Collections.emptyList())
+          .ndkTypes(ndkTypes)
+          .build();
+
+      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.NDK);
+
+      assertEquals(ndkTypes, result);
+    }
+
+    @Test
+    void shouldFallbackToJavaTypesWhenPrimaryLaneHasNoTypes() {
+      List<String> javaTypes = List.of("NullPointerException");
+      ParsedFrames parsed = ParsedFrames.builder()
+          .jsTypes(Collections.emptyList())
+          .javaTypes(javaTypes)
+          .ndkTypes(Collections.emptyList())
+          .build();
+
+      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.NDK);
+
+      assertEquals(javaTypes, result);
+    }
+
+    @Test
+    void shouldFallbackToNdkTypesWhenPrimaryLaneHasNoTypes() {
+      List<String> ndkTypes = List.of("SIGSEGV");
+      ParsedFrames parsed = ParsedFrames.builder()
+          .jsTypes(Collections.emptyList())
+          .javaTypes(Collections.emptyList())
+          .ndkTypes(ndkTypes)
+          .ndkFrames(List.of(createNdkFrame(0)))
+          .build();
+
+      List<String> result = ErrorGroupingService.typesForPrimary(parsed, Lane.JS);
+
+      assertEquals(ndkTypes, result);
     }
   }
 
@@ -398,6 +488,53 @@ class ErrorGroupingServiceTest {
       List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JS, 3);
 
       assertEquals(3, result.size());
+    }
+
+    @Test
+    void shouldSelectJavaFrames() {
+      List<JavaFrame> frames = List.of(
+          createJavaFrame(0),
+          createJavaFrame(1),
+          createJavaFrame(2)
+      );
+      ParsedFrames parsed = ParsedFrames.builder()
+          .javaFrames(frames)
+          .build();
+
+      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JAVA, 2);
+
+      assertEquals(2, result.size());
+      assertEquals(0, result.get(0).getOriginalPosition());
+      assertEquals(1, result.get(1).getOriginalPosition());
+    }
+
+    @Test
+    void shouldSelectNdkFrames() {
+      List<NdkFrame> frames = List.of(
+          createNdkFrame(0),
+          createNdkFrame(1),
+          createNdkFrame(2)
+      );
+      ParsedFrames parsed = ParsedFrames.builder()
+          .ndkFrames(frames)
+          .build();
+
+      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.NDK, 2);
+
+      assertEquals(2, result.size());
+      assertEquals(0, result.get(0).getOriginalPosition());
+      assertEquals(1, result.get(1).getOriginalPosition());
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenFramesListIsEmpty() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .jsFrames(Collections.emptyList())
+          .build();
+
+      List<Frame> result = ErrorGroupingService.selectPrimaryTokens(parsed, Lane.JS, 5);
+
+      assertTrue(result.isEmpty());
     }
   }
 
@@ -522,6 +659,7 @@ class ErrorGroupingServiceTest {
       EventMeta meta = EventMeta.builder()
           .appVersion("1.0.0")
           .platform("android")
+          .bundleId("com.example.app")
           .build();
 
       // Mock symbolication responses
@@ -549,6 +687,7 @@ class ErrorGroupingServiceTest {
       EventMeta meta = EventMeta.builder()
           .appVersion("1.0.0")
           .platform("android")
+          .bundleId("com.example.android.app")
           .build();
 
       when(symbolicator.retrace(anyList(), eq(meta)))
@@ -573,6 +712,7 @@ class ErrorGroupingServiceTest {
       EventMeta meta = EventMeta.builder()
           .appVersion("1.0.0")
           .platform("android")
+          .bundleId(null)
           .build();
 
       lenient().when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
@@ -626,6 +766,10 @@ class ErrorGroupingServiceTest {
               .setKey("os.name")
               .setValue(AnyValue.newBuilder().setStringValue("android").build())
               .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("bundle_id")
+              .setValue(AnyValue.newBuilder().setStringValue("com.example.app").build())
+              .build())
           .build();
 
       ScopeLogs scopeLogs = ScopeLogs.newBuilder()
@@ -656,11 +800,147 @@ class ErrorGroupingServiceTest {
       assertEquals("1.0.0", event.getAppVersion());
       assertEquals("100", event.getAppVersionCode());
       assertEquals("android", event.getPlatform());
+      assertEquals("com.example.app", event.getBundleId());
       assertEquals("Test error", event.getExceptionMessage());
       assertEquals("Error", event.getExceptionType());
       assertNotNull(event.getExceptionStackTrace());
       assertNotNull(event.getExceptionStackTraceRaw());
       assertTrue(event.getGroupId().startsWith("EXC-"));
+    }
+  }
+
+  @Nested
+  class IngestTests {
+    @Test
+    void shouldIngestAndInsertStackTraces() {
+      LogRecord logRecord = LogRecord.newBuilder()
+          .setObservedTimeUnixNano(System.currentTimeMillis() * 1_000_000)
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("exception.stacktrace")
+              .setValue(AnyValue.newBuilder().setStringValue("Error: Test\n    at func@file.js:1:1").build())
+              .build())
+          .build();
+
+      Resource resource = Resource.newBuilder()
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("app.build_name")
+              .setValue(AnyValue.newBuilder().setStringValue("1.0.0").build())
+              .build())
+          .addAttributes(KeyValue.newBuilder()
+              .setKey("os.name")
+              .setValue(AnyValue.newBuilder().setStringValue("android").build())
+              .build())
+          .build();
+
+      ScopeLogs scopeLogs = ScopeLogs.newBuilder()
+          .addLogRecords(logRecord)
+          .build();
+
+      ResourceLogs resourceLogs = ResourceLogs.newBuilder()
+          .setResource(resource)
+          .addScopeLogs(scopeLogs)
+          .build();
+
+      ExportLogsServiceRequest request = ExportLogsServiceRequest.newBuilder()
+          .addResourceLogs(resourceLogs)
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), any()))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), any()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      when(clickhouseQueryService.insertStackTraces(anyList()))
+          .thenReturn(Single.just(1L));
+
+      Single<Long> result = errorGroupingService.ingest(request);
+
+      Long count = result.blockingGet();
+      assertEquals(1L, count);
+    }
+  }
+
+  @Nested
+  class SymbolicateCompleteTests {
+    @Test
+    void shouldReturnEmptySymbolicationWhenNoFrames() {
+      String stackTrace = "";
+      EventMeta meta = EventMeta.builder()
+          .appVersion("1.0.0")
+          .platform("android")
+          .build();
+
+      lenient().when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+      lenient().when(symbolicator.retrace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<ErrorGroupingService.ProcessingResult> result = errorGroupingService.processWithCompleteSymbolication(stackTrace, meta);
+
+      ErrorGroupingService.ProcessingResult processingResult = result.blockingGet();
+      assertNotNull(processingResult);
+      assertNotNull(processingResult.completeSymbolication());
+    }
+
+    @Test
+    void shouldSymbolicateOnlyJsFrames() {
+      String stackTrace = "Error: Test\n    at func@file.js:1:1";
+      EventMeta meta = EventMeta.builder()
+          .appVersion("1.0.0")
+          .platform("android")
+          .build();
+
+      when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
+          .thenReturn(Single.just(List.of("func@file.js:1:1")));
+      lenient().when(symbolicator.retrace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<ErrorGroupingService.ProcessingResult> result = errorGroupingService.processWithCompleteSymbolication(stackTrace, meta);
+
+      ErrorGroupingService.ProcessingResult processingResult = result.blockingGet();
+      assertNotNull(processingResult);
+      assertNotNull(processingResult.completeSymbolication());
+    }
+
+    @Test
+    void shouldSymbolicateOnlyJavaFrames() {
+      String stackTrace = "java.lang.Exception\n    at com.test.Class.method(Class.java:10)";
+      EventMeta meta = EventMeta.builder()
+          .appVersion("1.0.0")
+          .platform("android")
+          .build();
+
+      when(symbolicator.retrace(anyList(), eq(meta)))
+          .thenReturn(Single.just(List.of("com.test.Class.method(Class.java:10)")));
+      lenient().when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<ErrorGroupingService.ProcessingResult> result = errorGroupingService.processWithCompleteSymbolication(stackTrace, meta);
+
+      ErrorGroupingService.ProcessingResult processingResult = result.blockingGet();
+      assertNotNull(processingResult);
+      assertNotNull(processingResult.completeSymbolication());
+    }
+
+    @Test
+    void shouldSymbolicateOnlyNdkFrames() {
+      String stackTrace = "libnative.so+0x1234";
+      EventMeta meta = EventMeta.builder()
+          .appVersion("1.0.0")
+          .platform("android")
+          .build();
+
+      lenient().when(symbolicator.symbolicateJsInPlace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+      lenient().when(symbolicator.retrace(anyList(), eq(meta)))
+          .thenReturn(Single.just(Collections.emptyList()));
+
+      Single<ErrorGroupingService.ProcessingResult> result = errorGroupingService.processWithCompleteSymbolication(stackTrace, meta);
+
+      ErrorGroupingService.ProcessingResult processingResult = result.blockingGet();
+      assertNotNull(processingResult);
+      assertNotNull(processingResult.completeSymbolication());
+      // NDK frames don't get symbolicated, just returned as-is
     }
   }
 }

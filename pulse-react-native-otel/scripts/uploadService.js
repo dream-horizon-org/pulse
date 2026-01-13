@@ -6,13 +6,14 @@ const {
   validateVersionVersionCodeBundleId,
 } = require('./utils');
 
-function buildMetadata(files, appVersion, versionCode, platform) {
+function buildMetadata(files, appVersion, versionCode, platform, bundleId) {
   const metadata = files.map((file) => ({
     type: file.metadataType,
     appVersion: appVersion,
     versionCode: versionCode,
     platform: platform,
     fileName: file.fileName,
+    bundleId: bundleId || null,
   }));
   return metadata;
 }
@@ -23,7 +24,13 @@ async function uploadFiles(commandName, options) {
   const version =
     platform === 'ios' ? options.bundleVersion : options.appVersion;
 
-  const metadata = buildMetadata(files, version, options.versionCode, platform);
+  const metadata = buildMetadata(
+    files,
+    version,
+    options.versionCode,
+    platform,
+    options.bundleId
+  );
 
   const formData = new FormData();
   const metadataContent = JSON.stringify(metadata, null, 2);
@@ -61,6 +68,9 @@ async function uploadFiles(commandName, options) {
     console.log(`   API URL: ${options.apiUrl}`);
     console.log(`   App Version: ${version}`);
     console.log(`   Version Code: ${options.versionCode}`);
+    if (options.bundleId) {
+      console.log(`   Bundle ID: ${options.bundleId}`);
+    }
     files.forEach((file) => {
       const stats = fs.statSync(file.path);
       console.log(

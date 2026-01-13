@@ -27,6 +27,7 @@ import {
 import { useNavigationTracking as useNavigationTrackingBase } from './useNavigationTracking';
 import { isSupportedPlatform } from '../initialization';
 import PulseReactNativeOtel from '../NativePulseReactNativeOtel';
+import { getFeaturesFromRemoteConfig } from '../config';
 
 export type { NavigationRoute, NavigationIntegrationOptions };
 
@@ -40,7 +41,9 @@ export interface ReactNavigationIntegration {
 export function createReactNavigationIntegration(
   options?: NavigationIntegrationOptions
 ): ReactNavigationIntegration {
-  const screenSessionTracking = options?.screenSessionTracking ?? true;
+  const features = getFeaturesFromRemoteConfig();
+  const screenSessionTracking =
+    features?.screen_session ?? options?.screenSessionTracking ?? true;
   const screenNavigationTracking = options?.screenNavigationTracking ?? true;
   const screenInteractiveTracking = options?.screenInteractiveTracking ?? false;
 
