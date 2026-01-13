@@ -1,0 +1,20 @@
+{
+  "name": "expo-example",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "prebuild": "expo prebuild --clean"
+  },
+  "dependencies": {
+    "expo": "~54.0.30",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "@dreamhorizonorg/pulse-react-native": "file:../"
+  },
+  "private": true
+}

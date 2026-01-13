@@ -59,6 +59,10 @@ public class SdkConfigsDao {
         .preparedQuery(GET_LATEST_VERSION)
         .rxExecute()
         .flatMap(rows -> {
+          if (rows.size() == 0) {
+            log.warn("No active configuration found in database");
+            return Single.error(new RuntimeException("No active configuration found. Please create a configuration first."));
+          }
           Row row = rows.iterator().next();
           return getConfig(Long.parseLong(row.getValue("version").toString()));
         })

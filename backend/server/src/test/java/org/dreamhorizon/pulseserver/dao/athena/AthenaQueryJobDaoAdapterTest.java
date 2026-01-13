@@ -40,14 +40,16 @@ public class AthenaQueryJobDaoAdapterTest {
     @Test
     void shouldCreateJob() {
       String queryString = "SELECT * FROM table";
+      String originalQueryString = queryString;
+      String userEmail = "test@example.com";
       String jobId = "job-123";
 
-      when(athenaJobDao.createJob(queryString)).thenReturn(Single.just(jobId));
+      when(athenaJobDao.createJob(queryString, originalQueryString, userEmail)).thenReturn(Single.just(jobId));
 
-      String result = adapter.createJob(queryString).blockingGet();
+      String result = adapter.createJob(queryString, originalQueryString, userEmail).blockingGet();
 
       assertThat(result).isEqualTo(jobId);
-      verify(athenaJobDao).createJob(queryString);
+      verify(athenaJobDao).createJob(queryString, originalQueryString, userEmail);
     }
   }
 
@@ -59,14 +61,15 @@ public class AthenaQueryJobDaoAdapterTest {
       String jobId = "job-123";
       String executionId = "exec-123";
       QueryJobStatus status = QueryJobStatus.RUNNING;
+      Timestamp submissionDateTime = new Timestamp(System.currentTimeMillis());
 
-      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.RUNNING))
+      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.RUNNING, submissionDateTime))
           .thenReturn(Single.just(true));
 
-      Boolean result = adapter.updateJobWithExecutionId(jobId, executionId, status).blockingGet();
+      Boolean result = adapter.updateJobWithExecutionId(jobId, executionId, status, submissionDateTime).blockingGet();
 
       assertThat(result).isTrue();
-      verify(athenaJobDao).updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.RUNNING);
+      verify(athenaJobDao).updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.RUNNING, submissionDateTime);
     }
 
     @Test
@@ -74,22 +77,23 @@ public class AthenaQueryJobDaoAdapterTest {
       String jobId = "job-123";
       String executionId = "exec-123";
 
-      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.SUBMITTED))
+      Timestamp submissionDateTime = new Timestamp(System.currentTimeMillis());
+      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.SUBMITTED, submissionDateTime))
           .thenReturn(Single.just(true));
-      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.RUNNING))
+      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.RUNNING, submissionDateTime))
           .thenReturn(Single.just(true));
-      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.COMPLETED))
+      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.COMPLETED, submissionDateTime))
           .thenReturn(Single.just(true));
-      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.FAILED))
+      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.FAILED, submissionDateTime))
           .thenReturn(Single.just(true));
-      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.CANCELLED))
+      when(athenaJobDao.updateJobWithExecutionId(jobId, executionId, AthenaJobStatus.CANCELLED, submissionDateTime))
           .thenReturn(Single.just(true));
 
-      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.SUBMITTED).blockingGet()).isTrue();
-      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.RUNNING).blockingGet()).isTrue();
-      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.COMPLETED).blockingGet()).isTrue();
-      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.FAILED).blockingGet()).isTrue();
-      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.CANCELLED).blockingGet()).isTrue();
+      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.SUBMITTED, submissionDateTime).blockingGet()).isTrue();
+      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.RUNNING, submissionDateTime).blockingGet()).isTrue();
+      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.COMPLETED, submissionDateTime).blockingGet()).isTrue();
+      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.FAILED, submissionDateTime).blockingGet()).isTrue();
+      assertThat(adapter.updateJobWithExecutionId(jobId, executionId, QueryJobStatus.CANCELLED, submissionDateTime).blockingGet()).isTrue();
     }
   }
 
@@ -100,14 +104,15 @@ public class AthenaQueryJobDaoAdapterTest {
     void shouldUpdateJobStatus() {
       String jobId = "job-123";
       QueryJobStatus status = QueryJobStatus.COMPLETED;
+      Timestamp updatedAt = new Timestamp(System.currentTimeMillis());
 
-      when(athenaJobDao.updateJobStatus(jobId, AthenaJobStatus.COMPLETED))
+      when(athenaJobDao.updateJobStatus(jobId, AthenaJobStatus.COMPLETED, updatedAt))
           .thenReturn(Single.just(true));
 
-      Boolean result = adapter.updateJobStatus(jobId, status).blockingGet();
+      Boolean result = adapter.updateJobStatus(jobId, status, updatedAt).blockingGet();
 
       assertThat(result).isTrue();
-      verify(athenaJobDao).updateJobStatus(jobId, AthenaJobStatus.COMPLETED);
+      verify(athenaJobDao).updateJobStatus(jobId, AthenaJobStatus.COMPLETED, updatedAt);
     }
   }
 
@@ -118,14 +123,15 @@ public class AthenaQueryJobDaoAdapterTest {
     void shouldUpdateJobCompleted() {
       String jobId = "job-123";
       String resultLocation = "s3://bucket/path";
+      Timestamp completionDateTime = new Timestamp(System.currentTimeMillis());
 
-      when(athenaJobDao.updateJobCompleted(jobId, resultLocation))
+      when(athenaJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime))
           .thenReturn(Single.just(true));
 
-      Boolean result = adapter.updateJobCompleted(jobId, resultLocation).blockingGet();
+      Boolean result = adapter.updateJobCompleted(jobId, resultLocation, completionDateTime).blockingGet();
 
       assertThat(result).isTrue();
-      verify(athenaJobDao).updateJobCompleted(jobId, resultLocation);
+      verify(athenaJobDao).updateJobCompleted(jobId, resultLocation, completionDateTime);
     }
   }
 
@@ -136,14 +142,15 @@ public class AthenaQueryJobDaoAdapterTest {
     void shouldUpdateJobFailed() {
       String jobId = "job-123";
       String errorMessage = "Query failed";
+      Timestamp completionDateTime = new Timestamp(System.currentTimeMillis());
 
-      when(athenaJobDao.updateJobFailed(jobId, errorMessage))
+      when(athenaJobDao.updateJobFailed(jobId, errorMessage, completionDateTime))
           .thenReturn(Single.just(true));
 
-      Boolean result = adapter.updateJobFailed(jobId, errorMessage).blockingGet();
+      Boolean result = adapter.updateJobFailed(jobId, errorMessage, completionDateTime).blockingGet();
 
       assertThat(result).isTrue();
-      verify(athenaJobDao).updateJobFailed(jobId, errorMessage);
+      verify(athenaJobDao).updateJobFailed(jobId, errorMessage, completionDateTime);
     }
   }
 
@@ -158,6 +165,8 @@ public class AthenaQueryJobDaoAdapterTest {
       AthenaJob athenaJob = AthenaJob.builder()
           .jobId(jobId)
           .queryString("SELECT * FROM table")
+          .originalQueryString("SELECT * FROM table")
+          .userEmail("test@example.com")
           .queryExecutionId("exec-123")
           .status(AthenaJobStatus.COMPLETED)
           .resultLocation("s3://bucket/path")
@@ -165,6 +174,9 @@ public class AthenaQueryJobDaoAdapterTest {
           .resultData(null)
           .nextToken(null)
           .dataScannedInBytes(1000L)
+          .executionTimeMillis(null)
+          .engineExecutionTimeMillis(null)
+          .queryQueueTimeMillis(null)
           .createdAt(now)
           .updatedAt(now)
           .completedAt(now)
@@ -203,30 +215,45 @@ public class AthenaQueryJobDaoAdapterTest {
       when(athenaJobDao.getJobById(jobId))
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
+              .queryString("SELECT * FROM table")
+              .originalQueryString("SELECT * FROM table")
+              .userEmail("test@example.com")
               .status(AthenaJobStatus.SUBMITTED)
               .createdAt(now)
               .updatedAt(now)
               .build()))
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
+              .queryString("SELECT * FROM table")
+              .originalQueryString("SELECT * FROM table")
+              .userEmail("test@example.com")
               .status(AthenaJobStatus.RUNNING)
               .createdAt(now)
               .updatedAt(now)
               .build()))
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
+              .queryString("SELECT * FROM table")
+              .originalQueryString("SELECT * FROM table")
+              .userEmail("test@example.com")
               .status(AthenaJobStatus.COMPLETED)
               .createdAt(now)
               .updatedAt(now)
               .build()))
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
+              .queryString("SELECT * FROM table")
+              .originalQueryString("SELECT * FROM table")
+              .userEmail("test@example.com")
               .status(AthenaJobStatus.FAILED)
               .createdAt(now)
               .updatedAt(now)
               .build()))
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
+              .queryString("SELECT * FROM table")
+              .originalQueryString("SELECT * FROM table")
+              .userEmail("test@example.com")
               .status(AthenaJobStatus.CANCELLED)
               .createdAt(now)
               .updatedAt(now)

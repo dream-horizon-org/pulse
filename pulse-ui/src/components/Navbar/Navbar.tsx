@@ -30,6 +30,7 @@ import {
   IconLogout,
   IconMessageCircle,
   IconUserCircle,
+  IconSettings,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef } from "react";
@@ -223,6 +224,21 @@ export function Navbar({
               </Box>
 
               <Divider />
+
+              {/* Settings Link */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => navigate(ROUTES.SETTINGS.basePath)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Group gap="sm">
+                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>Settings</Text>
+                    <Text size="xs" c="dimmed">SDK Configuration & more</Text>
+                  </Box>
+                </Group>
+              </Box>
 
               {/* Help Link */}
               <Anchor

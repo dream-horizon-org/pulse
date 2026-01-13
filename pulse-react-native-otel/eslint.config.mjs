@@ -24,6 +24,18 @@ export default defineConfig([
     },
   },
   {
-    ignores: ['node_modules/', 'lib/'],
+    ignores: [
+      'node_modules/',
+      'lib/',
+      'plugin/build/**',
+      'expo-example/plugins/**',
+    ],
+  },
+  {
+    files: ['plugin/build/**', 'expo-example/plugins/**'],
+    rules: {
+      'no-void': 'off', // TypeScript generates void 0 for undefined
+      'no-shadow': 'off', // Generated code may have shadowing
+    },
   },
 ]);

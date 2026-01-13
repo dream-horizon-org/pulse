@@ -17,9 +17,6 @@ public class FeatureConfig {
   @JsonProperty("featureName")
   private Features featureName;
 
-  @JsonProperty("enabled")
-  private boolean enabled;
-
   @JsonProperty("sessionSampleRate")
   private Double sessionSampleRate;
 

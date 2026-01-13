@@ -13,12 +13,13 @@ android {
 }
 
 dependencies {
-    api(project(":core"))
+    api(projects.core)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.sdk)
     api(libs.opentelemetry.api)
     api(libs.opentelemetry.sdk.testing)
     api(libs.assertj.core)
+    api(libs.kotlin.coroutinesTest)
     implementation(libs.androidx.core)
     implementation(libs.androidx.junit)
 }

@@ -60,11 +60,11 @@ android {
 }
 
 dependencies {
-    implementation(project(":instrumentation:android-instrumentation"))
-    implementation(project(":common"))
-    implementation(project(":services"))
-    implementation(project(":session"))
-    implementation(project(":instrumentation:slowrendering"))
+    implementation(projects.instrumentation.androidInstrumentation)
+    implementation(projects.common)
+    implementation(projects.services)
+    implementation(projects.session)
+    implementation(projects.instrumentation.slowrendering)
 
     implementation(libs.androidx.core)
 

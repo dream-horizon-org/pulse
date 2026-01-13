@@ -1,0 +1,35 @@
+public final class io/opentelemetry/android/instrumentation/location/processors/BuildConfig {
+	public static final field BUILD_TYPE Ljava/lang/String;
+	public static final field DEBUG Z
+	public static final field LIBRARY_PACKAGE_NAME Ljava/lang/String;
+	public fun <init> ()V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/processors/LocationAttributesLogRecordAppender : io/opentelemetry/sdk/logs/LogRecordProcessor {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/location/processors/LocationAttributesLogRecordAppender$Companion;
+	public static final fun create (Landroid/content/SharedPreferences;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+	public fun onEmit (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/logs/ReadWriteLogRecord;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/processors/LocationAttributesLogRecordAppender$Companion {
+	public final fun create (Landroid/content/SharedPreferences;)Lio/opentelemetry/sdk/logs/LogRecordProcessor;
+}
+
+public final class io/opentelemetry/android/instrumentation/location/processors/LocationAttributesSpanAppender : io/opentelemetry/sdk/trace/SpanProcessor {
+	public static final field Companion Lio/opentelemetry/android/instrumentation/location/processors/LocationAttributesSpanAppender$Companion;
+	public static final fun create (Landroid/content/SharedPreferences;)Lio/opentelemetry/sdk/trace/SpanProcessor;
+	public fun isEndRequired ()Z
+	public fun isStartRequired ()Z
+	public fun onEnd (Lio/opentelemetry/sdk/trace/ReadableSpan;)V
+	public fun onStart (Lio/opentelemetry/context/Context;Lio/opentelemetry/sdk/trace/ReadWriteSpan;)V
+}
+
+public final class io/opentelemetry/android/instrumentation/location/processors/LocationAttributesSpanAppender$Companion {
+	public final fun create (Landroid/content/SharedPreferences;)Lio/opentelemetry/sdk/trace/SpanProcessor;
+}
+
+public final class io/opentelemetry/android/instrumentation/location/processors/LocationInstrumentationConstants {
+	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/location/processors/LocationInstrumentationConstants;
+	public static final field INSTRUMENTATION_NAME Ljava/lang/String;
+}
+

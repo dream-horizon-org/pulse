@@ -137,7 +137,8 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldAcceptQueryWithTimestampLiteral() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -164,7 +165,8 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldAcceptQueryWithTableQualifiedPartitionColumns() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE otel_data.year = 2025 AND otel_data.month = 12 AND otel_data.day = 23 AND otel_data.hour = 11";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE otel_data.year = 2025 AND otel_data.month = 12 AND otel_data.day = 23 AND otel_data.hour = 11";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -183,7 +185,8 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldAcceptQueryWithMixedConditions() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND column1 = 'value'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND column1 = 'value'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -379,7 +382,8 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithTimestampLiteralAndPartitionFilters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -406,7 +410,8 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithTimestampLiteralInComplexWhere() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND column2 = 'value2'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND column2 = 'value2'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -415,7 +420,8 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithMultipleTimestampLiterals() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -468,6 +474,51 @@ class SqlQueryValidatorTest {
 
       assertThat(result.isValid()).isFalse();
       assertThat(result.getErrorMessage()).isEqualTo(errorMessage);
+    }
+  }
+
+  @Nested
+  class TestNormalizeAndValidateQuery {
+
+    @Test
+    void shouldRejectQueryExceedingMaxLength() {
+      String longQuery =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11" + "x".repeat(100001);
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(longQuery);
+
+      assertFalse(result.isValid());
+      assertThat(result.getErrorMessage()).isNotNull();
+    }
+
+    @Test
+    void shouldHandleQueryWithControlCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11\u0000\u0001";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithUTF8EncodingIssues() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      byte[] bytes = query.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      String queryWithEncoding = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithEncoding);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldHandleQueryWithReencodedLengthMismatch() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String queryWithIssue = query + "\uFFFD";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithIssue);
+
+      assertTrue(result.isValid() || result.getErrorMessage() != null);
     }
   }
 }

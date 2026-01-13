@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.client.athena;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import java.sql.Timestamp;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.dreamhorizon.pulseserver.client.query.QueryClient;
@@ -48,6 +49,11 @@ public class AthenaQueryClientAdapter implements QueryClient {
         .map(this::mapToQueryExecutionInfo);
   }
 
+  @Override
+  public Single<Boolean> cancelQuery(String queryExecutionId) {
+    return athenaClient.cancelQuery(queryExecutionId);
+  }
+
   private QueryStatus mapToQueryStatus(QueryExecutionState state) {
     switch (state) {
       case QUEUED:
@@ -70,9 +76,29 @@ public class AthenaQueryClientAdapter implements QueryClient {
         ? execution.resultConfiguration().outputLocation()
         : null;
 
-    Long dataScannedBytes = execution.statistics() != null
-        ? execution.statistics().dataScannedInBytes()
-        : null;
+    Long dataScannedBytes = null;
+    Long executionTimeMillis = null;
+    Long engineExecutionTimeMillis = null;
+    Long queryQueueTimeMillis = null;
+
+    if (execution.statistics() != null) {
+      dataScannedBytes = execution.statistics().dataScannedInBytes();
+      executionTimeMillis = execution.statistics().totalExecutionTimeInMillis();
+      engineExecutionTimeMillis = execution.statistics().engineExecutionTimeInMillis();
+      queryQueueTimeMillis = execution.statistics().queryQueueTimeInMillis();
+    }
+
+    Timestamp submissionDateTime = null;
+    Timestamp completionDateTime = null;
+
+    if (execution.status() != null) {
+      if (execution.status().submissionDateTime() != null) {
+        submissionDateTime = Timestamp.from(execution.status().submissionDateTime());
+      }
+      if (execution.status().completionDateTime() != null) {
+        completionDateTime = Timestamp.from(execution.status().completionDateTime());
+      }
+    }
 
     return QueryExecutionInfo.builder()
         .queryExecutionId(execution.queryExecutionId())
@@ -80,6 +106,11 @@ public class AthenaQueryClientAdapter implements QueryClient {
         .stateChangeReason(execution.status().stateChangeReason())
         .resultLocation(resultLocation)
         .dataScannedInBytes(dataScannedBytes)
+        .executionTimeMillis(executionTimeMillis)
+        .engineExecutionTimeMillis(engineExecutionTimeMillis)
+        .queryQueueTimeMillis(queryQueueTimeMillis)
+        .submissionDateTime(submissionDateTime)
+        .completionDateTime(completionDateTime)
         .build();
   }
 }

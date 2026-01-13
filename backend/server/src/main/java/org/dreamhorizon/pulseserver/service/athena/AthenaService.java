@@ -21,6 +21,7 @@ import software.amazon.awssdk.services.athena.model.QueryExecution;
 import software.amazon.awssdk.services.athena.model.QueryExecutionState;
 import software.amazon.awssdk.services.athena.model.ResultSet;
 import software.amazon.awssdk.services.athena.model.Row;
+import java.sql.Timestamp;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -29,10 +30,14 @@ public class AthenaService {
   private final AthenaClient athenaClient;
   private final AthenaJobDao athenaJobDao;
 
-  public Single<AthenaJob> submitQuery(String queryString, List<String> parameters, String timestampString) {
+  public Single<AthenaJob> submitQuery(String queryString, List<String> parameters, String timestampString, String userEmail) {
     SqlQueryValidator.ValidationResult validation = SqlQueryValidator.validateQuery(queryString);
     if (!validation.isValid()) {
       return Single.error(new IllegalArgumentException("Invalid SQL query: " + validation.getErrorMessage()));
+    }
+
+    if (userEmail == null || userEmail.trim().isEmpty()) {
+      return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
     final String enrichedQuery = QueryTimestampEnricher.enrichQueryWithTimestamp(queryString, timestampString);
@@ -43,13 +48,14 @@ public class AthenaService {
       log.debug("Query was not enriched (no timestamp found or partition filters already present)");
     }
 
-    return athenaJobDao.createJob(enrichedQuery)
+    return athenaJobDao.createJob(enrichedQuery, queryString, userEmail.trim())
         .flatMap(jobId -> athenaClient.submitQuery(enrichedQuery, parameters)
             .flatMap(queryExecutionId -> athenaClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = extractDataScannedBytes(execution);
+                  Timestamp submissionDateTime = extractSubmissionDateTime(execution);
 
-                  return athenaJobDao.updateJobWithExecutionId(jobId, queryExecutionId, AthenaJobStatus.RUNNING)
+                  return athenaJobDao.updateJobWithExecutionId(jobId, queryExecutionId, AthenaJobStatus.RUNNING, submissionDateTime)
                       .flatMap(result -> waitForCompletionWithTimeout(queryExecutionId, Constants.QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                           .flatMap(state -> handleQueryState(jobId, queryExecutionId, state, initialDataScannedBytes))
                           .onErrorResumeNext(error -> {
@@ -60,7 +66,7 @@ public class AthenaService {
                 }))
             .onErrorResumeNext(error -> {
               log.error("Error submitting query to Athena for job: {}", jobId, error);
-              return athenaJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage())
+              return athenaJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage(), null)
                   .flatMap(v -> Single.error(error));
             }));
   }
@@ -86,7 +92,8 @@ public class AthenaService {
               ? execution.status().stateChangeReason()
               : "Query " + state.name().toLowerCase();
           Long dataScannedBytes = extractDataScannedBytes(execution, fallbackDataScannedBytes);
-          return athenaJobDao.updateJobFailed(jobId, errorMessage)
+          Timestamp completionDateTime = extractCompletionDateTime(execution);
+          return athenaJobDao.updateJobFailed(jobId, errorMessage, completionDateTime)
               .flatMap(v -> athenaJobDao.getJobById(jobId)
                   .map(job -> buildJobWithDataScanned(job, dataScannedBytes)));
         });
@@ -135,8 +142,9 @@ public class AthenaService {
               ? execution.resultConfiguration().outputLocation()
               : null;
           Long dataScannedBytes = extractDataScannedBytes(execution, fallbackDataScannedBytes);
+          Timestamp completionDateTime = extractCompletionDateTime(execution);
 
-          return athenaJobDao.updateJobCompleted(jobId, resultLocation)
+          return athenaJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime)
               .flatMap(v -> Single.timer(Constants.RESULT_FETCH_DELAY_MS, TimeUnit.MILLISECONDS)
                   .flatMap(tick -> fetchResultsWithRetry(queryExecutionId, Constants.MAX_RESULT_FETCH_RETRIES, Constants.RESULT_FETCH_RETRY_DELAY_MS)
                       .flatMap(resultSetWithToken -> {
@@ -228,8 +236,18 @@ public class AthenaService {
     } else if (newStatus == AthenaJobStatus.FAILED || newStatus == AthenaJobStatus.CANCELLED) {
       return handleFailedQueryInStatusCheck(jobId, queryExecutionId, newStatus);
     } else {
-      return athenaJobDao.updateJobStatus(jobId, newStatus)
-          .flatMap(v -> athenaJobDao.getJobById(jobId));
+      return athenaClient.getQueryExecution(queryExecutionId)
+          .flatMap(execution -> {
+            Timestamp updatedAt = extractCompletionDateTime(execution);
+            if (updatedAt == null) {
+              updatedAt = extractSubmissionDateTime(execution);
+            }
+            if (updatedAt == null) {
+              updatedAt = new Timestamp(System.currentTimeMillis());
+            }
+            return athenaJobDao.updateJobStatus(jobId, newStatus, updatedAt)
+                .flatMap(v -> athenaJobDao.getJobById(jobId));
+          });
     }
   }
 
@@ -240,7 +258,8 @@ public class AthenaService {
               ? execution.status().stateChangeReason()
               : "Query " + status.name().toLowerCase();
           Long dataScannedBytes = extractDataScannedBytes(execution);
-          return athenaJobDao.updateJobFailed(jobId, errorMessage)
+          Timestamp completionDateTime = extractCompletionDateTime(execution);
+          return athenaJobDao.updateJobFailed(jobId, errorMessage, completionDateTime)
               .flatMap(v -> athenaJobDao.getJobById(jobId)
                   .map(dbJob -> buildJobWithDataScanned(dbJob, dataScannedBytes)));
         });
@@ -294,15 +313,24 @@ public class AthenaService {
               ? execution.resultConfiguration().outputLocation()
               : null;
           Long dataScannedBytes = extractDataScannedBytes(execution);
+          Timestamp completionDateTime = extractCompletionDateTime(execution);
 
-          return athenaJobDao.updateJobCompleted(jobId, resultLocation)
+          return athenaJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime)
               .flatMap(v -> athenaJobDao.getJobById(jobId)
                   .map(job -> buildJobWithDataScanned(job, dataScannedBytes)));
         })
         .onErrorResumeNext(error -> {
           log.error("Error updating job results location for job: {}", jobId, error);
-          return athenaJobDao.updateJobFailed(jobId, "Failed to update result location: " + error.getMessage())
-              .flatMap(v -> athenaJobDao.getJobById(jobId));
+          return athenaClient.getQueryExecution(queryExecutionId)
+              .flatMap(execution -> {
+                Timestamp completionDateTime = extractCompletionDateTime(execution);
+                return athenaJobDao.updateJobFailed(jobId, "Failed to update result location: " + error.getMessage(), completionDateTime)
+                    .flatMap(v -> athenaJobDao.getJobById(jobId));
+              })
+              .onErrorResumeNext(fallbackError -> {
+                return athenaJobDao.updateJobFailed(jobId, "Failed to update result location: " + error.getMessage(), null)
+                    .flatMap(v -> athenaJobDao.getJobById(jobId));
+              });
         });
   }
 
@@ -345,6 +373,20 @@ public class AthenaService {
     return execution.statistics() != null && execution.statistics().dataScannedInBytes() != null
         ? execution.statistics().dataScannedInBytes()
         : fallback;
+  }
+
+  private Timestamp extractSubmissionDateTime(QueryExecution execution) {
+    if (execution.status() != null && execution.status().submissionDateTime() != null) {
+      return Timestamp.from(execution.status().submissionDateTime());
+    }
+    return null;
+  }
+
+  private Timestamp extractCompletionDateTime(QueryExecution execution) {
+    if (execution.status() != null && execution.status().completionDateTime() != null) {
+      return Timestamp.from(execution.status().completionDateTime());
+    }
+    return null;
   }
 
   private AthenaJob buildJobWithDataScanned(AthenaJob job, Long dataScannedBytes) {

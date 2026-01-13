@@ -10,6 +10,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":instrumentation:httpurlconnection:library"))
+    implementation(projects.instrumentation.httpurlconnection.library)
     implementation(libs.byteBuddy)
 }

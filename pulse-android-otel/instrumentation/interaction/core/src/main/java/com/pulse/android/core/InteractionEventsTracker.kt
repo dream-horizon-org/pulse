@@ -18,8 +18,8 @@ internal class InteractionEventsTracker(
     private val interactionConfig: InteractionConfig,
 ) {
     private val interactionRunningStatusMutableState =
-        MutableStateFlow<InteractionRunningStatus>(InteractionRunningStatus.NoOngoingMatch(null))
-    val interactionRunningStatusState: StateFlow<InteractionRunningStatus>
+        MutableStateFlow<List<InteractionRunningStatus>>(listOf(InteractionRunningStatus.NoOngoingMatch(null)))
+    val interactionRunningStatusState: StateFlow<List<InteractionRunningStatus>>
         get() = interactionRunningStatusMutableState.asStateFlow()
 
     private val localMarkers: ArrayList<InteractionLocalEvent> = ArrayList()
@@ -34,7 +34,7 @@ internal class InteractionEventsTracker(
         event: InteractionLocalEvent,
         timerScope: CoroutineScope,
     ) {
-        val newValue =
+        val (oldValue, newValue) =
             if (
                 event matchesAny interactionConfig.events ||
                 event matchesAny interactionConfig.globalBlacklistedEvents
@@ -48,16 +48,14 @@ internal class InteractionEventsTracker(
                                 isInteractionClosed = null
                                 UUID.randomUUID().toString()
                             } else {
-                                (interactionRunningStatusState.value as? InteractionRunningStatus.OngoingMatch)?.interactionId
+                                (interactionRunningStatusState.value.lastOrNull() as? InteractionRunningStatus.OngoingMatch)?.interactionId
                                     ?: UUID.randomUUID().toString()
                             },
                             localEvents,
                             localMarkers,
                             interactionConfig,
-                        ).also {
-                            logDebug { "matchSeq result = ${it ?: "null"}" }
-                        } ?: return
-                val newInteractionStatus =
+                        ).also { logDebug { "matchSeq result = ${it ?: "null"}" } } ?: return
+                val (oldInteractionStatus, newInteractionStatus) =
                     if (shouldResetList) {
                         logDebug { "resetList called with shouldTakeFirstEvent = $shouldTakeFirstEvent" }
                         if (
@@ -70,7 +68,7 @@ internal class InteractionEventsTracker(
                                 "interaction should be null or errored out"
                             }
                             // setting the null to populate the error
-                            interactionRunningStatusMutableState.value =
+                            val oldInteractionError =
                                 interactionStatus.createErrorInteraction(
                                     interactionStatus.interactionId,
                                     interactionConfig,
@@ -80,26 +78,29 @@ internal class InteractionEventsTracker(
                             localEvents.clear()
                             localEvents.add(lastEvent)
 
-                            interactionStatus.copy(
-                                interactionId = UUID.randomUUID().toString(),
-                                interaction = null,
-                            )
+                            oldInteractionError to
+                                interactionStatus.copy(
+                                    interactionId = UUID.randomUUID().toString(),
+                                    interaction = null,
+                                )
                         } else {
                             isInteractionClosed = true
                             localEvents.clear()
-                            interactionStatus
+                            null to interactionStatus
                         }
                     } else {
-                        interactionStatus
+                        null to interactionStatus
                     }
-                logDebug { "matchSequence newInteractionStatus = $newInteractionStatus" }
+                logDebug {
+                    "matchSequence newInteractionStatus = $newInteractionStatus, oldInteractionStatus = ${oldInteractionStatus ?: "null"}"
+                }
                 timerScope.launchResetTimer(newInteractionStatus)
-                newInteractionStatus
+                oldInteractionStatus to newInteractionStatus
             } else {
                 // didn't match with event sequence or gBlacklisted events we should not reset the value
-                interactionRunningStatusMutableState.value
+                null to interactionRunningStatusMutableState.value.last()
             }
-        interactionRunningStatusMutableState.value = newValue
+        interactionRunningStatusMutableState.value = if (oldValue != null) listOf(oldValue, newValue) else listOf(newValue)
     }
 
     private fun CoroutineScope.launchResetTimer(newValue: InteractionRunningStatus) {
@@ -108,17 +109,22 @@ internal class InteractionEventsTracker(
         if (newValue is InteractionRunningStatus.OngoingMatch && newValue.interaction == null) {
             timerJob =
                 launch(CoroutineName("timer#${newValue.index}")) {
-                    val timeOfDelay = interactionConfig.thresholdInMs + 10
-                    delay(timeOfDelay)
+                    val timeOfDelayInMs = interactionConfig.thresholdInMs + 10
+                    logDebug { "launchResetTimer before delay = $timeOfDelayInMs" }
+                    delay(timeOfDelayInMs)
+                    logDebug { "launchResetTimer after delay = $timeOfDelayInMs" }
                     isInteractionClosed = true
                     interactionRunningStatusMutableState.value =
                         interactionRunningStatusMutableState.updateAndGet {
-                            if (it is InteractionRunningStatus.OngoingMatch && it.interaction == null) {
-                                it.createErrorInteraction(
-                                    it.interactionId,
-                                    interactionConfig,
-                                    localEvents,
-                                    localMarkers,
+                            val lastValue = it.lastOrNull()
+                            if (lastValue is InteractionRunningStatus.OngoingMatch && lastValue.interaction == null) {
+                                listOf(
+                                    lastValue.createErrorInteraction(
+                                        lastValue.interactionId,
+                                        interactionConfig,
+                                        localEvents,
+                                        localMarkers,
+                                    ),
                                 )
                             } else {
                                 interactionRunningStatusMutableState.value
@@ -126,8 +132,6 @@ internal class InteractionEventsTracker(
                         }
                     localEvents.clear()
                 }
-        } else {
-            timerJob?.cancel()
         }
     }
 
@@ -169,7 +173,10 @@ private class SortedList<T>(
 public sealed class InteractionRunningStatus {
     public class NoOngoingMatch internal constructor(
         public val oldOngoingInteractionRunningStatus: InteractionRunningStatus?,
-    ) : InteractionRunningStatus()
+    ) : InteractionRunningStatus() {
+        override fun toString(): String =
+            "NoOngoingMatch(oldOngoingInteractionRunningStatus=${oldOngoingInteractionRunningStatus ?: "null"})"
+    }
 
     public class OngoingMatch internal constructor(
         public val index: Int,
@@ -183,6 +190,10 @@ public sealed class InteractionRunningStatus {
             interactionConfig: InteractionConfig = this.interactionConfig,
             interaction: Interaction? = this.interaction,
         ): OngoingMatch = OngoingMatch(index, interactionId, interactionConfig, interaction)
+
+        override fun toString(): String =
+            "OngoingMatch(index=$index, interactionId='$interactionId', " +
+                "interactionConfig=$interactionConfig, interaction=${interaction ?: "null"})"
     }
 }
 

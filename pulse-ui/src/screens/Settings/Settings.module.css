@@ -1,0 +1,61 @@
+/* Settings Page Styles */
+
+.container {
+  display: flex;
+  height: 100%;
+  min-height: 100vh;
+  background: linear-gradient(
+    145deg,
+    rgba(248, 250, 252, 1) 0%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(248, 253, 252, 1) 100%
+  );
+}
+
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  min-height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid var(--mantine-color-gray-2);
+  padding: var(--mantine-spacing-sm);
+  overflow-y: auto;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.comingSoon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  text-align: center;
+  color: var(--mantine-color-gray-5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 100%;
+    min-height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--mantine-color-gray-2);
+  }
+
+  .content {
+    height: auto;
+  }
+}
+

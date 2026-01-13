@@ -8,23 +8,23 @@ android {
 }
 
 dependencies {
-    api(project(":core"))
+    api(projects.core)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.instrumentation.api)
-    implementation(project(":common"))
-    implementation(project(":session"))
-    implementation(project(":services"))
+    implementation(projects.common)
+    implementation(projects.session)
+    implementation(projects.services)
     implementation(libs.opentelemetry.exporter.otlp)
 
     // Default instrumentations:
-    api(project(":instrumentation:activity"))
-    api(project(":instrumentation:anr"))
-    api(project(":instrumentation:crash"))
-    api(project(":instrumentation:fragment"))
-    api(project(":instrumentation:network"))
-    api(project(":instrumentation:slowrendering"))
-    api(project(":instrumentation:startup"))
-    api(project(":instrumentation:sessions"))
+    api(projects.instrumentation.activity)
+    api(projects.instrumentation.anr)
+    api(projects.instrumentation.crash)
+    api(projects.instrumentation.fragment)
+    api(projects.instrumentation.network)
+    api(projects.instrumentation.slowrendering)
+    api(projects.instrumentation.startup)
+    api(projects.instrumentation.sessions)
 
     // todo move this to pulse SDK
     api(projects.instrumentation.interaction.interactionLibrary)

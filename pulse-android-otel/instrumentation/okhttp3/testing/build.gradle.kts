@@ -6,10 +6,10 @@ plugins {
 android.namespace = "io.opentelemetry.android.okhttp3"
 
 dependencies {
-    byteBuddy(project(":instrumentation:okhttp3:agent"))
-    implementation(project(":instrumentation:okhttp3:library"))
+    byteBuddy(projects.instrumentation.okhttp3.agent)
+    implementation(projects.instrumentation.okhttp3.library)
     implementation(libs.okhttp)
     implementation(libs.opentelemetry.exporter.otlp)
     androidTestImplementation(libs.okhttp.mockwebserver)
-    implementation(project(":test-common"))
+    implementation(projects.testCommon)
 }

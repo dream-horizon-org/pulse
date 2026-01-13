@@ -11,6 +11,6 @@ android {
 
 dependencies {
     implementation(libs.okhttp)
-    implementation(project(":instrumentation:okhttp3:library"))
+    implementation(projects.instrumentation.okhttp3.library)
     implementation(libs.byteBuddy)
 }

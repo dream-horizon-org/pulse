@@ -10,8 +10,8 @@ public object InteractionConstant {
     public const val USER_CATEGORY: String = "pulse.interaction.user_category"
     public const val TIME_TO_COMPLETE_IN_NANO: String = "pulse.interaction.complete_time"
     public const val IS_ERROR: String = "pulse.interaction.is_error"
-    public const val LOCAL_EVENTS: String = "internal_events"
-    public const val MARKER_EVENTS: String = "internal_marker"
+    public const val LOCAL_EVENTS: String = "pulse.internal.events"
+    public const val MARKER_EVENTS: String = "pulse.internal.marker_events"
 
     internal enum class Operators(
         internal val operatorName: String,

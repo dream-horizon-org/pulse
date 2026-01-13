@@ -106,6 +106,12 @@ public final class io/opentelemetry/android/export/FilteringSpanExporterBuilder 
 	public final fun rejecting (Ljava/util/function/Predicate;)Lio/opentelemetry/android/export/FilteringSpanExporterBuilder;
 }
 
+public final class io/opentelemetry/android/export/ModifiedSpanData : io/opentelemetry/sdk/trace/data/DelegatingSpanData {
+	public fun <init> (Lio/opentelemetry/sdk/trace/data/SpanData;Lio/opentelemetry/api/common/Attributes;)V
+	public fun getAttributes ()Lio/opentelemetry/api/common/Attributes;
+	public fun getTotalAttributeCount ()I
+}
+
 public final class io/opentelemetry/android/export/SpanDataModifier {
 	public fun build ()Lio/opentelemetry/sdk/trace/export/SpanExporter;
 	public static fun builder (Lio/opentelemetry/sdk/trace/export/SpanExporter;)Lio/opentelemetry/android/export/SpanDataModifier;

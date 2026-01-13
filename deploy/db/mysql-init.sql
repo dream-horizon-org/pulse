@@ -210,17 +210,26 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 CREATE TABLE IF NOT EXISTS athena_job (
     job_id VARCHAR(255) PRIMARY KEY,
     query_string TEXT NOT NULL,
+    original_query_string TEXT NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
     query_execution_id VARCHAR(255),
     status VARCHAR(50) NOT NULL DEFAULT 'RUNNING',
     result_location VARCHAR(500),
     error_message TEXT,
+    data_scanned_in_bytes BIGINT NULL,
+    execution_time_millis BIGINT NULL,
+    engine_execution_time_millis BIGINT NULL,
+    query_queue_time_millis BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
     INDEX idx_status (status),
     INDEX idx_query_execution_id (query_execution_id),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    INDEX idx_user_email (user_email),
+    INDEX idx_user_email_created_at (user_email, created_at)
 );
+
 
 -- Display summary
 SELECT 'Database initialization completed successfully!' AS status;

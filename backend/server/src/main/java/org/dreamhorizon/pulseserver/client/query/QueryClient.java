@@ -16,5 +16,7 @@ public interface QueryClient {
   Single<QueryResultSet> getQueryResults(String queryExecutionId, Integer maxResults, String nextToken);
 
   Single<QueryExecutionInfo> getQueryExecution(String queryExecutionId);
+
+  Single<Boolean> cancelQuery(String queryExecutionId);
 }
 

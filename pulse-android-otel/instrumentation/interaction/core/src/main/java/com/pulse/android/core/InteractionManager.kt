@@ -83,7 +83,7 @@ public class InteractionManager
                     ) {
                         it.toList()
                     }.collect {
-                        interactionTrackerStatesMutableState.value = it
+                        interactionTrackerStatesMutableState.value = it.flatten()
                     }
                 }
 

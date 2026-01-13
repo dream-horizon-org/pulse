@@ -5,3 +5,11 @@
 .kotlin/
 
 .env
+
+
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraformrc
+terraform.rc

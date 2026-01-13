@@ -14,6 +14,8 @@ import lombok.NoArgsConstructor;
 public class AthenaJob {
   private String jobId;
   private String queryString;
+  private String originalQueryString;
+  private String userEmail;
   private String queryExecutionId;
   private AthenaJobStatus status;
   private String resultLocation;
@@ -21,6 +23,9 @@ public class AthenaJob {
   private JsonArray resultData;
   private String nextToken; // For pagination
   private Long dataScannedInBytes; // Data scanned by the query (in bytes)
+  private Long executionTimeMillis; // Total execution time in milliseconds
+  private Long engineExecutionTimeMillis; // Engine execution time in milliseconds
+  private Long queryQueueTimeMillis; // Query queue time in milliseconds
   private Timestamp createdAt;
   private Timestamp updatedAt;
   private Timestamp completedAt;

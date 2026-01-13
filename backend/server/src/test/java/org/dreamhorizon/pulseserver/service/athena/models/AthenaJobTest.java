@@ -35,8 +35,25 @@ class AthenaJobTest {
       Timestamp updatedAt = new Timestamp(System.currentTimeMillis());
       Timestamp completedAt = new Timestamp(System.currentTimeMillis());
 
-      AthenaJob job = new AthenaJob(jobId, queryString, queryExecutionId, status, resultLocation,
-          errorMessage, resultData, nextToken, dataScannedInBytes, createdAt, updatedAt, completedAt);
+      AthenaJob job = AthenaJob.builder()
+          .jobId(jobId)
+          .queryString(queryString)
+          .originalQueryString(queryString)
+          .userEmail("test@example.com")
+          .queryExecutionId(queryExecutionId)
+          .status(status)
+          .resultLocation(resultLocation)
+          .errorMessage(errorMessage)
+          .resultData(resultData)
+          .nextToken(nextToken)
+          .dataScannedInBytes(dataScannedInBytes)
+          .executionTimeMillis(null)
+          .engineExecutionTimeMillis(null)
+          .queryQueueTimeMillis(null)
+          .createdAt(createdAt)
+          .updatedAt(updatedAt)
+          .completedAt(completedAt)
+          .build();
 
       assertEquals(jobId, job.getJobId());
       assertEquals(queryString, job.getQueryString());

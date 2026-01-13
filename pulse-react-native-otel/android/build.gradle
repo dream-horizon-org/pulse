@@ -74,15 +74,15 @@ repositories {
 }
 
 def kotlin_version = getExtOrDefault("kotlinVersion")
-
+def pulse_version = "0.0.2-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
   implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version")
 
-  api("org.dreamhorizon:pulse-android-sdk:0.0.1-alpha") {
+  api("org.dreamhorizon:pulse-android-sdk:$pulse_version") {
     exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
   }
-  implementation("org.dreamhorizon:pulse-semconv:0.0.1-alpha")
+  implementation("org.dreamhorizon:pulse-semconv:$pulse_version")
   api("com.squareup.okhttp3:okhttp:5.0.0-alpha.14")
   implementation("io.opentelemetry:opentelemetry-sdk")
 }

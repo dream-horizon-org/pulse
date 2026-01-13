@@ -1,0 +1,40 @@
+acm_certificate_arn = "arn:aws:acm:ap-south-1:111122223333:certificate/00000000-1111-2222-3333-444444444444"
+
+ami_id = "ami-0123456789abcdef0"
+
+healthcheck_path = "/health"
+healthcheck_port = "8080"
+
+instance_count = 1
+instance_profile_name = "demo_service_role"
+instance_type = "t3.large"
+
+# NLB SG
+nlb_security_group_ids = [
+  "sg-0123456789abcdef0",
+]
+
+region = "ap-south-1"
+
+public_subnet_ids = [
+  "subnet-0aaaaaaaaaaaaaaa1",
+  "subnet-0bbbbbbbbbbbbbbb2",
+  "subnet-0ccccccccccccccc3",
+]
+
+route53_zone_id     = "Z0DUMMYZONEID12345"
+route53_record_name = "demo-vector"
+
+security_group_id = "sg-0fedcba9876543210"
+
+ssh_key_name = "DemoKeyPair"
+
+subnet_ids = [
+  "subnet-0ddddddddddddddd4",  # ap-south-1a
+  "subnet-0eeeeeeeeeeeeeee5",  # ap-south-1b
+  "subnet-0fffffffffffffff6",  # ap-south-1c
+]
+
+vector_listen_port = 4318
+
+vpc_id = "vpc-0abcdabcdabcdabcd"

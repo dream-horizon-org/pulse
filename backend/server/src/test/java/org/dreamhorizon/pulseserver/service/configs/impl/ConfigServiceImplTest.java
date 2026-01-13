@@ -218,7 +218,6 @@ class ConfigServiceImplTest {
           .features(List.of(
               FeatureConfig.builder()
                   .featureName(Features.java_crash)
-                  .enabled(true)
                   .sessionSampleRate(1.0)
                   .sdks(List.of())
                   .build()

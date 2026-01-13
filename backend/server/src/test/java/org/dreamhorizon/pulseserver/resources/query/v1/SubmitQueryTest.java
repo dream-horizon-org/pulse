@@ -56,10 +56,10 @@ public class SubmitQueryTest {
           .createdAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null))
+      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
           .thenReturn(Single.just(job));
 
-      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery(request);
+      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
 
       result.whenComplete((response, error) -> {
         if (error != null) {
@@ -71,7 +71,7 @@ public class SubmitQueryTest {
           assertThat(response.getData()).isNotNull();
           assertThat(response.getData().getJobId()).isEqualTo("job-123");
           assertThat(response.getData().getStatus()).isEqualTo("SUBMITTED");
-          verify(queryService).submitQuery(queryString, Collections.emptyList(), null);
+          verify(queryService).submitQuery(queryString, Collections.emptyList(), null, "test@example.com");
         });
         testContext.completeNow();
       });
@@ -101,10 +101,10 @@ public class SubmitQueryTest {
           .completedAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null))
+      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
           .thenReturn(Single.just(job));
 
-      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery(request);
+      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
 
       result.whenComplete((response, error) -> {
         if (error != null) {
@@ -143,10 +143,10 @@ public class SubmitQueryTest {
           .completedAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null))
+      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
           .thenReturn(Single.just(job));
 
-      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery(request);
+      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
 
       result.whenComplete((response, error) -> {
         if (error != null) {
@@ -184,10 +184,10 @@ public class SubmitQueryTest {
           .completedAt(now)
           .build();
 
-      when(queryService.submitQuery(queryString, Collections.emptyList(), null))
+      when(queryService.submitQuery(queryString, Collections.emptyList(), null, "test@example.com"))
           .thenReturn(Single.just(job));
 
-      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery(request);
+      CompletionStage<Response<SubmitQueryResponseDto>> result = submitQuery.submitQuery("test@example.com", request);
 
       result.whenComplete((response, error) -> {
         if (error != null) {

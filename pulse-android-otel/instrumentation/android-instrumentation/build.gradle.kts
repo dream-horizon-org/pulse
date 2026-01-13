@@ -14,8 +14,8 @@ android {
 }
 
 dependencies {
-    implementation(project(":services"))
-    implementation(project(":session"))
+    implementation(projects.services)
+    implementation(projects.session)
 
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.api)

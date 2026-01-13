@@ -412,7 +412,9 @@ class AlertCronServiceTest {
           "config/details.json",
           "cloudfront-distribution-id",
           "/config/details.json",
-          "http://webhook.url"
+          "http://webhook.url",
+          "interaction/details.json",
+          "/interaction/details.json"
       );
 
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
@@ -431,6 +433,8 @@ class AlertCronServiceTest {
       assertEquals("cloudfront-distribution-id", config.getCloudFrontDistributionId());
       assertEquals("/config/details.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://webhook.url", config.getWebhookUrl());
+      assertEquals("interaction/details.json", config.getInteractionDetailsS3BucketFilePath());
+      assertEquals("/interaction/details.json", config.getInteractionDetailCloudFrontAssetPath());
     }
 
     @Test
@@ -459,6 +463,8 @@ class AlertCronServiceTest {
       config.setCloudFrontDistributionId("new-distribution-id");
       config.setConfigDetailCloudFrontAssetPath("/new/path.json");
       config.setWebhookUrl("http://new-webhook.url");
+      config.setInteractionDetailsS3BucketFilePath("new/interaction-path.json");
+      config.setInteractionDetailCloudFrontAssetPath("/new/interaction-path.json");
 
       assertEquals("http://new-cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://new-service.url", config.getServiceUrl());
@@ -476,6 +482,8 @@ class AlertCronServiceTest {
       assertEquals("new-distribution-id", config.getCloudFrontDistributionId());
       assertEquals("/new/path.json", config.getConfigDetailCloudFrontAssetPath());
       assertEquals("http://new-webhook.url", config.getWebhookUrl());
+      assertEquals("new/interaction-path.json", config.getInteractionDetailsS3BucketFilePath());
+      assertEquals("/new/interaction-path.json", config.getInteractionDetailCloudFrontAssetPath());
     }
 
     @Test
@@ -496,7 +504,9 @@ class AlertCronServiceTest {
           "config/details.json",
           "cloudfront-distribution-id",
           "/config/details.json",
-          "http://webhook.url"
+          "http://webhook.url",
+          "interaction/details.json",
+          "/interaction/details.json"
       );
       String toString = config.toString();
 
@@ -509,17 +519,20 @@ class AlertCronServiceTest {
       ApplicationConfig config1 = new ApplicationConfig(
           "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url"
+          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url"
+          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "http://different.url", "http://service.url", 30, "client-id", true, "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
-          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url"
+          "http://span.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
+          "interaction-path.json", "/interaction-path.json"
       );
 
       assertEquals(config1, config2);

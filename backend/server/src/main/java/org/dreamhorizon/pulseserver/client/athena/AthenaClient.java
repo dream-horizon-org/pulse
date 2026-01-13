@@ -21,6 +21,8 @@ import software.amazon.awssdk.services.athena.model.ResultConfiguration;
 import software.amazon.awssdk.services.athena.model.ResultSet;
 import software.amazon.awssdk.services.athena.model.StartQueryExecutionRequest;
 import software.amazon.awssdk.services.athena.model.StartQueryExecutionResponse;
+import software.amazon.awssdk.services.athena.model.StopQueryExecutionRequest;
+import software.amazon.awssdk.services.athena.model.StopQueryExecutionResponse;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -33,7 +35,7 @@ public class AthenaClient {
       try {
         StartQueryExecutionRequest request = buildSubmitRequest(query, parameters);
         CompletableFuture<StartQueryExecutionResponse> future = athenaAsyncClient.startQueryExecution(request);
-        
+
         future.whenComplete((response, throwable) -> {
           if (throwable != null) {
             log.error("Error submitting Athena query", throwable);
@@ -105,7 +107,7 @@ public class AthenaClient {
       try {
         GetQueryResultsRequest request = buildGetResultsRequest(queryExecutionId, maxResults, nextToken);
         CompletableFuture<GetQueryResultsResponse> future = athenaAsyncClient.getQueryResults(request);
-        
+
         future.whenComplete((response, throwable) -> {
           if (throwable != null) {
             log.error("Error fetching query results for execution ID: {}", queryExecutionId, throwable);
@@ -115,7 +117,7 @@ public class AthenaClient {
             emitter.onError(new RuntimeException("Query results response is invalid"));
           } else {
             ResultSetWithToken resultSetWithToken = new ResultSetWithToken(
-                response.resultSet(), 
+                response.resultSet(),
                 response.nextToken()
             );
             emitter.onSuccess(resultSetWithToken);
@@ -173,7 +175,7 @@ public class AthenaClient {
       try {
         TRequest request = requestBuilder.get();
         CompletableFuture<TResponse> future = asyncCall.apply(request);
-        
+
         future.whenComplete((response, throwable) -> {
           if (throwable != null) {
             log.error(errorContext, throwable);
@@ -194,6 +196,31 @@ public class AthenaClient {
       } catch (Exception e) {
         log.error("Error creating request: {}", errorContext, e);
         emitter.onError(new RuntimeException("Failed to create request: " + e.getMessage(), e));
+      }
+    });
+  }
+
+  public Single<Boolean> cancelQuery(String queryExecutionId) {
+    return Single.create(emitter -> {
+      try {
+        StopQueryExecutionRequest request = StopQueryExecutionRequest.builder()
+            .queryExecutionId(queryExecutionId)
+            .build();
+
+        CompletableFuture<StopQueryExecutionResponse> future = athenaAsyncClient.stopQueryExecution(request);
+
+        future.whenComplete((response, throwable) -> {
+          if (throwable != null) {
+            log.error("Error cancelling Athena query execution ID: {}", queryExecutionId, throwable);
+            emitter.onError(new RuntimeException("Failed to cancel Athena query: " + throwable.getMessage(), throwable));
+          } else {
+            log.info("Successfully cancelled Athena query execution ID: {}", queryExecutionId);
+            emitter.onSuccess(true);
+          }
+        });
+      } catch (Exception e) {
+        log.error("Error creating cancel query request for execution ID: {}", queryExecutionId, e);
+        emitter.onError(new RuntimeException("Failed to create cancel query request: " + e.getMessage(), e));
       }
     });
   }

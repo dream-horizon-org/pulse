@@ -15,7 +15,7 @@ android {
 
 dependencies {
     api(platform(libs.opentelemetry.platform.alpha))
-    api(project(":instrumentation:android-instrumentation"))
+    api(projects.instrumentation.androidInstrumentation)
     compileOnly(libs.okhttp)
     api(libs.opentelemetry.instrumentation.okhttp)
     implementation(libs.opentelemetry.instrumentation.apiSemconv)

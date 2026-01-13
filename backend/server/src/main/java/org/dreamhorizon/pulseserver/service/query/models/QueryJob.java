@@ -14,6 +14,8 @@ import lombok.NoArgsConstructor;
 public class QueryJob {
   private String jobId;
   private String queryString;
+  private String originalQueryString;
+  private String userEmail;
   private String queryExecutionId;
   private QueryJobStatus status;
   private String resultLocation;
@@ -21,6 +23,9 @@ public class QueryJob {
   private JsonArray resultData;
   private String nextToken;
   private Long dataScannedInBytes;
+  private Long executionTimeMillis;
+  private Long engineExecutionTimeMillis;
+  private Long queryQueueTimeMillis;
   private Timestamp createdAt;
   private Timestamp updatedAt;
   private Timestamp completedAt;

@@ -9,7 +9,7 @@ import io.opentelemetry.android.agent.dsl.OpenTelemetryDslMarker
 import io.opentelemetry.android.config.OtelRumConfig
 
 @OpenTelemetryDslMarker
-class InstrumentationConfiguration internal constructor(
+class InstrumentationConfiguration(
     config: OtelRumConfig,
 ) {
     private val activity: ActivityLifecycleConfiguration by lazy {

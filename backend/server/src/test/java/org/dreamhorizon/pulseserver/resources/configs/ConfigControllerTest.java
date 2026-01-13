@@ -725,7 +725,6 @@ class ConfigControllerTest {
           .features(List.of(
               PulseConfig.FeatureConfig.builder()
                   .featureName(Features.java_crash)
-                  .enabled(true)
                   .sessionSampleRate(1.0)
                   .sdks(List.of())
                   .build()
@@ -857,20 +856,17 @@ class ConfigControllerTest {
           .features(Arrays.asList(
               PulseConfig.FeatureConfig.builder()
                   .featureName(Features.java_crash)
-                  .enabled(true)
                   .sessionSampleRate(1.0)
                   .sdks(Arrays.asList(Sdk.android_java))
                   .build(),
               PulseConfig.FeatureConfig.builder()
                   .featureName(Features.java_anr)
-                  .enabled(true)
                   .sessionSampleRate(0.9)
                   .sdks(Arrays.asList(Sdk.android_java, Sdk.ios_native))
                   .build(),
               PulseConfig.FeatureConfig.builder()
                   .featureName(Features.interaction)
-                  .enabled(false)
-                  .sessionSampleRate(0.5)
+                  .sessionSampleRate(0.0)
                   .sdks(Arrays.asList(Sdk.android_rn))
                   .build()
           ))
@@ -1028,7 +1024,6 @@ class ConfigControllerTest {
             .features(Arrays.asList(
                 PulseConfig.FeatureConfig.builder()
                     .featureName(Features.java_crash)
-                    .enabled(true)
                     .sessionSampleRate(null)
                     .sdks(null)
                     .build()

@@ -25,9 +25,15 @@ include(":opentelemetry-android-bom")
 include(":pulse-android-sdk")
 include(":pulse-semconv")
 include(":pulse-utils")
+include(":pulse-sampling-models")
+project(":pulse-sampling-models").projectDir = File("./pulse-sampling/models")
+include(":pulse-sampling-core")
+project(":pulse-sampling-core").projectDir = File("./pulse-sampling/core")
+include(":pulse-sampling-remote")
+project(":pulse-sampling-remote").projectDir = File("./pulse-sampling/remote")
 includeBuild("pulse-upload-plugin")
 includeFromDir("instrumentation") {
-    if (it.contains(":instrumentation:interaction:")) {
+    if (it.contains(":instrumentation:interaction:") || it.contains(":instrumentation:location:")) {
         val nameWithInteraction = it.split(":").takeLast(2).joinToString("-")
         println("Name for projectPath = $it is $nameWithInteraction")
         nameWithInteraction

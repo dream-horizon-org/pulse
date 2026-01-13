@@ -169,6 +169,47 @@ public class AthenaClientTest {
       var testObserver = athenaClient.getQueryStatus(executionId).test();
       testObserver.assertError(RuntimeException.class);
     }
+
+    @Test
+    void shouldHandleNullQueryExecutionInResponse() {
+      String executionId = "exec-123";
+
+      GetQueryExecutionResponse response = GetQueryExecutionResponse.builder()
+          .build();
+
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryStatus(executionId).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleErrorInGetQueryStatus() {
+      String executionId = "exec-123";
+      RuntimeException error = new RuntimeException("AWS error");
+
+      CompletableFuture<GetQueryExecutionResponse> future = new CompletableFuture<>();
+      future.completeExceptionally(error);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryStatus(executionId).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleExceptionInResponseMapper() {
+      String executionId = "exec-123";
+
+      GetQueryExecutionResponse response = GetQueryExecutionResponse.builder()
+          .build();
+
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryStatus(executionId).test();
+      testObserver.assertError(RuntimeException.class);
+    }
   }
 
   @Nested
@@ -268,6 +309,60 @@ public class AthenaClientTest {
       var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
       testObserver.assertError(RuntimeException.class);
     }
+
+    @Test
+    void shouldHandleNullResponseInGetQueryResults() {
+      String executionId = "exec-123";
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(null);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleNullResultSetInGetQueryResults() {
+      String executionId = "exec-123";
+
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
+          .build();
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldGetQueryResultsWithoutParameters() {
+      String executionId = "exec-123";
+
+      ResultSet resultSet = ResultSet.builder().build();
+      GetQueryResultsResponse response = GetQueryResultsResponse.builder()
+          .resultSet(resultSet)
+          .build();
+
+      CompletableFuture<GetQueryResultsResponse> future = CompletableFuture.completedFuture(response);
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class))).thenReturn(future);
+
+      software.amazon.awssdk.services.athena.model.ResultSet result = athenaClient.getQueryResults(executionId).blockingGet();
+
+      assertThat(result).isNotNull();
+    }
+
+    @Test
+    void shouldHandleIllegalArgumentExceptionInGetQueryResults() {
+      String executionId = "exec-123";
+      IllegalArgumentException error = new IllegalArgumentException("Invalid request");
+
+      when(athenaAsyncClient.getQueryResults(any(GetQueryResultsRequest.class)))
+          .thenThrow(error);
+
+      var testObserver = athenaClient.getQueryResults(executionId, 100, null).test();
+      testObserver.assertError(IllegalArgumentException.class);
+    }
   }
 
   @Nested
@@ -306,6 +401,41 @@ public class AthenaClientTest {
 
       var testObserver = athenaClient.getQueryExecution(executionId).test();
       testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleNullResponseInGetQueryExecution() {
+      String executionId = "exec-123";
+
+      CompletableFuture<GetQueryExecutionResponse> future = CompletableFuture.completedFuture(null);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryExecution(executionId).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleErrorInGetQueryExecution() {
+      String executionId = "exec-123";
+      RuntimeException error = new RuntimeException("AWS error");
+
+      CompletableFuture<GetQueryExecutionResponse> future = new CompletableFuture<>();
+      future.completeExceptionally(error);
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class))).thenReturn(future);
+
+      var testObserver = athenaClient.getQueryExecution(executionId).test();
+      testObserver.assertError(RuntimeException.class);
+    }
+
+    @Test
+    void shouldHandleExceptionInGetQueryExecutionRequestBuilder() {
+      String executionId = "exec-123";
+
+      when(athenaAsyncClient.getQueryExecution(any(GetQueryExecutionRequest.class)))
+          .thenThrow(new IllegalArgumentException("Invalid request"));
+
+      var testObserver = athenaClient.getQueryExecution(executionId).test();
+      testObserver.assertError(IllegalArgumentException.class);
     }
   }
 

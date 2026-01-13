@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.resources.query.v1;
 import com.google.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -26,8 +27,10 @@ public class SubmitQuery {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<SubmitQueryResponseDto>> submitQuery(@Valid SubmitQueryRequestDto request) {
-    return queryService.submitQuery(request.getQueryString(), request.getParameters(), request.getTimestamp())
+  public CompletionStage<Response<SubmitQueryResponseDto>> submitQuery(
+      @HeaderParam("user-email") String userEmail,
+      @Valid SubmitQueryRequestDto request) {
+    return queryService.submitQuery(request.getQueryString(), request.getParameters(), request.getTimestamp(), userEmail)
         .map(job -> {
           if (job.getStatus() == QueryJobStatus.COMPLETED) {
             if (job.getResultData() != null) {

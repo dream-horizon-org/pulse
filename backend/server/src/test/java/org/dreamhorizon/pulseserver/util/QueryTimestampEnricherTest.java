@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -147,7 +148,8 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleMultipleTimestampLiterals() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
@@ -250,7 +252,8 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleQueryWithUnicodeCharactersInStringLiterals() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND name = 'José'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND name = 'José'";
       String timestamp = "2025-12-23 11:29:35";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
@@ -357,7 +360,8 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleExtractTimestampWithMultipleInvalidFormats() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid1' AND \"timestamp\" <= TIMESTAMP 'invalid2'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid1' AND \"timestamp\" <= TIMESTAMP 'invalid2'";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
@@ -469,7 +473,8 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleExtractTimestampWithMultipleMatches() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59'";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
@@ -479,7 +484,8 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleExtractTimestampWhenFirstMatchFails() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
@@ -627,6 +633,132 @@ class QueryTimestampEnricherTest {
       assertThat(result.toLowerCase()).contains("group by");
       assertThat(result.toLowerCase()).contains("order by");
       assertThat(result.toLowerCase()).contains("limit");
+    }
+
+    @Test
+    void shouldHandleNullQuery() {
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(null, "2025-12-23 11:29:35");
+      });
+    }
+
+    @Test
+    void shouldHandleQueryWithControlCharactersInEnrichment() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data\u0000\u0001";
+      String timestamp = "2025-12-23 11:29:35";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+      assertThat(result).doesNotContain("\u0000");
+    }
+
+    @Test
+    void shouldHandleInvalidTimestampString() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "invalid-timestamp";
+
+      assertThatThrownBy(() -> QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("invalid characters");
+    }
+
+    @Test
+    void shouldHandleTimestampStringWithControlCharacters() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String timestamp = "2025-12-23 11:29:35\u0000";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleQueryExceedingMaxLength() {
+      String longQuery = "SELECT * FROM pulse_athena_db.otel_data" + "x".repeat(100001);
+      String timestamp = "2025-12-23 11:29:35";
+
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(longQuery, timestamp);
+      });
+    }
+
+    @Test
+    void shouldHandleTimestampStringExceedingMaxLength() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data";
+      String longTimestamp = "x".repeat(51);
+
+      org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+        QueryTimestampEnricher.enrichQueryWithTimestamp(query, longTimestamp);
+      });
+    }
+
+    @Test
+    void shouldHandleEndTimestampExtraction() {
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 12:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year");
+      assertThat(result).contains("month");
+      assertThat(result).contains("day");
+    }
+
+    @Test
+    void shouldHandleTimestampWithLessThanOperator() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" < TIMESTAMP '2025-12-23 12:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleTimestampWithLessThanOrEqualOperator() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" <= TIMESTAMP '2025-12-23 12:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleTimestampWithNotEqualOperator() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" <> TIMESTAMP '2025-12-23 12:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year = 2025");
+    }
+
+    @Test
+    void shouldHandleMultipleTimestampLiteralsWithDifferentOperators() {
+      String query =
+          "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 12:00:00'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).contains("year");
+      assertThat(result).contains("2025");
+    }
+
+    @Test
+    void shouldHandleTimestampWithInvalidFormat() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP 'invalid-format'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).isEqualTo(query);
+    }
+
+    @Test
+    void shouldHandleTimestampParsingException() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '9999-99-99 99:99:99'";
+
+      String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
+
+      assertThat(result).isEqualTo(query);
     }
   }
 }

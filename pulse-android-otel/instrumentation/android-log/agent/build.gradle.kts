@@ -15,5 +15,5 @@ dependencies {
 
     implementation(libs.androidx.core)
     implementation(libs.byteBuddy)
-    implementation(project(":instrumentation:android-log:library"))
+    implementation(projects.instrumentation.androidLog.library)
 }

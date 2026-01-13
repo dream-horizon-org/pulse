@@ -8,9 +8,9 @@ android {
 }
 
 dependencies {
-    byteBuddy(project(":instrumentation:android-log:agent"))
-    implementation(project(":instrumentation:android-log:library"))
-    implementation(project(":test-common"))
+    byteBuddy(projects.instrumentation.androidLog.agent)
+    implementation(projects.instrumentation.androidLog.library)
+    implementation(projects.testCommon)
 
     androidTestImplementation(libs.opentelemetry.instrumentation.apiSemconv)
     androidTestImplementation(libs.assertj.core)
