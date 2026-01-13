@@ -1,14 +1,17 @@
 package io.opentelemetry.android.instrumentation.location.core
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.location.Address
 import android.location.Geocoder
 import android.location.Geocoder.GeocodeListener
 import android.location.Location
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
@@ -78,18 +81,29 @@ public class LocationProvider
         }
 
         private suspend fun fetchLocationAsync() {
-            val client = actualFusedLocationClient
-            @Suppress("TooGenericExceptionCaught") // async network call can throw any exception
-            try {
-                val location = client.lastLocation.await()
-                if (location != null) {
-                    saveLocationToCache(location)
-                    convertToGeoAttributes(location)
-                }
-            } catch (e: Throwable) {
-                currentCoroutineContext().ensureActive()
-                PulseOtelUtils.logError(TAG, e) {
-                    "fetchLocationAsync lastLocation task failed"
+            if (
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                val client = actualFusedLocationClient
+                @Suppress("TooGenericExceptionCaught") // async network call can throw any exception
+                try {
+                    val location = client.lastLocation.await()
+                    if (location != null) {
+                        saveLocationToCache(location)
+                        convertToGeoAttributes(location)
+                    }
+                } catch (e: Throwable) {
+                    currentCoroutineContext().ensureActive()
+                    PulseOtelUtils.logError(TAG, e) {
+                        "fetchLocationAsync lastLocation task failed"
+                    }
                 }
             }
         }
