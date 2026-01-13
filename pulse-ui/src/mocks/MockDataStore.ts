@@ -1351,7 +1351,7 @@ export class MockDataStore {
           {
             id: generateId(),
             name: 'app_version',
-            sdks: ['pulse_android_java', 'pulse_ios_swift'] as SdkEnumV1[],
+            sdks: ['pulse_android_java', 'pulse_ios_swift', 'pulse_android_rn', 'pulse_ios_rn'] as SdkEnumV1[],
             value: '^2\\..*',
             sessionSampleRate: 1.0,
           },
@@ -1370,7 +1370,7 @@ export class MockDataStore {
               name: 'payment_error',
               props: [{ name: 'error_type', value: '^payment.*' }],
               scopes: ['traces'],
-              sdks: ['pulse_android_java', 'pulse_ios_swift'] as SdkEnumV1[],
+              sdks: ['pulse_android_java', 'pulse_ios_swift', 'pulse_android_rn', 'pulse_ios_rn'] as SdkEnumV1[],
             },
           ],
         },
@@ -1441,7 +1441,7 @@ export class MockDataStore {
           id: generateId(),
           featureName: 'screen_session',
           sessionSampleRate: 0,
-          sdks: ['pulse_android_java', 'pulse_ios_swift'] as SdkEnumV1[],
+          sdks: ['pulse_android_java', 'pulse_ios_swift', 'pulse_android_rn', 'pulse_ios_rn'] as SdkEnumV1[],
         },
       ],
     };
