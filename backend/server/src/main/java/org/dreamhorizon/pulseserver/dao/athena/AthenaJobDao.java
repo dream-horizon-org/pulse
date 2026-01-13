@@ -18,11 +18,11 @@ import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
 public class AthenaJobDao {
   private final MysqlClient mysqlClient;
 
-  public Single<String> createJob(String queryString, String originalQueryString, String userEmail) {
+  public Single<String> createJob(String queryString, String userEmail) {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, queryString, originalQueryString, userEmail),
+        Tuple.of(jobId, queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );
@@ -150,7 +150,6 @@ public class AthenaJobDao {
     return AthenaJob.builder()
         .jobId(row.getString("job_id"))
         .queryString(row.getString("query_string"))
-        .originalQueryString(row.getString("original_query_string"))
         .userEmail(row.getString("user_email"))
         .queryExecutionId(row.getString("query_execution_id"))
         .status(AthenaJobStatus.valueOf(row.getString("status")))

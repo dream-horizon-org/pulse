@@ -46,7 +46,7 @@ public class SqlQueryValidator {
     }
 
     if (!hasTimestampInWhereClause(trimmedQuery)) {
-      return ValidationResult.invalid("Query must include timestamp filter in WHERE clause (year, month, day, hour) or TIMESTAMP literals");
+      return ValidationResult.invalid("Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, (2) partition columns (year, month, day, hour), or (3) TIMESTAMP literals");
     }
 
     return ValidationResult.valid();
@@ -61,6 +61,7 @@ public class SqlQueryValidator {
     int whereEnd = whereMatcher.end();
     String whereClause = query.substring(whereEnd);
 
+    // Check for partition columns (year, month, day, hour)
     boolean hasYear = containsColumn(whereClause, "year");
     boolean hasMonth = containsColumn(whereClause, "month");
     boolean hasDay = containsColumn(whereClause, "day");
@@ -70,12 +71,23 @@ public class SqlQueryValidator {
       return true;
     }
 
-    Pattern timestampPattern = Pattern.compile(
+    // Check for timestamp column usage (with or without quotes) with comparison operators
+    // Matches: timestamp >=, timestamp <=, timestamp >, timestamp <, timestamp =, timestamp !=, timestamp <>
+    Pattern timestampColumnPattern = Pattern.compile(
+        "(?i)\\b[\"]?timestamp[\"]?\\s*(>=|<=|<>|!=|>|<|=)",
+        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    if (timestampColumnPattern.matcher(whereClause).find()) {
+      return true;
+    }
+
+    // Check for TIMESTAMP literals
+    Pattern timestampLiteralPattern = Pattern.compile(
         "TIMESTAMP\\s+['\"](\\d{4}-\\d{2}-\\d{2}\\s+\\d{1,2}:\\d{2}:\\d{2})['\"]",
         Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
 
-    return timestampPattern.matcher(whereClause).find();
+    return timestampLiteralPattern.matcher(whereClause).find();
   }
 
   private static boolean containsColumn(String whereClause, String columnName) {

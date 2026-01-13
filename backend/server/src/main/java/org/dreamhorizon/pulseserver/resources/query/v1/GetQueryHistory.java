@@ -51,7 +51,6 @@ public class GetQueryHistory {
     return QueryHistoryResponseDto.QueryHistoryItem.builder()
         .jobId(job.getJobId())
         .queryString(job.getQueryString())
-        .originalQueryString(job.getOriginalQueryString())
         .queryExecutionId(job.getQueryExecutionId())
         .status(job.getStatus() != null ? job.getStatus().name() : null)
         .resultLocation(job.getResultLocation())

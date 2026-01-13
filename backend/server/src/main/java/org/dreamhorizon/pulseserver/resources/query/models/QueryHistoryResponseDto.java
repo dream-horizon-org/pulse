@@ -25,7 +25,6 @@ public class QueryHistoryResponseDto {
   public static class QueryHistoryItem {
     private String jobId;
     private String queryString;
-    private String originalQueryString;
     private String queryExecutionId;
     private String status;
     private String resultLocation;

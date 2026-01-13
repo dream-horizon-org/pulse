@@ -38,7 +38,6 @@ class AthenaJobTest {
       AthenaJob job = AthenaJob.builder()
           .jobId(jobId)
           .queryString(queryString)
-          .originalQueryString(queryString)
           .userEmail("test@example.com")
           .queryExecutionId(queryExecutionId)
           .status(status)

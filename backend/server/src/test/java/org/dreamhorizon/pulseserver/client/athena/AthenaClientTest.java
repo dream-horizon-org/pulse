@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import org.dreamhorizon.pulseserver.client.athena.models.ResultSetWithToken;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
@@ -69,28 +68,10 @@ public class AthenaClientTest {
       CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
       when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      String result = athenaClient.submitQuery(query, Collections.emptyList()).blockingGet();
+      String result = athenaClient.submitQuery(query).blockingGet();
 
       assertThat(result).isEqualTo(executionId);
       verify(athenaAsyncClient).startQueryExecution(any(StartQueryExecutionRequest.class));
-    }
-
-    @Test
-    void shouldSubmitQueryWithParameters() {
-      String query = "SELECT * FROM table WHERE id = ?";
-      String executionId = "exec-123";
-      java.util.List<String> parameters = Arrays.asList("123");
-
-      StartQueryExecutionResponse response = StartQueryExecutionResponse.builder()
-          .queryExecutionId(executionId)
-          .build();
-
-      CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
-      when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
-
-      String result = athenaClient.submitQuery(query, parameters).blockingGet();
-
-      assertThat(result).isEqualTo(executionId);
     }
 
     @Test
@@ -102,7 +83,7 @@ public class AthenaClientTest {
       future.completeExceptionally(error);
       when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      var testObserver = athenaClient.submitQuery(query, Collections.emptyList()).test();
+      var testObserver = athenaClient.submitQuery(query).test();
       testObserver.assertError(RuntimeException.class);
     }
 
@@ -113,7 +94,7 @@ public class AthenaClientTest {
       CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(null);
       when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      var testObserver = athenaClient.submitQuery(query, Collections.emptyList()).test();
+      var testObserver = athenaClient.submitQuery(query).test();
       testObserver.assertError(RuntimeException.class);
     }
 
@@ -128,7 +109,7 @@ public class AthenaClientTest {
       CompletableFuture<StartQueryExecutionResponse> future = CompletableFuture.completedFuture(response);
       when(athenaAsyncClient.startQueryExecution(any(StartQueryExecutionRequest.class))).thenReturn(future);
 
-      var testObserver = athenaClient.submitQuery(query, Collections.emptyList()).test();
+      var testObserver = athenaClient.submitQuery(query).test();
       testObserver.assertError(RuntimeException.class);
     }
   }

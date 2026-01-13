@@ -18,8 +18,8 @@ public class AthenaQueryClientAdapter implements QueryClient {
   private final AthenaResultConverter resultConverter;
 
   @Override
-  public Single<String> submitQuery(String query, List<String> parameters) {
-    return athenaClient.submitQuery(query, parameters);
+  public Single<String> submitQuery(String query) {
+    return athenaClient.submitQuery(query);
   }
 
   @Override

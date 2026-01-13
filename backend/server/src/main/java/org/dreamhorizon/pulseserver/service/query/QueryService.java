@@ -6,7 +6,7 @@ import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
 
 public interface QueryService {
-  Single<QueryJob> submitQuery(String queryString, List<String> parameters, String timestampString, String userEmail);
+  Single<QueryJob> submitQuery(String queryString, String userEmail);
 
   Single<QueryJob> getJobStatus(String jobId, Integer maxResults, String nextToken);
 

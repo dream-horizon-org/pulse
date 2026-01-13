@@ -30,7 +30,7 @@ public class SubmitQuery {
   public CompletionStage<Response<SubmitQueryResponseDto>> submitQuery(
       @HeaderParam("user-email") String userEmail,
       @Valid SubmitQueryRequestDto request) {
-    return queryService.submitQuery(request.getQueryString(), request.getParameters(), request.getTimestamp(), userEmail)
+    return queryService.submitQuery(request.getQueryString(), userEmail)
         .map(job -> {
           if (job.getStatus() == QueryJobStatus.COMPLETED) {
             if (job.getResultData() != null) {

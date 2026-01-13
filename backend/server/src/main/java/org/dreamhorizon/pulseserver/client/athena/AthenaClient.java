@@ -2,7 +2,6 @@ package org.dreamhorizon.pulseserver.client.athena;
 
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
@@ -30,10 +29,10 @@ public class AthenaClient {
   private final AthenaConfig athenaConfig;
   private final AthenaAsyncClient athenaAsyncClient;
 
-  public Single<String> submitQuery(String query, List<String> parameters) {
+  public Single<String> submitQuery(String query) {
     return Single.create(emitter -> {
       try {
-        StartQueryExecutionRequest request = buildSubmitRequest(query, parameters);
+        StartQueryExecutionRequest request = buildSubmitRequest(query);
         CompletableFuture<StartQueryExecutionResponse> future = athenaAsyncClient.startQueryExecution(request);
 
         future.whenComplete((response, throwable) -> {
@@ -55,24 +54,18 @@ public class AthenaClient {
     });
   }
 
-  private StartQueryExecutionRequest buildSubmitRequest(String query, List<String> parameters) {
+  private StartQueryExecutionRequest buildSubmitRequest(String query) {
     QueryExecutionContext queryExecutionContext = QueryExecutionContext.builder()
         .database(athenaConfig.getDatabase())
         .build();
 
-    StartQueryExecutionRequest.Builder requestBuilder = StartQueryExecutionRequest.builder()
+    return StartQueryExecutionRequest.builder()
         .queryString(query)
         .queryExecutionContext(queryExecutionContext)
         .resultConfiguration(ResultConfiguration.builder()
             .outputLocation(athenaConfig.getOutputLocation())
-            .build());
-
-    if (parameters != null && !parameters.isEmpty()) {
-      requestBuilder.executionParameters(parameters);
-      log.debug("Setting executionParameters with {} parameters", parameters.size());
-    }
-
-    return requestBuilder.build();
+            .build())
+        .build();
   }
 
   public Single<QueryExecutionState> getQueryStatus(String queryExecutionId) {

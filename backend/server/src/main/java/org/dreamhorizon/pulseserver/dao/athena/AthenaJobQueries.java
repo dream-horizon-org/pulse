@@ -2,7 +2,7 @@ package org.dreamhorizon.pulseserver.dao.athena;
 
 public class AthenaJobQueries {
   public static final String CREATE_JOB = 
-      "INSERT INTO athena_job (job_id, query_string, original_query_string, user_email, status) VALUES (?, ?, ?, ?, 'RUNNING')";
+      "INSERT INTO athena_job (job_id, query_string, user_email, status) VALUES (?, ?, ?, 'RUNNING')";
 
   public static final String UPDATE_JOB_WITH_EXECUTION_ID = 
       "UPDATE athena_job SET query_execution_id = ?, status = ?, created_at = ?, updated_at = ? WHERE job_id = ?";
@@ -20,13 +20,13 @@ public class AthenaJobQueries {
       "UPDATE athena_job SET status = 'FAILED', error_message = ?, completed_at = ?, updated_at = ? WHERE job_id = ?";
 
   public static final String GET_JOB_BY_ID = 
-      "SELECT job_id, query_string, original_query_string, user_email, query_execution_id, status, result_location, error_message, " +
+      "SELECT job_id, query_string, user_email, query_execution_id, status, result_location, error_message, " +
       "data_scanned_in_bytes, execution_time_millis, engine_execution_time_millis, query_queue_time_millis, " +
       "created_at, updated_at, completed_at " +
       "FROM athena_job WHERE job_id = ?";
 
   public static final String GET_QUERY_HISTORY = 
-      "SELECT job_id, query_string, original_query_string, user_email, query_execution_id, status, result_location, error_message, " +
+      "SELECT job_id, query_string, user_email, query_execution_id, status, result_location, error_message, " +
       "data_scanned_in_bytes, execution_time_millis, engine_execution_time_millis, query_queue_time_millis, " +
       "created_at, updated_at, completed_at " +
       "FROM athena_job WHERE user_email = ? " +
@@ -34,7 +34,7 @@ public class AthenaJobQueries {
       "LIMIT ? OFFSET ?";
 
   public static final String GET_QUERIES_FOR_STATISTICS = 
-      "SELECT job_id, query_string, original_query_string, user_email, query_execution_id, status, result_location, error_message, " +
+      "SELECT job_id, query_string, user_email, query_execution_id, status, result_location, error_message, " +
       "data_scanned_in_bytes, execution_time_millis, engine_execution_time_millis, query_queue_time_millis, " +
       "created_at, updated_at, completed_at " +
       "FROM athena_job WHERE user_email = ? " +

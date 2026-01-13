@@ -16,8 +16,8 @@ public class AthenaQueryJobDaoAdapter implements QueryJobDao {
   private final AthenaJobDao athenaJobDao;
 
   @Override
-  public Single<String> createJob(String queryString, String originalQueryString, String userEmail) {
-    return athenaJobDao.createJob(queryString, originalQueryString, userEmail);
+  public Single<String> createJob(String queryString, String userEmail) {
+    return athenaJobDao.createJob(queryString, userEmail);
   }
 
   @Override
@@ -81,7 +81,6 @@ public class AthenaQueryJobDaoAdapter implements QueryJobDao {
     return QueryJob.builder()
         .jobId(athenaJob.getJobId())
         .queryString(athenaJob.getQueryString())
-        .originalQueryString(athenaJob.getOriginalQueryString())
         .userEmail(athenaJob.getUserEmail())
         .queryExecutionId(athenaJob.getQueryExecutionId())
         .status(QueryJobStatus.valueOf(athenaJob.getStatus().name()))

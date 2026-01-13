@@ -1,13 +1,12 @@
 package org.dreamhorizon.pulseserver.client.query;
 
 import io.reactivex.rxjava3.core.Single;
-import java.util.List;
 import org.dreamhorizon.pulseserver.client.query.models.QueryExecutionInfo;
 import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
 
 public interface QueryClient {
-  Single<String> submitQuery(String query, List<String> parameters);
+  Single<String> submitQuery(String query);
 
   Single<QueryStatus> getQueryStatus(String queryExecutionId);
 

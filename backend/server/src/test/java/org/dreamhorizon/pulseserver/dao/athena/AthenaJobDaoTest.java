@@ -67,12 +67,11 @@ class AthenaJobDaoTest {
     @Test
     void shouldCreateJobSuccessfully() {
       String queryString = "SELECT * FROM table";
-      String originalQueryString = queryString;
       String userEmail = "test@example.com";
       when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String jobId = athenaJobDao.createJob(queryString, originalQueryString, userEmail).blockingGet();
+      String jobId = athenaJobDao.createJob(queryString, userEmail).blockingGet();
 
       assertThat(jobId).isNotNull();
       assertThat(jobId).isNotEmpty();
@@ -84,21 +83,20 @@ class AthenaJobDaoTest {
       ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
       verify(preparedQuery).rxExecute(tupleCaptor.capture());
       Tuple capturedTuple = tupleCaptor.getValue();
+      assertThat(capturedTuple.getString(0)).isEqualTo(jobId);
       assertThat(capturedTuple.getString(1)).isEqualTo(queryString);
-      assertThat(capturedTuple.getString(2)).isEqualTo(originalQueryString);
-      assertThat(capturedTuple.getString(3)).isEqualTo(userEmail);
+      assertThat(capturedTuple.getString(2)).isEqualTo(userEmail);
     }
 
     @Test
     void shouldPropagateErrorWhenCreateJobFails() {
       String queryString = "SELECT * FROM table";
-      String originalQueryString = queryString;
       String userEmail = "test@example.com";
       when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       RuntimeException error = new RuntimeException("Database error");
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(error));
 
-      var testObserver = athenaJobDao.createJob(queryString, originalQueryString, userEmail).test();
+      var testObserver = athenaJobDao.createJob(queryString, userEmail).test();
       testObserver.assertError(Throwable.class);
     }
   }

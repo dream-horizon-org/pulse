@@ -5,23 +5,21 @@ import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.athena.AthenaClient;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.athena.AthenaJobDao;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
-import org.dreamhorizon.pulseserver.constant.Constants;
-import org.dreamhorizon.pulseserver.util.QueryTimestampEnricher;
-import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 import software.amazon.awssdk.services.athena.model.QueryExecution;
 import software.amazon.awssdk.services.athena.model.QueryExecutionState;
 import software.amazon.awssdk.services.athena.model.ResultSet;
 import software.amazon.awssdk.services.athena.model.Row;
-import java.sql.Timestamp;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -30,26 +28,13 @@ public class AthenaService {
   private final AthenaClient athenaClient;
   private final AthenaJobDao athenaJobDao;
 
-  public Single<AthenaJob> submitQuery(String queryString, List<String> parameters, String timestampString, String userEmail) {
-    SqlQueryValidator.ValidationResult validation = SqlQueryValidator.validateQuery(queryString);
-    if (!validation.isValid()) {
-      return Single.error(new IllegalArgumentException("Invalid SQL query: " + validation.getErrorMessage()));
-    }
-
+  public Single<AthenaJob> submitQuery(String queryString, String userEmail) {
     if (userEmail == null || userEmail.trim().isEmpty()) {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    final String enrichedQuery = QueryTimestampEnricher.enrichQueryWithTimestamp(queryString, timestampString);
-
-    if (!enrichedQuery.equals(queryString)) {
-      log.debug("Enriched query with partition filters. Original: {}, Enriched: {}", queryString, enrichedQuery);
-    } else {
-      log.debug("Query was not enriched (no timestamp found or partition filters already present)");
-    }
-
-    return athenaJobDao.createJob(enrichedQuery, queryString, userEmail.trim())
-        .flatMap(jobId -> athenaClient.submitQuery(enrichedQuery, parameters)
+    return athenaJobDao.createJob(queryString, userEmail.trim())
+        .flatMap(jobId -> athenaClient.submitQuery(queryString)
             .flatMap(queryExecutionId -> athenaClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = extractDataScannedBytes(execution);
@@ -71,7 +56,8 @@ public class AthenaService {
             }));
   }
 
-  private Single<AthenaJob> handleQueryState(String jobId, String queryExecutionId, QueryExecutionState state, Long initialDataScannedBytes) {
+  private Single<AthenaJob> handleQueryState(String jobId, String queryExecutionId, QueryExecutionState state,
+                                             Long initialDataScannedBytes) {
     if (state == QueryExecutionState.SUCCEEDED) {
       log.info("Query completed within {} seconds for job: {}", Constants.QUERY_TIMEOUT_SECONDS, jobId);
       return fetchResultsForJob(jobId, queryExecutionId, initialDataScannedBytes);
@@ -85,7 +71,8 @@ public class AthenaService {
     }
   }
 
-  private Single<AthenaJob> handleFailedQuery(String jobId, String queryExecutionId, QueryExecutionState state, Long fallbackDataScannedBytes) {
+  private Single<AthenaJob> handleFailedQuery(String jobId, String queryExecutionId, QueryExecutionState state,
+                                              Long fallbackDataScannedBytes) {
     return athenaClient.getQueryExecution(queryExecutionId)
         .flatMap(execution -> {
           String errorMessage = execution.status().stateChangeReason() != null
@@ -146,7 +133,8 @@ public class AthenaService {
 
           return athenaJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime)
               .flatMap(v -> Single.timer(Constants.RESULT_FETCH_DELAY_MS, TimeUnit.MILLISECONDS)
-                  .flatMap(tick -> fetchResultsWithRetry(queryExecutionId, Constants.MAX_RESULT_FETCH_RETRIES, Constants.RESULT_FETCH_RETRY_DELAY_MS)
+                  .flatMap(tick -> fetchResultsWithRetry(queryExecutionId, Constants.MAX_RESULT_FETCH_RETRIES,
+                      Constants.RESULT_FETCH_RETRY_DELAY_MS)
                       .flatMap(resultSetWithToken -> {
                         JsonArray resultData = convertResultSetToJsonArray(resultSetWithToken.getResultSet());
                         log.info("Successfully fetched {} result rows for job: {}", resultData.size(), jobId);
@@ -224,7 +212,7 @@ public class AthenaService {
   }
 
   private Single<AthenaJob> handleStatusChange(String jobId, String queryExecutionId, AthenaJobStatus newStatus,
-      AthenaJob job, Integer maxResults, String nextToken) {
+                                               AthenaJob job, Integer maxResults, String nextToken) {
     if (newStatus == AthenaJobStatus.COMPLETED) {
       return fetchAndUpdateJobResults(jobId, queryExecutionId)
           .flatMap(updatedJob -> {

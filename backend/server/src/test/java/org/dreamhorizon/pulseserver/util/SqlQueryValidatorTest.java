@@ -194,6 +194,52 @@ class SqlQueryValidatorTest {
     }
 
     @Test
+    void shouldAcceptQueryWithTimestampColumn() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= date_add('hour', -24, current_timestamp)";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldAcceptQueryWithQuotedTimestampColumn() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldAcceptQueryWithTimestampColumnAndOtherConditions() {
+      String query =
+          "SELECT COUNT(DISTINCT \"android_os_api_level\") AS \"count_distinct_android_os_api_level\" FROM pulse_athena_db.otel_data WHERE timestamp >= date_add('hour', -24, current_timestamp) ORDER BY \"count_distinct_android_os_api_level\" DESC LIMIT 1000";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldAcceptQueryWithTimestampColumnLessThan() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE timestamp < current_timestamp";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
+    void shouldAcceptQueryWithTimestampColumnBetween() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '2025-12-23 11:00:00' AND timestamp <= TIMESTAMP '2025-12-23 11:59:59'";
+
+      SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
+
+      assertTrue(result.isValid());
+    }
+
+    @Test
     void shouldHandleQueryWithControlCharacters() {
       String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
       String queryWithControl = query + "\u0000\u0001";

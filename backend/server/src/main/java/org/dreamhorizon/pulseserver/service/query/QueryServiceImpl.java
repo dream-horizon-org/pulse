@@ -23,10 +23,8 @@ import org.dreamhorizon.pulseserver.service.query.models.ColumnMetadata;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
-import org.dreamhorizon.pulseserver.util.QueryTimestampEnricher;
+import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 import java.sql.Timestamp;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -37,25 +35,18 @@ public class QueryServiceImpl implements QueryService {
   private final AthenaConfig athenaConfig;
 
   @Override
-  public Single<QueryJob> submitQuery(String queryString, List<String> parameters, String timestampString, String userEmail) {
+  public Single<QueryJob> submitQuery(String queryString, String userEmail) {
     if (userEmail == null || userEmail.trim().isEmpty()) {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    if (!hasTimestampInWhereClause(queryString)) {
-      return Single.error(new IllegalArgumentException("Query must contain a TIMESTAMP in the WHERE clause"));
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString);
+    if (!validationResult.isValid()) {
+      return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    final String enrichedQuery = QueryTimestampEnricher.enrichQueryWithTimestamp(queryString, timestampString);
-
-    if (!enrichedQuery.equals(queryString)) {
-      log.debug("Enriched query with partition filters. Original: {}, Enriched: {}", queryString, enrichedQuery);
-    } else {
-      log.debug("Query was not enriched (no timestamp found or partition filters already present)");
-    }
-
-    return queryJobDao.createJob(enrichedQuery, queryString, userEmail.trim())
-        .flatMap(jobId -> queryClient.submitQuery(enrichedQuery, parameters)
+    return queryJobDao.createJob(queryString, userEmail.trim())
+        .flatMap(jobId -> queryClient.submitQuery(queryString)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = execution.getDataScannedInBytes();
@@ -494,28 +485,6 @@ public class QueryServiceImpl implements QueryService {
     }
   }
 
-  private boolean hasTimestampInWhereClause(String query) {
-    if (query == null || query.trim().isEmpty()) {
-      return false;
-    }
-
-    Pattern wherePattern = Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
-    Matcher whereMatcher = wherePattern.matcher(query);
-    if (!whereMatcher.find()) {
-      return false;
-    }
-
-    int whereEnd = whereMatcher.end();
-    String whereClause = query.substring(whereEnd);
-
-    Pattern timestampPattern = Pattern.compile(
-        "TIMESTAMP\\s+['\"](\\d{4}-\\d{2}-\\d{2}\\s+\\d{1,2}:\\d{2}:\\d{2})['\"]",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
-    );
-
-    return timestampPattern.matcher(whereClause).find();
-  }
-
   @Override
   public Single<List<QueryJob>> getQueryHistory(String userEmail, Integer limit, Integer offset) {
     if (userEmail == null || userEmail.trim().isEmpty()) {
@@ -613,7 +582,7 @@ public class QueryServiceImpl implements QueryService {
         database
     );
 
-    return queryClient.submitQuery(tablesQuery, null)
+    return queryClient.submitQuery(tablesQuery)
         .flatMap(queryExecutionId -> queryClient.waitForQueryCompletion(queryExecutionId)
             .flatMap(status -> {
               if (status == QueryStatus.SUCCEEDED) {
@@ -624,7 +593,7 @@ public class QueryServiceImpl implements QueryService {
               }
             }))
         .flatMap(tablesResult -> {
-          return queryClient.submitQuery(columnsQuery, null)
+          return queryClient.submitQuery(columnsQuery)
               .flatMap(queryExecutionId -> queryClient.waitForQueryCompletion(queryExecutionId)
                   .flatMap(status -> {
                     if (status == QueryStatus.SUCCEEDED) {

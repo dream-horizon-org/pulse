@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 public class AthenaJob {
   private String jobId;
   private String queryString;
-  private String originalQueryString;
   private String userEmail;
   private String queryExecutionId;
   private AthenaJobStatus status;

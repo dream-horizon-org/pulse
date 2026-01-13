@@ -743,13 +743,10 @@ The query service provides a generic interface for executing SQL queries against
 
 ### Submit Query
 
-**Description:** Submits a SQL query for execution. The service validates the query, enriches it with timestamp-based partition filters for optimal performance, and executes it. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
+**Description:** Submits a SQL query for execution. The service validates that the query is a SELECT statement and includes a timestamp filter in the WHERE clause. If the query completes within 3 seconds, results are returned immediately. Otherwise, a job ID is returned for status checking and result retrieval.
 
 **Business Logic:** The endpoint:
 
-- Validates SQL query syntax and ensures it's a safe SELECT query
-- Automatically enriches queries with partition filters (year, month, day, hour) based on timestamp conditions
-- Extracts timestamp from `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals in WHERE clauses if present
 - Submits query to the configured query engine and polls for completion (up to 3 seconds)
 - Returns results immediately if query completes within 3 seconds
 - Returns job ID for asynchronous status checking if query takes longer
@@ -763,19 +760,15 @@ Content-Type: application/json
 
 ```json
 {
-  "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10",
-  "parameters": [],
-  "timestamp": "2025-12-23 11:00:00"
+  "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND \"timestamp\" <= TIMESTAMP '2025-12-23 11:59:59' LIMIT 10"
 }
 ```
 
 **Request Fields:**
 
-- `queryString` (required): SQL query string. Must be a SELECT query. The query must include a timestamp filter in the WHERE clause (either `year`, `month`, `day`, `hour` partition columns or `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals). The query can include `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals in WHERE clauses, which will be automatically used to add partition filters.
-- `parameters` (optional): Query parameters array (currently not used, pass empty array)
-- `timestamp` (optional): Timestamp string in format "YYYY-MM-DD HH:MM:SS" or "H:M:S". If provided, partition filters will be added based on this timestamp. If not provided but the query contains `TIMESTAMP` literals, those will be used instead.
-
-**Note:** The `timestamp` field in the request body is optional. The query validation checks that the `queryString` itself contains a timestamp filter in the WHERE clause (either partition columns or TIMESTAMP literals).
+- `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE clause. The timestamp filter can be either:
+  - Partition columns: `year`, `month`, `day`, and `hour` (all four must be present)
+  - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
 
 **Success Response (Query completed within 3 seconds):**
 
@@ -831,13 +824,37 @@ Content-Type: application/json
 - `createdAt`: Job creation timestamp
 - `completedAt`: Job completion timestamp (if completed)
 
-**Error Response:**
+**Error Response (Missing user email):**
 
 ```json
 {
   "data": null,
   "error": {
-    "message": "Invalid SQL query: Query must include timestamp filter in WHERE clause (year, month, day, hour)",
+    "message": "User email is required and cannot be null or empty",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Invalid query - not SELECT):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must start with SELECT",
+    "code": "UNKNOWN_EXCEPTION"
+  }
+}
+```
+
+**Error Response (Missing timestamp filter):**
+
+```json
+{
+  "data": null,
+  "error": {
+    "message": "Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, (2) partition columns (year, month, day, hour), or (3) TIMESTAMP literals",
     "code": "UNKNOWN_EXCEPTION"
   }
 }
@@ -859,11 +876,19 @@ curl --location 'http://localhost:8080/query' \
   }'
 ```
 
+**Validation Rules:**
+
+- **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are rejected.
+- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of three ways:
+  - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example: `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
+  - **Partition Columns**: Include all four partition columns (`year`, `month`, `day`, `hour`) in the WHERE clause
+  - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
+- **Query Length**: Maximum query length is 100,000 characters
+- **Security**: Queries containing potentially dangerous operations (SQL injection patterns) are rejected
+
 **Notes:**
 
-- Queries are automatically enriched with partition filters (`year`, `month`, `day`, `hour`) for optimal performance
-- If the query contains `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literals, those are automatically extracted and used to add partition filters
-- The `originalQueryString` (user-submitted query) and `userEmail` are stored in the database for audit and history tracking
+- The `queryString` and `userEmail` are stored in the database for audit and history tracking
 - Queries that complete within 3 seconds return results immediately in the response
 - For longer-running queries, use the job ID to check status and retrieve results
 - The service includes retry logic to handle cases where results aren't immediately available after query completion
@@ -1003,8 +1028,7 @@ GET /query/history?limit=20&offset=0
     "queries": [
       {
         "jobId": "e8a98c57-c987-40bd-b1f5-a6f534e371df",
-        "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'",
-        "originalQueryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'",
+        "queryString": "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'",
         "queryExecutionId": "5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d",
         "status": "COMPLETED",
         "resultLocation": "s3://puls-otel-config/5e7ea4ab-9e26-48f0-9a5c-abb9702d3d1d.csv",
@@ -1027,8 +1051,7 @@ GET /query/history?limit=20&offset=0
 
 - `queries`: Array of query history items
   - `jobId`: Unique identifier for the query job
-  - `queryString`: The enriched query string (with partition filters added)
-  - `originalQueryString`: The original query string submitted by the user
+  - `queryString`: The query string that was executed
   - `queryExecutionId`: AWS Athena query execution ID
   - `status`: Job status (SUBMITTED, RUNNING, COMPLETED, FAILED, CANCELLED)
   - `resultLocation`: S3 location where results are stored (if completed)

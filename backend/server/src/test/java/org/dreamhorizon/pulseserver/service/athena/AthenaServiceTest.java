@@ -12,7 +12,6 @@ import static org.mockito.Mockito.when;
 import io.reactivex.rxjava3.core.Single;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Collections;
 import org.dreamhorizon.pulseserver.client.athena.AthenaClient;
 import org.dreamhorizon.pulseserver.client.athena.models.ResultSetWithToken;
 import org.dreamhorizon.pulseserver.dao.athena.AthenaJobDao;
@@ -59,22 +58,13 @@ class AthenaServiceTest {
   class TestSubmitQuery {
 
     @Test
-    void shouldRejectInvalidQuery() {
-      String invalidQuery = "INVALID QUERY";
-
-      var testObserver = athenaService.submitQuery(invalidQuery, Collections.emptyList(), null, "test@example.com").test();
-
-      testObserver.assertError(IllegalArgumentException.class);
-    }
-
-    @Test
     void shouldSubmitQuerySuccessfully() {
       String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
-      when(athenaJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(athenaClient.submitQuery(anyString(), any())).thenReturn(Single.just(queryExecutionId));
+      when(athenaJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+      when(athenaClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
           .dataScannedInBytes(1000L)
@@ -117,7 +107,7 @@ class AthenaServiceTest {
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(job));
 
-      AthenaJob result = athenaService.submitQuery(query, Collections.emptyList(), null, "test@example.com")
+      AthenaJob result = athenaService.submitQuery(query, "test@example.com")
           .blockingGet();
 
       assertThat(result).isNotNull();
@@ -130,8 +120,8 @@ class AthenaServiceTest {
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
-      when(athenaJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(athenaClient.submitQuery(anyString(), any())).thenReturn(Single.just(queryExecutionId));
+      when(athenaJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+      when(athenaClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
           .dataScannedInBytes(1000L)
@@ -156,11 +146,11 @@ class AthenaServiceTest {
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(job));
 
-      AthenaJob result = athenaService.submitQuery(query, Collections.emptyList(), timestamp, "test@example.com")
+      AthenaJob result = athenaService.submitQuery(query, "test@example.com")
           .blockingGet();
 
       assertThat(result).isNotNull();
-      verify(athenaJobDao).createJob(anyString(), anyString(), anyString());
+      verify(athenaJobDao).createJob(anyString(), anyString());
     }
 
     @Test
@@ -169,8 +159,8 @@ class AthenaServiceTest {
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
-      when(athenaJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(athenaClient.submitQuery(anyString(), any())).thenReturn(Single.just(queryExecutionId));
+      when(athenaJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+      when(athenaClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
           .dataScannedInBytes(1000L)
@@ -208,7 +198,7 @@ class AthenaServiceTest {
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(job));
 
-      AthenaJob result = athenaService.submitQuery(query, Collections.emptyList(), null, "test@example.com")
+      AthenaJob result = athenaService.submitQuery(query, "test@example.com")
           .blockingGet();
 
       assertThat(result).isNotNull();
@@ -480,8 +470,8 @@ class AthenaServiceTest {
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
-      when(athenaJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(athenaClient.submitQuery(anyString(), any())).thenReturn(Single.just(queryExecutionId));
+      when(athenaJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+      when(athenaClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
           .dataScannedInBytes(1000L)
@@ -516,7 +506,7 @@ class AthenaServiceTest {
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(job));
 
-      AthenaJob result = athenaService.submitQuery(query, Collections.emptyList(), null, "test@example.com")
+      AthenaJob result = athenaService.submitQuery(query, "test@example.com")
           .blockingGet();
 
       assertThat(result).isNotNull();
@@ -727,8 +717,8 @@ class AthenaServiceTest {
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
-      when(athenaJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(athenaClient.submitQuery(anyString(), any())).thenReturn(Single.just(queryExecutionId));
+      when(athenaJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+      when(athenaClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
 
       Instant submissionTime = Instant.now();
       QueryExecutionStatus status = QueryExecutionStatus.builder()
@@ -749,7 +739,7 @@ class AthenaServiceTest {
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(job));
 
-      AthenaJob result = athenaService.submitQuery(query, Collections.emptyList(), null, "test@example.com")
+      AthenaJob result = athenaService.submitQuery(query, "test@example.com")
           .blockingGet();
 
       assertThat(result).isNotNull();
@@ -762,8 +752,8 @@ class AthenaServiceTest {
       String jobId = "job-123";
       String queryExecutionId = "exec-123";
 
-      when(athenaJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
-      when(athenaClient.submitQuery(anyString(), any())).thenReturn(Single.just(queryExecutionId));
+      when(athenaJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+      when(athenaClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
 
       QueryExecutionStatistics stats = QueryExecutionStatistics.builder()
           .dataScannedInBytes(1000L)
@@ -804,7 +794,7 @@ class AthenaServiceTest {
           .build();
       when(athenaJobDao.getJobById(anyString())).thenReturn(Single.just(completedJob));
 
-      AthenaJob result = athenaService.submitQuery(query, Collections.emptyList(), null, "test@example.com")
+      AthenaJob result = athenaService.submitQuery(query, "test@example.com")
           .blockingGet();
 
       assertThat(result).isNotNull();

@@ -211,7 +211,6 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 CREATE TABLE IF NOT EXISTS athena_job (
     job_id VARCHAR(255) PRIMARY KEY,
     query_string TEXT NOT NULL,
-    original_query_string TEXT NOT NULL,
     user_email VARCHAR(255) NOT NULL,
     query_execution_id VARCHAR(255),
     status VARCHAR(50) NOT NULL DEFAULT 'RUNNING',

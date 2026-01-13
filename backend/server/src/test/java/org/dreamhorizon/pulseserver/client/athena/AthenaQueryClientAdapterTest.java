@@ -53,15 +53,14 @@ public class AthenaQueryClientAdapterTest {
     @Test
     void shouldSubmitQuery() {
       String query = "SELECT * FROM table";
-      List<String> parameters = Collections.emptyList();
       String executionId = "exec-123";
 
-      when(athenaClient.submitQuery(query, parameters)).thenReturn(Single.just(executionId));
+      when(athenaClient.submitQuery(query)).thenReturn(Single.just(executionId));
 
-      String result = adapter.submitQuery(query, parameters).blockingGet();
+      String result = adapter.submitQuery(query).blockingGet();
 
       assertThat(result).isEqualTo(executionId);
-      verify(athenaClient).submitQuery(query, parameters);
+      verify(athenaClient).submitQuery(query);
     }
   }
 

@@ -40,16 +40,15 @@ public class AthenaQueryJobDaoAdapterTest {
     @Test
     void shouldCreateJob() {
       String queryString = "SELECT * FROM table";
-      String originalQueryString = queryString;
       String userEmail = "test@example.com";
       String jobId = "job-123";
 
-      when(athenaJobDao.createJob(queryString, originalQueryString, userEmail)).thenReturn(Single.just(jobId));
+      when(athenaJobDao.createJob(queryString, userEmail)).thenReturn(Single.just(jobId));
 
-      String result = adapter.createJob(queryString, originalQueryString, userEmail).blockingGet();
+      String result = adapter.createJob(queryString, userEmail).blockingGet();
 
       assertThat(result).isEqualTo(jobId);
-      verify(athenaJobDao).createJob(queryString, originalQueryString, userEmail);
+      verify(athenaJobDao).createJob(queryString, userEmail);
     }
   }
 
@@ -165,7 +164,6 @@ public class AthenaQueryJobDaoAdapterTest {
       AthenaJob athenaJob = AthenaJob.builder()
           .jobId(jobId)
           .queryString("SELECT * FROM table")
-          .originalQueryString("SELECT * FROM table")
           .userEmail("test@example.com")
           .queryExecutionId("exec-123")
           .status(AthenaJobStatus.COMPLETED)
@@ -216,7 +214,6 @@ public class AthenaQueryJobDaoAdapterTest {
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
               .queryString("SELECT * FROM table")
-              .originalQueryString("SELECT * FROM table")
               .userEmail("test@example.com")
               .status(AthenaJobStatus.SUBMITTED)
               .createdAt(now)
@@ -225,7 +222,6 @@ public class AthenaQueryJobDaoAdapterTest {
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
               .queryString("SELECT * FROM table")
-              .originalQueryString("SELECT * FROM table")
               .userEmail("test@example.com")
               .status(AthenaJobStatus.RUNNING)
               .createdAt(now)
@@ -234,7 +230,6 @@ public class AthenaQueryJobDaoAdapterTest {
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
               .queryString("SELECT * FROM table")
-              .originalQueryString("SELECT * FROM table")
               .userEmail("test@example.com")
               .status(AthenaJobStatus.COMPLETED)
               .createdAt(now)
@@ -243,7 +238,6 @@ public class AthenaQueryJobDaoAdapterTest {
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
               .queryString("SELECT * FROM table")
-              .originalQueryString("SELECT * FROM table")
               .userEmail("test@example.com")
               .status(AthenaJobStatus.FAILED)
               .createdAt(now)
@@ -252,7 +246,6 @@ public class AthenaQueryJobDaoAdapterTest {
           .thenReturn(Single.just(AthenaJob.builder()
               .jobId(jobId)
               .queryString("SELECT * FROM table")
-              .originalQueryString("SELECT * FROM table")
               .userEmail("test@example.com")
               .status(AthenaJobStatus.CANCELLED)
               .createdAt(now)
