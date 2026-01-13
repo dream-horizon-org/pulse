@@ -454,12 +454,17 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   CANCEL_QUERY: {
     key: "CANCEL_QUERY",
-    apiPath: `/v2/cancelQueryRequest`,
-    method: API_METHODS.POST,
+    apiPath: `/query/job`, // DELETE /query/job/{jobId}
+    method: API_METHODS.DELETE,
   },
   GET_QUERY_HISTORY: {
     key: "GET_QUERY_HISTORY",
-    apiPath: `/v2/getQuery/user`,
+    apiPath: `/query/history`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_STATS: {
+    key: "GET_QUERY_STATS",
+    apiPath: `/query/stats`,
     method: API_METHODS.GET,
   },
   GET_SUGGESTED_QUERIES: {
@@ -637,6 +642,11 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_SDK_SCOPES_AND_SDKS: {
     key: "GET_SDK_SCOPES_AND_SDKS",
     apiPath: `/v1/configs/scopes-sdks`,
+    method: API_METHODS.GET,
+  },
+  GET_QUERY_TABLES: {
+    key: "GET_QUERY_TABLES",
+    apiPath: `/query/tables`,
     method: API_METHODS.GET,
   },
 };

@@ -16,6 +16,43 @@ import "mantine-datatable/styles.css";
 // import '@mantine/code-highlight/styles.css';
 // ...
 
+// Suppress ResizeObserver loop error - this is a known harmless error
+// that occurs with dynamic layouts and is safe to ignore
+// https://github.com/WICG/resize-observer/issues/38
+
+// Method 1: Patch ResizeObserver to use requestAnimationFrame
+const OriginalResizeObserver = window.ResizeObserver;
+window.ResizeObserver = class ResizeObserver extends OriginalResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    super((entries, observer) => {
+      window.requestAnimationFrame(() => {
+        try {
+          callback(entries, observer);
+        } catch {
+          // Ignore callback errors
+        }
+      });
+    });
+  }
+};
+
+// Method 2: Suppress the error via event listener
+window.addEventListener("error", (event) => {
+  if (event.message?.includes?.("ResizeObserver") || 
+      event.message?.includes?.("ResizeObserver loop")) {
+    event.stopImmediatePropagation();
+    event.preventDefault();
+    return true;
+  }
+});
+
+// Method 3: Suppress via unhandledrejection
+window.addEventListener("unhandledrejection", (event) => {
+  if (event.reason?.message?.includes?.("ResizeObserver")) {
+    event.preventDefault();
+  }
+});
+
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );

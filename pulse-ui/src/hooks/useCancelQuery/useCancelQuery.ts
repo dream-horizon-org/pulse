@@ -5,37 +5,43 @@ import {
   CancelQueryRequestType,
   CancelQueryResponseType,
 } from "./useCancelQuery.interface";
-import { GetQueryIdErrorResponse } from "../useRunUniversalQuery";
 
-type useCancelQueryProps = Omit<
+type CancelQueryErrorResponse = {
+  error: {
+    message: string;
+    cause?: string;
+  };
+  data: null;
+  status: number;
+};
+
+type UseCancelQueryOptions = Omit<
   UseMutationOptions<
     ApiResponse<CancelQueryResponseType>,
-    GetQueryIdErrorResponse,
+    CancelQueryErrorResponse,
     CancelQueryRequestType
   >,
   "mutationFn" | "mutationKey"
-> &
-  CancelQueryRequestType;
-export const useCancelQuery = ({
-  onSuccess,
-  onError,
-  requestId,
-}: useCancelQueryProps) => {
+>;
+
+/**
+ * Hook to cancel a running query by job ID
+ * Uses DELETE /query/job/{jobId}
+ */
+export const useCancelQuery = (options?: UseCancelQueryOptions) => {
   return useMutation<
     ApiResponse<CancelQueryResponseType>,
-    GetQueryIdErrorResponse,
+    CancelQueryErrorResponse,
     CancelQueryRequestType
   >({
-    mutationKey: [API_ROUTES.GET_QUERY_ID.key, requestId],
-    mutationFn: async (requestBody) =>
+    mutationKey: [API_ROUTES.CANCEL_QUERY.key],
+    mutationFn: async ({ jobId }) =>
       makeRequest<CancelQueryResponseType>({
-        url: `${API_BASE_URL}${API_ROUTES.CANCEL_QUERY.apiPath}`,
+        url: `${API_BASE_URL}${API_ROUTES.CANCEL_QUERY.apiPath}/${jobId}`,
         init: {
-          method: API_ROUTES.GET_QUERY_ID.method,
-          body: JSON.stringify(requestBody),
+          method: API_ROUTES.CANCEL_QUERY.method,
         },
       }),
-    onSuccess,
-    onError,
+    ...options,
   });
 };

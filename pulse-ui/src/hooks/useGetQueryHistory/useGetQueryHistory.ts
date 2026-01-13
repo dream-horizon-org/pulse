@@ -1,46 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
-import { getQueryParamString } from "../../helpers/queryParams";
+import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
 import {
-  GetQueryHistoryQueryParams,
+  GetQueryHistoryParams,
   GetQueryHistoryResponse,
 } from "./useGetQueryHistory.interface";
-import { makeRequest } from "../../helpers/makeRequest";
 
+/**
+ * Hook to fetch query history for the current user
+ * Uses GET /query/history
+ */
 export const useGetQueryHistory = ({
-  queryParams = null,
-}: GetQueryHistoryQueryParams) => {
-  const getQueryHistory = API_ROUTES.GET_QUERY_HISTORY;
-  const filteredQueryParams = filterNonNullParams(queryParams);
+  enabled = true,
+}: GetQueryHistoryParams = {}) => {
+  const apiCall = API_ROUTES.GET_QUERY_HISTORY;
 
-  const searchParams = getQueryParamString(filteredQueryParams);
-
-  return useQuery({
-    queryKey: [getQueryHistory.key],
+  return useQuery<ApiResponse<GetQueryHistoryResponse>>({
+    queryKey: [apiCall.key],
     queryFn: async () => {
       return makeRequest<GetQueryHistoryResponse>({
-        url: `${API_BASE_URL}${getQueryHistory.apiPath}${searchParams}`,
+        url: `${API_BASE_URL}${apiCall.apiPath}`,
         init: {
-          method: getQueryHistory.method,
+          method: apiCall.method,
         },
       });
     },
+    enabled,
     refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // Cache for 30 seconds
   });
 };
-
-function filterNonNullParams(
-  params: GetQueryHistoryQueryParams["queryParams"],
-): Partial<GetQueryHistoryQueryParams["queryParams"]> {
-  if (!params) {
-    return {};
-  }
-
-  // Filter out the entries with null values
-  const filteredEntries = Object.entries(params).filter(
-    ([_, value]) => value !== null,
-  );
-
-  // Rebuild the object without null values
-  return Object.fromEntries(filteredEntries);
-}

@@ -1,6 +1,6 @@
 /**
- * QueryBuilder Component - Improved Version
- * Visual query builder for aggregated queries with JSON support
+ * QueryBuilder Component - Enhanced UX Version
+ * Visual query builder with improved usability and aesthetics
  */
 
 import {
@@ -25,7 +25,10 @@ import {
   SimpleGrid,
   Card,
   ThemeIcon,
+  SegmentedControl,
+  CopyButton,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconCode,
@@ -43,6 +46,15 @@ import {
   IconInfoCircle,
   IconTemplate,
   IconCalendar,
+  IconTable,
+  IconColumns,
+  IconCheck,
+  IconCopy,
+  IconSparkles,
+  IconGripVertical,
+  IconDatabase,
+  IconHash,
+  IconLetterCase,
 } from "@tabler/icons-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 
@@ -61,6 +73,9 @@ import {
   TIME_RANGE_PRESETS,
   QUERY_TEMPLATES,
   enhanceColumns,
+  getAggregationsForColumn,
+  SelectedColumn,
+  QueryMode,
 } from "./QueryBuilder.interface";
 import { generateQuery, validateQueryBuilderState, generateQueryDescription } from "./utils/queryGenerator";
 
@@ -68,6 +83,9 @@ import classes from "./QueryBuilder.module.css";
 
 // Generate unique IDs
 const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+// Popular columns to show as quick-add chips
+const POPULAR_COLUMNS = ["service_name", "severity_text", "trace_id", "span_id", "body"];
 
 export function QueryBuilder({
   tableName,
@@ -92,8 +110,8 @@ export function QueryBuilder({
   // Generate SQL query whenever state changes
   const generatedSql = useMemo(() => {
     if (!tableName || !databaseName) return "";
-    return generateQuery(state, tableName, databaseName);
-  }, [state, tableName, databaseName]);
+    return generateQuery(state, tableName, databaseName, enhancedColumns);
+  }, [state, tableName, databaseName, enhancedColumns]);
 
   // Notify parent whenever generated SQL changes
   useEffect(() => {
@@ -111,11 +129,19 @@ export function QueryBuilder({
     setValidationErrors(errors);
   }, [state]);
 
+  // Check if query is ready
+  const isQueryReady = useMemo(() => {
+    if (state.queryMode === "aggregate") {
+      return state.metrics.length > 0 || state.dimensions.length > 0;
+    }
+    return true; // Select mode always has at least SELECT *
+  }, [state.queryMode, state.metrics.length, state.dimensions.length]);
+
   // Column options for dropdowns
   const columnOptions = useMemo(() => {
     return enhancedColumns.map((col) => ({
       value: col.name,
-      label: `${col.name}`,
+      label: col.name,
       description: col.type,
     }));
   }, [enhancedColumns]);
@@ -125,20 +151,45 @@ export function QueryBuilder({
     return enhancedColumns.filter((col) => col.isJson);
   }, [enhancedColumns]);
 
+  // Get popular columns that exist
+  const availablePopularColumns = useMemo(() => {
+    return POPULAR_COLUMNS.filter(name => 
+      enhancedColumns.some(col => col.name === name)
+    );
+  }, [enhancedColumns]);
+
   // Handlers
   const handleTimeRangeChange = useCallback((preset: string | null) => {
     if (!preset) return;
     setState((prev) => ({
       ...prev,
-      timeRange: { ...prev.timeRange, preset: preset as TimeRangePreset },
+      timeRange: { 
+        ...prev.timeRange, 
+        preset: preset as TimeRangePreset,
+        ...(preset !== "custom" ? { startDate: undefined, endDate: undefined } : {}),
+      },
+    }));
+  }, []);
+
+  const handleStartDateChange = useCallback((date: Date | null) => {
+    setState((prev) => ({
+      ...prev,
+      timeRange: { ...prev.timeRange, startDate: date || undefined },
+    }));
+  }, []);
+
+  const handleEndDateChange = useCallback((date: Date | null) => {
+    setState((prev) => ({
+      ...prev,
+      timeRange: { ...prev.timeRange, endDate: date || undefined },
     }));
   }, []);
 
   // Metric handlers
-  const handleAddMetric = useCallback(() => {
+  const handleAddMetric = useCallback((column?: string) => {
     const newMetric: Metric = {
       id: generateId(),
-      column: "*",
+      column: column || "*",
       aggregation: "COUNT",
     };
     setState((prev) => ({ ...prev, metrics: [...prev.metrics, newMetric] }));
@@ -159,10 +210,10 @@ export function QueryBuilder({
   }, []);
 
   // Dimension handlers
-  const handleAddDimension = useCallback(() => {
+  const handleAddDimension = useCallback((column?: string) => {
     const newDimension: Dimension = {
       id: generateId(),
-      column: enhancedColumns[0]?.name || "",
+      column: column || enhancedColumns[0]?.name || "",
     };
     setState((prev) => ({ ...prev, dimensions: [...prev.dimensions, newDimension] }));
   }, [enhancedColumns]);
@@ -182,10 +233,10 @@ export function QueryBuilder({
   }, []);
 
   // Filter handlers
-  const handleAddFilter = useCallback(() => {
+  const handleAddFilter = useCallback((column?: string) => {
     const newFilter: Filter = {
       id: generateId(),
-      column: enhancedColumns[0]?.name || "",
+      column: column || enhancedColumns[0]?.name || "",
       operator: "equals",
       value: "",
     };
@@ -203,6 +254,37 @@ export function QueryBuilder({
     setState((prev) => ({
       ...prev,
       filters: prev.filters.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+    }));
+  }, []);
+
+  // Query mode handler
+  const handleQueryModeChange = useCallback((mode: string) => {
+    setState((prev) => ({
+      ...prev,
+      queryMode: mode as QueryMode,
+    }));
+  }, []);
+
+  // Selected columns handlers (for select mode)
+  const handleAddSelectedColumn = useCallback((column?: string) => {
+    const newCol: SelectedColumn = {
+      id: generateId(),
+      column: column || enhancedColumns[0]?.name || "",
+    };
+    setState((prev) => ({ ...prev, selectedColumns: [...prev.selectedColumns, newCol] }));
+  }, [enhancedColumns]);
+
+  const handleRemoveSelectedColumn = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedColumns: prev.selectedColumns.filter((c) => c.id !== id),
+    }));
+  }, []);
+
+  const handleSelectedColumnChange = useCallback((id: string, updates: Partial<SelectedColumn>) => {
+    setState((prev) => ({
+      ...prev,
+      selectedColumns: prev.selectedColumns.map((c) => (c.id === id ? { ...c, ...updates } : c)),
     }));
   }, []);
 
@@ -231,6 +313,18 @@ export function QueryBuilder({
     }
   }, []);
 
+  // Get column type icon
+  const getColumnTypeIcon = (type: string) => {
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes("int") || lowerType.includes("double") || lowerType.includes("decimal")) {
+      return <IconHash size={12} />;
+    }
+    if (lowerType.includes("json") || lowerType.includes("map") || lowerType.includes("array")) {
+      return <IconBraces size={12} />;
+    }
+    return <IconLetterCase size={12} />;
+  };
+
   // Render loading skeleton
   if (isLoading) {
     return (
@@ -239,23 +333,26 @@ export function QueryBuilder({
           <Skeleton height={24} width={200} />
         </Box>
         <Stack gap="md" p="md">
-          <Skeleton height={100} />
-          <Skeleton height={100} />
-          <Skeleton height={100} />
+          <Skeleton height={100} radius="md" />
+          <Skeleton height={100} radius="md" />
+          <Skeleton height={100} radius="md" />
         </Stack>
       </Paper>
     );
   }
 
-  // Render column info if no columns
+  // Render empty state if no columns
   if (enhancedColumns.length === 0) {
     return (
       <Paper className={classes.container} withBorder>
         <Box className={classes.header}>
+          <Group gap="xs">
+            <IconDatabase size={18} />
           <Text size="sm" fw={600}>Query Builder</Text>
+          </Group>
         </Box>
         <Box p="xl">
-          <Alert icon={<IconAlertCircle size={16} />} color="orange" variant="light">
+          <Alert icon={<IconAlertCircle size={16} />} color="orange" variant="light" radius="md">
             <Text size="sm">No columns available. Please check if metadata is loaded correctly.</Text>
           </Alert>
         </Box>
@@ -268,30 +365,34 @@ export function QueryBuilder({
       {/* Header */}
       <Box className={classes.header}>
         <Group justify="space-between">
-          <Group gap="xs">
+          <Group gap="sm">
+            <ThemeIcon size="sm" variant="gradient" gradient={{ from: "teal", to: "cyan" }} radius="md">
+              <IconDatabase size={14} />
+            </ThemeIcon>
             <Text size="sm" fw={600}>Query Builder</Text>
-            <Badge size="xs" variant="light" color="teal">
+            <Badge size="xs" variant="light" color="teal" radius="sm">
               {enhancedColumns.length} columns
             </Badge>
             {jsonColumns.length > 0 && (
-              <Badge size="xs" variant="light" color="violet">
+              <Badge size="xs" variant="light" color="violet" radius="sm">
                 {jsonColumns.length} JSON
               </Badge>
             )}
           </Group>
-          <Group gap="xs">
-            <Tooltip label="Quick Templates">
+          <Group gap={6}>
+            <Tooltip label="Quick Templates" position="bottom" withArrow>
               <ActionIcon 
-                variant={showTemplates ? "filled" : "subtle"} 
+                variant={showTemplates ? "gradient" : "subtle"} 
+                gradient={{ from: "teal", to: "cyan" }}
                 size="sm" 
-                color="teal"
+                radius="md"
                 onClick={() => setShowTemplates(!showTemplates)}
               >
                 <IconTemplate size={14} />
               </ActionIcon>
             </Tooltip>
-            <Tooltip label="Reset all">
-              <ActionIcon variant="subtle" size="sm" onClick={handleReset}>
+            <Tooltip label="Reset all" position="bottom" withArrow>
+              <ActionIcon variant="subtle" size="sm" radius="md" onClick={handleReset} color="gray">
                 <IconRefresh size={14} />
               </ActionIcon>
             </Tooltip>
@@ -302,33 +403,89 @@ export function QueryBuilder({
       {/* Templates */}
       <Collapse in={showTemplates}>
         <Box className={classes.templatesSection}>
-          <Text size="xs" fw={600} mb="xs">Quick Start Templates</Text>
+          <Group gap="xs" mb="sm">
+            <IconSparkles size={14} color="var(--mantine-color-teal-6)" />
+            <Text size="xs" fw={600}>Quick Start Templates</Text>
+          </Group>
           <SimpleGrid cols={2} spacing="xs">
             {QUERY_TEMPLATES.map((template) => (
               <Card
                 key={template.id}
                 className={classes.templateCard}
-                padding="xs"
+                padding="sm"
                 withBorder
                 onClick={() => handleApplyTemplate(template.id)}
               >
-                <Text size="xs" fw={500}>{template.name}</Text>
-                <Text size="xs" c="dimmed">{template.description}</Text>
+                <Text size="xs" fw={600}>{template.name}</Text>
+                <Text size="xs" c="dimmed" lineClamp={1}>{template.description}</Text>
               </Card>
             ))}
           </SimpleGrid>
         </Box>
       </Collapse>
 
-      {/* Query Description */}
-      <Box className={classes.descriptionBar}>
-        <Text size="xs" c="dimmed" truncate>
-          {queryDescription}
+      {/* Query Mode Toggle */}
+      <Box className={classes.queryModeSection}>
+        <Group gap="xs" mb={8}>
+          <Text size="xs" fw={600} c="dimmed">Query Type</Text>
+        </Group>
+        <SegmentedControl
+          value={state.queryMode}
+          onChange={handleQueryModeChange}
+          size="xs"
+          fullWidth
+          radius="md"
+          data={[
+            {
+              value: "aggregate",
+              label: (
+                <Group gap={6} justify="center">
+                  <IconChartBar size={14} />
+                  <span>Aggregate</span>
+                </Group>
+              ),
+            },
+            {
+              value: "select",
+              label: (
+                <Group gap={6} justify="center">
+                  <IconTable size={14} />
+                  <span>Select Rows</span>
+                </Group>
+              ),
+            },
+          ]}
+        />
+        <Text size="xs" c="dimmed" mt={6}>
+          {state.queryMode === "aggregate" 
+            ? "Calculate metrics like COUNT, SUM, AVG with optional grouping" 
+            : "Select specific columns from rows without aggregation"}
         </Text>
       </Box>
 
+      {/* Query Description Bar */}
+      <Box className={classes.descriptionBar}>
+        <Box 
+          className={classes.statusIndicator}
+          style={{ 
+            background: isQueryReady ? "#12b886" : "#fab005",
+            boxShadow: isQueryReady 
+              ? "0 0 8px rgba(18, 184, 134, 0.4)" 
+              : "0 0 8px rgba(250, 176, 5, 0.4)"
+          }}
+        />
+        <Text size="xs" c="dimmed" style={{ flex: 1 }} lineClamp={1}>
+          {queryDescription}
+        </Text>
+        {isQueryReady && (
+          <Badge size="xs" variant="light" color="teal">
+            Ready
+          </Badge>
+        )}
+      </Box>
+
       {/* Builder Content */}
-      <ScrollArea h={350} type="auto" offsetScrollbars scrollbarSize={8}>
+      <ScrollArea h={320} type="auto" offsetScrollbars scrollbarSize={6}>
         <Stack gap="md" p="md">
           {/* Validation Errors */}
           {validationErrors.length > 0 && (
@@ -337,6 +494,7 @@ export function QueryBuilder({
               color="red"
               variant="light"
               title="Please fix these issues"
+              radius="md"
             >
               <Stack gap={4}>
                 {validationErrors.map((error, i) => (
@@ -349,11 +507,11 @@ export function QueryBuilder({
           {/* TIME RANGE SECTION */}
           <Box className={classes.section} data-section="time">
             <Group gap="xs" mb="sm">
-              <ThemeIcon size="sm" variant="light" color="blue">
+              <ThemeIcon size="sm" variant="light" color="blue" radius="md">
                 <IconClock size={14} />
               </ThemeIcon>
               <Text size="sm" fw={600}>Time Range</Text>
-              <Badge size="xs" color="red" variant="light">Required</Badge>
+              <Badge size="xs" color="red" variant="light" radius="sm">Required</Badge>
             </Group>
             <Select
               placeholder="Select time range"
@@ -362,180 +520,462 @@ export function QueryBuilder({
               onChange={handleTimeRangeChange}
               leftSection={<IconCalendar size={14} />}
               size="sm"
+              radius="md"
+              mb={state.timeRange.preset === "custom" ? "sm" : 0}
             />
+            
+            {/* Custom Date/Time Pickers */}
+            <Collapse in={state.timeRange.preset === "custom"}>
+              <Stack gap="xs" mt="sm">
+                <Group grow>
+                  <DateTimePicker
+                    label={
+                      <Group gap={4}>
+                        <Text size="xs">Start</Text>
+                        <Text size="xs" c="dimmed">(Local time)</Text>
+                      </Group>
+                    }
+                    placeholder="Select start"
+                    value={state.timeRange.startDate || null}
+                    onChange={handleStartDateChange}
+                    size="xs"
+                    maxDate={state.timeRange.endDate || new Date()}
+                    clearable
+                    valueFormat="MMM D, YYYY HH:mm"
+                  />
+                  <DateTimePicker
+                    label={
+                      <Group gap={4}>
+                        <Text size="xs">End</Text>
+                        <Text size="xs" c="dimmed">(Local time)</Text>
+                      </Group>
+                    }
+                    placeholder="Select end"
+                    value={state.timeRange.endDate || null}
+                    onChange={handleEndDateChange}
+                    size="xs"
+                    minDate={state.timeRange.startDate || undefined}
+                    maxDate={new Date()}
+                    clearable
+                    valueFormat="MMM D, YYYY HH:mm"
+                  />
+                </Group>
+                <Group gap={4}>
+                  <IconInfoCircle size={12} color="var(--mantine-color-dimmed)" />
+                  <Text size="xs" c="dimmed">
+                    Times will be converted to UTC for querying
+                  </Text>
+                </Group>
+              </Stack>
+            </Collapse>
           </Box>
 
-          {/* METRICS SECTION */}
+          {/* SELECT MODE - SELECTED COLUMNS SECTION */}
+          {state.queryMode === "select" && (
+              <Box className={classes.section} data-section="columns">
+                <Group justify="space-between" mb="sm">
+                  <Group gap="xs">
+                    <ThemeIcon size="sm" variant="light" color="cyan" radius="md">
+                      <IconColumns size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={600}>Columns</Text>
+                    <Badge size="xs" variant="light" radius="sm">
+                      {state.selectedColumns.length || "All"}
+                    </Badge>
+                  </Group>
+                  <Button
+                    className={classes.addButton}
+                    variant="light"
+                    size="xs"
+                    color="cyan"
+                    leftSection={<IconPlus size={12} />}
+                    radius="md"
+                    onClick={() => handleAddSelectedColumn()}
+                  >
+                    Add Column
+                  </Button>
+                </Group>
+                
+                {state.selectedColumns.length === 0 ? (
+                  <Box className={classes.emptyState}>
+                    <Box className={classes.emptyStateIcon}>
+                      <IconColumns size={20} color="var(--mantine-color-cyan-6)" />
+                    </Box>
+                    <Text size="xs" c="dimmed" ta="center">
+                      No columns selected — using <Code>SELECT *</Code>
+                    </Text>
+                    <Text size="xs" c="dimmed" ta="center" mt={4}>
+                      Add columns for better performance
+                    </Text>
+                    
+                    {/* Quick add chips */}
+                    {availablePopularColumns.length > 0 && (
+                      <Box className={classes.quickAddContainer}>
+                        <Text size="xs" c="dimmed" mr={4}>Quick add:</Text>
+                        {availablePopularColumns.slice(0, 4).map((col) => (
+                          <Box 
+                            key={col} 
+                            className={classes.quickAddChip}
+                            onClick={() => handleAddSelectedColumn(col)}
+                          >
+                            <IconPlus size={10} />
+                            {col}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                ) : (
+                  <Stack gap="xs">
+                    {state.selectedColumns.map((col, index) => (
+                      <Box key={col.id} className={`${classes.itemRow} ${classes.fadeIn}`}>
+                        <Group gap="xs" wrap="nowrap">
+                          <Box className={classes.dragHandle}>
+                            <IconGripVertical size={14} color="var(--mantine-color-dimmed)" />
+                          </Box>
+                          <Badge size="xs" variant="light" color="gray" circle>
+                            {index + 1}
+                          </Badge>
+                          <Select
+                            placeholder="Select column"
+                            data={columnOptions}
+                            value={col.column}
+                            onChange={(v) => handleSelectedColumnChange(col.id, { column: v || "" })}
+                            size="xs"
+                            radius="md"
+                            style={{ flex: 1 }}
+                            searchable
+                            leftSection={getColumnTypeIcon(enhancedColumns.find(c => c.name === col.column)?.type || "")}
+                          />
+                          {enhancedColumns.find((c) => c.name === col.column)?.isJson && (
+                            <TextInput
+                              placeholder="$.path"
+                              value={col.jsonPath || ""}
+                              onChange={(e) => handleSelectedColumnChange(col.id, { jsonPath: e.target.value })}
+                              size="xs"
+                              radius="md"
+                              w={100}
+                              leftSection={<IconBraces size={12} />}
+                            />
+                          )}
+                          <TextInput
+                            placeholder="Alias"
+                            value={col.alias || ""}
+                            onChange={(e) => handleSelectedColumnChange(col.id, { alias: e.target.value })}
+                            size="xs"
+                            radius="md"
+                            w={80}
+                          />
+                          <Tooltip label="Remove" position="left" withArrow>
+                            <ActionIcon
+                              variant="subtle"
+                              color="red"
+                              size="sm"
+                              radius="md"
+                              onClick={() => handleRemoveSelectedColumn(col.id)}
+                            >
+                              <IconTrash size={14} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+          )}
+
+          {/* AGGREGATE MODE - METRICS SECTION */}
+          {state.queryMode === "aggregate" && (
           <Box className={classes.section} data-section="metrics">
             <Group justify="space-between" mb="sm">
               <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="teal">
+                    <ThemeIcon size="sm" variant="light" color="teal" radius="md">
                   <IconChartBar size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={600}>Metrics (What to Calculate)</Text>
-                <Badge size="xs" variant="light">{state.metrics.length}</Badge>
+                    <Text size="sm" fw={600}>Metrics</Text>
+                    <Badge size="xs" variant="light" radius="sm">{state.metrics.length}</Badge>
               </Group>
               <Button
+                    className={classes.addButton}
                 variant="light"
                 size="xs"
                 leftSection={<IconPlus size={12} />}
-                onClick={handleAddMetric}
+                    radius="md"
+                    onClick={() => handleAddMetric()}
               >
-                Add
+                    Add Metric
               </Button>
             </Group>
             
             {state.metrics.length === 0 ? (
               <Box className={classes.emptyState}>
-                <IconInfoCircle size={20} color="gray" />
-                <Text size="xs" c="dimmed" ta="center" mt="xs">
-                  No metrics yet. Add a metric to calculate values like COUNT, SUM, or AVG.
+                    <Box className={classes.emptyStateIcon}>
+                      <IconChartBar size={20} color="var(--mantine-color-teal-6)" />
+                    </Box>
+                    <Text size="xs" c="dimmed" ta="center">
+                      No metrics yet
                 </Text>
+                    <Text size="xs" c="dimmed" ta="center" mt={4}>
+                      Add COUNT, SUM, AVG, or other aggregations
+                    </Text>
+                    
+                    {/* Quick add chips */}
+                    <Box className={classes.quickAddContainer}>
+                      <Text size="xs" c="dimmed" mr={4}>Quick add:</Text>
+                      <Box 
+                        className={classes.quickAddChip}
+                        onClick={() => handleAddMetric("*")}
+                      >
+                        <IconPlus size={10} />
+                        COUNT(*)
+                      </Box>
+                    </Box>
               </Box>
             ) : (
               <Stack gap="xs">
-                {state.metrics.map((metric) => (
-                  <Box key={metric.id} className={classes.itemRow}>
+                    {state.metrics.map((metric, index) => {
+                      const selectedColumn = metric.column === "*" ? undefined : enhancedColumns.find((c) => c.name === metric.column);
+                      const validAggregations = getAggregationsForColumn(selectedColumn);
+                      const isCurrentAggValid = validAggregations.includes(metric.aggregation);
+                      
+                      return (
+                        <Box key={metric.id} className={`${classes.itemRow} ${classes.fadeIn}`}>
                     <Group gap="xs" wrap="nowrap">
+                            <Box className={classes.dragHandle}>
+                              <IconGripVertical size={14} color="var(--mantine-color-dimmed)" />
+                            </Box>
+                            <Badge size="xs" variant="light" color="gray" circle>
+                              {index + 1}
+                            </Badge>
+                            <Tooltip 
+                              label={!isCurrentAggValid ? `Will cast to numeric type` : undefined}
+                              disabled={isCurrentAggValid}
+                              color="orange"
+                              position="top"
+                              withArrow
+                            >
                       <Select
                         placeholder="Function"
-                        data={AGGREGATION_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                                data={AGGREGATION_OPTIONS.map((o) => ({ 
+                                  value: o.value, 
+                                  label: o.label,
+                                }))}
                         value={metric.aggregation}
                         onChange={(v) => handleMetricChange(metric.id, { aggregation: v as AggregationFunction })}
                         size="xs"
-                        w={110}
-                      />
+                                radius="md"
+                                w={100}
+                                styles={!isCurrentAggValid ? { 
+                                  input: { borderColor: "var(--mantine-color-orange-5)" } 
+                                } : undefined}
+                              />
+                            </Tooltip>
                       <Select
-                        placeholder="Select column"
+                              placeholder="Column"
                         data={[
                           { value: "*", label: "All rows (*)" },
                           ...columnOptions,
                         ]}
                         value={metric.column}
-                        onChange={(v) => handleMetricChange(metric.id, { column: v || "*" })}
+                              onChange={(v) => {
+                                const newColumn = v === "*" ? undefined : enhancedColumns.find(c => c.name === v);
+                                const newValidAggs = getAggregationsForColumn(newColumn);
+                                const updates: Partial<Metric> = { column: v || "*" };
+                                
+                                if (!newValidAggs.includes(metric.aggregation)) {
+                                  updates.aggregation = "COUNT";
+                                }
+                                
+                                handleMetricChange(metric.id, updates);
+                              }}
                         size="xs"
+                              radius="md"
                         style={{ flex: 1 }}
                         searchable
+                              leftSection={metric.column !== "*" ? getColumnTypeIcon(selectedColumn?.type || "") : undefined}
                       />
-                      {enhancedColumns.find((c) => c.name === metric.column)?.isJson && (
+                            {selectedColumn?.isJson && (
                         <TextInput
-                          placeholder="$.field.path"
+                                placeholder="$.path"
                           value={metric.jsonPath || ""}
                           onChange={(e) => handleMetricChange(metric.id, { jsonPath: e.target.value })}
                           size="xs"
-                          w={120}
+                                radius="md"
+                                w={100}
                           leftSection={<IconBraces size={12} />}
                         />
                       )}
+                            <Tooltip label="Remove" position="left" withArrow>
                       <ActionIcon
                         variant="subtle"
                         color="red"
                         size="sm"
+                                radius="md"
                         onClick={() => handleRemoveMetric(metric.id)}
                       >
                         <IconTrash size={14} />
                       </ActionIcon>
+                            </Tooltip>
                     </Group>
                   </Box>
-                ))}
+                      );
+                    })}
               </Stack>
             )}
           </Box>
+          )}
 
-          {/* DIMENSIONS SECTION */}
+          {/* AGGREGATE MODE - DIMENSIONS SECTION */}
+          {state.queryMode === "aggregate" && (
           <Box className={classes.section} data-section="dimensions">
             <Group justify="space-between" mb="sm">
               <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="violet">
+                    <ThemeIcon size="sm" variant="light" color="violet" radius="md">
                   <IconLayoutGrid size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={600}>Group By (Dimensions)</Text>
-                <Badge size="xs" variant="light">{state.dimensions.length}</Badge>
+                    <Text size="sm" fw={600}>Group By</Text>
+                    <Badge size="xs" variant="light" radius="sm">{state.dimensions.length}</Badge>
               </Group>
               <Button
+                    className={classes.addButton}
                 variant="light"
                 size="xs"
                 color="violet"
                 leftSection={<IconPlus size={12} />}
-                onClick={handleAddDimension}
+                    radius="md"
+                    onClick={() => handleAddDimension()}
               >
-                Add
+                    Add Grouping
               </Button>
             </Group>
             
             {state.dimensions.length === 0 ? (
               <Box className={classes.emptyState}>
-                <IconInfoCircle size={20} color="gray" />
-                <Text size="xs" c="dimmed" ta="center" mt="xs">
-                  No grouping. Results will be aggregated into a single row.
+                    <Box className={classes.emptyStateIcon}>
+                      <IconLayoutGrid size={20} color="var(--mantine-color-violet-6)" />
+                    </Box>
+                    <Text size="xs" c="dimmed" ta="center">
+                      No grouping — single aggregated row
                 </Text>
+                    
+                    {/* Quick add chips */}
+                    {availablePopularColumns.length > 0 && (
+                      <Box className={classes.quickAddContainer}>
+                        <Text size="xs" c="dimmed" mr={4}>Group by:</Text>
+                        {availablePopularColumns.slice(0, 3).map((col) => (
+                          <Box 
+                            key={col} 
+                            className={classes.quickAddChip}
+                            onClick={() => handleAddDimension(col)}
+                          >
+                            <IconPlus size={10} />
+                            {col}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
               </Box>
             ) : (
               <Stack gap="xs">
-                {state.dimensions.map((dimension) => (
-                  <Box key={dimension.id} className={classes.itemRow}>
+                    {state.dimensions.map((dimension, index) => (
+                      <Box key={dimension.id} className={`${classes.itemRow} ${classes.fadeIn}`}>
                     <Group gap="xs" wrap="nowrap">
+                          <Box className={classes.dragHandle}>
+                            <IconGripVertical size={14} color="var(--mantine-color-dimmed)" />
+                          </Box>
+                          <Badge size="xs" variant="light" color="gray" circle>
+                            {index + 1}
+                          </Badge>
                       <Select
                         placeholder="Select column"
                         data={columnOptions}
                         value={dimension.column}
                         onChange={(v) => handleDimensionChange(dimension.id, { column: v || "" })}
                         size="xs"
+                            radius="md"
                         style={{ flex: 1 }}
                         searchable
+                            leftSection={getColumnTypeIcon(enhancedColumns.find(c => c.name === dimension.column)?.type || "")}
                       />
                       {enhancedColumns.find((c) => c.name === dimension.column)?.isJson && (
                         <TextInput
-                          placeholder="$.field.path"
+                              placeholder="$.path"
                           value={dimension.jsonPath || ""}
                           onChange={(e) => handleDimensionChange(dimension.id, { jsonPath: e.target.value })}
                           size="xs"
-                          w={120}
+                              radius="md"
+                              w={100}
                           leftSection={<IconBraces size={12} />}
                         />
                       )}
+                          <Tooltip label="Remove" position="left" withArrow>
                       <ActionIcon
                         variant="subtle"
                         color="red"
                         size="sm"
+                              radius="md"
                         onClick={() => handleRemoveDimension(dimension.id)}
                       >
                         <IconTrash size={14} />
                       </ActionIcon>
+                          </Tooltip>
                     </Group>
                   </Box>
                 ))}
               </Stack>
             )}
           </Box>
+          )}
 
           {/* FILTERS SECTION */}
           <Box className={classes.section} data-section="filters">
             <Group justify="space-between" mb="sm">
               <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="orange">
+                <ThemeIcon size="sm" variant="light" color="orange" radius="md">
                   <IconFilter size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={600}>Filters (WHERE)</Text>
-                <Badge size="xs" variant="light">{state.filters.length}</Badge>
+                <Text size="sm" fw={600}>Filters</Text>
+                <Badge size="xs" variant="light" radius="sm">{state.filters.length}</Badge>
               </Group>
               <Button
+                className={classes.addButton}
                 variant="light"
                 size="xs"
                 color="orange"
                 leftSection={<IconPlus size={12} />}
-                onClick={handleAddFilter}
+                radius="md"
+                onClick={() => handleAddFilter()}
               >
-                Add
+                Add Filter
               </Button>
             </Group>
             
             {state.filters.length === 0 ? (
               <Box className={classes.emptyState}>
-                <IconInfoCircle size={20} color="gray" />
-                <Text size="xs" c="dimmed" ta="center" mt="xs">
-                  No filters. All data within the time range will be included.
+                <Box className={classes.emptyStateIcon}>
+                  <IconFilter size={20} color="var(--mantine-color-orange-6)" />
+                </Box>
+                <Text size="xs" c="dimmed" ta="center">
+                  No filters — all data in time range included
                 </Text>
+                
+                {/* Quick add chips */}
+                {availablePopularColumns.length > 0 && (
+                  <Box className={classes.quickAddContainer}>
+                    <Text size="xs" c="dimmed" mr={4}>Filter by:</Text>
+                    {availablePopularColumns.slice(0, 3).map((col) => (
+                      <Box 
+                        key={col} 
+                        className={classes.quickAddChip}
+                        onClick={() => handleAddFilter(col)}
+                      >
+                        <IconPlus size={10} />
+                        {col}
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               </Box>
             ) : (
               <Stack gap="xs">
@@ -544,9 +984,11 @@ export function QueryBuilder({
                   const needsValue = operatorConfig?.requiresValue !== false;
                   
                   return (
-                    <Box key={filter.id} className={classes.itemRow}>
-                      <Group gap={4} mb={4}>
-                        <Text size="xs" c="dimmed">{index === 0 ? "WHERE" : "AND"}</Text>
+                    <Box key={filter.id} className={`${classes.itemRow} ${classes.fadeIn}`}>
+                      <Group gap={4} mb={6}>
+                        <Badge size="xs" variant="light" color="orange">
+                          {index === 0 ? "WHERE" : "AND"}
+                        </Badge>
                       </Group>
                       <Group gap="xs" wrap="nowrap">
                         <Select
@@ -555,8 +997,10 @@ export function QueryBuilder({
                           value={filter.column}
                           onChange={(v) => handleFilterChange(filter.id, { column: v || "" })}
                           size="xs"
-                          w={140}
+                          radius="md"
+                          w={130}
                           searchable
+                          leftSection={getColumnTypeIcon(enhancedColumns.find(c => c.name === filter.column)?.type || "")}
                         />
                         {enhancedColumns.find((c) => c.name === filter.column)?.isJson && (
                           <TextInput
@@ -564,7 +1008,8 @@ export function QueryBuilder({
                             value={filter.jsonPath || ""}
                             onChange={(e) => handleFilterChange(filter.id, { jsonPath: e.target.value })}
                             size="xs"
-                            w={80}
+                            radius="md"
+                            w={70}
                             leftSection={<IconBraces size={10} />}
                           />
                         )}
@@ -574,11 +1019,12 @@ export function QueryBuilder({
                           value={filter.operator}
                           onChange={(v) => handleFilterChange(filter.id, { operator: (v || "equals") as FilterOperator })}
                           size="xs"
-                          w={120}
+                          radius="md"
+                          w={110}
                         />
                         {needsValue && (
                           <TextInput
-                            placeholder="Value"
+                            placeholder={operatorConfig?.isArrayValue ? "val1, val2, ..." : "Value"}
                             value={Array.isArray(filter.value) ? filter.value.join(", ") : filter.value}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -589,17 +1035,21 @@ export function QueryBuilder({
                               }
                             }}
                             size="xs"
+                            radius="md"
                             style={{ flex: 1 }}
                           />
                         )}
+                        <Tooltip label="Remove" position="left" withArrow>
                         <ActionIcon
                           variant="subtle"
                           color="red"
                           size="sm"
+                            radius="md"
                           onClick={() => handleRemoveFilter(filter.id)}
                         >
                           <IconTrash size={14} />
                         </ActionIcon>
+                        </Tooltip>
                       </Group>
                     </Box>
                   );
@@ -611,7 +1061,7 @@ export function QueryBuilder({
           {/* LIMIT SECTION */}
           <Box className={classes.section} data-section="limit">
             <Group gap="sm" align="center">
-              <Text size="sm" fw={500}>Limit Results</Text>
+              <Text size="sm" fw={500}>Limit</Text>
               <NumberInput
                 value={state.limit}
                 onChange={handleLimitChange}
@@ -619,18 +1069,20 @@ export function QueryBuilder({
                 max={10000}
                 step={100}
                 size="xs"
+                radius="md"
                 w={100}
               />
-              <Text size="xs" c="dimmed">rows (max 10,000)</Text>
+              <Text size="xs" c="dimmed">rows</Text>
+              <Text size="xs" c="dimmed" ml="auto">max 10,000</Text>
             </Group>
           </Box>
         </Stack>
       </ScrollArea>
 
-      <Divider />
+      <Divider color="rgba(14, 201, 194, 0.1)" />
 
       {/* SQL Preview */}
-      <Box className={classes.sqlPreview}>
+      <Box className={`${classes.sqlPreview} ${sqlPreviewOpen ? classes.sqlPreviewOpen : ""}`}>
         <Group
           justify="space-between"
           className={classes.sqlPreviewHeader}
@@ -640,15 +1092,38 @@ export function QueryBuilder({
           <Group gap="xs">
             <IconCode size={14} />
             <Text size="xs" fw={600}>Generated SQL</Text>
+            {generatedSql && (
+              <Badge size="xs" variant="light" color="teal">Ready</Badge>
+            )}
           </Group>
+          <Group gap="xs">
+            {generatedSql && (
+              <CopyButton value={generatedSql}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? "Copied!" : "Copy SQL"} position="left" withArrow>
+                    <ActionIcon 
+                      variant="subtle" 
+                      size="xs" 
+                      color={copied ? "teal" : "gray"}
+                      onClick={(e) => { e.stopPropagation(); copy(); }}
+                    >
+                      {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            )}
           <ActionIcon variant="subtle" size="xs">
             {sqlPreviewOpen ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
           </ActionIcon>
+          </Group>
         </Group>
         <Collapse in={sqlPreviewOpen}>
-          <ScrollArea h={120} className={classes.sqlPreviewCode}>
+          <ScrollArea h={100} className={classes.sqlPreviewCode}>
             <Code block className={classes.sqlCode}>
-              {generatedSql || "-- Add metrics or dimensions to generate a query"}
+              {generatedSql || (state.queryMode === "aggregate" 
+                ? "-- Add metrics to generate a query" 
+                : "-- Query will select all columns or add specific columns")}
             </Code>
           </ScrollArea>
         </Collapse>

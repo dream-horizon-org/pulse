@@ -1,11 +1,12 @@
 import { ApiResponse } from "../../helpers/makeRequest";
 
 export type CancelQueryRequestType = {
-  requestId: string;
+  jobId: string;
 };
 
 export type CancelQueryResponseType = {
   success: boolean;
+  message?: string;
 };
 
 export type CancelQueryOnSettledResponse =

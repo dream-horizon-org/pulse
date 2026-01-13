@@ -25,6 +25,7 @@ import {
   IconDatabase,
   IconCopy,
   IconCheck,
+  IconBan,
 } from "@tabler/icons-react";
 import ReactECharts from "echarts-for-react";
 import { useState, useMemo, useEffect } from "react";
@@ -38,6 +39,8 @@ interface QueryResultsProps {
   isLoading: boolean;
   isLoadingMore?: boolean;
   error: string | null;
+  errorCause?: string | null;
+  isCancelled?: boolean;
   onRefresh?: () => void;
   onLoadMore?: () => void;
 }
@@ -48,6 +51,8 @@ export function QueryResults({
   isLoading,
   isLoadingMore = false,
   error,
+  errorCause,
+  isCancelled = false,
   onRefresh,
   onLoadMore,
 }: QueryResultsProps) {
@@ -240,6 +245,36 @@ export function QueryResults({
     );
   }
 
+  // Cancelled state
+  if (isCancelled) {
+    return (
+      <Paper className={classes.container} p="xl" withBorder>
+        <Center className={classes.errorState}>
+          <Stack align="center" gap="md">
+            <IconBan size={48} stroke={1.5} color="var(--mantine-color-orange-5)" />
+            <Stack align="center" gap="xs">
+              <Text size="sm" fw={500} c="orange">Query Cancelled</Text>
+              <Text size="xs" c="dimmed" ta="center" maw={400}>
+                The query was cancelled before completion.
+              </Text>
+            </Stack>
+            {onRefresh && (
+              <Button
+                variant="light"
+                color="teal"
+                size="sm"
+                leftSection={<IconRefresh size={16} />}
+                onClick={onRefresh}
+              >
+                Run Again
+              </Button>
+            )}
+          </Stack>
+        </Center>
+      </Paper>
+    );
+  }
+
   // Error state
   if (error) {
     return (
@@ -252,6 +287,20 @@ export function QueryResults({
               <Text size="xs" c="dimmed" ta="center" maw={400}>
                 {error}
               </Text>
+              {errorCause && (
+                <Box 
+                  p="xs" 
+                  style={{ 
+                    backgroundColor: "var(--mantine-color-gray-1)", 
+                    borderRadius: "var(--mantine-radius-sm)",
+                    maxWidth: 500,
+                  }}
+                >
+                  <Text size="xs" c="dimmed" ta="center" style={{ wordBreak: "break-word" }}>
+                    {errorCause}
+                  </Text>
+                </Box>
+              )}
             </Stack>
             {onRefresh && (
               <Button

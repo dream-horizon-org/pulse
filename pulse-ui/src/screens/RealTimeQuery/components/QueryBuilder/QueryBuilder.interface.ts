@@ -84,11 +84,27 @@ export interface SortConfig {
   direction: SortDirection;
 }
 
+// Query mode - aggregate (with GROUP BY) or select (simple column selection)
+export type QueryMode = "aggregate" | "select";
+
+// Selected column for simple select queries
+export interface SelectedColumn {
+  id: string;
+  column: string;
+  jsonPath?: string;
+  alias?: string;
+}
+
 // Complete query builder state
 export interface QueryBuilderState {
+  queryMode: QueryMode;
   timeRange: TimeRange;
+  // For aggregate mode
   metrics: Metric[];
   dimensions: Dimension[];
+  // For select mode
+  selectedColumns: SelectedColumn[];
+  // Common
   filters: Filter[];
   sortBy?: SortConfig;
   limit: number;
@@ -96,11 +112,13 @@ export interface QueryBuilderState {
 
 // Default state
 export const DEFAULT_QUERY_BUILDER_STATE: QueryBuilderState = {
+  queryMode: "aggregate",
   timeRange: {
     preset: "last_24_hours",
   },
   metrics: [],
   dimensions: [],
+  selectedColumns: [],
   filters: [],
   limit: 1000,
 };
@@ -140,26 +158,59 @@ export interface FilterBuilderProps {
 export interface QueryBuilderProps {
   tableName: string;
   databaseName: string;
-  columns: { name: string; type: string }[];
+  columns: { columnName: string; dataType: string }[];
   /** Called whenever the generated SQL changes */
   onQueryChange: (sql: string) => void;
   isLoading?: boolean;
 }
 
-// Aggregation function display info
+// Column categories that support numeric aggregations
+export const NUMERIC_CATEGORIES: EnhancedColumn["category"][] = ["number"];
+export const ALL_CATEGORIES: EnhancedColumn["category"][] = ["string", "number", "boolean", "timestamp", "json", "other"];
+
+// Aggregation function display info with supported column types
 export const AGGREGATION_OPTIONS: {
   value: AggregationFunction;
   label: string;
   description: string;
   icon: string;
+  supportedCategories: EnhancedColumn["category"][];
+  requiresNumeric: boolean;
 }[] = [
-  { value: "COUNT", label: "Count", description: "Count all rows", icon: "🔢" },
-  { value: "COUNT_DISTINCT", label: "Count Unique", description: "Count unique values", icon: "🎯" },
-  { value: "SUM", label: "Sum", description: "Sum of values", icon: "➕" },
-  { value: "AVG", label: "Average", description: "Average of values", icon: "📊" },
-  { value: "MIN", label: "Minimum", description: "Minimum value", icon: "⬇️" },
-  { value: "MAX", label: "Maximum", description: "Maximum value", icon: "⬆️" },
+  { value: "COUNT", label: "Count", description: "Count all rows", icon: "🔢", supportedCategories: ALL_CATEGORIES, requiresNumeric: false },
+  { value: "COUNT_DISTINCT", label: "Count Unique", description: "Count unique values", icon: "🎯", supportedCategories: ALL_CATEGORIES, requiresNumeric: false },
+  { value: "SUM", label: "Sum", description: "Sum of values", icon: "➕", supportedCategories: NUMERIC_CATEGORIES, requiresNumeric: true },
+  { value: "AVG", label: "Average", description: "Average of values", icon: "📊", supportedCategories: NUMERIC_CATEGORIES, requiresNumeric: true },
+  { value: "MIN", label: "Minimum", description: "Minimum value", icon: "⬇️", supportedCategories: ALL_CATEGORIES, requiresNumeric: false },
+  { value: "MAX", label: "Maximum", description: "Maximum value", icon: "⬆️", supportedCategories: ALL_CATEGORIES, requiresNumeric: false },
 ];
+
+/**
+ * Get available aggregation functions for a column type
+ */
+export function getAggregationsForColumn(column: EnhancedColumn | undefined): AggregationFunction[] {
+  if (!column) {
+    // For "*" or unknown columns, return COUNT options
+    return ["COUNT", "COUNT_DISTINCT"];
+  }
+  
+  return AGGREGATION_OPTIONS
+    .filter(opt => opt.supportedCategories.includes(column.category))
+    .map(opt => opt.value);
+}
+
+/**
+ * Check if an aggregation is valid for a column type
+ */
+export function isAggregationValidForColumn(aggregation: AggregationFunction, column: EnhancedColumn | undefined): boolean {
+  if (!column) {
+    // For "*", only COUNT and COUNT_DISTINCT are valid
+    return aggregation === "COUNT" || aggregation === "COUNT_DISTINCT";
+  }
+  
+  const option = AGGREGATION_OPTIONS.find(opt => opt.value === aggregation);
+  return option ? option.supportedCategories.includes(column.category) : false;
+}
 
 // Filter operator display info
 export const FILTER_OPERATORS: {
@@ -250,12 +301,12 @@ export function categorizeColumnType(type: string): EnhancedColumn["category"] {
 }
 
 // Convert raw columns to enhanced columns
-export function enhanceColumns(columns: { name: string; type: string }[]): EnhancedColumn[] {
+export function enhanceColumns(columns: { columnName: string; dataType: string }[]): EnhancedColumn[] {
   return columns.map((col) => ({
-    name: col.name,
-    type: col.type,
-    isJson: isJsonType(col.type),
-    category: categorizeColumnType(col.type),
+    name: col.columnName,
+    type: col.dataType,
+    isJson: isJsonType(col.dataType),
+    category: categorizeColumnType(col.dataType),
   }));
 }
 

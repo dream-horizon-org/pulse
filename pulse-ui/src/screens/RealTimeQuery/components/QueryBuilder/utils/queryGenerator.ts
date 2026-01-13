@@ -12,16 +12,28 @@
 import {
   QueryBuilderState,
   TimeRange,
+  TimeRangePreset,
   Metric,
   Dimension,
   Filter,
   FilterOperator,
   TIME_RANGE_PRESETS,
   SortConfig,
+  EnhancedColumn,
+  AGGREGATION_OPTIONS,
+  SelectedColumn,
 } from "../QueryBuilder.interface";
 
 // Default timestamp column name
 const TIMESTAMP_COLUMN = "timestamp";
+
+// Partition column names
+const PARTITION_COLUMNS = {
+  year: "year",
+  month: "month",
+  day: "day",
+  hour: "hour",
+};
 
 /**
  * Escape a string value for SQL
@@ -29,6 +41,81 @@ const TIMESTAMP_COLUMN = "timestamp";
 function escapeValue(value: string): string {
   // Escape single quotes by doubling them
   return value.replace(/'/g, "''");
+}
+
+/**
+ * Calculate start date from a time range preset
+ */
+function getStartDateFromPreset(preset: TimeRangePreset): Date {
+  const now = new Date();
+  switch (preset) {
+    case "last_15_minutes":
+      return new Date(now.getTime() - 15 * 60 * 1000);
+    case "last_1_hour":
+      return new Date(now.getTime() - 60 * 60 * 1000);
+    case "last_6_hours":
+      return new Date(now.getTime() - 6 * 60 * 60 * 1000);
+    case "last_24_hours":
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    case "last_7_days":
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case "last_30_days":
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    default:
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  }
+}
+
+/**
+ * Format a date for SQL TIMESTAMP literal (in UTC)
+ */
+function formatDateForSql(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Generate partition-efficient time filter for Athena
+ * Uses tuple comparison for partition pruning + precise timestamp filter
+ * All values are in UTC to match S3 data storage format
+ * 
+ * Example output:
+ *   (year, month, day, hour) >= (2026, 1, 1, 5) AND (year, month, day, hour) <= (2026, 1, 7, 15)
+ *   AND timestamp >= TIMESTAMP '2026-01-01 05:00:00' AND timestamp <= TIMESTAMP '2026-01-07 15:00:00'
+ */
+function generatePartitionTimeFilter(startDate: Date, endDate: Date): string {
+  // Use UTC values to match S3 data storage format
+  const startYear = startDate.getUTCFullYear();
+  const startMonth = startDate.getUTCMonth() + 1;
+  const startDay = startDate.getUTCDate();
+  const startHour = startDate.getUTCHours();
+
+  const endYear = endDate.getUTCFullYear();
+  const endMonth = endDate.getUTCMonth() + 1;
+  const endDay = endDate.getUTCDate();
+  const endHour = endDate.getUTCHours();
+
+  // Tuple comparison for partition columns
+  const partitionTuple = `(${PARTITION_COLUMNS.year}, ${PARTITION_COLUMNS.month}, ${PARTITION_COLUMNS.day}, ${PARTITION_COLUMNS.hour})`;
+  const startTuple = `(${startYear}, ${startMonth}, ${startDay}, ${startHour})`;
+  const endTuple = `(${endYear}, ${endMonth}, ${endDay}, ${endHour})`;
+
+  const conditions: string[] = [];
+
+  // Partition tuple comparison
+  conditions.push(`${partitionTuple} >= ${startTuple}`);
+  conditions.push(`${partitionTuple} <= ${endTuple}`);
+
+  // Precise timestamp filters (always included for accuracy)
+  conditions.push(`${TIMESTAMP_COLUMN} >= TIMESTAMP '${formatDateForSql(startDate)}'`);
+  conditions.push(`${TIMESTAMP_COLUMN} <= TIMESTAMP '${formatDateForSql(endDate)}'`);
+
+  return conditions.join(" AND ");
 }
 
 /**
@@ -47,33 +134,64 @@ function generateColumnRef(column: string, jsonPath?: string): string {
 
 /**
  * Generate the time filter expression for Athena
+ * Uses partition-efficient filtering with (year, month, day, hour) tuple comparisons
  */
 function generateTimeFilter(timeRange: TimeRange): string {
+  let startDate: Date;
+  let endDate: Date;
+
   if (timeRange.preset === "custom") {
     if (timeRange.startDate && timeRange.endDate) {
-      const startStr = timeRange.startDate.toISOString();
-      const endStr = timeRange.endDate.toISOString();
-      return `${TIMESTAMP_COLUMN} >= timestamp '${startStr}' AND ${TIMESTAMP_COLUMN} <= timestamp '${endStr}'`;
+      startDate = timeRange.startDate;
+      endDate = timeRange.endDate;
+    } else {
+      // Fallback to last 24 hours if custom dates not set
+      endDate = new Date();
+      startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
     }
-    // Fallback to last 24 hours if custom dates not set
-    return `${TIMESTAMP_COLUMN} >= date_add('hour', -24, current_timestamp)`;
+  } else {
+    // For preset time ranges, calculate actual dates
+    endDate = new Date();
+    startDate = getStartDateFromPreset(timeRange.preset);
   }
 
-  const preset = TIME_RANGE_PRESETS.find((p) => p.value === timeRange.preset);
-  if (preset) {
-    return `${TIMESTAMP_COLUMN} >= ${preset.athenaExpression}`;
-  }
-
-  // Default fallback
-  return `${TIMESTAMP_COLUMN} >= date_add('hour', -24, current_timestamp)`;
+  return generatePartitionTimeFilter(startDate, endDate);
 }
 
 /**
- * Generate SELECT clause for a metric
+ * Check if a column type requires casting for numeric aggregations
  */
-function generateMetricSelect(metric: Metric): string {
+function requiresNumericCast(columnCategory: EnhancedColumn["category"] | undefined, columnType: string | undefined): boolean {
+  // If it's already a number, no cast needed
+  if (columnCategory === "number") return false;
+  
+  // Check the raw type for numeric types that might not be categorized correctly
+  if (columnType) {
+    const lowerType = columnType.toLowerCase();
+    if (["bigint", "integer", "int", "double", "float", "decimal", "numeric", "long", "smallint", "tinyint"].some(t => lowerType.includes(t))) {
+      return false;
+    }
+  }
+  
+  // All other types need casting
+  return true;
+}
+
+/**
+ * Generate SELECT clause for a metric with type-aware casting
+ */
+function generateMetricSelect(metric: Metric, columnInfo?: EnhancedColumn): string {
   const columnRef = metric.column === "*" ? "*" : generateColumnRef(metric.column, metric.jsonPath);
   const alias = metric.alias || generateMetricAlias(metric);
+  
+  // Determine if we need to cast to numeric
+  const needsCast = metric.column !== "*" && 
+    requiresNumericCast(columnInfo?.category, columnInfo?.type) && 
+    (metric.jsonPath || columnInfo?.category === "string" || columnInfo?.category === "json");
+  
+  // Get aggregation info
+  const aggOption = AGGREGATION_OPTIONS.find(opt => opt.value === metric.aggregation);
+  const requiresNumeric = aggOption?.requiresNumeric ?? false;
   
   switch (metric.aggregation) {
     case "COUNT":
@@ -81,15 +199,27 @@ function generateMetricSelect(metric: Metric): string {
     case "COUNT_DISTINCT":
       return `COUNT(DISTINCT ${columnRef}) AS "${alias}"`;
     case "SUM":
-      // For JSON fields, we need to cast to double
-      const sumCol = metric.jsonPath ? `CAST(${columnRef} AS DOUBLE)` : columnRef;
-      return `SUM(${sumCol}) AS "${alias}"`;
+      // Cast to DOUBLE if column is not numeric
+      if (needsCast || (requiresNumeric && columnInfo?.category !== "number")) {
+        return `SUM(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
+      }
+      return `SUM(${columnRef}) AS "${alias}"`;
     case "AVG":
-      const avgCol = metric.jsonPath ? `CAST(${columnRef} AS DOUBLE)` : columnRef;
-      return `AVG(${avgCol}) AS "${alias}"`;
+      // Cast to DOUBLE if column is not numeric
+      if (needsCast || (requiresNumeric && columnInfo?.category !== "number")) {
+        return `AVG(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
+      }
+      return `AVG(${columnRef}) AS "${alias}"`;
     case "MIN":
+      // MIN/MAX work on strings too (lexicographic), but if user expects numeric, cast it
+      if (requiresNumeric && needsCast) {
+        return `MIN(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
+      }
       return `MIN(${columnRef}) AS "${alias}"`;
     case "MAX":
+      if (requiresNumeric && needsCast) {
+        return `MAX(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
+      }
       return `MAX(${columnRef}) AS "${alias}"`;
     default:
       return `COUNT(${columnRef}) AS "${alias}"`;
@@ -123,6 +253,29 @@ function generateDimensionAlias(dimension: Dimension): string {
     return `${dimension.column}_${dimension.jsonPath.replace(/\$\./g, "").replace(/\./g, "_")}`;
   }
   return dimension.column;
+}
+
+/**
+ * Generate SELECT clause for a selected column (simple select mode)
+ */
+function generateSelectedColumnSelect(col: SelectedColumn): string {
+  const columnRef = generateColumnRef(col.column, col.jsonPath);
+  if (col.alias) {
+    return `${columnRef} AS "${col.alias}"`;
+  }
+  return columnRef;
+}
+
+/**
+ * Generate ORDER BY clause for select mode
+ */
+function generateSelectModeOrderBy(sortBy: SortConfig | undefined, selectedColumns: SelectedColumn[]): string {
+  if (sortBy) {
+    return `ORDER BY "${sortBy.column}" ${sortBy.direction}`;
+  }
+  
+  // Default: order by timestamp DESC for select queries
+  return `ORDER BY "${TIMESTAMP_COLUMN}" DESC`;
 }
 
 /**
@@ -174,15 +327,28 @@ function generateOrderBy(sortBy: SortConfig | undefined, metrics: Metric[]): str
 /**
  * Main query generation function
  * Generates a complete, valid Athena SQL query
+ * Supports both aggregate mode (with GROUP BY) and select mode (simple column selection)
  */
 export function generateQuery(
   state: QueryBuilderState,
   tableName: string,
-  databaseName: string
+  databaseName: string,
+  columns?: EnhancedColumn[]
 ): string {
   const fullTableName = `${databaseName}.${tableName}`;
   
-  // Don't generate query if no metrics and no dimensions are specified
+  // Create a map for quick column lookup
+  const columnMap = new Map<string, EnhancedColumn>();
+  if (columns) {
+    columns.forEach(col => columnMap.set(col.name, col));
+  }
+  
+  // Handle select mode (simple column selection without aggregation)
+  if (state.queryMode === "select") {
+    return generateSelectModeQuery(state, fullTableName);
+  }
+  
+  // Aggregate mode: Don't generate query if no metrics and no dimensions are specified
   if (state.metrics.length === 0 && state.dimensions.length === 0) {
     return "";
   }
@@ -200,12 +366,13 @@ export function generateQuery(
     selectParts.push(generateDimensionSelect(dim));
   });
   
-  // Add metrics
+  // Add metrics with column type information
   state.metrics.forEach((metric) => {
-    selectParts.push(generateMetricSelect(metric));
+    const columnInfo = metric.column === "*" ? undefined : columnMap.get(metric.column);
+    selectParts.push(generateMetricSelect(metric, columnInfo));
   });
 
-  const selectClause = selectParts.join(",\n    ");
+  const selectClause = selectParts.join(", ");
 
   // Build WHERE clause (always includes time filter)
   const whereConditions: string[] = [generateTimeFilter(state.timeRange)];
@@ -218,7 +385,7 @@ export function generateQuery(
     }
   });
 
-  const whereClause = whereConditions.join("\n    AND ");
+  const whereClause = whereConditions.join(" AND ");
 
   // Build GROUP BY clause
   let groupByClause = "";
@@ -233,10 +400,9 @@ export function generateQuery(
   // Build LIMIT clause
   const limitClause = `LIMIT ${state.limit}`;
 
-  // Assemble the query
+  // Assemble the query (no newlines for Athena compatibility)
   const queryParts = [
-    `SELECT`,
-    `    ${selectClause}`,
+    `SELECT ${selectClause}`,
     `FROM ${fullTableName}`,
     `WHERE ${whereClause}`,
   ];
@@ -251,7 +417,53 @@ export function generateQuery(
 
   queryParts.push(limitClause);
 
-  return queryParts.join("\n") + ";";
+  return queryParts.join(" ") + ";";
+}
+
+/**
+ * Generate a SELECT mode query (simple column selection without aggregation)
+ */
+function generateSelectModeQuery(state: QueryBuilderState, fullTableName: string): string {
+  // Build SELECT clause
+  let selectClause: string;
+  
+  if (state.selectedColumns.length === 0) {
+    // If no columns selected, select all
+    selectClause = "*";
+  } else {
+    const selectParts = state.selectedColumns.map((col) => generateSelectedColumnSelect(col));
+    selectClause = selectParts.join(", ");
+  }
+
+  // Build WHERE clause (always includes time filter)
+  const whereConditions: string[] = [generateTimeFilter(state.timeRange)];
+  
+  // Add user filters
+  state.filters.forEach((filter) => {
+    const condition = generateFilterCondition(filter);
+    if (condition) {
+      whereConditions.push(condition);
+    }
+  });
+
+  const whereClause = whereConditions.join(" AND ");
+
+  // Build ORDER BY clause
+  const orderByClause = generateSelectModeOrderBy(state.sortBy, state.selectedColumns);
+
+  // Build LIMIT clause
+  const limitClause = `LIMIT ${state.limit}`;
+
+  // Assemble the query (no newlines for Athena compatibility)
+  const queryParts = [
+    `SELECT ${selectClause}`,
+    `FROM ${fullTableName}`,
+    `WHERE ${whereClause}`,
+    orderByClause,
+    limitClause,
+  ];
+
+  return queryParts.join(" ") + ";";
 }
 
 /**
@@ -269,7 +481,7 @@ function generateSimpleQuery(state: QueryBuilderState, fullTableName: string): s
     }
   });
 
-  const whereClause = whereConditions.join("\n    AND ");
+  const whereClause = whereConditions.join(" AND ");
 
   // If dimensions are specified, group by them
   if (state.dimensions.length > 0) {
@@ -279,14 +491,13 @@ function generateSimpleQuery(state: QueryBuilderState, fullTableName: string): s
     const groupByColumns = state.dimensions.map((dim) => generateColumnRef(dim.column, dim.jsonPath)).join(", ");
     
     return [
-      `SELECT`,
-      `    ${selectParts.join(",\n    ")}`,
+      `SELECT ${selectParts.join(", ")}`,
       `FROM ${fullTableName}`,
       `WHERE ${whereClause}`,
       `GROUP BY ${groupByColumns}`,
       `ORDER BY "count" DESC`,
       `LIMIT ${state.limit};`,
-    ].join("\n");
+    ].join(" ");
   }
 
   // Simple count query
@@ -295,7 +506,7 @@ function generateSimpleQuery(state: QueryBuilderState, fullTableName: string): s
     `FROM ${fullTableName}`,
     `WHERE ${whereClause}`,
     `LIMIT 1;`,
-  ].join("\n");
+  ].join(" ");
 }
 
 /**
@@ -343,19 +554,28 @@ export function validateQueryBuilderState(state: QueryBuilderState): string[] {
     }
   });
 
-  // Validate metrics have columns
-  state.metrics.forEach((metric, index) => {
-    if (!metric.column) {
-      errors.push(`Metric ${index + 1}: Column is required`);
-    }
-  });
+  // Mode-specific validation
+  if (state.queryMode === "select") {
+    // Select mode: validate selected columns
+    state.selectedColumns.forEach((col, index) => {
+      if (!col.column) {
+        errors.push(`Selected column ${index + 1}: Column is required`);
+      }
+    });
+  } else {
+    // Aggregate mode: validate metrics and dimensions
+    state.metrics.forEach((metric, index) => {
+      if (!metric.column) {
+        errors.push(`Metric ${index + 1}: Column is required`);
+      }
+    });
 
-  // Validate dimensions have columns
-  state.dimensions.forEach((dimension, index) => {
-    if (!dimension.column) {
-      errors.push(`Dimension ${index + 1}: Column is required`);
-    }
-  });
+    state.dimensions.forEach((dimension, index) => {
+      if (!dimension.column) {
+        errors.push(`Dimension ${index + 1}: Column is required`);
+      }
+    });
+  }
 
   return errors;
 }
@@ -366,29 +586,45 @@ export function validateQueryBuilderState(state: QueryBuilderState): string[] {
 export function generateQueryDescription(state: QueryBuilderState): string {
   const parts: string[] = [];
 
-  // Metrics
-  if (state.metrics.length > 0) {
-    const metricDescs = state.metrics.map((m) => {
-      const colName = m.jsonPath ? `${m.column}.${m.jsonPath.replace("$.", "")}` : m.column;
-      if (m.aggregation === "COUNT" && m.column === "*") {
-        return "count of all rows";
+  if (state.queryMode === "select") {
+    // Select mode description
+    if (state.selectedColumns.length > 0) {
+      const colNames = state.selectedColumns.map((c) => 
+        c.jsonPath ? `${c.column}.${c.jsonPath.replace("$.", "")}` : c.column
+      );
+      if (colNames.length <= 3) {
+        parts.push(`Select ${colNames.join(", ")}`);
+      } else {
+        parts.push(`Select ${colNames.length} columns`);
       }
-      if (m.aggregation === "COUNT_DISTINCT") {
-        return `count of unique ${colName}`;
-      }
-      return `${m.aggregation.toLowerCase()} of ${colName}`;
-    });
-    parts.push(`Get ${metricDescs.join(", ")}`);
+    } else {
+      parts.push("Select all columns");
+    }
   } else {
-    parts.push("Count rows");
-  }
+    // Aggregate mode description
+    if (state.metrics.length > 0) {
+      const metricDescs = state.metrics.map((m) => {
+        const colName = m.jsonPath ? `${m.column}.${m.jsonPath.replace("$.", "")}` : m.column;
+        if (m.aggregation === "COUNT" && m.column === "*") {
+          return "count of all rows";
+        }
+        if (m.aggregation === "COUNT_DISTINCT") {
+          return `count of unique ${colName}`;
+        }
+        return `${m.aggregation.toLowerCase()} of ${colName}`;
+      });
+      parts.push(`Get ${metricDescs.join(", ")}`);
+    } else {
+      parts.push("Count rows");
+    }
 
-  // Dimensions
-  if (state.dimensions.length > 0) {
-    const dimNames = state.dimensions.map((d) => 
-      d.jsonPath ? `${d.column}.${d.jsonPath.replace("$.", "")}` : d.column
-    );
-    parts.push(`grouped by ${dimNames.join(", ")}`);
+    // Dimensions
+    if (state.dimensions.length > 0) {
+      const dimNames = state.dimensions.map((d) => 
+        d.jsonPath ? `${d.column}.${d.jsonPath.replace("$.", "")}` : d.column
+      );
+      parts.push(`grouped by ${dimNames.join(", ")}`);
+    }
   }
 
   // Time range
@@ -396,7 +632,12 @@ export function generateQueryDescription(state: QueryBuilderState): string {
   if (timePreset && state.timeRange.preset !== "custom") {
     parts.push(`for ${timePreset.label.toLowerCase()}`);
   } else if (state.timeRange.preset === "custom") {
-    parts.push("for custom time range");
+    if (state.timeRange.startDate && state.timeRange.endDate) {
+      const formatDate = (d: Date) => d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      parts.push(`from ${formatDate(state.timeRange.startDate)} to ${formatDate(state.timeRange.endDate)}`);
+    } else {
+      parts.push("for custom time range (select dates)");
+    }
   }
 
   // Filters

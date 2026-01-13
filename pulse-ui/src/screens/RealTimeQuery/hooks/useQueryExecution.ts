@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useSubmitQuery, useGetQueryJobStatus } from "../../../hooks";
+import { useSubmitQuery, useGetQueryJobStatus, useCancelQuery } from "../../../hooks";
 import { QueryResult, QueryExecutionState } from "../RealTimeQuery.interface";
 import { QUERY_POLLING_CONFIG, REALTIME_QUERY_TEXTS } from "../RealTimeQuery.constants";
 import { API_BASE_URL } from "../../../constants";
@@ -38,6 +38,7 @@ export function useQueryExecution(
     status: "idle",
     jobId: null,
     errorMessage: null,
+    errorCause: null,
     pollCount: 0,
   });
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -72,10 +73,12 @@ export function useQueryExecution(
       // Check for error in response
       if (response.error) {
         const errorMessage = response.error?.message || REALTIME_QUERY_TEXTS.SUBMIT_QUERY_ERROR;
+        const errorCause = response.error?.cause || null;
         setExecutionState((prev) => ({
           ...prev,
           status: "failed",
           errorMessage,
+          errorCause,
         }));
         onErrorRef.current?.(errorMessage);
         return;
@@ -88,6 +91,7 @@ export function useQueryExecution(
           ...prev,
           status: "failed",
           errorMessage,
+          errorCause: null,
         }));
         onErrorRef.current?.(errorMessage);
         return;
@@ -122,6 +126,7 @@ export function useQueryExecution(
           status: "failed",
           jobId: data.jobId,
           errorMessage,
+          errorCause: null,
         }));
         onErrorRef.current?.(errorMessage);
       } else {
@@ -133,6 +138,7 @@ export function useQueryExecution(
           status: "polling",
           jobId: data.jobId,
           errorMessage: null,
+          errorCause: null,
           pollCount: 0,
         });
         setShouldPoll(true);
@@ -141,11 +147,13 @@ export function useQueryExecution(
     onError: (error) => {
       if (!isMountedRef.current) return;
       const errorMessage = error?.error?.message || REALTIME_QUERY_TEXTS.SUBMIT_QUERY_ERROR;
+      const errorCause = error?.error?.cause || null;
       console.error("[QueryExecution] Submit error:", errorMessage);
       setExecutionState((prev) => ({
         ...prev,
         status: "failed",
         errorMessage,
+        errorCause,
       }));
       onErrorRef.current?.(errorMessage);
     },
@@ -208,6 +216,7 @@ export function useQueryExecution(
         ...prev,
         status: "failed",
         errorMessage,
+        errorCause: null,
       }));
       onErrorRef.current?.(errorMessage);
       return;
@@ -256,6 +265,7 @@ export function useQueryExecution(
         ...prev,
         status: "failed",
         errorMessage,
+        errorCause: null,
       }));
       onErrorRef.current?.(errorMessage);
     } else if (data.status === "CANCELLED") {
@@ -265,6 +275,7 @@ export function useQueryExecution(
         ...prev,
         status: "cancelled",
         errorMessage: "Query was cancelled",
+        errorCause: null,
       }));
     } else {
       // RUNNING or QUEUED - continue polling
@@ -284,7 +295,15 @@ export function useQueryExecution(
     (query: string) => {
       if (!query.trim()) return;
 
-      console.log("[QueryExecution] Executing query:", query.substring(0, 100) + "...");
+      // Sanitize query: remove newlines and normalize whitespace for Athena compatibility
+      const sanitizedQuery = query
+        .replace(/\r\n/g, " ")  // Replace Windows line endings
+        .replace(/\n/g, " ")    // Replace Unix line endings
+        .replace(/\r/g, " ")    // Replace old Mac line endings
+        .replace(/\s+/g, " ")   // Normalize multiple spaces to single space
+        .trim();
+
+      console.log("[QueryExecution] Executing sanitized query:", sanitizedQuery.substring(0, 100) + "...");
 
       // Reset state
       setResult(null);
@@ -297,26 +316,45 @@ export function useQueryExecution(
         status: "submitting",
         jobId: null,
         errorMessage: null,
+        errorCause: null,
         pollCount: 0,
       });
 
       // Submit the query
       submitMutation.mutate({
-        queryString: query,
+        queryString: sanitizedQuery,
       });
     },
     [submitMutation]
   );
 
+  // Cancel query mutation
+  const cancelMutation = useCancelQuery({
+    onSuccess: () => {
+      console.log("[QueryExecution] Query cancelled successfully via API");
+    },
+    onError: (error) => {
+      console.error("[QueryExecution] Cancel API error:", error);
+      // Still mark as cancelled locally even if API fails
+    },
+  });
+
   const cancelQuery = useCallback(() => {
     console.log("[QueryExecution] Query cancelled by user");
     setShouldPoll(false);
+    
+    // Call the cancel API if we have a job ID
+    if (executionState.jobId) {
+      cancelMutation.mutate({ jobId: executionState.jobId });
+    }
+    
     setExecutionState((prev) => ({
       ...prev,
       status: "cancelled",
       errorMessage: "Query cancelled by user",
+      errorCause: null,
     }));
-  }, []);
+  }, [executionState.jobId, cancelMutation]);
 
   /**
    * Load more results using the nextToken

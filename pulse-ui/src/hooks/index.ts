@@ -32,3 +32,6 @@ export * from "./useGetSpanDetails";
 // Real-time Querying hooks
 export * from "./useQueryMetadata";
 export * from "./useSubmitQuery";
+export * from "./useCancelQuery";
+export * from "./useGetQueryHistory";
+export * from "./useQueryStats";

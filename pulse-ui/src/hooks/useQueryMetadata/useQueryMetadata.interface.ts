@@ -2,18 +2,26 @@
  * Column metadata from the database
  */
 export interface ColumnMetadata {
-  name: string;
-  type: string;
+  columnName: string;
+  dataType: string;
+  ordinalPosition: number;
+  isNullable: string;
 }
 
 /**
- * Table metadata response from the API
+ * Single table metadata from the API
  */
-export interface TableMetadataResponse {
-  databaseName: string;
+export interface TableMetadata {
   tableName: string;
+  tableSchema: string;
+  tableType: string;
   columns: ColumnMetadata[];
 }
+
+/**
+ * Table metadata response from the API - returns array of tables
+ */
+export type TableMetadataResponse = TableMetadata[];
 
 /**
  * Error response for metadata API
@@ -26,4 +34,3 @@ export interface TableMetadataErrorResponse {
   data: null;
   status: number;
 }
-

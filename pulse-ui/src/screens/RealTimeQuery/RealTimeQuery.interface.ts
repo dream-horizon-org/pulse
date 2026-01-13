@@ -6,6 +6,7 @@
 // Re-export types from hooks for convenience
 export type {
   ColumnMetadata,
+  TableMetadata,
   TableMetadataResponse,
 } from "../../hooks/useQueryMetadata";
 
@@ -52,6 +53,7 @@ export interface QueryExecutionState {
   status: QueryExecutionStatus;
   jobId: string | null;
   errorMessage: string | null;
+  errorCause: string | null;
   pollCount: number;
 }
 

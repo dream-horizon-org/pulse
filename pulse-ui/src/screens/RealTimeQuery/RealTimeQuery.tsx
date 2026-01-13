@@ -31,7 +31,7 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconClock,
-  IconPlayerPause,
+  IconBan,
   IconActivity,
   IconCode,
   IconWand,
@@ -43,7 +43,7 @@ import { SqlEditor } from "./components/SqlEditor";
 import { QueryResults } from "./components/QueryResults";
 import { QueryBuilder } from "./components/QueryBuilder";
 
-import { QueryResult, VisualizationConfig, ColumnMetadata } from "./RealTimeQuery.interface";
+import { QueryResult, VisualizationConfig, ColumnMetadata, TableMetadata } from "./RealTimeQuery.interface";
 import { useQueryExecution } from "./hooks";
 import { useQueryMetadata } from "../../hooks";
 
@@ -67,6 +67,18 @@ export function RealTimeQuery() {
   const [sqlQuery, setSqlQuery] = useState<string>("");
   // Builder generated SQL (for Builder mode)
   const [builderSql, setBuilderSql] = useState<string>("");
+
+  // Handle mode change - copy builder SQL to editor when switching to SQL mode
+  const handleModeChange = useCallback((value: string) => {
+    const newMode = value as QueryMode;
+    
+    // When switching from builder to SQL, copy the generated SQL
+    if (queryMode === "builder" && newMode === "sql" && builderSql) {
+      setSqlQuery(builderSql);
+    }
+    
+    setQueryMode(newMode);
+  }, [queryMode, builderSql]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Always use table view
@@ -109,10 +121,11 @@ export function RealTimeQuery() {
     },
   });
 
-  // Extract metadata
-  const tableMetadata = metadataResponse?.data;
+  // Extract metadata - API returns array of tables, use the first one
+  const tables = metadataResponse?.data || [];
+  const tableMetadata: TableMetadata | undefined = tables[0];
   const tableName = tableMetadata?.tableName || "";
-  const databaseName = tableMetadata?.databaseName || "";
+  const databaseName = tableMetadata?.tableSchema || "";
   const fullTableName = tableName ? `${databaseName}.${tableName}` : "";
 
   // Memoize columns to avoid dependency issues
@@ -124,7 +137,7 @@ export function RealTimeQuery() {
   const filteredColumns = useMemo(() => {
     if (!searchQuery.trim()) return columns;
     const query = searchQuery.toLowerCase();
-    return columns.filter((col) => col.name.toLowerCase().includes(query));
+    return columns.filter((col) => col.columnName.toLowerCase().includes(query));
   }, [columns, searchQuery]);
 
   // Handlers
@@ -160,7 +173,10 @@ export function RealTimeQuery() {
   }, [cancelQuery]);
 
   const canRunQuery = queryMode === "sql" ? sqlQuery.trim().length > 0 : builderSql.trim().length > 0;
-  const isRunning = executionState.status === "submitting" || executionState.status === "polling";
+  const isSubmitting = executionState.status === "submitting";
+  const isPolling = executionState.status === "polling";
+  const isRunning = isSubmitting || isPolling;
+  const canCancel = isPolling && !!executionState.jobId;
 
   // Get status message
   const getStatusMessage = () => {
@@ -193,7 +209,7 @@ export function RealTimeQuery() {
             {/* Mode Toggle */}
             <SegmentedControl
               value={queryMode}
-              onChange={(value) => setQueryMode(value as QueryMode)}
+              onChange={handleModeChange}
               data={[
                 {
                   value: "builder",
@@ -224,7 +240,16 @@ export function RealTimeQuery() {
               </ActionIcon>
             </Tooltip>
             
-            {isRunning ? (
+            {isSubmitting ? (
+              <Button
+                color="gray"
+                leftSection={<Loader size={16} color="white" />}
+                size="sm"
+                disabled
+              >
+                Submitting...
+              </Button>
+            ) : canCancel ? (
               <Button
                 color="red"
                 leftSection={<IconPlayerStop size={16} />}
@@ -343,7 +368,7 @@ export function RealTimeQuery() {
                         </Text>
                       ) : (
                         filteredColumns.map((column: ColumnMetadata) => (
-                          <CopyButton key={column.name} value={column.name}>
+                          <CopyButton key={column.columnName} value={column.columnName}>
                             {({ copied, copy }) => (
                               <Tooltip
                                 label={copied ? "Copied!" : "Click to copy"}
@@ -356,10 +381,10 @@ export function RealTimeQuery() {
                                 >
                                   <Group gap="xs" wrap="nowrap" justify="space-between">
                                     <Text size="xs" fw={500} truncate style={{ flex: 1 }}>
-                                      {column.name}
+                                      {column.columnName}
                                     </Text>
-                                    <Badge size="xs" variant="light" color={getTypeColor(column.type)}>
-                                      {column.type}
+                                    <Badge size="xs" variant="light" color={getTypeColor(column.dataType)}>
+                                      {column.dataType}
                                     </Badge>
                                   </Group>
                                 </Box>
@@ -442,7 +467,7 @@ export function RealTimeQuery() {
                       {isRunning && <Loader size={24} color="white" />}
                       {executionState.status === "completed" && <IconCircleCheck size={24} />}
                       {executionState.status === "failed" && <IconCircleX size={24} />}
-                      {executionState.status === "cancelled" && <IconPlayerPause size={24} />}
+                      {executionState.status === "cancelled" && <IconBan size={24} />}
                     </Box>
                   </Box>
                   
@@ -556,7 +581,9 @@ export function RealTimeQuery() {
           visualization={visualization}
           isLoading={isQueryLoading}
           isLoadingMore={isLoadingMore}
-          error={executionState.errorMessage}
+          error={executionState.status === "cancelled" ? null : executionState.errorMessage}
+          errorCause={executionState.status === "cancelled" ? null : executionState.errorCause}
+          isCancelled={executionState.status === "cancelled"}
           onRefresh={handleRunQuery}
           onLoadMore={loadMore}
         />

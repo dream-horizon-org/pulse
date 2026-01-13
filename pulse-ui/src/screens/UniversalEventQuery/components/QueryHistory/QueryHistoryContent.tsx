@@ -1,17 +1,17 @@
-import { useGetQueryHistory } from "../../../../hooks/useGetQueryHistory";
-import { getCookies } from "../../../../helpers/cookies";
-import { COOKIES_KEY } from "../../../../constants";
+import { useGetQueryHistory, QueryHistoryItem } from "../../../../hooks/useGetQueryHistory";
 import { QueryList } from "../QueryList";
 
 export const QueryHistoryContent: React.FC = () => {
-  const { data: response, isLoading } = useGetQueryHistory({
-    queryParams: { emailId: getCookies(COOKIES_KEY.USER_EMAIL) || "" },
-  });
+  const { data: response, isLoading } = useGetQueryHistory();
 
-  const data: string[] = response?.data?.queries || [];
+  const queries: QueryHistoryItem[] = response?.data?.queries || [];
 
-  const resolvedData = (data || []).map((query) => ({
-    query,
+  // Transform QueryHistoryItem[] to the format expected by QueryList
+  const resolvedData = queries.map((item) => ({
+    query: item.query,
+    queryId: item.queryId,
+    status: item.status,
+    submittedAt: item.submittedAt,
   }));
 
   return (

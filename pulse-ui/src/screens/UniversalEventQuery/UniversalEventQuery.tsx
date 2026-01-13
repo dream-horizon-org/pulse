@@ -221,7 +221,7 @@ export const UniversalEventQuery = () => {
     }
   };
 
-  const handleCancelQueryError = (error: GetQueryIdErrorResponse) => {
+  const handleCancelQueryError = (error: { error: { message: string; cause?: string } }) => {
     if (error.error) {
       handleNotification({
         type: NotificationTypes.ERROR,
@@ -243,7 +243,6 @@ export const UniversalEventQuery = () => {
     useCancelQuery({
       onSuccess: handleCancelQuerySuccess,
       onError: handleCancelQueryError,
-      requestId: queryRequestId ?? "",
     });
 
   const { mutate: runQuery } = useRunUniversalQuery({
@@ -302,7 +301,7 @@ export const UniversalEventQuery = () => {
   const disableAction = !query.length || isRunningQuery || isValidatingQuery;
 
   const handleCancelQuery = () => {
-    if (queryRequestId) cancelQuery({ requestId: queryRequestId });
+    if (queryRequestId) cancelQuery({ jobId: queryRequestId });
   };
 
   const handleExecuteQuery = () => {
