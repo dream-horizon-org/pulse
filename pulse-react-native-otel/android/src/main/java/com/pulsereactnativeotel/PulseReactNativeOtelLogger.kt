@@ -6,7 +6,7 @@ import com.facebook.react.bridge.ReadableType
 import com.pulse.android.sdk.PulseSDK
 import com.pulse.semconv.PulseAttributes
 
-object PulseReactNativeOtelLogger {
+internal object PulseReactNativeOtelLogger {
 
     fun trackEvent(
         event: String,

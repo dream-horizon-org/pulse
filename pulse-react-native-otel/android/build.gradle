@@ -68,6 +68,10 @@ android {
   }
 }
 
+kotlin {
+  explicitApi()
+}
+
 repositories {
   mavenCentral()
   google()

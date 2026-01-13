@@ -1,6 +1,7 @@
 package pulsereactnativeotel.example
 
 import android.app.Application
+import android.util.Log
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -12,8 +13,6 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.pulsereactnativeotel.Pulse
 import io.opentelemetry.android.instrumentation.AndroidInstrumentationLoader
 import io.opentelemetry.instrumentation.library.okhttp.v3_0.OkHttpInstrumentation
-import android.util.Log
-import pulsereactnativeotel.example.NativePulseExamplePackage
 
 class MainApplication : Application(), ReactApplication {
 

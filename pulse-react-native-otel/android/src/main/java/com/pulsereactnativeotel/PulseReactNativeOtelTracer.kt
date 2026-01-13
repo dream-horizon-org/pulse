@@ -13,7 +13,7 @@ import io.opentelemetry.context.Scope
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-object PulseReactNativeOtelTracer {
+internal object PulseReactNativeOtelTracer {
 
     private val tracer: Tracer by lazy {
         PulseSDK.INSTANCE.getOtelOrThrow()

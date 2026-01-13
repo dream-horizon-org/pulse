@@ -16,7 +16,7 @@ import com.pulse.sampling.models.PulseFeatureName
 import kotlinx.serialization.json.Json
 
 @ReactModule(name = PulseReactNativeOtelModule.NAME)
-class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
+internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
   NativePulseReactNativeOtelSpec(reactContext) {
 
   override fun getName(): String {
@@ -118,10 +118,10 @@ class PulseReactNativeOtelModule(reactContext: ReactApplicationContext) :
             if (featureConfig.featureName == PulseFeatureName.UNKNOWN) {
               return@forEach
             }
-            
+
             val featureNameStr = featureConfig.featureName.name.lowercase()
             val isEnabled = featureConfig.sessionSampleRate > 0F
-            
+
             features.putBoolean(featureNameStr, isEnabled)
           }
         }

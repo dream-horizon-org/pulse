@@ -1,6 +1,6 @@
 package com.pulsereactnativeotel
 
-object PulseOtelConstants {
+internal object PulseOtelConstants {
   const val INSTRUMENTATION_SCOPE = "com.pulsereactnativeotel"
 
   const val ATTR_ERROR_FATAL = "error.fatal"
