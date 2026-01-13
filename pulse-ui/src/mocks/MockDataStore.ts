@@ -8,7 +8,7 @@
 import { MockDataStore as IMockDataStore } from "./types";
 
 // SDK Config types matching the PulseConfig schema
-type SdkEnum = 'pulse_android_java' | 'pulse_android_rn' | 'pulse_ios_swift' | 'pulse_ios_rn';
+type SdkEnum = 'android_native' | 'android_rn' | 'ios_native' | 'ios_rn';
 type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
 type FilterMode = 'blacklist' | 'whitelist';
 type SamplingMatchType = 'app_version_min' | 'app_version_max';
@@ -134,7 +134,7 @@ export class MockDataStore {
             name: 'test_event',
             props: [{ name: 'user_id', value: '.*test.*' }],
             scope: ['logs', 'traces'],
-            sdks: ['pulse_android_java', 'pulse_ios_swift'],
+            sdks: ['android_native', 'ios_native'],
           },
         ],
         blacklist: [
@@ -143,14 +143,14 @@ export class MockDataStore {
             name: 'sensitive_event',
             props: [{ name: 'contains_pii', value: 'true' }],
             scope: ['logs', 'traces', 'metrics'],
-            sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+            sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
           },
           {
             id: generateId(),
             name: 'debug_log',
             props: [{ name: 'level', value: 'debug' }],
             scope: ['logs'],
-            sdks: ['pulse_android_java', 'pulse_ios_swift'],
+            sdks: ['android_native', 'ios_native'],
           },
         ],
       },
@@ -162,7 +162,7 @@ export class MockDataStore {
             name: 'high_value_users',
             match: {
               type: 'app_version_min',
-              sdks: ['pulse_android_java', 'pulse_ios_swift'],
+              sdks: ['android_native', 'ios_native'],
               app_version_min_inclusive: '2.0.0',
             },
             session_sample_rate: 1.0,
@@ -172,7 +172,7 @@ export class MockDataStore {
             name: 'legacy_users',
             match: {
               type: 'app_version_max',
-              sdks: ['pulse_android_java', 'pulse_android_rn'],
+              sdks: ['android_native', 'android_rn'],
               app_version_max_inclusive: '1.5.0',
             },
             session_sample_rate: 0.1,
@@ -216,25 +216,25 @@ export class MockDataStore {
           id: generateId(),
           featureName: 'crash_reporting',
           session_sample_rate: 1.0,
-          sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'network_monitoring',
           session_sample_rate: 0.8,
-          sdks: ['pulse_android_java', 'pulse_android_rn', 'pulse_ios_swift', 'pulse_ios_rn'],
+          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
         },
         {
           id: generateId(),
           featureName: 'performance_monitoring',
           session_sample_rate: 0.6,
-          sdks: ['pulse_android_java', 'pulse_ios_swift'],
+          sdks: ['android_native', 'ios_native'],
         },
         {
           id: generateId(),
           featureName: 'user_interaction_tracking',
           session_sample_rate: 0.0,
-          sdks: ['pulse_android_java', 'pulse_ios_swift'],
+          sdks: ['android_native', 'ios_native'],
         },
       ],
     };
