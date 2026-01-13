@@ -41,16 +41,17 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
     enabled: screensEnabled,
   });
 
-  // Network APIs
+  // Network APIs - fetch both method and url for {method}_{url} format
   const networkEnabled = enabled && scopeType === AlertScopeType.NetworkAPI;
   const networkRequestBody = useMemo((): DataQueryRequestBody => ({
     dataType: "TRACES",
     timeRange: { start: timeRange.start, end: timeRange.end },
     select: [
+      { function: "COL", param: { field: "SpanAttributes['http.method']" }, alias: "method" },
       { function: "COL", param: { field: "SpanAttributes['http.url']" }, alias: "url" },
       { function: "CUSTOM", param: { expression: "COUNT()" }, alias: "count" },
     ],
-    groupBy: ["url"],
+    groupBy: ["method", "url"],
     orderBy: [{ field: "count", direction: "DESC" }],
     limit,
     filters: [{ field: "PulseType", operator: "LIKE", value: ["network%"] }],
@@ -71,10 +72,16 @@ export const useAlertScopeItems = ({ scopeType, searchStr = "", enabled = true }
       return screenNames.slice(0, limit).map((name) => ({ id: name, name, displayLabel: name }));
     }
     if (scopeType === AlertScopeType.NetworkAPI && networkData?.data?.rows) {
+      const methodIdx = networkData.data.fields.indexOf("method");
       const urlIdx = networkData.data.fields.indexOf("url");
       return networkData.data.rows.slice(0, limit).map((row) => {
+        const method = String(row[methodIdx] || "get").toLowerCase();
         const url = String(row[urlIdx] || "");
-        return { id: url, name: url, displayLabel: url };
+        // Format: {method}_{url} (e.g., "get_https://www.fancode.com/graphql")
+        const scopeName = `${method}_${url}`;
+        // Display label shows method in uppercase prefix
+        const displayLabel = `[${method.toUpperCase()}] ${url}`;
+        return { id: scopeName, name: scopeName, displayLabel };
       });
     }
     return [];

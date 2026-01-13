@@ -181,7 +181,50 @@ export class DataQueryMockGeneratorV2 {
       );
       return response;
     } else if (hasTimeBucket) {
-      // Time-series data
+      // Check if this is a network time series query
+      const hasNetworkFilterTimeSeries = filters?.some(
+        (f) =>
+          f.field === "PulseType" &&
+          f.operator === "LIKE" &&
+          Array.isArray(f.value) &&
+          f.value
+            .map((v) => String(v).toLowerCase())
+            .some((v: string) => v.includes("network")),
+      );
+
+      // Check for status code time series (TIME_BUCKET + status_code groupBy)
+      const isStatusCodeTimeSeriesQuery =
+        hasNetworkFilterTimeSeries &&
+        groupBy?.includes("status_code") &&
+        groupBy?.includes("t1");
+
+      // Check for method time series (TIME_BUCKET + http_method groupBy)
+      const isMethodTimeSeriesQuery =
+        hasNetworkFilterTimeSeries &&
+        groupBy?.includes("http_method") &&
+        groupBy?.includes("t1");
+
+      if (isStatusCodeTimeSeriesQuery) {
+        const response = this.generateStatusCodeTimeSeriesResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated status code time-series response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      if (isMethodTimeSeriesQuery) {
+        const response = this.generateMethodTimeSeriesResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated method time-series response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Generic time-series data
       const response = this.generateTimeSeriesResponse(requestBody);
       console.log(
         "[DataQueryMockV2] Generated time-series response:",
@@ -217,14 +260,53 @@ export class DataQueryMockGeneratorV2 {
         hasNetworkFilter &&
         (groupBy?.includes("status_code") || groupBy?.includes("error_type")) &&
         !groupBy?.includes("method") &&
+        !groupBy?.includes("url") &&
+        !groupBy?.includes("http_method"); // Exclude method distribution
+
+      // Check if this is a STATUS CODE DISTRIBUTION query (groups by status_code only, has url filter)
+      const urlFilter = filters?.find(
+        (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+      );
+      const isStatusCodeDistributionQuery =
+        hasNetworkFilter &&
+        urlFilter &&
+        groupBy?.includes("status_code") &&
+        !groupBy?.includes("error_type") &&
+        !groupBy?.includes("method") &&
         !groupBy?.includes("url");
+
+      // Check if this is a METHOD DISTRIBUTION query (groups by http_method, has url filter)
+      const isMethodDistributionQuery =
+        hasNetworkFilter &&
+        urlFilter &&
+        groupBy?.includes("http_method") &&
+        !groupBy?.includes("status_code") &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("url");
+
+      // Check if this is a NETWORK METRICS query (groups by url only, HAS url filter - for specific URL)
+      // This is used by the Network Detail page to get aggregated metrics for a specific URL
+      const isNetworkMetricsQuery =
+        hasNetworkFilter &&
+        urlFilter &&
+        groupBy?.includes("url") &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("status_code") &&
+        !groupBy?.includes("http_method");
+
+      // Check if this is a NETWORK LIST query (groups by url only, NO url filter - returns all URLs)
+      // This is used by the Network List page to show all network APIs
+      const isNetworkListByUrlQuery =
+        hasNetworkFilter &&
+        !urlFilter &&
+        groupBy?.includes("url") &&
+        !groupBy?.includes("method") &&
+        !groupBy?.includes("status_code") &&
+        !groupBy?.includes("http_method");
 
       // Check if this is a network DETAIL query (has specific method and url filters, groups by method/url)
       const methodFilter = filters?.find(
         (f) => f.field === "SpanAttributes['http.method']" && f.operator === "EQ",
-      );
-      const urlFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
       );
       const isNetworkDetailQuery =
         hasNetworkFilter &&
@@ -245,10 +327,58 @@ export class DataQueryMockGeneratorV2 {
         methodFilter: !!methodFilter,
         urlFilter: !!urlFilter,
         isNetworkErrorBreakdownQuery,
+        isStatusCodeDistributionQuery,
+        isMethodDistributionQuery,
+        isNetworkMetricsQuery,
+        isNetworkListByUrlQuery,
         isNetworkDetailQuery,
         isNetworkListQuery,
         groupBy,
       });
+
+      // Handle network list query (for Network List page - all URLs without specific filter)
+      if (isNetworkListByUrlQuery) {
+        const response = this.generateNetworkListByUrlResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated network list (by URL) response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Handle network metrics query (for Network Detail page - aggregated metrics for a URL)
+      if (isNetworkMetricsQuery) {
+        const response = this.generateNetworkMetricsResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated network metrics response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Handle status code distribution query (for StatusCodeDistribution component)
+      if (isStatusCodeDistributionQuery) {
+        const response = this.generateStatusCodeDistributionResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated status code distribution response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
+
+      // Handle method distribution query (for MethodDistribution component)
+      if (isMethodDistributionQuery) {
+        const response = this.generateMethodDistributionResponse(requestBody);
+        console.log(
+          "[DataQueryMockV2] Generated method distribution response:",
+          response.rows.length,
+          "rows",
+        );
+        return response;
+      }
 
       // Handle network error breakdown query FIRST (has method/url filters but groups by status_code)
       if (isNetworkErrorBreakdownQuery) {
@@ -1631,7 +1761,7 @@ export class DataQueryMockGeneratorV2 {
       "pulse.screen.name": "HomeScreen",
       "pulse.session.id": "session-abc-123",
       "http.method": "GET",
-      "http.url": "https://api.example.com/v1/user/profile",
+      "http.url": "https://api.fancode.com/v1/user/profile",
       "http.status_code": "200",
       "http.response_content_length": "2458",
       "http.request_content_length": "0",
@@ -2503,16 +2633,16 @@ export class DataQueryMockGeneratorV2 {
         "OrderListScreen",
       ],
       url: [
-        "https://api.example.com/v1/users",
-        "https://api.example.com/v1/products",
-        "https://api.example.com/v1/orders",
-        "https://api.example.com/v1/payments",
-        "https://api.example.com/v1/auth/login",
-        "https://api.example.com/v1/cart",
-        "https://api.example.com/v1/search",
-        "https://api.example.com/v1/notifications",
-        "https://api.example.com/v1/analytics",
-        "https://api.example.com/v1/profile",
+        "https://api.fancode.com/v1/contests/live",
+        "https://api.fancode.com/v1/contests/upcoming",
+        "https://api.fancode.com/v1/teams/my-teams",
+        "https://api.fancode.com/v1/players/list",
+        "https://api.fancode.com/v1/matches/live-score",
+        "https://api.fancode.com/v1/user/profile",
+        "https://api.fancode.com/v1/notifications/list",
+        "https://www.fancode.com/graphql",
+        "https://api.fancode.com/v1/auth/refresh",
+        "https://api.fancode.com/v1/config/app",
       ],
     };
 
@@ -2630,26 +2760,28 @@ export class DataQueryMockGeneratorV2 {
     // Extract fields
     const fields: string[] = select.map((s) => s.alias);
 
-    // Fantasy sports specific network APIs
+    // Fantasy sports specific network APIs with complete URLs
     const networkApis = [
-      { method: "GET", url: "/api/v1/contests/live" },
-      { method: "GET", url: "/api/v1/contests/upcoming" },
-      { method: "POST", url: "/api/v1/contests/join" },
-      { method: "GET", url: "/api/v1/teams/my-teams" },
-      { method: "POST", url: "/api/v1/teams/create" },
-      { method: "PUT", url: "/api/v1/teams/update" },
-      { method: "GET", url: "/api/v1/players/list" },
-      { method: "GET", url: "/api/v1/players/stats" },
-      { method: "GET", url: "/api/v1/matches/live-score" },
-      { method: "GET", url: "/api/v1/matches/schedule" },
-      { method: "GET", url: "/api/v1/user/profile" },
-      { method: "GET", url: "/api/v1/user/wallet" },
-      { method: "POST", url: "/api/v1/wallet/deposit" },
-      { method: "POST", url: "/api/v1/wallet/withdraw" },
-      { method: "GET", url: "/api/v1/leaderboard/global" },
-      { method: "GET", url: "/api/v1/leaderboard/contest" },
-      { method: "GET", url: "/api/v1/notifications/list" },
-      { method: "POST", url: "/api/v1/auth/refresh" },
+      { method: "GET", url: "https://api.fancode.com/v1/contests/live" },
+      { method: "GET", url: "https://api.fancode.com/v1/contests/upcoming" },
+      { method: "POST", url: "https://api.fancode.com/v1/contests/join" },
+      { method: "GET", url: "https://api.fancode.com/v1/teams/my-teams" },
+      { method: "POST", url: "https://api.fancode.com/v1/teams/create" },
+      { method: "PUT", url: "https://api.fancode.com/v1/teams/update" },
+      { method: "GET", url: "https://api.fancode.com/v1/players/list" },
+      { method: "GET", url: "https://api.fancode.com/v1/players/stats" },
+      { method: "GET", url: "https://api.fancode.com/v1/matches/live-score" },
+      { method: "GET", url: "https://api.fancode.com/v1/matches/schedule" },
+      { method: "GET", url: "https://api.fancode.com/v1/user/profile" },
+      { method: "GET", url: "https://api.fancode.com/v1/user/wallet" },
+      { method: "POST", url: "https://api.fancode.com/v1/wallet/deposit" },
+      { method: "POST", url: "https://api.fancode.com/v1/wallet/withdraw" },
+      { method: "GET", url: "https://api.fancode.com/v1/leaderboard/global" },
+      { method: "GET", url: "https://api.fancode.com/v1/leaderboard/contest" },
+      { method: "GET", url: "https://api.fancode.com/v1/notifications/list" },
+      { method: "POST", url: "https://api.fancode.com/v1/auth/refresh" },
+      { method: "POST", url: "https://www.fancode.com/graphql" },
+      { method: "GET", url: "https://api.fancode.com/v1/config/app" },
     ];
 
     // For detail query, filter to specific method and url
@@ -2973,6 +3105,646 @@ export class DataQueryMockGeneratorV2 {
       : rows;
 
     return { fields, rows: limitedRows };
+  }
+
+  /**
+   * Generate status code distribution response
+   * Used by StatusCodeDistribution component on Network Detail page
+   * Returns request counts grouped by individual HTTP status codes (200, 201, 400, 404, 500, etc.)
+   * Distribution is realistic: ~97-99% success, ~1-2% client errors, ~0.1-0.5% server errors
+   */
+  private generateStatusCodeDistributionResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Base total requests (consistent with network metrics)
+    const baseTotalRequests = 15000 + (seed % 70000);
+
+    // Realistic status code distribution for a production API endpoint
+    // ~97-99% success (2xx/3xx), ~1-2% client errors (4xx), ~0.1-0.5% server errors (5xx)
+    const statusCodeData = [
+      // Success codes (97-99% of traffic)
+      { code: "200", weight: 0.72 },   // OK - most common
+      { code: "201", weight: 0.12 },   // Created
+      { code: "204", weight: 0.08 },   // No Content
+      { code: "304", weight: 0.05 },   // Not Modified (caching)
+      // Client errors (1-2% of traffic)
+      { code: "400", weight: 0.008 },  // Bad Request
+      { code: "401", weight: 0.005 },  // Unauthorized
+      { code: "403", weight: 0.003 },  // Forbidden
+      { code: "404", weight: 0.006 },  // Not Found
+      { code: "422", weight: 0.003 },  // Unprocessable Entity
+      { code: "429", weight: 0.002 },  // Too Many Requests
+      // Server errors (0.1-0.5% of traffic)
+      { code: "500", weight: 0.002 },  // Internal Server Error
+      { code: "502", weight: 0.001 },  // Bad Gateway
+      { code: "503", weight: 0.0008 }, // Service Unavailable
+      { code: "504", weight: 0.0005 }, // Gateway Timeout
+      // Connection errors (very rare)
+      { code: "0", weight: 0.0007 },   // Connection Error (no HTTP response)
+    ];
+
+    // Generate rows with realistic counts based on weights
+    const rows: string[][] = statusCodeData.map((statusData) => {
+      const row: string[] = [];
+      // Calculate base count from weight
+      const baseCount = Math.round(baseTotalRequests * statusData.weight);
+      // Add variance (±15%) to make data look natural
+      const variance = 0.15;
+      const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+      const adjustedCount = Math.max(1, Math.round(baseCount * randomFactor));
+
+      select.forEach((selectField) => {
+        const alias = selectField.alias;
+
+        switch (alias) {
+          case "request_count":
+            row.push(adjustedCount.toString());
+            break;
+          case "status_code":
+            row.push(statusData.code);
+            break;
+          default:
+            row.push(
+              this.generateValueForFunction(
+                selectField.function,
+                null,
+                requestBody.filters,
+                undefined,
+                selectField.param,
+              ),
+            );
+        }
+      });
+
+      return row;
+    });
+
+    // Sort by count descending
+    const countIndex = fields.indexOf("request_count");
+    if (countIndex >= 0) {
+      rows.sort((a, b) => {
+        const aVal = parseFloat(a[countIndex]) || 0;
+        const bVal = parseFloat(b[countIndex]) || 0;
+        return bVal - aVal;
+      });
+    }
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate HTTP method distribution response
+   * Used by MethodDistribution component on Network Detail page
+   * Returns request counts grouped by HTTP methods (GET, POST, PUT, etc.)
+   * Distribution is consistent with network metrics total requests
+   */
+  private generateMethodDistributionResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Base total requests (consistent with network metrics)
+    const baseTotalRequests = 15000 + (seed % 70000);
+
+    // Realistic HTTP method distribution for a typical API endpoint
+    // GET and POST are most common, with some PUT, PATCH, DELETE
+    const methodData = [
+      { method: "GET", weight: 0.52 },     // Most common for data fetching
+      { method: "POST", weight: 0.26 },    // For creating/submitting data
+      { method: "PUT", weight: 0.09 },     // For full updates
+      { method: "PATCH", weight: 0.065 },  // For partial updates
+      { method: "DELETE", weight: 0.034 }, // For deletions
+      { method: "HEAD", weight: 0.01 },    // For checking resource existence
+      { method: "OPTIONS", weight: 0.006 },// CORS preflight requests
+    ];
+
+    // Generate rows with realistic counts based on weights
+    const rows: string[][] = methodData.map((methodInfo) => {
+      const row: string[] = [];
+      // Calculate base count from weight
+      const baseCount = Math.round(baseTotalRequests * methodInfo.weight);
+      // Add variance (±15%) to make data look natural
+      const variance = 0.15;
+      const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+      const adjustedCount = Math.max(1, Math.round(baseCount * randomFactor));
+
+      select.forEach((selectField) => {
+        const alias = selectField.alias;
+
+        switch (alias) {
+          case "request_count":
+            row.push(adjustedCount.toString());
+            break;
+          case "http_method":
+            row.push(methodInfo.method);
+            break;
+          default:
+            row.push(
+              this.generateValueForFunction(
+                selectField.function,
+                null,
+                requestBody.filters,
+                undefined,
+                selectField.param,
+              ),
+            );
+        }
+      });
+
+      return row;
+    });
+
+    // Sort by count descending
+    const countIndex = fields.indexOf("request_count");
+    if (countIndex >= 0) {
+      rows.sort((a, b) => {
+        const aVal = parseFloat(a[countIndex]) || 0;
+        const bVal = parseFloat(b[countIndex]) || 0;
+        return bVal - aVal;
+      });
+    }
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate network metrics response for Network Detail page
+   * Used for the aggregated metrics display (avg request time, total requests, success rate, etc.)
+   * Returns a single row with aggregated metrics for a specific URL
+   */
+  private generateNetworkMetricsResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, filters } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Get the URL from filters to seed consistent values
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+
+    // Generate consistent metrics based on URL seed
+    const seed = this.hashString(targetUrl);
+    
+    // Realistic total requests: 15,000 - 85,000 requests in the time period
+    const totalRequests = 15000 + (seed % 70000);
+    
+    // Realistic success rate: 96.5% - 99.8%
+    const successRatePercent = 96.5 + (seed % 33) / 10;
+    const successRequests = Math.round(totalRequests * (successRatePercent / 100));
+    
+    // Realistic response times (in nanoseconds, as Duration field stores nanoseconds)
+    // Average response time: 120-450ms
+    const avgResponseTimeMs = 120 + (seed % 330);
+    const avgResponseTimeNs = avgResponseTimeMs * 1_000_000;
+    
+    // Percentile response times
+    // P50: 60-80% of average (faster)
+    const p50Ms = Math.round(avgResponseTimeMs * (0.6 + (seed % 20) / 100));
+    // P95: 150-250% of average (slower)
+    const p95Ms = Math.round(avgResponseTimeMs * (1.5 + (seed % 100) / 100));
+    // P99: 200-400% of average (much slower)
+    const p99Ms = Math.round(avgResponseTimeMs * (2.0 + (seed % 200) / 100));
+
+    console.log("[DataQueryMockV2] Network metrics generated:", {
+      url: targetUrl,
+      totalRequests,
+      successRequests,
+      successRatePercent: successRatePercent.toFixed(1),
+      avgResponseTimeMs,
+      p50Ms,
+      p95Ms,
+      p99Ms,
+    });
+
+    // Build the row based on select fields
+    const row: string[] = select.map((selectField) => {
+      const alias = selectField.alias;
+
+      switch (alias) {
+        case "url":
+          return targetUrl;
+        case "total_requests":
+          return totalRequests.toString();
+        case "success_requests":
+          return successRequests.toString();
+        case "response_time":
+          // Duration is in nanoseconds
+          return avgResponseTimeNs.toString();
+        case "p50":
+          // Percentiles are in milliseconds
+          return p50Ms.toString();
+        case "p95":
+          return p95Ms.toString();
+        case "p99":
+          return p99Ms.toString();
+        default:
+          return this.generateValueForFunction(
+            selectField.function,
+            null,
+            filters,
+            undefined,
+            selectField.param,
+          );
+      }
+    });
+
+    return { fields, rows: [row] };
+  }
+
+  /**
+   * Generate network list response for Network List page
+   * Returns multiple rows with different URLs and their aggregated metrics
+   * Used when grouping by url only (without method)
+   */
+  private generateNetworkListByUrlResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, limit } = requestBody;
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Realistic complete API URLs for a fantasy sports app
+    const networkApis = [
+      "https://api.fancode.com/v1/contests/live",
+      "https://api.fancode.com/v1/contests/upcoming",
+      "https://api.fancode.com/v1/contests/join",
+      "https://api.fancode.com/v1/teams/my-teams",
+      "https://api.fancode.com/v1/teams/create",
+      "https://api.fancode.com/v1/players/list",
+      "https://api.fancode.com/v1/players/stats",
+      "https://api.fancode.com/v1/matches/live-score",
+      "https://api.fancode.com/v1/matches/schedule",
+      "https://api.fancode.com/v1/user/profile",
+      "https://api.fancode.com/v1/user/wallet",
+      "https://api.fancode.com/v1/wallet/deposit",
+      "https://api.fancode.com/v1/wallet/withdraw",
+      "https://api.fancode.com/v1/leaderboard/global",
+      "https://api.fancode.com/v1/leaderboard/contest",
+      "https://api.fancode.com/v1/notifications/list",
+      "https://api.fancode.com/v1/auth/refresh",
+      "https://api.fancode.com/v1/auth/login",
+      "https://www.fancode.com/graphql",
+      "https://api.fancode.com/v1/analytics/track",
+      "https://api.fancode.com/v1/config/app",
+      "https://cdn.fancode.com/assets/images",
+      "https://api.fancode.com/v1/search/players",
+      "https://api.fancode.com/v1/payment/initiate",
+    ];
+
+    // Generate rows for each API
+    const rows: string[][] = networkApis.map((url) => {
+      const row: string[] = [];
+
+      // Generate consistent metrics based on URL seed
+      const seed = this.hashString(url);
+
+      // Realistic total requests: 1,000 - 50,000 requests in the time period
+      const totalRequests = 1000 + (seed % 49000);
+
+      // Realistic success rate: 96.5% - 99.9%
+      const successRatePercent = 96.5 + (seed % 34) / 10;
+      const successRequests = Math.round(totalRequests * (successRatePercent / 100));
+
+      // Realistic response times (in nanoseconds, as Duration field stores nanoseconds)
+      // Average response time: 80-500ms
+      const avgResponseTimeMs = 80 + (seed % 420);
+      const avgResponseTimeNs = avgResponseTimeMs * 1_000_000;
+
+      // Sessions: 10-30% of requests
+      const sessionRate = 0.10 + (seed % 20) / 100;
+      const sessionCount = Math.max(1, Math.round(totalRequests * sessionRate));
+
+      // Percentile response times
+      const p50Ms = Math.round(avgResponseTimeMs * (0.5 + (seed % 30) / 100));
+      const p95Ms = Math.round(avgResponseTimeMs * (1.8 + (seed % 70) / 100));
+      const p99Ms = Math.round(avgResponseTimeMs * (2.5 + (seed % 150) / 100));
+
+      select.forEach((selectField) => {
+        const alias = selectField.alias;
+
+        switch (alias) {
+          case "url":
+            row.push(url);
+            break;
+          case "total_requests":
+            row.push(totalRequests.toString());
+            break;
+          case "success_requests":
+            row.push(successRequests.toString());
+            break;
+          case "response_time":
+            // Duration is in nanoseconds
+            row.push(avgResponseTimeNs.toString());
+            break;
+          case "all_sessions":
+            row.push(sessionCount.toString());
+            break;
+          case "p50":
+            row.push(p50Ms.toString());
+            break;
+          case "p95":
+            row.push(p95Ms.toString());
+            break;
+          case "p99":
+            row.push(p99Ms.toString());
+            break;
+          case "screen_name":
+            // Return empty or a default screen name
+            row.push("");
+            break;
+          default:
+            row.push(
+              this.generateValueForFunction(
+                selectField.function,
+                null,
+                requestBody.filters,
+                undefined,
+                selectField.param,
+              ),
+            );
+        }
+      });
+
+      return row;
+    });
+
+    // Sort by total_requests descending (most popular APIs first)
+    const totalRequestsIndex = fields.indexOf("total_requests");
+    if (totalRequestsIndex >= 0) {
+      rows.sort((a, b) => {
+        const aVal = parseFloat(a[totalRequestsIndex]) || 0;
+        const bVal = parseFloat(b[totalRequestsIndex]) || 0;
+        return bVal - aVal;
+      });
+    }
+
+    // Apply limit if specified
+    const limitedRows = limit ? rows.slice(0, limit) : rows;
+
+    return { fields, rows: limitedRows };
+  }
+
+  /**
+   * Generate status code time series response
+   * Used by StatusCodeTimeSeries component on Network Detail page
+   * Returns request counts over time grouped by status code categories (2xx, 3xx, 4xx, 5xx, 0xx)
+   * Distribution is consistent with network metrics (~97-99% success rate)
+   */
+  private generateStatusCodeTimeSeriesResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, timeRange, filters } = requestBody;
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Get time bucket parameter
+    const timeBucketField = select.find((s) => s.function === "TIME_BUCKET");
+    const bucketSize = timeBucketField?.param?.bucket || "1h";
+
+    // Generate time points
+    const startTime = dayjs(timeRange.start).utc();
+    const endTime = dayjs(timeRange.end).utc();
+    const timePoints = this.generateTimePoints(startTime, endTime, bucketSize);
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Base requests per bucket (total / number of buckets, adjusted for realistic per-bucket counts)
+    const baseTotalRequests = 15000 + (seed % 70000);
+    const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
+
+    // Status code categories with weights matching the distribution response
+    // ~97-99% success (2xx/3xx), ~1-2% client errors (4xx), ~0.1-0.5% server errors (5xx)
+    const statusCategories = [
+      { code: "200", weight: 0.72, variance: 0.2 },   // OK - most common
+      { code: "201", weight: 0.12, variance: 0.25 },  // Created
+      { code: "204", weight: 0.08, variance: 0.25 },  // No Content
+      { code: "304", weight: 0.05, variance: 0.3 },   // Not Modified (cache)
+      { code: "400", weight: 0.008, variance: 0.4 },  // Bad Request
+      { code: "401", weight: 0.005, variance: 0.45 }, // Unauthorized
+      { code: "404", weight: 0.006, variance: 0.4 },  // Not Found
+      { code: "500", weight: 0.002, variance: 0.5 },  // Server Error (spiky)
+      { code: "503", weight: 0.0008, variance: 0.6 }, // Service Unavailable (spiky)
+      { code: "0", weight: 0.0007, variance: 0.5 },   // Connection Error
+    ];
+
+    const rows: string[][] = [];
+
+    // Generate data for each time point and status code combination
+    timePoints.forEach((timestamp) => {
+      // Add some time-based patterns (e.g., more traffic during certain hours)
+      const hourOfDay = dayjs(timestamp).hour();
+      const trafficMultiplier = hourOfDay >= 9 && hourOfDay <= 21 ? 1.3 : 0.7;
+
+      // Simulate occasional spikes in errors (rare - 3% chance)
+      const isErrorSpike = Math.random() < 0.03;
+
+      statusCategories.forEach((category) => {
+        const row: string[] = [];
+
+        // Calculate base count from weight and per-bucket requests
+        const baseCount = requestsPerBucket * category.weight * trafficMultiplier;
+        
+        // Add variance
+        const variance = category.variance;
+        const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+        let count = Math.round(baseCount * randomFactor);
+
+        // Apply error spike if applicable (rare spikes for server errors)
+        if (isErrorSpike && (category.code.startsWith("5") || category.code === "0")) {
+          count = Math.round(count * (1.5 + Math.random() * 2));
+        }
+
+        // Ensure minimum count of 0
+        count = Math.max(0, count);
+
+        select.forEach((selectField) => {
+          const alias = selectField.alias;
+
+          switch (alias) {
+            case "t1":
+              row.push(timestamp);
+              break;
+            case "status_code":
+              row.push(category.code);
+              break;
+            case "request_count":
+              row.push(count.toString());
+              break;
+            default:
+              row.push(
+                this.generateValueForFunction(
+                  selectField.function,
+                  timestamp,
+                  requestBody.filters,
+                  undefined,
+                  selectField.param,
+                ),
+              );
+          }
+        });
+
+        rows.push(row);
+      });
+    });
+
+    return { fields, rows };
+  }
+
+  /**
+   * Generate HTTP method time series response
+   * Used by MethodTimeSeries component on Network Detail page
+   * Returns request counts over time grouped by HTTP methods
+   * Distribution is consistent with network metrics total requests
+   */
+  private generateMethodTimeSeriesResponse(
+    requestBody: DataQueryRequestBody,
+  ): DataQueryResponse {
+    const { select, timeRange, filters } = requestBody;
+
+    // Get URL from filters for consistent seeding
+    const urlFilter = filters?.find(
+      (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
+    );
+    const targetUrl = urlFilter
+      ? Array.isArray(urlFilter.value)
+        ? String(urlFilter.value[0])
+        : String(urlFilter.value || "")
+      : "default";
+    const seed = this.hashString(targetUrl);
+
+    // Get time bucket parameter
+    const timeBucketField = select.find((s) => s.function === "TIME_BUCKET");
+    const bucketSize = timeBucketField?.param?.bucket || "1h";
+
+    // Generate time points
+    const startTime = dayjs(timeRange.start).utc();
+    const endTime = dayjs(timeRange.end).utc();
+    const timePoints = this.generateTimePoints(startTime, endTime, bucketSize);
+
+    // Extract fields
+    const fields: string[] = select.map((s) => s.alias);
+
+    // Base requests per bucket (total / number of buckets)
+    const baseTotalRequests = 15000 + (seed % 70000);
+    const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
+
+    // HTTP methods with weights matching the distribution response
+    const methodCategories = [
+      { method: "GET", weight: 0.52, variance: 0.2 },     // Most common
+      { method: "POST", weight: 0.26, variance: 0.25 },   // Second most common
+      { method: "PUT", weight: 0.09, variance: 0.3 },     // Updates
+      { method: "PATCH", weight: 0.065, variance: 0.3 },  // Partial updates
+      { method: "DELETE", weight: 0.034, variance: 0.35 },// Deletions
+      { method: "HEAD", weight: 0.01, variance: 0.4 },    // Health checks
+      { method: "OPTIONS", weight: 0.006, variance: 0.4 },// CORS preflight
+    ];
+
+    const rows: string[][] = [];
+
+    // Generate data for each time point and method combination
+    timePoints.forEach((timestamp) => {
+      // Add some time-based patterns
+      const hourOfDay = dayjs(timestamp).hour();
+      const trafficMultiplier = hourOfDay >= 9 && hourOfDay <= 21 ? 1.3 : 0.6;
+
+      // Weekend pattern (less traffic)
+      const dayOfWeek = dayjs(timestamp).day();
+      const weekendMultiplier = dayOfWeek === 0 || dayOfWeek === 6 ? 0.7 : 1.0;
+
+      methodCategories.forEach((category) => {
+        const row: string[] = [];
+
+        // Calculate base count from weight and per-bucket requests
+        const baseCount = requestsPerBucket * category.weight * trafficMultiplier * weekendMultiplier;
+        
+        // Add variance
+        const variance = category.variance;
+        const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+        let count = Math.round(baseCount * randomFactor);
+
+        // Ensure minimum count of 0
+        count = Math.max(0, count);
+
+        select.forEach((selectField) => {
+          const alias = selectField.alias;
+
+          switch (alias) {
+            case "t1":
+              row.push(timestamp);
+              break;
+            case "http_method":
+              row.push(category.method);
+              break;
+            case "request_count":
+              row.push(count.toString());
+              break;
+            default:
+              row.push(
+                this.generateValueForFunction(
+                  selectField.function,
+                  timestamp,
+                  requestBody.filters,
+                  undefined,
+                  selectField.param,
+                ),
+              );
+          }
+        });
+
+        rows.push(row);
+      });
+    });
+
+    return { fields, rows };
   }
 
   /**

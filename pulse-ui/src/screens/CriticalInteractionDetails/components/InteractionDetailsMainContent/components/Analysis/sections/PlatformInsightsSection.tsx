@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from "@mantine/core";
+import { Box, Flex } from "@mantine/core";
 import PlatformDonutChart from "../components/PlatformDonutChart";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
 import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
@@ -59,20 +59,6 @@ export const PlatformInsightsSection: React.FC<AnalysisSectionProps> = ({
 
   return (
     <Box mb="lg">
-      <Box mb="md">
-        <Text
-          size="sm"
-          fw={700}
-          c="#0ba09a"
-          mb={4}
-          style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-        >
-          Platform Insights
-        </Text>
-        <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-          Which platform contributes more to negative experiences?
-        </Text>
-      </Box>
       <Flex gap="sm" justify="space-between" align="stretch">
         <Box flex="1">
           <PlatformDonutChart

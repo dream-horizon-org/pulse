@@ -1,5 +1,5 @@
 export type FilterType =
-  | "AppVersionCode"
+  | "AppVersion"
   | "DeviceModel"
   | "Platform"
   | "GeoState"

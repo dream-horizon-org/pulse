@@ -7,11 +7,15 @@ import java.util.stream.Collectors;
 public enum Features {
   interaction,
   java_crash,
+  js_crash,
   java_anr,
   network_change,
   network_instrumentation,
   screen_session,
-  custom_events;
+  custom_events,
+  rn_navigation,
+  rn_screen_load,
+  rn_screen_interactive;
 
   public static List<String> getFeatures() {
     return Arrays.stream(Features.values()).map(Enum::name).collect(Collectors.toList());

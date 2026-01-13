@@ -8,6 +8,10 @@ import vitalsClasses from "../AppVitals/AppVitals.module.css";
 import { useMemo, useState, useEffect } from "react";
 import { ErrorBreakdown } from "./components/ErrorBreakdown";
 import { NetworkIssuesByProvider } from "./components/NetworkIssuesByProvider/NetworkIssuesByProvider";
+import { StatusCodeDistribution } from "./components/StatusCodeDistribution";
+import { MethodDistribution } from "./components/MethodDistribution";
+import { StatusCodeTimeSeries } from "./components/StatusCodeTimeSeries";
+import { MethodTimeSeries } from "./components/MethodTimeSeries";
 import { decodeNetworkId } from "../NetworkList/utils/networkIdUtils";
 import {
   useGetDataQuery,
@@ -30,7 +34,7 @@ import {
   FilterType,
   FILTER_OPTIONS,
 } from "./components/NetworkFilters";
-import { STATUS_CODE, PulseType } from "../../constants/PulseOtelSemcov";
+import { STATUS_CODE, PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
@@ -45,7 +49,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   // Get screen name from URL query params (if navigating from ScreenDetail)
   const screenNameFromUrl = searchParams.get("screenName");
 
-  // Decode the API ID to get method and url
+  // Decode the API ID to get url
   const decodedApiData = useMemo(() => {
     if (!apiId) return null;
     return decodeNetworkId(apiId);
@@ -119,6 +123,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   };
 
   // Build common filters from applied filters
+  // All filters use LIKE operator with wildcards for case-insensitive partial matching
   const buildCommonFilters = useMemo(() => {
     const filterArray: Array<{
       field: string;
@@ -128,45 +133,38 @@ export function NetworkDetail(_props: NetworkDetailProps) {
 
     appliedFilters.forEach((filter) => {
       let field: string;
-      let operator: "LIKE" | "EQ" = "EQ";
 
       switch (filter.type) {
-        case "AppVersionCode":
-          field = "AppVersionCode";
+        case "AppVersion":
+          field = COLUMN_NAME.APP_VERSION;
           break;
         case "DeviceModel":
-          field = "DeviceModel";
+          field = COLUMN_NAME.DEVICE_MODEL;
           break;
         case "Platform":
-          field = "Platform";
+          field = COLUMN_NAME.PLATFORM;
           break;
         case "GeoState":
-          field = "GeoState";
+          field = COLUMN_NAME.STATE;
           break;
         case "OsVersion":
-          field = "OsVersion";
+          field = COLUMN_NAME.OS_VERSION;
           break;
         case "ScreenName":
           field = `SpanAttributes['${PulseType.SCREEN_NAME}']`;
           break;
         case "InteractionName":
-          // Special case: use custom expression with LIKE
           field = "SpanAttributes['pulse.interaction.active.names']";
-          operator = "LIKE";
-          filterArray.push({
-            field,
-            operator,
-            value: [`%${filter.value}%`],
-          });
-          return; // Skip the default push below
+          break;
         default:
           return; // Skip unknown filter types
       }
 
+      // Use LIKE operator with wildcards for case-insensitive partial matching
       filterArray.push({
         field,
-        operator,
-        value: [filter.value],
+        operator: "LIKE",
+        value: [`%${filter.value}%`],
       });
     });
 
@@ -201,11 +199,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         value: ["%network%"],
       },
       {
-        field: "SpanAttributes['http.method']",
-        operator: "EQ" as const,
-        value: [decodedApiData.method],
-      },
-      {
         field: "SpanAttributes['http.url']",
         operator: "EQ" as const,
         value: [decodedApiData.url],
@@ -222,13 +215,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         end: formatToUTC(endTime),
       },
       select: [
-        {
-          function: "CUSTOM" as const,
-          param: {
-            expression: "SpanAttributes['http.method']",
-          },
-          alias: "method",
-        },
         {
           function: "CUSTOM" as const,
           param: {
@@ -271,7 +257,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         },
       ],
       filters,
-      groupBy: ["method", "url"],
+      groupBy: ["url"],
     };
   }, [decodedApiData, startTime, endTime, buildCommonFilters]);
 
@@ -280,18 +266,16 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     enabled: !!decodedApiData && !!startTime && !!endTime,
   });
 
-  // Extract API data and metrics from response
+  // Extract API data from decoded URL
   const apiData = useMemo(() => {
     if (!decodedApiData) {
       return {
         endpoint: "Unknown API",
-        method: "UNKNOWN",
         screenName: undefined,
       };
     }
     return {
       endpoint: decodedApiData.url,
-      method: decodedApiData.method,
       screenName: undefined, // Can be extracted from data if needed
     };
   }, [decodedApiData]);
@@ -382,13 +366,39 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           </Box>
         </Box>
 
+        {/* Status code & method distribution skeleton */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+          <Box>
+            <SkeletonLoader height={18} width={200} radius="sm" />
+            <SkeletonLoader height={14} width={320} radius="xs" />
+            <ChartSkeleton height={220} />
+          </Box>
+          <Box>
+            <SkeletonLoader height={18} width={200} radius="sm" />
+            <SkeletonLoader height={14} width={280} radius="xs" />
+            <ChartSkeleton height={220} />
+          </Box>
+        </SimpleGrid>
+
+        {/* Time series trends skeleton */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+          <Box>
+            <SkeletonLoader height={18} width={180} radius="sm" />
+            <SkeletonLoader height={14} width={300} radius="xs" />
+            <ChartSkeleton height={280} />
+          </Box>
+          <Box>
+            <SkeletonLoader height={18} width={180} radius="sm" />
+            <SkeletonLoader height={14} width={260} radius="xs" />
+            <ChartSkeleton height={280} />
+          </Box>
+        </SimpleGrid>
+
         {/* Error breakdown skeleton */}
         <Box mt="xl">
-          <SkeletonLoader height={18} width={180} radius="sm" />
-          <SkeletonLoader height={14} width={350} radius="xs" />
-          <SimpleGrid className={classes.errorBreakdownGrid} cols={{ base: 1, lg: 2 }} spacing="lg" mt="md">
-            <ChartSkeleton height={200} />
-            <ChartSkeleton height={200} />
+          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+            <ChartSkeleton height={280} />
+            <ChartSkeleton height={280} />
           </SimpleGrid>
         </Box>
       </div>
@@ -434,7 +444,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         <div className={classes.titleSection}>
           <h1 className={classes.pageTitle}>Network Details</h1>
           <Text size="sm" c="dimmed" className={classes.subtitle}>
-            {apiData.method} {apiData.endpoint}
+            {apiData.endpoint}
           </Text>
         </div>
       </div>
@@ -560,27 +570,43 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         </Box>
       </Box>
 
+      {/* Status Code & Method Distribution Section */}
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+        <StatusCodeDistribution
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+        <MethodDistribution
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+      </SimpleGrid>
+
+      {/* Time Series Trends Section */}
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
+        <StatusCodeTimeSeries
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+        <MethodTimeSeries
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={buildCommonFilters}
+        />
+      </SimpleGrid>
+
       {/* Error Breakdown Section */}
       <Box mt="xl">
-        <Box mb="md">
-          <Text
-            size="sm"
-            fw={600}
-            c="#0ba09a"
-            mb={4}
-            style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-          >
-            HTTP Error Analysis
-          </Text>
-          <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-            Detailed breakdown of client and server errors by status code
-          </Text>
-        </Box>
-
-        <SimpleGrid className={classes.errorBreakdownGrid} mih={200} cols={{ base: 1, lg: 2 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
           <ErrorBreakdown
             type="4xx"
-            method={apiData.method}
             url={apiData.endpoint}
             startTime={formatToUTC(startTime)}
             endTime={formatToUTC(endTime)}
@@ -588,7 +614,6 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           />
           <ErrorBreakdown
             type="5xx"
-            method={apiData.method}
             url={apiData.endpoint}
             startTime={formatToUTC(startTime)}
             endTime={formatToUTC(endTime)}
@@ -600,13 +625,12 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       {/* Network Issues Section */}
       <Box mt="xl">
         <NetworkIssuesByProvider
-          method={apiData.method}
           url={apiData.endpoint}
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
           shouldFetch={true}
           additionalFilters={buildCommonFilters}
-          showHeader={false}
+          showHeader={true}
         />
       </Box>
     </div>

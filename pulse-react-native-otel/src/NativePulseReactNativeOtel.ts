@@ -58,6 +58,9 @@ export interface Spec extends TurboModule {
 
   /** Set the current React Native screen name to sync active screen name on Android/iOS */
   setCurrentScreenName(screenName: string): boolean;
+
+  /** Get all SDK Remote Config features */
+  getAllFeatures(): Object;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('PulseReactNativeOtel');

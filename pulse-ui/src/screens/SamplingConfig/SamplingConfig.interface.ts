@@ -30,11 +30,15 @@ export type SamplingRuleName =
 export type FeatureName =
   | 'interaction'
   | 'java_crash'
+  | 'js_crash'
   | 'java_anr'
   | 'network_change'
   | 'network_instrumentation'
   | 'screen_session'
-  | 'custom_events';
+  | 'custom_events'
+  | 'rn_navigation'
+  | 'rn_screen_load'
+  | 'rn_screen_interactive';
 
 // ============================================================================
 // EVENT FILTER TYPES

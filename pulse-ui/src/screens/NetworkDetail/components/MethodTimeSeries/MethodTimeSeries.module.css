@@ -1,0 +1,83 @@
+.container {
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.container:hover {
+  box-shadow: 0 4px 16px rgba(14, 201, 194, 0.1);
+  border-color: rgba(14, 201, 194, 0.2);
+}
+
+.header {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.headerIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: #111827 !important;
+  letter-spacing: -0.5px !important;
+  margin-bottom: 6px !important;
+  line-height: 1.1 !important;
+}
+
+.description {
+  font-size: 13px !important;
+  color: #9ca3af !important;
+  line-height: 1.4 !important;
+  font-weight: 400 !important;
+}
+
+.chartContainer {
+  height: 280px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+  height: 280px;
+  background: rgba(14, 201, 194, 0.02);
+  border: 1px dashed rgba(14, 201, 194, 0.15);
+  border-radius: 12px;
+}
+
+.emptyIcon {
+  color: #0ec9c2;
+  opacity: 0.4;
+  margin-bottom: 10px;
+}
+
+.emptyMessage {
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+

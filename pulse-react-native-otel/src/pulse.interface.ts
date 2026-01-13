@@ -15,3 +15,5 @@ export type PulseAttributes = Record<
   string,
   PulseAttributeValue | undefined | null
 >;
+
+export type PulseFeatureConfig = Record<string, boolean> | null;

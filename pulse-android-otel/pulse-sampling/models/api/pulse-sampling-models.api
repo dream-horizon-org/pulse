@@ -143,11 +143,18 @@ public final class com/pulse/sampling/models/PulseFeatureConfig$Companion {
 public final class com/pulse/sampling/models/PulseFeatureName : java/lang/Enum {
 	public static final field CPP_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field CPP_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field CUSTOM_EVENTS Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field Companion Lcom/pulse/sampling/models/PulseFeatureName$Companion;
 	public static final field INTERACTION Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_ANR Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field JAVA_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field JS_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field NETWORK_CHANGE Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field NETWORK_INSTRUMENTATION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field RN_NAVIGATION Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field RN_SCREEN_INTERACTIVE Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field RN_SCREEN_LOAD Lcom/pulse/sampling/models/PulseFeatureName;
+	public static final field SCREEN_SESSION Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field UNKNOWN Lcom/pulse/sampling/models/PulseFeatureName;
 	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/sampling/models/PulseFeatureName;
 	public static fun values ()[Lcom/pulse/sampling/models/PulseFeatureName;

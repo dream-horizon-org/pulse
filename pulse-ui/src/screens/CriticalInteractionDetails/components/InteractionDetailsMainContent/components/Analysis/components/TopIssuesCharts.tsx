@@ -97,7 +97,7 @@ const TopIssuesCharts: React.FC<TopIssuesChartsProps> = ({ sections }) => {
     <Box>
       {sections.map((section, sectionIndex) => (
         <Box key={section.title} mt={sectionIndex > 0 ? "xl" : 0}>
-          <Box mb="md">
+          {/* <Box mb="md">
             <Text
               size="sm"
               fw={700}
@@ -110,7 +110,7 @@ const TopIssuesCharts: React.FC<TopIssuesChartsProps> = ({ sections }) => {
             <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
               {section.description}
             </Text>
-          </Box>
+          </Box> */}
           <Grid gutter="sm">
             {section.charts
               .filter((chart) => chart.data && chart.data.length > 0)

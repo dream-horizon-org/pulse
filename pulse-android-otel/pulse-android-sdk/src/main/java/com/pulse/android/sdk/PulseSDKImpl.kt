@@ -211,6 +211,10 @@ internal class PulseSDKImpl :
                                 config.suppressInstrumentation("crash")
                             }
 
+                            PulseFeatureName.JS_CRASH -> {
+                                // no-op
+                            }
+
                             PulseFeatureName.NETWORK_CHANGE -> {
                                 config.disableNetworkAttributes()
                             }
@@ -223,11 +227,35 @@ internal class PulseSDKImpl :
                                 config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
                             }
 
+                            PulseFeatureName.RN_NAVIGATION -> {
+                                // no-op
+                            }
+
                             PulseFeatureName.CPP_CRASH -> {
                                 // no-op
                             }
 
                             PulseFeatureName.CPP_ANR -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.NETWORK_INSTRUMENTATION -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.SCREEN_SESSION -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.CUSTOM_EVENTS -> {
+                                isCustomEventEnabled = false
+                            }
+
+                            PulseFeatureName.RN_SCREEN_LOAD -> {
+                                // no-op
+                            }
+
+                            PulseFeatureName.RN_SCREEN_INTERACTIVE -> {
                                 // no-op
                             }
 
@@ -388,19 +416,21 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
-        logger
-            .logRecordBuilder()
-            .apply {
-                setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
-                setBody(name)
-                setEventName(CUSTOM_EVENT_NAME)
-                setAttribute(
-                    PulseAttributes.PULSE_TYPE,
-                    PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
-                )
-                setAllAttributes(params.toAttributes())
-                emit()
-            }
+        if (isCustomEventEnabled) {
+            logger
+                .logRecordBuilder()
+                .apply {
+                    setObservedTimestamp(observedTimeStampInMs, TimeUnit.MILLISECONDS)
+                    setBody(name)
+                    setEventName(CUSTOM_EVENT_NAME)
+                    setAttribute(
+                        PulseAttributes.PULSE_TYPE,
+                        PulseAttributes.PulseTypeValues.CUSTOM_EVENT,
+                    )
+                    setAllAttributes(params.toAttributes())
+                    emit()
+                }
+        }
     }
 
     override fun trackNonFatal(
@@ -514,6 +544,7 @@ internal class PulseSDKImpl :
 
     private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
+    private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()

@@ -6,6 +6,8 @@ import {
   type NavigationIntegrationOptions,
 } from './navigation';
 import { initializeNetworkInterceptor } from './network-interceptor/initialization';
+import PulseReactNativeOtel from './NativePulseReactNativeOtel';
+import type { PulseFeatureConfig } from './pulse.interface';
 
 export type PulseConfig = {
   autoDetectExceptions?: boolean;
@@ -27,6 +29,23 @@ const defaultConfig: PulseConfig = {
 
 let currentConfig: PulseConfig = { ...defaultConfig };
 
+// Cache for features from remote SDK config
+let cachedFeatures: PulseFeatureConfig = null;
+
+/**
+ * Gets all features from the remote SDK config.
+ * @returns Record of feature names to their enabled status
+ */
+export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
+  if (cachedFeatures !== null) {
+    return cachedFeatures;
+  }
+
+  const features = PulseReactNativeOtel.getAllFeatures();
+  cachedFeatures = features as PulseFeatureConfig;
+  return cachedFeatures;
+}
+
 function configure(config: PulseConfig): void {
   currentConfig = {
     ...currentConfig,
@@ -43,9 +62,14 @@ export function start(options?: PulseStartOptions): void {
   if (!isSupportedPlatform()) {
     return;
   }
-  const autoDetectExceptions = options?.autoDetectExceptions ?? true;
-  const autoDetectNavigation = options?.autoDetectNavigation ?? true;
-  const autoDetectNetwork = options?.autoDetectNetwork ?? true;
+  const features = getFeaturesFromRemoteConfig();
+  const autoDetectExceptions =
+    features?.js_crash ?? options?.autoDetectExceptions ?? true;
+  const autoDetectNavigation =
+    features?.rn_navigation ?? options?.autoDetectNavigation ?? true;
+  const autoDetectNetwork =
+    features?.network_instrumentation ?? options?.autoDetectNetwork ?? true;
+
   configure({
     autoDetectExceptions,
     autoDetectNavigation,

@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from "@mantine/core";
+import { Box, Flex } from "@mantine/core";
 import GeographicHeatmap from "../components/GeographicHeatmap";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
 import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
@@ -60,20 +60,6 @@ export const RegionalInsightsSection: React.FC<AnalysisSectionProps> = ({
 
   return (
     <Box mb="lg">
-      <Box mb="md">
-        <Text
-          size="sm"
-          fw={700}
-          c="#0ba09a"
-          mb={4}
-          style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-        >
-          Regional Insights
-        </Text>
-        <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-          Where are the biggest problems located?
-        </Text>
-      </Box>
       <Flex gap="sm" justify="space-between" align="stretch">
         <Box flex="1">
           <GeographicHeatmap

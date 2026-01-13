@@ -7,9 +7,9 @@ import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { Box, Text, SimpleGrid } from "@mantine/core";
 import { ChartSkeleton, SkeletonLoader } from "../../../../components/Skeletons";
 import classes from "./NetworkIssuesByProvider.module.css";
+import { IconMoodHappy, IconWifi } from "@tabler/icons-react";
 
 interface NetworkIssuesByProviderProps {
-  method: string;
   url: string;
   startTime: string;
   endTime: string;
@@ -23,7 +23,6 @@ interface NetworkIssuesByProviderProps {
 }
 
 export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = ({
-  method,
   url,
   startTime,
   endTime,
@@ -47,14 +46,13 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       groupBy: ["network_provider"],
       filters: [
         { field: "PulseType", operator: "EQ" as const, value: ["network.0"] },
-        { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "conn_error", direction: "ASC" as const }],
       limit: 10,
     },
-    enabled: shouldFetch && !!method && !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
 
   // Query for 4xx errors grouped by network provider
@@ -73,14 +71,13 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       groupBy: ["network_provider"],
       filters: [
         { field: "PulseType", operator: "LIKE" as const, value: ["network.4%"] },
-        { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "4xx", direction: "ASC" as const }],
       limit: 10,
     },
-    enabled: shouldFetch && !!method && !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
 
   // Query for 5xx errors grouped by network provider
@@ -99,14 +96,13 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
       groupBy: ["network_provider"],
       filters: [
         { field: "PulseType", operator: "LIKE" as const, value: ["network.5%"] },
-        { field: "SpanAttributes['http.method']", operator: "EQ" as const, value: [method] },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
       orderBy: [{ field: "5xx", direction: "ASC" as const }],
       limit: 10,
     },
-    enabled: shouldFetch && !!method && !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
 
   // Transform connection errors (network.0)
@@ -199,20 +195,38 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
 
   if (hasError) {
     return (
+      <Box className={classes.container}>
+        {showHeader && (
+          <Box className={classes.header}>
+            <Box className={classes.headerIcon}>
+              <IconWifi size={18} />
+            </Box>
+            <Box className={classes.headerContent}>
+              <Text className={classes.title}>Network Issues by Provider</Text>
+              <Text className={classes.description}>
+                Connection errors grouped by network provider
+              </Text>
+            </Box>
+          </Box>
+        )}
       <ErrorAndEmptyState message="Failed to load network issues. Please try again." />
+      </Box>
     );
   }
 
   if (isLoading) {
     return (
-      <Box mih={200}>
+      <Box className={classes.container}>
         {showHeader && (
-          <>
-            <SkeletonLoader height={18} width={200} radius="sm" />
-            <SkeletonLoader height={14} width={350} radius="xs" />
-          </>
+          <Box className={classes.header}>
+            <SkeletonLoader height={36} width={36} radius="md" />
+            <Box className={classes.headerContent}>
+              <SkeletonLoader height={16} width={180} radius="sm" />
+              <SkeletonLoader height={12} width={250} radius="xs" />
+            </Box>
+          </Box>
         )}
-        <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md" mt="md">
+        <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
           <ChartSkeleton height={180} />
           <ChartSkeleton height={180} />
           <ChartSkeleton height={180} />
@@ -223,30 +237,44 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
 
   if (sections.length === 0) {
     return (
-      <ErrorAndEmptyState
-        classes={[classes.errorBreakdownGrid]}
-        message="No network issues found for this API"
-      />
+      <Box className={classes.container}>
+        {showHeader && (
+          <Box className={classes.header}>
+            <Box className={classes.headerIcon}>
+              <IconWifi size={18} />
+            </Box>
+            <Box className={classes.headerContent}>
+              <Text className={classes.title}>Network Issues by Provider</Text>
+              <Text className={classes.description}>
+                Connection errors grouped by network provider
+              </Text>
+            </Box>
+          </Box>
+        )}
+        <Box className={classes.emptyState}>
+          <IconMoodHappy size={32} className={classes.emptyIcon} />
+          <Text className={classes.emptyMessage}>
+            No network issues found for this API
+          </Text>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <Box mih={200}>
+    <Box className={classes.container}>
       {showHeader && (
-        <>
-          <Text
-            size="sm"
-            fw={600}
-            c="#0ba09a"
-            mb={4}
-            style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-          >
-            Network Issues by Provider
+        <Box className={classes.header}>
+          <Box className={classes.headerIcon}>
+            <IconWifi size={18} />
+          </Box>
+          <Box className={classes.headerContent}>
+            <Text className={classes.title}>Network Issues by Provider</Text>
+            <Text className={classes.description}>
+              Connection errors grouped by network provider
           </Text>
-          <Text size="xs" c="dimmed" mb="md" style={{ fontSize: "12px" }}>
-            Network errors and connection issues grouped by network provider
-          </Text>
-        </>
+          </Box>
+        </Box>
       )}
       <TopIssuesCharts sections={sections} />
     </Box>

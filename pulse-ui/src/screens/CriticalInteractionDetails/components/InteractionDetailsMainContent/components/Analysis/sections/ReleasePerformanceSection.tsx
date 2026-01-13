@@ -1,4 +1,4 @@
-import { Box, Text } from "@mantine/core";
+import { Box } from "@mantine/core";
 import ReleaseComparisonChart from "../components/ReleaseComparisonChart";
 import { ErrorAndEmptyStateWithNotification } from "../../ErrorAndEmptyStateWithNotification";
 import { AnalysisSectionSkeleton } from "../../../../../../../components/Skeletons";
@@ -57,20 +57,6 @@ export const ReleasePerformanceSection: React.FC<AnalysisSectionProps> = ({
 
   return (
     <Box mb="lg">
-      <Box mb="md">
-        <Text
-          size="sm"
-          fw={700}
-          c="#0ba09a"
-          mb={4}
-          style={{ fontSize: "16px", letterSpacing: "-0.3px" }}
-        >
-          Release Performance Analysis
-        </Text>
-        <Text size="xs" c="dimmed" style={{ fontSize: "12px" }}>
-          How did our last release impact performance?
-        </Text>
-      </Box>
       <ReleaseComparisonChart data={releaseData} />
     </Box>
   );

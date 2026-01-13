@@ -48,11 +48,16 @@ const buildScopeNamesQuery = (scopeType: AlertScopeType | null, searchTerm?: str
     };
   }
   if (scopeType === AlertScopeType.NetworkAPI) {
+    // Network API scope uses {method}_{url} format
     if (searchTerm) baseFilters.push({ field: "SpanAttributes['http.url']", operator: "LIKE", value: [`%${searchTerm}%`] });
     return {
       dataType: "TRACES" as const, timeRange,
-      select: [{ function: "COL" as const, param: { field: "SpanAttributes['http.url']" }, alias: "url" }, { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" }],
-      groupBy: ["url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
+      select: [
+        { function: "COL" as const, param: { field: "SpanAttributes['http.method']" }, alias: "method" },
+        { function: "COL" as const, param: { field: "SpanAttributes['http.url']" }, alias: "url" },
+        { function: "CUSTOM" as const, param: { expression: "COUNT()" }, alias: "count" },
+      ],
+      groupBy: ["method", "url"], orderBy: [{ field: "count", direction: "DESC" as const }], limit: 20,
       filters: [{ field: "PulseType", operator: "LIKE" as const, value: ["network%"] }, ...baseFilters],
     };
   }
@@ -131,18 +136,44 @@ export const StepMetricsAndExpression: React.FC<StepMetricsAndExpressionProps> =
     if (isAppVitals) return [];
     if (!scopeNamesData?.data?.rows) return [];
     const fields = scopeNamesData.data.fields;
-    const idx = fields.findIndex((f: string) => f === "interaction_name" || f === "screen_name" || f === "url");
+    
+    // For network_api scope, combine method and url into {method}_{url} format
+    const methodIdx = fields.indexOf("method");
+    const urlIdx = fields.indexOf("url");
+    if (methodIdx !== -1 && urlIdx !== -1) {
+      // Network API scope - combine method and url
+      return scopeNamesData.data.rows.map((row: (string | number)[]) => {
+        const method = String(row[methodIdx] || "get").toLowerCase();
+        const url = String(row[urlIdx] || "");
+        return `${method}_${url}`;
+      }).filter((n: string) => n?.trim() && n !== "_");
+    }
+    
+    // For other scopes, use the single field
+    const idx = fields.findIndex((f: string) => f === "interaction_name" || f === "screen_name");
     if (idx === -1) return [];
     return scopeNamesData.data.rows.map((row: (string | number)[]) => String(row[idx])).filter((n: string) => n?.trim());
   }, [isAppVitals, scopeNamesData]);
+
+  // Helper to format scope name for display
+  const formatScopeNameLabel = useCallback((scopeName: string): string => {
+    // For network_api scope names in {method}_{url} format, show "METHOD URL"
+    if (scopeType === AlertScopeType.NetworkAPI && scopeName.includes("_")) {
+      const underscoreIdx = scopeName.indexOf("_");
+      const method = scopeName.substring(0, underscoreIdx).toUpperCase();
+      const url = scopeName.substring(underscoreIdx + 1);
+      return `${method} ${url}`;
+    }
+    return scopeName;
+  }, [scopeType]);
 
   // Combine already selected values with search results
   const multiSelectData = useMemo(() => {
     const selectedSet = new Set(globalScopeNames || []);
     const searchResults = availableScopeNames.filter((s: string) => !selectedSet.has(s));
     const allOptions = [...(globalScopeNames || []), ...searchResults];
-    return allOptions.map(s => ({ value: s, label: s }));
-  }, [globalScopeNames, availableScopeNames]);
+    return allOptions.map(s => ({ value: s, label: formatScopeNameLabel(s) }));
+  }, [globalScopeNames, availableScopeNames, formatScopeNameLabel]);
 
   // Track previous scope names to detect actual changes
   const prevScopeNamesRef = useRef<string[]>([]);

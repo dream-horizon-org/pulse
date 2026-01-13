@@ -133,7 +133,7 @@ const alertTemplates = [
     scope: "network_api",
     metric: "ERROR_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "/checkout/initiate": 0.05, "/checkout/confirm": 0.03, "/payment/process": 0.02 },
+    thresholds: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03, "post_https://api.fancode.com/v1/payment/process": 0.02 },
     severity_id: 1,
   },
   {
@@ -169,7 +169,7 @@ const alertTemplates = [
     scope: "network_api",
     metric: "DURATION_P99",
     operator: "GREATER_THAN",
-    thresholds: { "/search/products": 2000, "/search/suggest": 500 },
+    thresholds: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 },
     severity_id: 2,
   },
   {
@@ -205,7 +205,7 @@ const alertTemplates = [
     scope: "network_api",
     metric: "NET_5XX_RATE",
     operator: "GREATER_THAN",
-    thresholds: { "/notifications/send": 0.01, "/notifications/status": 0.02 },
+    thresholds: { "post_https://api.fancode.com/v1/notifications/send": 0.01, "get_https://api.fancode.com/v1/notifications/status": 0.02 },
     severity_id: 2,
   },
 ];

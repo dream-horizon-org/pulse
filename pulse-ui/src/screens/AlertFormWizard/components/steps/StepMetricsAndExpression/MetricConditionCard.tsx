@@ -6,11 +6,12 @@
  */
 
 import React, { useCallback } from "react";
-import { Box, Text, Select, NumberInput, ActionIcon, Group, Badge, Divider } from "@mantine/core";
+import { Box, Text, Select, NumberInput, ActionIcon, Group, Badge, Divider, Tooltip } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
 import { MetricCondition, MetricOperator } from "../../../types";
 import { METRIC_OPERATOR_OPTIONS } from "../../../constants";
 import { MetricItem } from "../../../../../hooks/useGetAlertMetrics/useGetAlertMetrics.interface";
+import { formatNetworkApiScopeName, isNetworkApiScopeName } from "../../../utils/scopeNameUtils";
 import classes from "./StepMetricsAndExpression.module.css";
 
 interface MetricConditionCardProps {
@@ -85,9 +86,20 @@ export const MetricConditionCard: React.FC<MetricConditionCardProps> = ({
           <Box className={classes.thresholdsGrid}>
             {globalScopeNames.map((scopeName) => {
               const thresholdError = getThresholdError(scopeName);
+              // Format network_api scope names for display
+              const displayName = isNetworkApiScopeName(scopeName)
+                ? formatNetworkApiScopeName(scopeName)
+                : scopeName;
+              const isLongName = displayName.length > 40;
+              const truncatedName = isLongName 
+                ? `${displayName.substring(0, 40)}...` 
+                : displayName;
+              
               return (
                 <Group key={scopeName} gap="sm" className={classes.thresholdRow}>
-                  <Text size="sm" fw={500} className={classes.scopeNameLabel}>{scopeName}</Text>
+                  <Tooltip label={displayName} position="top" withArrow disabled={!isLongName}>
+                    <Text size="sm" fw={500} className={classes.scopeNameLabel}>{truncatedName}</Text>
+                  </Tooltip>
                   <NumberInput
                     size="sm"
                     placeholder="Threshold"

@@ -9,7 +9,6 @@ export interface ErrorDetail {
 
 export interface ErrorBreakdownProps {
   type: "4xx" | "5xx";
-  method: string;
   url: string;
   startTime: string;
   endTime: string;

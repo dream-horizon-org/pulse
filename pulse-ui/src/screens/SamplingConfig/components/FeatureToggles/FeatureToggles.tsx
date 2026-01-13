@@ -32,8 +32,6 @@ import {
   IconBug,
   IconNetwork,
   IconClick,
-  IconPlus,
-  IconTrash,
   IconEdit,
   IconInfoCircle,
   IconAlertTriangle,
@@ -56,21 +54,29 @@ import classes from '../../SamplingConfig.module.css';
 const FEATURE_ICONS: Record<string, React.ReactNode> = {
   interaction: <IconClick size={22} />,
   java_crash: <IconBug size={22} />,
+  js_crash: <IconBug size={22} />,
   java_anr: <IconAlertTriangle size={22} />,
   network_change: <IconWifi size={22} />,
   network_instrumentation: <IconNetwork size={22} />,
   screen_session: <IconDeviceMobile size={22} />,
   custom_events: <IconTag size={22} />,
+  rn_navigation: <IconDeviceMobile size={22} />,
+  rn_screen_load: <IconDeviceMobile size={22} />,
+  rn_screen_interactive: <IconDeviceMobile size={22} />,
 };
 
 const FEATURE_COLORS: Record<string, string> = {
   interaction: '#f59e0b',
   java_crash: '#ef4444',
+  js_crash: '#ef4444',
   java_anr: '#dc2626',
   network_change: '#06b6d4',
   network_instrumentation: '#3b82f6',
   screen_session: '#8b5cf6',
   custom_events: '#10b981',
+  rn_navigation: '#8b5cf6',
+  rn_screen_load: '#f59e0b',
+  rn_screen_interactive: '#10b981',
 };
 
 export function FeatureToggles({ configs, onChange, disabled = false }: FeatureConfigsProps) {
@@ -106,6 +112,27 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
 
   const allSdks = useMemo(() => sdkOptions.map(s => s.value), [sdkOptions]);
 
+  const allFeaturesWithConfigs = useMemo(() => {
+    if (!featureOptions.length) return [];
+    
+    return featureOptions.map(featureOption => {
+      const existingConfig = configs.find(c => c.featureName === featureOption.value);
+      
+      if (existingConfig) {
+        return existingConfig;
+      } else {
+        // Create default disabled config for features not yet configured
+        // Use featureName as a stable ID prefix for disabled features
+        return {
+          id: `disabled-${featureOption.value}`,
+          featureName: featureOption.value,
+          sessionSampleRate: 0,
+          sdks: [],
+        } as FeatureConfig;
+      }
+    });
+  }, [featureOptions, configs]);
+
   // Get features that haven't been configured yet
   const availableFeatures = featureOptions.filter(
     f => !configs.some(c => c.featureName === f.value) || editingFeature?.featureName === f.value
@@ -116,12 +143,6 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
     setFeatureEnabled(true);
     setFeatureSdks([]);
     setEditingFeature(null);
-  };
-
-  const openAddModal = () => {
-    if (disabled) return;
-    resetForm();
-    setIsModalOpen(true);
   };
 
   const openEditModal = (feature: FeatureConfig) => {
@@ -136,15 +157,19 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
   const handleSaveFeature = () => {
     if (!featureName) return;
     
+    // Check if feature already exists in configs
+    const existingConfig = configs.find(f => f.featureName === featureName);
+    
     const newFeature: FeatureConfig = {
-      id: editingFeature?.id || generateId(),
+      // Use existing ID if updating, otherwise generate new one (or reuse if editing disabled feature)
+      id: existingConfig?.id || (editingFeature?.id && !editingFeature.id.startsWith('disabled-') ? editingFeature.id : generateId()),
       featureName: featureName,
       sessionSampleRate: featureEnabled ? 1 : 0, // Convert toggle to sessionSampleRate
       sdks: featureSdks,
     };
 
-    if (editingFeature) {
-      onChange(configs.map(f => f.id === editingFeature.id ? newFeature : f));
+    if (existingConfig) {
+      onChange(configs.map(f => f.featureName === featureName ? newFeature : f));
     } else {
       onChange([...configs, newFeature]);
     }
@@ -153,14 +178,29 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
     resetForm();
   };
 
-  const handleRemoveFeature = (featureId: string) => {
+  const handleToggle = (featureName: FeatureName, enabled: boolean) => {
     if (disabled) return;
-    onChange(configs.filter(f => f.id !== featureId));
-  };
-
-  const handleToggle = (featureId: string, enabled: boolean) => {
-    if (disabled) return;
-    onChange(configs.map(f => f.id === featureId ? { ...f, sessionSampleRate: enabled ? 1 : 0 } : f));
+    
+    const existingConfig = configs.find(c => c.featureName === featureName);
+    
+    if (existingConfig) {
+      // Update existing config
+      onChange(configs.map(f => 
+        f.featureName === featureName 
+          ? { ...f, sessionSampleRate: enabled ? 1 : 0 } 
+          : f
+      ));
+    } else {
+      // Add new config with default SDKs (all SDKs) when enabling
+      // User can edit to customize SDKs later
+      const newFeature: FeatureConfig = {
+        id: generateId(),
+        featureName: featureName,
+        sessionSampleRate: enabled ? 1 : 0,
+        sdks: enabled ? allSdks : [], // Default to all SDKs when enabling
+      };
+      onChange([...configs, newFeature]);
+    }
   };
 
   const getFeatureDisplay = (name: FeatureName) => {
@@ -187,16 +227,6 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
               <Text className={classes.cardDescription}>{UI_CONSTANTS.SECTIONS.FEATURES.DESCRIPTION}</Text>
             </Box>
           </Box>
-          {!disabled && availableFeatures.length > 0 && (
-            <Button
-              size="xs"
-              leftSection={<IconPlus size={14} />}
-              onClick={openAddModal}
-              variant="light"
-            >
-              Add Feature
-            </Button>
-          )}
         </Box>
         
         <Box className={classes.cardContent}>
@@ -209,8 +239,8 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
             title="Feature-Level Control"
           >
             <Text size="xs">
-              Control which SDK features are enabled per platform. 
-              Disabling a feature stops all data collection for that feature.
+              All available SDK features are listed below. Toggle features on/off and configure which platforms they apply to. 
+              Disabled features (grayed out) are not collecting any data.
             </Text>
             <Text size="xs" mt="xs" c="dimmed">
               💡 <strong>Tip:</strong> Enable crash reporting on all platforms, 
@@ -223,22 +253,22 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
               <Loader size="sm" />
               <Text size="sm" c="dimmed" mt="sm">Loading features...</Text>
             </Box>
-          ) : configs.length === 0 ? (
+          ) : allFeaturesWithConfigs.length === 0 ? (
             <Box className={classes.emptyState}>
               <IconSettings size={32} style={{ opacity: 0.3 }} />
-              <Text size="sm" c="dimmed" mt="xs">No features configured</Text>
-              <Text size="xs" c="dimmed">Add features to control SDK behavior</Text>
+              <Text size="sm" c="dimmed" mt="xs">No features available</Text>
+              <Text size="xs" c="dimmed">Features will appear here when available from the backend</Text>
             </Box>
           ) : (
             <Stack gap="sm">
-              {configs.map((feature) => {
+              {allFeaturesWithConfigs.map((feature) => {
                 const display = getFeatureDisplay(feature.featureName);
                 const icon = FEATURE_ICONS[feature.featureName] || <IconSettings size={22} />;
                 const color = FEATURE_COLORS[feature.featureName] || '#6b7280';
                 
                 return (
                   <Paper 
-                    key={feature.id} 
+                    key={feature.featureName} 
                     withBorder 
                     p="md"
                     style={{ opacity: isFeatureEnabled(feature) ? 1 : 0.6 }}
@@ -290,21 +320,16 @@ export function FeatureToggles({ configs, onChange, disabled = false }: FeatureC
                         >
                           <Switch
                             checked={isFeatureEnabled(feature)}
-                            onChange={(e) => handleToggle(feature.id || '', e.currentTarget.checked)}
+                            onChange={(e) => handleToggle(feature.featureName, e.currentTarget.checked)}
                             color="teal"
                             disabled={disabled}
                           />
                         </Tooltip>
 
                         {!disabled && (
-                          <Group gap={4}>
-                            <ActionIcon variant="subtle" onClick={() => openEditModal(feature)}>
-                              <IconEdit size={16} />
-                            </ActionIcon>
-                            <ActionIcon variant="subtle" color="red" onClick={() => handleRemoveFeature(feature.id || '')}>
-                              <IconTrash size={16} />
-                            </ActionIcon>
-                          </Group>
+                          <ActionIcon variant="subtle" onClick={() => openEditModal(feature)}>
+                            <IconEdit size={16} />
+                          </ActionIcon>
                         )}
                       </Group>
                     </Group>

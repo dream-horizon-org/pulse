@@ -8,6 +8,7 @@ import {
 } from "@tabler/icons-react";
 import { AlertCardProps, SeverityDisplayConfig, AlertCondition } from "./AlertCard.interface";
 import classes from "./AlertCard.module.css";
+import { formatNetworkApiScopeNameCompact, isNetworkApiScopeName } from "../../../AlertFormWizard/utils/scopeNameUtils";
 
 const DEFAULT_SEVERITY: SeverityDisplayConfig = { label: "Unknown", color: "#6b7280" };
 
@@ -26,6 +27,14 @@ const getAllScopeNames = (conditions: AlertCondition[]): string[] => {
   const allNames = new Set<string>();
   conditions.forEach(c => Object.keys(c.threshold || {}).forEach(n => allNames.add(n)));
   return Array.from(allNames);
+};
+
+// Format scope name for display (handles network_api {method}_{url} format)
+const formatScopeNameForDisplay = (scopeName: string): string => {
+  if (isNetworkApiScopeName(scopeName)) {
+    return formatNetworkApiScopeNameCompact(scopeName, 20);
+  }
+  return scopeName.length > 25 ? `${scopeName.substring(0, 25)}...` : scopeName;
 };
 
 export function AlertCard({
@@ -84,9 +93,11 @@ export function AlertCard({
       {allScopeNames.length > 0 && (
         <Group gap={4} className={classes.scopeNamesRow}>
           {allScopeNames.slice(0, 3).map((scopeName) => (
-            <Badge key={scopeName} size="xs" variant="outline" color="teal" className={classes.scopeChip}>
-              {scopeName}
-            </Badge>
+            <Tooltip key={scopeName} label={scopeName} position="top" withArrow>
+              <Badge size="xs" variant="outline" color="teal" className={classes.scopeChip}>
+                {formatScopeNameForDisplay(scopeName)}
+              </Badge>
+            </Tooltip>
           ))}
           {allScopeNames.length > 3 && (
             <Badge size="xs" variant="light" color="gray" className={classes.scopeChip}>

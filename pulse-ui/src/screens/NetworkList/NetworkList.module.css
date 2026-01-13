@@ -71,10 +71,6 @@
   min-width: 300px;
 }
 
-.scrollArea {
-  height: calc(100vh - 250px);
-}
-
 .apiListContainer {
   display: flex;
   flex-direction: column;
