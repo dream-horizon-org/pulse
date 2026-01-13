@@ -1019,10 +1019,10 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@dreamhorizonorg/pulse-react-native@^0.0.25":
-  version "0.0.25"
-  resolved "https://registry.yarnpkg.com/@dreamhorizonorg/pulse-react-native/-/pulse-react-native-0.0.25.tgz#11a778750d8a440108b292f33c66216bbfe8b8aa"
-  integrity sha512-UnPQyHB7TYB2J/ooGlDE1ycCoDzI5FWXNGzPZr5sEHu5lGcFDPrrlPOFF9NZQ48Y+MJQuA5QLx4KckubPoeWnQ==
+"@dreamhorizonorg/pulse-react-native@../../../pulse-react-native-otel":
+  version "0.0.1"
+  dependencies:
+    commander "^14.0.2"
 
 "@eslint-community/eslint-utils@^4.2.0", "@eslint-community/eslint-utils@^4.4.0":
   version "4.9.1"
@@ -2643,6 +2643,11 @@ commander@^12.0.0:
   version "12.1.0"
   resolved "https://registry.yarnpkg.com/commander/-/commander-12.1.0.tgz#01423b36f501259fdaac4d0e4d60c96c991585d3"
   integrity sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==
+
+commander@^14.0.2:
+  version "14.0.2"
+  resolved "https://registry.yarnpkg.com/commander/-/commander-14.0.2.tgz#b71fd37fe4069e4c3c7c13925252ada4eba14e8e"
+  integrity sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==
 
 commander@^2.20.0:
   version "2.20.3"

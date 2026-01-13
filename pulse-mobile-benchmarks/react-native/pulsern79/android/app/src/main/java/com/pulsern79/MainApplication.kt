@@ -11,6 +11,9 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
+import com.pulsereactnativeotel.Pulse
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 
 class MainApplication : Application(), ReactApplication {
 
@@ -35,6 +38,16 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    
+    // Initialize Pulse Android SDK as early as possible
+    Pulse.initialize(
+      application = this,
+      endpointBaseUrl = "http://10.0.2.2:4318",
+      globalAttributes = {
+        Attributes.of(AttributeKey.stringKey("app-name"), "pulsern79")
+      },
+    )
+    
     SoLoader.init(this, OpenSourceMergedSoMapping)
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
