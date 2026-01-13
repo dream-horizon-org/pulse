@@ -6,6 +6,7 @@ package com.pulse.android.sdk
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
+import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.PulseSamplingSignalProcessors
@@ -96,7 +97,7 @@ internal class PulseSDKImpl :
             apiCache.mkdirs()
             val newConfig =
                 PulseSdkConfigRestProvider(apiCache) {
-                    "${endpointBaseUrl.replace(":4318", ":8080")}/v1/configs/active/"
+                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide() ?: return@launch
             sharedPrefs.edit(commit = true) {
                 putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
@@ -135,15 +136,15 @@ internal class PulseSDKImpl :
 
         val finalSpanEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forTraces(it.signals.spanCollectorUrl)
+                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.spanCollectorUrl), headers = emptyMap())
             } ?: spanEndpointConnectivity
         val finalLogEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forLogs(it.signals.logsCollectorUrl)
+                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.logsCollectorUrl), headers = emptyMap())
             } ?: logEndpointConnectivity
         val finalMetricEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forMetrics(it.signals.metricCollectorUrl)
+                HttpEndpointConnectivity(url = PulseOtelUtils.endWithSlash(it.signals.metricCollectorUrl), headers = emptyMap())
             } ?: metricEndpointConnectivity
 
         val otlpSpanExporter: SpanExporter =
@@ -180,7 +181,11 @@ internal class PulseSDKImpl :
         val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
         instrumentations?.let { configure ->
-            InstrumentationConfiguration(config).configure()
+            val instrumentationConfig = InstrumentationConfiguration(config)
+            instrumentationConfig.configure()
+            if (currentSdkConfig != null) {
+                instrumentationConfig.interaction { setConfigUrl { PulseOtelUtils.endWithSlash(currentSdkConfig.interaction.configUrl) } }
+            }
             pulseSamplingProcessors?.run {
                 val enabledFeatures = getEnabledFeatures()
                 enumValues<PulseFeatureName>().forEach { feature ->

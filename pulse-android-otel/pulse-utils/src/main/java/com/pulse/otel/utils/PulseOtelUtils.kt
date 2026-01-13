@@ -43,6 +43,8 @@ public object PulseOtelUtils {
         return normalized
     }
 
+    public fun endWithSlash(url: String): String = url.trimEnd('/') + "/"
+
     @PublishedApi
     internal inline fun getTag(tag: () -> String): String = "$TAG:${tag()}"
 

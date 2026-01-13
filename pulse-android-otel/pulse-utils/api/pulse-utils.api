@@ -20,6 +20,7 @@ public final class com/pulse/otel/utils/PulseFallbackToUnknownEnumSerializer$Com
 
 public final class com/pulse/otel/utils/PulseOtelUtils {
 	public static final field INSTANCE Lcom/pulse/otel/utils/PulseOtelUtils;
+	public final fun endWithSlash (Ljava/lang/String;)Ljava/lang/String;
 	public final fun getTag (Lkotlin/jvm/functions/Function0;)Ljava/lang/String;
 	public final fun isNetworkSpan (Lio/opentelemetry/sdk/trace/ReadableSpan;)Z
 	public final fun logDebug (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
