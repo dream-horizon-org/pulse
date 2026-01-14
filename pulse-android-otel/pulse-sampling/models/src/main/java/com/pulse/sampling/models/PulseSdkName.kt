@@ -33,13 +33,13 @@ public enum class PulseSdkName {
         private const val IOS_SWIFT_SDK_NAME_STR = "pulse_ios_swift"
         private const val IOS_RN_SDK_NAME_STR = "pulse_ios_rn"
 
-        public fun fromTelemetrySdkName(telemetrySdkName: String?): PulseSdkName =
+        public fun fromName(telemetrySdkName: String?): PulseSdkName =
             when (telemetrySdkName?.lowercase()) {
                 ANDROID_JAVA_SDK_NAME_STR -> ANDROID_JAVA
                 ANDROID_RN_SDK_NAME_STR -> ANDROID_RN
                 IOS_SWIFT_SDK_NAME_STR -> IOS_SWIFT
                 IOS_RN_SDK_NAME_STR -> IOS_RN
-                else -> ANDROID_JAVA // Default fallback
+                else -> UNKNOWN // Default fallback
             }
     }
 }

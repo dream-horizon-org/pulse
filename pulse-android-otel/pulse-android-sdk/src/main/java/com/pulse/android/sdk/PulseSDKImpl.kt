@@ -113,7 +113,7 @@ internal class PulseSDKImpl :
         resource?.invoke(resourceBuilder)
         val builtResource = resourceBuilder.build()
         val currentSdkName =
-            PulseSdkName.fromTelemetrySdkName(
+            PulseSdkName.fromName(
                 builtResource.getAttribute(PulseAttributes.TELEMETRY_SDK_NAME_KEY),
             )
 
