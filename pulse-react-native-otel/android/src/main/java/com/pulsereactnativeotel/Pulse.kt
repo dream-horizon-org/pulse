@@ -4,12 +4,14 @@ package com.pulsereactnativeotel
 
 import android.app.Application
 import com.pulse.android.sdk.PulseSDK
+import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import java.util.function.BiFunction
 
@@ -18,7 +20,6 @@ import java.util.function.BiFunction
  * This ensures React Native screen names override Android Activity/Fragment names in telemetry.
  */
 public object Pulse : PulseSDK by PulseSDK.INSTANCE {
-
     public override fun initialize(
         application: Application,
         endpointBaseUrl: String,
@@ -26,6 +27,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
+        resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
@@ -59,6 +61,12 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             rnLoggerProviderCustomizer
         }
 
+        // Set telemetry.sdk.name for React Native SDK (read in OpenTelemetryRumInitializer for sampling)
+        val rnResource: (ResourceBuilder.() -> Unit) = {
+            put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_RN)
+            resource?.invoke(this)
+        }
+
         PulseSDK.INSTANCE.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
@@ -66,6 +74,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             spanEndpointConnectivity = spanEndpointConnectivity,
             logEndpointConnectivity = logEndpointConnectivity,
             metricEndpointConnectivity = metricEndpointConnectivity,
+            resource = rnResource,
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
             diskBuffering = diskBuffering,

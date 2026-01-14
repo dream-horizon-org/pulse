@@ -442,7 +442,7 @@ class ConfigServiceImplTest {
           .map(Enum::name)
           .collect(Collectors.toList());
       assertThat(result.getSdks()).containsExactlyInAnyOrderElementsOf(expectedSdks);
-      assertThat(result.getSdks()).contains("android_java", "android_rn", "ios_native", "ios_rn");
+      assertThat(result.getSdks()).contains("pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn");
     }
   }
 

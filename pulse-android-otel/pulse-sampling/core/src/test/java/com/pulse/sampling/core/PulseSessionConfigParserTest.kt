@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class PulseSessionConfigParserTest {
     private lateinit var context: Context
     private lateinit var parser: PulseSessionParser
+    private val currentSdkName = PulseSdkName.ANDROID_JAVA
 
     @BeforeEach
     fun setUp() {
@@ -39,7 +40,7 @@ class PulseSessionConfigParserTest {
                     rules = emptyList(),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -65,7 +66,7 @@ class PulseSessionConfigParserTest {
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -82,13 +83,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
                                 value = "ios.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -111,7 +112,7 @@ class PulseSessionConfigParserTest {
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -130,14 +131,14 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_android.*",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(ruleRate)
         }
@@ -154,20 +155,20 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_android.*",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = firstRuleRate,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_android.*",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = secondRuleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(firstRuleRate)
         }
@@ -183,26 +184,26 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "ios.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_ios.*",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = 0.5f,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_android_java",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = matchingRuleRate,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_android.*",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = 0.95f,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(matchingRuleRate)
         }
@@ -218,20 +219,20 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android_swift",
                                 sdks = setOf(PulseSdkName.IOS_SWIFT),
                                 sessionSampleRate = 0.5f,
                             ),
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                value = "pulse_android_java",
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = matchingRuleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(matchingRuleRate)
         }
@@ -250,11 +251,11 @@ class PulseSessionConfigParserTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.PLATFORM,
-                                value = "android.*",
+                                value = "pulse_android.*",
                                 sdks =
                                     setOf(
                                         PulseSdkName.IOS_SWIFT,
-                                        PulseSdkName.CURRENT_SDK_NAME,
+                                        PulseSdkName.ANDROID_JAVA,
                                         PulseSdkName.ANDROID_RN,
                                     ),
                                 sessionSampleRate = ruleRate,
@@ -262,7 +263,7 @@ class PulseSessionConfigParserTest {
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(ruleRate)
         }
@@ -289,7 +290,7 @@ class PulseSessionConfigParserTest {
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -310,13 +311,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.OS_VERSION,
                                 value = sdkInt,
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(ruleRate)
         }
@@ -333,13 +334,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.OS_VERSION,
                                 value = "999",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -356,13 +357,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.OS_VERSION,
                                 value = "\\d+",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(ruleRate)
         }
@@ -393,13 +394,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.APP_VERSION,
                                 value = appVersion,
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(ruleRate)
         }
@@ -427,13 +428,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.APP_VERSION,
                                 value = "2.0.0",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -459,13 +460,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.COUNTRY,
                                 value = countryCode,
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(ruleRate)
         }
@@ -488,13 +489,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.COUNTRY,
                                 value = "CA",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -514,13 +515,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.COUNTRY,
                                 value = ".*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -541,13 +542,13 @@ class PulseSessionConfigParserTest {
                             PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                                 name = PulseDeviceAttributeName.UNKNOWN,
                                 value = ".*",
-                                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                                 sessionSampleRate = ruleRate,
                             ),
                         ),
                 )
 
-            val result = parser.parses(context, config)
+            val result = parser.parses(context, config, currentSdkName)
 
             assertThat(result).isEqualTo(defaultRate)
         }
@@ -578,19 +579,19 @@ class PulseSessionConfigParserTest {
                         PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                             name = PulseDeviceAttributeName.OS_VERSION,
                             value = sdkInt,
-                            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                            sdks = setOf(PulseSdkName.ANDROID_JAVA),
                             sessionSampleRate = osVersionRate,
                         ),
                         PulseSdkConfigFakeUtils.createFakeSessionSamplingRule(
                             name = PulseDeviceAttributeName.APP_VERSION,
                             value = appVersion,
-                            sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                            sdks = setOf(PulseSdkName.ANDROID_JAVA),
                             sessionSampleRate = appVersionRate,
                         ),
                     ),
             )
 
-        val result = parser.parses(context, config)
+        val result = parser.parses(context, config, currentSdkName)
 
         assertThat(result).isEqualTo(osVersionRate)
     }

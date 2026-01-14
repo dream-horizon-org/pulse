@@ -9,6 +9,7 @@ import org.junit.Test
 
 class PulseSignalsAttrSamplerTest {
     private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher()
+    private val currentSdkName = PulseSdkName.ANDROID_JAVA
 
     @Test
     fun `matches returns true when all conditions are met`() {
@@ -18,12 +19,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value1"), createFakeProp("key2", "value2")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isTrue
     }
@@ -41,7 +42,7 @@ class PulseSignalsAttrSamplerTest {
                 props = setOf(createFakeProp("key1", "value1"), createFakeProp("key2", "value2")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }
@@ -54,12 +55,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = emptySet(),
                 props = setOf(createFakeProp("key1", "value1"), createFakeProp("key2", "value2")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }
@@ -72,12 +73,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "other_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value1"), createFakeProp("key2", "value2")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }
@@ -90,12 +91,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value1"), createFakeProp("key2", "value2")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }
@@ -108,12 +109,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value1"), createFakeProp("key2", "value2")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }
@@ -126,12 +127,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal_.*",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value1")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isTrue
     }
@@ -144,12 +145,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value_.*")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isTrue
     }
@@ -162,12 +163,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value_1"), createFakeProp("key2", null)),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isTrue
     }
@@ -180,12 +181,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value_1"), createFakeProp("key2", "")),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }
@@ -198,12 +199,12 @@ class PulseSignalsAttrSamplerTest {
         val signalMatchConfig =
             createFakeSignalMatchCondition(
                 name = "test_signal",
-                sdks = setOf(PulseSdkName.CURRENT_SDK_NAME),
+                sdks = setOf(PulseSdkName.ANDROID_JAVA),
                 scopes = setOf(PulseSignalScope.TRACES),
                 props = setOf(createFakeProp("key1", "value_1"), createFakeProp("key2", null)),
             )
 
-        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig)
+        val result = signalMatcher.matches(signalScope, signalName, signalProps, signalMatchConfig, currentSdkName)
 
         assertThat(result).isFalse
     }

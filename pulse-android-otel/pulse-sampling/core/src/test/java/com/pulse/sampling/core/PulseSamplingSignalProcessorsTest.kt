@@ -12,6 +12,7 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeCriticalEvent
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeProp
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSamplingConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCondition
+import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import io.mockk.every
@@ -760,7 +761,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors =
                 createSamplingSignalProcessors(
                     config = config,
-                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
                     randomIdGenerator = mockRandom,
                 )
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
@@ -781,7 +782,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors =
                 createSamplingSignalProcessors(
                     config = config,
-                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
                     randomIdGenerator = mockRandom,
                 )
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
@@ -802,7 +803,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors =
                 createSamplingSignalProcessors(
                     config = config,
-                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
                     randomIdGenerator = mockRandom,
                 )
             val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
@@ -855,7 +856,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors =
                 createSamplingSignalProcessors(
                     config = config,
-                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
                     randomIdGenerator = mockRandom,
                 )
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
@@ -876,7 +877,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors =
                 createSamplingSignalProcessors(
                     config = config,
-                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
                     randomIdGenerator = mockRandom,
                 )
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
@@ -897,7 +898,7 @@ class PulseSamplingSignalProcessorsTest {
             val processors =
                 createSamplingSignalProcessors(
                     config = config,
-                    sessionParser = PulseSessionParser { _, _ -> samplingRate },
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
                     randomIdGenerator = mockRandom,
                 )
             val sampledLogExporter = processors.SampledLogExporter(logExporter)
@@ -1210,11 +1211,13 @@ class PulseSamplingSignalProcessorsTest {
         signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
         sessionParser: PulseSessionParser = PulseSessionParser.alwaysOn,
         randomIdGenerator: Random = SecureRandom(),
+        currentSdkName: PulseSdkName = PulseSdkName.ANDROID_JAVA,
     ): PulseSamplingSignalProcessors {
         val context = mockk<Context>()
         return PulseSamplingSignalProcessors(
             context = context,
             sdkConfig = config,
+            currentSdkName = currentSdkName,
             signalMatcher = signalMatcher,
             sessionParser = sessionParser,
             randomIdGenerator = randomIdGenerator,

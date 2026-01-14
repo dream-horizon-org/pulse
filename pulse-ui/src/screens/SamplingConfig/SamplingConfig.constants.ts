@@ -25,10 +25,10 @@ import {
 // ============================================================================
 
 export const SDK_DISPLAY_INFO: Record<string, { label: string; color: string }> = {
-  android_java: { label: 'Android Java', color: '#3DDC84' },
-  android_rn: { label: 'Android RN', color: '#61DAFB' },
-  ios_native: { label: 'iOS Native', color: '#007AFF' },
-  ios_rn: { label: 'iOS RN', color: '#61DAFB' },
+  pulse_android_java: { label: 'Pulse Android Java', color: '#3DDC84' },
+  pulse_android_rn: { label: 'Pulse Android RN', color: '#61DAFB' },
+  pulse_ios_swift: { label: 'Pulse iOS Swift', color: '#007AFF' },
+  pulse_ios_rn: { label: 'Pulse iOS RN', color: '#61DAFB' },
 };
 
 export const SCOPE_DISPLAY_INFO: Record<string, { label: string; color: string }> = {

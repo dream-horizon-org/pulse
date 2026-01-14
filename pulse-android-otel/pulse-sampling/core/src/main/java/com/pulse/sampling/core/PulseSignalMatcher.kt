@@ -11,15 +11,16 @@ public fun interface PulseSignalMatcher {
         name: String,
         props: Map<String, Any?>,
         signalMatchConfig: PulseSignalMatchCondition,
+        currentSdkName: PulseSdkName,
     ): Boolean
 }
 
 @Suppress("FunctionName")
 internal fun PulseSignalsAttrMatcher() =
-    PulseSignalMatcher { signalScope, signalName, signalProps, signalMatchConfig ->
+    PulseSignalMatcher { signalScope, signalName, signalProps, signalMatchConfig, currentSdkName ->
         if (
             !(
-                signalMatchConfig.sdks.contains(PulseSdkName.CURRENT_SDK_NAME) &&
+                signalMatchConfig.sdks.contains(currentSdkName) &&
                     signalMatchConfig.scopes.contains(signalScope) &&
                     signalName.matchesFromRegexCache(signalMatchConfig.name)
             )

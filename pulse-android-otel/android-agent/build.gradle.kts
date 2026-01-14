@@ -30,6 +30,10 @@ dependencies {
     api(projects.instrumentation.interaction.interactionLibrary)
     api(projects.instrumentation.interaction.interactionCore)
 
+    // Pulse dependencies for SDK name detection
+    implementation(projects.pulseSamplingModels)
+    implementation(projects.pulseSemconv)
+
     testImplementation(libs.robolectric)
 }
 

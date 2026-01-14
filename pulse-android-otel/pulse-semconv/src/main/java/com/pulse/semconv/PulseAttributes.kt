@@ -4,6 +4,7 @@ import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.AttributeKey.stringKey
 import io.opentelemetry.semconv.AttributeKeyTemplate
 import io.opentelemetry.semconv.AttributeKeyTemplate.stringKeyTemplate
+import io.opentelemetry.semconv.TelemetryAttributes
 
 public object PulseAttributes {
     /**
@@ -17,6 +18,16 @@ public object PulseAttributes {
 
     @JvmField
     public val PULSE_SPAN_ID: AttributeKey<String> = stringKey("pulse.span.id")
+
+    @JvmField
+    public val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = TelemetryAttributes.TELEMETRY_SDK_NAME
+
+    public object PulseSdkNames {
+        public const val ANDROID_JAVA: String = "pulse_android_java"
+        public const val ANDROID_RN: String = "pulse_android_rn"
+        public const val IOS_SWIFT: String = "pulse_ios_swift"
+        public const val IOS_RN: String = "pulse_ios_rn"
+    }
 
     public object PulseTypeValues {
         public const val CUSTOM_EVENT: String = "custom_event"

@@ -10,12 +10,6 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url "https://pulse.dreamhorizon.org/maven"
-        }
-        maven {
-            url "https://s01.oss.sonatype.org/content/repositories/snapshots"
-        }
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
@@ -29,12 +23,6 @@ allprojects {
         mavenLocal()
         google()
         mavenCentral()
-        maven {
-            url "https://pulse.dreamhorizon.org/maven"
-        }
-        maven {
-            url "https://s01.oss.sonatype.org/content/repositories/snapshots"
-        }
     }
 }
 

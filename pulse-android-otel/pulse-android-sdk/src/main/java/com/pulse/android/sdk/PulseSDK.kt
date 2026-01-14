@@ -12,6 +12,7 @@ import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfigu
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
+import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import java.util.function.BiFunction
 
@@ -46,6 +47,7 @@ public interface PulseSDK {
                 endpointBaseUrl,
                 endpointHeaders,
             ),
+        resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
