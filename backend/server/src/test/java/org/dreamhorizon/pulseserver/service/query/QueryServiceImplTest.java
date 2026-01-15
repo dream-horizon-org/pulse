@@ -292,6 +292,8 @@ public class QueryServiceImplTest {
         eq(resultLocation),
         any(Timestamp.class)
     )).thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
 
     QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
 
@@ -311,6 +313,8 @@ public class QueryServiceImplTest {
         .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.COMPLETED)
+        .dataScannedInBytes(1000L)
+        .executionTimeMillis(5000L)
         .createdAt(now)
         .updatedAt(now)
         .build();
@@ -415,6 +419,8 @@ public class QueryServiceImplTest {
         eq(resultLocation),
         any(Timestamp.class)
     )).thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
 
     QueryJob result = queryService.waitForJobCompletion(jobId).blockingGet();
 
@@ -934,6 +940,8 @@ public class QueryServiceImplTest {
     when(queryClient.getQueryExecution("exec-1")).thenReturn(Single.just(executionInfo));
     when(queryJobDao.updateJobFailed(eq("job-1"), anyString(), any(Timestamp.class)))
         .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq("job-1"), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
     when(queryJobDao.getJobById("job-1"))
         .thenReturn(Single.just(failedJob));
 
@@ -1021,6 +1029,8 @@ public class QueryServiceImplTest {
     when(queryJobDao.updateJobCompleted(eq(jobId), anyString(), any(Timestamp.class)))
         .thenReturn(Single.error(new RuntimeException("Update failed")));
     when(queryJobDao.updateJobFailed(eq(jobId), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), any(), any(), any(), any(), any(Timestamp.class)))
         .thenReturn(Single.just(true));
 
     QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();

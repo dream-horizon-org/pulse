@@ -767,8 +767,8 @@ Content-Type: application/json
 **Request Fields:**
 
 - `queryString` (required): SQL query string. Must be a SELECT query and must include a timestamp filter in the WHERE clause. The timestamp filter can be either:
-  - Partition columns: `year`, `month`, `day`, and `hour` (all four must be present)
   - TIMESTAMP literals: `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` format
+  - Timestamp column: `timestamp` column with comparison operators (>=, <=, >, <, =, !=, <>)
 
 **Success Response (Query completed within 3 seconds):**
 
@@ -854,7 +854,7 @@ Content-Type: application/json
 {
   "data": null,
   "error": {
-    "message": "Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, (2) partition columns (year, month, day, hour), or (3) TIMESTAMP literals",
+    "message": "Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, or (2) TIMESTAMP literals",
     "code": "UNKNOWN_EXCEPTION"
   }
 }
@@ -879,9 +879,8 @@ curl --location 'http://localhost:8080/query' \
 **Validation Rules:**
 
 - **Query Type**: Only SELECT queries are allowed. INSERT, UPDATE, DELETE, DROP, and other DDL/DML operations are rejected.
-- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of three ways:
+- **Timestamp Filter**: The query must include a timestamp filter in the WHERE clause. This can be satisfied in one of two ways:
   - **Timestamp Column**: Use the `timestamp` column (with or without quotes) with comparison operators (>=, <=, >, <, =, !=, <>) in the WHERE clause. Example: `WHERE timestamp >= date_add('hour', -24, current_timestamp)`
-  - **Partition Columns**: Include all four partition columns (`year`, `month`, `day`, `hour`) in the WHERE clause
   - **TIMESTAMP Literals**: Include at least one `TIMESTAMP 'YYYY-MM-DD HH:MM:SS'` literal in the WHERE clause
 - **Query Length**: Maximum query length is 100,000 characters
 - **Security**: Queries containing potentially dangerous operations (SQL injection patterns) are rejected
@@ -2461,10 +2460,6 @@ The application supports AWS credentials through multiple methods:
    - Lambda execution environment credentials
 
 **Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS credential files.
-
-**Query Timeout:**
-
-AWS Athena queries have a default timeout of 10 minutes. This timeout should be configured at the AWS Athena workgroup level. Queries that exceed this timeout will be automatically cancelled by AWS Athena.
 
 **Adding Support for Other Query Engines:**
 
