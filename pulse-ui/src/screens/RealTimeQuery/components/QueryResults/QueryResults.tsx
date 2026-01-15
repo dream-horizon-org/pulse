@@ -26,11 +26,12 @@ import {
   IconCopy,
   IconCheck,
   IconBan,
+  IconClock,
 } from "@tabler/icons-react";
 import ReactECharts from "echarts-for-react";
 import { useState, useMemo, useEffect } from "react";
 import { QueryResult, VisualizationConfig } from "../../RealTimeQuery.interface";
-import { formatBytes, formatDuration, RESULTS_PAGE_SIZE } from "../../RealTimeQuery.constants";
+import { formatBytes, formatDuration, formatDurationDetailed, RESULTS_PAGE_SIZE } from "../../RealTimeQuery.constants";
 import classes from "./QueryResults.module.css";
 
 interface QueryResultsProps {
@@ -381,14 +382,30 @@ export function QueryResults({
                 : ""} rows
             </Badge>
             {data.executionTimeMs !== undefined && (
-              <Badge variant="light" color="gray" size="sm">
-                {formatDuration(data.executionTimeMs)}
-              </Badge>
+              <Tooltip label={formatDurationDetailed(data.executionTimeMs)} position="top">
+                <Badge 
+                  variant="light" 
+                  color="blue" 
+                  size="sm"
+                  leftSection={<IconClock size={12} />}
+                  style={{ cursor: 'help' }}
+                >
+                  {formatDuration(data.executionTimeMs)}
+                </Badge>
+              </Tooltip>
             )}
             {data.dataScannedInBytes !== undefined && (
-              <Badge variant="light" color="gray" size="sm">
-                {formatBytes(data.dataScannedInBytes)} scanned
-              </Badge>
+              <Tooltip label={`${data.dataScannedInBytes.toLocaleString()} bytes scanned`} position="top">
+                <Badge 
+                  variant="light" 
+                  color="violet" 
+                  size="sm"
+                  leftSection={<IconDatabase size={12} />}
+                  style={{ cursor: 'help' }}
+                >
+                  {formatBytes(data.dataScannedInBytes)}
+                </Badge>
+              </Tooltip>
             )}
             {data.hasMore && (
               <Badge variant="light" color="orange" size="sm">

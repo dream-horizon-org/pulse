@@ -221,10 +221,10 @@ export const ROUTES: Routes = {
     path: "/configure-alert/*",
     element: AlertForm,
   },
-  REALTIME_QUERY: {
-    key: "REALTIME_QUERY",
-    basePath: "/realtime-query",
-    path: "/realtime-query",
+  QUERY_BUILDER: {
+    key: "QUERY_BUILDER",
+    basePath: "/query-builder",
+    path: "/query-builder",
     element: RealTimeQuery,
   },
 };
@@ -272,18 +272,19 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: ROUTES.NETWORK_LIST.path,
     iconSize: 25,
   },
+  
+  {
+    tabName: "Query Builder",
+    icon: IconDatabaseSearch,
+    routeTo: ROUTES.QUERY_BUILDER.basePath,
+    path: ROUTES.QUERY_BUILDER.path,
+    iconSize: 25,
+  },
   {
     tabName: "Alerts",
     icon: IconBell,
     routeTo: ROUTES.ALERTS.basePath,
     path: ROUTES.ALERTS.path,
-    iconSize: 25,
-  },
-  {
-    tabName: "Query Builder",
-    icon: IconDatabaseSearch,
-    routeTo: ROUTES.REALTIME_QUERY.basePath,
-    path: ROUTES.REALTIME_QUERY.path,
     iconSize: 25,
   },
 ];

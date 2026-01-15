@@ -77,7 +77,26 @@ export function formatBytes(bytes: number): string {
 
 // Format milliseconds to human readable string
 export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${(ms / 60000).toFixed(1)}m`;
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60000) {
+    const seconds = ms / 1000;
+    return seconds < 10 ? `${seconds.toFixed(2)} sec` : `${seconds.toFixed(1)} sec`;
+  }
+  const minutes = Math.floor(ms / 60000);
+  const remainingSeconds = Math.round((ms % 60000) / 1000);
+  if (remainingSeconds === 0) return `${minutes} min`;
+  return `${minutes} min ${remainingSeconds} sec`;
+}
+
+// Format milliseconds to detailed readable string (for tooltips)
+export function formatDurationDetailed(ms: number): string {
+  if (ms < 1000) return `${ms} milliseconds`;
+  if (ms < 60000) {
+    const seconds = ms / 1000;
+    return `${seconds.toFixed(3)} seconds (${ms.toLocaleString()} ms)`;
+  }
+  const minutes = Math.floor(ms / 60000);
+  const remainingMs = ms % 60000;
+  const seconds = remainingMs / 1000;
+  return `${minutes} minute${minutes > 1 ? 's' : ''} ${seconds.toFixed(1)} seconds (${ms.toLocaleString()} ms)`;
 }
