@@ -364,3 +364,87 @@ export function shouldReturnImmediate(sql: string): boolean {
   return isSimpleCount && Math.random() > 0.5;
 }
 
+
+/**
+ * Query History Item type matching GetQueryHistoryResponse interface
+ */
+export type MockQueryHistoryItem = {
+  jobId: string;
+  queryString: string;
+  queryExecutionId?: string;
+  status: "SUBMITTED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  resultLocation?: string;
+  errorMessage?: string;
+  dataScannedInBytes?: number;
+  createdAt?: number;
+  updatedAt?: number;
+  completedAt?: number;
+};
+
+/**
+ * Generate mock query history
+ * Matches GetQueryHistoryResponse interface
+ */
+export function generateMockQueryHistory(): {
+  queries: MockQueryHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+} {
+  const historyQueries = [
+    "SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '2024-01-15 00:00:00' LIMIT 100",
+    "SELECT event_name, COUNT(*) as count FROM pulse_athena_db.otel_data GROUP BY event_name ORDER BY count DESC LIMIT 20",
+    "SELECT device_manufacturer, COUNT(DISTINCT session_id) as sessions FROM pulse_athena_db.otel_data GROUP BY device_manufacturer",
+    "SELECT screen_name, COUNT(*) as views FROM pulse_athena_db.otel_data WHERE event_name = 'screen_view' GROUP BY screen_name",
+    "SELECT os_name, COUNT(*) as events FROM pulse_athena_db.otel_data GROUP BY os_name ORDER BY events DESC",
+    "SELECT json_extract_scalar(props, '$.network.type') as network, COUNT(*) FROM pulse_athena_db.otel_data GROUP BY 1",
+    "SELECT * FROM pulse_athena_db.otel_data WHERE event_name = 'app_open' LIMIT 50",
+    "SELECT COUNT(*) as total_events FROM pulse_athena_db.otel_data",
+  ];
+
+  const statuses: Array<"COMPLETED" | "FAILED" | "CANCELLED"> = ["COMPLETED", "COMPLETED", "COMPLETED", "COMPLETED", "FAILED", "CANCELLED"];
+  
+  const queries: MockQueryHistoryItem[] = historyQueries.map((queryString, index) => {
+    const hoursAgo = index * 2 + Math.floor(Math.random() * 3);
+    const createdAt = Date.now() - hoursAgo * 60 * 60 * 1000;
+    const status = statuses[index % statuses.length];
+    const executionTimeMs = status === "COMPLETED" ? Math.floor(Math.random() * 5000) + 500 : 0;
+    
+    return {
+      jobId: "query_" + createdAt + "_" + index,
+      queryString,
+      queryExecutionId: "athena_exec_" + createdAt + "_" + index,
+      status,
+      resultLocation: status === "COMPLETED" ? "s3://pulse-results/queries/" + createdAt + "/" : undefined,
+      errorMessage: status === "FAILED" ? "Query execution failed: syntax error near line 1" : undefined,
+      dataScannedInBytes: status === "COMPLETED" ? Math.floor(Math.random() * 100000000) + 1000000 : undefined,
+      createdAt,
+      updatedAt: createdAt + 1000,
+      completedAt: status === "COMPLETED" || status === "FAILED" ? createdAt + executionTimeMs : undefined,
+    };
+  });
+
+  return { 
+    queries,
+    total: queries.length,
+    limit: 50,
+    offset: 0,
+  };
+}
+
+/**
+ * Cancel a query job
+ */
+export function cancelQueryJob(jobId: string): { success: boolean; message: string } {
+  const activeJobs = getJobsMap();
+  const job = activeJobs.get(jobId);
+  
+  if (job) {
+    job.status = "FAILED";
+    activeJobs.delete(jobId);
+    console.log("[Mock] Cancelled job:", jobId);
+    return { success: true, message: "Query cancelled successfully" };
+  }
+  
+  return { success: true, message: "Query cancelled (job not found or already completed)" };
+}

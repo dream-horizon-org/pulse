@@ -23,6 +23,8 @@ import {
   createQueryJob,
   getQueryJobStatus,
   shouldReturnImmediate,
+  generateMockQueryHistory,
+  cancelQueryJob,
 } from "./responses/realtimeQueryResponses";
 
 export class MockResponseGenerator {
@@ -160,6 +162,8 @@ export class MockResponseGenerator {
     // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
     if (
       pathname.includes("/query/metadata/table") ||
+      pathname.includes("/query/tables") ||
+      pathname.includes("/query/history") ||
       pathname.includes("/query/job/") ||
       (pathname.endsWith("/query") && method === "POST")
     ) {
@@ -2504,13 +2508,65 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    // Get table metadata
+    // Get table metadata (legacy POST endpoint)
     if (pathname.includes("/query/metadata/table") && method === "POST") {
       if (this.config.shouldLog()) {
         console.log("[Mock Server] Returning table metadata for otel_data");
       }
       return {
         data: mockTableMetadata,
+        status: 200,
+      };
+    }
+
+    // Get table metadata (new GET endpoint)
+    // Response must be an array of TableMetadata matching TableMetadataResponse type
+    if (pathname.includes("/query/tables") && method === "GET") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/tables - Returning table metadata");
+      }
+      return {
+        data: [
+          {
+            tableName: mockTableMetadata.tableName,
+            tableSchema: mockTableMetadata.databaseName,
+            tableType: "TABLE",
+            columns: mockTableMetadata.columns.map((col, index) => ({
+              columnName: col.name,
+              dataType: col.type,
+              ordinalPosition: index + 1,
+              isNullable: "YES",
+            })),
+          },
+        ],
+        status: 200,
+      };
+    }
+
+    // Get query history
+    if (pathname.includes("/query/history") && method === "GET") {
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/history - Returning query history");
+      }
+      const history = generateMockQueryHistory();
+      return {
+        data: history,
+        status: 200,
+      };
+    }
+
+    // Cancel query job (DELETE)
+    if (pathname.includes("/query/job/") && method === "DELETE") {
+      const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
+      const jobId = jobIdMatch ? jobIdMatch[1] : "";
+      
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] DELETE /query/job/ - Cancelling job:", jobId);
+      }
+      
+      const result = cancelQueryJob(jobId);
+      return {
+        data: result,
         status: 200,
       };
     }

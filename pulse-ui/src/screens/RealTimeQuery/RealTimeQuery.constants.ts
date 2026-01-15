@@ -6,7 +6,7 @@
 // UI Text constants
 export const REALTIME_QUERY_TEXTS = {
   PAGE_TITLE: "Query Builder",
-  PAGE_SUBTITLE: "Run SQL queries on your clickstream data and visualize results",
+  PAGE_SUBTITLE: "Run SQL queries on your clickstream data",
   RESULTS_TITLE: "Results",
   RUN_QUERY: "Run Query",
   CANCEL_QUERY: "Cancel",
