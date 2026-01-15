@@ -69,14 +69,32 @@
 }
 
 .modeToggle {
-  background: rgba(14, 201, 194, 0.08);
-  border: 1px solid rgba(14, 201, 194, 0.15);
+  background: var(--mantine-color-gray-1);
+  border: 1px solid var(--mantine-color-gray-3);
   border-radius: 8px;
+  padding: 3px;
+}
+
+.modeToggle :global(.mantine-SegmentedControl-label) {
+  padding: 6px 14px;
+}
+
+.modeToggle :global(.mantine-SegmentedControl-indicator) {
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.25);
 }
 
 .modeToggle [data-active] {
-  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
   color: white;
+}
+
+.modeToggle :global(.mantine-SegmentedControl-control):not([data-active]) {
+  color: var(--mantine-color-gray-6);
+}
+
+.modeToggle :global(.mantine-SegmentedControl-control):not([data-active]):hover {
+  color: var(--mantine-color-teal-6);
 }
 
 /* Schema Card - Combined Data Source & Columns */
@@ -160,17 +178,83 @@
   flex-direction: column;
 }
 
-.statusSection {
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+/* Compact Status Design */
+.statusCompact {
+  padding: var(--mantine-spacing-sm);
 }
 
-.statusHeader {
-  padding: var(--mantine-spacing-md);
-  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
-  background: rgba(14, 201, 194, 0.03);
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: 10px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.statusRow[data-status="idle"] {
+  background: var(--mantine-color-gray-1);
+}
+
+.statusRow[data-status="running"] {
+  background: rgba(34, 139, 230, 0.1);
+}
+
+.statusRow[data-status="completed"] {
+  background: rgba(14, 201, 194, 0.1);
+}
+
+.statusRow[data-status="failed"] {
+  background: rgba(250, 82, 82, 0.1);
+}
+
+.statusRow[data-status="cancelled"] {
+  background: rgba(253, 126, 20, 0.1);
+}
+
+.statusIndicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statusIndicator[data-status="idle"] {
+  background: var(--mantine-color-gray-5);
+  color: white;
+}
+
+.statusIndicator[data-status="running"] {
+  background: linear-gradient(135deg, #339af0 0%, #228be6 100%);
+  color: white;
+}
+
+.statusIndicator[data-status="completed"] {
+  background: linear-gradient(135deg, #20c997 0%, #0ca678 100%);
+  color: white;
+}
+
+.statusIndicator[data-status="failed"] {
+  background: linear-gradient(135deg, #ff6b6b 0%, #fa5252 100%);
+  color: white;
+}
+
+.statusIndicator[data-status="cancelled"] {
+  background: linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%);
+  color: white;
+}
+
+.statusText {
+  flex: 1;
+  min-width: 0;
+}
+
+.statusLabel {
+  color: var(--mantine-color-dark-7);
+  line-height: 1.2;
 }
 
 .liveBadge {
@@ -179,139 +263,15 @@
 
 @keyframes pulse-badge {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
 }
 
-.statusContent {
-  padding: var(--mantine-spacing-md);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Main Status Card */
-.statusCard {
-  border-radius: 12px;
-  padding: var(--mantine-spacing-lg);
-  text-align: center;
-  margin-bottom: var(--mantine-spacing-md);
-  transition: all 0.3s ease;
-}
-
-.statusCard[data-status="idle"] {
-  background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
-  border: 1px solid rgba(134, 142, 150, 0.2);
-}
-
-.statusCard[data-status="running"] {
-  background: linear-gradient(145deg, #e7f5ff 0%, #d0ebff 100%);
-  border: 1px solid rgba(34, 139, 230, 0.3);
-}
-
-.statusCard[data-status="completed"] {
-  background: linear-gradient(145deg, #e6fcf5 0%, #c3fae8 100%);
-  border: 1px solid rgba(14, 201, 194, 0.3);
-}
-
-.statusCard[data-status="failed"] {
-  background: linear-gradient(145deg, #fff5f5 0%, #ffe3e3 100%);
-  border: 1px solid rgba(250, 82, 82, 0.3);
-}
-
-.statusCard[data-status="cancelled"] {
-  background: linear-gradient(145deg, #fff9db 0%, #ffec99 100%);
-  border: 1px solid rgba(253, 126, 20, 0.3);
-}
-
-/* Status Icon Container with Pulse */
-.statusIconContainer {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--mantine-spacing-sm);
-}
-
-.pulseRing {
-  position: absolute;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: rgba(34, 139, 230, 0.2);
-  animation: pulse-ring 1.5s ease-out infinite;
-}
-
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.9);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.4);
-    opacity: 0;
-  }
-}
-
-.statusIconWrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 1;
-}
-
-.statusIconWrapper[data-status="idle"] {
-  background: linear-gradient(145deg, #adb5bd 0%, #868e96 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(134, 142, 150, 0.3);
-}
-
-.statusIconWrapper[data-status="running"] {
-  background: linear-gradient(145deg, #339af0 0%, #228be6 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(34, 139, 230, 0.4);
-}
-
-.statusIconWrapper[data-status="completed"] {
-  background: linear-gradient(145deg, #20c997 0%, #0ca678 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.4);
-}
-
-.statusIconWrapper[data-status="failed"] {
-  background: linear-gradient(145deg, #ff6b6b 0%, #fa5252 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(250, 82, 82, 0.4);
-}
-
-.statusIconWrapper[data-status="cancelled"] {
-  background: linear-gradient(145deg, #ffa94d 0%, #fd7e14 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(253, 126, 20, 0.4);
-}
-
-.statusTitle {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--mantine-color-dark-7);
-  margin-bottom: 2px;
-}
-
-.statusSubtitle {
-  font-size: 12px;
-  color: var(--mantine-color-gray-6);
-  line-height: 1.4;
-}
-
-/* Progress Bar */
-.progressBar {
-  height: 4px;
-  background: rgba(34, 139, 230, 0.2);
+/* Compact Progress Bar */
+.progressBarCompact {
+  height: 3px;
+  background: rgba(34, 139, 230, 0.15);
   border-radius: 2px;
-  margin-top: var(--mantine-spacing-sm);
+  margin: 8px 0;
   overflow: hidden;
 }
 
@@ -324,94 +284,55 @@
 }
 
 @keyframes progress-slide {
-  0% {
-    transform: translateX(-100%);
-    width: 30%;
-  }
-  50% {
-    width: 50%;
-  }
-  100% {
-    transform: translateX(400%);
-    width: 30%;
-  }
+  0% { transform: translateX(-100%); width: 30%; }
+  50% { width: 50%; }
+  100% { transform: translateX(400%); width: 30%; }
 }
 
-/* Job ID Row */
-.jobIdRow {
+/* Quick Stats Row */
+.quickStats {
+  display: flex;
+  gap: var(--mantine-spacing-xs);
+  flex-wrap: wrap;
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.quickStatItem {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: rgba(14, 201, 194, 0.05);
-  border: 1px solid rgba(14, 201, 194, 0.1);
-  border-radius: 8px;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(14, 201, 194, 0.08);
+  border-radius: 6px;
+  color: var(--mantine-color-teal-7);
+  cursor: default;
+  transition: background 0.15s ease;
+}
+
+.quickStatItem:hover {
+  background: rgba(14, 201, 194, 0.12);
+}
+
+/* Compact Job ID */
+.jobIdCompact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: var(--mantine-spacing-xs);
+  background: var(--mantine-color-gray-0);
+  border: 1px solid var(--mantine-color-gray-2);
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.jobIdRow:hover {
-  background: rgba(14, 201, 194, 0.1);
-  border-color: rgba(14, 201, 194, 0.2);
+.jobIdCompact:hover {
+  background: var(--mantine-color-gray-1);
+  border-color: var(--mantine-color-gray-3);
 }
 
-/* Stats Container */
-.statsContainer {
-  margin-top: var(--mantine-spacing-md);
-  padding-top: var(--mantine-spacing-md);
-  border-top: 1px solid rgba(14, 201, 194, 0.1);
-}
-
-.statItem {
-  display: flex;
-  align-items: center;
-  gap: var(--mantine-spacing-sm);
-  padding: 10px 12px;
-  background: rgba(14, 201, 194, 0.03);
-  border-radius: 8px;
-  transition: all 0.15s ease;
-}
-
-.statItem:hover {
-  background: rgba(14, 201, 194, 0.06);
-}
-
-.statIconWrapper {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.statIconWrapper[data-type="rows"] {
-  background: rgba(14, 201, 194, 0.15);
-  color: var(--mantine-color-teal-6);
-}
-
-.statIconWrapper[data-type="time"] {
-  background: rgba(34, 139, 230, 0.15);
-  color: var(--mantine-color-blue-6);
-}
-
-.statIconWrapper[data-type="data"] {
-  background: rgba(139, 92, 246, 0.15);
-  color: var(--mantine-color-violet-6);
-}
-
-.statInfo {
-  flex: 1;
-}
-
-.statValue {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--mantine-color-dark-7);
-  line-height: 1.2;
-}
-
+/* Legacy stat styles - keep for compatibility */
 .statLabel {
   font-size: 11px;
   color: var(--mantine-color-gray-5);

@@ -1,0 +1,93 @@
+/* Query History Modal Styles */
+
+.searchBar {
+  background: linear-gradient(180deg, rgba(14, 201, 194, 0.02) 0%, rgba(14, 201, 194, 0.04) 100%);
+}
+
+.content {
+  min-height: 300px;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+}
+
+.queryCard {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+}
+
+.queryCard:hover {
+  border-color: rgba(14, 201, 194, 0.3);
+  box-shadow: 0 4px 16px rgba(14, 201, 194, 0.1);
+  transform: translateY(-1px);
+}
+
+.queryCode {
+  font-size: 11px;
+  line-height: 1.5;
+  background: linear-gradient(145deg, rgba(14, 201, 194, 0.04) 0%, rgba(14, 201, 194, 0.08) 100%);
+  border: 1px solid rgba(14, 201, 194, 0.1);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1e293b;
+  max-height: 100px;
+  overflow: hidden;
+}
+
+.footer {
+  background: linear-gradient(180deg, rgba(14, 201, 194, 0.02) 0%, rgba(14, 201, 194, 0.04) 100%);
+}
+
+/* Animation for loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 25%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.06) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Status-specific hover colors */
+.queryCard[data-status="succeeded"]:hover {
+  border-color: rgba(18, 184, 134, 0.4);
+}
+
+.queryCard[data-status="failed"]:hover {
+  border-color: rgba(250, 82, 82, 0.4);
+}
+
+.queryCard[data-status="running"]:hover {
+  border-color: rgba(34, 139, 230, 0.4);
+}
+
+/* Empty state styling */
+.emptyState {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .queryCard {
+    padding: 12px;
+  }
+  
+  .queryCode {
+    font-size: 10px;
+    max-height: 80px;
+  }
+}
+

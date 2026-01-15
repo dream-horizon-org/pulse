@@ -8,10 +8,10 @@ export const QueryHistoryContent: React.FC = () => {
 
   // Transform QueryHistoryItem[] to the format expected by QueryList
   const resolvedData = queries.map((item) => ({
-    query: item.query,
-    queryId: item.queryId,
+    query: item.queryString,
+    queryId: item.jobId,
     status: item.status,
-    submittedAt: item.submittedAt,
+    submittedAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
   }));
 
   return (

@@ -4,20 +4,23 @@
  */
 
 export type QueryHistoryItem = {
-  queryId: string;
-  query: string;
-  status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
-  submittedAt: string;
-  completedAt?: string;
-  executionTimeMs?: number;
-  dataScannedInBytes?: number;
-  rowCount?: number;
+  jobId: string;
+  queryString: string;
+  queryExecutionId?: string;
+  status: "SUBMITTED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  resultLocation?: string;
   errorMessage?: string;
+  dataScannedInBytes?: number;
+  createdAt?: number; // timestamp in milliseconds
+  updatedAt?: number; // timestamp in milliseconds
+  completedAt?: number; // timestamp in milliseconds
 };
 
 export type GetQueryHistoryResponse = {
   queries: QueryHistoryItem[];
-  totalCount: number;
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type GetQueryHistoryParams = {

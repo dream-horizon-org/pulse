@@ -375,7 +375,10 @@ export function QueryResults({
         <Group justify="space-between" p="md">
           <Group gap="sm">
             <Badge variant="light" color="teal" size="sm">
-              {data.totalRows.toLocaleString()} rows
+              {data.rows.length.toLocaleString()}
+              {data.hasMore || data.rows.length < data.totalRows 
+                ? ` of ${data.totalRows.toLocaleString()}` 
+                : ""} rows
             </Badge>
             {data.executionTimeMs !== undefined && (
               <Badge variant="light" color="gray" size="sm">
@@ -389,7 +392,7 @@ export function QueryResults({
             )}
             {data.hasMore && (
               <Badge variant="light" color="orange" size="sm">
-                More data available
+                More available
               </Badge>
             )}
           </Group>
@@ -503,7 +506,8 @@ export function QueryResults({
         <Box className={classes.paginationFooter}>
           <Group justify="space-between" align="center">
             <Text size="xs" c="dimmed">
-              Showing {((currentPage - 1) * RESULTS_PAGE_SIZE) + 1} - {Math.min(currentPage * RESULTS_PAGE_SIZE, data.totalRows)} of {data.totalRows} loaded rows
+              Showing {((currentPage - 1) * RESULTS_PAGE_SIZE) + 1} - {Math.min(currentPage * RESULTS_PAGE_SIZE, data.rows.length)} of {data.rows.length} loaded
+              {data.hasMore && ` (${data.totalRows.toLocaleString()} total)`}
             </Text>
             
             <Group gap="md">

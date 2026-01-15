@@ -28,11 +28,6 @@ import {
   IconRefresh,
   IconCopy,
   IconCheck,
-  IconCircleCheck,
-  IconCircleX,
-  IconClock,
-  IconBan,
-  IconActivity,
   IconCode,
   IconWand,
 } from "@tabler/icons-react";
@@ -42,6 +37,7 @@ import { notifications } from "@mantine/notifications";
 import { SqlEditor } from "./components/SqlEditor";
 import { QueryResults } from "./components/QueryResults";
 import { QueryBuilder } from "./components/QueryBuilder";
+import { QueryHistory } from "./components/QueryHistory";
 
 import { QueryResult, VisualizationConfig, ColumnMetadata, TableMetadata } from "./RealTimeQuery.interface";
 import { useQueryExecution } from "./hooks";
@@ -49,7 +45,6 @@ import { useQueryMetadata } from "../../hooks";
 
 import {
   REALTIME_QUERY_TEXTS,
-  formatBytes,
   formatDuration,
   getTypeColor,
 } from "./RealTimeQuery.constants";
@@ -79,7 +74,15 @@ export function RealTimeQuery() {
     
     setQueryMode(newMode);
   }, [queryMode, builderSql]);
+  
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [historyModalOpen, setHistoryModalOpen] = useState<boolean>(false);
+
+  // Handle selecting a query from history
+  const handleSelectHistoryQuery = useCallback((query: string) => {
+    setSqlQuery(query);
+    setQueryMode("sql"); // Switch to SQL mode to show the selected query
+  }, []);
 
   // Always use table view
   const visualization: VisualizationConfig = {
@@ -175,26 +178,7 @@ export function RealTimeQuery() {
   const canRunQuery = queryMode === "sql" ? sqlQuery.trim().length > 0 : builderSql.trim().length > 0;
   const isSubmitting = executionState.status === "submitting";
   const isPolling = executionState.status === "polling";
-  const isRunning = isSubmitting || isPolling;
   const canCancel = isPolling && !!executionState.jobId;
-
-  // Get status message
-  const getStatusMessage = () => {
-    switch (executionState.status) {
-      case "submitting":
-        return "Submitting query...";
-      case "polling":
-        return `Fetching results... (attempt ${executionState.pollCount})`;
-      case "completed":
-        return "Query completed successfully";
-      case "failed":
-        return executionState.errorMessage || "Query failed";
-      case "cancelled":
-        return "Query was cancelled";
-      default:
-        return null;
-    }
-  };
 
   return (
     <Box className={classes.pageContainer}>
@@ -215,8 +199,8 @@ export function RealTimeQuery() {
                   value: "builder",
                   label: (
                     <Group gap={6} wrap="nowrap">
-                      <IconWand size={14} />
-                      <Text size="xs">Builder</Text>
+                      <IconWand size={16} />
+                      <Text size="sm" fw={600}>Builder</Text>
                     </Group>
                   ),
                 },
@@ -224,18 +208,23 @@ export function RealTimeQuery() {
                   value: "sql",
                   label: (
                     <Group gap={6} wrap="nowrap">
-                      <IconCode size={14} />
-                      <Text size="xs">SQL</Text>
+                      <IconCode size={16} />
+                      <Text size="sm" fw={600}>Code</Text>
                     </Group>
                   ),
                 },
               ]}
-              size="xs"
+              size="sm"
               className={classes.modeToggle}
             />
             
-            <Tooltip label="Query History (Coming Soon)">
-              <ActionIcon variant="light" size="lg" color="teal" disabled>
+            <Tooltip label="Query History">
+              <ActionIcon 
+                variant="light" 
+                size="lg" 
+                color="teal"
+                onClick={() => setHistoryModalOpen(true)}
+              >
                 <IconHistory size={18} />
               </ActionIcon>
             </Tooltip>
@@ -277,7 +266,8 @@ export function RealTimeQuery() {
 
       {/* Main Content */}
       <Grid gutter="md">
-        {/* Left Sidebar - Combined Data Source & Columns */}
+        {/* Left Sidebar - Schema (Only in SQL mode) */}
+        {queryMode === "sql" && (
         <Grid.Col span={{ base: 12, md: 3 }}>
           <Box className={classes.schemaCard}>
             {/* Data Source Header */}
@@ -404,9 +394,10 @@ export function RealTimeQuery() {
             )}
           </Box>
         </Grid.Col>
+        )}
 
         {/* Main - SQL Editor or Query Builder */}
-        <Grid.Col span={{ base: 12, md: 6 }}>
+        <Grid.Col span={{ base: 12, md: queryMode === "builder" ? 12 : 9 }}>
           {queryMode === "sql" ? (
             <SqlEditor
               value={sqlQuery}
@@ -424,146 +415,6 @@ export function RealTimeQuery() {
             />
           )}
         </Grid.Col>
-
-        {/* Right Sidebar - Query Status */}
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Box className={classes.rightSidebar}>
-            {/* Query Status */}
-            <Box className={classes.statusSection}>
-              {/* Status Header with Live Indicator */}
-              <Box className={classes.statusHeader}>
-                <Group gap="xs" justify="space-between">
-                  <Group gap="xs">
-                    <IconActivity size={16} className={classes.cardIcon} />
-                    <Text className={classes.cardTitle}>Query Status</Text>
-                  </Group>
-                  {isRunning && (
-                    <Badge 
-                      size="xs" 
-                      variant="dot" 
-                      color="blue"
-                      className={classes.liveBadge}
-                    >
-                      Live
-                    </Badge>
-                  )}
-                </Group>
-              </Box>
-              
-              <Box className={classes.statusContent}>
-                {/* Main Status Card */}
-                <Box 
-                  className={classes.statusCard}
-                  data-status={isRunning ? "running" : executionState.status}
-                >
-                  {/* Status Icon with Animation */}
-                  <Box className={classes.statusIconContainer}>
-                    {isRunning && <Box className={classes.pulseRing} />}
-                    <Box 
-                      className={classes.statusIconWrapper}
-                      data-status={isRunning ? "running" : executionState.status}
-                    >
-                      {executionState.status === "idle" && <IconClock size={24} />}
-                      {isRunning && <Loader size={24} color="white" />}
-                      {executionState.status === "completed" && <IconCircleCheck size={24} />}
-                      {executionState.status === "failed" && <IconCircleX size={24} />}
-                      {executionState.status === "cancelled" && <IconBan size={24} />}
-                    </Box>
-                  </Box>
-                  
-                  {/* Status Text */}
-                  <Text className={classes.statusTitle}>
-                    {executionState.status === "idle" ? "Ready to Query" : 
-                     isRunning ? "Executing Query..." :
-                     executionState.status === "completed" ? "Query Completed" :
-                     executionState.status === "failed" ? "Query Failed" :
-                     executionState.status === "cancelled" ? "Query Cancelled" : 
-                     executionState.status}
-                  </Text>
-                  <Text className={classes.statusSubtitle}>
-                    {getStatusMessage() || "Write a SQL query and click Run"}
-                  </Text>
-                  
-                  {/* Progress bar for running state */}
-                  {isRunning && (
-                    <Box className={classes.progressBar}>
-                      <Box className={classes.progressFill} />
-                    </Box>
-                  )}
-                </Box>
-
-                {/* Job ID - Compact */}
-                {executionState.jobId && (
-                  <CopyButton value={executionState.jobId}>
-                    {({ copied, copy }) => (
-                      <Tooltip label={copied ? "Copied!" : "Click to copy full Job ID"}>
-                        <Box className={classes.jobIdRow} onClick={copy}>
-                          <Text size="xs" c="dimmed" fw={500}>Job</Text>
-                          <Group gap={6}>
-                            <Text size="xs" ff="monospace" c="dark.4">
-                              {executionState.jobId?.slice(0, 8)}
-                            </Text>
-                            {copied ? (
-                              <IconCheck size={12} color="var(--mantine-color-teal-6)" />
-                            ) : (
-                              <IconCopy size={12} color="var(--mantine-color-gray-5)" />
-                            )}
-                          </Group>
-                        </Box>
-                      </Tooltip>
-                    )}
-                  </CopyButton>
-                )}
-
-                {/* Stats - Only show when we have results */}
-                {result && (
-                  <Stack gap="xs" className={classes.statsContainer}>
-                    <Box className={classes.statItem}>
-                      <Box className={classes.statIconWrapper} data-type="rows">
-                        <IconTable size={14} />
-                      </Box>
-                      <Box className={classes.statInfo}>
-                        <Text className={classes.statValue}>{result.totalRows.toLocaleString()}</Text>
-                        <Text className={classes.statLabel}>rows returned</Text>
-                      </Box>
-                    </Box>
-                    
-                    {result.executionTimeMs !== undefined && (
-                      <Box className={classes.statItem}>
-                        <Box className={classes.statIconWrapper} data-type="time">
-                          <IconClock size={14} />
-                        </Box>
-                        <Box className={classes.statInfo}>
-                          <Text className={classes.statValue}>{formatDuration(result.executionTimeMs)}</Text>
-                          <Text className={classes.statLabel}>execution time</Text>
-                        </Box>
-                      </Box>
-                    )}
-                    
-                    {result.dataScannedInBytes !== undefined && (
-                      <Box className={classes.statItem}>
-                        <Box className={classes.statIconWrapper} data-type="data">
-                          <IconDatabase size={14} />
-                        </Box>
-                        <Box className={classes.statInfo}>
-                          <Text className={classes.statValue}>{formatBytes(result.dataScannedInBytes)}</Text>
-                          <Text className={classes.statLabel}>data scanned</Text>
-                        </Box>
-                      </Box>
-                    )}
-                    
-                    {result.hasMore && (
-                      <Box className={classes.moreDataBanner}>
-                        <Text size="xs" fw={500}>More data available</Text>
-                        <Text size="xs" c="dimmed">Click "Load More" in results</Text>
-                      </Box>
-                    )}
-                  </Stack>
-                )}
-              </Box>
-            </Box>
-          </Box>
-        </Grid.Col>
       </Grid>
 
       {/* Results Section */}
@@ -572,7 +423,10 @@ export function RealTimeQuery() {
           Results
           {result && (
             <Badge size="sm" variant="light" color="teal" ml="sm">
-              {result.totalRows.toLocaleString()} rows
+              {result.rows.length.toLocaleString()}
+              {result.hasMore || result.rows.length < result.totalRows 
+                ? ` of ${result.totalRows.toLocaleString()}` 
+                : ""} rows
             </Badge>
           )}
         </h2>
@@ -588,6 +442,13 @@ export function RealTimeQuery() {
           onLoadMore={loadMore}
         />
       </Box>
+
+      {/* Query History Modal */}
+      <QueryHistory
+        opened={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        onSelectQuery={handleSelectHistoryQuery}
+      />
     </Box>
   );
 }

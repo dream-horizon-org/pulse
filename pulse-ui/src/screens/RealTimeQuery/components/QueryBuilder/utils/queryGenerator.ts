@@ -1,31 +1,17 @@
 /**
- * Query Generator Utility
+ * Query Generator Utility - Simplified Version
  * Converts QueryBuilderState to valid Athena SQL
- * 
- * Key features:
- * - Always generates time-bound queries
- * - Proper escaping of values
- * - Valid Athena SQL syntax
- * - JSON path extraction support
+ * Includes partition-efficient time filtering
  */
 
 import {
   QueryBuilderState,
+  QueryColumn,
+  FilterCondition,
+  FilterOperator,
   TimeRange,
   TimeRangePreset,
-  Metric,
-  Dimension,
-  Filter,
-  FilterOperator,
-  TIME_RANGE_PRESETS,
-  SortConfig,
-  EnhancedColumn,
-  AGGREGATION_OPTIONS,
-  SelectedColumn,
 } from "../QueryBuilder.interface";
-
-// Default timestamp column name
-const TIMESTAMP_COLUMN = "timestamp";
 
 // Partition column names
 const PARTITION_COLUMNS = {
@@ -35,11 +21,13 @@ const PARTITION_COLUMNS = {
   hour: "hour",
 };
 
+// Timestamp column
+const TIMESTAMP_COLUMN = "timestamp";
+
 /**
  * Escape a string value for SQL
  */
 function escapeValue(value: string): string {
-  // Escape single quotes by doubling them
   return value.replace(/'/g, "''");
 }
 
@@ -82,11 +70,6 @@ function formatDateForSql(date: Date): string {
 /**
  * Generate partition-efficient time filter for Athena
  * Uses tuple comparison for partition pruning + precise timestamp filter
- * All values are in UTC to match S3 data storage format
- * 
- * Example output:
- *   (year, month, day, hour) >= (2026, 1, 1, 5) AND (year, month, day, hour) <= (2026, 1, 7, 15)
- *   AND timestamp >= TIMESTAMP '2026-01-01 05:00:00' AND timestamp <= TIMESTAMP '2026-01-07 15:00:00'
  */
 function generatePartitionTimeFilter(startDate: Date, endDate: Date): string {
   // Use UTC values to match S3 data storage format
@@ -111,7 +94,7 @@ function generatePartitionTimeFilter(startDate: Date, endDate: Date): string {
   conditions.push(`${partitionTuple} >= ${startTuple}`);
   conditions.push(`${partitionTuple} <= ${endTuple}`);
 
-  // Precise timestamp filters (always included for accuracy)
+  // Precise timestamp filters
   conditions.push(`${TIMESTAMP_COLUMN} >= TIMESTAMP '${formatDateForSql(startDate)}'`);
   conditions.push(`${TIMESTAMP_COLUMN} <= TIMESTAMP '${formatDateForSql(endDate)}'`);
 
@@ -119,22 +102,7 @@ function generatePartitionTimeFilter(startDate: Date, endDate: Date): string {
 }
 
 /**
- * Generate column reference with optional JSON extraction
- * For JSON columns, uses json_extract_scalar
- */
-function generateColumnRef(column: string, jsonPath?: string): string {
-  if (jsonPath && jsonPath.trim()) {
-    // Use json_extract_scalar for JSON path extraction
-    // jsonPath should be like '$.field' or '$.nested.field'
-    const cleanPath = jsonPath.startsWith("$.") ? jsonPath : `$.${jsonPath}`;
-    return `json_extract_scalar("${column}", '${cleanPath}')`;
-  }
-  return `"${column}"`;
-}
-
-/**
- * Generate the time filter expression for Athena
- * Uses partition-efficient filtering with (year, month, day, hour) tuple comparisons
+ * Generate the time filter expression
  */
 function generateTimeFilter(timeRange: TimeRange): string {
   let startDate: Date;
@@ -150,7 +118,6 @@ function generateTimeFilter(timeRange: TimeRange): string {
       startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
     }
   } else {
-    // For preset time ranges, calculate actual dates
     endDate = new Date();
     startDate = getStartDateFromPreset(timeRange.preset);
   }
@@ -159,252 +126,197 @@ function generateTimeFilter(timeRange: TimeRange): string {
 }
 
 /**
- * Check if a column type requires casting for numeric aggregations
+ * Normalize JSON path to ensure it starts with $ properly
+ * Handles both dot notation ($.field) and bracket notation ($["field.with.dots"])
  */
-function requiresNumericCast(columnCategory: EnhancedColumn["category"] | undefined, columnType: string | undefined): boolean {
-  // If it's already a number, no cast needed
-  if (columnCategory === "number") return false;
+function normalizeJsonPath(path: string): string {
+  const trimmed = path.trim();
   
-  // Check the raw type for numeric types that might not be categorized correctly
-  if (columnType) {
-    const lowerType = columnType.toLowerCase();
-    if (["bigint", "integer", "int", "double", "float", "decimal", "numeric", "long", "smallint", "tinyint"].some(t => lowerType.includes(t))) {
-      return false;
-    }
+  // Already starts with $ - return as is
+  if (trimmed.startsWith("$")) {
+    return trimmed;
   }
   
-  // All other types need casting
-  return true;
-}
-
-/**
- * Generate SELECT clause for a metric with type-aware casting
- */
-function generateMetricSelect(metric: Metric, columnInfo?: EnhancedColumn): string {
-  const columnRef = metric.column === "*" ? "*" : generateColumnRef(metric.column, metric.jsonPath);
-  const alias = metric.alias || generateMetricAlias(metric);
-  
-  // Determine if we need to cast to numeric
-  const needsCast = metric.column !== "*" && 
-    requiresNumericCast(columnInfo?.category, columnInfo?.type) && 
-    (metric.jsonPath || columnInfo?.category === "string" || columnInfo?.category === "json");
-  
-  // Get aggregation info
-  const aggOption = AGGREGATION_OPTIONS.find(opt => opt.value === metric.aggregation);
-  const requiresNumeric = aggOption?.requiresNumeric ?? false;
-  
-  switch (metric.aggregation) {
-    case "COUNT":
-      return `COUNT(${columnRef}) AS "${alias}"`;
-    case "COUNT_DISTINCT":
-      return `COUNT(DISTINCT ${columnRef}) AS "${alias}"`;
-    case "SUM":
-      // Cast to DOUBLE if column is not numeric
-      if (needsCast || (requiresNumeric && columnInfo?.category !== "number")) {
-        return `SUM(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
-      }
-      return `SUM(${columnRef}) AS "${alias}"`;
-    case "AVG":
-      // Cast to DOUBLE if column is not numeric
-      if (needsCast || (requiresNumeric && columnInfo?.category !== "number")) {
-        return `AVG(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
-      }
-      return `AVG(${columnRef}) AS "${alias}"`;
-    case "MIN":
-      // MIN/MAX work on strings too (lexicographic), but if user expects numeric, cast it
-      if (requiresNumeric && needsCast) {
-        return `MIN(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
-      }
-      return `MIN(${columnRef}) AS "${alias}"`;
-    case "MAX":
-      if (requiresNumeric && needsCast) {
-        return `MAX(TRY_CAST(${columnRef} AS DOUBLE)) AS "${alias}"`;
-      }
-      return `MAX(${columnRef}) AS "${alias}"`;
-    default:
-      return `COUNT(${columnRef}) AS "${alias}"`;
+  // Starts with bracket notation - add $ prefix
+  if (trimmed.startsWith("[")) {
+    return `$${trimmed}`;
   }
-}
-
-/**
- * Generate alias for a metric
- */
-function generateMetricAlias(metric: Metric): string {
-  const baseName = metric.jsonPath 
-    ? `${metric.column}_${metric.jsonPath.replace(/\$\./g, "").replace(/\./g, "_")}`
-    : metric.column;
-  return `${metric.aggregation.toLowerCase()}_${baseName}`;
-}
-
-/**
- * Generate SELECT clause for a dimension
- */
-function generateDimensionSelect(dimension: Dimension): string {
-  const columnRef = generateColumnRef(dimension.column, dimension.jsonPath);
-  const alias = dimension.alias || generateDimensionAlias(dimension);
-  return `${columnRef} AS "${alias}"`;
-}
-
-/**
- * Generate alias for a dimension
- */
-function generateDimensionAlias(dimension: Dimension): string {
-  if (dimension.jsonPath) {
-    return `${dimension.column}_${dimension.jsonPath.replace(/\$\./g, "").replace(/\./g, "_")}`;
+  
+  // Starts with dot - add $ prefix
+  if (trimmed.startsWith(".")) {
+    return `$${trimmed}`;
   }
-  return dimension.column;
+  
+  // Plain field name - add $. prefix
+  return `$.${trimmed}`;
 }
 
 /**
- * Generate SELECT clause for a selected column (simple select mode)
+ * Extract a clean alias from a JSON path
+ * Handles both dot notation and bracket notation
  */
-function generateSelectedColumnSelect(col: SelectedColumn): string {
+function extractAliasFromJsonPath(jsonPath: string): string {
+  const trimmed = jsonPath.trim();
+  
+  // Handle bracket notation: ["service.name"] or $["service.name"]
+  const bracketMatch = trimmed.match(/\["([^"]+)"\]$/);
+  if (bracketMatch) {
+    return bracketMatch[1];
+  }
+  
+  // Handle dot notation: $.field.name or field.name
+  const cleanPath = trimmed.replace(/^\$\.?/, "");
+  const parts = cleanPath.split(".");
+  return parts[parts.length - 1] || "";
+}
+
+/**
+ * Generate a column reference, handling JSON extraction if jsonPath is provided
+ */
+function generateColumnRef(column: string, jsonPath?: string): string {
+  if (jsonPath && jsonPath.trim()) {
+    const normalizedPath = normalizeJsonPath(jsonPath);
+    return `json_extract_scalar("${column}", '${normalizedPath}')`;
+  }
+  return `"${column}"`;
+}
+
+/**
+ * Generate column expression with optional aggregation and JSON extraction
+ */
+function generateColumnExpression(col: QueryColumn): string {
   const columnRef = generateColumnRef(col.column, col.jsonPath);
-  if (col.alias) {
-    return `${columnRef} AS "${col.alias}"`;
-  }
-  return columnRef;
-}
-
-/**
- * Generate ORDER BY clause for select mode
- */
-function generateSelectModeOrderBy(sortBy: SortConfig | undefined, selectedColumns: SelectedColumn[]): string {
-  if (sortBy) {
-    return `ORDER BY "${sortBy.column}" ${sortBy.direction}`;
+  
+  let expression: string;
+  
+  if (col.dataOperation) {
+    switch (col.dataOperation) {
+      case "COUNT":
+        expression = `COUNT(${columnRef})`;
+        break;
+      case "COUNT_DISTINCT":
+        expression = `COUNT(DISTINCT ${columnRef})`;
+        break;
+      case "SUM":
+        expression = `SUM(${columnRef})`;
+        break;
+      case "AVG":
+        expression = `AVG(${columnRef})`;
+        break;
+      case "MIN":
+        expression = `MIN(${columnRef})`;
+        break;
+      case "MAX":
+        expression = `MAX(${columnRef})`;
+        break;
+      default:
+        expression = columnRef;
+    }
+  } else {
+    expression = columnRef;
   }
   
-  // Default: order by timestamp DESC for select queries
-  return `ORDER BY "${TIMESTAMP_COLUMN}" DESC`;
+  // Add alias if provided, or generate one for JSON paths
+  if (col.alias && col.alias.trim()) {
+    return `${expression} AS "${col.alias.trim()}"`;
+  } else if (col.jsonPath && col.jsonPath.trim()) {
+    // Auto-generate alias for JSON paths
+    const autoAlias = extractAliasFromJsonPath(col.jsonPath) || col.column;
+    return `${expression} AS "${autoAlias}"`;
+  }
+  
+  return expression;
 }
 
 /**
- * Generate filter condition
+ * Generate filter condition with JSON extraction support
  */
-function generateFilterCondition(filter: Filter): string {
+function generateFilterCondition(filter: FilterCondition): string {
+  // Use JSON extraction if jsonPath is provided
   const column = generateColumnRef(filter.column, filter.jsonPath);
-  const value = Array.isArray(filter.value) ? filter.value : [filter.value];
+  const value = filter.value;
   
-  const operatorMap: Record<FilterOperator, (col: string, val: string[]) => string> = {
-    equals: (col, val) => `${col} = '${escapeValue(val[0])}'`,
-    not_equals: (col, val) => `${col} != '${escapeValue(val[0])}'`,
-    contains: (col, val) => `${col} LIKE '%${escapeValue(val[0])}%'`,
-    not_contains: (col, val) => `${col} NOT LIKE '%${escapeValue(val[0])}%'`,
-    starts_with: (col, val) => `${col} LIKE '${escapeValue(val[0])}%'`,
-    ends_with: (col, val) => `${col} LIKE '%${escapeValue(val[0])}'`,
-    greater_than: (col, val) => `${col} > '${escapeValue(val[0])}'`,
-    less_than: (col, val) => `${col} < '${escapeValue(val[0])}'`,
-    greater_than_or_equal: (col, val) => `${col} >= '${escapeValue(val[0])}'`,
-    less_than_or_equal: (col, val) => `${col} <= '${escapeValue(val[0])}'`,
-    is_null: (col) => `${col} IS NULL`,
-    is_not_null: (col) => `${col} IS NOT NULL`,
-    in: (col, val) => `${col} IN (${val.map((v) => `'${escapeValue(v)}'`).join(", ")})`,
-    not_in: (col, val) => `${col} NOT IN (${val.map((v) => `'${escapeValue(v)}'`).join(", ")})`,
+  const operatorMap: Record<FilterOperator, () => string> = {
+    "=": () => `${column} = '${escapeValue(value)}'`,
+    "!=": () => `${column} != '${escapeValue(value)}'`,
+    ">": () => `${column} > '${escapeValue(value)}'`,
+    "<": () => `${column} < '${escapeValue(value)}'`,
+    ">=": () => `${column} >= '${escapeValue(value)}'`,
+    "<=": () => `${column} <= '${escapeValue(value)}'`,
+    "LIKE": () => `${column} LIKE '${escapeValue(value)}'`,
+    "NOT LIKE": () => `${column} NOT LIKE '${escapeValue(value)}'`,
+    "IN": () => {
+      const values = value.split(",").map(v => `'${escapeValue(v.trim())}'`).join(", ");
+      return `${column} IN (${values})`;
+    },
+    "NOT IN": () => {
+      const values = value.split(",").map(v => `'${escapeValue(v.trim())}'`).join(", ");
+      return `${column} NOT IN (${values})`;
+    },
+    "IS NULL": () => `${column} IS NULL`,
+    "IS NOT NULL": () => `${column} IS NOT NULL`,
   };
 
   const generator = operatorMap[filter.operator];
-  return generator ? generator(column, value) : "";
-}
-
-/**
- * Generate ORDER BY clause
- */
-function generateOrderBy(sortBy: SortConfig | undefined, metrics: Metric[]): string {
-  if (sortBy) {
-    return `ORDER BY "${sortBy.column}" ${sortBy.direction}`;
-  }
-  
-  // Default: order by first metric DESC
-  if (metrics.length > 0) {
-    const firstMetric = metrics[0];
-    const alias = firstMetric.alias || generateMetricAlias(firstMetric);
-    return `ORDER BY "${alias}" DESC`;
-  }
-  
-  return "";
+  return generator ? generator() : "";
 }
 
 /**
  * Main query generation function
- * Generates a complete, valid Athena SQL query
- * Supports both aggregate mode (with GROUP BY) and select mode (simple column selection)
  */
 export function generateQuery(
   state: QueryBuilderState,
   tableName: string,
-  databaseName: string,
-  columns?: EnhancedColumn[]
+  databaseName: string
 ): string {
   const fullTableName = `${databaseName}.${tableName}`;
   
-  // Create a map for quick column lookup
-  const columnMap = new Map<string, EnhancedColumn>();
-  if (columns) {
-    columns.forEach(col => columnMap.set(col.name, col));
-  }
-  
-  // Handle select mode (simple column selection without aggregation)
-  if (state.queryMode === "select") {
-    return generateSelectModeQuery(state, fullTableName);
-  }
-  
-  // Aggregate mode: Don't generate query if no metrics and no dimensions are specified
-  if (state.metrics.length === 0 && state.dimensions.length === 0) {
-    return "";
-  }
-  
-  // If only dimensions are specified (no metrics), generate a simple count with grouping
-  if (state.metrics.length === 0) {
-    return generateSimpleQuery(state, fullTableName);
-  }
-
   // Build SELECT clause
-  const selectParts: string[] = [];
+  let selectClause: string;
   
-  // Add dimensions first
-  state.dimensions.forEach((dim) => {
-    selectParts.push(generateDimensionSelect(dim));
-  });
-  
-  // Add metrics with column type information
-  state.metrics.forEach((metric) => {
-    const columnInfo = metric.column === "*" ? undefined : columnMap.get(metric.column);
-    selectParts.push(generateMetricSelect(metric, columnInfo));
-  });
+  if (state.columns.length === 0) {
+    selectClause = "*";
+  } else {
+    const validColumns = state.columns.filter(col => col.column);
+    if (validColumns.length === 0) {
+      selectClause = "*";
+    } else {
+      selectClause = validColumns.map(generateColumnExpression).join(", ");
+    }
+  }
 
-  const selectClause = selectParts.join(", ");
-
-  // Build WHERE clause (always includes time filter)
+  // Build WHERE clause - always starts with time filter
   const whereConditions: string[] = [generateTimeFilter(state.timeRange)];
   
   // Add user filters
-  state.filters.forEach((filter) => {
+  const validFilters = state.filters.filter(f => f.column);
+  validFilters.forEach(filter => {
     const condition = generateFilterCondition(filter);
     if (condition) {
       whereConditions.push(condition);
     }
   });
 
-  const whereClause = whereConditions.join(" AND ");
+  const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
   // Build GROUP BY clause
+  const validGroupBy = state.groupByColumns.filter(col => col);
   let groupByClause = "";
-  if (state.dimensions.length > 0) {
-    const groupByColumns = state.dimensions.map((dim) => generateColumnRef(dim.column, dim.jsonPath)).join(", ");
-    groupByClause = `GROUP BY ${groupByColumns}`;
+  if (validGroupBy.length > 0) {
+    groupByClause = `GROUP BY ${validGroupBy.map(col => `"${col}"`).join(", ")}`;
   }
 
   // Build ORDER BY clause
-  const orderByClause = generateOrderBy(state.sortBy, state.metrics);
+  let orderByClause = "";
+  if (state.orderByColumn) {
+    orderByClause = `ORDER BY "${state.orderByColumn}" ${state.orderDirection}`;
+  }
 
-  // Build LIMIT clause
-  const limitClause = `LIMIT ${state.limit}`;
-
-  // Assemble the query (no newlines for Athena compatibility)
+  // Assemble the query
   const queryParts = [
     `SELECT ${selectClause}`,
     `FROM ${fullTableName}`,
-    `WHERE ${whereClause}`,
+    whereClause,
   ];
 
   if (groupByClause) {
@@ -415,108 +327,21 @@ export function generateQuery(
     queryParts.push(orderByClause);
   }
 
-  queryParts.push(limitClause);
-
-  return queryParts.join(" ") + ";";
-}
-
-/**
- * Generate a SELECT mode query (simple column selection without aggregation)
- */
-function generateSelectModeQuery(state: QueryBuilderState, fullTableName: string): string {
-  // Build SELECT clause
-  let selectClause: string;
-  
-  if (state.selectedColumns.length === 0) {
-    // If no columns selected, select all
-    selectClause = "*";
-  } else {
-    const selectParts = state.selectedColumns.map((col) => generateSelectedColumnSelect(col));
-    selectClause = selectParts.join(", ");
+  // Add LIMIT clause only if limit is defined
+  if (state.limit !== undefined && state.limit > 0) {
+    queryParts.push(`LIMIT ${state.limit}`);
   }
 
-  // Build WHERE clause (always includes time filter)
-  const whereConditions: string[] = [generateTimeFilter(state.timeRange)];
-  
-  // Add user filters
-  state.filters.forEach((filter) => {
-    const condition = generateFilterCondition(filter);
-    if (condition) {
-      whereConditions.push(condition);
-    }
-  });
-
-  const whereClause = whereConditions.join(" AND ");
-
-  // Build ORDER BY clause
-  const orderByClause = generateSelectModeOrderBy(state.sortBy, state.selectedColumns);
-
-  // Build LIMIT clause
-  const limitClause = `LIMIT ${state.limit}`;
-
-  // Assemble the query (no newlines for Athena compatibility)
-  const queryParts = [
-    `SELECT ${selectClause}`,
-    `FROM ${fullTableName}`,
-    `WHERE ${whereClause}`,
-    orderByClause,
-    limitClause,
-  ];
-
   return queryParts.join(" ") + ";";
-}
-
-/**
- * Generate a simple query when no metrics are specified
- * Returns a count of rows within the time range
- */
-function generateSimpleQuery(state: QueryBuilderState, fullTableName: string): string {
-  // Build WHERE clause
-  const whereConditions: string[] = [generateTimeFilter(state.timeRange)];
-  
-  state.filters.forEach((filter) => {
-    const condition = generateFilterCondition(filter);
-    if (condition) {
-      whereConditions.push(condition);
-    }
-  });
-
-  const whereClause = whereConditions.join(" AND ");
-
-  // If dimensions are specified, group by them
-  if (state.dimensions.length > 0) {
-    const selectParts = state.dimensions.map((dim) => generateDimensionSelect(dim));
-    selectParts.push('COUNT(*) AS "count"');
-    
-    const groupByColumns = state.dimensions.map((dim) => generateColumnRef(dim.column, dim.jsonPath)).join(", ");
-    
-    return [
-      `SELECT ${selectParts.join(", ")}`,
-      `FROM ${fullTableName}`,
-      `WHERE ${whereClause}`,
-      `GROUP BY ${groupByColumns}`,
-      `ORDER BY "count" DESC`,
-      `LIMIT ${state.limit};`,
-    ].join(" ");
-  }
-
-  // Simple count query
-  return [
-    `SELECT COUNT(*) AS "total_count"`,
-    `FROM ${fullTableName}`,
-    `WHERE ${whereClause}`,
-    `LIMIT 1;`,
-  ].join(" ");
 }
 
 /**
  * Validate the query builder state
- * Returns an array of validation errors (empty if valid)
  */
 export function validateQueryBuilderState(state: QueryBuilderState): string[] {
   const errors: string[] = [];
 
-  // Time range is always required (but has a default, so this is mainly for custom)
+  // Validate time range for custom
   if (state.timeRange.preset === "custom") {
     if (!state.timeRange.startDate) {
       errors.push("Start date is required for custom time range");
@@ -531,8 +356,8 @@ export function validateQueryBuilderState(state: QueryBuilderState): string[] {
     }
   }
 
-  // Validate limit
-  if (state.limit < 1 || state.limit > 10000) {
+  // Validate limit (only if provided)
+  if (state.limit !== undefined && (state.limit < 1 || state.limit > 10000)) {
     errors.push("Limit must be between 1 and 10,000");
   }
 
@@ -542,111 +367,66 @@ export function validateQueryBuilderState(state: QueryBuilderState): string[] {
       errors.push(`Filter ${index + 1}: Column is required`);
     }
     
-    const needsValue = !["is_null", "is_not_null"].includes(filter.operator);
-    if (needsValue) {
-      const hasValue = Array.isArray(filter.value) 
-        ? filter.value.length > 0 && filter.value.some((v) => v.trim() !== "")
-        : filter.value && filter.value.trim() !== "";
-      
-      if (!hasValue) {
+    const needsValue = !["IS NULL", "IS NOT NULL"].includes(filter.operator);
+    if (needsValue && (!filter.value || filter.value.trim() === "")) {
         errors.push(`Filter ${index + 1}: Value is required`);
-      }
     }
   });
 
-  // Mode-specific validation
-  if (state.queryMode === "select") {
-    // Select mode: validate selected columns
-    state.selectedColumns.forEach((col, index) => {
+  // Validate columns
+  state.columns.forEach((col, index) => {
       if (!col.column) {
-        errors.push(`Selected column ${index + 1}: Column is required`);
-      }
-    });
-  } else {
-    // Aggregate mode: validate metrics and dimensions
-    state.metrics.forEach((metric, index) => {
-      if (!metric.column) {
-        errors.push(`Metric ${index + 1}: Column is required`);
-      }
-    });
-
-    state.dimensions.forEach((dimension, index) => {
-      if (!dimension.column) {
-        errors.push(`Dimension ${index + 1}: Column is required`);
-      }
-    });
-  }
+      errors.push(`Column ${index + 1}: Column selection is required`);
+    }
+  });
 
   return errors;
 }
 
 /**
- * Generate a preview/description of the query in plain English
+ * Generate a plain English description of the query
  */
 export function generateQueryDescription(state: QueryBuilderState): string {
   const parts: string[] = [];
 
-  if (state.queryMode === "select") {
-    // Select mode description
-    if (state.selectedColumns.length > 0) {
-      const colNames = state.selectedColumns.map((c) => 
-        c.jsonPath ? `${c.column}.${c.jsonPath.replace("$.", "")}` : c.column
-      );
-      if (colNames.length <= 3) {
-        parts.push(`Select ${colNames.join(", ")}`);
-      } else {
-        parts.push(`Select ${colNames.length} columns`);
-      }
-    } else {
+  // Columns
+  if (state.columns.length === 0) {
       parts.push("Select all columns");
-    }
   } else {
-    // Aggregate mode description
-    if (state.metrics.length > 0) {
-      const metricDescs = state.metrics.map((m) => {
-        const colName = m.jsonPath ? `${m.column}.${m.jsonPath.replace("$.", "")}` : m.column;
-        if (m.aggregation === "COUNT" && m.column === "*") {
-          return "count of all rows";
-        }
-        if (m.aggregation === "COUNT_DISTINCT") {
-          return `count of unique ${colName}`;
-        }
-        return `${m.aggregation.toLowerCase()} of ${colName}`;
-      });
-      parts.push(`Get ${metricDescs.join(", ")}`);
-    } else {
-      parts.push("Count rows");
+    const colCount = state.columns.filter(c => c.column).length;
+    const aggCount = state.columns.filter(c => c.dataOperation).length;
+    if (aggCount > 0) {
+      parts.push(`${aggCount} aggregation(s)`);
     }
-
-    // Dimensions
-    if (state.dimensions.length > 0) {
-      const dimNames = state.dimensions.map((d) => 
-        d.jsonPath ? `${d.column}.${d.jsonPath.replace("$.", "")}` : d.column
-      );
-      parts.push(`grouped by ${dimNames.join(", ")}`);
+    if (colCount > aggCount) {
+      parts.push(`${colCount - aggCount} column(s)`);
     }
   }
 
   // Time range
-  const timePreset = TIME_RANGE_PRESETS.find((p) => p.value === state.timeRange.preset);
-  if (timePreset && state.timeRange.preset !== "custom") {
-    parts.push(`for ${timePreset.label.toLowerCase()}`);
-  } else if (state.timeRange.preset === "custom") {
-    if (state.timeRange.startDate && state.timeRange.endDate) {
-      const formatDate = (d: Date) => d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      parts.push(`from ${formatDate(state.timeRange.startDate)} to ${formatDate(state.timeRange.endDate)}`);
-    } else {
-      parts.push("for custom time range (select dates)");
-    }
-  }
+  parts.push(`for ${state.timeRange.preset.replace(/_/g, " ")}`);
 
   // Filters
-  if (state.filters.length > 0) {
-    parts.push(`with ${state.filters.length} filter(s)`);
+  const filterCount = state.filters.filter(f => f.column).length;
+  if (filterCount > 0) {
+    parts.push(`${filterCount} filter(s)`);
+  }
+
+  // Group by
+  const groupCount = state.groupByColumns.filter(c => c).length;
+  if (groupCount > 0) {
+    parts.push(`grouped by ${groupCount} column(s)`);
+  }
+
+  // Order
+  if (state.orderByColumn) {
+    parts.push(`ordered by ${state.orderByColumn} ${state.orderDirection}`);
   }
 
   // Limit
-  parts.push(`(max ${state.limit} rows)`);
+  if (state.limit !== undefined && state.limit > 0) {
+    parts.push(`limit ${state.limit}`);
+  }
 
-  return parts.join(" ");
+  return parts.join(", ");
 }
