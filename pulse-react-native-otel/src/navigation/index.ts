@@ -45,7 +45,7 @@ function resolveNavigationFeatureState(
   defaultValue: boolean
 ): boolean {
   if (features === null) return optionValue ?? defaultValue;
-  if (features[featureName] === true) return true;
+  if (features !== undefined && features[featureName] === true) return true;
   return optionValue ?? false;
 }
 

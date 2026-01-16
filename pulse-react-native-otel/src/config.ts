@@ -30,19 +30,18 @@ const defaultConfig: PulseConfig = {
 let currentConfig: PulseConfig = { ...defaultConfig };
 
 // Cache for features from remote SDK config
-let cachedFeatures: PulseFeatureConfig = null;
+let cachedFeatures: PulseFeatureConfig;
 
 /**
  * Gets all features from the remote SDK config.
  * @returns Record of feature names to their enabled status, or null if config not available
  */
 export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
-  if (cachedFeatures !== null) {
+  if (cachedFeatures !== undefined) {
     return cachedFeatures;
   }
 
-  const features = PulseReactNativeOtel.getAllFeatures();
-  cachedFeatures = features;
+  cachedFeatures = PulseReactNativeOtel.getAllFeatures();
   return cachedFeatures;
 }
 
@@ -65,7 +64,7 @@ function resolveFeatureState(
   defaultValue: boolean
 ): boolean {
   if (features === null) return optionValue ?? defaultValue;
-  if (features[featureName] === true) return true;
+  if (features !== undefined && features[featureName] === true) return true;
   return optionValue ?? false;
 }
 
@@ -76,9 +75,9 @@ function resolveNavigationState(
 ): boolean {
   if (features === null) return optionValue ?? defaultValue;
   const hasAny =
-    features.screen_session === true ||
-    features.rn_screen_load === true ||
-    features.rn_screen_interactive === true;
+    (features !== undefined && features.screen_session === true) ||
+    (features !== undefined && features.rn_screen_load === true) ||
+    (features !== undefined && features.rn_screen_interactive === true);
   if (hasAny) return true;
   return optionValue ?? false;
 }
