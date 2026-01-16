@@ -151,7 +151,6 @@ public final class com/pulse/sampling/models/PulseFeatureName : java/lang/Enum {
 	public static final field JS_CRASH Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field NETWORK_CHANGE Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field NETWORK_INSTRUMENTATION Lcom/pulse/sampling/models/PulseFeatureName;
-	public static final field RN_NAVIGATION Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field RN_SCREEN_INTERACTIVE Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field RN_SCREEN_LOAD Lcom/pulse/sampling/models/PulseFeatureName;
 	public static final field SCREEN_SESSION Lcom/pulse/sampling/models/PulseFeatureName;

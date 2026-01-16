@@ -60,7 +60,14 @@ export interface Spec extends TurboModule {
   setCurrentScreenName(screenName: string): boolean;
 
   /** Get all SDK Remote Config features */
-  getAllFeatures(): Object;
+  getAllFeatures(): {
+    rn_screen_load: boolean;
+    screen_session: boolean;
+    rn_screen_interactive: boolean;
+    network_instrumentation: boolean;
+    custom_events: boolean;
+    js_crash: boolean;
+  } | null;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('PulseReactNativeOtel');

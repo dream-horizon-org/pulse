@@ -57,7 +57,6 @@ export const FEATURE_DISPLAY_INFO: Record<string, { label: string; description: 
   network_instrumentation: { label: 'Network Instrumentation', description: 'Track API calls and network performance', icon: 'network' },
   screen_session: { label: 'Screen Session', description: 'Track screen views and sessions', icon: 'screen' },
   custom_events: { label: 'Custom Events', description: 'User-defined custom events', icon: 'tag' },
-  rn_navigation: { label: 'React Native Navigation', description: 'Track React Native Screen Sessions, Screen Loads and Screen Interaactive Events', icon: 'navigation' },
   rn_screen_load: { label: 'React Native Screen Load', description: 'Track React Native Screen Loads', icon: 'navigation' },
   rn_screen_interactive: { label: 'React Native Screen Interactive', description: 'Track React Native Screen Interaactive Events', icon: 'navigation' },
 };

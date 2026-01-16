@@ -23,9 +23,6 @@ public enum class PulseFeatureName {
     @SerialName("cpp_anr")
     CPP_ANR,
 
-    @SerialName("rn_navigation")
-    RN_NAVIGATION,
-
     @SerialName("interaction")
     INTERACTION,
 

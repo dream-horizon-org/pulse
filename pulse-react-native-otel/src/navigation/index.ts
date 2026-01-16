@@ -38,18 +38,42 @@ export interface ReactNavigationIntegration {
   markContentReady: () => void;
 }
 
+function resolveNavigationFeatureState(
+  features: ReturnType<typeof getFeaturesFromRemoteConfig>,
+  featureName: 'screen_session' | 'rn_screen_load' | 'rn_screen_interactive',
+  optionValue: boolean | undefined,
+  defaultValue: boolean
+): boolean {
+  if (features === null) return optionValue ?? defaultValue;
+  if (features[featureName] === true) return true;
+  return optionValue ?? false;
+}
+
 export function createReactNavigationIntegration(
   options?: NavigationIntegrationOptions
 ): ReactNavigationIntegration {
   const features = getFeaturesFromRemoteConfig();
-  const screenSessionTracking =
-    features?.screen_session ?? options?.screenSessionTracking ?? true;
-  const screenNavigationTracking =
-    features?.rn_screen_load ?? options?.screenNavigationTracking ?? true;
-  const screenInteractiveTracking =
-    features?.rn_screen_interactive ??
-    options?.screenInteractiveTracking ??
-    false;
+
+  const screenSessionTracking = resolveNavigationFeatureState(
+    features,
+    'screen_session',
+    options?.screenSessionTracking,
+    true
+  );
+
+  const screenNavigationTracking = resolveNavigationFeatureState(
+    features,
+    'rn_screen_load',
+    options?.screenNavigationTracking,
+    true
+  );
+
+  const screenInteractiveTracking = resolveNavigationFeatureState(
+    features,
+    'rn_screen_interactive',
+    options?.screenInteractiveTracking,
+    false
+  );
 
   let navigationContainer: NavigationContainer | undefined;
   let recentRouteKeys: string[] = [];

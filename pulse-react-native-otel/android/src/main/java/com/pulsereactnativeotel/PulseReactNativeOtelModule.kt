@@ -96,36 +96,52 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
     }
   }
 
-  override fun getAllFeatures(): WritableMap {
+  override fun getAllFeatures(): WritableMap? {
+    val context = reactApplicationContext
+    val sharedPrefs = context.getSharedPreferences(
+      "pulse_sdk_config",
+      Context.MODE_PRIVATE
+    )
+
+    val configJson = sharedPrefs.getString("sdk_config", null)
+    if (configJson == null) {
+      return null
+    }
+
+    val json = Json {
+      ignoreUnknownKeys = true
+      isLenient = true
+    }
+    val config = json.decodeFromString<PulseSdkConfig>(configJson)
+
     val features = Arguments.createMap()
+    val featureMap = mutableMapOf<String, Boolean>()
 
-      val context = reactApplicationContext
-      val sharedPrefs = context.getSharedPreferences(
-        "pulse_sdk_config",
-        Context.MODE_PRIVATE
-      )
-
-      val configJson = sharedPrefs.getString("sdk_config", null)
-      if (configJson != null) {
-        val json = Json {
-          ignoreUnknownKeys = true
-          isLenient = true
+    config.features.forEach { featureConfig ->
+      if (PulseSdkName.ANDROID_RN in featureConfig.sdks) {
+        if (featureConfig.featureName == PulseFeatureName.UNKNOWN) {
+          return@forEach
         }
-        val config = json.decodeFromString<PulseSdkConfig>(configJson)
 
-        config.features.forEach { featureConfig ->
-          if (PulseSdkName.ANDROID_RN in featureConfig.sdks) {
-            if (featureConfig.featureName == PulseFeatureName.UNKNOWN) {
-              return@forEach
-            }
-
-            val featureNameStr = featureConfig.featureName.name.lowercase()
-            val isEnabled = featureConfig.sessionSampleRate > 0F
-
-            features.putBoolean(featureNameStr, isEnabled)
-          }
-        }
+        val featureNameStr = featureConfig.featureName.name.lowercase()
+        val isEnabled = featureConfig.sessionSampleRate > 0F
+        featureMap[featureNameStr] = isEnabled
       }
+    }
+
+    val requiredFeatures = listOf(
+      "rn_screen_load",
+      "screen_session",
+      "rn_screen_interactive",
+      "network_instrumentation",
+      "custom_events",
+      "js_crash"
+    )
+
+    requiredFeatures.forEach { featureName ->
+      features.putBoolean(featureName, featureMap[featureName] ?: false)
+    }
+
     return features
   }
 

@@ -232,10 +232,6 @@ internal class PulseSDKImpl :
                                 config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
                             }
 
-                            PulseFeatureName.RN_NAVIGATION -> {
-                                // no-op
-                            }
-
                             PulseFeatureName.CPP_CRASH -> {
                                 // no-op
                             }

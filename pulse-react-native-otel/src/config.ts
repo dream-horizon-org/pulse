@@ -34,7 +34,7 @@ let cachedFeatures: PulseFeatureConfig = null;
 
 /**
  * Gets all features from the remote SDK config.
- * @returns Record of feature names to their enabled status
+ * @returns Record of feature names to their enabled status, or null if config not available
  */
 export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
   if (cachedFeatures !== null) {
@@ -42,7 +42,7 @@ export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
   }
 
   const features = PulseReactNativeOtel.getAllFeatures();
-  cachedFeatures = features as PulseFeatureConfig;
+  cachedFeatures = features;
   return cachedFeatures;
 }
 
@@ -58,23 +58,56 @@ function configure(config: PulseConfig): void {
   }
 }
 
-export function start(options?: PulseStartOptions): void {
-  if (!isSupportedPlatform()) {
-    return;
-  }
-  const features = getFeaturesFromRemoteConfig();
-  const autoDetectExceptions =
-    features?.js_crash ?? options?.autoDetectExceptions ?? true;
-  const autoDetectNavigation =
-    features?.rn_navigation ?? options?.autoDetectNavigation ?? true;
-  const autoDetectNetwork =
-    features?.network_instrumentation ?? options?.autoDetectNetwork ?? true;
+function resolveFeatureState(
+  features: PulseFeatureConfig | null,
+  featureName: keyof NonNullable<PulseFeatureConfig>,
+  optionValue: boolean | undefined,
+  defaultValue: boolean
+): boolean {
+  if (features === null) return optionValue ?? defaultValue;
+  if (features[featureName] === true) return true;
+  return optionValue ?? false;
+}
 
-  configure({
-    autoDetectExceptions,
-    autoDetectNavigation,
-    autoDetectNetwork,
-  });
+function resolveNavigationState(
+  features: PulseFeatureConfig | null,
+  optionValue: boolean | undefined,
+  defaultValue: boolean
+): boolean {
+  if (features === null) return optionValue ?? defaultValue;
+  const hasAny =
+    features.screen_session === true ||
+    features.rn_screen_load === true ||
+    features.rn_screen_interactive === true;
+  if (hasAny) return true;
+  return optionValue ?? false;
+}
+
+export function start(options?: PulseStartOptions): void {
+  if (!isSupportedPlatform()) return;
+
+  const features = getFeaturesFromRemoteConfig();
+  const config: PulseConfig = {
+    autoDetectExceptions: resolveFeatureState(
+      features,
+      'js_crash',
+      options?.autoDetectExceptions,
+      true
+    ),
+    autoDetectNavigation: resolveNavigationState(
+      features,
+      options?.autoDetectNavigation,
+      true
+    ),
+    autoDetectNetwork: resolveFeatureState(
+      features,
+      'network_instrumentation',
+      options?.autoDetectNetwork,
+      true
+    ),
+  };
+
+  configure(config);
 }
 
 export function createNavigationIntegrationWithConfig(
