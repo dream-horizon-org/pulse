@@ -8,6 +8,7 @@ import {
 import { initializeNetworkInterceptor } from './network-interceptor/initialization';
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
+import { PULSE_FEATURE_NAMES } from './pulse.constants';
 
 export type PulseConfig = {
   autoDetectExceptions?: boolean;
@@ -15,13 +16,7 @@ export type PulseConfig = {
   autoDetectNetwork?: boolean;
 };
 
-export type PulseStartOptions = {
-  autoDetectExceptions?: boolean;
-  autoDetectNavigation?: boolean;
-  autoDetectNetwork?: boolean;
-};
-
-const defaultConfig: PulseConfig = {
+const defaultConfig: Required<PulseConfig> = {
   autoDetectExceptions: true,
   autoDetectNavigation: true,
   autoDetectNetwork: true,
@@ -58,51 +53,47 @@ function configure(config: PulseConfig): void {
 }
 
 function resolveFeatureState(
-  features: PulseFeatureConfig | null,
-  featureName: keyof NonNullable<PulseFeatureConfig>,
-  optionValue: boolean | undefined,
-  defaultValue: boolean
+  features: PulseFeatureConfig,
+  featureName: string,
+  optionValue: boolean
 ): boolean {
-  if (features === null) return optionValue ?? defaultValue;
-  if (features !== undefined && features[featureName] === true) return true;
-  return optionValue ?? false;
+  if (features !== undefined && features !== null)
+    return features[featureName] ?? optionValue;
+  return optionValue;
 }
 
 function resolveNavigationState(
-  features: PulseFeatureConfig | null,
-  optionValue: boolean | undefined,
-  defaultValue: boolean
+  features: PulseFeatureConfig,
+  optionValue: boolean
 ): boolean {
-  if (features === null) return optionValue ?? defaultValue;
-  const hasAny =
-    (features !== undefined && features.screen_session === true) ||
-    (features !== undefined && features.rn_screen_load === true) ||
-    (features !== undefined && features.rn_screen_interactive === true);
-  if (hasAny) return true;
-  return optionValue ?? false;
+  if (features !== undefined && features !== null) {
+    const hasAny =
+      features[PULSE_FEATURE_NAMES.SCREEN_SESSION] === true ||
+      features[PULSE_FEATURE_NAMES.RN_SCREEN_LOAD] === true ||
+      features[PULSE_FEATURE_NAMES.RN_SCREEN_INTERACTIVE] === true;
+    return hasAny ?? optionValue;
+  }
+  return optionValue;
 }
 
-export function start(options?: PulseStartOptions): void {
+export function start(options?: PulseConfig): void {
   if (!isSupportedPlatform()) return;
 
   const features = getFeaturesFromRemoteConfig();
   const config: PulseConfig = {
     autoDetectExceptions: resolveFeatureState(
       features,
-      'js_crash',
-      options?.autoDetectExceptions,
-      true
+      PULSE_FEATURE_NAMES.JS_CRASH,
+      options?.autoDetectExceptions ?? defaultConfig.autoDetectExceptions
     ),
     autoDetectNavigation: resolveNavigationState(
       features,
-      options?.autoDetectNavigation,
-      true
+      options?.autoDetectNavigation ?? defaultConfig.autoDetectNavigation
     ),
     autoDetectNetwork: resolveFeatureState(
       features,
-      'network_instrumentation',
-      options?.autoDetectNetwork,
-      true
+      PULSE_FEATURE_NAMES.NETWORK_INSTRUMENTATION,
+      options?.autoDetectNetwork ?? defaultConfig.autoDetectNetwork
     ),
   };
 

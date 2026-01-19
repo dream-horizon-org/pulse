@@ -17,3 +17,10 @@ export interface NavigationIntegrationOptions {
   screenNavigationTracking?: boolean;
   screenInteractiveTracking?: boolean;
 }
+
+export const DEFAULT_NAVIGATION_OPTIONS: Required<NavigationIntegrationOptions> =
+  {
+    screenSessionTracking: true,
+    screenNavigationTracking: true,
+    screenInteractiveTracking: false,
+  };

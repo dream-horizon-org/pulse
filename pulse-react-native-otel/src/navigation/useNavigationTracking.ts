@@ -1,5 +1,8 @@
 import { useRef, useCallback, useEffect, useMemo, type RefObject } from 'react';
-import type { NavigationIntegrationOptions } from './navigation.interface';
+import {
+  DEFAULT_NAVIGATION_OPTIONS,
+  type NavigationIntegrationOptions,
+} from './navigation.interface';
 import type { ReactNavigationIntegration } from './index';
 
 export function useNavigationTracking(
@@ -9,9 +12,15 @@ export function useNavigationTracking(
     options?: NavigationIntegrationOptions
   ) => ReactNavigationIntegration
 ): () => void {
-  const screenSessionTracking = options?.screenSessionTracking ?? true;
-  const screenNavigationTracking = options?.screenNavigationTracking ?? true;
-  const screenInteractiveTracking = options?.screenInteractiveTracking ?? false;
+  const screenSessionTracking =
+    options?.screenSessionTracking ??
+    DEFAULT_NAVIGATION_OPTIONS.screenSessionTracking;
+  const screenNavigationTracking =
+    options?.screenNavigationTracking ??
+    DEFAULT_NAVIGATION_OPTIONS.screenNavigationTracking;
+  const screenInteractiveTracking =
+    options?.screenInteractiveTracking ??
+    DEFAULT_NAVIGATION_OPTIONS.screenInteractiveTracking;
 
   const integration = useMemo(() => {
     if (createIntegration) {
