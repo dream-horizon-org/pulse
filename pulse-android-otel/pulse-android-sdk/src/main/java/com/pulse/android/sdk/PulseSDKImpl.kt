@@ -659,7 +659,6 @@ internal class PulseSDKImpl :
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
 
-        internal fun createTenantIdHeader(tenantId: String): Map<String, String> =
-            mapOf(TENANT_ID_HEADER_KEY to tenantId)
+        internal fun createTenantIdHeader(tenantId: String): Map<String, String> = mapOf(TENANT_ID_HEADER_KEY to tenantId)
     }
 }

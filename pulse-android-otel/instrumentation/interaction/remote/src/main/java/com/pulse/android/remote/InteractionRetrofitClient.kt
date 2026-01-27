@@ -46,5 +46,8 @@ public class InteractionRetrofitClient(
         retrofit.create(InteractionApiService::class.java)
     }
 
-    public fun newInstance(url: String, headers: Map<String, String> = this.headers): InteractionRetrofitClient = InteractionRetrofitClient(url, json, okhttpClient, headers)
+    public fun newInstance(
+        url: String,
+        headers: Map<String, String> = this.headers,
+    ): InteractionRetrofitClient = InteractionRetrofitClient(url, json, okhttpClient, headers)
 }

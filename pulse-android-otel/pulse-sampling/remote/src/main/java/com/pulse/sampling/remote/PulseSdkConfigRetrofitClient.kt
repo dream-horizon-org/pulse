@@ -64,7 +64,10 @@ public class PulseSdkConfigRetrofitClient(
         private const val MAX_CACHE_SIZE_BYTE: Long = 10 * 1024 * 1024
     }
 
-    public fun newInstance(url: String, headers: Map<String, String> = this.headers): PulseSdkConfigRetrofitClient = PulseSdkConfigRetrofitClient(url, cacheDir, json, okhttpClient, headers)
+    public fun newInstance(
+        url: String,
+        headers: Map<String, String> = this.headers,
+    ): PulseSdkConfigRetrofitClient = PulseSdkConfigRetrofitClient(url, cacheDir, json, okhttpClient, headers)
 
     init {
         assert(!cacheDir.isFile) {
