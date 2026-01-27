@@ -159,7 +159,7 @@ internal class PulseSDKImpl :
             apiCache.mkdirs()
             val newConfig =
                 PulseSdkConfigRestProvider(apiCache, endpointHeadersWithTenant) {
-                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
+                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/$tenantId/configs/active/"
                 }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
             PulseOtelUtils.logDebug(TAG) {
