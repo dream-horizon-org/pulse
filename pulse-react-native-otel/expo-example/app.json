@@ -25,6 +25,7 @@
         "@dreamhorizonorg/pulse-react-native",
         {
           "endpointBaseUrl": "http://10.0.2.2:4318",
+          "tenantId": "tenant-123",
           "endpointHeaders": {
             "Header": "Value"
           },
