@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 public class PulseSdkConfigRestProvider(
     private val cacheDir: File,
+    private val headers: Map<String, String> = emptyMap(),
     private val urlProvider: () -> String,
 ) : PulseSdkConfigProvider {
     private val restClients = ConcurrentHashMap<String, PulseSdkConfigApiService>()
@@ -22,9 +23,9 @@ public class PulseSdkConfigRestProvider(
             restClients
                 .getOrPut(url) {
                     (
-                        retrofitClient?.newInstance(url)
+                        retrofitClient?.newInstance(url, headers)
                             ?: run {
-                                PulseSdkConfigRetrofitClient(url, cacheDir).apply {
+                                PulseSdkConfigRetrofitClient(url, cacheDir, headers = headers).apply {
                                     retrofitClient = this
                                 }
                             }

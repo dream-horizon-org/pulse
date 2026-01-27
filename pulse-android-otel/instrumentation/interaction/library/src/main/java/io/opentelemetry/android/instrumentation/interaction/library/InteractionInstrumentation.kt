@@ -49,9 +49,10 @@ class InteractionInstrumentation :
 
     val interactionManagerInstance by lazy {
         InteractionManager(
-            interactionConfigFetcher ?: InteractionConfigRestFetcher {
-                "http://10.0.2.2:8080/v1/interaction-configs/"
-            },
+            interactionConfigFetcher ?: InteractionConfigRestFetcher(
+                urlProvider = { "http://10.0.2.2:8080/v1/interaction-configs/" },
+                headers = emptyMap(),
+            ),
         )
     }
 

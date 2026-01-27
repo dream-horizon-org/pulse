@@ -10,9 +10,11 @@ import java.util.concurrent.ConcurrentHashMap
  * Get api implementation of [InteractionConfigFetcher]
  * [urlProvider] takes a lambda which returns the url from which the configs should be fetched using
  * `Get` api call
+ * [headers] are HTTP headers to include in all requests
  */
 public class InteractionConfigRestFetcher(
     private val urlProvider: () -> String,
+    private val headers: Map<String, String> = emptyMap(),
 ) : InteractionConfigFetcher {
     private val restClients = ConcurrentHashMap<String, InteractionApiService>()
     private var interactionRetrofitClient: InteractionRetrofitClient? = null
@@ -23,9 +25,9 @@ public class InteractionConfigRestFetcher(
             restClients
                 .getOrPut(url) {
                     (
-                        interactionRetrofitClient?.newInstance(url)
+                        interactionRetrofitClient?.newInstance(url, headers)
                             ?: run {
-                                InteractionRetrofitClient(url).apply {
+                                InteractionRetrofitClient(url, headers = headers).apply {
                                     interactionRetrofitClient = this
                                 }
                             }

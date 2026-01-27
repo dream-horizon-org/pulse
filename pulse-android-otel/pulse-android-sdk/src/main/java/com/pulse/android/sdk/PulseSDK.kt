@@ -31,6 +31,7 @@ public interface PulseSDK {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
+        tenantId: String,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity =
             HttpEndpointConnectivity.forTraces(

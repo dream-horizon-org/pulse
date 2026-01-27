@@ -3,6 +3,7 @@ package com.pulse.sampling.remote
 import com.pulse.sampling.models.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -23,6 +24,7 @@ public class PulseSdkConfigRetrofitClient(
             useAlternativeNames = true
         },
     private val okhttpClient: OkHttpClient? = null,
+    private val headers: Map<String, String> = emptyMap(),
 ) {
     private val retrofit: Retrofit by lazy {
         Retrofit
@@ -44,6 +46,17 @@ public class PulseSdkConfigRetrofitClient(
             builder.cache(cache)
         }
 
+        if (headers.isNotEmpty()) {
+            builder.addInterceptor { chain ->
+                val original = chain.request()
+                val requestBuilder = original.newBuilder()
+                headers.forEach { (key, value) ->
+                    requestBuilder.header(key, value)
+                }
+                chain.proceed(requestBuilder.build())
+            }
+        }
+
         return builder.build()
     }
 
@@ -51,7 +64,7 @@ public class PulseSdkConfigRetrofitClient(
         private const val MAX_CACHE_SIZE_BYTE: Long = 10 * 1024 * 1024
     }
 
-    public fun newInstance(url: String): PulseSdkConfigRetrofitClient = PulseSdkConfigRetrofitClient(url, cacheDir, json, okhttpClient)
+    public fun newInstance(url: String, headers: Map<String, String> = this.headers): PulseSdkConfigRetrofitClient = PulseSdkConfigRetrofitClient(url, cacheDir, json, okhttpClient, headers)
 
     init {
         assert(!cacheDir.isFile) {
