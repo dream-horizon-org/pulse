@@ -4,6 +4,7 @@ public final class com/pulse/semconv/PulseAttributes {
 	public static final field PULSE_SPAN_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_TYPE Lio/opentelemetry/api/common/AttributeKey;
 	public static final field TELEMETRY_SDK_NAME_KEY Lio/opentelemetry/api/common/AttributeKey;
+	public static final field TENANT_ID Lio/opentelemetry/api/common/AttributeKey;
 }
 
 public final class com/pulse/semconv/PulseAttributes$PulseSdkNames {
