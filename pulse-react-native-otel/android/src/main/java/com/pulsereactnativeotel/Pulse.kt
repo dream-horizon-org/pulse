@@ -72,7 +72,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
         PulseSDK.INSTANCE.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
-            tenantId: tenantId,
+            tenantId = tenantId,
             endpointHeaders = endpointHeaders,
             spanEndpointConnectivity = spanEndpointConnectivity,
             logEndpointConnectivity = logEndpointConnectivity,
