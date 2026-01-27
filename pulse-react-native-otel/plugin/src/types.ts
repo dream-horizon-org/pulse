@@ -23,6 +23,7 @@ interface IInteractionConfig {
 
 export interface PulsePluginProps {
   endpointBaseUrl: string;
+  tenantId: string;
   endpointHeaders?: Record<string, string>;
   globalAttributes?: PulseAttributes;
   instrumentation?: {

@@ -66,17 +66,21 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 
 export function buildPulseInitializationCode(options: {
   endpointBaseUrl: string;
+  tenantId: string;
   endpointHeaders?: Record<string, string>;
   globalAttributes?: PulsePluginProps['globalAttributes'];
   instrumentation?: PulsePluginProps['instrumentation'];
 }): string {
   const {
     endpointBaseUrl,
+    tenantId,
     endpointHeaders,
     globalAttributes,
     instrumentation,
   } = options;
   const params: string[] = [];
+
+  params.push(`tenantId = "${tenantId}"`);
 
   if (endpointHeaders && Object.keys(endpointHeaders).length > 0) {
     params.push(
@@ -91,7 +95,7 @@ export function buildPulseInitializationCode(options: {
     params.push(`globalAttributes = ${attributesLambda}`);
   }
 
-  let code = `\n    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}"${params.length > 0 ? `,\n      ${params.join(',\n      ')}` : ''}\n    ) {\n`;
+  let code = `\n    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}",\n      ${params.join(',\n      ')}\n    ) {\n`;
 
   if (instrumentation?.interaction !== undefined) {
     if (instrumentation.interaction.url) {
