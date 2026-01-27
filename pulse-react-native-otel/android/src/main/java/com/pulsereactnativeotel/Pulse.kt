@@ -23,6 +23,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
     public override fun initialize(
         application: Application,
         endpointBaseUrl: String,
+        tenantId: String,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
@@ -71,6 +72,7 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
         PulseSDK.INSTANCE.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
+            tenantId: tenantId,
             endpointHeaders = endpointHeaders,
             spanEndpointConnectivity = spanEndpointConnectivity,
             logEndpointConnectivity = logEndpointConnectivity,
