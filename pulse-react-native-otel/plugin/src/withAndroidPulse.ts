@@ -19,6 +19,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
         endpointBaseUrl,
         tenantId,
         endpointHeaders,
+        configEndpointUrl,
         globalAttributes,
         instrumentation,
       } = props;
@@ -48,6 +49,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
         endpointBaseUrl,
         tenantId,
         endpointHeaders,
+        configEndpointUrl,
         globalAttributes,
         instrumentation,
       });

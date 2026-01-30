@@ -53,6 +53,11 @@ public interface PulseSDK {
          * If not provided, [logEndpointConnectivity] will be used
          */
         customEventConnectivity: EndpointConnectivity = logEndpointConnectivity,
+        /**
+         * Optional custom URL for fetching SDK configuration.
+         * If not provided, defaults to: {endpointBaseUrl with port 8080}/v1/configs/active/
+         */
+        configEndpointUrl: String? = null,
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,

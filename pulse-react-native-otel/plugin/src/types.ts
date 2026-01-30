@@ -25,6 +25,11 @@ export interface PulsePluginProps {
   endpointBaseUrl: string;
   tenantId: string;
   endpointHeaders?: Record<string, string>;
+  /**
+   * Optional custom URL for fetching SDK configuration.
+   * If not provided, defaults to: {endpointBaseUrl with port 8080}/v1/configs/active/
+   */
+  configEndpointUrl?: string;
   globalAttributes?: PulseAttributes;
   instrumentation?: {
     interaction?: IInteractionConfig;

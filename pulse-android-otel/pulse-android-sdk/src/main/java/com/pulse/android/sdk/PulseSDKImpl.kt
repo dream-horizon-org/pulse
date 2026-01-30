@@ -79,6 +79,7 @@ internal class PulseSDKImpl :
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
         customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
@@ -102,6 +103,7 @@ internal class PulseSDKImpl :
                 logEndpointConnectivity,
                 metricEndpointConnectivity,
                 customEventConnectivity,
+                configEndpointUrl,
                 resource,
                 instrumentations,
                 endpointHeaders,
@@ -126,6 +128,7 @@ internal class PulseSDKImpl :
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
         customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
@@ -159,7 +162,8 @@ internal class PulseSDKImpl :
             apiCache.mkdirs()
             val newConfig =
                 PulseSdkConfigRestProvider(apiCache, endpointHeadersWithTenant) {
-                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/$tenantId/configs/active/"
+                    configEndpointUrl
+                        ?: "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
             PulseOtelUtils.logDebug(TAG) {
