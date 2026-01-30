@@ -22,14 +22,13 @@ class SpanFrameAttributesAppended : ExtendedSpanProcessor {
 
     override fun onEnding(span: ReadWriteSpan) {
         val spanData = span.toSpanData()
-        span.setAllAttributes(
-            getFrameAttributes(
-                FrameDataHelper.createCumulativeFrameMetric(
-                    spanData.startEpochNanos / 1000,
-                    spanData.endEpochNanos / 1000,
-                ),
-            ),
-        )
+        FrameDataHelper
+            .createCumulativeFrameMetric(
+                spanData.startEpochNanos / 1000_000,
+                spanData.endEpochNanos / 1000_000,
+            )?.let { frameData ->
+                span.setAllAttributes(getFrameAttributes(frameData))
+            }
     }
 
     override fun isOnEndingRequired(): Boolean = true
