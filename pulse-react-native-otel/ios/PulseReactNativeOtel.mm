@@ -31,8 +31,8 @@ RCT_EXPORT_MODULE()
 }
 
 - (NSString *)startSpan:(NSString *)name
-             inheritContext:(NSNumber *)inheritContext
-             attributes:(NSDictionary *)attributes
+      inheritContext:(BOOL)inheritContext
+      attributes:(NSDictionary *)attributes
 {
   return [PulseReactNativeOtelTracer startSpan:name attributes:attributes];
 }

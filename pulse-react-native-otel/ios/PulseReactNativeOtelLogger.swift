@@ -35,6 +35,7 @@ public class PulseReactNativeOtelLogger: NSObject {
         params[PulseOtelConstants.ATTR_THREAD_ID] = PulseAttributeValue.string(getCurrentThreadId())
         params[PulseOtelConstants.ATTR_THREAD_NAME] = PulseAttributeValue.string(Thread.current.name ?? "unknown")
         params[PulseOtelConstants.ATTR_ERROR_SOURCE] = PulseAttributeValue.string(PulseOtelConstants.ERROR_SOURCE_JS)
+        params[PulseAttributes.pulseType] = PulseAttributeValue.string(isFatal ? PulseAttributes.PulseTypeValues.crash : PulseAttributes.PulseTypeValues.nonFatal)
         
         PulseSDK.trackNonFatal(
             name: errorMessage,
