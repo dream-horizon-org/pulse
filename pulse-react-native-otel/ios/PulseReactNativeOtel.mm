@@ -34,7 +34,7 @@ RCT_EXPORT_MODULE()
       inheritContext:(BOOL)inheritContext
       attributes:(NSDictionary *)attributes
 {
-  return [PulseReactNativeOtelTracer startSpan:name attributes:attributes];
+  return [PulseReactNativeOtelTracer startSpan:name inheritContext:inheritContext attributes:attributes];
 }
 
 - (NSNumber *)endSpan:(NSString *)spanId
@@ -82,10 +82,10 @@ RCT_EXPORT_MODULE()
                                    attributes:attributes];
   return @YES;
 }
-// Discard span (no-op on iOS)
 - (NSNumber *)discardSpan:(NSString *)spanId
 {
-  return @NO;
+  [PulseReactNativeOtelTracer discardSpan:spanId];
+  return @YES;
 }
 
 - (void)setUserId:(NSString * _Nullable)id { 

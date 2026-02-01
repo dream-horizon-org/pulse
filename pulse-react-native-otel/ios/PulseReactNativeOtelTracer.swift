@@ -21,12 +21,17 @@ public class PulseReactNativeOtelTracer: NSObject {
     private static let spanStore = NSMutableDictionary()
     private static let spanStoreQueue = DispatchQueue(label: "com.pulse.spanstore")
     
-    @objc(startSpan:attributes:)
-    public static func startSpan(name: String, attributes: NSDictionary?) -> String {
-        let span = tracer.spanBuilder(spanName: name)
+    @objc(startSpan:inheritContext:attributes:)
+    public static func startSpan(name: String, inheritContext: Bool, attributes: NSDictionary?) -> String {
+        let builder = tracer.spanBuilder(spanName: name)
             .setSpanKind(spanKind: SpanKind.internal)
-            .setActive(true)
-            .startSpan()
+
+        // When active, the span will become parent of future spans
+        if inheritContext {
+            builder.setActive(true)
+        }
+        
+        let span = builder.startSpan()
         
         if let attributes = attributes {
             let swiftAttributes = AttributeValueConverter.convertToSwift(attributes)
@@ -111,6 +116,16 @@ public class PulseReactNativeOtelTracer: NSObject {
             if let stackTrace = stackTrace, !stackTrace.isEmpty {
                 span.setAttribute(key: PulseOtelConstants.ATTR_ERROR_STACK, value: OpenTelemetryApi.AttributeValue.string(stackTrace))
             }
+        }
+    }
+    
+    @objc(discardSpan:)
+    public static func discardSpan(spanId: String) {
+        spanStoreQueue.sync {
+            guard let span = spanStore[spanId] as? Span else { return }
+            span.setAttribute(key: "pulse.internal", value: OpenTelemetryApi.AttributeValue.bool(true))
+            span.end()
+            spanStore.removeObject(forKey: spanId)
         }
     }
     
