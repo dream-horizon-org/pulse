@@ -106,6 +106,8 @@ public final class OpenTelemetryRumBuilder {
 
     private Resource resource;
 
+    private static final int LOGS_EXPORT_SCHEDULE_IN_SEC = 5;
+
     @Nullable private ExportScheduleHandler exportScheduleHandler;
     @Nullable private SessionProvider sessionProvider;
 
@@ -551,7 +553,7 @@ public final class OpenTelemetryRumBuilder {
 
         BatchSpanProcessor batchSpanProcessor =
                 BatchSpanProcessor.builder(spanExporter)
-                        .setScheduleDelay(5, TimeUnit.SECONDS)
+                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS)
                         .build();
         tracerProviderBuilder.addSpanProcessor(batchSpanProcessor);
 
