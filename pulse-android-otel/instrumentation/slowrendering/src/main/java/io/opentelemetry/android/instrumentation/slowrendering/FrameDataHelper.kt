@@ -124,8 +124,8 @@ internal object FrameDataHelper {
                     timeInMs = endTimeInMs,
                     analysedFrameCount = 1,
                     unanalysedFrameCount = 0,
-                    slowFrameCount = 1,
-                    frozenFrameCount = 0,
+                    slowFrameCount = if (singleEvent.slowFrameCount > 0) 1 else 0,
+                    frozenFrameCount = if (singleEvent.frozenFrameCount > 0) 1 else 0,
                 )
             } else {
                 // Event is outside the range, return null

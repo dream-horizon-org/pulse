@@ -119,7 +119,7 @@ internal class FrameDataHelperTest {
     }
 
     @Test
-    fun `uses last known value when no future event exists when single event lies between the range`() {
+    fun `uses last known value when no future event exists when single slow event lies between the range`() {
         val events =
             listOf(
                 FrameDataHelper.CumulativeFrameData(1000, 10, 5, 1, 0),
@@ -140,6 +140,60 @@ internal class FrameDataHelperTest {
                     analysedFrameCount = 1,
                     unanalysedFrameCount = 0,
                     slowFrameCount = 1,
+                    frozenFrameCount = 0,
+                ),
+            )
+    }
+
+    @Test
+    fun `uses last known value when no future event exists when single frozen event lies between the range`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(1000, 10, 5, 0, 1),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 0,
+                endTimeInMs = 5000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 5000,
+                    analysedFrameCount = 1,
+                    unanalysedFrameCount = 0,
+                    slowFrameCount = 0,
+                    frozenFrameCount = 1,
+                ),
+            )
+    }
+
+    @Test
+    fun `uses last known value when no future event exists when single normal event lies between the range`() {
+        val events =
+            listOf(
+                FrameDataHelper.CumulativeFrameData(1000, 10, 5, 0, 0),
+            )
+
+        val result =
+            FrameDataHelper.createCumulativeFrameMetric(
+                events = events,
+                startTimeInMs = 0,
+                endTimeInMs = 5000,
+            )
+
+        assertThat(result)
+            .usingRecursiveComparison()
+            .isEqualTo(
+                FrameDataHelper.CumulativeFrameData(
+                    timeInMs = 5000,
+                    analysedFrameCount = 1,
+                    unanalysedFrameCount = 0,
+                    slowFrameCount = 0,
                     frozenFrameCount = 0,
                 ),
             )
