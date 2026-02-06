@@ -37,6 +37,15 @@ import {
 export type { NavigationRoute, NavigationIntegrationOptions };
 export { DEFAULT_NAVIGATION_OPTIONS } from './navigation.interface';
 
+let currentNavigationUnregister: (() => void) | null = null;
+
+export function uninstallNavigationIntegration(): void {
+  if (currentNavigationUnregister) {
+    currentNavigationUnregister();
+    currentNavigationUnregister = null;
+  }
+}
+
 export interface ReactNavigationIntegration {
   registerNavigationContainer: (
     maybeNavigationContainer: unknown
@@ -270,6 +279,9 @@ export function createReactNavigationIntegration(
           }
           navigationContainer = undefined;
           isInitialized = false;
+          if (currentNavigationUnregister === unmountCleanup) {
+            currentNavigationUnregister = null;
+          }
 
           clearGlobalMarkContentReady(
             updatedInteractiveTracker.markContentReady
@@ -304,6 +316,7 @@ export function createReactNavigationIntegration(
       );
       isInitialized = true;
 
+      currentNavigationUnregister = unmountCleanup;
       return unmountCleanup;
     } catch (error) {
       console.error(

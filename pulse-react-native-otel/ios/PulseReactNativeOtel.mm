@@ -96,6 +96,10 @@ RCT_EXPORT_MODULE()
   // No op
 }
 
+- (NSNumber *)shutdown {
+  // No op - iOS SDK not yet implemented
+  return @YES;
+}
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params

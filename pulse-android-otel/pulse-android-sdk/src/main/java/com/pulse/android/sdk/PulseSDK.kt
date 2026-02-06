@@ -122,6 +122,12 @@ public interface PulseSDK {
 
     public fun getOtelOrThrow(): OpenTelemetryRum
 
+    /**
+     * Shuts down the Pulse SDK: flushes and releases OpenTelemetry resources and uninstalls
+     * instrumentation. After shutdown, the SDK cannot be re-initialized in this process.
+     */
+    public fun shutdown()
+
     public companion object {
         @JvmStatic
         public val INSTANCE: PulseSDK by lazy { PulseSDKImpl() }

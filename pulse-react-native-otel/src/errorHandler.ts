@@ -1,4 +1,5 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
+import { getIsShutdown } from './config';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { isSupportedPlatform } from './initialization';
 import { extractErrorDetails } from './utility';
@@ -68,7 +69,7 @@ export function reportException(
   isFatal: boolean = false,
   attributes?: PulseAttributes
 ): void {
-  if (!isSupportedPlatform()) {
+  if (!isSupportedPlatform() || getIsShutdown()) {
     return;
   }
 
@@ -158,6 +159,10 @@ function disableErrorHandler(): void {
   isInitialized = false;
   previousErrorHandler = null;
   handlingFatal = false;
+}
+
+export function uninstallErrorHandler(): void {
+  disableErrorHandler();
 }
 
 export function setupErrorHandler(enableErrorHandler: boolean): void {

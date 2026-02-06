@@ -18,12 +18,17 @@ type ReadyStateChangeHandler = (this: XMLHttpRequest, ev: Event) => any;
 
 let isXHRIntercepted = false;
 
+export interface XmlHttpRequestTrackerResult {
+  requestTracker: RequestTracker;
+  uninstall: () => void;
+}
+
 function createXmlHttpRequestTracker(
   xhr: typeof XMLHttpRequest
-): RequestTracker {
+): XmlHttpRequestTrackerResult {
   if (isXHRIntercepted) {
     console.warn('[Pulse] XMLHttpRequest already intercepted');
-    return new RequestTracker();
+    return { requestTracker: new RequestTracker(), uninstall: () => {} };
   }
 
   const requestTracker = new RequestTracker();
@@ -192,7 +197,15 @@ function createXmlHttpRequestTracker(
     originalSend.call(this, body);
   };
 
-  return requestTracker;
+  const uninstall = (): void => {
+    if (!isXHRIntercepted) return;
+    xhr.prototype.open = originalOpen;
+    xhr.prototype.setRequestHeader = originalSetRequestHeader;
+    xhr.prototype.send = originalSend;
+    isXHRIntercepted = false;
+  };
+
+  return { requestTracker, uninstall };
 }
 
 export default createXmlHttpRequestTracker;

@@ -1,8 +1,17 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
+import { getIsShutdown } from './config';
 import { isSupportedPlatform } from './initialization';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { extractErrorDetails } from './utility';
 import type { PulseAttributes } from './pulse.interface';
+
+const noopSpan: Span = {
+  end: (_statusCode?: SpanStatusCode) => {},
+  addEvent: (_eventName: string, _eventAttributes?: PulseAttributes) => {},
+  setAttributes: (_attributes?: PulseAttributes) => {},
+  recordException: (_error: Error, _attributes?: PulseAttributes) => {},
+  spanId: undefined,
+};
 
 /**
  * Options for starting a span.
@@ -30,14 +39,8 @@ export type Span = {
 };
 
 export function startSpan(name: string, options?: SpanOptions): Span {
-  if (!isSupportedPlatform()) {
-    return {
-      end: (_statusCode?: SpanStatusCode) => {},
-      addEvent: (_eventName: string, _eventAttributes?: PulseAttributes) => {},
-      setAttributes: (_attributes?: PulseAttributes) => {},
-      recordException: (_error: Error, _attributes?: PulseAttributes) => {},
-      spanId: undefined,
-    };
+  if (!isSupportedPlatform() || getIsShutdown()) {
+    return noopSpan;
   }
 
   const mergedAttributes = mergeWithGlobalAttributes(options?.attributes || {});
@@ -69,7 +72,7 @@ export function trackSpan<T>(
   options: SpanOptions,
   fn: () => T | Promise<T>
 ): T | Promise<T> {
-  if (!isSupportedPlatform()) {
+  if (!isSupportedPlatform() || getIsShutdown()) {
     return fn();
   }
 
@@ -94,11 +97,12 @@ export function trackSpan<T>(
 }
 
 function endSpan(spanId: string, statusCode?: SpanStatusCode): void {
+  if (getIsShutdown()) return;
   PulseReactNativeOtel.endSpan(spanId, statusCode);
 }
 
 export function discardSpan(spanId: string): void {
-  if (!isSupportedPlatform()) {
+  if (!isSupportedPlatform() || getIsShutdown()) {
     return;
   }
   PulseReactNativeOtel.discardSpan(spanId);
@@ -109,14 +113,17 @@ function addSpanEvent(
   name: string,
   attributes?: PulseAttributes
 ): void {
+  if (getIsShutdown()) return;
   PulseReactNativeOtel.addSpanEvent(spanId, name, attributes || undefined);
 }
 
 function setSpanAttributes(spanId: string, attributes?: PulseAttributes): void {
+  if (getIsShutdown()) return;
   PulseReactNativeOtel.setSpanAttributes(spanId, attributes || undefined);
 }
 
 function recordSpanException(error: Error, attributes?: PulseAttributes): void {
+  if (getIsShutdown()) return;
   const { message, stackTrace, errorType } = extractErrorDetails(error);
   const observedTimeMs = Date.now();
   const mergedAttributes = mergeWithGlobalAttributes(attributes || {});

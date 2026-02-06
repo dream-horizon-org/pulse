@@ -68,6 +68,9 @@ export interface Spec extends TurboModule {
     custom_events: boolean;
     js_crash: boolean;
   } | null;
+
+  /** Shut down the Pulse SDK. After this, re-init is not supported. */
+  shutdown(): boolean;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('PulseReactNativeOtel');

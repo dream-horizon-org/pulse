@@ -1,7 +1,7 @@
 import { startSpan, trackSpan } from './trace';
 import { reportException } from './errorHandler';
 import { trackEvent } from './events';
-import { start } from './config';
+import { start, shutdown } from './config';
 import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
@@ -22,6 +22,7 @@ export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 export { SpanStatusCode } from './trace';
 export const Pulse = {
   start,
+  shutdown,
   isInitialized,
   useNavigationTracking,
   markContentReady,

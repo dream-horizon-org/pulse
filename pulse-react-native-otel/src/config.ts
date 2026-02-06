@@ -1,11 +1,15 @@
-import { setupErrorHandler } from './errorHandler';
+import { setupErrorHandler, uninstallErrorHandler } from './errorHandler';
 import { isSupportedPlatform } from './initialization';
 import {
   createReactNavigationIntegration,
+  uninstallNavigationIntegration,
   type ReactNavigationIntegration,
   type NavigationIntegrationOptions,
 } from './navigation';
-import { initializeNetworkInterceptor } from './network-interceptor/initialization';
+import {
+  initializeNetworkInterceptor,
+  uninstallNetworkInterceptor,
+} from './network-interceptor/initialization';
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
 import { PULSE_FEATURE_NAMES } from './pulse.constants';
@@ -34,8 +38,15 @@ const defaultConfig: Required<PulseConfig> = {
 
 let currentConfig: PulseConfig = { ...defaultConfig };
 
+/** After shutdown, start() and initialize are no-ops; re-initialization is not supported. */
+let isShutdown = false;
+
 // Cache for features from remote SDK config
 let cachedFeatures: PulseFeatureConfig;
+
+export function getIsShutdown(): boolean {
+  return isShutdown;
+}
 
 /**
  * Gets all features from the remote SDK config.
@@ -93,6 +104,12 @@ function resolveNavigationState(
 
 export function start(options?: PulseConfig): void {
   if (!isSupportedPlatform()) return;
+  if (isShutdown) {
+    console.warn(
+      '[Pulse] SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
+    );
+    return;
+  }
 
   const features = getFeaturesFromRemoteConfig();
   const config: PulseConfig = {
@@ -119,10 +136,28 @@ export function start(options?: PulseConfig): void {
   configure(config);
 }
 
+export function shutdown(): void {
+  if (isShutdown) {
+    console.warn('[Pulse] SDK already shut down.');
+    return;
+  }
+  uninstallErrorHandler();
+  uninstallNetworkInterceptor();
+  uninstallNavigationIntegration();
+  PulseReactNativeOtel.shutdown();
+  isShutdown = true;
+}
+
 export function createNavigationIntegrationWithConfig(
   options?: NavigationIntegrationOptions
 ): ReactNavigationIntegration {
   if (!isSupportedPlatform()) {
+    return {
+      registerNavigationContainer: (_: unknown) => () => {},
+      markContentReady: () => {},
+    };
+  }
+  if (isShutdown) {
     return {
       registerNavigationContainer: (_: unknown) => () => {},
       markContentReady: () => {},

@@ -89,6 +89,11 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
     }
   }
 
+  override fun shutdown(): Boolean {
+    PulseSDK.INSTANCE.shutdown()
+    return true
+  }
+
   override fun triggerAnr() {
     Handler(Looper.getMainLooper()).postAtFrontOfQueue {
       Log.d("[Pulse]", "Now running PostAtFrontQueue: ${Thread.currentThread().name}")
