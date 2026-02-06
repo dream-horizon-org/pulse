@@ -617,8 +617,7 @@ internal class PulseSDKImpl :
         }
     }
 
-    override fun getOtelOrNull(): OpenTelemetryRum? =
-        if (isShutdown) null else otelInstance
+    override fun getOtelOrNull(): OpenTelemetryRum? = if (isShutdown) null else otelInstance
 
     override fun getOtelOrThrow(): OpenTelemetryRum {
         if (isShutdown) throwShutdownError()
