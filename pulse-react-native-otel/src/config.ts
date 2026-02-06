@@ -105,7 +105,7 @@ function resolveNavigationState(
 export function start(options?: PulseConfig): void {
   if (!isSupportedPlatform()) return;
   if (isShutdown) {
-    console.warn(
+    console.log(
       '[Pulse] SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
     );
     return;

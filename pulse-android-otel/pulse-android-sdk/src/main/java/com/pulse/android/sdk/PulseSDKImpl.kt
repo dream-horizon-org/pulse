@@ -75,10 +75,13 @@ internal class PulseSDKImpl :
             PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down" }
             return
         }
-        otelInstance?.shutdown()
-        otelInstance = null
-        isShutdown = true
-        PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+        launch(Dispatchers.Main.immediate) {
+            if (isShutdown) return@launch
+            otelInstance?.shutdown()
+            otelInstance = null
+            isShutdown = true
+            PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+        }
     }
 
     override fun initialize(
