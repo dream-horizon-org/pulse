@@ -21,7 +21,7 @@ RCT_EXPORT_MODULE()
   return self;
 }
 
-#pragma mark - Shared implementation (dummy no-ops for now)
+#pragma mark - Shared implementation
 
 - (NSNumber *)doIsInitialized { return @NO; }
 
@@ -62,7 +62,7 @@ RCT_EXPORT_MODULE()
 
 - (NSNumber *)doShutdown { return @YES; }
 
-#pragma mark - New Architecture (no macros)
+#pragma mark - New Architecture
 
 #if RCT_NEW_ARCH_ENABLED
 
@@ -110,7 +110,7 @@ RCT_EXPORT_MODULE()
   return std::make_shared<facebook::react::NativePulseReactNativeOtelSpecJSI>(params);
 }
 
-#pragma mark - Old Architecture (RCT_EXPORT_* so bridge discovers methods)
+#pragma mark - Old Architecture
 
 #else
 
