@@ -577,7 +577,7 @@ public final class OpenTelemetryRumBuilder {
                                         config.getGlobalAttributesSupplier()));
         LogRecordProcessor batchLogsProcessor =
                 BatchLogRecordProcessor.builder(logsExporter)
-                        .setScheduleDelay(5, TimeUnit.SECONDS)
+                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS)
                         .build();
         loggerProviderBuilder.addLogRecordProcessor(batchLogsProcessor);
         for (BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>
