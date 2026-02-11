@@ -32,7 +32,7 @@ public class PulseSessionSamplingRule internal constructor(
     @SerialName("value")
     public val value: String = "",
     @SerialName("sdks")
-    public val sdks: Collection<PulseSdkName> = emptyList(),
+    public val sdks: Collection<PulseSdkName> = emptySet(),
     @SerialName("sessionSampleRate")
     public val sessionSampleRate: SamplingRate = 1.0f,
 ) {
@@ -50,5 +50,5 @@ public class PulseDefaultSamplingConfig internal constructor(
 @Serializable
 public class PulseCriticalEventPolicies internal constructor(
     @SerialName("alwaysSend")
-    public val alwaysSend: List<PulseSignalMatchCondition>,
+    public val alwaysSend: Collection<PulseSignalMatchCondition>,
 )

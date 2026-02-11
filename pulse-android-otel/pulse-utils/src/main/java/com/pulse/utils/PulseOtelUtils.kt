@@ -1,6 +1,7 @@
 package com.pulse.utils
 
 import android.util.Log
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
@@ -76,6 +77,10 @@ public infix fun AttributesBuilder.putAttributesFrom(map: Map<String, Any?>): At
                     putAll(value)
                 }
 
+                is Int -> {
+                    put(key, value.toLong())
+                }
+
                 is Long -> {
                     put(key, value)
                 }
@@ -104,7 +109,9 @@ internal const val TAG: String = "PulseOtelSdk"
 
 public fun Map<String, Any?>.toAttributes(): Attributes = (Attributes.builder() putAttributesFrom this).build()
 
-public fun Attributes.toMap(): Map<String, Any?> = this.asMap().mapKeys { it.key.key }
+public fun Attributes.filterNot(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf(predicate).build()
+
+public fun Attributes.filter(predicate: (AttributeKey<*>) -> Boolean): Attributes = this.toBuilder().removeIf { !predicate(it) }.build()
 
 internal val regexCache = ConcurrentHashMap<String, ThreadLocal<Matcher>>()
 

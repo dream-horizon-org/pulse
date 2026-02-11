@@ -10,12 +10,13 @@ import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseAttributesToAddEntry
 import com.pulse.sampling.models.PulseAttributesToDropEntry
 import com.pulse.sampling.models.PulseFeatureName
+import com.pulse.sampling.models.PulseMetricsToAddEntry
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.utils.filterNot
 import com.pulse.utils.matchesFromRegexCache
-import com.pulse.utils.toMap
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.common.CompletableResultCode
@@ -53,6 +54,12 @@ public class PulseSamplingSignalProcessors internal constructor(
             .attributesToAdd
             .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
 
+    private fun getMetricsToAddConfig(scope: PulseSignalScope): List<PulseMetricsToAddEntry> =
+        sdkConfig
+            .signals
+            .metricsToAdd
+            .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
+
     private val shouldSampleThisSession by lazy {
         val samplingRate = sessionParser.parses(context, sdkConfig.sampling, currentSdkName)
         val localRandomValue = randomIdGenerator.nextFloat()
@@ -70,50 +77,22 @@ public class PulseSamplingSignalProcessors internal constructor(
             getAddedAttributesConfig(PulseSignalScope.TRACES)
         }
 
+        private val metricsToAdd by lazy {
+            getMetricsToAddConfig(PulseSignalScope.TRACES)
+        }
+
         override fun export(spans: Collection<SpanData>): CompletableResultCode =
-            sampleSpansInSession(spans) {
+            sampleSpansInSession(
+                signals = spans,
+                attributesToAdd = attributesToAdd,
+                attributesToDrop = attributesToDrop,
+                metricsToAdd = metricsToAdd,
+            ) {
                 val filteredSpans =
-                    spans
+                    it
                         .asSequence()
                         .filter { spanData ->
-                            val spanPropsMap = spanData.attributes.toMap()
-                            shouldExportSpan(spanData.name, spanPropsMap)
-                        }.map { spanData ->
-                            var currentAttributes = spanData.attributes
-                            var modifiedSpanData: SpanData = spanData
-
-                            if (attributesToDrop.isNotEmpty()) {
-                                val droppedResult =
-                                    filterAttributes(
-                                        spanData.name,
-                                        currentAttributes,
-                                        PulseSignalScope.TRACES,
-                                        attributesToDrop,
-                                    ) { newAttributes ->
-                                        spanData.copy(attributes = newAttributes)
-                                    }
-                                if (droppedResult != null) {
-                                    modifiedSpanData = droppedResult
-                                    currentAttributes = droppedResult.getAttributes()
-                                }
-                            }
-
-                            if (attributesToAdd.isNotEmpty()) {
-                                val addedResult =
-                                    addAttributes(
-                                        spanData.name,
-                                        currentAttributes,
-                                        PulseSignalScope.TRACES,
-                                        attributesToAdd,
-                                    ) { newAttributes ->
-                                        spanData.copy(attributes = newAttributes)
-                                    }
-                                if (addedResult != null) {
-                                    modifiedSpanData = addedResult
-                                }
-                            }
-
-                            modifiedSpanData
+                            shouldExportSpan(spanData.name, spanData.attributes)
                         }.toList()
 
                 delegateExporter.export(filteredSpans)
@@ -121,7 +100,7 @@ public class PulseSamplingSignalProcessors internal constructor(
 
         private fun shouldExportSpan(
             name: String?,
-            propsMap: Map<String, Any?>,
+            propsMap: Attributes,
         ): Boolean =
             name == null ||
                 sdkConfig.signals.filters.values.anyOrNone(
@@ -152,54 +131,23 @@ public class PulseSamplingSignalProcessors internal constructor(
             getAddedAttributesConfig(PulseSignalScope.LOGS)
         }
 
+        private val metricsToAdd by lazy {
+            getMetricsToAddConfig(PulseSignalScope.LOGS)
+        }
+
         override fun export(logs: Collection<LogRecordData>): CompletableResultCode =
-            sampleLogsInSession(logs) {
+            sampleLogsInSession(
+                logs,
+                attributesToAdd,
+                attributesToDrop,
+                metricsToAdd,
+            ) {
                 val filteredLogs =
-                    logs
+                    it
                         .asSequence()
                         .filter { logRecord ->
-                            val logPropsMap = logRecord.attributes.toMap()
                             val logName = logRecord.bodyValue?.asString()
-                            shouldExportLog(logName, logPropsMap)
-                        }.map { logRecord ->
-                            var currentAttributes = logRecord.attributes
-                            var modifiedLogRecord: LogRecordData = logRecord
-                            val logName = logRecord.bodyValue?.asString().orEmpty()
-
-                            // First drop attributes if needed
-                            if (attributesToDrop.isNotEmpty()) {
-                                val droppedResult =
-                                    filterAttributes(
-                                        logName,
-                                        currentAttributes,
-                                        PulseSignalScope.LOGS,
-                                        attributesToDrop,
-                                    ) { newAttributes ->
-                                        logRecord.copy(attributes = newAttributes)
-                                    }
-                                if (droppedResult != null) {
-                                    modifiedLogRecord = droppedResult
-                                    currentAttributes = droppedResult.getAttributes()
-                                }
-                            }
-
-                            // Then add attributes if needed
-                            if (attributesToAdd.isNotEmpty()) {
-                                val addedResult =
-                                    addAttributes(
-                                        logName,
-                                        currentAttributes,
-                                        PulseSignalScope.LOGS,
-                                        attributesToAdd,
-                                    ) { newAttributes ->
-                                        logRecord.copy(attributes = newAttributes)
-                                    }
-                                if (addedResult != null) {
-                                    modifiedLogRecord = addedResult
-                                }
-                            }
-
-                            modifiedLogRecord
+                            shouldExportLog(logName, logRecord.attributes)
                         }.toList()
 
                 delegateExporter.export(filteredLogs)
@@ -207,7 +155,7 @@ public class PulseSamplingSignalProcessors internal constructor(
 
         private fun shouldExportLog(
             name: String?,
-            propsMap: Map<String, Any?>,
+            propsMap: Attributes,
         ): Boolean =
             name == null ||
                 sdkConfig.signals.filters.values.anyOrNone(
@@ -231,9 +179,13 @@ public class PulseSamplingSignalProcessors internal constructor(
         private val delegateExporter: MetricExporter,
     ) : MetricExporter by delegateExporter {
         override fun export(metrics: Collection<MetricData>): CompletableResultCode =
-            sampleMetricsInSession(metrics) {
+            sampleMetricsInSession(
+                signals = metrics,
+                attributesToDrop = emptyList(),
+                attributesToAdd = emptyList(),
+            ) {
                 val filteredLogs =
-                    metrics
+                    it
                         .asSequence()
                         .filter { metric ->
                             shouldExportMetric(metric.name)
@@ -249,7 +201,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                 signalMatcher.matches(
                     PulseSignalScope.METRICS,
                     name,
-                    emptyMap(),
+                    Attributes.empty(),
                     matchCondition,
                     currentSdkName,
                 )
@@ -276,7 +228,7 @@ public class PulseSamplingSignalProcessors internal constructor(
             .filter { currentSdkName in it.sdks && it.sessionSampleRate == 1F }
             .map { it.featureName }
 
-    private inline fun <E> List<E>.anyOrNone(
+    private inline fun <E> Iterable<E>.anyOrNone(
         shouldMatchAny: Boolean,
         predicate: (E) -> Boolean,
     ): Boolean =
@@ -288,55 +240,49 @@ public class PulseSamplingSignalProcessors internal constructor(
 
     @OptIn(ExperimentalTypeInference::class)
     @BuilderInference
-    private inline fun <S> filterAttributes(
-        signalName: String,
-        signalAttributes: Attributes,
+    private inline fun <S> dropAttributes(
+        signal: S,
         scope: PulseSignalScope,
-        attributesToDrop: List<PulseAttributesToDropEntry>,
-        updateAttributes: (newAttributes: Attributes) -> S,
+        attributesToDrop: Collection<PulseAttributesToDropEntry>,
+        signalValuesProvider: S.() -> SignalMatchValues,
+        attributesModifier: S.(newAttributes: Attributes) -> S,
     ): S? {
-        val spanAttributes = signalAttributes.toMap()
-        val matchingEntries =
+        val (signalName, signalAttributes) = signal.signalValuesProvider()
+        val finalAttributesToDrop =
             attributesToDrop
                 .filter {
                     signalMatcher.matches(
                         scope = scope,
                         name = signalName,
-                        props = spanAttributes,
+                        props = signalAttributes,
                         signalMatchConfig = it.condition,
                         sdkName = currentSdkName,
                     )
                 }
 
-        if (matchingEntries.isEmpty()) {
+        if (finalAttributesToDrop.isEmpty()) {
             return null
         }
 
-        val keysToDrop = matchingEntries.flatMap { it.values }
+        val keysToDrop = finalAttributesToDrop.flatMap { it.values }
 
-        val newAttributes =
-            signalAttributes
-                .toBuilder()
-                .apply {
-                    signalAttributes
-                        .forEach { key, _ ->
-                            if (keysToDrop.any { key.key.matchesFromRegexCache(it) }) {
-                                remove(key)
-                            }
-                        }
-                }.build()
-        return updateAttributes(newAttributes)
+        val newSignalAttributes =
+            signalAttributes.filterNot { key ->
+                keysToDrop.any { key.key.matchesFromRegexCache(it) }
+            }
+        return signal.attributesModifier(newSignalAttributes)
     }
 
     @OptIn(ExperimentalTypeInference::class)
     @BuilderInference
     private inline fun <S> addAttributes(
-        signalName: String,
-        signalAttributes: Attributes,
+        signal: S,
         scope: PulseSignalScope,
-        attributesToAdd: List<PulseAttributesToAddEntry>,
-        updateAttributes: (newAttributes: Attributes) -> S,
+        attributesToAdd: Collection<PulseAttributesToAddEntry>,
+        signalValuesProvider: S.() -> SignalMatchValues,
+        attributesModifier: S.(newAttributes: Attributes) -> S,
     ): S? {
+        val (signalName, signalAttributes) = signal.signalValuesProvider()
         val matchingEntries =
             attributesToAdd
                 .filter {
@@ -347,13 +293,12 @@ public class PulseSamplingSignalProcessors internal constructor(
             return null
         }
 
-        val spanAttributes = signalAttributes.toMap()
         val entriesThatMatch =
             matchingEntries.filter { entry ->
                 signalMatcher.matches(
                     scope,
                     signalName,
-                    spanAttributes,
+                    signalAttributes,
                     entry.condition,
                     currentSdkName,
                 )
@@ -413,7 +358,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                         }
                     }
                 }.build()
-        return updateAttributes(newAttributes)
+        return signal.attributesModifier(newAttributes)
     }
 
     private fun parseStringArray(value: String): List<String> = value.split(",")
@@ -426,32 +371,128 @@ public class PulseSamplingSignalProcessors internal constructor(
 
     private inline fun sampleLogsInSession(
         signals: Collection<LogRecordData>,
+        attributesToAdd: List<PulseAttributesToAddEntry>,
+        attributesToDrop: List<PulseAttributesToDropEntry>,
+        metricsToAdd: List<PulseMetricsToAddEntry>,
         block: (Collection<LogRecordData>) -> CompletableResultCode,
-    ): CompletableResultCode = sampleSession(PulseSignalScope.LOGS, signals, LogRecordData::toSignalValues, block)
+    ): CompletableResultCode =
+        sampleSession(
+            scope = PulseSignalScope.LOGS,
+            attributesToAdd = attributesToAdd,
+            attributesToDrop = attributesToDrop,
+            metricsToAdd = metricsToAdd,
+            signals = signals,
+            signalValuesProvider = LogRecordData::toSignalValues,
+            attributesModifier = { this.copy(attributes = it) },
+            block = block,
+        )
 
     private inline fun sampleSpansInSession(
         signals: Collection<SpanData>,
+        attributesToAdd: Collection<PulseAttributesToAddEntry>,
+        attributesToDrop: Collection<PulseAttributesToDropEntry>,
+        metricsToAdd: Collection<PulseMetricsToAddEntry>,
         block: (Collection<SpanData>) -> CompletableResultCode,
-    ): CompletableResultCode = sampleSession(PulseSignalScope.TRACES, signals, SpanData::toSignalValues, block)
+    ): CompletableResultCode =
+        sampleSession(
+            scope = PulseSignalScope.TRACES,
+            attributesToAdd = attributesToAdd,
+            attributesToDrop = attributesToDrop,
+            metricsToAdd = metricsToAdd,
+            signals = signals,
+            attributesModifier = { this.copy(attributes = it) },
+            signalValuesProvider = SpanData::toSignalValues,
+            block = block,
+        )
 
     private inline fun sampleMetricsInSession(
         signals: Collection<MetricData>,
+        attributesToAdd: List<PulseAttributesToAddEntry>,
+        attributesToDrop: List<PulseAttributesToDropEntry>,
         block: (Collection<MetricData>) -> CompletableResultCode,
-    ): CompletableResultCode = sampleSession(PulseSignalScope.METRICS, signals, MetricData::toSignalValues, block)
+    ): CompletableResultCode =
+        sampleSession(
+            scope = PulseSignalScope.METRICS,
+            attributesToAdd = attributesToAdd,
+            attributesToDrop = attributesToDrop,
+            metricsToAdd = emptyList(),
+            attributesModifier = { this },
+            signalValuesProvider = MetricData::toSignalValues,
+            signals = signals,
+            block = block,
+        )
+
+    private inline fun <M> Iterable<M>.observerAndModifyData(
+        scope: PulseSignalScope,
+        attributesToAdd: Collection<PulseAttributesToAddEntry>,
+        attributesToDrop: Collection<PulseAttributesToDropEntry>,
+        metricsToAdd: Collection<PulseMetricsToAddEntry>,
+        signalValuesProvider: M.() -> SignalMatchValues,
+        attributesModifier: M.(newAttributes: Attributes) -> M,
+    ): List<M> =
+        this.map { signal ->
+            val addedAttributesSignal =
+                if (attributesToAdd.isNotEmpty()) {
+                    addAttributes(
+                        signal,
+                        scope,
+                        attributesToAdd,
+                        signalValuesProvider,
+                        attributesModifier,
+                    ) ?: signal
+                } else {
+                    signal
+                }
+
+            if (metricsToAdd.isNotEmpty()) {
+                addMetrics(signal, scope, metricsToAdd, signalValuesProvider)
+            }
+
+            if (attributesToDrop.isNotEmpty()) {
+                dropAttributes(addedAttributesSignal, scope, attributesToDrop, signalValuesProvider, attributesModifier)
+                    ?: addedAttributesSignal
+            } else {
+                addedAttributesSignal
+            }
+        }
+
+    private inline fun <M> addMetrics(
+        signal: M,
+        scope: PulseSignalScope,
+        metricsToAdd: Collection<PulseMetricsToAddEntry>,
+        signalValuesProvider: M.() -> SignalMatchValues,
+    ) {
+        val (name, props) = signal.signalValuesProvider()
+        metricsToAdd.filter {
+            signalMatcher.matches(
+                scope,
+                name,
+                props,
+                it.condition,
+                currentSdkName,
+            )
+        }
+    }
 
     private inline fun <M> sampleSession(
         scope: PulseSignalScope,
+        attributesToAdd: Collection<PulseAttributesToAddEntry>,
+        attributesToDrop: Collection<PulseAttributesToDropEntry>,
+        metricsToAdd: Collection<PulseMetricsToAddEntry>,
         signals: Collection<M>,
         signalValuesProvider: M.() -> SignalMatchValues,
+        attributesModifier: M.(newAttributes: Attributes) -> M,
         block: (Collection<M>) -> CompletableResultCode,
     ): CompletableResultCode {
+        val modifiedSignals =
+            signals.observerAndModifyData(scope, attributesToAdd, attributesToDrop, metricsToAdd, signalValuesProvider, attributesModifier)
         val sampledSignals =
             if (shouldSampleThisSession) {
-                signals
+                modifiedSignals
             } else {
                 sdkConfig.sampling.criticalEventPolicies
                     ?.run {
-                        signals.filter { signal ->
+                        modifiedSignals.filter { signal ->
                             val (name, props) = signal.signalValuesProvider()
                             alwaysSend.any { matchCondition ->
                                 signalMatcher.matches(
@@ -487,13 +528,13 @@ public fun PulseSamplingSignalProcessors(
         SecureRandom(),
     )
 
-private data class SignalMatchValues(
+internal data class SignalMatchValues(
     val name: String,
-    val props: Map<String, Any?>,
+    val props: Attributes,
 )
 
-private fun LogRecordData.toSignalValues() = SignalMatchValues(bodyValue?.asString().orEmpty(), attributes.toMap())
+internal fun LogRecordData.toSignalValues() = SignalMatchValues(bodyValue?.asString().orEmpty(), attributes)
 
-private fun SpanData.toSignalValues() = SignalMatchValues(name.orEmpty(), attributes.toMap())
+internal fun SpanData.toSignalValues() = SignalMatchValues(name.orEmpty(), attributes)
 
-private fun MetricData.toSignalValues() = SignalMatchValues(this.name, emptyMap())
+internal fun MetricData.toSignalValues() = SignalMatchValues(this.name, Attributes.empty())
