@@ -19,9 +19,11 @@ public class PulseSignalConfig internal constructor(
     @SerialName("scheduleDurationMs")
     public val scheduleDurationMs: Long = 5000L,
     @SerialName("attributesToDrop")
-    public val attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
+    public val attributesToDrop: Collection<PulseAttributesToDropEntry> = emptySet(),
     @SerialName("attributesToAdd")
-    public val attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+    public val attributesToAdd: Collection<PulseAttributesToAddEntry> = emptySet(),
+    @SerialName("metricsToAdd")
+    public val metricsToAdd: Collection<PulseMetricsToAddEntry> = emptySet(),
     @SerialName("filters")
     public val filters: PulseSignalFilter = PulseSignalFilter(),
 )
@@ -32,7 +34,7 @@ public class PulseSignalFilter internal constructor(
     @SerialName("mode")
     public val mode: PulseSignalFilterMode = PulseSignalFilterMode.BLACKLIST,
     @SerialName("values")
-    public val values: List<PulseSignalMatchCondition> = emptyList(),
+    public val values: Collection<PulseSignalMatchCondition> = emptySet(),
 )
 
 @Keep
@@ -97,7 +99,17 @@ public class PulseAttributeValue internal constructor(
 @Serializable
 public class PulseAttributesToAddEntry internal constructor(
     @SerialName("values")
-    public val values: List<PulseAttributeValue> = emptyList(),
+    public val values: Collection<PulseAttributeValue>,
+    @SerialName("condition")
+    public val condition: PulseSignalMatchCondition,
+)
+
+@Keep
+@Serializable
+public class PulseMetricsToAddEntry internal constructor(
+    @SerialName("target")
+    public val target: PulseAttributeValue,
+    public val values: Collection<PulseAttributeValue> = emptySet(),
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
 )
@@ -109,10 +121,20 @@ public class PulseAttributesToDropEntry internal constructor(
      * List of regex entries which will dropped from the signal
      */
     @SerialName("values")
-    public val values: List<String> = emptyList(),
+    public val values: Collection<String> = emptySet(),
     /**
      * Condition which should be matched for [values] to be dropped
      */
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
 )
+
+@Keep
+@Serializable
+public sealed class PulseMetricsToAddTarget protected constructor() {
+    public object Name : PulseMetricsToAddTarget()
+
+    public class Attribute internal constructor(
+        public val matcher: PulseSignalMatchCondition,
+    ) : PulseMetricsToAddTarget()
+}

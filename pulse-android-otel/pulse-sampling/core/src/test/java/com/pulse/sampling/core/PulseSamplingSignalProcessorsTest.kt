@@ -58,7 +58,10 @@ class PulseSamplingSignalProcessorsTest {
                 filterMode = PulseSignalFilterMode.WHITELIST,
                 signalFilters =
                     listOf(
-                        createFakeSignalMatchCondition("abc.", props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1"))),
+                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                            "abc.",
+                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
+                        ),
                     ),
             )
 
@@ -165,7 +168,7 @@ class PulseSamplingSignalProcessorsTest {
         val blackListWithRegexWithOneChar =
             PulseSdkConfigFakeUtils.createFakeConfig(
                 filterMode = PulseSignalFilterMode.BLACKLIST,
-                signalFilters = listOf(createFakeSignalMatchCondition("abc.")),
+                signalFilters = listOf(PulseSdkConfigFakeUtils.createFakeSignalMatchCondition("abc.")),
             )
 
         val blackListWithRegexWithOneCharAndProp =
@@ -173,7 +176,10 @@ class PulseSamplingSignalProcessorsTest {
                 filterMode = PulseSignalFilterMode.BLACKLIST,
                 signalFilters =
                     listOf(
-                        createFakeSignalMatchCondition("abc.", props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1"))),
+                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                            "abc.",
+                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
+                        ),
                     ),
             )
 
@@ -182,7 +188,10 @@ class PulseSamplingSignalProcessorsTest {
                 filterMode = PulseSignalFilterMode.BLACKLIST,
                 signalFilters =
                     listOf(
-                        createFakeSignalMatchCondition("abc.", props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1."))),
+                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                            "abc.",
+                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1.")),
+                        ),
                     ),
             )
 
@@ -325,7 +334,7 @@ class PulseSamplingSignalProcessorsTest {
     inner class `With attributes to drop` {
         private val attributesToDrop =
             listOf(
-                createFakeAttributesToDropEntry(
+                PulseSdkConfigFakeUtils.createFakeAttributesToDropEntry(
                     values = listOf("key1"),
                     condition =
                         createFakeSignalMatchCondition(
@@ -619,7 +628,7 @@ class PulseSamplingSignalProcessorsTest {
                             ),
                         ),
                     matcher =
-                        createFakeSignalMatchCondition(
+                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                             name = "test-span",
                             props = setOf(PulseSdkConfigFakeUtils.createFakeProp("State", ".*Haryana.*")),
                         ),
@@ -1019,10 +1028,10 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in log, crash event matches critical event policy by name and is always sent when session sampling is off`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "device\\.crash",
                                 scopes = setOf(PulseSignalScope.LOGS),
                             ),
@@ -1048,12 +1057,12 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in log, crash event with matching property matches critical event policy and is always sent`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "device\\.crash",
-                                props = setOf(createFakeProp("severity", "critical")),
+                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("severity", "critical")),
                                 scopes = setOf(PulseSignalScope.LOGS),
                             ),
                         ),
@@ -1082,12 +1091,12 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in log, crash event with non-matching property does not match critical event policy and is filtered out`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "device\\.crash",
-                                props = setOf(createFakeProp("severity", "critical")),
+                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("severity", "critical")),
                                 scopes = setOf(PulseSignalScope.LOGS),
                             ),
                         ),
@@ -1110,10 +1119,10 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in log, non-critical event does not match critical event policy and is filtered out when session sampling is off`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "device\\.crash",
                                 scopes = setOf(PulseSignalScope.LOGS),
                             ),
@@ -1133,10 +1142,10 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in span, critical span matches critical event policy by name and is always sent when session sampling is off`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "critical\\.error",
                                 scopes = setOf(PulseSignalScope.TRACES),
                             ),
@@ -1159,12 +1168,12 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in span, critical span with matching property matches critical event policy and is always sent`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "error\\.span",
-                                props = setOf(createFakeProp("error.type", "fatal")),
+                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("error.type", "fatal")),
                                 scopes = setOf(PulseSignalScope.TRACES),
                             ),
                         ),
@@ -1190,10 +1199,10 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in span, span with non-matching scope does not match critical event policy and is filtered out`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "critical\\.span",
                                 scopes = setOf(PulseSignalScope.LOGS),
                             ),
@@ -1227,7 +1236,7 @@ class PulseSamplingSignalProcessorsTest {
         fun `in log, when critical event policy is empty all events are filtered out when session sampling is off`() {
             val config =
                 createConfigWithCriticalEventPolicy(
-                    createFakeCriticalEventPolicies(
+                    PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                         alwaysSend = emptyList(),
                     ),
                 )
@@ -1244,10 +1253,10 @@ class PulseSamplingSignalProcessorsTest {
         @Test
         fun `in log, when session sampling is on all events are sent regardless of critical event policy`() {
             val criticalEventPolicy =
-                createFakeCriticalEventPolicies(
+                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
                     alwaysSend =
                         listOf(
-                            createFakeSignalMatchCondition(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "device\\.crash",
                                 scopes = setOf(PulseSignalScope.LOGS),
                             ),
@@ -1272,7 +1281,7 @@ class PulseSamplingSignalProcessorsTest {
 
         private fun createConfigWithCriticalEventPolicy(criticalEventPolicy: PulseCriticalEventPolicies?): PulseSdkConfig {
             val samplingConfig =
-                createFakeSamplingConfig(
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
                     criticalEventPolicies = criticalEventPolicy,
                 )
             return PulseSdkConfigFakeUtils.createFakeConfig(
