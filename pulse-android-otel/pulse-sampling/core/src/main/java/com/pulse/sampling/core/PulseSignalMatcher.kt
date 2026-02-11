@@ -3,13 +3,15 @@ package com.pulse.sampling.core
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import com.pulse.utils.filter
 import com.pulse.utils.matchesFromRegexCache
+import io.opentelemetry.api.common.Attributes
 
 public fun interface PulseSignalMatcher {
     public fun matches(
         scope: PulseSignalScope,
         name: String,
-        props: Map<String, Any?>,
+        props: Attributes,
         signalMatchConfig: PulseSignalMatchCondition,
         sdkName: PulseSdkName,
     ): Boolean
@@ -31,18 +33,23 @@ internal fun PulseSignalsAttrMatcher() =
         val configPropsMap = signalMatchConfig.props.associate { it.name to it.value }
         val signalPropsFiltered = signalProps.filter { it.key in configPropsMap.keys }
 
-        if (signalMatchConfig.props.size != signalPropsFiltered.size) {
+        if (signalMatchConfig.props.size != signalPropsFiltered.size()) {
             return@PulseSignalMatcher false
         }
 
-        signalPropsFiltered
-            .all { signalProp ->
-                val configProp = configPropsMap[signalProp.key]
-                val signalValue = signalProp.value
-                if (configProp == null || signalValue == null) {
-                    signalValue == configProp
+        var isMatched = true
+
+        signalPropsFiltered.forEach { signalPropKey, signalPropValue ->
+            if (!isMatched) return@forEach
+
+            val configProp = configPropsMap[signalPropKey.key]
+
+            isMatched =
+                if (configProp == null || signalPropValue == null) {
+                    signalPropValue == configProp
                 } else {
-                    signalValue.toString().matchesFromRegexCache(configProp)
+                    signalPropValue.toString().matchesFromRegexCache(configProp)
                 }
-            }
+        }
+        isMatched
     }

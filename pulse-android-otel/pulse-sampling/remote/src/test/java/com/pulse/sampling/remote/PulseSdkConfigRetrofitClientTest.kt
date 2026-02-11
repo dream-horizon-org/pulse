@@ -79,7 +79,9 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.sampling.criticalEventPolicies).isNotNull
             assertThat(config.sampling.criticalEventPolicies!!.alwaysSend).hasSize(2)
             assertThat(
-                config.sampling.criticalEventPolicies!!.alwaysSend[0],
+                config.sampling.criticalEventPolicies!!
+                    .alwaysSend
+                    .first(),
             ).extracting({ it.name }, { it.sdks.toSet() }, { it.scopes.toSet() })
                 .containsExactly(
                     "crash",
@@ -89,19 +91,22 @@ class PulseSdkConfigRetrofitClientTest {
 
             assertThat(
                 config.sampling.criticalEventPolicies!!
-                    .alwaysSend[0]
+                    .alwaysSend
+                    .first()
                     .props,
             ).hasSize(1)
             assertThat(
                 config.sampling.criticalEventPolicies!!
-                    .alwaysSend[0]
+                    .alwaysSend
+                    .first()
                     .props
                     .first()
                     .name,
             ).isEqualTo("severity")
             assertThat(
                 config.sampling.criticalEventPolicies!!
-                    .alwaysSend[0]
+                    .alwaysSend
+                    .first()
                     .props
                     .first()
                     .value,
@@ -113,7 +118,8 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.signals.filters.mode).isEqualTo(PulseSignalFilterMode.BLACKLIST)
             assertThat(config.signals.filters.values).hasSize(1)
             assertThat(
-                config.signals.filters.values[0]
+                config.signals.filters.values
+                    .first()
                     .name,
             ).isEqualTo("sensitive_event")
 
@@ -122,8 +128,8 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.interaction.beforeInitQueueSize).isEqualTo(100)
 
             assertThat(config.features).hasSize(1)
-            assertThat(config.features[0].featureName).isEqualTo(PulseFeatureName.JAVA_CRASH)
-            assertThat(config.features[0].sessionSampleRate).isEqualTo(0.8f)
+            assertThat(config.features.first().featureName).isEqualTo(PulseFeatureName.JAVA_CRASH)
+            assertThat(config.features.first().sessionSampleRate).isEqualTo(0.8f)
 
             assertThat(okHttpClient.cache).isNotNull
             assertThat(
@@ -250,8 +256,11 @@ class PulseSdkConfigRetrofitClientTest {
 
             assertThat(config.sampling.criticalEventPolicies).isNotNull
 
-            assertThat(config.sampling.criticalEventPolicies!!.alwaysSend[0])
-                .extracting({ it.scopes.toSet() }, { it.sdks.toSet() })
+            assertThat(
+                config.sampling.criticalEventPolicies!!
+                    .alwaysSend
+                    .first(),
+            ).extracting({ it.scopes.toSet() }, { it.sdks.toSet() })
                 .containsExactlyInAnyOrder(
                     setOf(
                         PulseSignalScope.LOGS,

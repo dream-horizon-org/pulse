@@ -7,7 +7,7 @@ public final class com/pulse/sampling/core/PulseSessionParser$Companion {
 }
 
 public abstract interface class com/pulse/sampling/core/PulseSignalMatcher {
-	public abstract fun matches (Lcom/pulse/sampling/models/PulseSignalScope;Ljava/lang/String;Ljava/util/Map;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;Lcom/pulse/sampling/models/PulseSdkName;)Z
+	public abstract fun matches (Lcom/pulse/sampling/models/PulseSignalScope;Ljava/lang/String;Lio/opentelemetry/api/common/Attributes;Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;Lcom/pulse/sampling/models/PulseSdkName;)Z
 }
 
 public final class com/pulse/sampling/core/exporters/PulseSamplingSignalProcessors {
