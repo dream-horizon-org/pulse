@@ -11,6 +11,8 @@ import com.pulse.sampling.models.PulseAttributesToAddEntry
 import com.pulse.sampling.models.PulseAttributesToDropEntry
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseMetricsToAddEntry
+import com.pulse.sampling.models.PulseMetricsToAddTarget
+import com.pulse.sampling.models.PulseMetricsType
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
@@ -25,6 +27,7 @@ import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.Aggregation
 import io.opentelemetry.sdk.metrics.InstrumentType
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import io.opentelemetry.sdk.metrics.data.MetricData
 import io.opentelemetry.sdk.metrics.export.DefaultAggregationSelector
 import io.opentelemetry.sdk.metrics.export.MetricExporter
@@ -463,14 +466,64 @@ public class PulseSamplingSignalProcessors internal constructor(
         signalValuesProvider: M.() -> SignalMatchValues,
     ) {
         val (name, props) = signal.signalValuesProvider()
-        metricsToAdd.filter {
-            signalMatcher.matches(
-                scope,
-                name,
-                props,
-                it.condition,
-                currentSdkName,
-            )
+        metricsToAdd.map { metricsToAddEntry ->
+            if (
+                signalMatcher.matches(
+                    scope,
+                    name,
+                    props,
+                    metricsToAddEntry.condition,
+                    currentSdkName,
+                )
+            ) {
+                when (val target = metricsToAddEntry.target) {
+                    is PulseMetricsToAddTarget.Attribute -> {
+                        props.forEach { key, value ->
+                            if (target.matcher.props.any { it.name.matchesFromRegexCache(key.key) }) {
+                                updateMetric(metricsToAddEntry.name, props[key], metricsToAddEntry.type)
+                            }
+                        }
+                    }
+
+                    PulseMetricsToAddTarget.Name -> {
+                        updateMetric(metricsToAddEntry.name, name, metricsToAddEntry.type)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateMetric(
+        metricName: String,
+        value: Any?,
+        type: PulseMetricsType,
+    ) {
+        value ?: return
+        // todo metric name must conform to   private static final Pattern VALID_INSTRUMENT_NAME_PATTERN =
+        //      Pattern.compile("([A-Za-z]){1}([A-Za-z0-9\\_\\-\\./]){0,254}");
+        //  SdkMeter class
+        when (type) {
+            PulseMetricsType.COUNTER -> {
+                value.toString().toLongOrNull()?.let {
+                    SdkMeterProvider.builder().build().get("").counterBuilder(metricName).build().add(it)
+                }
+            }
+
+            PulseMetricsType.GAUGE -> {
+                value.toString().toDoubleOrNull()?.let {
+                    SdkMeterProvider.builder().build().get("").gaugeBuilder(metricName).build().set(it)
+                }
+            }
+            PulseMetricsType.HISTOGRAM -> {
+                value.toString().toDoubleOrNull()?.let {
+                    SdkMeterProvider.builder().build().get("").histogramBuilder(metricName).build().record(it)
+                }
+            }
+            PulseMetricsType.SUM -> {
+                value.toString().toLongOrNull()?.let {
+                    SdkMeterProvider.builder().build().get("").upDownCounterBuilder(metricName).build().add(it)
+                }
+            }
         }
     }
 
