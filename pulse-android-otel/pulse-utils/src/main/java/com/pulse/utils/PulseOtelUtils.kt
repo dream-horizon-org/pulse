@@ -27,6 +27,37 @@ public object PulseOtelUtils {
 
     public fun isDebug(): Boolean = BuildConfig.DEBUG
 
+    public fun sanitizeMetricName(
+        name: String,
+        fallbackChar: Char = '_',
+    ): String {
+        // Replace every non-supported character with _
+        // Supported characters: alphanumeric, _, ., -, /
+        val sanitized =
+            name
+                .map { char ->
+                    when {
+                        char.isLetterOrDigit() -> char
+                        char == '_' || char == '.' || char == '-' || char == '/' -> char
+                        else -> fallbackChar
+                    }
+                }.joinToString("")
+
+        val withLetterStart =
+            if (sanitized.isNotEmpty() && sanitized[0].isLetter()) {
+                sanitized
+            } else {
+                "m$sanitized"
+            }
+
+        // Ensure it's 255 or fewer characters
+        return if (withLetterStart.length <= 255) {
+            withLetterStart
+        } else {
+            withLetterStart.take(255)
+        }
+    }
+
     @PublishedApi
     internal inline fun getTag(tag: () -> String): String = "$TAG:${tag()}"
 
