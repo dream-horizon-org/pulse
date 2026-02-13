@@ -771,7 +771,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         getOtelOrThrow()
             .getOpenTelemetry()
             .logsBridge
-            .loggerBuilder(INSTRUMENTATION_SCOPE)
+            .loggerBuilder("$SDK_INSTRUMENTATION_SCOPE.logger")
             .build()
     }
 
@@ -779,7 +779,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         getOtelOrThrow()
             .getOpenTelemetry()
             .tracerProvider
-            .tracerBuilder(INSTRUMENTATION_SCOPE)
+            .tracerBuilder("$SDK_INSTRUMENTATION_SCOPE.tracer")
             .build()
     }
 
@@ -813,7 +813,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private var oldState: PulseDataCollectionConsent? = null
 
     internal companion object {
-        private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
+        private const val SDK_INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
