@@ -47,7 +47,6 @@ public final class com/pulse/sampling/models/PulseAttributeValue$Companion {
 
 public final class com/pulse/sampling/models/PulseAttributesToAddEntry {
 	public static final field Companion Lcom/pulse/sampling/models/PulseAttributesToAddEntry$Companion;
-	public fun <init> ()V
 	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
 	public final fun getValues ()Ljava/util/Collection;
 }
@@ -70,7 +69,7 @@ public final class com/pulse/sampling/models/PulseAttributesToDropEntry {
 	public static final field Companion Lcom/pulse/sampling/models/PulseAttributesToDropEntry$Companion;
 	public fun <init> ()V
 	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
-	public final fun getValues ()Ljava/util/List;
+	public final fun getValues ()Ljava/util/Collection;
 }
 
 public final class com/pulse/sampling/models/PulseAttributesToDropEntry$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
@@ -289,10 +288,41 @@ public final class com/pulse/sampling/models/PulseInteractionConfig$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public abstract class com/pulse/sampling/models/PulseMetricsData {
+	public static final field Companion Lcom/pulse/sampling/models/PulseMetricsData$Companion;
+	public synthetic fun <init> (ILkotlinx/serialization/internal/SerializationConstructorMarker;)V
+	public static final synthetic fun write$Self (Lcom/pulse/sampling/models/PulseMetricsData;Lkotlinx/serialization/encoding/CompositeEncoder;Lkotlinx/serialization/descriptors/SerialDescriptor;)V
+}
+
+public final class com/pulse/sampling/models/PulseMetricsData$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/sampling/models/PulseMetricsData$Counter : com/pulse/sampling/models/PulseMetricsData {
+	public final fun isFraction ()Z
+	public final fun isMonotonic ()Z
+}
+
+public final class com/pulse/sampling/models/PulseMetricsData$Gauge : com/pulse/sampling/models/PulseMetricsData {
+	public final fun isFraction ()Z
+}
+
+public final class com/pulse/sampling/models/PulseMetricsData$Histogram : com/pulse/sampling/models/PulseMetricsData {
+	public final fun getBucket ()Ljava/util/List;
+	public final fun isFraction ()Z
+}
+
+public final class com/pulse/sampling/models/PulseMetricsData$Sum : com/pulse/sampling/models/PulseMetricsData {
+	public final fun isFraction ()Z
+}
+
 public final class com/pulse/sampling/models/PulseMetricsToAddEntry {
 	public static final field Companion Lcom/pulse/sampling/models/PulseMetricsToAddEntry$Companion;
 	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
-	public final fun getTarget ()Lcom/pulse/sampling/models/PulseAttributeValue;
+	public final fun getData ()Lcom/pulse/sampling/models/PulseMetricsData;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getTarget ()Lcom/pulse/sampling/models/PulseMetricsToAddTarget;
+	public final fun getValues ()Ljava/util/Collection;
 }
 
 public final class com/pulse/sampling/models/PulseMetricsToAddEntry$$serializer : kotlinx/serialization/internal/GeneratedSerializer {

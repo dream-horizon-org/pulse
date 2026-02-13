@@ -115,7 +115,7 @@ public class PulseMetricsToAddEntry internal constructor(
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
     @SerialName("type")
-    public val type: PulseMetricsType,
+    public val data: PulseMetricsData,
 )
 
 @Keep
@@ -145,17 +145,31 @@ public sealed class PulseMetricsToAddTarget protected constructor() {
 
 @Keep
 @Serializable
-public enum class PulseMetricsType {
+public sealed class PulseMetricsData {
     @SerialName("counter")
-    COUNTER,
+    public class Counter internal constructor(
+        @SerialName("isMonotonic")
+        public val isMonotonic: Boolean,
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
+    ) : PulseMetricsData()
 
     @SerialName("gauge")
-    GAUGE,
+    public class Gauge internal constructor(
+        @SerialName("isFraction") public val isFraction: Boolean,
+    ) : PulseMetricsData()
 
     @SerialName("histogram")
-    HISTOGRAM,
+    public class Histogram internal constructor(
+        @SerialName("bucket")
+        public val bucket: List<Number>?,
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
+    ) : PulseMetricsData()
 
     @SerialName("sum")
-    SUM,
-    ;
+    public class Sum internal constructor(
+        @SerialName("isFraction")
+        public val isFraction: Boolean,
+    ) : PulseMetricsData()
 }
