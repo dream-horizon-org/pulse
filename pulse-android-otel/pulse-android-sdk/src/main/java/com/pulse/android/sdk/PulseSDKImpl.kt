@@ -694,7 +694,7 @@ internal class PulseSDKImpl :
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
-        private const val TENANT_ID_HEADER_KEY = "tenant-id"
+        private const val TENANT_ID_HEADER_KEY = "X-API-KEY"
 
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
