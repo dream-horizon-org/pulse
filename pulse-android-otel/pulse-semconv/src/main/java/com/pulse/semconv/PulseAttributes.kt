@@ -27,7 +27,7 @@ public object PulseAttributes {
      * Used in both HTTP headers (as "X-API-KEY") and as a global attribute (as "project.id").
      */
     @JvmField
-    public val TENANT_ID: AttributeKey<String> = stringKey("project.id")
+    public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
     public object PulseSdkNames {
         public const val ANDROID_JAVA: String = "pulse_android_java"
