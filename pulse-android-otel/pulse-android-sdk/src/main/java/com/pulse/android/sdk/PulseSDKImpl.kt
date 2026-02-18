@@ -248,23 +248,25 @@ internal class PulseSDKImpl :
             currentSdkConfig?.let {
                 val url = it.signals.spanCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: spanEndpointConnectivity
         val finalLogEndpointConnectivity =
             currentSdkConfig?.let {
                 val url = it.signals.logsCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: logEndpointConnectivity
         val finalMetricEndpointConnectivity =
             currentSdkConfig?.let {
                 val url = it.signals.metricCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: metricEndpointConnectivity
         val finalCustomEventEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forCustomEvents(it.signals.metricCollectorUrl)
+                val url = it.signals.customEventCollectorUrl
+                PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = $url" }
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: customEventConnectivity
 
         val otlpSpanExporter: SpanExporter =
