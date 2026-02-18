@@ -22,6 +22,9 @@ public class PulseSignalConfig internal constructor(
     public val attributesToDrop: Collection<PulseAttributesToDropEntry> = emptySet(),
     @SerialName("attributesToAdd")
     public val attributesToAdd: Collection<PulseAttributesToAddEntry> = emptySet(),
+    /**
+     * Metrics to derive based on signal matching and target
+     */
     @SerialName("metricsToAdd")
     public val metricsToAdd: Collection<PulseMetricsToAddEntry> = emptySet(),
     @SerialName("filters")
@@ -107,13 +110,25 @@ public class PulseAttributesToAddEntry internal constructor(
 @Keep
 @Serializable
 public class PulseMetricsToAddEntry internal constructor(
+    /**
+     * Name of the metric to add
+     */
     @SerialName("name")
     public val name: String,
+    /**
+     * Target of the metric
+     */
     @SerialName("target")
     public val target: PulseMetricsToAddTarget,
     public val values: Collection<PulseAttributeValue> = emptySet(),
+    /**
+     * Condition to match the signal
+     */
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
+    /**
+     * Data of the metric. See [PulseMetricsData] for all the supported metric data
+     */
     @SerialName("type")
     public val data: PulseMetricsData,
 )
@@ -136,8 +151,14 @@ public class PulseAttributesToDropEntry internal constructor(
 @Keep
 @Serializable
 public sealed class PulseMetricsToAddTarget protected constructor() {
+    /**
+     * Name of the signal will be used as data to record the metric
+     */
     public object Name : PulseMetricsToAddTarget()
 
+    /**
+     * Attribute of the signal matched by [matcher] will be used as data to record the metric
+     */
     public class Attribute internal constructor(
         public val matcher: PulseSignalMatchCondition,
     ) : PulseMetricsToAddTarget()
