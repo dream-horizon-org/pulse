@@ -68,7 +68,7 @@ public class QueryTimestampEnricher {
     int whereIndex = whereMatcher.start();
     String whereClause = query.substring(whereIndex);
     if (containsPartitionFilters(whereClause)) {
-      log.debug("Query already contains partition filters (year/month/day/hour), skipping enrichment");
+      log.debug("Query already contains partition filters (date/hour), skipping enrichment");
       return query;
     }
 
@@ -96,38 +96,32 @@ public class QueryTimestampEnricher {
   }
 
   private static String buildPartitionFilter(LocalDateTime startDateTime, LocalDateTime endDateTime, String query) {
-    int startYear = startDateTime.getYear();
-    int startMonth = startDateTime.getMonthValue();
-    int startDay = startDateTime.getDayOfMonth();
-    int startHour = startDateTime.getHour();
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    String startDate = startDateTime.format(dateFormatter);
+    String startHour = String.format("%02d", startDateTime.getHour());
 
-    log.debug("Parsed start timestamp {} to year={}, month={}, day={}, hour={}",
-        startDateTime, startYear, startMonth, startDay, startHour);
+    log.debug("Parsed start timestamp {} to date={}, hour={}",
+        startDateTime, startDate, startHour);
 
     if (endDateTime == null) {
-      return buildPartitionFilterForStartOnly(startYear, startMonth, startDay, startHour, query);
+      return buildPartitionFilterForStartOnly(startDate, startHour, query);
     }
 
-    int endYear = endDateTime.getYear();
-    int endMonth = endDateTime.getMonthValue();
-    int endDay = endDateTime.getDayOfMonth();
-    int endHour = endDateTime.getHour();
+    String endDate = endDateTime.format(dateFormatter);
+    String endHour = String.format("%02d", endDateTime.getHour());
 
-    log.debug("Parsed end timestamp {} to year={}, month={}, day={}, hour={}",
-        endDateTime, endYear, endMonth, endDay, endHour);
+    log.debug("Parsed end timestamp {} to date={}, hour={}",
+        endDateTime, endDate, endHour);
 
-    if (startYear == endYear && startMonth == endMonth && startDay == endDay && startHour == endHour) {
+    if (startDate.equals(endDate) && startHour.equals(endHour)) {
       log.debug("Start and end in same partition, using equality filter for better performance");
-      return String.format("year = %d AND month = %d AND day = %d AND hour = %d",
-          startYear, startMonth, startDay, startHour);
+      return String.format("date = '%s' AND hour = '%s'", startDate, startHour);
     }
 
-    return buildPartitionFilterForRange(startYear, startMonth, startDay, startHour,
-        endYear, endMonth, endDay, endHour);
+    return buildPartitionFilterForRange(startDate, startHour, endDate, endHour);
   }
 
-  private static String buildPartitionFilterForStartOnly(int startYear, int startMonth, int startDay,
-      int startHour, String query) {
+  private static String buildPartitionFilterForStartOnly(String startDate, String startHour, String query) {
     Matcher whereMatcher = WHERE_PATTERN.matcher(query);
     if (whereMatcher.find()) {
       String whereClause = query.substring(whereMatcher.start());
@@ -136,21 +130,19 @@ public class QueryTimestampEnricher {
 
       if (hasGreaterThanOrEqual) {
         log.debug("Using >= partition filter for start-only timestamp");
-        return String.format("(year, month, day, hour) >= (%d, %d, %d, %d)",
-            startYear, startMonth, startDay, startHour);
+        return String.format("(date >= '%s' AND (date > '%s' OR hour >= '%s'))",
+            startDate, startDate, startHour);
       }
     }
 
-    return String.format("year = %d AND month = %d AND day = %d AND hour = %d",
-        startYear, startMonth, startDay, startHour);
+    return String.format("date = '%s' AND hour = '%s'", startDate, startHour);
   }
 
-  private static String buildPartitionFilterForRange(int startYear, int startMonth, int startDay, int startHour,
-      int endYear, int endMonth, int endDay, int endHour) {
+  private static String buildPartitionFilterForRange(String startDate, String startHour,
+      String endDate, String endHour) {
     return String.format(
-        "(year, month, day, hour) >= (%d, %d, %d, %d) AND (year, month, day, hour) <= (%d, %d, %d, %d)",
-        startYear, startMonth, startDay, startHour,
-        endYear, endMonth, endDay, endHour
+        "((date > '%s' AND date < '%s') OR (date = '%s' AND hour >= '%s') OR (date = '%s' AND hour <= '%s'))",
+        startDate, endDate, startDate, startHour, endDate, endHour
     );
   }
 
@@ -194,8 +186,7 @@ public class QueryTimestampEnricher {
 
   private static boolean containsPartitionFilters(String whereClause) {
     String upper = whereClause.toUpperCase(Locale.ROOT);
-    return upper.contains("YEAR =") && upper.contains("MONTH =")
-        && upper.contains("DAY =") && upper.contains("HOUR =");
+    return upper.contains("DATE =") && upper.contains("HOUR =");
   }
 
   private static LocalDateTime extractTimestampFromWhereClause(String whereClause) {

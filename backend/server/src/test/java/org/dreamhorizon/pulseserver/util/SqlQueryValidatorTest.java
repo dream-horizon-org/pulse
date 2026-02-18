@@ -14,7 +14,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldValidateValidQueryWithPartitionFilters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -128,7 +128,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldAcceptQueryWithAllPartitionFilters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -147,7 +147,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldAcceptQueryWithCaseInsensitivePartitionFilters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE YEAR = 2025 AND MONTH = 12 AND DAY = 23 AND HOUR = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE DATE = '2025-12-23' AND HOUR = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -156,7 +156,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldAcceptQueryWithQuotedPartitionColumns() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"year\" = 2025 AND \"month\" = 12 AND \"day\" = 23 AND \"hour\" = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"date\" = '2025-12-23' AND \"hour\" = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -166,7 +166,7 @@ class SqlQueryValidatorTest {
     @Test
     void shouldAcceptQueryWithTableQualifiedPartitionColumns() {
       String query =
-          "SELECT * FROM pulse_athena_db.otel_data WHERE otel_data.year = 2025 AND otel_data.month = 12 AND otel_data.day = 23 AND otel_data.hour = 11";
+          "SELECT * FROM pulse_athena_db.otel_data WHERE otel_data.date = '2025-12-23' AND otel_data.hour = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -186,7 +186,7 @@ class SqlQueryValidatorTest {
     @Test
     void shouldAcceptQueryWithMixedConditions() {
       String query =
-          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND column1 = 'value'";
+          "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11' AND column1 = 'value'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -241,7 +241,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithControlCharacters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithControl = query + "\u0000\u0001";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithControl);
@@ -251,7 +251,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldRejectQueryWithInvalidEncoding() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE};
       String invalidQuery = query + new String(invalidBytes);
 
@@ -262,7 +262,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleUnicodeNormalizationInQuery() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithUnicode = query.replace("SELECT", "SELECT\u200B");
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithUnicode);
@@ -272,7 +272,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithMultipleControlCharacters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithControl = "\u0000\u0001\u0002" + query + "\u007F\u001F";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithControl);
@@ -282,7 +282,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithUnicodeNormalizationThatChangesString() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithComposedUnicode = query.replace("SELECT", "SEL\u0301ECT");
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithComposedUnicode);
@@ -293,7 +293,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldRejectQueryWithZeroWidthSpaceInKeyword() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithZeroWidthSpace = query.replace("SELECT", "SEL\u200BECT");
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithZeroWidthSpace);
@@ -304,7 +304,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryValidationWithEncodingError() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE, (byte) 0xFD};
       String invalidQuery = query + new String(invalidBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
 
@@ -333,8 +333,8 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithYearMonthDayButMissingHour() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23";
+    void shouldHandleQueryWithDateButMissingHour() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -343,7 +343,7 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithYearMonthButMissingDayAndHour() {
+    void shouldHandleQueryWithMissingDateAndHour() {
       String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
@@ -364,7 +364,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithUTF8Recovery() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithUTF8 = query + "\uFFFD";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithUTF8);
@@ -373,8 +373,8 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithYearMonthDayHourInDifferentCase() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE Year = 2025 AND Month = 12 AND Day = 23 AND Hour = 11";
+    void shouldHandleQueryWithPartitionColumnsInDifferentCase() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE Date = '2025-12-23' AND Hour = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -391,8 +391,8 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithYearMonthDayHourWithSpaces() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+    void shouldHandleQueryWithPartitionColumnsWithSpaces() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -419,7 +419,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithMixedCasePartitionFilters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE Year = 2025 AND MONTH = 12 AND day = 23 AND HOUR = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE DATE = '2025-12-23' AND HOUR = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -429,7 +429,7 @@ class SqlQueryValidatorTest {
     @Test
     void shouldHandleQueryWithTimestampLiteralAndPartitionFilters() {
       String query =
-          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+          "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11' AND \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -438,7 +438,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithWhereInDifferentCase() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data where year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data where date = '2025-12-23' AND hour = '11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -447,7 +447,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithComplexWhereClause() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE (year = 2025 AND month = 12) AND (day = 23 AND hour = 11)";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE (date = '2025-12-23' AND hour = '11')";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -475,8 +475,8 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithYearMonthDayHourWithExtraSpaces() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year=2025 AND month=12 AND day=23 AND hour=11";
+    void shouldHandleQueryWithPartitionColumnsWithExtraSpaces() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date='2025-12-23' AND hour='11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -484,8 +484,8 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithYearMonthDayHourWithTabs() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year\t=\t2025 AND month\t=\t12 AND day\t=\t23 AND hour\t=\t11";
+    void shouldHandleQueryWithPartitionColumnsWithTabs() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date\t=\t'2025-12-23' AND hour\t=\t'11'";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
@@ -548,7 +548,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithUTF8EncodingIssues() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       byte[] bytes = query.getBytes(java.nio.charset.StandardCharsets.UTF_8);
       String queryWithEncoding = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
 
@@ -559,7 +559,7 @@ class SqlQueryValidatorTest {
 
     @Test
     void shouldHandleQueryWithReencodedLengthMismatch() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String queryWithIssue = query + "\uFFFD";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(queryWithIssue);
