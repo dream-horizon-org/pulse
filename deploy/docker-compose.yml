@@ -156,7 +156,7 @@ services:
       - CLICKHOUSE_PASSWORD=pulse_password
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=8123
-      - ENCRYPTION_MASTER_KEY=${VAULT_ENCRYPTION_MASTER_KEY}
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
 
       # S3 Configuration
       - S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
