@@ -171,15 +171,15 @@ class ConfigControllerTest {
         when(configService.getActiveSdkConfig()).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertNotNull(resp.getData());
-            assertEquals(5L, resp.getData().getVersion());
-            assertEquals("Active Config", resp.getData().getDescription());
+            assertNotNull(resp);
+            assertEquals(5L, resp.getVersion());
+            assertEquals("Active Config", resp.getDescription());
             verify(configService, times(1)).getActiveSdkConfig();
           });
           testContext.completeNow();
@@ -197,7 +197,7 @@ class ConfigControllerTest {
                 "No active config", "No active config", 404)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
