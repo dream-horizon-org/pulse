@@ -45,6 +45,7 @@ public class PulseSamplingSignalProcessors internal constructor(
     private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
     private val sessionParser: PulseSessionParser = PulseSessionConfigParser(),
     private val randomIdGenerator: Random = SecureRandom(),
+    private val meterProviderForMetricsToAdd: SdkMeterProvider? = null,
 ) {
     private fun getDroppedAttributesConfig(scope: PulseSignalScope): List<PulseAttributesToDropEntry> =
         sdkConfig
@@ -480,9 +481,9 @@ public class PulseSamplingSignalProcessors internal constructor(
             ) {
                 when (val target = metricsToAddEntry.target) {
                     is PulseMetricsToAddTarget.Attribute -> {
-                        props.forEach { key, _ ->
-                            if (target.matcher.props.any { it.name.matchesFromRegexCache(key.key) }) {
-                                dataRecorder(metricsToAddEntry.name)
+                        props.forEach { key, value ->
+                            if (target.matcher.props.any { key.key.matchesFromRegexCache(it.name) }) {
+                                dataRecorder(value)
                             }
                         }
                     }
@@ -496,7 +497,7 @@ public class PulseSamplingSignalProcessors internal constructor(
     }
 
     private fun creatMeter(meterConfigEntry: PulseMetricsToAddEntry): DataRecorder {
-        val meterProvider = SdkMeterProvider.builder().build()
+        val meterProvider = meterProviderForMetricsToAdd ?: SdkMeterProvider.builder().build()
         val meter = meterProvider.meterBuilder("com.pulse.signal.processors.metric").build()
         val sanitizedName = PulseOtelUtils.sanitizeMetricName(meterConfigEntry.name)
 
@@ -505,25 +506,25 @@ public class PulseSamplingSignalProcessors internal constructor(
                 when {
                     data.isFraction && data.isMonotonic -> {
                         val counter = meter.counterBuilder(sanitizedName).ofDoubles().build()
-                        val recorder: DataRecorder = { value -> value.toString().toDoubleOrNull()?.let { counter.add(it) } }
+                        val recorder: DataRecorder = { counter.add(1.0) }
                         recorder
                     }
 
                     data.isFraction && !data.isMonotonic -> {
                         val upDownCounter = meter.upDownCounterBuilder(sanitizedName).ofDoubles().build()
-                        val recorder: DataRecorder = { value -> value.toString().toDoubleOrNull()?.let { upDownCounter.add(it) } }
+                        val recorder: DataRecorder = { upDownCounter.add(1.0) }
                         recorder
                     }
 
                     !data.isFraction && data.isMonotonic -> {
                         val counter = meter.counterBuilder(sanitizedName).build()
-                        val recorder: DataRecorder = { value -> value.toString().toLongOrNull()?.let { counter.add(it) } }
+                        val recorder: DataRecorder = { counter.add(1) }
                         recorder
                     }
 
                     else -> {
                         val upDownCounter = meter.upDownCounterBuilder(sanitizedName).build()
-                        val recorder: DataRecorder = { value -> value.toString().toLongOrNull()?.let { upDownCounter.add(it) } }
+                        val recorder: DataRecorder = { upDownCounter.add(1) }
                         recorder
                     }
                 }
