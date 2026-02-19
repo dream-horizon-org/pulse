@@ -56,6 +56,7 @@ internal class SessionManagerTest {
         MockKAnnotations.init(this)
         every { timeoutHandler.hasTimedOut() } returns false
         every { timeoutHandler.bump() } just Runs
+        every { timeoutHandler.getExpirationTimestamp() } returns null
         every { mockContext.getSharedPreferences(any(), any()) } returns mockSharedPreferences
         every { mockSharedPreferences.edit() } returns mockEditor
         every { mockEditor.putString(any(), any()) } returns mockEditor
@@ -124,7 +125,7 @@ internal class SessionManagerTest {
         val clock = TestClock.create()
         val observer = mockk<SessionObserver>()
         every { observer.onSessionStarted(any<Session>(), any<Session>()) } just Runs
-        every { observer.onSessionEnded(any<Session>()) } just Runs
+        every { observer.onSessionEnded(any<Session>(), any()) } just Runs
 
         val sessionManager =
             SessionManager(
@@ -140,9 +141,9 @@ internal class SessionManagerTest {
 
         // Then
         verify(exactly = 1) { timeoutHandler.bump() }
-        verify(exactly = 0) { timeoutHandler.hasTimedOut() }
+        verify(exactly = 1) { timeoutHandler.hasTimedOut() }
         verify(exactly = 1) { observer.onSessionStarted(any<Session>(), eq(Session.NONE)) }
-        verify(exactly = 1) { observer.onSessionEnded(eq(Session.NONE)) }
+        verify(exactly = 1) { observer.onSessionEnded(eq(Session.NONE), any()) }
 
         // When
         clock.advance(3, TimeUnit.HOURS)
@@ -151,9 +152,9 @@ internal class SessionManagerTest {
         // Then
         assertThat(firstSessionId).isEqualTo(secondSessionId)
         verify(exactly = 2) { timeoutHandler.bump() }
-        verify(exactly = 1) { timeoutHandler.hasTimedOut() }
+        verify(exactly = 2) { timeoutHandler.hasTimedOut() }
         verify(exactly = 1) { observer.onSessionStarted(any<Session>(), any<Session>()) }
-        verify(exactly = 1) { observer.onSessionEnded(any<Session>()) }
+        verify(exactly = 1) { observer.onSessionEnded(any<Session>(), any()) }
 
         // When
         clock.advance(1, TimeUnit.HOURS)
@@ -161,11 +162,11 @@ internal class SessionManagerTest {
 
         // Then
         verify(exactly = 3) { timeoutHandler.bump() }
-        verify(exactly = 1) { timeoutHandler.hasTimedOut() }
+        verify(exactly = 3) { timeoutHandler.hasTimedOut() }
         assertThat(thirdSessionId).isNotEqualTo(secondSessionId)
         verifyOrder {
             timeoutHandler.bump()
-            observer.onSessionEnded(match { it.getId() == secondSessionId })
+            observer.onSessionEnded(match { it.getId() == secondSessionId }, any())
             observer.onSessionStarted(
                 match { it.getId() == thirdSessionId },
                 match { it.getId() == secondSessionId },
@@ -197,6 +198,7 @@ internal class SessionManagerTest {
 
         // When - timeout handler indicates timeout
         every { timeoutHandler.hasTimedOut() } returns true
+        every { timeoutHandler.getExpirationTimestamp() } returns null
 
         // Then - should create new session
         assertThat(value).isNotEqualTo(sessionManager.getSessionId())
@@ -264,6 +266,7 @@ internal class SessionManagerTest {
             )
 
         every { timeoutHandler.hasTimedOut() } returns true
+        every { timeoutHandler.getExpirationTimestamp() } returns null
 
         val numThreads = 5
         val executor = Executors.newFixedThreadPool(numThreads)
@@ -498,7 +501,7 @@ internal class SessionManagerTest {
 
         val observer = mockk<SessionObserver>()
         every { observer.onSessionStarted(any<Session>(), any<Session>()) } just Runs
-        every { observer.onSessionEnded(any<Session>()) } just Runs
+        every { observer.onSessionEnded(any<Session>(), any()) } just Runs
 
         val config = SessionConfig(shouldPersist = true, maxLifetime = 4.hours)
 
@@ -515,7 +518,7 @@ internal class SessionManagerTest {
 
         // Then - should create new session and emit session.end for expired one
         assertThat(newSessionId).isNotEqualTo(storedSessionId)
-        verify(exactly = 1) { observer.onSessionEnded(match { it.getId() == storedSessionId }) }
+        verify(exactly = 1) { observer.onSessionEnded(match { it.getId() == storedSessionId }, any()) }
         verify(exactly = 1) { observer.onSessionStarted(any<Session>(), match { it.getId() == storedSessionId }) }
     }
 

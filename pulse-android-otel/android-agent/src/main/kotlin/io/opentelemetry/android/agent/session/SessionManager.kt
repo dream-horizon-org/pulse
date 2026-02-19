@@ -52,9 +52,9 @@ internal class SessionManager(
     override fun getSessionId(): String {
         val currentSession = session.get()
 
-        val shouldCreateNew =
-            sessionHasExpired(currentSession) ||
-                (timeoutHandler?.hasTimedOut() == true && currentSession.getStartTimestamp() >= 0)
+        val isExpiredDueToMaxLifetime = sessionHasExpired(currentSession)
+        val isExpiredDueToBackgroundTimeout = timeoutHandler?.hasTimedOut() == true && currentSession.getStartTimestamp() >= 0
+        val shouldCreateNew = isExpiredDueToMaxLifetime || isExpiredDueToBackgroundTimeout
 
         return if (shouldCreateNew) {
             val newId = idGenerator.generateSessionId()
@@ -72,10 +72,17 @@ internal class SessionManager(
                         currentSession
                     }
 
+                val isPreviousSessionExpiredDueToMaxLifetime =
+                    if (expiredRestored.getId().isNotEmpty()) {
+                        true
+                    } else {
+                        isExpiredDueToMaxLifetime
+                    }
+
                 timeoutHandler?.bump()
                 // Observers need to be called after bumping the timer because it may create a new
                 // span.
-                notifyObserversOfSessionUpdate(previousSession, newSession)
+                notifyObserversOfSessionUpdate(previousSession, newSession, isPreviousSessionExpiredDueToMaxLifetime)
                 newSession.getId()
             } else {
                 // Another thread accessed this function prior to creating a new session. Use the
@@ -93,9 +100,20 @@ internal class SessionManager(
     private fun notifyObserversOfSessionUpdate(
         currentSession: Session,
         newSession: Session,
+        expiredDueToMaxLifetime: Boolean,
     ) {
+        val expirationTimestamp =
+            if (currentSession.getStartTimestamp() >= 0) {
+                if (expiredDueToMaxLifetime) {
+                    currentSession.getStartTimestamp() + maxSessionLifetime.inWholeNanoseconds
+                } else {
+                    timeoutHandler?.getExpirationTimestamp() ?: clock.now()
+                }
+            } else {
+                null
+            }
         observers.forEach {
-            it.onSessionEnded(currentSession)
+            it.onSessionEnded(currentSession, expirationTimestamp)
             it.onSessionStarted(newSession, currentSession)
         }
     }

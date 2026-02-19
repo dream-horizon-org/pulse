@@ -31,6 +31,9 @@ internal class SessionIdTimeoutHandler(
     private var timeoutStartNanos: Long = 0
 
     @Volatile
+    private var backgroundStartTime: Long = 0
+
+    @Volatile
     private var state = State.FOREGROUND
 
     override fun onApplicationForegrounded() {
@@ -39,6 +42,7 @@ internal class SessionIdTimeoutHandler(
 
     override fun onApplicationBackgrounded() {
         state = State.BACKGROUND
+        backgroundStartTime = clock.now()
     }
 
     fun hasTimedOut(): Boolean {
@@ -48,6 +52,13 @@ internal class SessionIdTimeoutHandler(
         }
         val elapsedTime = clock.nanoTime() - timeoutStartNanos
         return elapsedTime >= sessionBackgroundInactivityTimeout.inWholeNanoseconds
+    }
+
+    fun getExpirationTimestamp(): Long? {
+        if (state == State.FOREGROUND || backgroundStartTime == 0L) {
+            return null
+        }
+        return backgroundStartTime + sessionBackgroundInactivityTimeout.inWholeNanoseconds
     }
 
     fun bump() {
