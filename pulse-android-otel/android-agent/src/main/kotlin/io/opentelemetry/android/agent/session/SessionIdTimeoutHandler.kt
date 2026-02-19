@@ -54,12 +54,7 @@ internal class SessionIdTimeoutHandler(
         return elapsedTime >= sessionBackgroundInactivityTimeout.inWholeNanoseconds
     }
 
-    fun getExpirationTimestamp(): Long? {
-        if (state == State.FOREGROUND || backgroundStartTime == 0L) {
-            return null
-        }
-        return backgroundStartTime + sessionBackgroundInactivityTimeout.inWholeNanoseconds
-    }
+    fun getBackgroundStartTime(): Long? = if (backgroundStartTime == 0L) null else backgroundStartTime
 
     fun bump() {
         timeoutStartNanos = clock.nanoTime()
@@ -67,6 +62,7 @@ internal class SessionIdTimeoutHandler(
         // move from the temporary transition state to foreground after the first span
         if (state == State.TRANSITIONING_TO_FOREGROUND) {
             state = State.FOREGROUND
+            backgroundStartTime = 0L
         }
     }
 

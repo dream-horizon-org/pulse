@@ -56,7 +56,7 @@ internal class SessionManagerTest {
         MockKAnnotations.init(this)
         every { timeoutHandler.hasTimedOut() } returns false
         every { timeoutHandler.bump() } just Runs
-        every { timeoutHandler.getExpirationTimestamp() } returns null
+        every { timeoutHandler.getBackgroundStartTime() } returns null
         every { mockContext.getSharedPreferences(any(), any()) } returns mockSharedPreferences
         every { mockSharedPreferences.edit() } returns mockEditor
         every { mockEditor.putString(any(), any()) } returns mockEditor
@@ -173,6 +173,7 @@ internal class SessionManagerTest {
             )
         }
         confirmVerified(observer)
+        verify(atLeast = 0) { timeoutHandler.getBackgroundStartTime() }
         confirmVerified(timeoutHandler)
     }
 
@@ -198,7 +199,7 @@ internal class SessionManagerTest {
 
         // When - timeout handler indicates timeout
         every { timeoutHandler.hasTimedOut() } returns true
-        every { timeoutHandler.getExpirationTimestamp() } returns null
+        every { timeoutHandler.getBackgroundStartTime() } returns null
 
         // Then - should create new session
         assertThat(value).isNotEqualTo(sessionManager.getSessionId())
@@ -266,7 +267,7 @@ internal class SessionManagerTest {
             )
 
         every { timeoutHandler.hasTimedOut() } returns true
-        every { timeoutHandler.getExpirationTimestamp() } returns null
+        every { timeoutHandler.getBackgroundStartTime() } returns null
 
         val numThreads = 5
         val executor = Executors.newFixedThreadPool(numThreads)

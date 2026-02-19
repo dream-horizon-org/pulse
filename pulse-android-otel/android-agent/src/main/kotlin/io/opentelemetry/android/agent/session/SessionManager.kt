@@ -79,10 +79,22 @@ internal class SessionManager(
                         isExpiredDueToMaxLifetime
                     }
 
+                val isPreviousSessionExpiredInBackground =
+                    if (expiredRestored.getId().isNotEmpty()) {
+                        false
+                    } else {
+                        timeoutHandler?.getBackgroundStartTime() != null
+                    }
+
                 timeoutHandler?.bump()
                 // Observers need to be called after bumping the timer because it may create a new
                 // span.
-                notifyObserversOfSessionUpdate(previousSession, newSession, isPreviousSessionExpiredDueToMaxLifetime)
+                notifyObserversOfSessionUpdate(
+                    previousSession,
+                    newSession,
+                    isPreviousSessionExpiredDueToMaxLifetime,
+                    isPreviousSessionExpiredInBackground,
+                )
                 newSession.getId()
             } else {
                 // Another thread accessed this function prior to creating a new session. Use the
@@ -101,13 +113,16 @@ internal class SessionManager(
         currentSession: Session,
         newSession: Session,
         expiredDueToMaxLifetime: Boolean,
+        expiredInBackground: Boolean,
     ) {
         val expirationTimestamp =
             if (currentSession.getStartTimestamp() >= 0) {
-                if (expiredDueToMaxLifetime) {
+                if (expiredInBackground) {
+                    timeoutHandler?.getBackgroundStartTime() ?: clock.now()
+                } else if (expiredDueToMaxLifetime) {
                     currentSession.getStartTimestamp() + maxSessionLifetime.inWholeNanoseconds
                 } else {
-                    timeoutHandler?.getExpirationTimestamp() ?: clock.now()
+                    clock.now()
                 }
             } else {
                 null
