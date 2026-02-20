@@ -374,16 +374,9 @@ install_docker() {
             print_info "Installing Colima (container runtime)..."
             brew install colima
             print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
-            colima start --cpu 4 --memory 8 --disk 60
-            configure_docker_host
-            print_info "Waiting for Docker daemon to be ready (this may take a minute on first run)..."
-            if ! _wait_for_docker 90; then
-                print_error "Colima started but Docker daemon is not responding after 90s"
-                echo "  Try manually: colima stop && colima start --cpu 4 --memory 8 --disk 60"
-                echo "  Then verify:  DOCKER_HOST=unix://\$HOME/.colima/default/docker.sock docker info"
+            if ! _start_colima_with_retry 4 8 60; then
                 return 1
             fi
-            print_success "Colima is running -- Docker Engine Community is ready"
             print_info "Useful Colima commands:"
             echo "    colima start          # start the VM"
             echo "    colima stop           # stop the VM"
@@ -411,8 +404,25 @@ _wait_for_docker() {
     local interval=3
     local elapsed=0
 
+    # On macOS with Colima, wait for the socket file to appear first.
+    # The daemon can't respond until the socket is created.
+    if [ "$(uname -s)" = "Darwin" ]; then
+        local sock_path="${HOME}/.colima/default/docker.sock"
+        while [ "$elapsed" -lt "$timeout" ] && [ ! -S "$sock_path" ]; do
+            echo -ne "\r  Waiting for Colima socket to appear ... (${elapsed}s/${timeout}s)  "
+            sleep "$interval"
+            elapsed=$((elapsed + interval))
+        done
+        if [ ! -S "$sock_path" ]; then
+            echo ""
+            print_warning "Colima socket not found at $sock_path after ${elapsed}s"
+            return 1
+        fi
+    fi
+
     while [ "$elapsed" -lt "$timeout" ]; do
         if docker info > /dev/null 2>&1; then
+            echo ""
             return 0
         fi
         echo -ne "\r  Waiting for Docker daemon ... (${elapsed}s/${timeout}s)  "
@@ -420,6 +430,71 @@ _wait_for_docker() {
         elapsed=$((elapsed + interval))
     done
     echo ""
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# _start_colima_with_retry -- Start Colima and wait for Docker daemon.
+#   If the first attempt fails (daemon not responding), assume stale state,
+#   force-stop Colima, and retry once.  This handles the common case where a
+#   prior Colima session was not cleanly shut down.
+#
+#   Args: cpu memory disk  (positional, all optional -- defaults 4 / 8 / 60)
+# ---------------------------------------------------------------------------
+_start_colima_with_retry() {
+    local cpu="${1:-4}" mem="${2:-8}" disk="${3:-60}"
+    local max_attempts=2
+    local docker_timeout=120
+
+    for attempt in $(seq 1 "$max_attempts"); do
+        if [ "$attempt" -gt 1 ]; then
+            print_warning "Docker daemon did not respond -- cleaning up stale Colima state (attempt $attempt/$max_attempts)..."
+            colima stop --force 2>/dev/null || true
+            sleep 3
+        fi
+
+        # Start (or restart) Colima
+        if ! colima start --cpu "$cpu" --memory "$mem" --disk "$disk"; then
+            if [ "$attempt" -lt "$max_attempts" ]; then
+                continue
+            fi
+            print_error "Failed to start Colima after $max_attempts attempts"
+            return 1
+        fi
+
+        # Verify Colima reports itself as running
+        if ! colima status 2>&1 | grep -q "is running"; then
+            if [ "$attempt" -lt "$max_attempts" ]; then
+                print_warning "Colima does not report as running after start"
+                continue
+            fi
+            print_error "Colima did not reach a running state"
+            return 1
+        fi
+
+        configure_docker_host
+
+        print_info "Waiting for Docker daemon to be ready (timeout: ${docker_timeout}s)..."
+        if _wait_for_docker "$docker_timeout"; then
+            print_success "Colima is running -- Docker Engine Community is ready"
+            return 0
+        fi
+
+        # If this is the last attempt, don't silently loop
+        if [ "$attempt" -ge "$max_attempts" ]; then
+            break
+        fi
+    done
+
+    print_error "Colima started but Docker daemon is not responding after ${docker_timeout}s"
+    echo "  Diagnostic commands:"
+    echo "    colima status"
+    echo "    colima ssh -- systemctl status docker"
+    echo "  Manual recovery:"
+    echo "    colima stop --force && colima delete --force"
+    echo "    colima start --cpu $cpu --memory $mem --disk $disk"
+    echo "    export DOCKER_HOST=unix://\$HOME/.colima/default/docker.sock"
+    echo "    docker info"
     return 1
 }
 
@@ -435,6 +510,16 @@ _ensure_docker_host_on_mac() {
     # Already set and working? Nothing to do.
     if [ -n "${DOCKER_HOST:-}" ] && docker info > /dev/null 2>&1; then
         return 0
+    fi
+
+    # If DOCKER_HOST points to a non-existent socket (e.g., stale Docker Desktop
+    # reference), clear it so we can try the Colima socket instead.
+    if [ -n "${DOCKER_HOST:-}" ]; then
+        local current_sock="${DOCKER_HOST#unix://}"
+        if [ ! -S "$current_sock" ]; then
+            print_warning "Current DOCKER_HOST socket does not exist ($DOCKER_HOST) -- trying Colima socket"
+            unset DOCKER_HOST
+        fi
     fi
 
     # Check if the Colima socket exists (Colima running, env var just missing)
@@ -482,24 +567,21 @@ start_docker_daemon() {
             ;;
         Darwin)
             if command -v colima &> /dev/null; then
-                # Colima may already be running -- that's fine
+                # If Colima is already running AND Docker responds, nothing to do.
                 if colima status 2>&1 | grep -q "is running"; then
-                    print_info "Colima is already running"
-                else
-                    print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
-                    colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima. Try: colima start"; return 1; }
+                    configure_docker_host
+                    if docker info > /dev/null 2>&1; then
+                        print_success "Colima is already running and Docker daemon is responsive"
+                        return 0
+                    fi
+                    # Colima says it's running but Docker is unresponsive -- stale state
+                    print_warning "Colima reports running but Docker daemon is not responding -- will restart"
                 fi
-                configure_docker_host
 
-                # Wait for the Docker daemon inside Colima to be ready.
-                # On a fresh install the VM boot + dockerd init can take 60-90s.
-                print_info "Waiting for Docker daemon to be ready (this may take a minute on first run)..."
-                if _wait_for_docker 90; then
+                print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
+                if _start_colima_with_retry 4 8 60; then
                     return 0
                 fi
-                print_error "Colima started but Docker daemon is not responding after 90s"
-                echo "  Try manually: colima stop && colima start --cpu 4 --memory 8 --disk 60"
-                echo "  Then verify:  DOCKER_HOST=unix://\$HOME/.colima/default/docker.sock docker info"
                 return 1
             fi
 
@@ -513,15 +595,9 @@ start_docker_daemon() {
                     print_info "Installing Colima..."
                     brew install colima
                     print_info "Starting Colima VM (4 CPUs, 8 GB RAM, 60 GB disk)..."
-                    colima start --cpu 4 --memory 8 --disk 60 || { print_error "Failed to start Colima."; return 1; }
-                    configure_docker_host
-                    print_info "Waiting for Docker daemon to be ready (this may take a minute on first run)..."
-                    if _wait_for_docker 90; then
+                    if _start_colima_with_retry 4 8 60; then
                         return 0
                     fi
-                    print_error "Colima started but Docker daemon is not responding after 90s"
-                    echo "  Try manually: colima stop && colima start --cpu 4 --memory 8 --disk 60"
-                    echo "  Then verify:  DOCKER_HOST=unix://\$HOME/.colima/default/docker.sock docker info"
                     return 1
                 fi
             fi
