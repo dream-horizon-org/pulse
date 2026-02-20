@@ -10,7 +10,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 public interface ConfigService {
   Single<PulseConfig> getSdkConfig(long version);
 
-  Single<PulseConfig> getActiveSdkConfig();
+  Single<PulseConfig> getActiveSdkConfig(String tenant);
 
   Single<PulseConfig> createSdkConfig(ConfigData createConfig);
 

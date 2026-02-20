@@ -47,12 +47,9 @@ public class ConfigController {
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<PulseConfig> getActiveSdkConfig() {
-    String tenantId = TenantContext.getTenantId();
+    String tenantId = TenantContext.requireTenantId();
     log.info("Fetching active SDK config for tenant: {}", tenantId);
-    if (tenantId == null || tenantId.isBlank()) {
-      throw new IllegalStateException("Tenant ID is required");
-    }
-    return configService.getActiveSdkConfig()
+    return configService.getActiveSdkConfig(tenantId)
         .to(CompletableFutureUtils::fromSingle);
   }
 

@@ -67,7 +67,7 @@ public class AlertsDao {
    * Gets the current tenant ID from the TenantContext.
    */
   private String getTenantId() {
-    return TenantContext.getTenantId();
+    return TenantContext.requireTenantId();
   }
 
   private static void logAlertNotFound(Integer alertId) {

@@ -21,6 +21,8 @@ import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +49,9 @@ public class QueryServiceImplTest {
 
   @BeforeEach
   void setUp() {
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("test_tenant")
+        .build());
     when(athenaConfig.getDatabase()).thenReturn("test_database");
     queryService = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
   }
@@ -59,7 +64,7 @@ public class QueryServiceImplTest {
 
     testObserver.assertError(IllegalArgumentException.class);
     testObserver.assertError(error -> error.getMessage().contains("timestamp filter"));
-    verify(queryJobDao, never()).createJob(anyString(), anyString());
+    verify(queryJobDao, never()).createJob(anyString(), anyString(), anyString());
   }
 
   @Test
@@ -70,7 +75,7 @@ public class QueryServiceImplTest {
 
     testObserver.assertError(IllegalArgumentException.class);
     testObserver.assertError(error -> error.getMessage().contains("SELECT"));
-    verify(queryJobDao, never()).createJob(anyString(), anyString());
+    verify(queryJobDao, never()).createJob(anyString(), anyString(), anyString());
   }
 
   @Test
@@ -81,7 +86,7 @@ public class QueryServiceImplTest {
 
     testObserver.assertError(IllegalArgumentException.class);
     testObserver.assertError(error -> error.getMessage().contains("timestamp filter"));
-    verify(queryJobDao, never()).createJob(anyString(), anyString());
+    verify(queryJobDao, never()).createJob(anyString(), anyString(), anyString());
   }
 
   @Test
@@ -105,7 +110,7 @@ public class QueryServiceImplTest {
         .createdAt(submissionTime)
         .build();
 
-    when(queryJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
     when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
     when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
     when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), ArgumentMatchers.any(Timestamp.class)))
@@ -117,7 +122,7 @@ public class QueryServiceImplTest {
 
     assertThat(result).isNotNull();
     assertThat(result.getJobId()).isEqualTo(jobId);
-    verify(queryJobDao).createJob(eq(query), eq("test@example.com"));
+    verify(queryJobDao).createJob(anyString(), eq(query), eq("test@example.com"));
     verify(queryClient).submitQuery(eq(query));
   }
 
@@ -145,7 +150,7 @@ public class QueryServiceImplTest {
         .createdAt(submissionTime)
         .build();
 
-    when(queryJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
     when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
     when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
     when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), ArgumentMatchers.any(Timestamp.class)))
@@ -157,7 +162,7 @@ public class QueryServiceImplTest {
 
     assertThat(result).isNotNull();
     assertThat(result.getJobId()).isEqualTo(jobId);
-    verify(queryJobDao).createJob(anyString(), anyString());
+    verify(queryJobDao).createJob(anyString(), anyString(), anyString());
     verify(queryClient).submitQuery(anyString());
   }
 
@@ -191,7 +196,7 @@ public class QueryServiceImplTest {
         .submissionDateTime(submissionTime)
         .completionDateTime(completionTime)
         .build();
-    when(queryJobDao.createJob(anyString(), anyString())).thenReturn(Single.just(jobId));
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
     when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
     when(queryClient.getQueryExecution(queryExecutionId))
         .thenReturn(Single.just(executionInfoWithTimestamps))

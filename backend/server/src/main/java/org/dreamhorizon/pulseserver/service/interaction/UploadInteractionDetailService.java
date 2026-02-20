@@ -11,7 +11,6 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionConf
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 public class UploadInteractionDetailService {
@@ -44,10 +43,10 @@ public class UploadInteractionDetailService {
   }
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
-      List<InteractionConfig> interactions
+      List<InteractionConfig> interactions,
+      String tenantId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String tenantId = TenantContext.requireTenantId();
     String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
     String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
 
@@ -76,11 +75,11 @@ public class UploadInteractionDetailService {
     return String.format("config/tenants/%s/%s", tenantId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
     return interactionDao
-        .getAllActiveAndRunningInteractions()
+        .getAllActiveAndRunningInteractions(tenant)
         .map(this::toInteractionConfigs)
-        .flatMap(this::pushToObjectStoreAndInvalidateCache)
+        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, tenant))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }
