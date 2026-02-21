@@ -14,8 +14,10 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import io.mockk.verifyOrder
+import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.session.Session
 import io.opentelemetry.android.session.SessionObserver
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
@@ -29,6 +31,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 private const val SESSION_AWAIT_SECONDS: Long = 5
 private const val SESSION_ID_LENGTH = 32
@@ -540,6 +543,161 @@ internal class SessionManagerTest {
         // Then - should use custom 1 hour maxLifetime
         assertThat(sessionId).isNotNull()
         assertThat(sessionId).hasSize(SESSION_ID_LENGTH)
+    }
+
+    /**
+     * Test: session.end timestamp should be session.start + maxLifetime for foreground expiration
+     *
+     * What this tests:
+     * - When a session expires in the foreground due to max lifetime, the expiration timestamp
+     *   should be calculated as: session.start + maxLifetime
+     * - This ensures accurate timestamps for session.end events
+     *
+     * How it works:
+     * 1. Create a session and capture its start time from the observer
+     * 2. Advance time past maxLifetime to trigger expiration
+     * 3. Verify that onSessionEnded() is called with the correct expiration timestamp
+     *
+     * Test syntax explanation:
+     * - `slot<Session>()` creates a "slot" to capture the Session object passed to the mock
+     * - `capture(sessionStartTimeSlot)` captures the Session parameter when onSessionStarted is called
+     * - `verify { ... }` checks that the method was called with the expected parameters
+     * - `match { ... }` is a matcher that checks a condition (e.g., session ID matches)
+     */
+    @Test
+    fun `should set expiration timestamp to session start plus max lifetime for foreground expiration`() {
+        // Given: A session manager with a test clock and observer
+        val clock = TestClock.create()
+        val observer = mockk<SessionObserver>()
+        every { observer.onSessionStarted(any<Session>(), any<Session>()) } just Runs
+        every { observer.onSessionEnded(any<Session>(), any()) } just Runs
+
+        val sessionManager =
+            SessionManager(
+                clock,
+                sessionStorage = InMemorySessionStorage(),
+                timeoutHandler = timeoutHandler,
+                maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
+            )
+        sessionManager.addObserver(observer)
+
+        // When: Create initial session and capture its start time from the session object
+        // We'll capture the session start time from the observer's onSessionStarted call
+        val sessionStartTimeSlot = slot<Session>()
+        val firstSessionId = sessionManager.getSessionId()
+
+        // Capture the session from the onSessionStarted call to get its start timestamp
+        // This is how we get the actual session start time that was used when creating the session
+        verify(exactly = 1) {
+            observer.onSessionStarted(capture(sessionStartTimeSlot), eq(Session.NONE))
+        }
+        val firstSession = sessionStartTimeSlot.captured
+        val firstSessionStartTime = firstSession.getStartTimestamp()
+
+        // Advance time to just before expiration (3h 59m 59s)
+        clock.advance(3, TimeUnit.HOURS)
+        clock.advance(59, TimeUnit.MINUTES)
+        clock.advance(59, TimeUnit.SECONDS)
+        assertThat(sessionManager.getSessionId()).isEqualTo(firstSessionId)
+
+        // Advance 1 second to trigger expiration (exactly 4 hours from session start)
+        clock.advance(1, TimeUnit.SECONDS)
+        val secondSessionId = sessionManager.getSessionId()
+
+        // Then: Verify expiration timestamp is session.start + maxLifetime
+        // Calculate what the expiration timestamp should be
+        val expectedExpirationTimestamp = firstSessionStartTime + MAX_SESSION_LIFETIME.hours.inWholeNanoseconds
+
+        // Capture the expiration timestamp passed to onSessionEnded
+        // We use a slot to capture the nullable Long parameter
+        val expirationTimestampSlot = slot<Long>()
+        verify(exactly = 1) {
+            observer.onSessionEnded(
+                match { it.getId() == firstSessionId }, // Verify it's the ending session's ID
+                capture(expirationTimestampSlot), // Capture the expiration timestamp
+            )
+        }
+
+        // Assert the timestamp matches our calculation
+        // This verifies that the expiration timestamp is correctly calculated as session.start + maxLifetime
+        assertThat(expirationTimestampSlot.captured).isEqualTo(expectedExpirationTimestamp)
+        assertThat(secondSessionId).isNotEqualTo(firstSessionId)
+    }
+
+    /**
+     * Test: session.end timestamp should be background start time for background expiration
+     *
+     * What this tests:
+     * - When a session expires in the background (due to max lifetime or background timeout),
+     *   the expiration timestamp should be the time when the app went to background
+     * - This ensures all background expirations are attributed to the moment the app went to background
+     *
+     * How it works:
+     * 1. Create a session and simulate app going to background
+     * 2. Use a real timeout handler to track background state
+     * 3. Trigger session expiration while in background
+     * 4. Verify that onSessionEnded() uses backgroundStartTime as the expiration timestamp
+     *
+     * Test syntax explanation:
+     * - We use a REAL timeout handler (not a mock) so we can test actual background time tracking
+     * - `realTimeoutHandler.onApplicationBackgrounded()` simulates the app going to background
+     * - `realTimeoutHandler.getBackgroundStartTime()` returns the time when app went to background
+     */
+    @OptIn(Incubating::class)
+    @Test
+    fun `should set expiration timestamp to background start time for background expiration`() {
+        // Given: A session manager with background timeout handler
+        val clock = TestClock.create()
+        val observer = mockk<SessionObserver>()
+        every { observer.onSessionStarted(any<Session>(), any<Session>()) } just Runs
+        every { observer.onSessionEnded(any<Session>(), any()) } just Runs
+
+        // Create a real timeout handler to track background state
+        // We use a real handler (not a mock) so we can test the actual background time tracking
+        val realTimeoutHandler =
+            SessionIdTimeoutHandler(
+                clock,
+                15.minutes,
+            )
+
+        val sessionManager =
+            SessionManager(
+                clock,
+                sessionStorage = InMemorySessionStorage(),
+                timeoutHandler = realTimeoutHandler,
+                maxSessionLifetime = MAX_SESSION_LIFETIME.hours,
+            )
+        sessionManager.addObserver(observer)
+
+        // When: Create initial session
+        val firstSessionId = sessionManager.getSessionId()
+
+        // Simulate app going to background
+        // This sets the backgroundStartTime in the timeout handler
+        realTimeoutHandler.onApplicationBackgrounded()
+        val backgroundStartTime = clock.now()
+
+        // Advance time to trigger background timeout (15 minutes)
+        // Note: hasTimedOut() will return true because we've advanced 16 minutes past background
+        clock.advance(16, TimeUnit.MINUTES)
+
+        // Trigger session expiration (this will call hasTimedOut() which should return true)
+        val secondSessionId = sessionManager.getSessionId()
+
+        // Then: Verify expiration timestamp is background start time
+        // Capture the expiration timestamp that was passed to onSessionEnded
+        val expirationTimestampSlot = slot<Long>()
+        verify(exactly = 1) {
+            observer.onSessionEnded(
+                match { it.getId() == firstSessionId }, // Verify it's the ending session
+                capture(expirationTimestampSlot), // Capture the expiration timestamp
+            )
+        }
+
+        // The expiration timestamp should be the background start time
+        // This ensures that background expirations are attributed to when the app went to background
+        assertThat(expirationTimestampSlot.captured).isEqualTo(backgroundStartTime)
+        assertThat(secondSessionId).isNotEqualTo(firstSessionId)
     }
 
     private data class AddSessionIdsParameters(

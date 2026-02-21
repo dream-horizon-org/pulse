@@ -102,4 +102,77 @@ class SessionIdTimeoutHandlerTest {
         clock.advance(Duration.ofHours(4))
         assertFalse(timeoutHandler.hasTimedOut())
     }
+
+    /**
+     * Test: getBackgroundStartTime should return the time when app went to background
+     *
+     * What this tests:
+     * - When app goes to background, the handler should record the wall clock time
+     * - getBackgroundStartTime() should return this time for use in session.end timestamps
+     *
+     * How it works:
+     * 1. App is in foreground (backgroundStartTime should be null)
+     * 2. App goes to background (backgroundStartTime should be set)
+     * 3. App comes back to foreground (backgroundStartTime should be cleared)
+     */
+    @Test
+    fun `should track background start time when app goes to background`() {
+        // Given: A timeout handler with test clock
+        val clock: TestClock = TestClock.create()
+        val timeoutHandler =
+            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
+
+        // When: App is in foreground initially
+        // Then: Background start time should be null (app hasn't gone to background yet)
+        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+
+        // When: App goes to background
+        val backgroundTime = clock.now()
+        timeoutHandler.onApplicationBackgrounded()
+
+        // Then: Background start time should be set to the time when app went to background
+        val capturedBackgroundTime = timeoutHandler.getBackgroundStartTime()
+        assertTrue(capturedBackgroundTime != null)
+        assertTrue(capturedBackgroundTime == backgroundTime)
+
+        // When: App comes back to foreground and first span is processed
+        timeoutHandler.onApplicationForegrounded()
+        timeoutHandler.bump() // This clears backgroundStartTime
+
+        // Then: Background start time should be cleared (null)
+        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+    }
+
+    /**
+     * Test: background start time should persist until app returns to foreground
+     *
+     * What this tests:
+     * - Background start time should remain set while app is in background
+     * - It should only be cleared when app returns to foreground and bump() is called
+     */
+    @Test
+    fun `should persist background start time until app returns to foreground`() {
+        // Given: A timeout handler with app in background
+        val clock: TestClock = TestClock.create()
+        val timeoutHandler =
+            SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
+
+        val backgroundTime = clock.now()
+        timeoutHandler.onApplicationBackgrounded()
+
+        // When: Time passes while app is in background
+        clock.advance(10, TimeUnit.MINUTES)
+
+        // Then: Background start time should still be the original background time
+        val capturedBackgroundTime = timeoutHandler.getBackgroundStartTime()
+        assertTrue(capturedBackgroundTime != null)
+        assertTrue(capturedBackgroundTime == backgroundTime) // Should still be the original time
+
+        // When: App returns to foreground and bump() is called
+        timeoutHandler.onApplicationForegrounded()
+        timeoutHandler.bump()
+
+        // Then: Background start time should be cleared
+        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+    }
 }
