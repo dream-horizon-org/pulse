@@ -2,9 +2,6 @@ pipeline {
     agent {
         node { label 'ec2-fleet' }
     }
-    environment {
-
-    }
 
     stages {
         stage('Clear Existing Workspace') {
