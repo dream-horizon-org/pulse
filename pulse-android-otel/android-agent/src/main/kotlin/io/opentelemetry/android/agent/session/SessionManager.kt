@@ -162,6 +162,8 @@ internal class SessionManager(
                     InMemorySessionStorage()
                 }
 
+            // Set default to 4 hours if maxLifetime is null
+            // This is necessary because SessionManager requires a non-null maxLifetime to function.
             val maxLifetime = sessionConfig.maxLifetime ?: 4.hours
 
             val handler =
