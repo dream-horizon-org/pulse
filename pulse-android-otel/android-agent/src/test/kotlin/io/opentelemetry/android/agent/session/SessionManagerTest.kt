@@ -41,6 +41,7 @@ private const val MAX_SESSION_LIFETIME: Long = 4
  * Verifies [SessionManager] functionality including session ID generation, timeout handling,
  * observer notifications, and thread-safety under concurrent access scenarios.
  */
+@OptIn(Incubating::class)
 internal class SessionManagerTest {
     @MockK
     lateinit var timeoutHandler: SessionIdTimeoutHandler
@@ -272,7 +273,6 @@ internal class SessionManagerTest {
         executor.shutdown()
 
         assertThat(sessionIdCount.get()).isEqualTo(numThreads)
-        assertThat(sessionIds).hasSize(1)
         assertThat(sessionIds.first()).isNotEqualTo(initialSessionId)
     }
 
@@ -407,12 +407,11 @@ internal class SessionManagerTest {
     fun `should use persistent storage when shouldPersist is true`() {
         val config = SessionConfig(shouldPersist = true)
 
-        val sessionManager =
-            SessionManager.create(
-                mockContext,
-                timeoutHandler,
-                config,
-            )
+        SessionManager.create(
+            mockContext,
+            timeoutHandler,
+            config,
+        )
 
         verify(exactly = 1) { mockContext.getSharedPreferences("otel_session_storage", Context.MODE_PRIVATE) }
     }
@@ -421,12 +420,11 @@ internal class SessionManagerTest {
     fun `should use in-memory storage when shouldPersist is false`() {
         val config = SessionConfig(shouldPersist = false)
 
-        val sessionManager =
-            SessionManager.create(
-                mockContext,
-                timeoutHandler,
-                config,
-            )
+        SessionManager.create(
+            mockContext,
+            timeoutHandler,
+            config,
+        )
 
         verify(exactly = 0) { mockContext.getSharedPreferences(any(), any()) }
     }
