@@ -1,8 +1,10 @@
 .idea
+.vscode
 .gradle
 .DS_Store
 **/build/
 .kotlin/
+lib/
 
 .env
 

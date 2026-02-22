@@ -1,0 +1,37 @@
+pipeline {
+    agent {
+        node { label 'ec2-fleet' }
+    }
+    environment {
+
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/vmax-console-demand.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+
+//        stage('Create Artifact') {
+//            steps {
+//                script {
+//                    sh """
+//
+//                    """
+//                }
+//            }
+//        }
+    }
+}
