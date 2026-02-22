@@ -18,7 +18,7 @@ pipeline {
                 checkout([
                         $class: 'GitSCM',
                         branches: [[name: '*/main']],
-                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/vmax-console-demand.git', credentialsId: 'd11-horizon-bot']]
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
         }
