@@ -36,7 +36,7 @@ pipeline {
         stage('Bump snapshot version') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'd11-horizon-bot', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                         sh """
                             #!/bin/bash -el
                             chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
