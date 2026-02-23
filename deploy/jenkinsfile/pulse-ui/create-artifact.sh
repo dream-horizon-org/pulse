@@ -5,6 +5,8 @@ echo "Sourcing Profile"
 echo $HOME
 source $HOME/.profile
 sleep 5
+echo "Activating nvm"
+nvm activate
 echo "Node location"
 which node
 
