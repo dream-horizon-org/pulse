@@ -6,9 +6,8 @@ exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
 # 2. Listing current directory
-pwd
-ls
-source ~/.profile
+echo "Activating Node"
+. ~/.profile
 which node
 which npm
 which pm2
