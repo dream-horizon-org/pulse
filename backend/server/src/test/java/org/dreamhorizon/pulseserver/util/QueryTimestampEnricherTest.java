@@ -144,7 +144,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("hour = 1");
+      assertThat(result).contains("hour = '01'");
     }
 
     @Test
@@ -407,7 +407,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("hour = 1");
+      assertThat(result).contains("hour = '01'");
     }
 
     @Test
