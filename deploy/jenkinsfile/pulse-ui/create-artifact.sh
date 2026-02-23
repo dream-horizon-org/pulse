@@ -2,6 +2,7 @@
 set -e  # Exit on error
 
 echo "Sourcing Profile"
+echo $HOME
 source $HOME/.profile
 sleep 5
 echo "Node location"
