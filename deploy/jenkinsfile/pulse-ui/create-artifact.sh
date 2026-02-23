@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 set -e  # Exit on error
 
-# 1. Setup Logging
-exec > >(sudo tee /var/log/user-data.log) 2>&1
-echo "Starting user-data script at $(date)"
-
-# 2. Listing current directory
 echo "Sourcing Profile"
-. ~/.bashrc
+source $HOME/.profile
 sleep 5
 echo "Node location"
 which node
+
+## 1. Setup Logging
+#exec > >(sudo tee /var/log/user-data.log) 2>&1
+#echo "Starting user-data script at $(date)"
+
+# 2. Listing current directory
+
 
 ## 3. Change to deploy directory
 #cd pulse-ui
