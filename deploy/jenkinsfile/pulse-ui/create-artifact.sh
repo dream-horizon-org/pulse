@@ -7,7 +7,6 @@ echo "Starting user-data script at $(date)"
 
 # 2. Listing current directory
 echo "Activating Node"
-. ~/.profile
 sleep 5
 which node
 which npm
