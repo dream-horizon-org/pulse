@@ -8,6 +8,8 @@ echo "Starting user-data script at $(date)"
 # 2. Listing current directory
 pwd
 ls
+echo "Current user"
+whoami
 
 # 3. Change to deploy directory
 cd pulse-ui
