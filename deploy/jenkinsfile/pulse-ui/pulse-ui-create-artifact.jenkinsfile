@@ -34,10 +34,19 @@ pipeline {
         stage('Create Artifact') {
             steps {
                 script {
-                    sh """
-                        chmod +x ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
-                        ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
-                    """
+                    sh '''
+                        bash -lc '
+                            set -e
+                            source ~/.bashrc
+
+                             # quick sanity checks
+                            echo "PATH=$PATH"
+                            which node && node -v
+                            which yarn && yarn -v
+                            chmod +x ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
+                            ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
+                        '
+                    '''
                 }
             }
         }
