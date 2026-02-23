@@ -52,8 +52,7 @@ CREATE TABLE symbol_files (
     framework ENUM('java','js') NOT NULL,
     file_content LONGBLOB NOT NULL,
     bundleid VARCHAR(255),
-    PRIMARY KEY (tenant_id, app_version, app_version_code, platform, framework),
-    CONSTRAINT fk_symbol_files_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+    PRIMARY KEY (project_id, app_version, app_version_code, platform, framework)
 );
 
 CREATE TABLE pulse_sdk_configs (
@@ -98,7 +97,7 @@ VALUES (
       "logsCollectorUrl": "http://10.0.2.2:4318/v1/logs",
       "metricCollectorUrl": "http://10.0.2.2:4318/v1/metrics",
       "spanCollectorUrl": "http://10.0.2.2:4318/v1/traces",
-      "customEventCollectorUrl": "http://10.0.2.2:4318/v1/events",
+      "customEventCollectorUrl": "http://10.0.2.2:4318/v1/logs",
       "attributesToDrop": [],
       "attributesToAdd": []
     },

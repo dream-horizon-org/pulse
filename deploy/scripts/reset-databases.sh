@@ -52,25 +52,41 @@ print_section "Starting services (init scripts will run automatically)"
 "$SCRIPT_DIR/start.sh" -d
 
 # ── Step 4: Verify ───────────────────────────────────────────────────────
-print_section "Verifying databases"
+print_section "Verifying database initialization"
 
 print_info "Waiting for databases to settle..."
 sleep 10
 
 load_env
 
+INIT_OK=true
+
 echo ""
 echo "MySQL tables:"
 docker exec "$CONTAINER_MYSQL" mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${MYSQL_DATABASE}" -e "SHOW TABLES;" 2>/dev/null || echo "  (MySQL still initializing...)"
+echo ""
+if ! verify_mysql_init; then
+    INIT_OK=false
+fi
 
 echo ""
 echo "ClickHouse tables:"
 docker exec "$CONTAINER_CLICKHOUSE" clickhouse-client --query "SHOW TABLES FROM ${OTEL_CLICKHOUSE_DATABASE}" 2>/dev/null || echo "  (ClickHouse still initializing...)"
+echo ""
+if ! verify_clickhouse_init; then
+    INIT_OK=false
+fi
 
 echo ""
-print_success "Databases reset complete!"
-echo ""
-echo "If tables are not shown above, wait a minute and run:"
-echo "  docker ps --filter network=$NETWORK_NAME"
-echo "  docker logs $CONTAINER_MYSQL"
-echo "  docker logs $CONTAINER_CLICKHOUSE"
+if [ "$INIT_OK" = "true" ]; then
+    print_success "Databases reset complete!"
+else
+    print_error "Database reset completed with init errors!"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  MySQL errors:      docker logs $CONTAINER_MYSQL 2>&1 | grep '^ERROR'"
+    echo "  ClickHouse logs:   docker logs $CONTAINER_CLICKHOUSE"
+    echo ""
+    echo "Fix the init scripts, then re-run this script."
+    exit 1
+fi
