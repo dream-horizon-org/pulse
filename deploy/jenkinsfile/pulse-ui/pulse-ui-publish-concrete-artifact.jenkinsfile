@@ -40,9 +40,17 @@ pipeline {
                         sh """
                             #!/bin/bash -el
                             chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p $GIT_TOKEN
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN"
                         """
                     }
+                }
+            }
+        }
+
+        stage('Send Slack Notification') {
+            steps {
+                script {
+                    slackSend channel: 'pulse-deployments', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds'
                 }
             }
         }
