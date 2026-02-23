@@ -21,25 +21,13 @@ pipeline {
         }
 
 
-        stage('Create Artifact') {
+        stage('Publish Artifact') {
             steps {
                 script {
                     sh """
                         #!/bin/bash -el
                         chmod +x ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
                         ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
-                    """
-                }
-            }
-        }
-
-        stage('Upload Artifact') {
-            steps {
-                script {
-                    sh """
-                        #!/bin/bash -el
-                        chmod +x ./deploy/jenkinsfile/pulse-ui/upload-artifact.sh
-                        ./deploy/jenkinsfile/pulse-ui/upload-artifact.sh
                     """
                 }
             }
