@@ -76,8 +76,9 @@ zip -q -r $ZIP_NAME $APPLICATION_NAME
 # 7. Upload zip to AWS CodeArtifact (generic package)
 echo "Uploading $ZIP_NAME to AWS CodeArtifact..."
 AWS_REGION="ap-south-1"
-CODEARTIFACT_DOMAIN="pulse"
+CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-ui"
+FILE_HASH=$(sha256sum pulse-ui-0.1.0.zip | awk '{ print $1 }')
 
 aws codeartifact publish-package-version \
   --region "$AWS_REGION" \
@@ -88,6 +89,7 @@ aws codeartifact publish-package-version \
   --package "$APPLICATION_NAME" \
   --package-version "$VERSION" \
   --asset-name "$ZIP_NAME" \
-  --asset-content "fileb://$ZIP_NAME"
+  --asset-content "$ZIP_NAME"
+  --asset-sha256 "$FILE_HASH"
 
 echo "Upload successful: $APPLICATION_NAME:$VERSION ($ZIP_NAME)"
