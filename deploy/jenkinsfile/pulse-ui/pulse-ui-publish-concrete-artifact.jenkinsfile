@@ -36,11 +36,13 @@ pipeline {
         stage('Bump snapshot version') {
             steps {
                 script {
-                    sh """
-                        #!/bin/bash -el
-                        chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-                        ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-                    """
+                    withCredentials([usernamePassword(credentialsId: 'd11-horizon-bot', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p $GIT_TOKEN
+                        """
+                    }
                 }
             }
         }

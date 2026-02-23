@@ -1,6 +1,24 @@
 #!/bin/bash -el
 set -e
 
+while getopts u:p: flag
+do
+    case "${flag}" in
+        a) GIT_USER=${OPTARG};;
+        v) GIT_TOKEN=${OPTARG};;
+    esac
+done
+
+if [ -z "$GIT_USER" ]; then
+    echo 'Missing option -a (Git username)' >&2
+    exit 1
+fi
+
+if [ -z "$GIT_TOKEN" ]; then
+    echo 'Missing option -v (Git token)' >&2
+    exit 1
+fi
+
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
@@ -30,4 +48,4 @@ git config user.email "d11-horizon-bot@users.noreply.github.com"
 git add pulse-ui/package.json
 git commit -m "chore: release pulse-ui version $PUBLISHED_VERSION"
 
-git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:feat/deployment
+git push "https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git" HEAD:feat/deployment
