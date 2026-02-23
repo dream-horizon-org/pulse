@@ -42,7 +42,7 @@ transforms:
       # Build final event structure
       . = {
         "event_name": .message,
-        "project_id": attrs."project.id",
+        "project_id": res."project.id",
         "user_id": attrs."user.id",
         "installation_id": attrs."installation.id",
 
