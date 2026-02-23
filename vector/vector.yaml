@@ -96,11 +96,11 @@ sinks:
     type: aws_s3
     inputs:
       - to_pulse_schema
-    bucket: "puls-otel-config"
+    bucket: "pulse-otel-{{ project_id }}"
     region: "ap-south-1"
 
-    # Simplified Date Partitioning with Project ID: project_id/YYYY-MM-DD/HH/
-    key_prefix: "project_id={{ project_id }}/%Y-%m-%d/%H/"
+    # Date/hour partitioning only; project isolation is by bucket.
+    key_prefix: "vector-logs/%Y-%m-%d/%H/"
     # ---------------------------------------------------------------------
     # 1. DISK BUFFER (Durability)
     # ---------------------------------------------------------------------
