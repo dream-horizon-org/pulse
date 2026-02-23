@@ -15,7 +15,9 @@ pipeline {
                 script {
                     sh """
                         . ~/.bashrc
-                        which node
+                        cat ~/.bashrc
+                        nvm activate
+                        nvm alias default 20
                         sudo apt-get install jq
                     """
                 }
