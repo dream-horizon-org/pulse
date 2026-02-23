@@ -15,6 +15,7 @@ pipeline {
                 script {
                     sh """
                         sudo apt-get install jq
+                        sudo apt install zip
                     """
                 }
             }
