@@ -251,6 +251,7 @@ public class ErrorGroupingService {
       String appVersionCode = getResourceAttribute(resourceAttrMap, "app.build_id").orElse(null);
       String platform = getResourceAttribute(resourceAttrMap, "os.name").orElse(null);
       String bundleId = getResourceAttribute(resourceAttrMap, "bundle_id").orElse(null);
+      String projectId = getResourceAttribute(resourceAttrMap, "project.id").orElse(null);
 
 
       for (ScopeLogs scopeLogs : rl.getScopeLogsList()) {
@@ -266,6 +267,7 @@ public class ErrorGroupingService {
               .appVersionCode(appVersionCode)
               .platform(platform)
               .bundleId(bundleId)
+              .projectId(projectId)
               .build();
 
           // Use processWithCompleteSymbolication to get both grouping and full symbolication

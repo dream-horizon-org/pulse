@@ -39,7 +39,7 @@ public class ConfigController {
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getSdkConfig(@PathParam("version") Integer version) {
-    return configService.getSdkConfig(version)
+    return configService.getSdkConfig(TenantContext.requireTenantId(), version)
         .to(RestResponse.jaxrsRestHandler());
   }
 

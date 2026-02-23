@@ -41,13 +41,17 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString);
+    String tenantId = TenantContext.requireTenantId();
+    // Appending TenantId for now. Will be changed to projectId once those changes are deployed.
+    String queryWithProjectId = appendProjectId(queryString, tenantId);
+
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    return queryJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail.trim())
-        .flatMap(jobId -> queryClient.submitQuery(queryString)
+    return queryJobDao.createJob(tenantId, queryWithProjectId, userEmail.trim())
+        .flatMap(jobId -> queryClient.submitQuery(queryWithProjectId)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = execution.getDataScannedInBytes();
@@ -67,6 +71,21 @@ public class QueryServiceImpl implements QueryService {
               return queryJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage(), null)
                   .flatMap(v -> Single.error(error));
             }));
+  }
+
+  private String appendProjectId(String originalQuery, String projectId) {
+    String project = String.format("AND project_id = '%s'", projectId);
+
+    // 1. Trim whitespace
+    // 2. Remove one or more trailing semicolons using regex
+    // 3. Trim again to be safe
+    String cleanedBase = originalQuery.trim()
+        .replaceAll(";+$", "")
+        .trim();
+
+    // Return the joined query.
+    // We add a space to ensure the fragment doesn't touch the last word of the base.
+    return cleanedBase + " " + project.trim() + ";";
   }
 
   private Single<QueryJob> handleQueryState(String jobId, String queryExecutionId, QueryStatus status, Long initialDataScannedBytes) {

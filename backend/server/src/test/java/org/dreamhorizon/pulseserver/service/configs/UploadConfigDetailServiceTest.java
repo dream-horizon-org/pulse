@@ -46,7 +46,7 @@ class UploadConfigDetailServiceTest {
   private static final String TEST_ASSET_PATH = "/config/details.json";
   private static final String TEST_TENANT_ID = "test-tenant";
   private static final String TEST_TENANT_FILE_PATH = "config/tenants/" + TEST_TENANT_ID + "/" + TEST_FILE_PATH;
-  private static final String TEST_TENANT_ASSET_PATH = "config/tenants/" + TEST_TENANT_ID + "/" + TEST_ASSET_PATH;
+  private static final String TEST_TENANT_ASSET_PATH = "/config/tenants/" + TEST_TENANT_ID + "/" + TEST_ASSET_PATH;
 
   @BeforeEach
   void setUp() {
@@ -184,7 +184,7 @@ class UploadConfigDetailServiceTest {
       String customDistributionId = "ECUSTOM12345";
       String customAssetPath = "/custom/path.json";
       String customTenantFilePath = "config/tenants/" + TEST_TENANT_ID + "/" + customFilePath;
-      String customTenantAssetPath = "config/tenants/" + TEST_TENANT_ID + "/" + customAssetPath;
+      String customTenantAssetPath = "/config/tenants/" + TEST_TENANT_ID + "/" + customAssetPath;
 
       when(applicationConfig.getS3BucketName()).thenReturn(customBucket);
       when(applicationConfig.getConfigDetailsS3BucketFilePath()).thenReturn(customFilePath);

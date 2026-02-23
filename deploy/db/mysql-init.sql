@@ -45,7 +45,7 @@ CREATE TABLE interaction (
 
 -- Symbol files table with tenant_id in composite primary key
 CREATE TABLE symbol_files (
-    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+    project_id VARCHAR(64) NOT NULL DEFAULT 'default',
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,
