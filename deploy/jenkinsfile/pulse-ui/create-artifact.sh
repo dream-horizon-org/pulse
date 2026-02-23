@@ -5,8 +5,6 @@ echo "Sourcing NVM directly"
 export NVM_DIR="$HOME/.nvm"
 # Load nvm function into the current shell session
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-echo "Activating nvm"
-nvm use 20
 echo "Node location"
 which node
 
