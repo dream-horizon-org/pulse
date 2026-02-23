@@ -8,8 +8,11 @@ echo "Starting user-data script at $(date)"
 # 2. Listing current directory
 pwd
 ls
-echo "Current user"
-whoami
+source ~/.profile
+which node
+which npm
+which pm2
+which yarn
 
 # 3. Change to deploy directory
 cd pulse-ui
@@ -50,11 +53,6 @@ echo "Success! Secrets have been written to $ENV_FILE."
 # 5. Build Application
 echo "### Installing project dependencies..."
 export NODE_OPTIONS=--max_old_space_size=4096
-soruce ~/.bashrc
-which node
-which npm
-which pm2
-which yarn
 yarn install
 
 echo "### Building the dashboard..."
