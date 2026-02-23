@@ -40,7 +40,7 @@ class SignalsConfigTest {
       FilterConfig filters = FilterConfig.builder()
           .mode(FilterMode.blacklist)
           .build();
-      List<EventFilter> attributesToDrop = new ArrayList<>();
+      List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       SignalsConfig signalsConfig = SignalsConfig.builder()
@@ -71,7 +71,7 @@ class SignalsConfigTest {
     @Test
     void shouldCreateWithAllArgsConstructor() {
       FilterConfig filters = FilterConfig.builder().mode(FilterMode.whitelist).build();
-      List<EventFilter> attributesToDrop = new ArrayList<>();
+      List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       SignalsConfig signalsConfig = new SignalsConfig(
@@ -168,7 +168,7 @@ class SignalsConfigTest {
     void shouldSetAndGetAllFields() {
       SignalsConfig signalsConfig = new SignalsConfig();
       FilterConfig filters = new FilterConfig();
-      List<EventFilter> attributesToDrop = new ArrayList<>();
+      List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       signalsConfig.setScheduleDurationMs(10000);

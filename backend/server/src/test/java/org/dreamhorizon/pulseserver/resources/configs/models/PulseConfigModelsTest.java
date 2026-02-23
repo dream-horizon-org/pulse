@@ -528,7 +528,7 @@ class PulseConfigModelsTest {
       PulseConfig.FilterConfig filters = PulseConfig.FilterConfig.builder()
           .mode(FilterMode.blacklist)
           .build();
-      List<PulseConfig.EventFilter> attributesToDrop = new ArrayList<>();
+      List<PulseConfig.AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<PulseConfig.AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       PulseConfig.SignalsConfig signalsConfig = PulseConfig.SignalsConfig.builder()
