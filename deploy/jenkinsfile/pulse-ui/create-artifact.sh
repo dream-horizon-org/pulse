@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash -l
 set -e  # Exit on error
 
 echo "Sourcing Profile"
