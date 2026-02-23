@@ -46,7 +46,7 @@ class SessionIdEventSenderTest {
     // Test data - sample session IDs for testing
     private val sessionId1 = "session-id-12345678901234567890123456789012"
     private val sessionId2 = "session-id-98765432109876543210987654321098"
-    private val expirationTimestamp = 1_000_000_000L // 1 second in nanoseconds
+    private val expirationTimestampNanos = 1_000_000_000L // 1 second in nanoseconds
 
     @BeforeEach
     fun setUp() {
@@ -90,11 +90,11 @@ class SessionIdEventSenderTest {
     fun `should emit session end event with expiration timestamp`() {
         val endingSession = Session.DefaultSession(sessionId1, System.nanoTime() - 1_000_000_000L)
 
-        sessionIdEventSender.onSessionEnded(endingSession, expirationTimestamp)
+        sessionIdEventSender.onSessionEnded(endingSession, expirationTimestampNanos)
 
         verify { logRecordBuilder.setEventName(EVENT_SESSION_END) }
         verify { logRecordBuilder.setAttribute(SESSION_ID, sessionId1) }
-        verify { logRecordBuilder.setTimestamp(expirationTimestamp, TimeUnit.NANOSECONDS) }
+        verify { logRecordBuilder.setTimestamp(expirationTimestampNanos, TimeUnit.NANOSECONDS) }
         verify { logRecordBuilder.emit() }
     }
 
@@ -114,7 +114,7 @@ class SessionIdEventSenderTest {
     fun `should use ending session ID not next session ID`() {
         val endingSession = Session.DefaultSession(sessionId1, System.nanoTime())
 
-        sessionIdEventSender.onSessionEnded(endingSession, expirationTimestamp)
+        sessionIdEventSender.onSessionEnded(endingSession, expirationTimestampNanos)
 
         val sessionIdSlot = slot<String>()
         verify { logRecordBuilder.setAttribute(SESSION_ID, capture(sessionIdSlot)) }
@@ -125,7 +125,7 @@ class SessionIdEventSenderTest {
     fun `should not emit session end event for blank session ID`() {
         val blankSession = Session.NONE
 
-        sessionIdEventSender.onSessionEnded(blankSession, expirationTimestamp)
+        sessionIdEventSender.onSessionEnded(blankSession, expirationTimestampNanos)
 
         verify(exactly = 0) { logRecordBuilder.emit() }
     }

@@ -60,7 +60,7 @@ internal class SessionManagerTest {
         MockKAnnotations.init(this)
         every { timeoutHandler.hasTimedOut() } returns false
         every { timeoutHandler.bump() } just Runs
-        every { timeoutHandler.getBackgroundStartTime() } answers { null }
+        every { timeoutHandler.getBackgroundStartTimeNanos() } answers { null }
         every { mockContext.getSharedPreferences(any(), any()) } returns mockSharedPreferences
         every { mockSharedPreferences.edit() } returns mockEditor
         every { mockEditor.putString(any(), any()) } returns mockEditor
@@ -163,7 +163,7 @@ internal class SessionManagerTest {
             )
         }
         confirmVerified(observer)
-        verify(atLeast = 0) { timeoutHandler.getBackgroundStartTime() }
+        verify(atLeast = 0) { timeoutHandler.getBackgroundStartTimeNanos() }
         confirmVerified(timeoutHandler)
     }
 
@@ -185,7 +185,7 @@ internal class SessionManagerTest {
         verify(exactly = 2) { timeoutHandler.bump() }
 
         every { timeoutHandler.hasTimedOut() } returns true
-        every { timeoutHandler.getBackgroundStartTime() } returns null
+        every { timeoutHandler.getBackgroundStartTimeNanos() } returns null
 
         assertThat(value).isNotEqualTo(sessionManager.getSessionId())
         verify(exactly = 3) { timeoutHandler.bump() }
@@ -247,7 +247,7 @@ internal class SessionManagerTest {
         val initialSessionId = sessionManager.getSessionId()
 
         every { timeoutHandler.hasTimedOut() } returns true
-        every { timeoutHandler.getBackgroundStartTime() } returns null
+        every { timeoutHandler.getBackgroundStartTimeNanos() } returns null
 
         val numThreads = 5
         val executor = Executors.newFixedThreadPool(numThreads)
@@ -544,17 +544,17 @@ internal class SessionManagerTest {
         clock.advance(1, TimeUnit.SECONDS)
         val secondSessionId = sessionManager.getSessionId()
 
-        val expectedExpirationTimestamp = firstSessionStartTime + MAX_SESSION_LIFETIME.hours.inWholeNanoseconds
+        val expectedExpirationTimestampNanos = firstSessionStartTime + MAX_SESSION_LIFETIME.hours.inWholeNanoseconds
 
-        val expirationTimestampSlot = slot<Long>()
+        val expirationTimestampNanosSlot = slot<Long>()
         verify(exactly = 1) {
             observer.onSessionEnded(
                 match { it.getId() == firstSessionId },
-                capture(expirationTimestampSlot),
+                capture(expirationTimestampNanosSlot),
             )
         }
 
-        assertThat(expirationTimestampSlot.captured).isEqualTo(expectedExpirationTimestamp)
+        assertThat(expirationTimestampNanosSlot.captured).isEqualTo(expectedExpirationTimestampNanos)
         assertThat(secondSessionId).isNotEqualTo(firstSessionId)
     }
 
@@ -588,21 +588,21 @@ internal class SessionManagerTest {
         val firstSessionId = sessionManager.getSessionId()
 
         realTimeoutHandler.onApplicationBackgrounded()
-        val backgroundStartTime = clock.now()
+        val backgroundStartTimeNanos = clock.now()
 
         clock.advance(16, TimeUnit.MINUTES)
 
         val secondSessionId = sessionManager.getSessionId()
 
-        val expirationTimestampSlot = slot<Long>()
+        val expirationTimestampNanosSlot = slot<Long>()
         verify(exactly = 1) {
             observer.onSessionEnded(
                 match { it.getId() == firstSessionId },
-                capture(expirationTimestampSlot),
+                capture(expirationTimestampNanosSlot),
             )
         }
 
-        assertThat(expirationTimestampSlot.captured).isEqualTo(backgroundStartTime)
+        assertThat(expirationTimestampNanosSlot.captured).isEqualTo(backgroundStartTimeNanos)
         assertThat(secondSessionId).isNotEqualTo(firstSessionId)
     }
 

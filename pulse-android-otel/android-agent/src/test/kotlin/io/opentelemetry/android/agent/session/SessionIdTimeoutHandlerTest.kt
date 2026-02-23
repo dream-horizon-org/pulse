@@ -100,19 +100,19 @@ class SessionIdTimeoutHandlerTest {
         val timeoutHandler =
             SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
-        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == null)
 
-        val backgroundTime = clock.now()
+        val backgroundTimeNanos = clock.now()
         timeoutHandler.onApplicationBackgrounded()
 
-        val capturedBackgroundTime = timeoutHandler.getBackgroundStartTime()
-        assertTrue(capturedBackgroundTime != null)
-        assertTrue(capturedBackgroundTime == backgroundTime)
+        val capturedBackgroundTimeNanos = timeoutHandler.getBackgroundStartTimeNanos()
+        assertTrue(capturedBackgroundTimeNanos != null)
+        assertTrue(capturedBackgroundTimeNanos == backgroundTimeNanos)
 
         timeoutHandler.onApplicationForegrounded()
         timeoutHandler.bump()
 
-        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == null)
     }
 
     @Test
@@ -121,19 +121,19 @@ class SessionIdTimeoutHandlerTest {
         val timeoutHandler =
             SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
-        val backgroundTime = clock.now()
+        val backgroundTimeNanos = clock.now()
         timeoutHandler.onApplicationBackgrounded()
 
         clock.advance(10, TimeUnit.MINUTES)
 
-        val capturedBackgroundTime = timeoutHandler.getBackgroundStartTime()
-        assertTrue(capturedBackgroundTime != null)
-        assertTrue(capturedBackgroundTime == backgroundTime)
+        val capturedBackgroundTimeNanos = timeoutHandler.getBackgroundStartTimeNanos()
+        assertTrue(capturedBackgroundTimeNanos != null)
+        assertTrue(capturedBackgroundTimeNanos == backgroundTimeNanos)
 
         timeoutHandler.onApplicationForegrounded()
         timeoutHandler.bump()
 
-        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == null)
     }
 
     @Test
@@ -143,30 +143,30 @@ class SessionIdTimeoutHandlerTest {
             SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
         assertFalse(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == null)
 
-        val backgroundTime = clock.now()
+        val backgroundTimeNanos = clock.now()
         timeoutHandler.onApplicationBackgrounded()
         timeoutHandler.bump()
 
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
         assertFalse(timeoutHandler.hasTimedOut())
 
         clock.advance(10, TimeUnit.MINUTES)
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
         assertFalse(timeoutHandler.hasTimedOut())
 
         clock.advance(6, TimeUnit.MINUTES)
         assertTrue(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         timeoutHandler.bump()
         assertFalse(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         timeoutHandler.onApplicationForegrounded()
         timeoutHandler.bump()
-        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == null)
         assertFalse(timeoutHandler.hasTimedOut())
     }
 
@@ -177,8 +177,8 @@ class SessionIdTimeoutHandlerTest {
             SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
         timeoutHandler.onApplicationBackgrounded()
-        val backgroundTime = clock.now()
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        val backgroundTimeNanos = clock.now()
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         clock.advance(20, TimeUnit.MINUTES)
         assertTrue(timeoutHandler.hasTimedOut())
@@ -187,7 +187,7 @@ class SessionIdTimeoutHandlerTest {
         timeoutHandler.bump()
 
         assertFalse(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == null)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == null)
     }
 
     @Test
@@ -196,25 +196,25 @@ class SessionIdTimeoutHandlerTest {
         val timeoutHandler =
             SessionIdTimeoutHandler(clock, SessionConfig.withDefaults().backgroundInactivityTimeout!!)
 
-        val backgroundTime = clock.now()
+        val backgroundTimeNanos = clock.now()
         timeoutHandler.onApplicationBackgrounded()
         timeoutHandler.bump()
 
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         assertFalse(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         clock.advance(5, TimeUnit.MINUTES)
         assertFalse(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         clock.advance(10, TimeUnit.MINUTES)
         assertTrue(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
 
         timeoutHandler.bump()
         assertFalse(timeoutHandler.hasTimedOut())
-        assertTrue(timeoutHandler.getBackgroundStartTime() == backgroundTime)
+        assertTrue(timeoutHandler.getBackgroundStartTimeNanos() == backgroundTimeNanos)
     }
 }

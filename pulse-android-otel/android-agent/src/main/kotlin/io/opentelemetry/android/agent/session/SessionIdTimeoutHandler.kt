@@ -31,7 +31,7 @@ internal class SessionIdTimeoutHandler(
     private var timeoutStartNanos: Long = 0
 
     @Volatile
-    private var backgroundStartTime: Long = 0
+    private var backgroundStartTimeNanos: Long = 0
 
     @Volatile
     private var state = State.FOREGROUND
@@ -42,7 +42,7 @@ internal class SessionIdTimeoutHandler(
 
     override fun onApplicationBackgrounded() {
         state = State.BACKGROUND
-        backgroundStartTime = clock.now()
+        backgroundStartTimeNanos = clock.now()
     }
 
     fun hasTimedOut(): Boolean {
@@ -54,7 +54,7 @@ internal class SessionIdTimeoutHandler(
         return elapsedTime >= sessionBackgroundInactivityTimeout.inWholeNanoseconds
     }
 
-    fun getBackgroundStartTime(): Long? = if (backgroundStartTime == 0L) null else backgroundStartTime
+    fun getBackgroundStartTimeNanos(): Long? = if (backgroundStartTimeNanos == 0L) null else backgroundStartTimeNanos
 
     fun bump() {
         timeoutStartNanos = clock.nanoTime()
@@ -62,7 +62,7 @@ internal class SessionIdTimeoutHandler(
         // move from the temporary transition state to foreground after the first span
         if (state == State.TRANSITIONING_TO_FOREGROUND) {
             state = State.FOREGROUND
-            backgroundStartTime = 0L
+            backgroundStartTimeNanos = 0L
         }
     }
 

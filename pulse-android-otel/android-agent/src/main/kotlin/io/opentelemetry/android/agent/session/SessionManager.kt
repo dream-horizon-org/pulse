@@ -83,7 +83,7 @@ internal class SessionManager(
                     if (expiredRestored.getId().isNotEmpty()) {
                         false
                     } else {
-                        timeoutHandler?.getBackgroundStartTime() != null
+                        timeoutHandler?.getBackgroundStartTimeNanos() != null
                     }
 
                 timeoutHandler?.bump()
@@ -115,10 +115,10 @@ internal class SessionManager(
         expiredDueToMaxLifetime: Boolean,
         expiredInBackground: Boolean,
     ) {
-        val expirationTimestamp =
+        val expirationTimestampNanos =
             if (currentSession.getStartTimestamp() >= 0) {
                 if (expiredInBackground) {
-                    timeoutHandler?.getBackgroundStartTime() ?: clock.now()
+                    timeoutHandler?.getBackgroundStartTimeNanos() ?: clock.now()
                 } else if (expiredDueToMaxLifetime) {
                     currentSession.getStartTimestamp() + maxSessionLifetime.inWholeNanoseconds
                 } else {
@@ -128,7 +128,7 @@ internal class SessionManager(
                 null
             }
         observers.forEach {
-            it.onSessionEnded(currentSession, expirationTimestamp)
+            it.onSessionEnded(currentSession, expirationTimestampNanos)
             it.onSessionStarted(newSession, currentSession)
         }
     }

@@ -13,6 +13,6 @@ interface SessionObserver {
 
     fun onSessionEnded(
         session: Session,
-        expirationTimestamp: Long? = null,
+        expirationTimestampNanos: Long? = null,
     )
 }

@@ -38,7 +38,7 @@ internal class SessionIdEventSender(
 
     override fun onSessionEnded(
         session: Session,
-        expirationTimestamp: Long?,
+        expirationTimestampNanos: Long?,
     ) {
         if (session.getId().isBlank()) {
             return
@@ -48,7 +48,7 @@ internal class SessionIdEventSender(
                 .logRecordBuilder()
                 .setEventName(EVENT_SESSION_END)
                 .setAttribute(SESSION_ID, session.getId())
-        expirationTimestamp?.let {
+        expirationTimestampNanos?.let {
             eventBuilder.setTimestamp(it, java.util.concurrent.TimeUnit.NANOSECONDS)
         }
         eventBuilder.emit()
