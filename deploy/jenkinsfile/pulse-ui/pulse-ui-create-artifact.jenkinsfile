@@ -14,7 +14,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        cat ~/.bashrc
+                        which node
                         sudo apt-get install jq
                     """
                 }
