@@ -89,7 +89,7 @@ aws codeartifact publish-package-version \
   --package "$APPLICATION_NAME" \
   --package-version "$VERSION" \
   --asset-name "$ZIP_NAME" \
-  --asset-content "$ZIP_NAME"
+  --asset-content "$ZIP_NAME" \
   --asset-sha256 "$FILE_HASH"
 
 echo "Upload successful: $APPLICATION_NAME:$VERSION ($ZIP_NAME)"
