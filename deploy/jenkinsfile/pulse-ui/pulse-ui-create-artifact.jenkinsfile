@@ -10,6 +10,16 @@ pipeline {
             }
         }
 
+        stage('Install Pre-requisites') {
+            steps {
+                script {
+                    sh """
+                        sudo apt-get install jq
+                    """
+                }
+            }
+        }
+
         stage('Clone repository') {
             steps {
                 checkout([
@@ -21,14 +31,15 @@ pipeline {
         }
 
 
-//        stage('Create Artifact') {
-//            steps {
-//                script {
-//                    sh """
-//
-//                    """
-//                }
-//            }
-//        }
+        stage('Create Artifact') {
+            steps {
+                script {
+                    sh """
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
+                    """
+                }
+            }
+        }
     }
 }
