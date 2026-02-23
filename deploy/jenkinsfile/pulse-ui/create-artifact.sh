@@ -2,8 +2,7 @@
 set -e  # Exit on error
 
 # 1. Setup Logging
-sudo chmod -R 777 /var/log/user-data.log
-exec > >(tee /var/log/user-data.log) 2>&1
+exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
 # 2. Listing current directory
