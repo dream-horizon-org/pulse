@@ -2,6 +2,7 @@
 set -e  # Exit on error
 
 # 1. Setup Logging
+sudo chmod -R 777 /var/log/user-data.log
 exec > >(tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
@@ -10,7 +11,7 @@ pwd
 ls
 
 # 3. Change to deploy directory
-cd pulse/pulse-ui
+cd pulse-ui
 
 # 4. Handle Environment Variables (via AWS Secrets Manager)
 # Define variables
