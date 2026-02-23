@@ -34,7 +34,7 @@ pipeline {
         stage('Create Artifact') {
             steps {
                 script {
-                    sh '''
+                    sh """
                         bash -lc '
                             set -e
                             source ~/.bashrc
@@ -46,7 +46,7 @@ pipeline {
                             chmod +x ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
                             ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
                         '
-                    '''
+                    """
                 }
             }
         }
