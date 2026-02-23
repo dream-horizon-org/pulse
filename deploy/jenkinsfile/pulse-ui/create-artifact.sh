@@ -7,7 +7,7 @@ echo "Starting user-data script at $(date)"
 
 # 2. Listing current directory
 echo "Sourcing Profile"
-. ~/.bashrc"
+. ~/.bashrc
 sleep 5
 echo "Node location"
 which node
