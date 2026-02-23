@@ -32,5 +32,17 @@ pipeline {
                 }
             }
         }
+
+        stage('Upload Artifact') {
+            steps {
+                script {
+                    sh """
+                        #!/bin/bash -el
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/upload-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/upload-artifact.sh
+                    """
+                }
+            }
+        }
     }
 }
