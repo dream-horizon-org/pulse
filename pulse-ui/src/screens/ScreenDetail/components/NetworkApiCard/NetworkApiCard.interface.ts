@@ -1,7 +1,9 @@
 export interface NetworkApiCardData {
   id: string;
   endpoint: string;
-  method: string;
+  operationName?: string;
+  operationType?: string;
+  method?: string;
   avgResponseTime: number;
   requestCount: number;
   successRate: number;

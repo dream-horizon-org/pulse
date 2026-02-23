@@ -29,6 +29,7 @@ internal class SlowRenderListener(
     private val pollInterval: Duration,
 ) : DefaultingActivityLifecycleCallbacks {
     private val activities: ConcurrentMap<Activity, PerActivityListener> = ConcurrentHashMap()
+    private var lastNormalFrameDataTimeInMs: Long = 0
 
     constructor(jankReporter: JankReporter, pollInterval: Duration) : this(
         jankReporter,
@@ -61,12 +62,16 @@ internal class SlowRenderListener(
         if (executorService.isShutdown) {
             return
         }
+
+        fun ensureMaxCountNotExceeded() {
+            if (FrameDataHelper.frameDataEvents.size > FrameDataHelper.FRAME_EVENTS_MAX_COUNT) {
+                FrameDataHelper.frameDataEvents.removeFirst()
+            }
+        }
         val listener =
             PerActivityListener(activity) { frameData ->
                 if (frameData.type != PerActivityListener.FrameData.NORMAL) {
-                    if (FrameDataHelper.frameDataEvents.size > FrameDataHelper.FRAME_EVENTS_MAX_COUNT) {
-                        FrameDataHelper.frameDataEvents.removeLast()
-                    }
+                    ensureMaxCountNotExceeded()
                     val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
                     FrameDataHelper.frameDataEvents.add(
                         FrameDataHelper.CumulativeFrameData(
@@ -75,19 +80,33 @@ internal class SlowRenderListener(
                             unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
                             slowFrameCount =
                                 (
-                                    lastEvent?.slowFrameCount
-                                        ?: 0
+                                    lastEvent?.slowFrameCount ?: 0
                                 ) + if (frameData.type == PerActivityListener.FrameData.SLOW) 1 else 0,
                             frozenFrameCount =
                                 (
-                                    lastEvent?.frozenFrameCount
-                                        ?: 0
+                                    lastEvent?.frozenFrameCount ?: 0
                                 ) + if (frameData.type == PerActivityListener.FrameData.FROZEN) 1 else 0,
                         ),
                     )
                 } else {
                     FrameDataHelper.totalAnalysedFrames += 1
                     FrameDataHelper.totalUnanalysedDroppedFrames += frameData.unanalysedFrameSinceLastCall
+
+                    val currentTimeInMs = System.currentTimeMillis()
+                    if (lastNormalFrameDataTimeInMs == 0L || currentTimeInMs - lastNormalFrameDataTimeInMs >= THRESHOLD_ADD_DATA_IN_MS) {
+                        ensureMaxCountNotExceeded()
+                        val lastEvent = FrameDataHelper.frameDataEvents.lastOrNull()
+                        FrameDataHelper.frameDataEvents.add(
+                            FrameDataHelper.CumulativeFrameData(
+                                timeInMs = currentTimeInMs,
+                                analysedFrameCount = FrameDataHelper.totalAnalysedFrames,
+                                unanalysedFrameCount = FrameDataHelper.totalUnanalysedDroppedFrames,
+                                slowFrameCount = lastEvent?.slowFrameCount ?: 0,
+                                frozenFrameCount = lastEvent?.frozenFrameCount ?: 0,
+                            ),
+                        )
+                        lastNormalFrameDataTimeInMs = currentTimeInMs
+                    }
                 }
             }
         val existing = activities.putIfAbsent(activity, listener)
@@ -121,6 +140,7 @@ internal class SlowRenderListener(
     }
 
     companion object {
+        private const val THRESHOLD_ADD_DATA_IN_MS = 1000L
         private val frameMetricsThread = HandlerThread("FrameMetricsCollector")
 
         private fun startFrameMetricsLoop(): Looper {

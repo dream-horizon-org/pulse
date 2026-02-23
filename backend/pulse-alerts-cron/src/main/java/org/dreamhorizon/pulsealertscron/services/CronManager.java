@@ -29,24 +29,28 @@ public class CronManager {
   private static final long INITIAL_RETRY_DELAY_MS = 1000; // 1 second
   private static final long REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
-  public Single<CronManagerDto> addCronTask(Integer id, String url, Integer interval) {
+  public Single<CronManagerDto> addCronTask(Integer id, String url, Integer interval, String tenantId) {
     try {
-      CronTask newTask = new CronTask(id, url);
+      CronTask newTask = CronTask.builder()
+          .id(id)
+          .url(url)
+          .tenantId(tenantId)
+          .build();
       cronGroups.computeIfAbsent(interval, k -> {
         startTimerForInterval(k);
         return new CopyOnWriteArrayList<>();
       }).add(newTask);
 
-      log.info("cron added: " + id + " for interval: " + interval);
+      log.info("cron added: " + id + " for interval: " + interval + " tenant: " + tenantId);
       return Single.just(CronManagerDto.builder().status("success").build());
     } catch (Exception e) {
       return Single.just(CronManagerDto.builder().status("failure").failureReason(e.getMessage()).build());
     }
   }
 
-  public void modifyCronTask(Integer id, String newUrl, Integer newInterval, Integer oldInterval) {
+  public void modifyCronTask(Integer id, String tenantId, String newUrl, Integer newInterval, Integer oldInterval) {
     removeCronTask(id, oldInterval);
-    addCronTask(id, newUrl, newInterval).subscribe();
+    addCronTask(id, newUrl, newInterval, tenantId).subscribe();
   }
 
   public void removeCronTask(Integer id, Integer interval) {
@@ -81,8 +85,8 @@ public class CronManager {
     List<CronTask> tasks = cronGroups.get(interval);
     if (tasks != null) {
       tasks.forEach(task -> {
-        log.info("Executing task: {}", task.getId());
-        triggerEvaluation(task.getUrl());
+        log.info("Executing task: {} for tenant: {}", task.getId(), task.getTenantId());
+        triggerEvaluation(task.getUrl(), task.getTenantId());
       });
     } else {
       log.info("No tasks found for interval: {}", interval);
@@ -90,26 +94,28 @@ public class CronManager {
     }
   }
 
-  private void triggerEvaluation(String evaluationUrl) {
-    log.info("Triggering evaluation for url: {}", evaluationUrl);
+  private void triggerEvaluation(String evaluationUrl, String tenantId) {
+    log.info("Triggering evaluation for url: {} tenant: {}", evaluationUrl, tenantId);
 
     AtomicInteger attemptCounter = new AtomicInteger(0);
     long startTime = System.currentTimeMillis();
 
-    makeRequestWithRetry(evaluationUrl, attemptCounter, startTime)
+    makeRequestWithRetry(evaluationUrl, tenantId, attemptCounter, startTime)
         .subscribe(
             response -> {
               long duration = System.currentTimeMillis() - startTime;
-              log.info("✅ Evaluation successful for url: {} | Status: {} | Duration: {}ms | Attempts: {}",
+              log.info("✅ Evaluation successful for url: {} tenant: {} | Status: {} | Duration: {}ms | Attempts: {}",
                   evaluationUrl,
+                  tenantId,
                   response.statusCode(),
                   duration,
                   attemptCounter.get());
             },
             error -> {
               long duration = System.currentTimeMillis() - startTime;
-              log.error("❌ Evaluation failed for url: {} | Duration: {}ms | Attempts: {} | Error: {}",
+              log.error("❌ Evaluation failed for url: {} tenant: {} | Duration: {}ms | Attempts: {} | Error: {}",
                   evaluationUrl,
+                  tenantId,
                   duration,
                   attemptCounter.get(),
                   error.getMessage());
@@ -119,6 +125,7 @@ public class CronManager {
 
   private Single<HttpResponse<Buffer>> makeRequestWithRetry(
       String url,
+      String tenantId,
       AtomicInteger attemptCounter,
       long startTime) {
 
@@ -126,11 +133,12 @@ public class CronManager {
       int currentAttempt = attemptCounter.incrementAndGet();
 
       if (currentAttempt > 1) {
-        log.info("🔄 Retry attempt {} for url: {}", currentAttempt, url);
+        log.info("🔄 Retry attempt {} for url: {} tenant: {}", currentAttempt, url, tenantId);
       }
 
       return webClient
           .getAbs(url)
+          .putHeader("X-Tenant-ID", tenantId)
           .timeout(REQUEST_TIMEOUT_MS)
           .rxSend()
           .flatMap(response -> {
@@ -141,12 +149,12 @@ public class CronManager {
             }
 
             if (statusCode >= 400 && statusCode < 500) {
-              log.warn("⚠️ Client error {} for url: {} - Not retrying", statusCode, url);
+              log.warn("⚠️ Client error {} for url: {} tenant: {} - Not retrying", statusCode, url, tenantId);
               return Single.just(response);
             }
 
             if (statusCode >= 500) {
-              String errorMsg = String.format("Server error %d for url: %s", statusCode, url);
+              String errorMsg = String.format("Server error %d for url: %s tenant: %s", statusCode, url, tenantId);
               log.warn("⚠️ {} - Will retry if attempts remaining", errorMsg);
               return Single.error(new RuntimeException(errorMsg));
             }
@@ -157,17 +165,18 @@ public class CronManager {
             if (currentAttempt < MAX_RETRY_ATTEMPTS) {
               long delayMs = calculateBackoffDelay(currentAttempt);
 
-              log.warn("⏳ Retrying after {}ms delay (attempt {}/{}) for url: {} | Error: {}",
+              log.warn("⏳ Retrying after {}ms delay (attempt {}/{}) for url: {} tenant: {} | Error: {}",
                   delayMs,
                   currentAttempt,
                   MAX_RETRY_ATTEMPTS,
                   url,
+                  tenantId,
                   error.getMessage());
 
               return Single.timer(delayMs, TimeUnit.MILLISECONDS)
-                  .flatMap(tick -> makeRequestWithRetry(url, attemptCounter, startTime));
+                  .flatMap(tick -> makeRequestWithRetry(url, tenantId, attemptCounter, startTime));
             } else {
-              log.error("❌ Max retry attempts ({}) exhausted for url: {}", MAX_RETRY_ATTEMPTS, url);
+              log.error("❌ Max retry attempts ({}) exhausted for url: {} tenant: {}", MAX_RETRY_ATTEMPTS, url, tenantId);
               return Single.error(error);
             }
           });

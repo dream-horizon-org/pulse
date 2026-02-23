@@ -1,11 +1,9 @@
 package org.dreamhorizon.pulseserver.service.alert.core;
 
-import afu.org.checkerframework.checker.nullness.qual.Nullable;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.Vertx;
@@ -84,7 +82,7 @@ public class AlertEvaluationService {
           }
 
           Map<QueryRequest.DataType, List<String>> metricsByDataType = groupMetricsByDataType(scopes, alertDetails.getScope());
-          
+
           List<Single<PerformanceMetricDistributionRes>> querySingles = new ArrayList<>();
           for (Map.Entry<QueryRequest.DataType, List<String>> entry : metricsByDataType.entrySet()) {
             QueryRequest.DataType dataType = entry.getKey();
@@ -141,7 +139,7 @@ public class AlertEvaluationService {
       List<AlertsDao.AlertScopeDetails> scopes, String alertScope) {
     Map<QueryRequest.DataType, List<String>> metricsByDataType = new HashMap<>();
     Set<String> compositeMetrics = new HashSet<>();
-    
+
     for (AlertsDao.AlertScopeDetails scope : scopes) {
       List<Map<String, Object>> alerts = parseConditionsArray(scope.getConditions());
       if (alerts != null) {
@@ -150,14 +148,14 @@ public class AlertEvaluationService {
           if (metric != null) {
             if (MetricToFunctionMapper.isCompositeMetric(metric)) {
               compositeMetrics.add(metric);
-              MetricToFunctionMapper.CompositeMetricComponents components = 
+              MetricToFunctionMapper.CompositeMetricComponents components =
                   MetricToFunctionMapper.getCompositeMetricComponents(metric, alertScope);
               if (components != null) {
                 metricsByDataType.computeIfAbsent(components.totalMetricDataType, k -> new ArrayList<>())
                     .add(components.tracesMetric);
                 metricsByDataType.computeIfAbsent(QueryRequest.DataType.EXCEPTIONS, k -> new ArrayList<>())
                     .add(components.exceptionsMetric);
-                log.debug("Composite metric {} requires {} ({}) and {} (EXCEPTIONS)", 
+                log.debug("Composite metric {} requires {} ({}) and {} (EXCEPTIONS)",
                     metric, components.tracesMetric, components.totalMetricDataType, components.exceptionsMetric);
               }
             } else {
@@ -170,23 +168,23 @@ public class AlertEvaluationService {
         }
       }
     }
-    
+
     for (Map.Entry<QueryRequest.DataType, List<String>> entry : metricsByDataType.entrySet()) {
       List<String> uniqueMetrics = new ArrayList<>(new HashSet<>(entry.getValue()));
       entry.setValue(uniqueMetrics);
     }
-    
+
     if (metricsByDataType.size() > 1 || !compositeMetrics.isEmpty()) {
       log.debug("Metrics grouped by datatype: {}, composite metrics: {}", metricsByDataType, compositeMetrics);
     }
-    
+
     return metricsByDataType;
   }
 
-  private QueryRequest buildQueryRequest(AlertsDao.AlertDetails alertDetails, 
-                                        List<AlertsDao.AlertScopeDetails> scopes,
-                                        List<String> metrics,
-                                        QueryRequest.DataType dataType) {
+  private QueryRequest buildQueryRequest(AlertsDao.AlertDetails alertDetails,
+                                         List<AlertsDao.AlertScopeDetails> scopes,
+                                         List<String> metrics,
+                                         QueryRequest.DataType dataType) {
     Integer evaluationPeriod = alertDetails.getEvaluationPeriod();
     String bucket = evaluationPeriod + "m";
     ZonedDateTime endTime = ZonedDateTime.now(ZoneId.of("UTC"));
@@ -284,7 +282,7 @@ public class AlertEvaluationService {
     if (!isAppVitals) {
       groupBy.add("t1");
       groupBy.add(getScopeFieldAlias(alertDetails.getScope()));
-      
+
       if ("NETWORK_API".equalsIgnoreCase(alertDetails.getScope()) && dataType == QueryRequest.DataType.TRACES) {
         groupBy.add("method");
       }
@@ -297,6 +295,7 @@ public class AlertEvaluationService {
     queryRequest.setFilters(filters);
     queryRequest.setGroupBy(groupBy);
     queryRequest.setLimit(1000);
+    queryRequest.setTenantId(alertDetails.getTenantId());
 
     return queryRequest;
   }
@@ -327,7 +326,7 @@ public class AlertEvaluationService {
     return scopeNames;
   }
 
-  private void addPulseTypeFilter(List<QueryRequest.Filter> filters, QueryRequest.DataType dataType, 
+  private void addPulseTypeFilter(List<QueryRequest.Filter> filters, QueryRequest.DataType dataType,
                                   boolean isAppVitals, String scope) {
     if (dataType == QueryRequest.DataType.LOGS && isAppVitals) {
       QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
@@ -335,7 +334,7 @@ public class AlertEvaluationService {
       pulseTypeFilter.setOperator(QueryRequest.Operator.EQ);
       pulseTypeFilter.setValue(new ArrayList<Object>(List.of("session.start")));
       filters.add(pulseTypeFilter);
-    } else if (!isAppVitals && dataType == QueryRequest.DataType.TRACES 
+    } else if (!isAppVitals && dataType == QueryRequest.DataType.TRACES
         && scope != null && !scope.isEmpty()) {
       QueryRequest.Filter pulseTypeFilter = new QueryRequest.Filter();
       pulseTypeFilter.setField("PulseType");
@@ -369,12 +368,12 @@ public class AlertEvaluationService {
 
     List<String> mergedFields = new ArrayList<>();
     Set<String> seenFields = new HashSet<>();
-    
+
     for (PerformanceMetricDistributionRes result : results) {
       if (result.getFields() != null) {
         for (String field : result.getFields()) {
           String lowerField = field.toLowerCase();
-          if ((lowerField.equals("t1") || lowerField.equals("method") || lowerField.contains("name")) 
+          if ((lowerField.equals("t1") || lowerField.equals("method") || lowerField.contains("name"))
               && !seenFields.contains(field)) {
             mergedFields.add(field);
             seenFields.add(field);
@@ -382,12 +381,12 @@ public class AlertEvaluationService {
         }
       }
     }
-    
+
     for (PerformanceMetricDistributionRes result : results) {
       if (result.getFields() != null) {
         for (String field : result.getFields()) {
           String lowerField = field.toLowerCase();
-          if (!lowerField.equals("t1") && !lowerField.equals("method") && !lowerField.contains("name") 
+          if (!lowerField.equals("t1") && !lowerField.equals("method") && !lowerField.contains("name")
               && !seenFields.contains(field)) {
             mergedFields.add(field);
             seenFields.add(field);
@@ -411,7 +410,7 @@ public class AlertEvaluationService {
       for (List<String> row : result.getRows()) {
         String rowKey = buildRowKey(row, fieldIndexMap);
         Map<String, String> mergedRow = mergedRowsMap.computeIfAbsent(rowKey, k -> new HashMap<>());
-        
+
         for (int i = 0; i < result.getFields().size() && i < row.size(); i++) {
           String fieldName = result.getFields().get(i);
           String value = row.get(i);
@@ -441,23 +440,23 @@ public class AlertEvaluationService {
     Integer t1Index = fieldIndexMap.get("t1");
     Integer scopeIndex = findScopeFieldIndex(fieldIndexMap);
     Integer methodIndex = fieldIndexMap.get("method");
-    
+
     StringBuilder keyBuilder = new StringBuilder();
-    
+
     if (t1Index != null && row.size() > t1Index) {
       keyBuilder.append(row.get(t1Index));
     }
     keyBuilder.append("|");
-    
+
     if (methodIndex != null && row.size() > methodIndex) {
       keyBuilder.append(row.get(methodIndex));
       keyBuilder.append("|");
     }
-    
+
     if (scopeIndex != null && row.size() > scopeIndex) {
       keyBuilder.append(row.get(scopeIndex));
     }
-    
+
     String key = keyBuilder.toString();
     return key.isEmpty() || key.equals("|") ? "default" : key;
   }
@@ -529,7 +528,7 @@ public class AlertEvaluationService {
           continue;
         }
 
-        Float metricValue = getMetricValue(metric, queryResult, fieldIndexMap, interactionName, 
+        Float metricValue = getMetricValue(metric, queryResult, fieldIndexMap, interactionName,
             scopeFieldAlias, isAppVitals, alertDetails.getScope());
 
         boolean isFiring = evaluateMetric(metricValue, threshold, operator);
@@ -581,7 +580,7 @@ public class AlertEvaluationService {
                                Map<String, Integer> fieldIndexMap, String interactionName,
                                String scopeFieldAlias, boolean isAppVitals, String scope) {
     if (MetricToFunctionMapper.isCompositeMetric(metric)) {
-      return calculateCompositeMetric(metric, queryResult, fieldIndexMap, 
+      return calculateCompositeMetric(metric, queryResult, fieldIndexMap,
           interactionName, scopeFieldAlias, isAppVitals, scope);
     }
 
@@ -595,7 +594,7 @@ public class AlertEvaluationService {
       return getMetricValueFromFirstRow(queryResult, metricIndex);
     }
 
-    return getMetricValueFromRows(queryResult, metricIndex, fieldIndexMap, interactionName, 
+    return getMetricValueFromRows(queryResult, metricIndex, fieldIndexMap, interactionName,
         scopeFieldAlias, scope);
   }
 
@@ -610,8 +609,8 @@ public class AlertEvaluationService {
   }
 
   private Float getMetricValueFromRows(PerformanceMetricDistributionRes queryResult, Integer metricIndex,
-                                      Map<String, Integer> fieldIndexMap, String interactionName,
-                                      String scopeFieldAlias, String scope) {
+                                       Map<String, Integer> fieldIndexMap, String interactionName,
+                                       String scopeFieldAlias, String scope) {
     Integer scopeFieldIndex = fieldIndexMap.get(scopeFieldAlias);
     if (scopeFieldIndex == null) {
       log.warn("Scope field {} not found in query results", scopeFieldAlias);
@@ -624,7 +623,7 @@ public class AlertEvaluationService {
     for (List<String> row : queryResult.getRows()) {
       if (row.size() > metricIndex && row.size() > scopeFieldIndex) {
         String rowScopeName = row.get(scopeFieldIndex);
-        
+
         if (isNetworkApi && methodIndex != null && row.size() > methodIndex) {
           if (matchesNetworkApiScope(interactionName, row.get(methodIndex), rowScopeName)) {
             return parseMetricValue(row.get(metricIndex));
@@ -676,16 +675,16 @@ public class AlertEvaluationService {
     }
   }
 
-  private Float calculateCompositeMetric(String compositeMetric, 
-                                        PerformanceMetricDistributionRes queryResult,
-                                        Map<String, Integer> fieldIndexMap,
-                                        String interactionName,
-                                        String scopeFieldAlias,
-                                        boolean isAppVitals,
-                                        String scope) {
-    MetricToFunctionMapper.CompositeMetricComponents components = 
+  private Float calculateCompositeMetric(String compositeMetric,
+                                         PerformanceMetricDistributionRes queryResult,
+                                         Map<String, Integer> fieldIndexMap,
+                                         String interactionName,
+                                         String scopeFieldAlias,
+                                         boolean isAppVitals,
+                                         String scope) {
+    MetricToFunctionMapper.CompositeMetricComponents components =
         MetricToFunctionMapper.getCompositeMetricComponents(compositeMetric, scope);
-    
+
     if (components == null) {
       log.warn("Could not get components for composite metric: {}", compositeMetric);
       return null;
@@ -695,8 +694,8 @@ public class AlertEvaluationService {
     Integer exceptionsMetricIndex = fieldIndexMap.get(components.exceptionsMetric.toLowerCase());
 
     if (tracesMetricIndex == null || exceptionsMetricIndex == null) {
-      log.warn("Base metrics not found for composite metric {}: {}={}, {}={}", 
-          compositeMetric, components.tracesMetric, tracesMetricIndex, 
+      log.warn("Base metrics not found for composite metric {}: {}={}, {}={}",
+          compositeMetric, components.tracesMetric, tracesMetricIndex,
           components.exceptionsMetric, exceptionsMetricIndex);
       return null;
     }
@@ -723,17 +722,17 @@ public class AlertEvaluationService {
       Integer methodIndex = isNetworkApi ? fieldIndexMap.get("method") : null;
 
       for (List<String> row : queryResult.getRows()) {
-        if (row.size() > tracesMetricIndex && row.size() > exceptionsMetricIndex 
+        if (row.size() > tracesMetricIndex && row.size() > exceptionsMetricIndex
             && row.size() > scopeFieldIndex) {
           String rowScopeName = row.get(scopeFieldIndex);
-          
+
           boolean matches = false;
           if (isNetworkApi && methodIndex != null && row.size() > methodIndex) {
             matches = matchesNetworkApiScope(interactionName, row.get(methodIndex), rowScopeName);
           } else {
             matches = interactionName.equals(rowScopeName);
           }
-          
+
           if (matches) {
             totalValue = parseMetricValue(row.get(tracesMetricIndex));
             exceptionValue = parseMetricValue(row.get(exceptionsMetricIndex));
@@ -753,9 +752,9 @@ public class AlertEvaluationService {
     }
 
     float percentage = ((totalValue - exceptionValue) / totalValue) * 100.0f;
-    log.debug("Calculated {}: total={}, exception={}, percentage={}", 
+    log.debug("Calculated {}: total={}, exception={}, percentage={}",
         compositeMetric, totalValue, exceptionValue, percentage);
-    
+
     return percentage;
   }
 
@@ -964,7 +963,7 @@ public class AlertEvaluationService {
 
     String message = buildNotificationMessage(responseDto, scopeName, metricReading);
     Integer notificationChannelId = responseDto.getAlert().getNotificationChannelId();
-    
+
     alertsDao.getNotificationChannelById(notificationChannelId)
         .subscribe(
             channelInfo -> {
@@ -1070,7 +1069,7 @@ public class AlertEvaluationService {
       log.error("Notification config is empty for type: {}", type);
       return;
     }
-    
+
     if ("slack".equalsIgnoreCase(type)) {
       JsonObject payload = new JsonObject().put("text", message);
       WebClient.create(vertx)
@@ -1085,12 +1084,12 @@ public class AlertEvaluationService {
               log.error("Slack notification failed with status: {}", response.statusCode());
             }
           }, error -> log.error("Slack notification sending error", error));
-          
+
     } else if ("email".equalsIgnoreCase(type)) {
       // TODO: Implement email sending logic
       // For now, log the email notification
       log.info("Email notification would be sent to {} with message: {}", config, message);
-      
+
     } else {
       log.error("Unsupported notification type: {}", type);
     }
@@ -1136,7 +1135,7 @@ public class AlertEvaluationService {
     return alertsDao.createEvaluationHistory(scopeId, evaluationResult, state);
   }
 
-  private @Nullable AlertEvaluationResponseDto getAlertEvaluationResponseDto(Message<Object> message) {
+  private AlertEvaluationResponseDto getAlertEvaluationResponseDto(Message<Object> message) {
     AlertEvaluationResponseDto responseDto;
     try {
       responseDto = objectMapper.readValue(message.body().toString(), AlertEvaluationResponseDto.class);
@@ -1170,7 +1169,7 @@ public class AlertEvaluationService {
     if (scope == null || scope.isEmpty()) {
       return "SpanName";
     }
-    
+
     if (dataType == QueryRequest.DataType.EXCEPTIONS) {
       return switch (scope.toUpperCase()) {
         case "SCREEN" -> "ScreenName";
@@ -1178,7 +1177,7 @@ public class AlertEvaluationService {
         default -> "SpanName";
       };
     }
-    
+
     return switch (scope.toUpperCase()) {
       case "INTERACTION" -> "SpanName";
       case "SCREEN" -> "SpanAttributes['screen.name']";

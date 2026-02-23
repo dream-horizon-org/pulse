@@ -84,8 +84,22 @@ const fetchSessionLogs = async (sessionId: string, timeRange: { start: string; e
       { function: "COL", param: { field: "SpanId" }, alias: "spanId" },
       { function: "COL", param: { field: "Timestamp" }, alias: "timestamp" },
       { function: "COL", param: { field: "SeverityText" }, alias: "severityText" },
+      { function: "COL", param: { field: "SeverityNumber" }, alias: "severityNumber" },
       { function: "COL", param: { field: "Body" }, alias: "body" },
       { function: "COL", param: { field: "PulseType" }, alias: "pulseType" },
+      { function: "COL", param: { field: "ServiceName" }, alias: "serviceName" },
+      { function: "COL", param: { field: "ScopeName" }, alias: "scopeName" },
+      // Include log attributes as JSON for display in sidebar
+      {
+        function: "CUSTOM",
+        param: { expression: "toJSONString(LogAttributes)" },
+        alias: "logAttributesJson",
+      },
+      {
+        function: "CUSTOM",
+        param: { expression: "toJSONString(ResourceAttributes)" },
+        alias: "resourceAttributesJson",
+      },
     ],
     filters: [
       {

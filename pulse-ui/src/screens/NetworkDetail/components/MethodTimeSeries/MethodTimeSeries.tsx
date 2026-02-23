@@ -3,7 +3,11 @@ import { Box, Text } from "@mantine/core";
 import { IconChartLine, IconActivity } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
-import { AreaChart } from "../../../../components/Charts";
+import {
+  AreaChart,
+  CustomToolTip,
+  createTooltipFormatter,
+} from "../../../../components/Charts";
 import { ChartSkeleton } from "../../../../components/Skeletons";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
@@ -24,18 +28,38 @@ const METHOD_COLORS: Record<string, string> = {
   UNKNOWN: "#6c757d", // Gray
 };
 
+const OPERATION_TYPE_COLORS: Record<string, string> = {
+  QUERY: "#3b82f6",
+  MUTATION: "#f59e0b",
+  SUBSCRIPTION: "#8b5cf6",
+  UNKNOWN: "#6c757d",
+};
+
 export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
   url,
   startTime,
   endTime,
   additionalFilters = [],
+  mode = "http_method",
+  queryResult,
 }) => {
+  const isGraphqlMode = mode === "graphql_operation_type";
+  const dimensionLabel = isGraphqlMode ? "Operation Type Trend" : "HTTP Method Trend";
+  const dimensionDescription = isGraphqlMode
+    ? "Request types over time"
+    : "Request methods over time";
+  const dimensionExpression = isGraphqlMode
+    ? "SpanAttributes['graphql.operation.type']"
+    : "SpanAttributes['http.method']";
+  const dimensionAlias = isGraphqlMode ? "operation_type" : "http_method";
+
   const bucketSize = useMemo(
     () => getTimeBucketSize(startTime, endTime),
     [startTime, endTime]
   );
 
   // Query for time series data grouped by HTTP method
+  const shouldFetch = !queryResult;
   const { data, isLoading, error } = useGetDataQuery({
     requestBody: {
       dataType: "TRACES",
@@ -49,9 +73,9 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.method']",
+            expression: dimensionExpression,
           },
-          alias: "http_method",
+          alias: dimensionAlias,
         },
         {
           function: "CUSTOM" as const,
@@ -61,7 +85,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
           alias: "request_count",
         },
       ],
-      groupBy: ["t1", "http_method"],
+      groupBy: ["t1", dimensionAlias],
       filters: [
         {
           field: "PulseType",
@@ -82,25 +106,28 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
         },
       ],
     },
-    enabled: !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
+  const resolvedData = queryResult?.data ?? data;
+  const resolvedLoading = queryResult?.isLoading ?? isLoading;
+  const resolvedError = queryResult?.error ?? error;
 
   // Transform data into time series format
   const { seriesData, timePoints, methods } = useMemo(() => {
-    if (!data?.data?.rows || data.data.rows.length === 0) {
+    if (!resolvedData?.data?.rows || resolvedData.data.rows.length === 0) {
       return { seriesData: {}, timePoints: [], methods: [] };
     }
 
-    const fields = data.data.fields;
+    const fields = resolvedData.data.fields;
     const timeIndex = fields.indexOf("t1");
-    const methodIndex = fields.indexOf("http_method");
+    const methodIndex = fields.indexOf(dimensionAlias);
     const countIndex = fields.indexOf("request_count");
 
     // Collect all unique methods and group data by timestamp
     const methodSet = new Set<string>();
     const timeMap: Record<string, Record<string, number>> = {};
 
-    data.data.rows.forEach((row) => {
+    resolvedData.data.rows.forEach((row: any) => {
       const timestamp = row[timeIndex];
       const method = String(row[methodIndex] || "UNKNOWN").toUpperCase();
       const count = parseFloat(String(row[countIndex])) || 0;
@@ -127,13 +154,23 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
 
     sortedTimes.forEach((time) => {
       const data = timeMap[time];
+      const total = allMethods.reduce(
+        (sum, method) => sum + (data[method] || 0),
+        0
+      );
       allMethods.forEach((method) => {
-        series[method].push(data[method] || 0);
+        const value = data[method] || 0;
+        const normalized = isGraphqlMode
+          ? total > 0
+            ? (value / total) * 100
+            : 0
+          : value;
+        series[method].push(normalized);
       });
     });
 
     return { seriesData: series, timePoints: sortedTimes, methods: allMethods };
-  }, [data]);
+  }, [resolvedData, dimensionAlias, isGraphqlMode]);
 
   // Check if there's any data
   const hasData = timePoints.length > 0;
@@ -145,15 +182,22 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
       .map((method) => ({
         name: method,
         type: "line" as const,
-        stack: "total",
-        areaStyle: { opacity: 0.4 },
         emphasis: { focus: "series" as const },
-        color: METHOD_COLORS[method] || "#6c757d",
+        color: isGraphqlMode
+          ? OPERATION_TYPE_COLORS[method] || "#6c757d"
+          : METHOD_COLORS[method] || "#6c757d",
         data: seriesData[method] || [],
         smooth: true,
         showSymbol: false,
+        lineStyle: { width: 2 },
+        ...(isGraphqlMode
+          ? {}
+          : {
+              stack: "total",
+              areaStyle: { opacity: 0.4 },
+            }),
       }));
-  }, [methods, seriesData]);
+  }, [methods, seriesData, isGraphqlMode]);
 
   // Format time for display
   const formatTime = (timestamp: string) => {
@@ -166,7 +210,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
     return date.format("HH:mm");
   };
 
-  if (error || data?.error) {
+  if (resolvedError || resolvedData?.error) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -174,10 +218,8 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
             <IconActivity size={18} />
           </Box>
           <Box className={classes.headerContent}>
-            <Text className={classes.title}>HTTP Method Trend</Text>
-            <Text className={classes.description}>
-              Request methods over time
-            </Text>
+            <Text className={classes.title}>{dimensionLabel}</Text>
+            <Text className={classes.description}>{dimensionDescription}</Text>
           </Box>
         </Box>
         <ErrorAndEmptyState message="Failed to load method trend. Please try again." />
@@ -185,7 +227,7 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
     );
   }
 
-  if (isLoading) {
+  if (resolvedLoading) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -193,10 +235,8 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
             <IconActivity size={18} />
           </Box>
           <Box className={classes.headerContent}>
-            <Text className={classes.title}>HTTP Method Trend</Text>
-            <Text className={classes.description}>
-              Request methods over time
-            </Text>
+            <Text className={classes.title}>{dimensionLabel}</Text>
+            <Text className={classes.description}>{dimensionDescription}</Text>
           </Box>
         </Box>
         <ChartSkeleton height={280} />
@@ -212,10 +252,8 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
             <IconActivity size={18} />
           </Box>
           <Box className={classes.headerContent}>
-            <Text className={classes.title}>HTTP Method Trend</Text>
-            <Text className={classes.description}>
-              Request methods over time
-            </Text>
+            <Text className={classes.title}>{dimensionLabel}</Text>
+            <Text className={classes.description}>{dimensionDescription}</Text>
           </Box>
         </Box>
         <Box className={classes.emptyState}>
@@ -235,9 +273,9 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
           <IconActivity size={18} />
         </Box>
         <Box className={classes.headerContent}>
-          <Text className={classes.title}>HTTP Method Trend</Text>
+          <Text className={classes.title}>{dimensionLabel}</Text>
           <Text className={classes.description}>
-            Spot traffic patterns over time
+            {isGraphqlMode ? "Spot operation patterns over time" : "Spot traffic patterns over time"}
           </Text>
         </Box>
       </Box>
@@ -254,30 +292,14 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
               bottom: 60,
             },
             tooltip: {
+              ...CustomToolTip,
               trigger: "axis",
               confine: true,
-              formatter: (params: any) => {
-                if (!params || !Array.isArray(params) || params.length === 0) return "";
-                const dataIndex = params[0]?.dataIndex;
-                const timestamp = timePoints[dataIndex];
-                const header = timestamp
-                  ? dayjs(timestamp).format("MMM DD, YYYY HH:mm")
-                  : params[0]?.axisValue || "";
-                
-                let content = `<div style="font-weight:600;margin-bottom:8px">${header}</div>`;
-                params.forEach((item: any) => {
-                  if (item.value > 0) {
-                    content += `
-                      <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${item.color}"></span>
-                        <span style="flex:1">${item.seriesName}</span>
-                        <span style="font-weight:600">${item.value.toLocaleString()}</span>
-                      </div>
-                    `;
-                  }
-                });
-                return content;
-              },
+              formatter: createTooltipFormatter({
+                valueFormatter: (value: number) =>
+                  isGraphqlMode ? `${value.toFixed(1)}%` : value.toLocaleString(),
+                customHeaderFormatter: (axisValue: any) => axisValue || "",
+              }),
             },
             legend: {
               bottom: 0,
@@ -295,11 +317,15 @@ export const MethodTimeSeries: React.FC<MethodTimeSeriesProps> = ({
             },
             yAxis: {
               type: "value",
-              name: "Requests",
+              name: isGraphqlMode ? "Percent" : "Requests",
               nameTextStyle: { fontSize: 11 },
+              min: isGraphqlMode ? 0 : undefined,
+              max: isGraphqlMode ? 100 : undefined,
+              interval: isGraphqlMode ? 20 : undefined,
               axisLabel: {
                 fontSize: 10,
                 formatter: (value: number) => {
+                  if (isGraphqlMode) return `${value}%`;
                   if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
                   return value.toString();
                 },

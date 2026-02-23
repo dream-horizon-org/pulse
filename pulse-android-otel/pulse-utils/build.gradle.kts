@@ -26,6 +26,8 @@ dependencies {
     implementation(libs.kotlin.serialisation)
     implementation(libs.kotlin.coroutines)
     implementation(libs.play.services.tasks)
+    // we are exposing okHttp types and having api enabled clients to use it without declaring okHttp dependency
+    api(libs.okhttp)
     testImplementation(libs.bundles.junit)
     testImplementation(projects.testCommon)
 }

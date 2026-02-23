@@ -18,6 +18,7 @@ export const useGetActiveSdkConfig = ({ enabled = true }: GetActiveSdkConfigPara
         init: {
           method: route.method,
         },
+        unwrapped: true,
       });
     },
     enabled,

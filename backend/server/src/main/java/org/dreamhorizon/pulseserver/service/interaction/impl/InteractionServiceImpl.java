@@ -23,6 +23,7 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -34,11 +35,12 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<InteractionDetails> createInteraction(@Valid CreateInteractionRequest request) {
+    String tenant = TenantContext.requireTenantId();
     return validateInteractionAlreadyPresent(request)
         .flatMap(resp -> interactionDao.createInteractionAndUploadMetadata(mapper.toInteractionDetails(request)))
         .flatMap(resp -> Single.just(resp.getInteractionDetails()))
         .doOnSuccess(resp -> uploadInteractionDetailService
-            .pushInteractionDetailsToObjectStore()
+            .pushInteractionDetailsToObjectStore(tenant)
             .subscribe())
         .doOnError(err -> log.error("error while creating interaction", err));
   }
@@ -57,11 +59,12 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<EmptyResponse> updateInteraction(@Valid UpdateInteractionRequest request) {
+    String tenant = TenantContext.requireTenantId();
     return getInteractionDetails(request.getName())
         .flatMap(interaction -> this.patchInteraction(request, interaction))
         .flatMap(resp -> Single.just(EmptyResponse.emptyResponse))
         .doOnSuccess(resp -> uploadInteractionDetailService
-            .pushInteractionDetailsToObjectStore()
+            .pushInteractionDetailsToObjectStore(tenant)
             .subscribe())
         .doOnError(err -> log.error("error while updating interaction", err));
   }
@@ -126,17 +129,18 @@ public class InteractionServiceImpl implements InteractionService {
 
   @Override
   public Single<EmptyResponse> deleteInteraction(DeleteInteractionRequest deleteInteractionRequest) {
+    String tenant = TenantContext.requireTenantId();
     return interactionDao
         .deleteInteractionAndCreateUploadMetadata(deleteInteractionRequest)
         .map(res -> EmptyResponse.emptyResponse)
         .doOnSuccess(resp -> uploadInteractionDetailService
-            .pushInteractionDetailsToObjectStore()
+            .pushInteractionDetailsToObjectStore(tenant)
             .subscribe());
   }
 
   @Override
   public Single<List<InteractionDetails>> getInteractionConfig() {
-    return interactionDao.getAllActiveAndRunningInteractions();
+    return interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
   }
 
   @Override

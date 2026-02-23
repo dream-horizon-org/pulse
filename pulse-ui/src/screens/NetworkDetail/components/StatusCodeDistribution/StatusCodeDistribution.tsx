@@ -37,7 +37,9 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
   startTime,
   endTime,
   additionalFilters = [],
+  queryResult,
 }) => {
+  const shouldFetch = !queryResult;
   // Query for all network requests grouped by status code category
   const { data, isLoading, error } = useGetDataQuery({
     requestBody: {
@@ -80,16 +82,19 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
         },
       ],
     },
-    enabled: !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
+  const resolvedData = queryResult?.data ?? data;
+  const resolvedLoading = queryResult?.isLoading ?? isLoading;
+  const resolvedError = queryResult?.error ?? error;
 
   // Transform and categorize status codes
   const { categories, totalRequests } = useMemo(() => {
-    if (!data?.data?.rows || data.data.rows.length === 0) {
+    if (!resolvedData?.data?.rows || resolvedData.data.rows.length === 0) {
       return { categories: [], totalRequests: 0 };
     }
 
-    const fields = data.data.fields;
+    const fields = resolvedData.data.fields;
     const countIndex = fields.indexOf("request_count");
     const statusCodeIndex = fields.indexOf("status_code");
 
@@ -101,7 +106,7 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
 
     let total = 0;
 
-    data.data.rows.forEach((row) => {
+    resolvedData.data.rows.forEach((row: any) => {
       const statusCode = String(row[statusCodeIndex] || "0");
       const count = parseFloat(String(row[countIndex])) || 0;
       total += count;
@@ -153,7 +158,7 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
       .sort((a, b) => b.count - a.count);
 
     return { categories: categoriesArray, totalRequests: Math.round(total) };
-  }, [data]);
+  }, [resolvedData]);
 
   // ECharts pie chart options
   const chartOption = useMemo(() => {
@@ -216,7 +221,8 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
     };
   }, [categories]);
 
-  if (error || data?.error) {
+  const hasError = resolvedError || resolvedData?.error;
+  if (hasError) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -235,7 +241,7 @@ export const StatusCodeDistribution: React.FC<StatusCodeDistributionProps> = ({
     );
   }
 
-  if (isLoading) {
+  if (resolvedLoading) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>

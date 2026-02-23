@@ -7,6 +7,11 @@ export interface StatusCodeDistributionProps {
     operator: "LIKE" | "EQ";
     value: string[];
   }>;
+  queryResult?: {
+    data?: any;
+    isLoading?: boolean;
+    error?: unknown;
+  };
 }
 
 export interface StatusCodeData {

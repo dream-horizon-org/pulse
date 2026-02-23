@@ -100,8 +100,8 @@ export const ErrorBreakdown: React.FC<ErrorBreakdownProps> = ({
 
     // Format error type for display
     const formatErrorType = (errorType: string): string => {
-      if (errorType === "_OTHER") {
-        return "Other Error";
+      if (!errorType || errorType === "_OTHER") {
+        return "Unknown Error Type";
       }
       // Convert snake_case or camelCase to Title Case
       return errorType

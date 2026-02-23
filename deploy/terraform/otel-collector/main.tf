@@ -106,10 +106,10 @@ resource "aws_lb_target_group" "otel" {
 # -------------------------------
 resource "aws_lb" "otel" {
   name               = "pulse-otel-collector-1-nlb"
-  internal           = false
+  internal           = true
   load_balancer_type = "network"
   security_groups    = var.nlb_security_group_ids
-  subnets            = var.public_subnet_ids
+  subnets            = var.private_subnet_ids
   drop_invalid_header_fields = true
   enable_deletion_protection = false
 }
@@ -117,10 +117,7 @@ resource "aws_lb" "otel" {
 resource "aws_lb_listener" "otel" {
   load_balancer_arn = aws_lb.otel.arn
   port              = 4318
-  protocol          = "TLS"
-
-  certificate_arn = var.acm_certificate_arn
-  ssl_policy = "ELBSecurityPolicy-2016-08"
+  protocol          = "TCP"
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.otel.arn

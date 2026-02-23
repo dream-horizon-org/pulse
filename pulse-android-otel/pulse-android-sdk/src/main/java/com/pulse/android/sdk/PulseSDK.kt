@@ -31,6 +31,7 @@ public interface PulseSDK {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
+        projectId: String,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity =
             HttpEndpointConnectivity.forTraces(
@@ -52,6 +53,11 @@ public interface PulseSDK {
          * If not provided, [logEndpointConnectivity] will be used
          */
         customEventConnectivity: EndpointConnectivity = logEndpointConnectivity,
+        /**
+         * Optional custom URL for fetching SDK configuration.
+         * If not provided, defaults to: {endpointBaseUrl with port 8080}/v1/configs/active/
+         */
+        configEndpointUrl: String? = null,
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
@@ -121,6 +127,12 @@ public interface PulseSDK {
     public fun getOtelOrNull(): OpenTelemetryRum?
 
     public fun getOtelOrThrow(): OpenTelemetryRum
+
+    /**
+     * Shuts down the Pulse SDK: flushes and releases OpenTelemetry resources and uninstalls
+     * instrumentation. After shutdown, the SDK cannot be re-initialized in this process.
+     */
+    public fun shutdown()
 
     public companion object {
         @JvmStatic

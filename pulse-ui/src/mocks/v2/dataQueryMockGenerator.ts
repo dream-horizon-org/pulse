@@ -204,6 +204,11 @@ export class DataQueryMockGeneratorV2 {
         groupBy?.includes("http_method") &&
         groupBy?.includes("t1");
 
+      const isOperationTypeTimeSeriesQuery =
+        hasNetworkFilterTimeSeries &&
+        groupBy?.includes("operation_type") &&
+        groupBy?.includes("t1");
+
       if (isStatusCodeTimeSeriesQuery) {
         const response = this.generateStatusCodeTimeSeriesResponse(requestBody);
         console.log(
@@ -214,7 +219,7 @@ export class DataQueryMockGeneratorV2 {
         return response;
       }
 
-      if (isMethodTimeSeriesQuery) {
+      if (isMethodTimeSeriesQuery || isOperationTypeTimeSeriesQuery) {
         const response = this.generateMethodTimeSeriesResponse(requestBody);
         console.log(
           "[DataQueryMockV2] Generated method time-series response:",
@@ -261,7 +266,9 @@ export class DataQueryMockGeneratorV2 {
         (groupBy?.includes("status_code") || groupBy?.includes("error_type")) &&
         !groupBy?.includes("method") &&
         !groupBy?.includes("url") &&
-        !groupBy?.includes("http_method"); // Exclude method distribution
+        !groupBy?.includes("http_method") &&
+        !groupBy?.includes("network_provider") &&
+        !groupBy?.includes("pulse_type"); // Exclude provider breakdown
 
       // Check if this is a STATUS CODE DISTRIBUTION query (groups by status_code only, has url filter)
       const urlFilter = filters?.find(
@@ -273,13 +280,15 @@ export class DataQueryMockGeneratorV2 {
         groupBy?.includes("status_code") &&
         !groupBy?.includes("error_type") &&
         !groupBy?.includes("method") &&
-        !groupBy?.includes("url");
+        !groupBy?.includes("url") &&
+        !groupBy?.includes("network_provider") &&
+        !groupBy?.includes("pulse_type");
 
-      // Check if this is a METHOD DISTRIBUTION query (groups by http_method, has url filter)
+      // Check if this is a METHOD/OPERATION TYPE DISTRIBUTION query (groups by http_method/operation_type, has url filter)
       const isMethodDistributionQuery =
         hasNetworkFilter &&
         urlFilter &&
-        groupBy?.includes("http_method") &&
+        (groupBy?.includes("http_method") || groupBy?.includes("operation_type")) &&
         !groupBy?.includes("status_code") &&
         !groupBy?.includes("method") &&
         !groupBy?.includes("url");
@@ -302,29 +311,31 @@ export class DataQueryMockGeneratorV2 {
         groupBy?.includes("url") &&
         !groupBy?.includes("method") &&
         !groupBy?.includes("status_code") &&
-        !groupBy?.includes("http_method");
+        !groupBy?.includes("http_method") &&
+        !groupBy?.includes("graphql_operation_name") &&
+        !groupBy?.includes("graphql_operation_type");
 
-      // Check if this is a network DETAIL query (has specific method and url filters, groups by method/url)
-      const methodFilter = filters?.find(
-        (f) => f.field === "SpanAttributes['http.method']" && f.operator === "EQ",
-      );
+      // Check if this is a network DETAIL query (has specific url filters, groups by url and optional GraphQL fields)
       const isNetworkDetailQuery =
         hasNetworkFilter &&
-        methodFilter &&
         urlFilter &&
-        groupBy?.includes("method") &&
-        groupBy?.includes("url");
+        groupBy?.includes("url") &&
+        (groupBy?.includes("method") ||
+          groupBy?.includes("graphql_operation_name") ||
+          groupBy?.includes("graphql_operation_type"));
 
       // Check if this is a network LIST query (groups by method and url, no specific filters)
       const isNetworkListQuery =
         hasNetworkFilter &&
-        groupBy?.includes("method") &&
+        !urlFilter &&
         groupBy?.includes("url") &&
+        (groupBy?.includes("method") ||
+          groupBy?.includes("graphql_operation_name") ||
+          groupBy?.includes("graphql_operation_type")) &&
         !isNetworkDetailQuery; // Exclude detail queries
 
       console.log("[DataQueryMockV2] Network detection:", {
         hasNetworkFilter,
-        methodFilter: !!methodFilter,
         urlFilter: !!urlFilter,
         isNetworkErrorBreakdownQuery,
         isStatusCodeDistributionQuery,
@@ -431,7 +442,10 @@ export class DataQueryMockGeneratorV2 {
                 .some((v: string) => v.includes("network.4")) ||
               f.value
                 .map((v) => String(v))
-                .some((v: string) => v.includes("network.5"))),
+                .some((v: string) => v.includes("network.5")) ||
+              f.value
+                .map((v) => String(v))
+                .some((v: string) => v.includes("network"))),
         );
 
       if (isNetworkIssuesByProvider) {
@@ -2780,47 +2794,90 @@ export class DataQueryMockGeneratorV2 {
       { method: "GET", url: "https://api.fancode.com/v1/leaderboard/contest" },
       { method: "GET", url: "https://api.fancode.com/v1/notifications/list" },
       { method: "POST", url: "https://api.fancode.com/v1/auth/refresh" },
-      { method: "POST", url: "https://www.fancode.com/graphql" },
+      {
+        method: "POST",
+        url: "https://www.fancode.com/graphql",
+        operationName: "GetContests",
+        operationType: "QUERY",
+      },
+      {
+        method: "POST",
+        url: "https://www.fancode.com/graphql",
+        operationName: "JoinContest",
+        operationType: "MUTATION",
+      },
+      {
+        method: "POST",
+        url: "https://www.fancode.com/graphql",
+        operationName: "SubscribeScores",
+        operationType: "SUBSCRIPTION",
+      },
       { method: "GET", url: "https://api.fancode.com/v1/config/app" },
     ];
 
-    // For detail query, filter to specific method and url
+    // For detail query, filter to specific url (and optional GraphQL operation)
     let filteredApis = networkApis;
     if (isDetailQuery) {
-      const methodFilter = filters?.find(
-        (f) =>
-          f.field === "SpanAttributes['http.method']" && f.operator === "EQ",
-      );
       const urlFilter = filters?.find(
         (f) => f.field === "SpanAttributes['http.url']" && f.operator === "EQ",
       );
+      const graphqlNameFilter = filters?.find(
+        (f) =>
+          f.field === "SpanAttributes['graphql.operation.name']" &&
+          f.operator === "EQ",
+      );
+      const graphqlTypeFilter = filters?.find(
+        (f) =>
+          f.field === "SpanAttributes['graphql.operation.type']" &&
+          f.operator === "EQ",
+      );
 
-      const targetMethod = methodFilter
-        ? Array.isArray(methodFilter.value)
-          ? String(methodFilter.value[0])
-          : String(methodFilter.value || "")
-        : "";
       const targetUrl = urlFilter
         ? Array.isArray(urlFilter.value)
           ? String(urlFilter.value[0])
           : String(urlFilter.value || "")
         : "";
+      const targetOperationName = graphqlNameFilter
+        ? Array.isArray(graphqlNameFilter.value)
+          ? String(graphqlNameFilter.value[0])
+          : String(graphqlNameFilter.value || "")
+        : "";
+      const targetOperationType = graphqlTypeFilter
+        ? Array.isArray(graphqlTypeFilter.value)
+          ? String(graphqlTypeFilter.value[0])
+          : String(graphqlTypeFilter.value || "")
+        : "";
 
       console.log("[DataQueryMockV2] Network detail query:", {
-        targetMethod,
         targetUrl,
-        methodFilter: methodFilter?.value,
         urlFilter: urlFilter?.value,
+        targetOperationName,
+        targetOperationType,
       });
 
       filteredApis = networkApis.filter(
-        (api) => api.method === targetMethod && api.url === targetUrl,
+        (api) =>
+          api.url === targetUrl &&
+          (!targetOperationName || api.operationName === targetOperationName) &&
+          (!targetOperationType || api.operationType === targetOperationType),
       );
 
       // If not found, create a single entry with the requested method and url
-      if (filteredApis.length === 0 && targetMethod && targetUrl) {
-        console.log("[DataQueryMockV2] Creating fallback API entry:", targetMethod, targetUrl);
-        filteredApis = [{ method: targetMethod, url: targetUrl }];
+      if (filteredApis.length === 0 && targetUrl) {
+        console.log("[DataQueryMockV2] Creating fallback API entry:", targetUrl);
+        const fallbackApi =
+          targetOperationName && targetOperationType
+            ? {
+                method: "POST",
+                url: targetUrl,
+                operationName: targetOperationName,
+                operationType: targetOperationType,
+              }
+            : {
+                method: "POST",
+                url: targetUrl,
+              };
+        filteredApis = [fallbackApi];
       }
 
       console.log("[DataQueryMockV2] Filtered APIs count:", filteredApis.length);
@@ -2836,6 +2893,32 @@ export class DataQueryMockGeneratorV2 {
         // In a real scenario, we'd filter by screen name, but for mock we'll return all
         // The screen name filter is handled by the backend in real queries
       }
+      const graphqlNameFilter = filters?.find(
+        (f) => f.field === "SpanAttributes['graphql.operation.name']",
+      );
+      const graphqlTypeFilter = filters?.find(
+        (f) => f.field === "SpanAttributes['graphql.operation.type']",
+      );
+      const searchName = graphqlNameFilter?.value
+        ? Array.isArray(graphqlNameFilter.value)
+          ? String(graphqlNameFilter.value[0] || "")
+          : String(graphqlNameFilter.value || "")
+        : "";
+      const searchType = graphqlTypeFilter?.value
+        ? Array.isArray(graphqlTypeFilter.value)
+          ? String(graphqlTypeFilter.value[0] || "")
+          : String(graphqlTypeFilter.value || "")
+        : "";
+      if (searchName) {
+        filteredApis = filteredApis.filter((api) =>
+          (api.operationName || "").toLowerCase().includes(searchName.replace(/%/g, "").toLowerCase()),
+        );
+      }
+      if (searchType) {
+        filteredApis = filteredApis.filter((api) =>
+          (api.operationType || "").toLowerCase().includes(searchType.replace(/%/g, "").toLowerCase()),
+        );
+      }
     }
 
     // For demo purposes, show aggregated data per API (not split by status code)
@@ -2846,7 +2929,7 @@ export class DataQueryMockGeneratorV2 {
       const row: string[] = [];
 
       // Pre-calculate values ONCE per API to ensure consistency
-      const apiSeed = api.method + api.url;
+      const apiSeed = `${api.method}${api.url}${api.operationName || ""}${api.operationType || ""}`;
       const baseRequestCount =
         api.method === "GET"
           ? this.randomCount(5000, 80000, apiSeed)
@@ -2882,6 +2965,12 @@ export class DataQueryMockGeneratorV2 {
             break;
           case "url":
             row.push(api.url);
+            break;
+          case "graphql_operation_name":
+            row.push(api.operationName || "");
+            break;
+          case "graphql_operation_type":
+            row.push(api.operationType || "");
             break;
           case "total_requests":
             row.push(baseRequestCount.toString());
@@ -3236,17 +3325,22 @@ export class DataQueryMockGeneratorV2 {
     // Base total requests (consistent with network metrics)
     const baseTotalRequests = 15000 + (seed % 70000);
 
-    // Realistic HTTP method distribution for a typical API endpoint
-    // GET and POST are most common, with some PUT, PATCH, DELETE
-    const methodData = [
-      { method: "GET", weight: 0.52 },     // Most common for data fetching
-      { method: "POST", weight: 0.26 },    // For creating/submitting data
-      { method: "PUT", weight: 0.09 },     // For full updates
-      { method: "PATCH", weight: 0.065 },  // For partial updates
-      { method: "DELETE", weight: 0.034 }, // For deletions
-      { method: "HEAD", weight: 0.01 },    // For checking resource existence
-      { method: "OPTIONS", weight: 0.006 },// CORS preflight requests
-    ];
+    const usesOperationType = fields.includes("operation_type");
+    const methodData = usesOperationType
+      ? [
+          { method: "QUERY", weight: 0.62 },
+          { method: "MUTATION", weight: 0.33 },
+          { method: "SUBSCRIPTION", weight: 0.05 },
+        ]
+      : [
+          { method: "GET", weight: 0.52 },     // Most common for data fetching
+          { method: "POST", weight: 0.26 },    // For creating/submitting data
+          { method: "PUT", weight: 0.09 },     // For full updates
+          { method: "PATCH", weight: 0.065 },  // For partial updates
+          { method: "DELETE", weight: 0.034 }, // For deletions
+          { method: "HEAD", weight: 0.01 },    // For checking resource existence
+          { method: "OPTIONS", weight: 0.006 },// CORS preflight requests
+        ];
 
     // Generate rows with realistic counts based on weights
     const rows: string[][] = methodData.map((methodInfo) => {
@@ -3266,6 +3360,9 @@ export class DataQueryMockGeneratorV2 {
             row.push(adjustedCount.toString());
             break;
           case "http_method":
+            row.push(methodInfo.method);
+            break;
+          case "operation_type":
             row.push(methodInfo.method);
             break;
           default:
@@ -3677,16 +3774,22 @@ export class DataQueryMockGeneratorV2 {
     const baseTotalRequests = 15000 + (seed % 70000);
     const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
 
-    // HTTP methods with weights matching the distribution response
-    const methodCategories = [
-      { method: "GET", weight: 0.52, variance: 0.2 },     // Most common
-      { method: "POST", weight: 0.26, variance: 0.25 },   // Second most common
-      { method: "PUT", weight: 0.09, variance: 0.3 },     // Updates
-      { method: "PATCH", weight: 0.065, variance: 0.3 },  // Partial updates
-      { method: "DELETE", weight: 0.034, variance: 0.35 },// Deletions
-      { method: "HEAD", weight: 0.01, variance: 0.4 },    // Health checks
-      { method: "OPTIONS", weight: 0.006, variance: 0.4 },// CORS preflight
-    ];
+    const usesOperationType = fields.includes("operation_type");
+    const methodCategories = usesOperationType
+      ? [
+          { method: "QUERY", weight: 0.62, variance: 0.22 },
+          { method: "MUTATION", weight: 0.33, variance: 0.26 },
+          { method: "SUBSCRIPTION", weight: 0.05, variance: 0.35 },
+        ]
+      : [
+          { method: "GET", weight: 0.52, variance: 0.2 },     // Most common
+          { method: "POST", weight: 0.26, variance: 0.25 },   // Second most common
+          { method: "PUT", weight: 0.09, variance: 0.3 },     // Updates
+          { method: "PATCH", weight: 0.065, variance: 0.3 },  // Partial updates
+          { method: "DELETE", weight: 0.034, variance: 0.35 },// Deletions
+          { method: "HEAD", weight: 0.01, variance: 0.4 },    // Health checks
+          { method: "OPTIONS", weight: 0.006, variance: 0.4 },// CORS preflight
+        ];
 
     const rows: string[][] = [];
 
@@ -3722,6 +3825,9 @@ export class DataQueryMockGeneratorV2 {
               row.push(timestamp);
               break;
             case "http_method":
+              row.push(category.method);
+              break;
+            case "operation_type":
               row.push(category.method);
               break;
             case "request_count":
@@ -3786,63 +3892,71 @@ export class DataQueryMockGeneratorV2 {
     ];
 
     // Generate rows for each network provider
-    const rows: string[][] = networkProviders.map((provider, index) => {
-      const row: string[] = [];
+    const rows: string[][] = [];
+    const statusCategories = [
+      { statusCode: "0", pulseType: "network.0", weightIndex: 0 },
+      { statusCode: "400", pulseType: "network.4xx", weightIndex: 1 },
+      { statusCode: "500", pulseType: "network.5xx", weightIndex: 2 },
+    ];
 
-      // Generate realistic error counts based on provider and error type
-      // Jio and Airtel typically have better networks, so fewer errors
-      // Vi and BSNL might have more issues
-      let baseCount: number;
-      if (isConnectionError) {
-        // Connection errors (network.0)
-        baseCount = [15, 18, 35, 42, 28][index] || 20;
-      } else if (is4xx) {
-        // 4xx errors
-        baseCount = [120, 145, 280, 320, 195][index] || 150;
-      } else if (is5xx) {
-        // 5xx errors
-        baseCount = [45, 55, 95, 120, 75][index] || 60;
-      } else {
-        baseCount = 50;
-      }
-
-      // Add variance (±25%) - ensure count is never negative
-      const variance = Math.floor(baseCount * 0.25);
-      const randomVariance = Math.floor(Math.random() * variance * 2) - variance;
-      const count = Math.max(0, baseCount + randomVariance);
-
-      select.forEach((selectField) => {
-        const alias = selectField.alias;
-
-        switch (alias) {
-          case "conn_error":
-          case "4xx":
-          case "5xx":
-            row.push(count.toString());
-            break;
-          case "network_provider":
-            row.push(provider);
-            break;
-          default:
-            row.push(
-              this.generateValueForFunction(
-                selectField.function,
-                null,
-                filters,
-                undefined,
-                selectField.param,
-              ),
-            );
+    networkProviders.forEach((provider, index) => {
+      statusCategories.forEach((category) => {
+        const row: string[] = [];
+        let baseCount: number;
+        if (category.pulseType === "network.0" || isConnectionError) {
+          baseCount = [15, 18, 35, 42, 28][index] || 20;
+        } else if (category.pulseType.includes("network.4") || is4xx) {
+          baseCount = [120, 145, 280, 320, 195][index] || 150;
+        } else if (category.pulseType.includes("network.5") || is5xx) {
+          baseCount = [45, 55, 95, 120, 75][index] || 60;
+        } else {
+          baseCount = 50;
         }
-      });
 
-      return row;
+        const variance = Math.floor(baseCount * 0.25);
+        const randomVariance = Math.floor(Math.random() * variance * 2) - variance;
+        const count = Math.max(0, baseCount + randomVariance);
+
+        select.forEach((selectField) => {
+          const alias = selectField.alias;
+
+          switch (alias) {
+            case "conn_error":
+            case "4xx":
+            case "5xx":
+            case "error_count":
+              row.push(count.toString());
+              break;
+            case "network_provider":
+              row.push(provider);
+              break;
+            case "status_code":
+              row.push(category.statusCode);
+              break;
+            case "pulse_type":
+              row.push(category.pulseType);
+              break;
+            default:
+              row.push(
+                this.generateValueForFunction(
+                  selectField.function,
+                  null,
+                  filters,
+                  undefined,
+                  selectField.param,
+                ),
+              );
+          }
+        });
+
+        rows.push(row);
+      });
     });
 
     // Filter out rows with zero errors
     const filteredRows = rows.filter((row) => {
       const errorIndex = fields.findIndex((f) =>
-        ["conn_error", "4xx", "5xx"].includes(f),
+        ["conn_error", "4xx", "5xx", "error_count"].includes(f),
       );
       if (errorIndex >= 0) {
         return parseFloat(row[errorIndex]) > 0;

@@ -6,7 +6,9 @@ package com.pulse.android.sdk
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
+import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.otel.utils.PulseSerialisationUtils
 import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
@@ -57,7 +59,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -68,16 +69,32 @@ import kotlin.system.measureNanoTime
 internal class PulseSDKImpl :
     PulseSDK,
     CoroutineScope by MainScope() {
-    override fun isInitialized(): Boolean = isInitialised
+    override fun isInitialized(): Boolean = isInitialised && !isShutdown
+
+    override fun shutdown() {
+        if (isShutdown) {
+            PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down" }
+            return
+        }
+        launch(Dispatchers.Main.immediate) {
+            if (isShutdown) return@launch
+            otelInstance?.shutdown()
+            otelInstance = null
+            isShutdown = true
+            PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+        }
+    }
 
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
+        projectId: String,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
         customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
@@ -86,6 +103,10 @@ internal class PulseSDKImpl :
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
+        if (isShutdown) {
+            PulseOtelUtils.logDebug(TAG) { "Initialisation skipped: SDK has been shut down" }
+            return
+        }
         if (isInitialized()) {
             PulseOtelUtils.logDebug(TAG) { "Initialisation skipped already initialised" }
             return
@@ -94,12 +115,14 @@ internal class PulseSDKImpl :
             initializeInternal(
                 application,
                 endpointBaseUrl,
+                projectId,
                 tracerProviderCustomizer,
                 loggerProviderCustomizer,
                 spanEndpointConnectivity,
                 logEndpointConnectivity,
                 metricEndpointConnectivity,
                 customEventConnectivity,
+                configEndpointUrl,
                 resource,
                 instrumentations,
                 endpointHeaders,
@@ -117,12 +140,14 @@ internal class PulseSDKImpl :
     private fun initializeInternal(
         application: Application,
         endpointBaseUrl: String,
+        projectId: String,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
         metricEndpointConnectivity: EndpointConnectivity,
         customEventConnectivity: EndpointConnectivity,
+        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
@@ -138,21 +163,29 @@ internal class PulseSDKImpl :
                 Context.MODE_PRIVATE,
             )
 
-        val json = Json {}
         val currentSdkConfig =
             sharedPrefs.getString(PrefsName.PULSE_SDK_CONFIG_KEY, null)?.let {
-                json.decodeFromString<PulseSdkConfig>(it)
+                PulseSerialisationUtils.jsonConfigForSerialisation.decodeFromString<PulseSdkConfig>(it)
             }
 
         PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
+
+        // Merge projectId with endpointHeaders for all API calls
+        val projectIdHeader = createProjectIdHeader(projectId)
+        val endpointHeadersWithProject = endpointHeaders + projectIdHeader
 
         @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
         launch(Dispatchers.IO) {
             val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
             apiCache.mkdirs()
             val newConfig =
-                PulseSdkConfigRestProvider(apiCache) {
-                    "${PulseOtelUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
+                PulseSdkConfigRestProvider(
+                    cacheDir = apiCache,
+                    okHttpClient = PulseNetworkingUtils.okHttpClient,
+                    headers = endpointHeadersWithProject,
+                ) {
+                    configEndpointUrl
+                        ?: "${PulseNetworkingUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
                 }.provide()
             val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
             PulseOtelUtils.logDebug(TAG) {
@@ -162,7 +195,10 @@ internal class PulseSDKImpl :
             }
             if (isDifferentVersion) {
                 sharedPrefs.edit(commit = true) {
-                    putString(PrefsName.PULSE_SDK_CONFIG_KEY, Json {}.encodeToString(newConfig))
+                    putString(
+                        PrefsName.PULSE_SDK_CONFIG_KEY,
+                        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(newConfig),
+                    )
                 }
             }
         }
@@ -180,6 +216,7 @@ internal class PulseSDKImpl :
         // Set default telemetry.sdk.name for Android Java SDK
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
+            put(PulseAttributes.PROJECT_ID, projectId)
             resource?.invoke(this)
         }
 
@@ -218,30 +255,32 @@ internal class PulseSDKImpl :
             currentSdkConfig?.let {
                 val url = it.signals.spanCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: spanEndpointConnectivity
         val finalLogEndpointConnectivity =
             currentSdkConfig?.let {
                 val url = it.signals.logsCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: logEndpointConnectivity
         val finalMetricEndpointConnectivity =
             currentSdkConfig?.let {
                 val url = it.signals.metricCollectorUrl
                 PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = emptyMap())
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: metricEndpointConnectivity
         val finalCustomEventEndpointConnectivity =
             currentSdkConfig?.let {
-                HttpEndpointConnectivity.forCustomEvents(it.signals.metricCollectorUrl)
+                val url = it.signals.customEventCollectorUrl
+                PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = $url" }
+                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
             } ?: customEventConnectivity
 
         val otlpSpanExporter: SpanExporter =
             OtlpHttpSpanExporter
                 .builder()
                 .setEndpoint(finalSpanEndpointConnectivity.getUrl())
-                .setHeaders(finalSpanEndpointConnectivity::getHeaders)
+                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + projectIdHeader }
                 .build()
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
@@ -259,7 +298,7 @@ internal class PulseSDKImpl :
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalLogEndpointConnectivity.getUrl())
-                            .setHeaders(finalLogEndpointConnectivity::getHeaders)
+                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + projectIdHeader }
                             .build(),
                     PulseSignalMatchCondition(
                         name = ".*",
@@ -273,7 +312,7 @@ internal class PulseSDKImpl :
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
-                            .setHeaders(finalCustomEventEndpointConnectivity::getHeaders)
+                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + projectIdHeader }
                             .build(),
                 ),
             )
@@ -282,7 +321,7 @@ internal class PulseSDKImpl :
             OtlpHttpMetricExporter
                 .builder()
                 .setEndpoint(finalMetricEndpointConnectivity.getUrl())
-                .setHeaders(finalMetricEndpointConnectivity::getHeaders)
+                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + projectIdHeader }
                 .build()
 
         val spanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
@@ -290,10 +329,10 @@ internal class PulseSDKImpl :
         val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
         instrumentations?.let { configure ->
-            val instrumentationConfig = InstrumentationConfiguration(config)
+            val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
             if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { PulseOtelUtils.endWithSlash(currentSdkConfig.interaction.configUrl) } }
+                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
             }
             pulseSamplingProcessors?.run {
                 val enabledFeatures = getEnabledFeatures()
@@ -362,7 +401,7 @@ internal class PulseSDKImpl :
             OpenTelemetryRumInitializer.initialize(
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
-                endpointHeaders = endpointHeaders,
+                endpointHeaders = endpointHeadersWithProject,
                 // todo make it explicit as to which config should be chosen
                 //  1. Either remove this value
                 //  2. Or give options like LocalOnly, ConfigOrFallback
@@ -476,6 +515,7 @@ internal class PulseSDKImpl :
     }
 
     override fun setUserId(id: String?) {
+        if (isShutdown) return
         userSessionEmitter.userId = id
     }
 
@@ -483,6 +523,7 @@ internal class PulseSDKImpl :
         name: String,
         value: Any?,
     ) {
+        if (isShutdown) return
         if (value != null) {
             userProps[name] = value
         } else {
@@ -497,6 +538,7 @@ internal class PulseSDKImpl :
     }
 
     override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
+        if (isShutdown) return
         setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
     }
 
@@ -505,6 +547,7 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
+        if (isShutdown) return
         if (isCustomEventEnabled) {
             logger
                 .logRecordBuilder()
@@ -527,6 +570,7 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
+        if (isShutdown) return
         logger
             .logRecordBuilder()
             .apply {
@@ -544,6 +588,7 @@ internal class PulseSDKImpl :
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
     ) {
+        if (isShutdown) return
         logger
             .logRecordBuilder()
             .apply {
@@ -570,6 +615,10 @@ internal class PulseSDKImpl :
         params: Map<String, Any?>,
         action: () -> T,
     ) {
+        if (isShutdown) {
+            action()
+            return
+        }
         val span = tracer.spanBuilder(spanName).startSpan()
         try {
             action()
@@ -582,19 +631,28 @@ internal class PulseSDKImpl :
         spanName: String,
         params: Map<String, Any?>,
     ): () -> Unit {
+        if (isShutdown) return {}
         val span = tracer.spanBuilder(spanName).startSpan()
         return {
             span.end()
         }
     }
 
-    override fun getOtelOrNull(): OpenTelemetryRum? = otelInstance
+    override fun getOtelOrNull(): OpenTelemetryRum? = if (isShutdown) null else otelInstance
 
-    override fun getOtelOrThrow(): OpenTelemetryRum = otelInstance ?: throwSdkNotInitError()
+    override fun getOtelOrThrow(): OpenTelemetryRum {
+        if (isShutdown) throwShutdownError()
+        return otelInstance ?: throwSdkNotInitError()
+    }
 
     @Suppress("NOTHING_TO_INLINE")
     private inline fun throwSdkNotInitError(): Nothing {
         error("Pulse SDK is not initialized. Please call PulseSDK.initialize")
+    }
+
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun throwShutdownError(): Nothing {
+        error("Pulse SDK has been shut down. No further API calls are allowed.")
     }
 
     private val logger: Logger by lazy {
@@ -630,6 +688,7 @@ internal class PulseSDKImpl :
     }
 
     private var isInitialised: Boolean = false
+    private var isShutdown: Boolean = false
 
     private lateinit var pulseSpanProcessor: PulseSdkSignalProcessors
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
@@ -644,10 +703,13 @@ internal class PulseSDKImpl :
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
+        private const val PROJECT_ID_HEADER_KEY = "X-API-KEY"
 
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
+
+        internal fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
     }
 }

@@ -12,7 +12,6 @@ export enum ATTRIBUTE_KEYS {
   PULSE_TYPE = 'pulse.type',
   SCREEN_NAME = 'screen.name',
   ROUTE_KEY = 'routeKey',
-  PHASE = 'phase',
   LAST_SCREEN_NAME = 'last.screen.name',
   ROUTE_HAS_BEEN_SEEN = 'routeHasBeenSeen',
   PLATFORM = 'platform',
@@ -22,6 +21,8 @@ export enum ATTRIBUTE_KEYS {
   HTTP_URL = 'http.url',
   HTTP_STATUS_CODE = 'http.status_code',
   HTTP_REQUEST_TYPE = 'http.request.type',
+  HTTP_REQUEST_HEADER = 'http.request.header',
+  HTTP_RESPONSE_HEADER = 'http.response.header',
   ERROR_MESSAGE = 'error.message',
   ERROR_STACK = 'error.stack',
 }
@@ -30,10 +31,6 @@ export enum PULSE_TYPES {
   SCREEN_SESSION = 'screen_session',
   SCREEN_LOAD = 'screen_load',
   SCREEN_INTERACTIVE = 'screen_interactive',
-}
-
-export enum PHASE_VALUES {
-  START = 'start',
   NETWORK = 'network',
 }
 

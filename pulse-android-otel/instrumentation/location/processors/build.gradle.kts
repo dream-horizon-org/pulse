@@ -20,6 +20,7 @@ kotlin {
 
 dependencies {
     implementation(projects.instrumentation.location.locationModels)
+    implementation(projects.pulseUtils)
     api(platform(libs.opentelemetry.platform.alpha))
     api(libs.opentelemetry.api)
     implementation(libs.opentelemetry.semconv)

@@ -9,7 +9,6 @@ import {
   IconGauge,
   IconShieldCheck,
   IconNetwork,
-  IconActivity,
 } from "@tabler/icons-react";
 import { MetricGroupData } from "../HeroMetrics.interface";
 

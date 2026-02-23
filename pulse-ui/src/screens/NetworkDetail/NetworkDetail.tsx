@@ -12,6 +12,7 @@ import { StatusCodeDistribution } from "./components/StatusCodeDistribution";
 import { MethodDistribution } from "./components/MethodDistribution";
 import { StatusCodeTimeSeries } from "./components/StatusCodeTimeSeries";
 import { MethodTimeSeries } from "./components/MethodTimeSeries";
+import { LatencyTimeSeries } from "./components/LatencyTimeSeries";
 import { decodeNetworkId } from "../NetworkList/utils/networkIdUtils";
 import {
   useGetDataQuery,
@@ -34,8 +35,10 @@ import {
   FilterType,
   FILTER_OPTIONS,
 } from "./components/NetworkFilters";
+import { normalizeHeaderKey } from "./components/NetworkFilters/utils";
 import { STATUS_CODE, PulseType, COLUMN_NAME } from "../../constants/PulseOtelSemcov";
 import { useFilterStore } from "../../stores/useFilterStore";
+import { getTimeBucketSize } from "../../utils/TimeBucketUtil";
 
 dayjs.extend(utc);
 
@@ -49,7 +52,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
   // Get screen name from URL query params (if navigating from ScreenDetail)
   const screenNameFromUrl = searchParams.get("screenName");
 
-  // Decode the API ID to get url
+  // Decode the API ID to get url and optional GraphQL operation name
   const decodedApiData = useMemo(() => {
     if (!apiId) return null;
     return decodeNetworkId(apiId);
@@ -99,10 +102,16 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     storeHandleTimeFilterChange(value);
   };
 
-  const handleAddFilter = (type: FilterType, value: string) => {
+  const handleAddFilter = (
+    type: FilterType,
+    value: string,
+    options?: { key?: string; operator?: "LIKE" | "EQ" }
+  ) => {
     const newFilter: AppliedFilter = {
       type,
       value,
+      key: options?.key,
+      operator: options?.operator,
       id: `${type}-${value}-${Date.now()}`,
     };
     setAppliedFilters((prev) => [...prev, newFilter]);
@@ -121,6 +130,8 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     // Parse "YYYY-MM-DD HH:mm:ss" as UTC and convert to ISO format
     return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
   };
+  const formattedStartTime = formatToUTC(startTime);
+  const formattedEndTime = formatToUTC(endTime);
 
   // Build common filters from applied filters
   // All filters use LIKE operator with wildcards for case-insensitive partial matching
@@ -133,6 +144,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
 
     appliedFilters.forEach((filter) => {
       let field: string;
+      let operator: "LIKE" | "EQ" = "LIKE";
 
       switch (filter.type) {
         case "AppVersion":
@@ -156,6 +168,24 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         case "InteractionName":
           field = "SpanAttributes['pulse.interaction.active.names']";
           break;
+        case "HttpStatusCode":
+          field = "SpanAttributes['http.status_code']";
+          operator = "EQ";
+          break;
+        case "ReqHeader":
+          if (!filter.key) return;
+          const normalizedRequestKey = normalizeHeaderKey(filter.key);
+          if (!normalizedRequestKey) return;
+          field = `SpanAttributes['http.request.header.${normalizedRequestKey}']`;
+          operator = filter.operator || "LIKE";
+          break;
+        case "ResHeader":
+          if (!filter.key) return;
+          const normalizedResponseKey = normalizeHeaderKey(filter.key);
+          if (!normalizedResponseKey) return;
+          field = `SpanAttributes['http.response.header.${normalizedResponseKey}']`;
+          operator = filter.operator || "LIKE";
+          break;
         default:
           return; // Skip unknown filter types
       }
@@ -163,13 +193,40 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       // Use LIKE operator with wildcards for case-insensitive partial matching
       filterArray.push({
         field,
-        operator: "LIKE",
-        value: [`%${filter.value}%`],
+        operator,
+        value:
+          operator === "EQ"
+            ? [filter.value]
+            : [`%${filter.value}%`],
       });
     });
 
     return filterArray;
   }, [appliedFilters]);
+
+  const graphqlOperationName = decodedApiData?.operationName?.trim();
+  const graphqlOperationType = decodedApiData?.operationType?.trim();
+  const graphqlFilters = useMemo(() => {
+    if (!graphqlOperationName && !graphqlOperationType) return [];
+    const filters = [];
+    if (graphqlOperationName) {
+      filters.push({
+        field: "SpanAttributes['graphql.operation.name']",
+        operator: "EQ" as const,
+        value: [graphqlOperationName],
+      });
+    }
+    if (graphqlOperationType) {
+      filters.push({
+        field: "SpanAttributes['graphql.operation.type']",
+        operator: "EQ" as const,
+        value: [graphqlOperationType.toLowerCase()],
+      });
+    }
+    return filters;
+  }, [graphqlOperationName, graphqlOperationType]);
+  const isGraphqlRequest = !!graphqlOperationName || !!graphqlOperationType;
+  const useGraphqlOperationTypeCharts = isGraphqlRequest;
 
   // Query network API details
   const requestBody = useMemo((): DataQueryRequestBody => {
@@ -206,7 +263,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     ];
 
     // Add applied filters
-    filters.push(...buildCommonFilters);
+    filters.push(...buildCommonFilters, ...graphqlFilters);
 
     return {
       dataType: "TRACES" as const,
@@ -259,7 +316,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       filters,
       groupBy: ["url"],
     };
-  }, [decodedApiData, startTime, endTime, buildCommonFilters]);
+  }, [decodedApiData, startTime, endTime, buildCommonFilters, graphqlFilters]);
 
   const { data, isLoading, isError } = useGetDataQuery({
     requestBody,
@@ -272,11 +329,15 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       return {
         endpoint: "Unknown API",
         screenName: undefined,
+        operationName: undefined,
+        operationType: undefined,
       };
     }
     return {
       endpoint: decodedApiData.url,
       screenName: undefined, // Can be extracted from data if needed
+      operationName: decodedApiData.operationName,
+      operationType: decodedApiData.operationType,
     };
   }, [decodedApiData]);
 
@@ -324,6 +385,133 @@ export function NetworkDetail(_props: NetworkDetailProps) {
       p99: Math.round(parseFloat(row[p99Index]) || 0),
     };
   }, [data]);
+
+  const combinedFilters = useMemo(
+    () => [...buildCommonFilters, ...graphqlFilters],
+    [buildCommonFilters, graphqlFilters]
+  );
+
+  const bucketSize = useMemo(
+    () => getTimeBucketSize(formattedStartTime, formattedEndTime),
+    [formattedStartTime, formattedEndTime]
+  );
+
+  const statusSeriesRequestBody = useMemo((): DataQueryRequestBody => ({
+    dataType: "TRACES" as const,
+    timeRange: { start: formattedStartTime, end: formattedEndTime },
+    select: [
+      {
+        function: "TIME_BUCKET" as const,
+        param: { bucket: bucketSize, field: "Timestamp" },
+        alias: "t1",
+      },
+      {
+        function: "CUSTOM" as const,
+        param: {
+          expression: "SpanAttributes['http.status_code']",
+        },
+        alias: "status_code",
+      },
+      {
+        function: "CUSTOM" as const,
+        param: {
+          expression: "count()",
+        },
+        alias: "request_count",
+      },
+    ],
+    groupBy: ["t1", "status_code"],
+    filters: [
+      {
+        field: "PulseType",
+        operator: "LIKE" as const,
+        value: ["%network%"],
+      },
+      {
+        field: "SpanAttributes['http.url']",
+        operator: "EQ" as const,
+        value: [decodedApiData?.url || ""],
+      },
+      ...combinedFilters,
+    ],
+    orderBy: [
+      {
+        field: "t1",
+        direction: "ASC" as const,
+      },
+    ],
+  }), [bucketSize, combinedFilters, decodedApiData?.url, formattedEndTime, formattedStartTime]);
+
+  const methodSeriesDimensionExpression = useGraphqlOperationTypeCharts
+    ? "SpanAttributes['graphql.operation.type']"
+    : "SpanAttributes['http.method']";
+  const methodSeriesDimensionAlias = useGraphqlOperationTypeCharts
+    ? "operation_type"
+    : "http_method";
+
+  const methodSeriesRequestBody = useMemo((): DataQueryRequestBody => ({
+    dataType: "TRACES" as const,
+    timeRange: { start: formattedStartTime, end: formattedEndTime },
+    select: [
+      {
+        function: "TIME_BUCKET" as const,
+        param: { bucket: bucketSize, field: "Timestamp" },
+        alias: "t1",
+      },
+      {
+        function: "CUSTOM" as const,
+        param: {
+          expression: methodSeriesDimensionExpression,
+        },
+        alias: methodSeriesDimensionAlias,
+      },
+      {
+        function: "CUSTOM" as const,
+        param: {
+          expression: "count()",
+        },
+        alias: "request_count",
+      },
+    ],
+    groupBy: ["t1", methodSeriesDimensionAlias],
+    filters: [
+      {
+        field: "PulseType",
+        operator: "LIKE" as const,
+        value: ["%network%"],
+      },
+      {
+        field: "SpanAttributes['http.url']",
+        operator: "EQ" as const,
+        value: [decodedApiData?.url || ""],
+      },
+      ...combinedFilters,
+    ],
+    orderBy: [
+      {
+        field: "t1",
+        direction: "ASC" as const,
+      },
+    ],
+  }), [
+    bucketSize,
+    combinedFilters,
+    decodedApiData?.url,
+    formattedEndTime,
+    formattedStartTime,
+    methodSeriesDimensionAlias,
+    methodSeriesDimensionExpression,
+  ]);
+
+  const statusSeriesQuery = useGetDataQuery({
+    requestBody: statusSeriesRequestBody,
+    enabled: !!decodedApiData && !!startTime && !!endTime,
+  });
+
+  const methodSeriesQuery = useGetDataQuery({
+    requestBody: methodSeriesRequestBody,
+    enabled: !!decodedApiData && !!startTime && !!endTime,
+  });
 
   const handleBack = () => {
     navigate(-1);
@@ -392,6 +580,11 @@ export function NetworkDetail(_props: NetworkDetailProps) {
             <SkeletonLoader height={14} width={260} radius="xs" />
             <ChartSkeleton height={280} />
           </Box>
+          <Box>
+            <SkeletonLoader height={18} width={180} radius="sm" />
+            <SkeletonLoader height={14} width={260} radius="xs" />
+            <ChartSkeleton height={280} />
+          </Box>
         </SimpleGrid>
 
         {/* Error breakdown skeleton */}
@@ -429,6 +622,12 @@ export function NetworkDetail(_props: NetworkDetailProps) {
     return `${responseTimeMs.toFixed(0)}ms`;
   };
 
+  const displayOperationType = graphqlOperationType
+    ? graphqlOperationType.toUpperCase()
+    : undefined;
+  const displayOperationName =
+    graphqlOperationName || (isGraphqlRequest ? "GraphQL (Unnamed)" : undefined);
+
   return (
     <div className={classes.pageContainer}>
       {/* Header */}
@@ -443,6 +642,12 @@ export function NetworkDetail(_props: NetworkDetailProps) {
         </Button>
         <div className={classes.titleSection}>
           <h1 className={classes.pageTitle}>Network Details</h1>
+          {displayOperationName && (
+            <Text size="sm" fw={500}>
+              Operation: {displayOperationName}
+              {displayOperationType ? ` (${displayOperationType})` : ""}
+            </Text>
+          )}
           <Text size="sm" c="dimmed" className={classes.subtitle}>
             {apiData.endpoint}
           </Text>
@@ -479,6 +684,11 @@ export function NetworkDetail(_props: NetworkDetailProps) {
                   (opt: { value: string; label: string }) =>
                     opt.value === filter.type,
                 )?.label || filter.type;
+              const isHeaderFilter =
+                filter.type === "ReqHeader" || filter.type === "ResHeader";
+              const headerSuffix = isHeaderFilter
+                ? ` (${filter.key || "header"} ${filter.operator || "LIKE"})`
+                : "";
               return (
                 <Badge
                   key={filter.id}
@@ -492,7 +702,8 @@ export function NetworkDetail(_props: NetworkDetailProps) {
                   }
                   size="lg"
                 >
-                  {filterLabel}: {filter.value}
+                  {filterLabel}
+                  {headerSuffix}: {filter.value}
                 </Badge>
               );
             })}
@@ -576,13 +787,16 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           url={apiData.endpoint}
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
-          additionalFilters={buildCommonFilters}
+          additionalFilters={combinedFilters}
+          queryResult={statusSeriesQuery}
         />
         <MethodDistribution
           url={apiData.endpoint}
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
-          additionalFilters={buildCommonFilters}
+          additionalFilters={combinedFilters}
+          mode={useGraphqlOperationTypeCharts ? "graphql_operation_type" : "http_method"}
+          queryResult={methodSeriesQuery}
         />
       </SimpleGrid>
 
@@ -592,13 +806,22 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           url={apiData.endpoint}
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
-          additionalFilters={buildCommonFilters}
+          additionalFilters={combinedFilters}
+          queryResult={statusSeriesQuery}
+        />
+        <LatencyTimeSeries
+          url={apiData.endpoint}
+          startTime={formatToUTC(startTime)}
+          endTime={formatToUTC(endTime)}
+          additionalFilters={combinedFilters}
         />
         <MethodTimeSeries
           url={apiData.endpoint}
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
-          additionalFilters={buildCommonFilters}
+          additionalFilters={combinedFilters}
+          mode={useGraphqlOperationTypeCharts ? "graphql_operation_type" : "http_method"}
+          queryResult={methodSeriesQuery}
         />
       </SimpleGrid>
 
@@ -610,14 +833,14 @@ export function NetworkDetail(_props: NetworkDetailProps) {
             url={apiData.endpoint}
             startTime={formatToUTC(startTime)}
             endTime={formatToUTC(endTime)}
-            additionalFilters={buildCommonFilters}
+            additionalFilters={combinedFilters}
           />
           <ErrorBreakdown
             type="5xx"
             url={apiData.endpoint}
             startTime={formatToUTC(startTime)}
             endTime={formatToUTC(endTime)}
-            additionalFilters={buildCommonFilters}
+            additionalFilters={combinedFilters}
           />
         </SimpleGrid>
       </Box>
@@ -629,7 +852,7 @@ export function NetworkDetail(_props: NetworkDetailProps) {
           startTime={formatToUTC(startTime)}
           endTime={formatToUTC(endTime)}
           shouldFetch={true}
-          additionalFilters={buildCommonFilters}
+          additionalFilters={combinedFilters}
           showHeader={true}
         />
       </Box>

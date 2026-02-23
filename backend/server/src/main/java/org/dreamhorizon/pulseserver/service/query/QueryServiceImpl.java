@@ -3,16 +3,17 @@ package org.dreamhorizon.pulseserver.service.query;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.query.QueryClient;
 import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
@@ -23,8 +24,8 @@ import org.dreamhorizon.pulseserver.service.query.models.ColumnMetadata;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
-import java.sql.Timestamp;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -40,13 +41,17 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString);
+    String tenantId = TenantContext.requireTenantId();
+    // Appending TenantId for now. Will be changed to projectId once those changes are deployed.
+    String queryWithProjectId = appendProjectId(queryString, tenantId);
+
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    return queryJobDao.createJob(queryString, userEmail.trim())
-        .flatMap(jobId -> queryClient.submitQuery(queryString)
+    return queryJobDao.createJob(tenantId, queryWithProjectId, userEmail.trim())
+        .flatMap(jobId -> queryClient.submitQuery(queryWithProjectId)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = execution.getDataScannedInBytes();
@@ -66,6 +71,21 @@ public class QueryServiceImpl implements QueryService {
               return queryJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage(), null)
                   .flatMap(v -> Single.error(error));
             }));
+  }
+
+  private String appendProjectId(String originalQuery, String projectId) {
+    String project = String.format("AND project_id = '%s'", projectId);
+
+    // 1. Trim whitespace
+    // 2. Remove one or more trailing semicolons using regex
+    // 3. Trim again to be safe
+    String cleanedBase = originalQuery.trim()
+        .replaceAll(";+$", "")
+        .trim();
+
+    // Return the joined query.
+    // We add a space to ensure the fragment doesn't touch the last word of the base.
+    return cleanedBase + " " + project.trim() + ";";
   }
 
   private Single<QueryJob> handleQueryState(String jobId, String queryExecutionId, QueryStatus status, Long initialDataScannedBytes) {
@@ -94,7 +114,8 @@ public class QueryServiceImpl implements QueryService {
           Timestamp completionDateTime = execution.getCompletionDateTime();
           return queryJobDao.updateJobFailed(jobId, errorMessage, completionDateTime)
               .flatMap(v -> queryJobDao.updateJobStatistics(jobId, dataScannedBytes,
-                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(), completionDateTime))
+                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(),
+                  completionDateTime))
               .flatMap(v -> queryJobDao.getJobById(jobId));
         });
   }
@@ -146,11 +167,13 @@ public class QueryServiceImpl implements QueryService {
 
           return queryJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime)
               .flatMap(v -> queryJobDao.updateJobStatistics(jobId, dataScannedBytes,
-                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(), completionDateTime))
+                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(),
+                  completionDateTime))
               .flatMap(v -> Single.timer(Constants.RESULT_FETCH_DELAY_MS, TimeUnit.MILLISECONDS)
-                  .flatMap(tick -> fetchResultsWithRetry(queryExecutionId, Constants.MAX_RESULT_FETCH_RETRIES, Constants.RESULT_FETCH_RETRY_DELAY_MS)
+                  .flatMap(tick -> fetchResultsWithRetry(queryExecutionId, Constants.MAX_RESULT_FETCH_RETRIES,
+                      Constants.RESULT_FETCH_RETRY_DELAY_MS)
                       .flatMap(resultSet -> {
-                        log.info("Successfully fetched {} result rows for job: {}", 
+                        log.info("Successfully fetched {} result rows for job: {}",
                             resultSet.getResultData() != null ? resultSet.getResultData().size() : 0, jobId);
 
                         return queryJobDao.getJobById(jobId)
@@ -166,7 +189,8 @@ public class QueryServiceImpl implements QueryService {
                     : fallbackDataScannedBytes;
                 Timestamp completionDateTime = execution.getCompletionDateTime();
                 return queryJobDao.updateJobStatistics(jobId, dataScannedBytes,
-                    execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(), completionDateTime)
+                        execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(),
+                        completionDateTime)
                     .flatMap(v -> queryJobDao.getJobById(jobId))
                     .map(job -> buildCompletedJob(job, null, null, dataScannedBytes));
               })
@@ -243,7 +267,7 @@ public class QueryServiceImpl implements QueryService {
   }
 
   private Single<QueryJob> handleStatusChange(String jobId, String queryExecutionId, QueryJobStatus newStatus,
-      QueryJob job, Integer maxResults, String nextToken) {
+                                              QueryJob job, Integer maxResults, String nextToken) {
     if (newStatus == QueryJobStatus.COMPLETED) {
       return fetchAndUpdateJobResults(jobId, queryExecutionId)
           .flatMap(updatedJob -> {
@@ -257,8 +281,8 @@ public class QueryServiceImpl implements QueryService {
     } else {
       return queryClient.getQueryExecution(queryExecutionId)
           .flatMap(execution -> {
-            Timestamp updatedAt = execution.getCompletionDateTime() != null 
-                ? execution.getCompletionDateTime() 
+            Timestamp updatedAt = execution.getCompletionDateTime() != null
+                ? execution.getCompletionDateTime()
                 : execution.getSubmissionDateTime();
             return queryJobDao.updateJobStatus(jobId, newStatus, updatedAt)
                 .flatMap(v -> queryJobDao.getJobById(jobId));
@@ -276,7 +300,8 @@ public class QueryServiceImpl implements QueryService {
           Timestamp completionDateTime = execution.getCompletionDateTime();
           return queryJobDao.updateJobFailed(jobId, errorMessage, completionDateTime)
               .flatMap(v -> queryJobDao.updateJobStatistics(jobId, dataScannedBytes,
-                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(), completionDateTime))
+                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(),
+                  completionDateTime))
               .flatMap(v -> queryJobDao.getJobById(jobId));
         });
   }
@@ -331,7 +356,8 @@ public class QueryServiceImpl implements QueryService {
 
           return queryJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime)
               .flatMap(v -> queryJobDao.updateJobStatistics(jobId, dataScannedBytes,
-                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(), completionDateTime))
+                  execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(),
+                  completionDateTime))
               .flatMap(v -> queryJobDao.getJobById(jobId));
         })
         .onErrorResumeNext(error -> {
@@ -342,7 +368,8 @@ public class QueryServiceImpl implements QueryService {
                 Long dataScannedBytes = execution.getDataScannedInBytes();
                 return queryJobDao.updateJobFailed(jobId, "Failed to update result location: " + error.getMessage(), completionDateTime)
                     .flatMap(v -> queryJobDao.updateJobStatistics(jobId, dataScannedBytes,
-                        execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(), completionDateTime))
+                        execution.getExecutionTimeMillis(), execution.getEngineExecutionTimeMillis(), execution.getQueryQueueTimeMillis(),
+                        completionDateTime))
                     .flatMap(v -> queryJobDao.getJobById(jobId));
               })
               .onErrorResumeNext(fallbackError -> {
@@ -439,8 +466,8 @@ public class QueryServiceImpl implements QueryService {
                   log.info("Successfully cancelled query execution {} for job {}", job.getQueryExecutionId(), jobId);
                   return queryClient.getQueryExecution(job.getQueryExecutionId())
                       .flatMap(execution -> {
-                        Timestamp updatedAt = execution.getCompletionDateTime() != null 
-                            ? execution.getCompletionDateTime() 
+                        Timestamp updatedAt = execution.getCompletionDateTime() != null
+                            ? execution.getCompletionDateTime()
                             : new Timestamp(System.currentTimeMillis());
                         return queryJobDao.updateJobStatus(jobId, QueryJobStatus.CANCELLED, updatedAt)
                             .flatMap(v -> queryJobDao.getJobById(jobId));
@@ -455,9 +482,10 @@ public class QueryServiceImpl implements QueryService {
                   return queryClient.getQueryExecution(job.getQueryExecutionId())
                       .flatMap(execution -> {
                         QueryJobStatus newStatus = mapQueryStatusToJobStatus(execution.getStatus());
-                        Timestamp updatedAt = execution.getCompletionDateTime() != null 
-                            ? execution.getCompletionDateTime() 
-                            : (execution.getSubmissionDateTime() != null ? execution.getSubmissionDateTime() : new Timestamp(System.currentTimeMillis()));
+                        Timestamp updatedAt = execution.getCompletionDateTime() != null
+                            ? execution.getCompletionDateTime()
+                            : (execution.getSubmissionDateTime() != null ? execution.getSubmissionDateTime() :
+                            new Timestamp(System.currentTimeMillis()));
                         if (newStatus == QueryJobStatus.CANCELLED) {
                           return queryJobDao.updateJobStatus(jobId, QueryJobStatus.CANCELLED, updatedAt)
                               .flatMap(v -> queryJobDao.getJobById(jobId));
@@ -471,9 +499,10 @@ public class QueryServiceImpl implements QueryService {
                 return queryClient.getQueryExecution(job.getQueryExecutionId())
                     .flatMap(execution -> {
                       QueryJobStatus newStatus = mapQueryStatusToJobStatus(execution.getStatus());
-                      Timestamp updatedAt = execution.getCompletionDateTime() != null 
-                          ? execution.getCompletionDateTime() 
-                          : (execution.getSubmissionDateTime() != null ? execution.getSubmissionDateTime() : new Timestamp(System.currentTimeMillis()));
+                      Timestamp updatedAt = execution.getCompletionDateTime() != null
+                          ? execution.getCompletionDateTime()
+                          : (execution.getSubmissionDateTime() != null ? execution.getSubmissionDateTime() :
+                          new Timestamp(System.currentTimeMillis()));
                       if (newStatus == QueryJobStatus.CANCELLED) {
                         return queryJobDao.updateJobStatus(jobId, QueryJobStatus.CANCELLED, updatedAt)
                             .flatMap(v -> queryJobDao.getJobById(jobId));
@@ -521,7 +550,7 @@ public class QueryServiceImpl implements QueryService {
 
           // Check for completed jobs with missing statistics that need to be refreshed
           List<QueryJob> completedJobsWithMissingStats = jobs.stream()
-              .filter(job -> job.getStatus() == QueryJobStatus.COMPLETED 
+              .filter(job -> job.getStatus() == QueryJobStatus.COMPLETED
                   && job.getQueryExecutionId() != null
                   && (job.getDataScannedInBytes() == null || job.getExecutionTimeMillis() == null))
               .limit(20)
@@ -535,7 +564,7 @@ public class QueryServiceImpl implements QueryService {
           jobsToUpdate.addAll(runningJobs);
           jobsToUpdate.addAll(completedJobsWithMissingStats);
 
-          log.debug("Checking status for {} running queries and {} completed queries with missing statistics", 
+          log.debug("Checking status for {} running queries and {} completed queries with missing statistics",
               runningJobs.size(), completedJobsWithMissingStats.size());
 
           return Observable.fromIterable(jobsToUpdate)
@@ -589,8 +618,8 @@ public class QueryServiceImpl implements QueryService {
           } else {
             return queryClient.getQueryExecution(job.getQueryExecutionId())
                 .flatMap(execution -> {
-                  Timestamp updatedAt = execution.getCompletionDateTime() != null 
-                      ? execution.getCompletionDateTime() 
+                  Timestamp updatedAt = execution.getCompletionDateTime() != null
+                      ? execution.getCompletionDateTime()
                       : execution.getSubmissionDateTime();
                   if (updatedAt == null) {
                     updatedAt = new Timestamp(System.currentTimeMillis());
@@ -611,17 +640,17 @@ public class QueryServiceImpl implements QueryService {
 
     String tablesQuery = String.format(
         "SELECT table_schema, table_name, table_type " +
-        "FROM information_schema.tables " +
-        "WHERE table_schema = '%s' " +
-        "ORDER BY table_name",
+            "FROM information_schema.tables " +
+            "WHERE table_schema = '%s' " +
+            "ORDER BY table_name",
         database
     );
 
     String columnsQuery = String.format(
         "SELECT table_schema, table_name, column_name, data_type, ordinal_position, is_nullable " +
-        "FROM information_schema.columns " +
-        "WHERE table_schema = '%s' " +
-        "ORDER BY table_name, ordinal_position",
+            "FROM information_schema.columns " +
+            "WHERE table_schema = '%s' " +
+            "ORDER BY table_name, ordinal_position",
         database
     );
 

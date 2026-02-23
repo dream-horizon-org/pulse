@@ -6,11 +6,15 @@ import com.pulse.sampling.remote.PulseSdkConfigApiService
 import com.pulse.sampling.remote.PulseSdkConfigRetrofitClient
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import okhttp3.Cache
+import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 public class PulseSdkConfigRestProvider(
     private val cacheDir: File,
+    private val okHttpClient: OkHttpClient,
+    private val headers: Map<String, String> = emptyMap(),
     private val urlProvider: () -> String,
 ) : PulseSdkConfigProvider {
     private val restClients = ConcurrentHashMap<String, PulseSdkConfigApiService>()
@@ -18,13 +22,27 @@ public class PulseSdkConfigRestProvider(
 
     override suspend fun provide(): PulseSdkConfig? {
         val url = urlProvider()
+        val finalOkHttpClient =
+            if (okHttpClient.cache == null) {
+                okHttpClient
+                    .newBuilder()
+                    .apply {
+                        val cache = Cache(cacheDir, MAX_CACHE_SIZE_BYTE)
+                        cache(cache)
+                    }.build()
+            } else {
+                okHttpClient
+            }
         val restClient =
             restClients
                 .getOrPut(url) {
                     (
                         retrofitClient?.newInstance(url)
                             ?: run {
-                                PulseSdkConfigRetrofitClient(url, cacheDir).apply {
+                                PulseSdkConfigRetrofitClient(
+                                    url = url,
+                                    okhttpClient = finalOkHttpClient,
+                                ).apply {
                                     retrofitClient = this
                                 }
                             }
@@ -34,28 +52,28 @@ public class PulseSdkConfigRestProvider(
         @Suppress("SuspendFunSwallowedCancellation")
         val restResponseResult =
             runCatching {
-                restClient.getConfig()
-            }.onFailure {
+                restClient.getConfig(
+                    fullFileUrl = url,
+                    headers = headers,
+                )
+            }.onFailure { throwable ->
                 currentCoroutineContext().ensureActive()
-                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, error msg = ${it.message ?: "no-err-msg"}" }
+                // removing cache as api has failed
+                val urlIterator = finalOkHttpClient.cache?.urls()
+                urlIterator?.forEach { if (it == url) urlIterator.remove() }
+                PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${throwable.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
-            val restResponse = restResponseResult.getOrThrow()
-            if (restResponse.error == null) {
-                restResponse.data
-            } else {
-                PulseOtelUtils.logDebug(TAG) {
-                    "Sdk config returned error = ${(restResponse.error ?: error("error is null in getConfigs")).message}"
-                }
-                null
-            }
+            restResponseResult.getOrThrow()
         } else {
             PulseOtelUtils.logDebug(TAG) {
-                "Failed to fetch sdk config: ${(
-                    restResponseResult.exceptionOrNull() ?: error(
-                        "error is null in getConfigs",
-                    )
-                ).message ?: "no-err-msg"}"
+                "Failed to fetch sdk config: ${
+                    (
+                        restResponseResult.exceptionOrNull() ?: error(
+                            "error is null in getConfigs",
+                        )
+                    ).message ?: "no-err-msg"
+                }"
             }
             null
         }
@@ -63,5 +81,6 @@ public class PulseSdkConfigRestProvider(
 
     internal companion object {
         private const val TAG = "PulseSdkConfigRestProvider"
+        private const val MAX_CACHE_SIZE_BYTE: Long = 10 * 1024 * 1024
     }
 }

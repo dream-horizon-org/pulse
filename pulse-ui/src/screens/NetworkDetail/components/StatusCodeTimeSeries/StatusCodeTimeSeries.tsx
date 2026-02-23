@@ -3,7 +3,11 @@ import { Box, Text } from "@mantine/core";
 import { IconChartLine, IconTrendingUp } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useGetDataQuery } from "../../../../hooks/useGetDataQuery";
-import { AreaChart } from "../../../../components/Charts";
+import {
+  AreaChart,
+  CustomToolTip,
+  createTooltipFormatter,
+} from "../../../../components/Charts";
 import { ChartSkeleton } from "../../../../components/Skeletons";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { getTimeBucketSize } from "../../../../utils/TimeBucketUtil";
@@ -32,6 +36,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
   startTime,
   endTime,
   additionalFilters = [],
+  queryResult,
 }) => {
   const bucketSize = useMemo(
     () => getTimeBucketSize(startTime, endTime),
@@ -39,6 +44,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
   );
 
   // Query for time series data grouped by status code category
+  const shouldFetch = !queryResult;
   const { data, isLoading, error } = useGetDataQuery({
     requestBody: {
       dataType: "TRACES",
@@ -85,16 +91,19 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
         },
       ],
     },
-    enabled: !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
+  const resolvedData = queryResult?.data ?? data;
+  const resolvedLoading = queryResult?.isLoading ?? isLoading;
+  const resolvedError = queryResult?.error ?? error;
 
   // Transform data into time series format
   const { seriesData, timePoints } = useMemo(() => {
-    if (!data?.data?.rows || data.data.rows.length === 0) {
+    if (!resolvedData?.data?.rows || resolvedData.data.rows.length === 0) {
       return { seriesData: {}, timePoints: [] };
     }
 
-    const fields = data.data.fields;
+    const fields = resolvedData.data.fields;
     const timeIndex = fields.indexOf("t1");
     const statusCodeIndex = fields.indexOf("status_code");
     const countIndex = fields.indexOf("request_count");
@@ -102,7 +111,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
     // Group data by timestamp and category
     const timeMap: Record<string, Record<string, number>> = {};
 
-    data.data.rows.forEach((row) => {
+    resolvedData.data.rows.forEach((row: any) => {
       const timestamp = row[timeIndex];
       const statusCode = String(row[statusCodeIndex] || "0");
       const count = parseFloat(String(row[countIndex])) || 0;
@@ -145,15 +154,21 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
 
     sortedTimes.forEach((time) => {
       const data = timeMap[time];
-      series["2xx"].push(data["2xx"] || 0);
-      series["3xx"].push(data["3xx"] || 0);
-      series["4xx"].push(data["4xx"] || 0);
-      series["5xx"].push(data["5xx"] || 0);
-      series["0xx"].push(data["0xx"] || 0);
+      const total =
+        (data["2xx"] || 0) +
+        (data["3xx"] || 0) +
+        (data["4xx"] || 0) +
+        (data["5xx"] || 0) +
+        (data["0xx"] || 0);
+      series["2xx"].push(total > 0 ? (data["2xx"] || 0) / total * 100 : 0);
+      series["3xx"].push(total > 0 ? (data["3xx"] || 0) / total * 100 : 0);
+      series["4xx"].push(total > 0 ? (data["4xx"] || 0) / total * 100 : 0);
+      series["5xx"].push(total > 0 ? (data["5xx"] || 0) / total * 100 : 0);
+      series["0xx"].push(total > 0 ? (data["0xx"] || 0) / total * 100 : 0);
     });
 
     return { seriesData: series, timePoints: sortedTimes };
-  }, [data]);
+  }, [resolvedData]);
 
   // Check if there's any data
   const hasData = timePoints.length > 0;
@@ -166,13 +181,12 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
       .map((category) => ({
         name: STATUS_CODE_LABELS[category],
         type: "line" as const,
-        stack: "total",
-        areaStyle: { opacity: 0.4 },
         emphasis: { focus: "series" as const },
         color: STATUS_CODE_COLORS[category],
         data: seriesData[category] || [],
         smooth: true,
         showSymbol: false,
+        lineStyle: { width: 2 },
       }));
   }, [seriesData]);
 
@@ -187,7 +201,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
     return date.format("HH:mm");
   };
 
-  if (error || data?.error) {
+  if (resolvedError || resolvedData?.error) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -206,7 +220,7 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
     );
   }
 
-  if (isLoading) {
+  if (resolvedLoading) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -275,30 +289,13 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
               bottom: 60,
             },
             tooltip: {
+              ...CustomToolTip,
               trigger: "axis",
               confine: true,
-              formatter: (params: any) => {
-                if (!params || !Array.isArray(params) || params.length === 0) return "";
-                const dataIndex = params[0]?.dataIndex;
-                const timestamp = timePoints[dataIndex];
-                const header = timestamp
-                  ? dayjs(timestamp).format("MMM DD, YYYY HH:mm")
-                  : params[0]?.axisValue || "";
-                
-                let content = `<div style="font-weight:600;margin-bottom:8px">${header}</div>`;
-                params.forEach((item: any) => {
-                  if (item.value > 0) {
-                    content += `
-                      <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${item.color}"></span>
-                        <span style="flex:1">${item.seriesName}</span>
-                        <span style="font-weight:600">${item.value.toLocaleString()}</span>
-                      </div>
-                    `;
-                  }
-                });
-                return content;
-              },
+              formatter: createTooltipFormatter({
+                valueFormatter: (value: number) => `${value.toFixed(1)}%`,
+                customHeaderFormatter: (axisValue: any) => axisValue || "",
+              }),
             },
             legend: {
               bottom: 0,
@@ -316,14 +313,14 @@ export const StatusCodeTimeSeries: React.FC<StatusCodeTimeSeriesProps> = ({
             },
             yAxis: {
               type: "value",
-              name: "Requests",
+              name: "Percent",
               nameTextStyle: { fontSize: 11 },
+              min: 0,
+              max: 100,
+              interval: 20,
               axisLabel: {
                 fontSize: 10,
-                formatter: (value: number) => {
-                  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                  return value.toString();
-                },
+                formatter: (value: number) => `${value}%`,
               },
             },
             series: chartSeries,

@@ -16,8 +16,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.rxjava3.core.AbstractVerticle;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
@@ -34,7 +36,7 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStart() {
-    return ConfigUtils.getConfigRetriever(vertx)
+    Completable completable = ConfigUtils.getConfigRetriever(vertx)
         .rxGetConfig()
         .map(config -> {
           JsonObject appConfig = config.getJsonObject("app", new JsonObject());
@@ -53,17 +55,21 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
           return config;
-        }).ignoreElement()
+        })
+        .ignoreElement()
         .andThen(
             vertx.rxDeployVerticle(
                 () ->
                     new RestVerticle(
                         new HttpServerOptions().setPort(8080)),
                 new DeploymentOptions().setInstances(getNumOfCores()))
-        ).ignoreElement()
-        .andThen(vertx.rxDeployVerticle(AnrCrashLogConsumerVerticle::new,
-                new DeploymentOptions().setInstances(getNumOfCores())))
-            .ignoreElement();
+        ).ignoreElement();
+
+    if (Objects.equals(System.getenv("KAFKA_ENABLED"), "true")) {
+      return completable.andThen((vertx.rxDeployVerticle(AnrCrashLogConsumerVerticle::new,
+          new DeploymentOptions().setInstances(getNumOfCores())))).ignoreElement();
+    }
+    return completable;
   }
 
   private Integer getNumOfCores() {
@@ -86,6 +92,15 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStop() {
+    try {
+      ClickhouseTenantConnectionPoolManager poolManager =
+          SharedDataUtils.get(vertx.getDelegate(), ClickhouseTenantConnectionPoolManager.class);
+      poolManager.closeAllPools();
+      log.info("Closed all tenant connection pools");
+    } catch (Exception e) {
+      log.warn("Error closing tenant pools", e);
+    }
+
     this.webClient.close();
     return mysqlClient.rxClose();
   }

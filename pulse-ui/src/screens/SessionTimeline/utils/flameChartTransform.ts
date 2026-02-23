@@ -1,5 +1,14 @@
+/**
+ * Flame Chart Transform
+ * 
+ * Main transformation logic for converting API data to flame chart format.
+ * Transforms trace, log, and exception data from ClickHouse into a hierarchical
+ * tree structure suitable for flame chart visualization.
+ */
+
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import type { AttributeValue } from "../../../types/attributes";
 
 dayjs.extend(utc);
 
@@ -16,7 +25,7 @@ export interface FlameChartItem {
   traceId: string;
   spanId: string;
   parentSpanId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 export interface FlameChartNode {
@@ -30,7 +39,7 @@ export interface FlameChartNode {
   spanId: string;
   parentSpanId?: string;
   children: FlameChartNode[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
 }
 
 export interface FlameChartData {
@@ -68,6 +77,7 @@ interface RawTraceRow {
   duration: number;
   statusCode: string;
   spanType: string;
+  pulseType: string;
 }
 
 interface RawLogRow {
@@ -75,8 +85,14 @@ interface RawLogRow {
   spanId: string;
   timestamp: string;
   severityText: string;
+  severityNumber: number;
   body: string;
   eventName: string;
+  pulseType: string;
+  serviceName: string;
+  scopeName: string;
+  logAttributesJson: string;
+  resourceAttributesJson: string;
 }
 
 interface RawExceptionRow {
@@ -89,6 +105,7 @@ interface RawExceptionRow {
   traceId: string;
   spanId: string;
   groupId: string;
+  pulseType: string;
 }
 
 /**
@@ -114,6 +131,7 @@ function parseTraceRow(
     duration: Number(getField("duration") || 0),
     statusCode: String(getField("statuscode") || ""),
     spanType: String(getField("spantype") || ""),
+    pulseType: String(getField("pulsetype") || ""),
   };
 }
 
@@ -131,8 +149,14 @@ function parseLogRow(
     spanId: String(getField("spanid") || ""),
     timestamp: String(getField("timestamp") || ""),
     severityText: String(getField("severitytext") || ""),
+    severityNumber: Number(getField("severitynumber") || 0),
     body: String(getField("body") || ""),
     eventName: String(getField("eventname") || ""),
+    pulseType: String(getField("pulsetype") || ""),
+    serviceName: String(getField("servicename") || ""),
+    scopeName: String(getField("scopename") || ""),
+    logAttributesJson: String(getField("logattributesjson") || "{}"),
+    resourceAttributesJson: String(getField("resourceattributesjson") || "{}"),
   };
 }
 
@@ -155,6 +179,7 @@ function parseExceptionRow(
     traceId: String(getField("traceid") || ""),
     spanId: String(getField("spanid") || ""),
     groupId: String(getField("groupid") || ""),
+    pulseType: String(getField("pulsetype") || ""),
   };
 }
 
@@ -176,7 +201,39 @@ export function getExceptionColor(eventName: string): string {
 }
 
 /**
- * Get color based on span type or severity
+ * Get color based on PulseType - generates consistent colors for filtering
+ * Uses a deterministic hash-based approach so the same pulseType always gets the same color
+ */
+export function getColorForPulseType(pulseType: string): string {
+  if (!pulseType) {
+    return "#64b5f6"; // Default blue for missing pulseType
+  }
+  
+  // Generate a deterministic color based on the type string
+  let hash = 0;
+  for (let i = 0; i < pulseType.length; i++) {
+    hash = pulseType.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash % 360);
+  const saturation = 55 + (hash % 20); // 55-75%
+  const lightness = 45 + (hash % 15);  // 45-60%
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+/**
+ * Format pulseType for display (capitalize, replace dots/underscores/hyphens with spaces)
+ * e.g., "app.jank.frozen" -> "App Jank Frozen"
+ */
+export function formatPulseType(pulseType: string | undefined): string {
+  if (!pulseType) return "Unknown";
+  return pulseType
+    .split(/[._-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
+ * Get color based on span type or severity (legacy - for backwards compatibility)
  */
 export function getSpanColor(spanType: string, statusCode: string): string {
   // Error states
@@ -271,7 +328,7 @@ export function transformToFlameChart(
         start: ts.valueOf(),
         duration: parsed.duration / 1_000_000, // Convert nanoseconds to ms
         type: "span",
-        color: getSpanColor(parsed.spanType, parsed.statusCode),
+        color: getColorForPulseType(parsed.pulseType),
         traceId: parsed.traceId,
         spanId: parsed.spanId,
         parentSpanId: isEmptySpanId(parsed.parentSpanId) ? undefined : parsed.parentSpanId,
@@ -280,6 +337,7 @@ export function transformToFlameChart(
           serviceName: parsed.serviceName,
           statusCode: parsed.statusCode,
           spanType: parsed.spanType,
+          pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
         },
       };
@@ -296,21 +354,42 @@ export function transformToFlameChart(
       const parsed = parseLogRow(logsData.fields, row);
       const ts = dayjs.utc(parsed.timestamp);
 
+      // Parse JSON attributes
+      let logAttributes: Record<string, AttributeValue> = {};
+      let resourceAttributes: Record<string, AttributeValue> = {};
+      try {
+        logAttributes = JSON.parse(parsed.logAttributesJson || "{}");
+      } catch {
+        // Ignore parse errors
+      }
+      try {
+        resourceAttributes = JSON.parse(parsed.resourceAttributesJson || "{}");
+      } catch {
+        // Ignore parse errors
+      }
+
       const item: FlameChartItem = {
         id: `log-${parsed.traceId}-${parsed.spanId}-${ts.valueOf()}`,
-        name: parsed.eventName || parsed.body?.substring(0, 50) || "Log",
+        name: formatPulseType(parsed.pulseType) || parsed.eventName || "Log",
         start: ts.valueOf(),
         duration: 0, // Logs are point-in-time events
         type: "log",
-        color: getLogColor(parsed.severityText),
+        color: getColorForPulseType(parsed.pulseType),
         traceId: parsed.traceId,
         spanId: parsed.spanId,
         parentSpanId: undefined, // Logs don't have parent span ID directly
         metadata: {
           severityText: parsed.severityText,
+          severityNumber: parsed.severityNumber,
           body: parsed.body,
           eventName: parsed.eventName,
+          pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
+          serviceName: parsed.serviceName,
+          scopeName: parsed.scopeName,
+          // Store parsed attributes for display in sidebar
+          logAttributes,
+          resourceAttributes,
         },
       };
 
@@ -325,14 +404,17 @@ export function transformToFlameChart(
       const parsed = parseExceptionRow(exceptionsData.fields, row);
       const ts = dayjs.utc(parsed.timestamp);
 
-      // Determine exception type for display
-      let displayName = parsed.title || parsed.exceptionType || parsed.eventName || "Exception";
-      if (parsed.eventName.includes("crash")) {
-        displayName = `🔴 Crash: ${displayName}`;
-      } else if (parsed.eventName.includes("anr")) {
-        displayName = `🟠 ANR: ${displayName}`;
-      } else if (parsed.eventName.includes("non_fatal")) {
-        displayName = `🟡 Non-Fatal: ${displayName}`;
+      // Use pulseType as primary display name, with emoji prefix based on event type
+      const pulseTypeDisplay = formatPulseType(parsed.pulseType);
+      let displayName = pulseTypeDisplay !== "Unknown" ? pulseTypeDisplay : (parsed.title || parsed.exceptionType || "Exception");
+      
+      // Add emoji prefix based on exception severity
+      if (parsed.eventName?.includes("crash")) {
+        displayName = `🔴 ${displayName}`;
+      } else if (parsed.eventName?.includes("anr")) {
+        displayName = `🟠 ${displayName}`;
+      } else if (parsed.eventName?.includes("non_fatal")) {
+        displayName = `🟡 ${displayName}`;
       }
 
       const item: FlameChartItem = {
@@ -341,7 +423,7 @@ export function transformToFlameChart(
         start: ts.valueOf(),
         duration: 0, // Exceptions are point-in-time events
         type: "exception",
-        color: getExceptionColor(parsed.eventName),
+        color: getColorForPulseType(parsed.pulseType),
         traceId: parsed.traceId,
         spanId: parsed.spanId,
         parentSpanId: undefined,
@@ -352,6 +434,7 @@ export function transformToFlameChart(
           exceptionType: parsed.exceptionType,
           screenName: parsed.screenName,
           groupId: parsed.groupId,
+          pulseType: parsed.pulseType,
           timestamp: parsed.timestamp,
         },
       };
@@ -434,7 +517,6 @@ export function transformToFlameChart(
         } else {
           // Orphan span - parent not found
           node.type = "orphan-span";
-          node.color = "#9e9e9e"; // Grey for orphans
           traceRoots.push(node);
           orphanItems.push(span);
         }
@@ -479,26 +561,57 @@ export function transformToFlameChart(
       };
       
       if (!findAndAttach(rootNodes)) {
-        // Couldn't attach, treat as orphan
+        // Couldn't attach, treat as orphan but keep original color
         const orphanNode: FlameChartNode = {
           ...log,
           type: "orphan-log",
-          color: "#bdbdbd",
+          // Keep the original pulseType color instead of grey
           children: [],
         };
         rootNodes.push(orphanNode);
         orphanItems.push(log);
       }
     } else {
-      // Orphan log - no parent span found
+      // Orphan log - no parent span found, but keep original color
       const orphanNode: FlameChartNode = {
         ...log,
         type: "orphan-log",
-        color: "#bdbdbd",
+        // Keep the original pulseType color instead of grey
         children: [],
       };
       rootNodes.push(orphanNode);
       orphanItems.push(log);
+    }
+  }
+
+  // Handle exceptions - add as root nodes (they are point-in-time events)
+  const exceptionItems = items.filter((item) => item.type === "exception");
+  for (const exception of exceptionItems) {
+    const exceptionNode: FlameChartNode = {
+      ...exception,
+      children: [],
+    };
+    
+    // Try to attach to parent span if spanId exists
+    if (exception.spanId && spanIdToItem.has(exception.spanId)) {
+      const findAndAttach = (nodes: FlameChartNode[]): boolean => {
+        for (const node of nodes) {
+          if (node.spanId === exception.spanId) {
+            node.children.push(exceptionNode);
+            return true;
+          }
+          if (findAndAttach(node.children)) return true;
+        }
+        return false;
+      };
+      
+      if (!findAndAttach(rootNodes)) {
+        // Couldn't attach to parent span, add as root node
+        rootNodes.push(exceptionNode);
+      }
+    } else {
+      // No parent span, add as root node
+      rootNodes.push(exceptionNode);
     }
   }
 
@@ -536,29 +649,124 @@ export interface ExtendedFlameChartData extends FlameChartData {
   traceId?: string;
   spanId?: string;
   parentSpanId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AttributeValue>;
+}
+
+/**
+ * Calculate minimum visible duration for point-in-time events (logs, exceptions)
+ * This ensures they are visible on the timeline regardless of session length
+ */
+function calculateMinVisibleDuration(sessionDuration: number): number {
+  // Use 0.5% of session duration, with a minimum of 50ms and maximum of 500ms
+  const percentageBased = sessionDuration * 0.005;
+  return Math.max(50, Math.min(percentageBased, 500));
+}
+
+/**
+ * Check if a node type is a point-in-time event (no real duration)
+ */
+function isPointInTimeEvent(type: string): boolean {
+  return type === "log" || type === "exception" || type === "orphan-log";
+}
+
+/**
+ * Offset overlapping point-in-time events so they render side-by-side instead of on top of each other.
+ * Groups events by start time (within a threshold) and offsets them.
+ * @param nodes - Array of nodes at the same level
+ * @param minVisibleDuration - The visual duration used for point-in-time events
+ * @returns Map of node id to offset value
+ */
+function calculateOverlapOffsets(
+  nodes: FlameChartNode[],
+  minVisibleDuration: number
+): Map<string, number> {
+  const offsets = new Map<string, number>();
+  
+  // Only process point-in-time events
+  const pointEvents = nodes.filter(n => isPointInTimeEvent(n.type) || n.duration === 0);
+  
+  if (pointEvents.length <= 1) {
+    return offsets;
+  }
+  
+  // Sort by start time
+  const sorted = [...pointEvents].sort((a, b) => a.start - b.start);
+  
+  // Group events that would visually overlap
+  // Two events overlap if their visual bars would intersect
+  // (start2 < start1 + minVisibleDuration)
+  let currentEnd = -Infinity;
+  let overlapCount = 0;
+  
+  for (const event of sorted) {
+    if (event.start < currentEnd) {
+      // This event overlaps with previous ones - offset it
+      overlapCount++;
+      // Offset by a fraction of the minVisibleDuration so events stack horizontally
+      offsets.set(event.id, overlapCount * minVisibleDuration * 0.6);
+    } else {
+      // No overlap, reset counter
+      overlapCount = 0;
+    }
+    // Update the end of the current "group"
+    currentEnd = Math.max(currentEnd, event.start + minVisibleDuration);
+  }
+  
+  return offsets;
 }
 
 /**
  * Convert FlameChartNode tree to flame-chart-js data format
  * Note: We include all our custom properties so they come back with the select event
+ * @param nodes - The nodes to convert
+ * @param sessionDuration - Total session duration in ms, used to calculate minimum visible width for point events
  */
-export function toFlameChartJsFormat(nodes: FlameChartNode[]): ExtendedFlameChartData[] {
-  return nodes.map((node) => ({
-    // Required flame-chart-js fields
-    name: node.name,
-    start: node.start,
-    duration: Math.max(node.duration, 1), // Ensure minimum duration for visibility
-    type: node.type,
-    color: node.color,
-    children: node.children.length > 0 ? toFlameChartJsFormat(node.children) : undefined,
-    // Our custom fields - library will pass these back in select event
-    id: node.id,
-    traceId: node.traceId,
-    spanId: node.spanId,
-    parentSpanId: node.parentSpanId,
-    metadata: node.metadata,
-  }));
+export function toFlameChartJsFormat(
+  nodes: FlameChartNode[],
+  sessionDuration: number = 10000
+): ExtendedFlameChartData[] {
+  const minVisibleDuration = calculateMinVisibleDuration(sessionDuration);
+  
+  // Convert a list of nodes, handling overlap at this level
+  const convertNodeList = (nodeList: FlameChartNode[]): ExtendedFlameChartData[] => {
+    // Calculate offsets for overlapping point-in-time events at this level
+    const overlapOffsets = calculateOverlapOffsets(nodeList, minVisibleDuration);
+    
+    return nodeList.map((node) => {
+      // For point-in-time events (logs, exceptions), use minimum visible duration
+      // For spans with actual duration, use actual duration (with small minimum for very short spans)
+      let displayDuration: number;
+      if (isPointInTimeEvent(node.type) || node.duration === 0) {
+        displayDuration = minVisibleDuration;
+      } else {
+        displayDuration = Math.max(node.duration, 1);
+      }
+      
+      // Apply overlap offset if needed
+      const offset = overlapOffsets.get(node.id) || 0;
+      const displayStart = node.start + offset;
+      
+      return {
+        // Required flame-chart-js fields
+        name: node.name,
+        start: displayStart,
+        duration: displayDuration,
+        type: node.type,
+        color: node.color,
+        children: node.children.length > 0 
+          ? convertNodeList(node.children)
+          : undefined,
+        // Our custom fields - library will pass these back in select event
+        id: node.id,
+        traceId: node.traceId,
+        spanId: node.spanId,
+        parentSpanId: node.parentSpanId,
+        metadata: node.metadata,
+      };
+    });
+  };
+  
+  return convertNodeList(nodes);
 }
 
 /**

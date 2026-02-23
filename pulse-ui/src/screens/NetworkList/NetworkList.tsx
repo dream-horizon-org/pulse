@@ -28,7 +28,12 @@ import { useFilterStore } from "../../stores/useFilterStore";
 
 dayjs.extend(utc);
 
-type SearchFilterType = "method" | "url" | "endpoint" | "status_code";
+type SearchFilterType =
+  | "method"
+  | "url"
+  | "endpoint"
+  | "status_code"
+  | "operation_name";
 
 export function NetworkList({
   screenName,
@@ -115,6 +120,9 @@ export function NetworkList({
         case "status_code":
           filterField = "SpanAttributes['http.status_code']";
           break;
+        case "operation_name":
+          filterField = "SpanAttributes['graphql.operation.name']";
+          break;
         default:
           filterField = "SpanAttributes['http.url']";
       }
@@ -162,6 +170,20 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
+            expression: "SpanAttributes['graphql.operation.name']",
+          },
+          alias: "graphql_operation_name",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: "SpanAttributes['graphql.operation.type']",
+          },
+          alias: "graphql_operation_type",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
             expression: "count()",
           },
           alias: "total_requests",
@@ -202,6 +224,8 @@ export function NetworkList({
       ],
       groupBy: [
         "url",
+        "graphql_operation_name",
+        "graphql_operation_type",
         ...(screenName ? ["screen_name"] : []),
       ],
       orderBy: [
@@ -242,44 +266,86 @@ export function NetworkList({
     }
 
     const fields = data.data.fields;
-    const methodIndex = fields.indexOf("method");
     const urlIndex = fields.indexOf("url");
+    const graphqlOperationIndex = fields.indexOf("graphql_operation_name");
+    const graphqlOperationTypeIndex = fields.indexOf("graphql_operation_type");
+    const methodIndex = fields.indexOf("method");
     const totalRequestsIndex = fields.indexOf("total_requests");
     const successRequestsIndex = fields.indexOf("success_requests");
     const responseTimeIndex = fields.indexOf("response_time");
     const allSessionsIndex = fields.indexOf("all_sessions");
 
-    return data.data.rows.map((row, index) => {
+    const aggregated = new Map<string, NetworkApi & { totalRequests: number; successRequests: number; responseTimeTotal: number }>();
+
+    data.data.rows.forEach((row) => {
       const url = row[urlIndex] || "";
-      const method = row[methodIndex] || "UNKNOWN";
+      const operationNameRaw = row[graphqlOperationIndex] || "";
+      const operationTypeRaw = row[graphqlOperationTypeIndex] || "";
+      const operationName = String(operationNameRaw).trim() || "";
+      const operationType = String(operationTypeRaw).trim().toUpperCase() || "";
+      const method =
+        methodIndex >= 0 && row[methodIndex]
+          ? String(row[methodIndex])
+          : undefined;
       const totalRequests = parseFloat(row[totalRequestsIndex]) || 0;
       const successRequests = parseFloat(row[successRequestsIndex]) || 0;
-      const successRate =
-        totalRequests > 0 ? (successRequests / totalRequests) * 100 : 0;
-      const errorRate =
-        totalRequests > 0
-          ? ((totalRequests - successRequests) / totalRequests) * 100
-          : 0;
+      const responseTime = parseFloat(row[responseTimeIndex]) || 0;
+      const responseTimeTotal = responseTime * totalRequests;
+
+      const aggregationKey = `${url}||${operationName}||${operationType}`;
+      const existing = aggregated.get(aggregationKey);
+      if (existing) {
+        existing.totalRequests += totalRequests;
+        existing.successRequests += successRequests;
+        existing.responseTimeTotal += responseTimeTotal;
+        existing.requestCount = Math.round(existing.totalRequests);
+        existing.successRate =
+          existing.totalRequests > 0
+            ? Math.round((existing.successRequests / existing.totalRequests) * 1000) / 10
+            : 0;
+        existing.errorRate =
+          existing.totalRequests > 0
+            ? Math.round(((existing.totalRequests - existing.successRequests) / existing.totalRequests) * 1000) / 10
+            : 0;
+        existing.avgResponseTime =
+          existing.totalRequests > 0
+            ? Math.round(existing.responseTimeTotal / existing.totalRequests)
+            : 0;
+        existing.allSessions = Math.max(existing.allSessions || 0, Math.round(parseFloat(row[allSessionsIndex]) || 0));
+        return;
+      }
 
       // Generate unique ID from endpoint URL (base64 encoded for URL safety)
-      const id = encodeNetworkId(url);
+      const id = encodeNetworkId(
+        url,
+        operationName ? String(operationName) : undefined,
+        operationType ? String(operationType) : undefined
+      );
 
-      return {
+      aggregated.set(aggregationKey, {
         id,
         endpoint: url,
+        operationName: operationName ? String(operationName) : undefined,
+        operationType: operationType ? String(operationType) : undefined,
         method,
-        avgResponseTime: Math.round(parseFloat(row[responseTimeIndex]) || 0),
+        avgResponseTime: Math.round(responseTime || 0),
         requestCount: Math.round(totalRequests),
-        successRate: Math.round(successRate * 10) / 10,
-        errorRate: Math.round(errorRate * 10) / 10,
+        successRate:
+          totalRequests > 0 ? Math.round((successRequests / totalRequests) * 1000) / 10 : 0,
+        errorRate:
+          totalRequests > 0 ? Math.round(((totalRequests - successRequests) / totalRequests) * 1000) / 10 : 0,
         p50: 0, // Not available in new contract
         p95: 0, // Not available in new contract
         p99: 0, // Not available in new contract
         lastCalled: new Date().toISOString(), // Not available in new contract
         screenName: screenName || undefined,
         allSessions: Math.round(parseFloat(row[allSessionsIndex]) || 0),
-      };
+        totalRequests,
+        successRequests,
+        responseTimeTotal,
+      });
     });
+    return Array.from(aggregated.values());
   }, [data, screenName]);
 
   // APIs are already filtered by the API query based on searchFilterType
@@ -391,6 +457,7 @@ export function NetworkList({
                   { value: "method", label: "Method" },
                   { value: "url", label: "URL" },
                   { value: "status_code", label: "Status Code" },
+                  { value: "operation_name", label: "Operation Name" },
                 ]}
                 size="sm"
                 style={{
@@ -412,6 +479,8 @@ export function NetworkList({
                     : searchFilterType === "url" ||
                         searchFilterType === "endpoint"
                       ? "Search by URL/endpoint..."
+                      : searchFilterType === "operation_name"
+                        ? "Search by GraphQL operation name..."
                       : "Search by status code (e.g., 200, 404)..."
                 }
                 onChange={handleSearchChange}

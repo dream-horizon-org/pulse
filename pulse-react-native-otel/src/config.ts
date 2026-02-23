@@ -1,35 +1,64 @@
-import { setupErrorHandler } from './errorHandler';
+import { setupErrorHandler, uninstallErrorHandler } from './errorHandler';
 import { isSupportedPlatform } from './initialization';
 import {
   createReactNavigationIntegration,
+  uninstallNavigationIntegration,
   type ReactNavigationIntegration,
   type NavigationIntegrationOptions,
 } from './navigation';
-import { initializeNetworkInterceptor } from './network-interceptor/initialization';
+import {
+  initializeNetworkInterceptor,
+  uninstallNetworkInterceptor,
+} from './network-interceptor/initialization';
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
 import { PULSE_FEATURE_NAMES } from './pulse.constants';
+
+export type NetworkHeaderConfig = {
+  requestHeaders?: string[];
+  responseHeaders?: string[];
+};
 
 export type PulseConfig = {
   autoDetectExceptions?: boolean;
   autoDetectNavigation?: boolean;
   autoDetectNetwork?: boolean;
+  networkHeaders?: NetworkHeaderConfig;
 };
 
 const defaultConfig: Required<PulseConfig> = {
   autoDetectExceptions: true,
   autoDetectNavigation: true,
   autoDetectNetwork: true,
+  networkHeaders: {
+    requestHeaders: [],
+    responseHeaders: [],
+  },
 };
 
 let currentConfig: PulseConfig = { ...defaultConfig };
 
+/** After shutdown, start() and initialize are no-ops; re-initialization is not supported. */
+let isShutdown = false;
+
+/** True only after start() has been called at least once. Integrations (e.g. navigation) are no-ops until then. */
+let isStarted = false;
+
 // Cache for features from remote SDK config
 let cachedFeatures: PulseFeatureConfig;
 
+export function getIsShutdown(): boolean {
+  return isShutdown;
+}
+
+/** True only after start() has been called at least once. Public APIs (trackEvent, reportException, startSpan, etc.) no-op until then. */
+export function getIsStarted(): boolean {
+  return isStarted;
+}
+
 /**
  * Gets all features from the remote SDK config.
- * @returns Record of feature names to their enabled status, or null if config not available
+ * @returns Record of feature names to their enabled status, or null if config not available or start() not called
  */
 export function getFeaturesFromRemoteConfig(): PulseFeatureConfig {
   if (cachedFeatures !== undefined) {
@@ -48,7 +77,12 @@ function configure(config: PulseConfig): void {
   setupErrorHandler(currentConfig.autoDetectExceptions ?? true);
 
   if (currentConfig.autoDetectNetwork) {
-    initializeNetworkInterceptor();
+    initializeNetworkInterceptor(
+      currentConfig.networkHeaders ?? {
+        requestHeaders: [],
+        responseHeaders: [],
+      }
+    );
   }
 }
 
@@ -78,7 +112,14 @@ function resolveNavigationState(
 
 export function start(options?: PulseConfig): void {
   if (!isSupportedPlatform()) return;
+  if (isShutdown) {
+    console.log(
+      '[Pulse] SDK has been shut down. Pulse.start() is a no-op; re-initialization is not supported.'
+    );
+    return;
+  }
 
+  isStarted = true;
   const features = getFeaturesFromRemoteConfig();
   const config: PulseConfig = {
     autoDetectExceptions: resolveFeatureState(
@@ -95,15 +136,43 @@ export function start(options?: PulseConfig): void {
       PULSE_FEATURE_NAMES.NETWORK_INSTRUMENTATION,
       options?.autoDetectNetwork ?? defaultConfig.autoDetectNetwork
     ),
+    networkHeaders: options?.networkHeaders ?? {
+      requestHeaders: [],
+      responseHeaders: [],
+    },
   };
 
   configure(config);
+}
+
+export function shutdown(): void {
+  if (isShutdown) {
+    console.warn('[Pulse] SDK already shut down.');
+    return;
+  }
+  uninstallErrorHandler();
+  uninstallNetworkInterceptor();
+  uninstallNavigationIntegration();
+  PulseReactNativeOtel.shutdown();
+  isShutdown = true;
 }
 
 export function createNavigationIntegrationWithConfig(
   options?: NavigationIntegrationOptions
 ): ReactNavigationIntegration {
   if (!isSupportedPlatform()) {
+    return {
+      registerNavigationContainer: (_: unknown) => () => {},
+      markContentReady: () => {},
+    };
+  }
+  if (!isStarted) {
+    return {
+      registerNavigationContainer: (_: unknown) => () => {},
+      markContentReady: () => {},
+    };
+  }
+  if (isShutdown) {
     return {
       registerNavigationContainer: (_: unknown) => () => {},
       markContentReady: () => {},

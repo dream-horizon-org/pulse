@@ -23,6 +23,8 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
 @Slf4j
@@ -37,16 +39,18 @@ public class ConfigController {
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getSdkConfig(@PathParam("version") Integer version) {
-    return configService.getSdkConfig(version)
+    return configService.getSdkConfig(TenantContext.requireTenantId(), version)
         .to(RestResponse.jaxrsRestHandler());
   }
 
   @GET
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<PulseConfig>> getActiveSdkConfig() {
-    return configService.getActiveSdkConfig()
-        .to(RestResponse.jaxrsRestHandler());
+  public CompletionStage<PulseConfig> getActiveSdkConfig() {
+    String tenantId = TenantContext.requireTenantId();
+    log.info("Fetching active SDK config for tenant: {}", tenantId);
+    return configService.getActiveSdkConfig(tenantId)
+        .to(CompletableFutureUtils::fromSingle);
   }
 
   @POST
@@ -74,7 +78,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        interaction.setConfigUrl(applicationConfig.getInteractionConfigUrl());
+        String tenantId = TenantContext.requireTenantId();
+        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        interaction.setConfigUrl(configUrl);
       }
     }
   }

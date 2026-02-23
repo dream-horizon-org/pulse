@@ -7,5 +7,11 @@ export interface MethodTimeSeriesProps {
     operator: "LIKE" | "EQ";
     value: string[];
   }>;
+  mode?: "http_method" | "graphql_operation_type";
+  queryResult?: {
+    data?: any;
+    isLoading?: boolean;
+    error?: unknown;
+  };
 }
 

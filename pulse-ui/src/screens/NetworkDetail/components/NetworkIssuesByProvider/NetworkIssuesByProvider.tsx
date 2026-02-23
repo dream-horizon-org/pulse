@@ -30,122 +30,89 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
   showHeader = true,
   additionalFilters = [],
 }) => {
-  // Query for connection errors (network.0)
-  const {
-    data: connErrorData,
-    isLoading: isLoadingConn,
-    error: connError,
-  } = useGetDataQuery({
+  const normalizeProvider = (value: unknown) => {
+    const provider = String(value || "").trim();
+    return provider.length > 0 ? provider : "Unknown";
+  };
+
+  const { data, isLoading, error } = useGetDataQuery({
     requestBody: {
       dataType: "TRACES",
       timeRange: { start: startTime, end: endTime },
       select: [
-        { function: "CUSTOM" as const, param: { expression: "count()" }, alias: "conn_error" },
-        { function: "CUSTOM" as const, param: { expression: "ResourceAttributes['network.provider']" }, alias: "network_provider" },
+        { function: "CUSTOM" as const, param: { expression: "count()" }, alias: "error_count" },
+        { function: "CUSTOM" as const, param: { expression: "NetworkProvider" }, alias: "network_provider" },
+        { function: "CUSTOM" as const, param: { expression: "SpanAttributes['http.status_code']" }, alias: "status_code" },
+        { function: "CUSTOM" as const, param: { expression: "PulseType" }, alias: "pulse_type" },
       ],
-      groupBy: ["network_provider"],
+      groupBy: ["network_provider", "status_code", "pulse_type"],
       filters: [
-        { field: "PulseType", operator: "EQ" as const, value: ["network.0"] },
+        {
+          field: "PulseType",
+          operator: "LIKE" as const,
+          value: ["%network%"],
+        },
         { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
         ...additionalFilters,
       ],
-      orderBy: [{ field: "conn_error", direction: "ASC" as const }],
-      limit: 10,
+      orderBy: [{ field: "error_count", direction: "ASC" as const }],
+      limit: 100,
     },
     enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
 
-  // Query for 4xx errors grouped by network provider
-  const {
-    data: error4xxData,
-    isLoading: isLoading4xx,
-    error: error4xx,
-  } = useGetDataQuery({
-    requestBody: {
-      dataType: "TRACES",
-      timeRange: { start: startTime, end: endTime },
-      select: [
-        { function: "CUSTOM" as const, param: { expression: "count()" }, alias: "4xx" },
-        { function: "CUSTOM" as const, param: { expression: "ResourceAttributes['network.provider']" }, alias: "network_provider" },
-      ],
-      groupBy: ["network_provider"],
-      filters: [
-        { field: "PulseType", operator: "LIKE" as const, value: ["network.4%"] },
-        { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
-        ...additionalFilters,
-      ],
-      orderBy: [{ field: "4xx", direction: "ASC" as const }],
-      limit: 10,
-    },
-    enabled: shouldFetch && !!url && !!startTime && !!endTime,
-  });
+  const { connectionTimeoutErrorsByNetwork, error4xxByNetwork, error5xxByNetwork } = useMemo(() => {
+    if (!data?.data?.rows || data.data.rows.length === 0) {
+      return {
+        connectionTimeoutErrorsByNetwork: [],
+        error4xxByNetwork: [],
+        error5xxByNetwork: [],
+      };
+    }
 
-  // Query for 5xx errors grouped by network provider
-  const {
-    data: error5xxData,
-    isLoading: isLoading5xx,
-    error: error5xx,
-  } = useGetDataQuery({
-    requestBody: {
-      dataType: "TRACES",
-      timeRange: { start: startTime, end: endTime },
-      select: [
-        { function: "CUSTOM" as const, param: { expression: "count()" }, alias: "5xx" },
-        { function: "CUSTOM" as const, param: { expression: "ResourceAttributes['network.provider']" }, alias: "network_provider" },
-      ],
-      groupBy: ["network_provider"],
-      filters: [
-        { field: "PulseType", operator: "LIKE" as const, value: ["network.5%"] },
-        { field: "SpanAttributes['http.url']", operator: "EQ" as const, value: [url] },
-        ...additionalFilters,
-      ],
-      orderBy: [{ field: "5xx", direction: "ASC" as const }],
-      limit: 10,
-    },
-    enabled: shouldFetch && !!url && !!startTime && !!endTime,
-  });
+    const fields = data.data.fields;
+    const countIndex = fields.indexOf("error_count");
+    const providerIndex = fields.indexOf("network_provider");
+    const statusCodeIndex = fields.indexOf("status_code");
+    const pulseTypeIndex = fields.indexOf("pulse_type");
 
-  // Transform connection errors (network.0)
-  const connectionTimeoutErrorsByNetwork = useMemo(() => {
-    if (!connErrorData?.data?.rows || connErrorData.data.rows.length === 0) return [];
-    const fields = connErrorData.data.fields;
-    const connErrorIndex = fields.indexOf("conn_error");
-    const networkProviderIndex = fields.indexOf("network_provider");
-    return connErrorData.data.rows
-      .map((row) => ({
-        networkProvider: row[networkProviderIndex] || "Unknown",
-        errors: parseFloat(String(row[connErrorIndex])) || 0,
-      }))
-      .filter((item) => item.errors > 0);
-  }, [connErrorData]);
+    const connMap = new Map<string, number>();
+    const error4xxMap = new Map<string, number>();
+    const error5xxMap = new Map<string, number>();
 
-  // Transform 4xx errors
-  const error4xxByNetwork = useMemo(() => {
-    if (!error4xxData?.data?.rows || error4xxData.data.rows.length === 0) return [];
-    const fields = error4xxData.data.fields;
-    const error4xxIndex = fields.indexOf("4xx");
-    const networkProviderIndex = fields.indexOf("network_provider");
-    return error4xxData.data.rows
-      .map((row) => ({
-        networkProvider: row[networkProviderIndex] || "Unknown",
-        errors: parseFloat(String(row[error4xxIndex])) || 0,
-      }))
-      .filter((item) => item.errors > 0);
-  }, [error4xxData]);
+    data.data.rows.forEach((row: any) => {
+      const provider = normalizeProvider(row[providerIndex]);
+      const count = parseFloat(String(row[countIndex])) || 0;
+      const statusCode = String(row[statusCodeIndex] || "0");
+      const pulseType = String(row[pulseTypeIndex] || "");
+      const statusNum = parseInt(statusCode, 10);
 
-  // Transform 5xx errors
-  const error5xxByNetwork = useMemo(() => {
-    if (!error5xxData?.data?.rows || error5xxData.data.rows.length === 0) return [];
-    const fields = error5xxData.data.fields;
-    const error5xxIndex = fields.indexOf("5xx");
-    const networkProviderIndex = fields.indexOf("network_provider");
-    return error5xxData.data.rows
-      .map((row) => ({
-        networkProvider: row[networkProviderIndex] || "Unknown",
-        errors: parseFloat(String(row[error5xxIndex])) || 0,
-      }))
-      .filter((item) => item.errors > 0);
-  }, [error5xxData]);
+      const isConnectionError =
+        pulseType.startsWith("network.0") || isNaN(statusNum) || statusNum === 0;
+      if (isConnectionError) {
+        connMap.set(provider, (connMap.get(provider) || 0) + count);
+        return;
+      }
+      if (statusNum >= 400 && statusNum < 500) {
+        error4xxMap.set(provider, (error4xxMap.get(provider) || 0) + count);
+        return;
+      }
+      if (statusNum >= 500 && statusNum < 600) {
+        error5xxMap.set(provider, (error5xxMap.get(provider) || 0) + count);
+      }
+    });
+
+    const toArray = (map: Map<string, number>) =>
+      Array.from(map.entries())
+        .map(([networkProvider, errors]) => ({ networkProvider, errors: Math.round(errors) }))
+        .filter((item) => item.errors > 0);
+
+    return {
+      connectionTimeoutErrorsByNetwork: toArray(connMap),
+      error4xxByNetwork: toArray(error4xxMap),
+      error5xxByNetwork: toArray(error5xxMap),
+    };
+  }, [data]);
 
   const sections = useMemo((): SectionConfig[] => {
     if (
@@ -190,8 +157,7 @@ export const NetworkIssuesByProvider: React.FC<NetworkIssuesByProviderProps> = (
     ];
   }, [connectionTimeoutErrorsByNetwork, error5xxByNetwork, error4xxByNetwork]);
 
-  const isLoading = isLoadingConn || isLoading4xx || isLoading5xx;
-  const hasError = connError || error4xx || error5xx;
+  const hasError = error;
 
   if (hasError) {
     return (

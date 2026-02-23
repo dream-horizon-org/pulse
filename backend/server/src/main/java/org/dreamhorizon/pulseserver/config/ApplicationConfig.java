@@ -17,6 +17,7 @@ public class ApplicationConfig {
   public Integer shutdownGracePeriod;
   public String googleOAuthClientId;
   public Boolean googleOAuthEnabled;
+  public String firebaseProjectId;
   public String jwtSecret;
   public String otelCollectorUrl;
   public String interactionConfigUrl;

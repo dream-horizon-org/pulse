@@ -26,6 +26,21 @@ export const REALTIME_QUERY_TEXTS = {
   QUERY_CANCELLED: "Query was cancelled",
   EMPTY_QUERY: "Please enter a SQL query to run",
   COPY_FIELD: "Click to copy field name",
+  // AI Query
+  AI_QUERY_PLACEHOLDER: "Ask a question about your data in plain English...",
+  AI_QUERY_SUBMIT: "Ask AI",
+  AI_QUERY_SUBMITTING: "Processing your query...",
+  AI_QUERY_ERROR: "Failed to process AI query",
+  AI_QUERY_EMPTY: "Please enter a question to ask the AI",
+  AI_QUERY_SUCCESS: "AI query completed successfully",
+  AI_GENERATED_SQL: "Generated SQL",
+  // AI Insights
+  AI_INSIGHTS_TITLE: "Insights",
+  SHOW_RAW_DATA: "Show Raw Data",
+  HIDE_RAW_DATA: "Hide Raw Data",
+  DATA_SOURCES_ANALYZED: "Data Sources Analyzed",
+  TIME_RANGE_ANALYZED: "Time Range Analyzed",
+  PARTITIONS_ANALYZED: "Partitions Analyzed",
 };
 
 // Query job polling configuration

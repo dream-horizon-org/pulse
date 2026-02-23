@@ -31,9 +31,29 @@ export const NetworkApiCard: React.FC<NetworkApiCardProps> = ({
     <Box className={classes.apiCard} onClick={onClick}>
       <Box className={classes.apiCardHeader}>
         <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
-          <Text size="sm" fw={500} className={classes.endpoint}>
-            {apiData.endpoint}
-          </Text>
+          <Box style={{ minWidth: 0 }}>
+            {apiData.operationName ? (
+              <>
+                <Text size="sm" className={classes.operationName}>
+                  {apiData.operationName}
+                </Text>
+                <Group gap={4} wrap="nowrap">
+                  {apiData.operationType && (
+                    <Text size="xs" className={classes.operationType}>
+                      {apiData.operationType}
+                    </Text>
+                  )}
+                  <Text size="xs" className={classes.endpointSubtext}>
+                    {apiData.endpoint}
+                  </Text>
+                </Group>
+              </>
+            ) : (
+              <Text size="sm" fw={500} className={classes.endpoint}>
+                {apiData.endpoint}
+              </Text>
+            )}
+          </Box>
         </Group>
         <IconChevronRight size={18} color="#0ba09a" />
       </Box>

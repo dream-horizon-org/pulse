@@ -91,7 +91,7 @@ export const createTooltipFormatter = (options?: TooltipOptions) => {
         <div class="${styles.itemRow}">
           <div class="${styles.leftSection}">
             <span class="${styles.indicator}" style="background-color: ${param.color};"></span>
-            <span class="${styles.seriesName}">${param.seriesName}</span>
+            <span class="${styles.seriesName}">${param.seriesName}&nbsp;</span>
           </div>
           <span class="${styles.value}">${formattedValue}</span>
         </div>

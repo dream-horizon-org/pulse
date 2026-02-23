@@ -14,7 +14,12 @@ import InteractionDemo from './examples/InteractionDemo';
 import UserManagementExample from './examples/UserManagementExample';
 import PulseAttributesExample from './examples/PulseAttributesExample';
 
-Pulse.start();
+Pulse.start({
+  networkHeaders: {
+    requestHeaders: ['Content-Type', 'Authorization'],
+    responseHeaders: ['Content-Type', 'Cache-Control'],
+  },
+});
 
 type DemoConfig = {
   id: string;

@@ -40,8 +40,37 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
-  font-size: 13px;
+  font-size: 12px !important;
   transition: color 0.2s ease;
+  font-weight: 600 !important;
+}
+
+.operationName {
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600 !important;
+  font-size: 14px;
+}
+
+.operationType {
+  color: #0ec9c2;
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  letter-spacing: .2px;
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+
+.endpointSubtext {
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
+  font-size: 10px !important;
+  font-weight: 400 !important;
 }
 
 .apiCardMetrics {

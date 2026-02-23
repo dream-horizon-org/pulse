@@ -18,12 +18,17 @@ public abstract class SymbolFileService {
   private static final String FILE_PART_NAME = "fileContent";
 
   @SneakyThrows
-  public Single<Boolean> uploadFiles(List<InputPart> fileParts,
+  public Single<Boolean> uploadFiles(String tenantId,
+                                     List<InputPart> fileParts,
                                      List<UploadMetadata> metadataList) {
     Map<String, UploadMetadata> metadataMap = metadataList.stream()
         .collect(Collectors.toMap(
             UploadMetadata::getFileName,
-            m -> m,
+            m -> {
+              //TODO: Fix this once Project Onboarding is done.
+              m.setProjectId(tenantId);
+              return m;
+            },
             (existing, replacement) -> existing
         ));
     if (fileParts == null || fileParts.isEmpty()) {

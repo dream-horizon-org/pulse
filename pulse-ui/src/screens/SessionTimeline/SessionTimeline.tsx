@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Box, Button, Paper, Group, Text, Badge, Loader } from "@mantine/core";
 import { IconArrowLeft, IconClock, IconDeviceMobile, IconHash } from "@tabler/icons-react";
@@ -48,7 +48,6 @@ export function SessionTimeline() {
   const navigate = useNavigate();
   const [selectedItem, setSelectedItem] = useState<FlameChartNode | null>(null);
   const flameChartContainerRef = useRef<HTMLDivElement>(null);
-  const hasScrolledToTrace = useRef(false);
 
   // Get time range from URL params, or fallback to last 30 days
   const timeRange = useMemo(() => {
@@ -83,7 +82,6 @@ export function SessionTimeline() {
     flameChartData,
     sessionDuration,
     sessionStartTime,
-    orphanItems,
     totalDepth,
   } = useMemo(() => {
     if (!sessionData?.traces && !sessionData?.logs && !sessionData?.exceptions) {
@@ -91,7 +89,6 @@ export function SessionTimeline() {
         flameChartData: [],
         sessionDuration: 0,
         sessionStartTime: Date.now(),
-        orphanItems: [],
         itemsMap: new Map(),
         totalDepth: 0,
       };
@@ -105,7 +102,6 @@ export function SessionTimeline() {
     const totalSpans = sessionData?.traces?.rows?.length || 0;
     const totalLogs = sessionData?.logs?.rows?.length || 0;
     const totalExceptions = sessionData?.exceptions?.rows?.length || 0;
-    const orphanCount = orphanItems.length;
 
     // Get service name from first trace if available
     let serviceName = "";
@@ -124,12 +120,11 @@ export function SessionTimeline() {
       totalLogs,
       totalExceptions,
       totalItems: totalSpans + totalLogs + totalExceptions,
-      orphanCount,
       duration: sessionDuration,
       startTime: sessionStartTime,
       serviceName,
     };
-  }, [sessionData, sessionDuration, sessionStartTime, orphanItems]);
+  }, [sessionData, sessionDuration, sessionStartTime]);
 
   // Handle item click - open details sidebar
   const handleItemClick = (item: FlameChartNode) => {
@@ -141,18 +136,6 @@ export function SessionTimeline() {
     setSelectedItem(null);
   };
 
-  // Scroll to highlighted trace on initial load
-  useEffect(() => {
-    if (
-      highlightTraceId &&
-      flameChartData.length > 0 &&
-      !hasScrolledToTrace.current &&
-      flameChartContainerRef.current
-    ) {
-      // The FlameChart component handles scrolling internally
-      hasScrolledToTrace.current = true;
-    }
-  }, [highlightTraceId, flameChartData]);
 
   // Loading state
   if (isLoading) {
@@ -276,12 +259,6 @@ export function SessionTimeline() {
             <Text className={classes.statValue}>{formatDuration(sessionSummary.duration)}</Text>
             <Text className={classes.statLabel}>Duration</Text>
           </Box>
-          {sessionSummary.orphanCount > 0 && (
-            <Box className={classes.statCardWarning}>
-              <Text className={classes.statValue}>{sessionSummary.orphanCount}</Text>
-              <Text className={classes.statLabel}>Orphan Items</Text>
-            </Box>
-          )}
           <Box className={classes.statCard}>
             <Text className={classes.statValue}>
               <IconClock size={14} style={{ marginRight: 4 }} />

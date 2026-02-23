@@ -152,7 +152,7 @@
   min-width: 45px;
   text-align: right;
   background: rgba(14, 201, 194, 0.08);
-  padding: 2px 8px;
+  padding: 2px 8px !important;
   border-radius: 4px;
 }
 

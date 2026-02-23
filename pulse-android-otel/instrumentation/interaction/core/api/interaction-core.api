@@ -76,7 +76,8 @@ public abstract interface class com/pulse/android/core/config/InteractionConfigF
 }
 
 public final class com/pulse/android/core/config/InteractionConfigRestFetcher : com/pulse/android/core/config/InteractionConfigFetcher {
-	public fun <init> (Lkotlin/jvm/functions/Function0;)V
+	public fun <init> (Lkotlin/jvm/functions/Function0;Ljava/util/Map;)V
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function0;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun getConfigs (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 

@@ -8,7 +8,8 @@ import { Pulse, SpanStatusCode } from '../index';
 import type { PulseAttributes } from '../pulse.interface';
 import { extractHttpAttributes } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
-import { ATTRIBUTE_KEYS, PHASE_VALUES } from '../pulse.constants';
+import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
+import { normalizeHeaderName } from './header-helper';
 
 export function setNetworkSpanAttributes(
   span: Span,
@@ -19,7 +20,7 @@ export function setNetworkSpanAttributes(
   let attributes: PulseAttributes = {
     [ATTRIBUTE_KEYS.HTTP_METHOD]: method,
     [ATTRIBUTE_KEYS.HTTP_URL]: startContext.url,
-    [ATTRIBUTE_KEYS.PULSE_TYPE]: `network.${endContext.status ?? 0}`,
+    [ATTRIBUTE_KEYS.PULSE_TYPE]: `${PULSE_TYPES.NETWORK}.${endContext.status ?? 0}`,
     [ATTRIBUTE_KEYS.HTTP_REQUEST_TYPE]: startContext.type,
     [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
   };
@@ -43,6 +44,26 @@ export function setNetworkSpanAttributes(
     span.recordException(endContext.error, attributes);
   }
 
+  if (startContext.requestHeaders) {
+    for (const [headerName, headerValue] of Object.entries(
+      startContext.requestHeaders
+    )) {
+      const normalizedName = normalizeHeaderName(headerName);
+      attributes[`${ATTRIBUTE_KEYS.HTTP_REQUEST_HEADER}.${normalizedName}`] =
+        headerValue;
+    }
+  }
+
+  if (endContext.responseHeaders) {
+    for (const [headerName, headerValue] of Object.entries(
+      endContext.responseHeaders
+    )) {
+      const normalizedName = normalizeHeaderName(headerName);
+      attributes[`${ATTRIBUTE_KEYS.HTTP_RESPONSE_HEADER}.${normalizedName}`] =
+        headerValue;
+    }
+  }
+
   span.setAttributes(attributes);
   return attributes;
 }
@@ -58,7 +79,6 @@ export function createNetworkSpan(
   let baseAttributes: PulseAttributes = {
     [ATTRIBUTE_KEYS.HTTP_METHOD]: method,
     [ATTRIBUTE_KEYS.HTTP_URL]: startContext.url,
-    [ATTRIBUTE_KEYS.PULSE_TYPE]: PHASE_VALUES.NETWORK,
     [ATTRIBUTE_KEYS.HTTP_REQUEST_TYPE]: interceptorType,
   };
 

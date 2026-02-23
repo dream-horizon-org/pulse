@@ -32,12 +32,38 @@ const getMethodColor = (method: string): string => {
   return METHOD_COLORS[method.toUpperCase()] || "#6c757d";
 };
 
+const OPERATION_TYPE_COLORS: Record<string, string> = {
+  QUERY: "#3b82f6",
+  MUTATION: "#f59e0b",
+  SUBSCRIPTION: "#8b5cf6",
+  UNKNOWN: "#6c757d",
+};
+
+const getOperationTypeColor = (operationType: string): string => {
+  return OPERATION_TYPE_COLORS[operationType.toUpperCase()] || "#6c757d";
+};
+
 export const MethodDistribution: React.FC<MethodDistributionProps> = ({
   url,
   startTime,
   endTime,
   additionalFilters = [],
+  mode = "http_method",
+  queryResult,
 }) => {
+  const isGraphqlMode = mode === "graphql_operation_type";
+  const dimensionLabel = isGraphqlMode
+    ? "Operation Type Distribution"
+    : "HTTP Method Distribution";
+  const dimensionDescription = isGraphqlMode
+    ? "Request breakdown by GraphQL operation type"
+    : "Request breakdown by HTTP method type";
+  const dimensionExpression = isGraphqlMode
+    ? "SpanAttributes['graphql.operation.type']"
+    : "SpanAttributes['http.method']";
+  const dimensionAlias = isGraphqlMode ? "operation_type" : "http_method";
+
+  const shouldFetch = !queryResult;
   // Query for all network requests grouped by HTTP method
   const { data, isLoading, error } = useGetDataQuery({
     requestBody: {
@@ -54,12 +80,12 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "SpanAttributes['http.method']",
+            expression: dimensionExpression,
           },
-          alias: "http_method",
+          alias: dimensionAlias,
         },
       ],
-      groupBy: ["http_method"],
+      groupBy: [dimensionAlias],
       filters: [
         {
           field: "PulseType",
@@ -80,34 +106,41 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
         },
       ],
     },
-    enabled: !!url && !!startTime && !!endTime,
+    enabled: shouldFetch && !!url && !!startTime && !!endTime,
   });
+  const resolvedData = queryResult?.data ?? data;
+  const resolvedLoading = queryResult?.isLoading ?? isLoading;
+  const resolvedError = queryResult?.error ?? error;
 
   // Transform and prepare method data
   const { methods, totalRequests } = useMemo(() => {
-    if (!data?.data?.rows || data.data.rows.length === 0) {
+    if (!resolvedData?.data?.rows || resolvedData.data.rows.length === 0) {
       return { methods: [], totalRequests: 0 };
     }
 
-    const fields = data.data.fields;
+    const fields = resolvedData.data.fields;
     const countIndex = fields.indexOf("request_count");
-    const methodIndex = fields.indexOf("http_method");
+    const methodIndex = fields.indexOf(dimensionAlias);
 
     let total = 0;
-    const methodsData: MethodData[] = [];
+    const methodTotals = new Map<string, number>();
 
-    data.data.rows.forEach((row) => {
-      const method = String(row[methodIndex] || "UNKNOWN").toUpperCase();
+    resolvedData.data.rows.forEach((row: any) => {
+      const methodRaw = String(row[methodIndex] || "UNKNOWN");
+      const method = methodRaw.trim().toUpperCase() || "UNKNOWN";
       const count = parseFloat(String(row[countIndex])) || 0;
       total += count;
+      methodTotals.set(method, (methodTotals.get(method) || 0) + count);
+    });
 
-      methodsData.push({
+    const methodsData: MethodData[] = Array.from(methodTotals.entries()).map(
+      ([method, count]) => ({
         method,
         count: Math.round(count),
-        percentage: 0, // Will be calculated after we have total
-        color: getMethodColor(method),
-      });
-    });
+        percentage: 0,
+        color: isGraphqlMode ? getOperationTypeColor(method) : getMethodColor(method),
+      })
+    );
 
     // Calculate percentages
     const methodsWithPercentages = methodsData
@@ -118,7 +151,7 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
       .sort((a, b) => b.count - a.count);
 
     return { methods: methodsWithPercentages, totalRequests: Math.round(total) };
-  }, [data]);
+  }, [resolvedData, dimensionAlias, isGraphqlMode]);
 
   // ECharts pie chart options
   const chartOption = useMemo(() => {
@@ -138,7 +171,7 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
       },
       series: [
         {
-          name: "HTTP Method Distribution",
+          name: dimensionLabel,
           type: "pie",
           radius: ["55%", "85%"],
           center: ["50%", "50%"],
@@ -179,9 +212,10 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
         },
       ],
     };
-  }, [methods]);
+  }, [methods, dimensionLabel]);
 
-  if (error || data?.error) {
+  const hasError = resolvedError || resolvedData?.error;
+  if (hasError) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -189,10 +223,8 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
             <IconApi size={18} />
           </Box>
           <Box className={classes.headerContent}>
-            <Text className={classes.title}>HTTP Method Distribution</Text>
-            <Text className={classes.description}>
-              Request breakdown by HTTP method type
-            </Text>
+            <Text className={classes.title}>{dimensionLabel}</Text>
+            <Text className={classes.description}>{dimensionDescription}</Text>
           </Box>
         </Box>
         <ErrorAndEmptyState message="Failed to load method distribution. Please try again." />
@@ -200,7 +232,7 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
     );
   }
 
-  if (isLoading) {
+  if (resolvedLoading) {
     return (
       <Box className={classes.container}>
         <Box className={classes.header}>
@@ -208,10 +240,8 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
             <IconApi size={18} />
           </Box>
           <Box className={classes.headerContent}>
-            <Text className={classes.title}>HTTP Method Distribution</Text>
-            <Text className={classes.description}>
-              Request breakdown by HTTP method type
-            </Text>
+            <Text className={classes.title}>{dimensionLabel}</Text>
+            <Text className={classes.description}>{dimensionDescription}</Text>
           </Box>
         </Box>
         <ChartSkeleton height={220} />
@@ -227,10 +257,8 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
             <IconApi size={18} />
           </Box>
           <Box className={classes.headerContent}>
-            <Text className={classes.title}>HTTP Method Distribution</Text>
-            <Text className={classes.description}>
-              Request breakdown by HTTP method type
-            </Text>
+            <Text className={classes.title}>{dimensionLabel}</Text>
+            <Text className={classes.description}>{dimensionDescription}</Text>
           </Box>
         </Box>
         <Box className={classes.emptyState}>
@@ -250,10 +278,8 @@ export const MethodDistribution: React.FC<MethodDistributionProps> = ({
           <IconApi size={18} />
         </Box>
         <Box className={classes.headerContent}>
-          <Text className={classes.title}>HTTP Method Distribution</Text>
-          <Text className={classes.description}>
-            Request breakdown by HTTP method type
-          </Text>
+          <Text className={classes.title}>{dimensionLabel}</Text>
+          <Text className={classes.description}>{dimensionDescription}</Text>
         </Box>
       </Box>
 

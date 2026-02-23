@@ -11,6 +11,7 @@ import io.opentelemetry.android.config.OtelRumConfig
 @OpenTelemetryDslMarker
 class InstrumentationConfiguration(
     config: OtelRumConfig,
+    private val defaultHeaders: Map<String, String> = emptyMap(),
 ) {
     private val activity: ActivityLifecycleConfiguration by lazy {
         ActivityLifecycleConfiguration(
@@ -38,6 +39,7 @@ class InstrumentationConfiguration(
     private val interaction: InteractionConfiguration by lazy {
         InteractionConfiguration(
             config,
+            defaultHeaders,
         )
     }
 

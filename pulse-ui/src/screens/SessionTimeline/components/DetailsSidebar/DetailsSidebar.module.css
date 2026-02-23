@@ -117,72 +117,86 @@
 }
 
 .sectionTitle {
-  font-size: var(--mantine-font-size-sm);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--mantine-color-gray-7);
+  color: var(--mantine-color-gray-6);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .sectionBadge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  background: rgba(14, 201, 194, 0.1);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(14, 201, 194, 0.15);
   color: #0ba09a;
 }
 
 .metaGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--mantine-spacing-sm);
+  gap: 8px;
 }
 
 .metaItem {
-  padding: var(--mantine-spacing-xs);
+  padding: 10px 12px;
   background: var(--mantine-color-gray-0);
   border-radius: var(--mantine-radius-sm);
 }
 
 .metaLabel {
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-gray-6);
-  margin-bottom: 2px;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  color: var(--mantine-color-gray-7) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.3px !important;
+  margin-bottom: 4px !important;  
 }
 
 .metaValue {
-  font-size: var(--mantine-font-size-sm);
+  font-size: 12px !important;
   color: var(--mantine-color-gray-8);
-  font-weight: 500;
-  word-break: break-word;
+  font-weight: 500 !important;
+  word-break: break-word !important;
+}
+
+.metaValueMono {
+  font-size: 12px !important;
+  color: var(--mantine-color-gray-7);
+  font-weight: 400 !important;
+  word-break: break-all !important;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace !important;
 }
 
 .attributeList {
   display: flex;
   flex-direction: column;
-  gap: var(--mantine-spacing-xs);
+  gap: 6px;
 }
 
 .attributeItem {
   display: flex;
   flex-direction: column;
-  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  padding: 10px 12px;
   background: var(--mantine-color-gray-0);
   border-radius: var(--mantine-radius-sm);
   border-left: 2px solid rgba(14, 201, 194, 0.3);
+  gap: 2px;
 }
 
 .attributeKey {
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-gray-6);
-  font-family: monospace;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  color: var(--mantine-color-gray-5) !important;
+  letter-spacing: 0.2px !important;
 }
 
 .attributeValue {
-  font-size: var(--mantine-font-size-sm);
-  color: var(--mantine-color-gray-8);
-  word-break: break-all;
-  font-family: monospace;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--mantine-color-gray-8) !important;
+  word-break: break-all !important;
 }
 
 .emptyAttributes {
@@ -211,14 +225,15 @@
 }
 
 .eventName {
-  font-weight: 500;
-  color: var(--mantine-color-gray-8);
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: var(--mantine-color-gray-8) !important;
 }
 
 .eventTimestamp {
-  font-size: var(--mantine-font-size-xs);
-  color: var(--mantine-color-gray-5);
-  font-family: monospace;
+  font-size: 10px !important;
+  color: var(--mantine-color-gray-7) !important;
+  font-family: monospace !important;
 }
 
 .linkItem {
@@ -279,12 +294,13 @@
 }
 
 .bodyContent {
-  padding: var(--mantine-spacing-sm);
+  padding: 10px 12px;
   background: var(--mantine-color-gray-9);
   color: var(--mantine-color-gray-0);
   border-radius: var(--mantine-radius-sm);
-  font-family: monospace;
-  font-size: var(--mantine-font-size-xs);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
@@ -295,42 +311,24 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: var(--mantine-font-size-xs);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-}
-
-.typeBadgeSpan {
-  background: rgba(66, 165, 245, 0.15);
-  color: #1976d2;
-}
-
-.typeBadgeLog {
-  background: rgba(102, 187, 106, 0.15);
-  color: #388e3c;
-}
-
-.typeBadgeOrphan {
-  background: rgba(158, 158, 158, 0.15);
-  color: #616161;
-}
-
-.typeBadgeException {
-  background: rgba(220, 38, 38, 0.15);
-  color: #dc2626;
+  letter-spacing: 0.3px;
 }
 
 .statusBadge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 10px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .statusOk {
@@ -346,5 +344,120 @@
 .statusUnset {
   background: rgba(158, 158, 158, 0.15);
   color: #616161;
+}
+
+/* Exception-specific styles */
+.exceptionSection {
+  margin-bottom: 16px;
+}
+
+.exceptionSectionLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mantine-color-gray-5);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.exceptionType {
+  font-size: 13px;
+  font-weight: 500;
+  color: #dc2626;
+  padding: 10px 12px;
+  background: rgba(220, 38, 38, 0.08);
+  border-radius: var(--mantine-radius-sm);
+  border-left: 2px solid #dc2626;
+}
+
+.exceptionMessage {
+  font-size: 13px;
+  color: var(--mantine-color-gray-7);
+  padding: 10px 12px;
+  background: var(--mantine-color-gray-0);
+  border-radius: var(--mantine-radius-sm);
+  border-left: 2px solid rgba(220, 38, 38, 0.4);
+  line-height: 1.5;
+}
+
+.infoCard {
+  background: var(--mantine-color-gray-0);
+  border-radius: var(--mantine-radius-sm);
+  padding: 10px 12px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 16px;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mantine-color-gray-5);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.infoValue {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mantine-color-gray-8);
+  word-break: break-word;
+}
+
+.monoValue {
+  font-size: 12px;
+  color: var(--mantine-color-gray-7);
+  word-break: break-all;
+}
+
+.stackTrace {
+  font-size: 11px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  padding: 12px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: var(--mantine-radius-sm);
+  max-height: 280px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.interactionsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.interactionBadge {
+  font-size: 11px;
+  padding: 4px 8px;
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.screenBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 6px 10px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border-radius: 4px;
+  font-weight: 500;
 }
 

@@ -139,6 +139,23 @@ cat > /etc/clickhouse-server/users.d/10-$USER_NAME.xml <<EOF
 </clickhouse>
 EOF
 
+sudo tee /etc/clickhouse-server/config.d/prometheus.xml > /dev/null <<'EOF'
+<clickhouse>
+  <prometheus>
+    <port>9363</port>
+    <endpoint>/metrics</endpoint>
+
+    <metrics>true</metrics>
+    <asynchronous_metrics>true</asynchronous_metrics>
+    <events>true</events>
+    <errors>true</errors>
+
+    <histograms>true</histograms>
+    <dimensional_metrics>true</dimensional_metrics>
+  </prometheus>
+</clickhouse>
+EOF
+
 
 # Restart ClickHouse to pick up new config
 if systemctl is-enabled clickhouse-server >/dev/null 2>&1; then
