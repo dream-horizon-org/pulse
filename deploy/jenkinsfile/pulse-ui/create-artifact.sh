@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e  # Exit on error
 
 # 1. Setup Logging
@@ -7,7 +7,7 @@ echo "Starting user-data script at $(date)"
 
 # 2. Listing current directory
 echo "Sourcing Profile"
-bash -c "source ~/.bashrc"
+. ~/.bashrc"
 sleep 5
 echo "Node location"
 which node
