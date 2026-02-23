@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e  # Exit on error
 
-echo "Sourcing Profile"
-echo $HOME
-source $HOME/.profile
-sleep 5
+echo "Sourcing NVM directly"
+export NVM_DIR="$HOME/.nvm"
+# Load nvm function into the current shell session
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 echo "Activating nvm"
-nvm activate
+nvm use 20
 echo "Node location"
 which node
 
