@@ -538,8 +538,8 @@ class SqlQueryValidatorTest {
     }
 
     @Test
-    void shouldHandleQueryWithControlCharacters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11\u0000\u0001";
+    void shouldHandleQueryWithControlCharactersAndOldFormat() {
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'\u0000\u0001";
 
       SqlQueryValidator.ValidationResult result = SqlQueryValidator.validateQuery(query);
 
