@@ -26,8 +26,8 @@ pipeline {
                 script {
                     sh """
                         #!/bin/bash -el
-                        chmod +x ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
-                        ./deploy/jenkinsfile/pulse-ui/create-artifact.sh
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
                     """
                 }
             }
