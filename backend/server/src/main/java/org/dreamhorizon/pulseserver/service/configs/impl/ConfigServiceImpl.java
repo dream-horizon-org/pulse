@@ -63,8 +63,7 @@ public class ConfigServiceImpl implements ConfigService {
   }
 
   @Override
-  public Single<PulseConfig> getActiveSdkConfig() {
-    String tenantId = TenantContext.getTenantId();
+  public Single<PulseConfig> getActiveSdkConfig(String tenantId) {
     CompletableFuture<PulseConfig> fut = latestConfigCache.get(tenantId);
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
@@ -81,13 +80,13 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
-    String tenantId = TenantContext.getTenantId();
+    String tenantId = TenantContext.requireTenantId();
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
           latestConfigCache.synchronous().invalidate(tenantId);
           log.info("Invalidated config cache for tenant: {}", tenantId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore()
+              .pushInteractionDetailsToObjectStore(tenantId)
               .subscribe();
         })
         .doOnError(err -> log.error("error while creating config for tenant: {}", tenantId, err));

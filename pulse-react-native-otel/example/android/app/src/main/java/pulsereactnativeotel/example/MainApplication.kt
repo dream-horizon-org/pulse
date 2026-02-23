@@ -44,7 +44,7 @@ class MainApplication : Application(), ReactApplication {
       Log.w("MainApplication", "OkHttp instrumentation not available: ${e.message}")
     }
 
-    Pulse.initialize(this, "http://10.0.2.2:4318", "tenant-123") {
+    Pulse.initialize(this, "http://10.0.2.2:4318", "Project-123") {
       interaction {
         enabled(true)
         setConfigUrl { "http://10.0.2.2:8080/v1/interaction-configs/"}

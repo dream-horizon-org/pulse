@@ -67,7 +67,7 @@ public class AlertsDao {
    * Gets the current tenant ID from the TenantContext.
    */
   private String getTenantId() {
-    return TenantContext.getTenantId();
+    return TenantContext.requireTenantId();
   }
 
   private static void logAlertNotFound(Integer alertId) {
@@ -958,6 +958,7 @@ public class AlertsDao {
                 .isActive(row.getBoolean("is_active"))
                 .snoozedFrom(getLocalDateTime(row, "snoozed_from"))
                 .snoozedUntil(getLocalDateTime(row, "snoozed_until"))
+                .tenantId(row.getString("tenant_id"))
                 .build();
           } else {
             logAlertNotFound(alertId);
@@ -1137,6 +1138,7 @@ public class AlertsDao {
     private Boolean isActive;
     private LocalDateTime snoozedFrom;
     private LocalDateTime snoozedUntil;
+    private String tenantId;
   }
 
   @lombok.Data

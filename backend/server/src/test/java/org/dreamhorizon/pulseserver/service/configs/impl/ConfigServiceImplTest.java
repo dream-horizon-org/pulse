@@ -28,8 +28,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.InteractionConfig;
-import org.dreamhorizon.pulseserver.service.configs.models.AttributeToAdd;
-import org.dreamhorizon.pulseserver.service.configs.models.AttributeValue;
 import org.dreamhorizon.pulseserver.service.configs.models.SamplingConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
@@ -147,7 +145,7 @@ class ConfigServiceImplTest {
       when(sdkConfigsDao.getConfig()).thenReturn(Single.just(expectedConfig));
 
       // When
-      PulseConfig result = configService.getActiveSdkConfig().blockingGet();
+      PulseConfig result = configService.getActiveSdkConfig(TenantContext.requireTenantId()).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -168,9 +166,9 @@ class ConfigServiceImplTest {
       when(sdkConfigsDao.getConfig()).thenReturn(Single.just(expectedConfig));
 
       // When - first call
-      PulseConfig result1 = configService.getActiveSdkConfig().blockingGet();
+      PulseConfig result1 = configService.getActiveSdkConfig(TenantContext.requireTenantId()).blockingGet();
       // Second call - should use cache
-      PulseConfig result2 = configService.getActiveSdkConfig().blockingGet();
+      PulseConfig result2 = configService.getActiveSdkConfig(TenantContext.requireTenantId()).blockingGet();
 
       // Then
       assertThat(result1).isNotNull();
@@ -189,7 +187,7 @@ class ConfigServiceImplTest {
       when(sdkConfigsDao.getConfig()).thenReturn(Single.error(daoError));
 
       // When
-      var testObserver = configService.getActiveSdkConfig().test();
+      var testObserver = configService.getActiveSdkConfig(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(Throwable.class);
@@ -240,7 +238,7 @@ class ConfigServiceImplTest {
           .build();
 
       when(sdkConfigsDao.createConfig(configData)).thenReturn(Single.just(createdConfig));
-      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore())
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
@@ -275,16 +273,16 @@ class ConfigServiceImplTest {
       // First load to populate cache
       when(sdkConfigsDao.getConfig()).thenReturn(Single.just(initialConfig), Single.just(newConfig));
       when(sdkConfigsDao.createConfig(any())).thenReturn(Single.just(newConfig));
-      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore())
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
       // First call populates cache
-      configService.getActiveSdkConfig().blockingGet();
+      configService.getActiveSdkConfig(TenantContext.requireTenantId()).blockingGet();
       // Create config should invalidate cache
       configService.createSdkConfig(configData).blockingGet();
       // This should reload from DAO, not cache
-      PulseConfig result = configService.getActiveSdkConfig().blockingGet();
+      PulseConfig result = configService.getActiveSdkConfig(TenantContext.requireTenantId()).blockingGet();
 
       // Then
       assertThat(result.getVersion()).isEqualTo(6L);
@@ -421,7 +419,8 @@ class ConfigServiceImplTest {
       // Verify features contains all enum values
       List<String> expectedFeatures = Features.getFeatures();
       assertThat(result.getFeatures()).containsExactlyInAnyOrderElementsOf(expectedFeatures);
-      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change", "network_instrumentation", "screen_session");
+      assertThat(result.getFeatures()).contains("interaction", "java_crash", "java_anr", "network_change", "network_instrumentation",
+          "screen_session");
     }
   }
 

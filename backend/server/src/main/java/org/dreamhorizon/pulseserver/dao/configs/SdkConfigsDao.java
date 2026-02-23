@@ -30,12 +30,12 @@ public class SdkConfigsDao {
 
   private final MysqlClient d11MysqlClient;
   private final ObjectMapperUtil objectMapper;
-  
+
   /**
    * Gets the current tenant ID from the TenantContext.
    */
   private String getTenantId() {
-    return TenantContext.getTenantId();
+    return TenantContext.requireTenantId();
   }
 
   public Single<PulseConfig> getConfig(long version) {

@@ -25,7 +25,11 @@ import {
   shouldReturnImmediate,
   generateMockQueryHistory,
   cancelQueryJob,
+  generateAiQueryResponse,
 } from "./responses/realtimeQueryResponses";
+
+/** In-memory store for AI chat sessions (for mock sharing) */
+const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
 
 export class MockResponseGenerator {
   private dataStore: MockDataStore;
@@ -34,6 +38,16 @@ export class MockResponseGenerator {
   constructor() {
     this.dataStore = MockDataStore.getInstance();
     this.config = MockConfigManager.getInstance();
+  }
+
+  private getAiChatSession(sessionId: string): Record<string, unknown> | null {
+    return aiChatSessionsStore.get(sessionId) ?? null;
+  }
+
+  private saveAiChatSession(session: Record<string, unknown>): void {
+    if (session?.id) {
+      aiChatSessionsStore.set(String(session.id), session);
+    }
   }
 
   /**
@@ -165,6 +179,7 @@ export class MockResponseGenerator {
       pathname.includes("/query/tables") ||
       pathname.includes("/query/history") ||
       pathname.includes("/query/job/") ||
+      pathname.includes("/query/ai") ||
       (pathname.endsWith("/query") && method === "POST")
     ) {
       return this.handleRealtimeQueryEndpoints(pathname, method, request);
@@ -2653,6 +2668,81 @@ export class MockResponseGenerator {
       const result = cancelQueryJob(jobId);
       return {
         data: result,
+        status: 200,
+      };
+    }
+
+    // AI Chat Session - GET /query/ai/session/:sessionId (for shared URLs)
+    const sessionGetMatch = pathname.match(/\/query\/ai\/session\/([^/?]+)/);
+    if (sessionGetMatch && method === "GET") {
+      const sessionId = sessionGetMatch[1];
+      const session = this.getAiChatSession(sessionId);
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] GET /query/ai/session/", sessionId, session ? "found" : "not found");
+      }
+      if (!session) {
+        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Session not found", cause: "Session ID not in store" } };
+      }
+      return { data: session, status: 200 };
+    }
+
+    // AI Chat Session - POST /query/ai/session (save for sharing)
+    if (pathname.includes("/query/ai/session") && !pathname.match(/\/query\/ai\/session\/[^/]+/) && method === "POST") {
+      let session: { id: string; messages: unknown[]; pinnedFindings: unknown[]; selectedMessageId: string | null; createdAt: number; updatedAt: number; title?: string };
+      try {
+        session = JSON.parse(request.body || "{}");
+      } catch {
+        return { data: null, status: 400, error: { code: "INVALID_REQUEST", message: "Invalid JSON body", cause: "Could not parse request body" } };
+      }
+      if (!session?.id) {
+        return { data: null, status: 400, error: { code: "INVALID_REQUEST", message: "Session id required", cause: "Missing session id in body" } };
+      }
+      this.saveAiChatSession(session);
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] POST /query/ai/session - Saved session", session.id);
+      }
+      return { data: { ok: true, id: session.id }, status: 200 };
+    }
+
+    // AI Query endpoint
+    if (pathname.includes("/query/ai") && method === "POST") {
+      let requestBody: { query?: string; context?: string } = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch (e) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Invalid request body",
+            cause: "Could not parse JSON body",
+          },
+        };
+      }
+
+      const naturalLanguageQuery = requestBody.query || "";
+      if (!naturalLanguageQuery.trim()) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_QUERY",
+            message: "Natural language query is required",
+            cause: "Empty query provided",
+          },
+        };
+      }
+
+      if (this.config.shouldLog()) {
+        console.log("[Mock Server] AI Query:", naturalLanguageQuery.substring(0, 100));
+      }
+
+      const aiResult = generateAiQueryResponse(naturalLanguageQuery, requestBody.context);
+      return {
+        data: aiResult,
         status: 200,
       };
     }

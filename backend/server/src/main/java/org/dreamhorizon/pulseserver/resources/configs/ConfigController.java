@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
 @Slf4j
@@ -45,14 +46,11 @@ public class ConfigController {
   @GET
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletionStage<Response<PulseConfig>> getActiveSdkConfig() {
-    String tenantId = TenantContext.getTenantId();
+  public CompletionStage<PulseConfig> getActiveSdkConfig() {
+    String tenantId = TenantContext.requireTenantId();
     log.info("Fetching active SDK config for tenant: {}", tenantId);
-    if (tenantId == null || tenantId.isBlank()) {
-      throw new IllegalStateException("Tenant ID is required");
-    }
-    return configService.getActiveSdkConfig()
-        .to(RestResponse.jaxrsRestHandler());
+    return configService.getActiveSdkConfig(tenantId)
+        .to(CompletableFutureUtils::fromSingle);
   }
 
   @POST

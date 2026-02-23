@@ -194,6 +194,94 @@ class TenantContextTest {
 
       assertEquals("No tenant context is set", exception.getMessage());
     }
+
+    @Test
+    void shouldThrowExceptionAfterClear() {
+      TenantContext.setTenantId("test-tenant");
+      TenantContext.clear();
+
+      assertThrows(
+          IllegalStateException.class,
+          TenantContext::requireTenantId
+      );
+    }
+  }
+
+  @Nested
+  class ThreadLocalIsolationTests {
+
+    @Test
+    void shouldSetNullTenantId() {
+      TenantContext.setTenantId("test-tenant");
+      TenantContext.setTenantId(null);
+
+      assertNull(TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldSetEmptyStringTenantId() {
+      TenantContext.setTenantId("");
+
+      assertEquals("", TenantContext.getTenantId());
+    }
+
+    @Test
+    void shouldHandleWhitespaceTenantId() {
+      TenantContext.setTenantId("   ");
+
+      assertEquals("   ", TenantContext.getTenantId());
+    }
+  }
+
+  @Nested
+  class TenantObjectTests {
+
+    @Test
+    void shouldOverwritePreviousTenant() {
+      Tenant tenant1 = Tenant.builder()
+          .tenantId("tenant-1")
+          .name("Tenant One")
+          .build();
+      Tenant tenant2 = Tenant.builder()
+          .tenantId("tenant-2")
+          .name("Tenant Two")
+          .build();
+
+      TenantContext.setTenant(tenant1);
+      TenantContext.setTenant(tenant2);
+
+      Optional<Tenant> result = TenantContext.getCurrentTenant();
+      assertTrue(result.isPresent());
+      assertEquals("tenant-2", result.get().getTenantId());
+    }
+
+    @Test
+    void shouldClearBothTenantAndTenantId() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("test-tenant")
+          .name("Test Tenant")
+          .build();
+      TenantContext.setTenant(tenant);
+
+      TenantContext.clear();
+
+      assertNull(TenantContext.getTenantId());
+      assertTrue(TenantContext.getCurrentTenant().isEmpty());
+      assertFalse(TenantContext.isSet());
+    }
+
+    @Test
+    void shouldGetTenantIdFromTenantObject() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("from-tenant-object")
+          .name("From Tenant")
+          .build();
+      TenantContext.setTenant(tenant);
+
+      assertEquals("from-tenant-object", TenantContext.getTenantId());
+      assertTrue(TenantContext.getCurrentTenantId().isPresent());
+      assertEquals("from-tenant-object", TenantContext.getCurrentTenantId().get());
+    }
   }
 }
 

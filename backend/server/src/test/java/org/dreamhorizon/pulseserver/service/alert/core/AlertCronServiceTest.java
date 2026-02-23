@@ -410,6 +410,7 @@ class AlertCronServiceTest {
           30,
           "google-client-id",
           true,
+          "project-id",
           "jwt-secret",
           "http://otel-collector.url",
           "http://interaction-config.url",
@@ -504,6 +505,7 @@ class AlertCronServiceTest {
           30,
           "google-client-id",
           true,
+          "project-id",
           "jwt-secret",
           "http://otel-collector.url",
           "http://interaction-config.url",
@@ -528,19 +530,19 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "secret",
+          "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json"

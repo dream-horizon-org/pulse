@@ -55,7 +55,9 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.Metric;
 import org.dreamhorizon.pulseserver.service.alert.core.models.MetricOperator;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.DateTimeUtil;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -100,7 +102,13 @@ class AlertsDaoTest {
 
   @BeforeEach
   public void setup() {
+    TenantContext.setTenantId("test-tenant");
     alertsDao = new AlertsDao(d11MysqlClient, dateTimeUtil);
+  }
+
+  @AfterEach
+  public void tearDown() {
+    TenantContext.clear();
   }
 
   private void setupWriterPool() {

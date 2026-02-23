@@ -76,7 +76,7 @@ class AthenaJobDaoTest {
       when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String jobId = athenaJobDao.createJob(queryString, userEmail).blockingGet();
+      String jobId = athenaJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail).blockingGet();
 
       assertThat(jobId).isNotNull();
       assertThat(jobId).isNotEmpty();
@@ -89,7 +89,7 @@ class AthenaJobDaoTest {
       verify(preparedQuery).rxExecute(tupleCaptor.capture());
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(1)).isNotNull(); // tenant_id
+      assertThat(capturedTuple.getString(1)).isEqualTo(TenantContext.requireTenantId());
       assertThat(capturedTuple.getString(2)).isEqualTo(queryString);
       assertThat(capturedTuple.getString(3)).isEqualTo(userEmail);
     }
@@ -102,7 +102,7 @@ class AthenaJobDaoTest {
       RuntimeException error = new RuntimeException("Database error");
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(error));
 
-      var testObserver = athenaJobDao.createJob(queryString, userEmail).test();
+      var testObserver = athenaJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail).test();
       testObserver.assertError(Throwable.class);
     }
   }
@@ -133,7 +133,6 @@ class AthenaJobDaoTest {
       assertThat((Timestamp) capturedTuple.getValue(2)).isEqualTo(submissionDateTime);
       assertThat((Timestamp) capturedTuple.getValue(3)).isNotNull();
       assertThat(capturedTuple.getString(4)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(5)).isNotNull(); // tenant_id
     }
   }
 
@@ -178,7 +177,6 @@ class AthenaJobDaoTest {
       assertThat((Timestamp) capturedTuple.getValue(1)).isEqualTo(completionDateTime);
       assertThat((Timestamp) capturedTuple.getValue(2)).isNotNull();
       assertThat(capturedTuple.getString(3)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(4)).isNotNull(); // tenant_id
     }
   }
 

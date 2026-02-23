@@ -168,19 +168,19 @@ class ConfigControllerTest {
             .description("Active Config")
             .build();
 
-        when(configService.getActiveSdkConfig()).thenReturn(Single.just(mockConfig));
+        when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertNotNull(resp.getData());
-            assertEquals(5L, resp.getData().getVersion());
-            assertEquals("Active Config", resp.getData().getDescription());
-            verify(configService, times(1)).getActiveSdkConfig();
+            assertNotNull(resp);
+            assertEquals(5L, resp.getVersion());
+            assertEquals("Active Config", resp.getDescription());
+            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
           });
           testContext.completeNow();
         });
@@ -192,19 +192,19 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
-        when(configService.getActiveSdkConfig())
+        when(configService.getActiveSdkConfig(TenantContext.requireTenantId()))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "No active config", "No active config", 404)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNotNull(err);
             assertInstanceOf(WebApplicationException.class, err);
-            verify(configService, times(1)).getActiveSdkConfig();
+            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
           });
           testContext.completeNow();
         });

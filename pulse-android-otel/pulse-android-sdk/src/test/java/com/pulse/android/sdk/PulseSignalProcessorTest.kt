@@ -2,7 +2,7 @@
 
 package com.pulse.android.sdk
 
-import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import io.opentelemetry.android.common.RumConstants
@@ -375,7 +375,7 @@ class PulseSignalProcessorTest {
 
                 assertThat(spanExporter.finishedSpanItems).hasSize(1)
                 val spanData = spanExporter.finishedSpanItems[0]
-                val normalizedUrl = PulseOtelUtils.normaliseUrl(originalUrl)
+                val normalizedUrl = PulseNetworkingUtils.redactUrl(originalUrl)
                 OpenTelemetryAssertions
                     .assertThat(spanData.attributes)
                     .containsEntry(HttpIncubatingAttributes.HTTP_URL, normalizedUrl)

@@ -6,6 +6,7 @@ import android.os.Build
 import android.telephony.TelephonyManager
 import androidx.annotation.Keep
 import com.pulse.otel.utils.PulseFallbackToUnknownEnumSerializer
+import com.pulse.otel.utils.PulseOtelUtils
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -51,7 +52,7 @@ public enum class PulseDeviceAttributeName {
                         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
                         packageInfo.versionName
                     } catch (e: PackageManager.NameNotFoundException) {
-                        if (BuildConfig.DEBUG) throw e
+                        if (PulseOtelUtils.isDebug()) throw e
                         null
                     }
                 }

@@ -96,7 +96,7 @@ public class AlertService {
         alertId,
         createAlertRequestDto.getEvaluationInterval(),
         applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + alertId,
-        TenantContext.getTenantId()
+        TenantContext.requireTenantId()
     )).map(created -> {
       if (!created) {
         log.error("Error while adding alert to cron manager for alertId: {}", alertId);
@@ -122,7 +122,7 @@ public class AlertService {
         })
         .flatMap(updatedAlertId -> alertCronService.updateAlertCron(new UpdateCronDto(
             alertId,
-            TenantContext.getTenantId(),
+            TenantContext.requireTenantId(),
             updateAlertRequestDto.getEvaluationInterval(),
             evaluationInterval.get(),
             applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + updatedAlertId

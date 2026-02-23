@@ -25,6 +25,7 @@ public class JwtService {
   private static final String CLAIM_EMAIL = "email";
   private static final String CLAIM_NAME = "name";
   private static final String CLAIM_TYPE = "type";
+  private static final String CLAIM_TENANT_ID = "tenantId";
   private static final int MINIMUM_SECRET_LENGTH = 32;
 
   private final ApplicationConfig applicationConfig;
@@ -51,14 +52,24 @@ public class JwtService {
   }
 
   public String generateAccessToken(String userId, String email, String name) {
+    return generateAccessToken(userId, email, name, null);
+  }
+
+  public String generateAccessToken(String userId, String email, String name, String tenantId) {
     Date now = new Date();
     Date expiry = new Date(now.getTime() + ACCESS_TOKEN_VALIDITY_MS);
 
-    return Jwts.builder()
+    var builder = Jwts.builder()
         .subject(userId)
         .claim(CLAIM_EMAIL, email)
         .claim(CLAIM_NAME, name)
-        .claim(CLAIM_TYPE, TOKEN_TYPE_ACCESS)
+        .claim(CLAIM_TYPE, TOKEN_TYPE_ACCESS);
+
+    if (tenantId != null) {
+      builder.claim(CLAIM_TENANT_ID, tenantId);
+    }
+
+    return builder
         .issuedAt(now)
         .expiration(expiry)
         .signWith(getSigningKey())
@@ -66,14 +77,24 @@ public class JwtService {
   }
 
   public String generateRefreshToken(String userId, String email, String name) {
+    return generateRefreshToken(userId, email, name, null);
+  }
+
+  public String generateRefreshToken(String userId, String email, String name, String tenantId) {
     Date now = new Date();
     Date expiry = new Date(now.getTime() + REFRESH_TOKEN_VALIDITY_MS);
 
-    return Jwts.builder()
+    var builder = Jwts.builder()
         .subject(userId)
         .claim(CLAIM_EMAIL, email)
         .claim(CLAIM_NAME, name)
-        .claim(CLAIM_TYPE, TOKEN_TYPE_REFRESH)
+        .claim(CLAIM_TYPE, TOKEN_TYPE_REFRESH);
+
+    if (tenantId != null) {
+      builder.claim(CLAIM_TENANT_ID, tenantId);
+    }
+
+    return builder
         .issuedAt(now)
         .expiration(expiry)
         .signWith(getSigningKey())

@@ -16,8 +16,8 @@ import androidx.core.content.edit
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.otel.utils.PulseSerialisationUtils
 import com.pulse.otel.utils.await
-import com.pulse.utils.BuildConfig
 import io.opentelemetry.android.instrumentation.location.models.CachedLocation
 import io.opentelemetry.android.instrumentation.location.models.LocationConstants
 import kotlinx.coroutines.CoroutineDispatcher
@@ -31,7 +31,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.serialization.json.Json
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -275,15 +274,6 @@ public class LocationProvider
 
         private companion object {
             private const val TAG = "LocationProvider"
-            private val json =
-                Json {
-                    encodeDefaults = true
-                    explicitNulls = false
-                    ignoreUnknownKeys = !BuildConfig.DEBUG
-                    prettyPrint = BuildConfig.DEBUG
-                    isLenient = !BuildConfig.DEBUG
-                    allowSpecialFloatingPointValues = true
-                    useAlternativeNames = true
-                }
+            private val json = PulseSerialisationUtils.jsonConfigForSerialisation
         }
     }

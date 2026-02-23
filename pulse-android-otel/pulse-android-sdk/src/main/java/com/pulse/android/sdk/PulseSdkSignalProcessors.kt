@@ -1,5 +1,6 @@
 package com.pulse.android.sdk
 
+import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
@@ -148,7 +149,7 @@ internal class PulseSdkSignalProcessors {
                 val originalUrl = span.attributes.get(httpUrlKey)
 
                 originalUrl?.let {
-                    span.setAttribute(httpUrlKey, PulseOtelUtils.normaliseUrl(it))
+                    span.setAttribute(httpUrlKey, PulseNetworkingUtils.redactUrl(it))
                 }
             }
         }

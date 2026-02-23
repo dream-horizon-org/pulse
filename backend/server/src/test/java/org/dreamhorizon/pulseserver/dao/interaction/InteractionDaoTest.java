@@ -333,6 +333,7 @@ class InteractionDaoTest {
       var now = java.time.LocalDateTime.now();
       var expectedInteraction = InteractionDetails.builder()
           .id(1L)
+          .tenantId(TenantContext.requireTenantId())
           .name(useCaseId)
           .description("test description")
           .uptimeLowerLimitInMs(10)
@@ -369,6 +370,7 @@ class InteractionDaoTest {
       when(mockRow.getLocalDateTime("created_at")).thenReturn(expectedInteraction.getCreatedAt().toLocalDateTime());
       when(mockRow.getString("updated_by")).thenReturn(expectedInteraction.getUpdatedBy());
       when(mockRow.getLocalDateTime("last_updated_at")).thenReturn(expectedInteraction.getUpdatedAt().toLocalDateTime());
+      when(mockRow.getString("tenant_id")).thenReturn(expectedInteraction.getTenantId());
       when(mockRow.getValue("details")).thenReturn(objectMapper.writeValueAsString(interactionDetailRow));
 
       RowSet<Row> mockRowSet = Mockito.mock(RowSet.class);

@@ -6,6 +6,8 @@ import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.DEACTIVAT
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.DELETE_TENANT;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_ALL_ACTIVE_TENANTS;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_ALL_TENANTS;
+import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_DOMAIN_NAME;
+import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_GCP_TENANT_ID;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.GET_TENANT_BY_ID;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.INSERT_TENANT;
 import static org.dreamhorizon.pulseserver.dao.tenantdao.TenantQueries.UPDATE_TENANT;
@@ -154,6 +156,32 @@ public class TenantDao {
           return row.getLong("count") > 0;
         })
         .doOnError(error -> log.error("Failed to check tenant existence: {}", tenantId, error));
+  }
+
+  public Maybe<Tenant> getTenantByGcpTenantId(String gcpTenantId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_TENANT_BY_GCP_TENANT_ID)
+        .rxExecute(Tuple.of(gcpTenantId))
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            return Maybe.empty();
+          }
+          return Maybe.just(mapRowToTenant(rowSet.iterator().next()));
+        })
+        .doOnError(error -> log.error("Failed to fetch tenant by gcpTenantId: {}", gcpTenantId, error));
+  }
+
+  public Maybe<Tenant> getTenantByDomainName(String domainName) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_TENANT_BY_DOMAIN_NAME)
+        .rxExecute(Tuple.of(domainName))
+        .flatMapMaybe(rowSet -> {
+          if (rowSet.size() == 0) {
+            return Maybe.empty();
+          }
+          return Maybe.just(mapRowToTenant(rowSet.iterator().next()));
+        })
+        .doOnError(error -> log.error("Failed to fetch tenant by domainName: {}", domainName, error));
   }
 
   private Tenant mapRowToTenant(Row row) {
