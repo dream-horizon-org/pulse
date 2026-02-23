@@ -50,7 +50,7 @@ pipeline {
         stage('Send Slack Notification') {
             steps {
                 script {
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds')
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds', botUser: true)
                 }
             }
         }
