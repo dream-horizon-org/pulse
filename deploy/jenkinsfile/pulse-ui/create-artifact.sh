@@ -6,13 +6,11 @@ exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
 # 2. Listing current directory
-echo "Activating Node"
+echo "Sourcing Profile"
 bash -c "source ~/.bashrc"
 sleep 5
+echo "Node location"
 which node
-which npm
-which pm2
-which yarn
 
 ## 3. Change to deploy directory
 #cd pulse-ui
