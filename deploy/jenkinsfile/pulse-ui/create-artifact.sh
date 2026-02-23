@@ -44,3 +44,48 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Success! Secrets have been written to $ENV_FILE."
+
+# 5. Build Application
+echo "### Installing project dependencies..."
+export NODE_OPTIONS=--max_old_space_size=4096
+yarn install
+
+echo "### Building the dashboard..."
+NODE_ENV=production PORT=3000 yarn build
+
+# 6. Preparing artifact
+echo "Getting version from package.json"
+RAW_VERSION=$(jq -r '.version' package.json)
+
+if [ -z "$RAW_VERSION" ] || [ "$RAW_VERSION" = "null" ]; then
+  echo "Error: version not found in pulse-ui/package.json" >&2
+  exit 1
+fi
+
+VERSION="${RAW_VERSION%-SNAPSHOT}"
+echo "Artifact version: $VERSION"
+
+APPLICATION_NAME="pulse-ui"
+ZIP_NAME="$APPLICATION_NAME-$VERSION.zip"
+
+cd ..
+zip -q -r $ZIP_NAME $APPLICATION_NAME
+
+# 7. Upload zip to AWS CodeArtifact (generic package)
+echo "Uploading $ZIP_NAME to AWS CodeArtifact..."
+AWS_REGION="ap-south-1"
+CODEARTIFACT_DOMAIN="pulse"
+CODEARTIFACT_REPOSITORY="pulse-ui"
+
+aws codeartifact publish-package-version \
+  --region "$AWS_REGION" \
+  --domain "$CODEARTIFACT_DOMAIN" \
+  --repository "$CODEARTIFACT_REPOSITORY" \
+  --format generic \
+  --namespace "pulse" \
+  --package "$APPLICATION_NAME" \
+  --package-version "$VERSION" \
+  --asset-name "$ZIP_NAME" \
+  --asset-content "fileb://$ZIP_NAME"
+
+echo "Upload successful: $APPLICATION_NAME:$VERSION ($ZIP_NAME)"
