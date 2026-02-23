@@ -1,0 +1,33 @@
+#!/bin/bash -el
+set -e
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+cd pulse-ui
+
+# Read the current SNAPSHOT version and derive the published version
+RAW_VERSION=$(jq -r '.version' package.json)
+PUBLISHED_VERSION="${RAW_VERSION%-SNAPSHOT}"
+
+# Bump patch: 0.1.0 -> 0.1.1
+IFS='.' read -r MAJOR MINOR PATCH <<< "$PUBLISHED_VERSION"
+NEXT_VERSION="$MAJOR.$MINOR.$((PATCH + 1))-SNAPSHOT"
+
+echo "Published version : $PUBLISHED_VERSION"
+echo "Next version      : $NEXT_VERSION"
+
+# Update package.json in place
+jq --arg v "$NEXT_VERSION" '.version = $v' package.json > package.json.tmp
+mv package.json.tmp package.json
+
+cd ..
+
+# Configure git
+git config user.name "d11-horizon-bot"
+git config user.email "d11-horizon-bot@users.noreply.github.com"
+
+git add pulse-ui/package.json
+git commit -m "chore: release pulse-ui version $PUBLISHED_VERSION"
+
+git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:feat/deployment

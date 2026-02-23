@@ -44,5 +44,17 @@ pipeline {
                 }
             }
         }
+
+        stage('Bump snapshot version') {
+            steps {
+                script {
+                    sh """
+                        #!/bin/bash -el
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
+                        ./deploy/jenkinsfile/pulse-ui/bump-version.sh
+                    """
+                }
+            }
+        }
     }
 }
