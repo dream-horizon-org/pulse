@@ -19,9 +19,9 @@ public class PulseSignalConfig internal constructor(
     @SerialName("customEventCollectorUrl")
     public val customEventCollectorUrl: String,
     @SerialName("attributesToDrop")
-    public val attributesToDrop: List<PulseSignalMatchCondition>,
+    public val attributesToDrop: List<PulseAttributesToDropEntry>,
     @SerialName("attributesToAdd")
-    public val attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+    public val attributesToAdd: List<PulseAttributesToAddEntry>,
     @SerialName("filters")
     public val filters: PulseSignalFilter,
 )
@@ -98,6 +98,21 @@ public class PulseAttributeValue internal constructor(
 public class PulseAttributesToAddEntry internal constructor(
     @SerialName("values")
     public val values: List<PulseAttributeValue>,
+    @SerialName("condition")
+    public val condition: PulseSignalMatchCondition,
+)
+
+@Keep
+@Serializable
+public class PulseAttributesToDropEntry internal constructor(
+    /**
+     * List of regex entries which will dropped from the signal
+     */
+    @SerialName("values")
+    public val values: List<String>,
+    /**
+     * Condition which should be matched for [values] to be dropped
+     */
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition,
 )
