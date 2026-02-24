@@ -3,6 +3,10 @@ pipeline {
         node { label 'ec2-pulse-ui-fleet' }
     }
 
+    environment {
+        ARTIFACT_VERSION = ''
+    }
+
     stages {
         stage('Clear Existing Workspace') {
             steps {
@@ -20,6 +24,14 @@ pipeline {
             }
         }
 
+        stage('Read Version') {
+            steps {
+                script {
+                    ARTIFACT_VERSION = getVersionFromPackageJson()
+                    echo "Version to be published ${ARTIFACT_VERSION}"
+                }
+            }
+        }
 
         stage('Publish Artifact') {
             steps {
@@ -27,7 +39,7 @@ pipeline {
                     sh """
                         #!/bin/bash -el
                         chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
-                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh -v ${ARTIFACT_VERSION}
                     """
                 }
             }
@@ -54,4 +66,12 @@ pipeline {
             }
         }
     }
+}
+
+def getVersionFromPackageJson(String path = 'pulse-ui/package.json') {
+    def rawVersion = sh(
+            script: "jq -r '.version' ${path}",
+            returnStdout: true
+    ).trim()
+    return rawVersion.replaceAll('-SNAPSHOT$', '')
 }

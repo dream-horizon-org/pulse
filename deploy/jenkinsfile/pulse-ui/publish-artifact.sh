@@ -78,7 +78,7 @@ echo "Uploading $ZIP_NAME to AWS CodeArtifact..."
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-ui"
-FILE_HASH=$(sha256sum $(ZIP_NAME) | awk '{ print $1 }')
+FILE_HASH=$(sha256sum $ZIP_NAME | awk '{ print $1 }')
 
 aws codeartifact publish-package-version \
   --region "$AWS_REGION" \
