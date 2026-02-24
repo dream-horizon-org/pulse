@@ -10,45 +10,45 @@ pipeline {
             }
         }
 
-//        stage('Clone repository') {
-//            steps {
-//                checkout([
-//                        $class: 'GitSCM',
-//                        branches: [[name: '*/feat/deployment']],
-//                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
-//                ])
-//            }
-//        }
-//
-//
-//        stage('Publish Artifact') {
-//            steps {
-//                script {
-//                    sh """
-//                        #!/bin/bash -el
-//                        chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
-//                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
-//                    """
-//                }
-//            }
-//        }
-//
-//        stage('Bump snapshot version') {
-//            steps {
-//                script {
-//                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-//                        sh """
-//                            #!/bin/bash -el
-//                            chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-//                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN"
-//                        """
-//                    }
-//                }
-//            }
-//        }
-
-        stage('Send Slack Notification') {
+        stage('Clone repository') {
             steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/feat/deployment']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    sh """
+                        #!/bin/bash -el
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
+                    """
+                }
+            }
+        }
+
+        stage('Bump snapshot version') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN"
+                        """
+                    }
+                }
+            }
+        }
+
+        post {
+            success {
                 script {
                     slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds', botUser: true)
                 }
