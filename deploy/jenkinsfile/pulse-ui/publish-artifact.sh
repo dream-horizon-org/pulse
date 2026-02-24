@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on error
 
-while getopts u:p: flag
+while getopts v: flag
 do
     case "${flag}" in
         v) VERSION=${OPTARG};;

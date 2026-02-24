@@ -1,7 +1,7 @@
 #!/bin/bash -el
 set -e
 
-while getopts u:p: flag
+while getopts u:p:v: flag
 do
     case "${flag}" in
         u) GIT_USER=${OPTARG};;
