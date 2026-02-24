@@ -2,7 +2,7 @@
 set -e  # Exit on error
 
 # 1. Setup Logging
-exec > >(tee /var/log/user-data.log) 2>&1
+exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
 # 2. Activating NVM
@@ -15,6 +15,7 @@ export NVM_DIR="$HOME/.nvm"
 AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-ui"
+APPLICATION_NAME="pulse-ui"
 VERSION=0.1.3
 
 aws codeartifact get-package-version-asset \
