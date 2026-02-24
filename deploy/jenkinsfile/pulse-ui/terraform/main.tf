@@ -88,9 +88,7 @@ resource "aws_launch_template" "pulse_ui" {
     http_tokens   = "required"
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
-    env_vars = var.app_env
-  }))
+  user_data = base64encode("${path.module}/user-data.sh")
 }
 
 # -------------------------------------------------------------------
@@ -198,9 +196,11 @@ resource "aws_autoscaling_group" "pulse_ui" {
         launch_template_id = aws_launch_template.pulse_ui.id
         version            = "$Latest"
       }
-      override {
-        instance_requirements {
-          allowed_instance_types = var.instance_types
+      # The correct way to pass a list of specific instance types
+      dynamic "override" {
+        for_each = var.instance_types
+        content {
+          instance_type = override.value
         }
       }
     }
