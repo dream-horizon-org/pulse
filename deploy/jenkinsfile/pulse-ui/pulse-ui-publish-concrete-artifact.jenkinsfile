@@ -52,7 +52,7 @@ pipeline {
                         sh """
                             #!/bin/bash -el
                             chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN"
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN" -v ${ARTIFACT_VERSION}
                         """
                     }
                 }
@@ -62,7 +62,9 @@ pipeline {
     post {
         success {
             script {
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds', botUser: true)
+                def message = "<!channel> Pulse UI version *${publishedVersion}* published\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
     }

@@ -1,6 +1,18 @@
 #!/bin/bash
 set -e  # Exit on error
 
+while getopts u:p: flag
+do
+    case "${flag}" in
+        v) VERSION=${OPTARG};;
+    esac
+done
+
+if [ -z "$GIT_USER" ]; then
+    echo 'Missing option -a (Git username)' >&2
+    exit 1
+fi
+
 # 1. Setup Logging
 exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
@@ -56,15 +68,6 @@ echo "### Building the dashboard..."
 NODE_ENV=production PORT=3000 yarn build
 
 # 6. Preparing artifact
-echo "Getting version from package.json"
-RAW_VERSION=$(jq -r '.version' package.json)
-
-if [ -z "$RAW_VERSION" ] || [ "$RAW_VERSION" = "null" ]; then
-  echo "Error: version not found in pulse-ui/package.json" >&2
-  exit 1
-fi
-
-VERSION="${RAW_VERSION%-SNAPSHOT}"
 echo "Artifact version: $VERSION"
 
 APPLICATION_NAME="pulse-ui"

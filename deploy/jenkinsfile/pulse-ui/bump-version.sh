@@ -4,8 +4,9 @@ set -e
 while getopts u:p: flag
 do
     case "${flag}" in
-        a) GIT_USER=${OPTARG};;
-        v) GIT_TOKEN=${OPTARG};;
+        u) GIT_USER=${OPTARG};;
+        p) GIT_TOKEN=${OPTARG};;
+        v) ARTIFACT_VERSION=${OPTARG};;
     esac
 done
 
@@ -25,8 +26,7 @@ export NVM_DIR="$HOME/.nvm"
 cd pulse-ui
 
 # Read the current SNAPSHOT version and derive the published version
-RAW_VERSION=$(jq -r '.version' package.json)
-PUBLISHED_VERSION="${RAW_VERSION%-SNAPSHOT}"
+PUBLISHED_VERSION="${ARTIFACT_VERSION}"
 
 # Bump patch: 0.1.0 -> 0.1.1
 IFS='.' read -r MAJOR MINOR PATCH <<< "$PUBLISHED_VERSION"
