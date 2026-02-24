@@ -610,12 +610,348 @@ export class MockSessionReplayData {
       ],
     };
 
+    // Journey Analysis - Top user paths
+    const topJourneys = [
+      {
+        path: ['Home', 'Contest', 'Join Contest', 'Success'],
+        sessionCount: 127,
+        completionRate: 82.5,
+        avgDuration: 45000,
+        conversionRate: 82.5,
+        pathLength: 4,
+        isCompleted: true,
+        isBounce: false,
+      },
+      {
+        path: ['Home', 'Profile', 'Payment', 'Checkout'],
+        sessionCount: 89,
+        completionRate: 48.3,
+        avgDuration: 182000,
+        dropOffPoint: 'Payment',
+        conversionRate: 48.3,
+        pathLength: 4,
+        isCompleted: false,
+        isBounce: false,
+      },
+      {
+        path: ['Home', 'Signup', 'Verification', 'Complete'],
+        sessionCount: 76,
+        completionRate: 65.8,
+        avgDuration: 95000,
+        dropOffPoint: 'Verification',
+        conversionRate: 65.8,
+        pathLength: 4,
+        isCompleted: true,
+        isBounce: false,
+      },
+      {
+        path: ['Home', 'Contest', 'Abandon'],
+        sessionCount: 54,
+        completionRate: 0,
+        avgDuration: 12000,
+        dropOffPoint: 'Contest',
+        pathLength: 3,
+        isCompleted: false,
+        isBounce: false,
+      },
+      {
+        path: ['Home', 'Profile', 'Settings', 'Logout'],
+        sessionCount: 43,
+        completionRate: 100,
+        avgDuration: 28000,
+        pathLength: 4,
+        isCompleted: true,
+        isBounce: false,
+      },
+      {
+        path: ['Home', 'Search', 'Contest Details', 'Join'],
+        sessionCount: 38,
+        completionRate: 71.1,
+        avgDuration: 52000,
+        pathLength: 4,
+        isCompleted: true,
+        isBounce: false,
+      },
+      {
+        path: ['Home', 'Payment', 'Abandon'],
+        sessionCount: 32,
+        completionRate: 0,
+        avgDuration: 85000,
+        dropOffPoint: 'Payment',
+        pathLength: 3,
+        isCompleted: false,
+        isBounce: false,
+      },
+      // BOUNCES - Single screen visits (will be filtered out in UI)
+      {
+        path: ['Home'],
+        sessionCount: 234, // High count - users just opening and killing app
+        completionRate: 0,
+        avgDuration: 2000, // 2 seconds
+        dropOffPoint: 'Home',
+        pathLength: 1,
+        isCompleted: false,
+        isBounce: true,
+      },
+      {
+        path: ['Splash'],
+        sessionCount: 156,
+        completionRate: 0,
+        avgDuration: 1500,
+        dropOffPoint: 'Splash',
+        pathLength: 1,
+        isCompleted: false,
+        isBounce: true,
+      },
+      {
+        path: ['Home', 'Profile', 'Edit Profile', 'Save'],
+        sessionCount: 28,
+        completionRate: 89.3,
+        avgDuration: 67000,
+      },
+      {
+        path: ['Home', 'Contest', 'Leaderboard', 'Exit'],
+        sessionCount: 21,
+        completionRate: 100,
+        avgDuration: 18000,
+      },
+      {
+        path: ['Home', 'Signup', 'Abandon'],
+        sessionCount: 19,
+        completionRate: 0,
+        avgDuration: 34000,
+        dropOffPoint: 'Signup',
+      },
+    ];
+
+    // Segmentation Analysis
+    const iosSessions = sessions.filter(s => s.device === 'iOS');
+    const androidSessions = sessions.filter(s => s.device === 'Android');
+    const webSessions = sessions.filter(s => s.device !== 'iOS' && s.device !== 'Android');
+    
+    const segmentation = {
+      byPlatform: [
+        {
+          platform: 'iOS' as const,
+          sessionCount: iosSessions.length,
+          errorRate: iosSessions.length > 0 ? (iosSessions.filter(s => s.errors > 0).length / iosSessions.length) * 100 : 0,
+          topIssue: 'Network timeout',
+        },
+        {
+          platform: 'Android' as const,
+          sessionCount: androidSessions.length,
+          errorRate: androidSessions.length > 0 ? (androidSessions.filter(s => s.errors > 0).length / androidSessions.length) * 100 : 0,
+          topIssue: 'App crashes on startup',
+        },
+        {
+          platform: 'Web' as const,
+          sessionCount: webSessions.length,
+          errorRate: webSessions.length > 0 ? (webSessions.filter(s => s.errors > 0).length / webSessions.length) * 100 : 0,
+          topIssue: 'JS bundle load error',
+        },
+      ],
+      // Optional: App version breakdown (example data)
+      byAppVersion: [
+        {
+          version: '2.5.1',
+          platform: 'iOS' as const,
+          sessionCount: Math.round(iosSessions.length * 0.65),
+          errorRate: 8.5,
+          releaseDate: '2024-02-01',
+          isLatest: true,
+        },
+        {
+          version: '2.5.0',
+          platform: 'iOS' as const,
+          sessionCount: Math.round(iosSessions.length * 0.25),
+          errorRate: 12.3,
+          releaseDate: '2024-01-15',
+          isLatest: false,
+        },
+        {
+          version: '2.4.8',
+          platform: 'iOS' as const,
+          sessionCount: Math.round(iosSessions.length * 0.10),
+          errorRate: 15.8,
+          releaseDate: '2023-12-20',
+          isLatest: false,
+        },
+        {
+          version: '2.5.1',
+          platform: 'Android' as const,
+          sessionCount: Math.round(androidSessions.length * 0.55),
+          errorRate: 14.2,
+          releaseDate: '2024-02-01',
+          isLatest: true,
+        },
+        {
+          version: '2.5.0',
+          platform: 'Android' as const,
+          sessionCount: Math.round(androidSessions.length * 0.30),
+          errorRate: 18.9,
+          releaseDate: '2024-01-15',
+          isLatest: false,
+        },
+      ],
+      // Optional: Geographic breakdown (top 5)
+      byCountry: [
+        { countryCode: 'US', countryName: 'United States', sessionCount: Math.round(totalSessions * 0.35), errorRate: 11.2 },
+        { countryCode: 'IN', countryName: 'India', sessionCount: Math.round(totalSessions * 0.20), errorRate: 18.5 },
+        { countryCode: 'GB', countryName: 'United Kingdom', sessionCount: Math.round(totalSessions * 0.12), errorRate: 9.8 },
+        { countryCode: 'CA', countryName: 'Canada', sessionCount: Math.round(totalSessions * 0.08), errorRate: 10.5 },
+        { countryCode: 'DE', countryName: 'Germany', sessionCount: Math.round(totalSessions * 0.06), errorRate: 13.2 },
+      ],
+    };
+
+    // Performance Metrics - Core Web Vitals & RUM
+    const performance = {
+      coreWebVitals: {
+        lcp: {
+          p50: 1800,
+          p75: 2400,
+          p95: 3900,
+          rating: 'needs-improvement' as const,
+          sessionsGood: Math.round(totalSessions * 0.35),
+          sessionsNeedsImprovement: Math.round(totalSessions * 0.45),
+          sessionsPoor: Math.round(totalSessions * 0.20),
+        },
+        fid: {
+          p50: 85,
+          p75: 120,
+          p95: 210,
+          rating: 'good' as const,
+          sessionsGood: Math.round(totalSessions * 0.72),
+          sessionsNeedsImprovement: Math.round(totalSessions * 0.18),
+          sessionsPoor: Math.round(totalSessions * 0.10),
+        },
+        cls: {
+          p50: 0.08,
+          p75: 0.15,
+          p95: 0.28,
+          rating: 'needs-improvement' as const,
+          sessionsGood: Math.round(totalSessions * 0.48),
+          sessionsNeedsImprovement: Math.round(totalSessions * 0.32),
+          sessionsPoor: Math.round(totalSessions * 0.20),
+        },
+      },
+      pageLoadDistribution: {
+        under1s: 18,
+        between1and3s: 42,
+        between3and5s: 28,
+        over5s: 12,
+        avgLoadTime: 2850,
+      },
+      networkHealth: {
+        apiSuccessRate: 92.5,
+        avgApiLatency: 385,
+        failedRequests: Math.round(totalSessions * 8 * 0.075), // Avg 8 API calls per session, 7.5% fail
+        totalRequests: Math.round(totalSessions * 8),
+        slowRequests: Math.round(totalSessions * 8 * 0.12), // 12% are slow (>3s)
+      },
+    };
+
+    // Time-based Patterns
+    const timePatterns = {
+      peakErrorHours: [
+        { hour: 0, errorCount: 8, sessionCount: 45, errorRate: 17.8 },
+        { hour: 1, errorCount: 5, sessionCount: 32, errorRate: 15.6 },
+        { hour: 2, errorCount: 3, sessionCount: 21, errorRate: 14.3 },
+        { hour: 3, errorCount: 2, sessionCount: 18, errorRate: 11.1 },
+        { hour: 4, errorCount: 3, sessionCount: 24, errorRate: 12.5 },
+        { hour: 5, errorCount: 7, sessionCount: 38, errorRate: 18.4 },
+        { hour: 6, errorCount: 12, sessionCount: 67, errorRate: 17.9 },
+        { hour: 7, errorCount: 18, sessionCount: 95, errorRate: 18.9 },
+        { hour: 8, errorCount: 24, sessionCount: 128, errorRate: 18.8 },
+        { hour: 9, errorCount: 35, sessionCount: 156, errorRate: 22.4 }, // Peak errors
+        { hour: 10, errorCount: 42, sessionCount: 185, errorRate: 22.7 }, // Peak errors
+        { hour: 11, errorCount: 38, sessionCount: 172, errorRate: 22.1 },
+        { hour: 12, errorCount: 32, sessionCount: 165, errorRate: 19.4 },
+        { hour: 13, errorCount: 28, sessionCount: 158, errorRate: 17.7 },
+        { hour: 14, errorCount: 31, sessionCount: 176, errorRate: 17.6 },
+        { hour: 15, errorCount: 29, sessionCount: 168, errorRate: 17.3 },
+        { hour: 16, errorCount: 26, sessionCount: 152, errorRate: 17.1 },
+        { hour: 17, errorCount: 22, sessionCount: 142, errorRate: 15.5 },
+        { hour: 18, errorCount: 19, sessionCount: 125, errorRate: 15.2 },
+        { hour: 19, errorCount: 21, sessionCount: 118, errorRate: 17.8 },
+        { hour: 20, errorCount: 18, sessionCount: 98, errorRate: 18.4 },
+        { hour: 21, errorCount: 15, sessionCount: 82, errorRate: 18.3 },
+        { hour: 22, errorCount: 12, sessionCount: 64, errorRate: 18.8 },
+        { hour: 23, errorCount: 10, sessionCount: 52, errorRate: 19.2 },
+      ],
+      performanceByHour: [
+        { hour: 0, avgResponseTime: 245, rating: 'excellent' as const },
+        { hour: 1, avgResponseTime: 238, rating: 'excellent' as const },
+        { hour: 2, avgResponseTime: 232, rating: 'excellent' as const },
+        { hour: 3, avgResponseTime: 228, rating: 'excellent' as const },
+        { hour: 4, avgResponseTime: 235, rating: 'excellent' as const },
+        { hour: 5, avgResponseTime: 268, rating: 'excellent' as const },
+        { hour: 6, avgResponseTime: 312, rating: 'good' as const },
+        { hour: 7, avgResponseTime: 358, rating: 'good' as const },
+        { hour: 8, avgResponseTime: 425, rating: 'good' as const },
+        { hour: 9, avgResponseTime: 485, rating: 'fair' as const },
+        { hour: 10, avgResponseTime: 512, rating: 'fair' as const },
+        { hour: 11, avgResponseTime: 498, rating: 'fair' as const },
+        { hour: 12, avgResponseTime: 445, rating: 'good' as const },
+        { hour: 13, avgResponseTime: 432, rating: 'good' as const },
+        { hour: 14, avgResponseTime: 458, rating: 'good' as const },
+        { hour: 15, avgResponseTime: 442, rating: 'good' as const },
+        { hour: 16, avgResponseTime: 418, rating: 'good' as const },
+        { hour: 17, avgResponseTime: 385, rating: 'good' as const },
+        { hour: 18, avgResponseTime: 362, rating: 'good' as const },
+        { hour: 19, avgResponseTime: 342, rating: 'good' as const },
+        { hour: 20, avgResponseTime: 328, rating: 'good' as const },
+        { hour: 21, avgResponseTime: 298, rating: 'good' as const },
+        { hour: 22, avgResponseTime: 278, rating: 'excellent' as const },
+        { hour: 23, avgResponseTime: 258, rating: 'excellent' as const },
+      ],
+      errorTrend: [
+        { date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], errorCount: 145, sessionCount: 892, errorRate: 16.3 },
+        { date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], errorCount: 168, sessionCount: 925, errorRate: 18.2 },
+        { date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], errorCount: 189, sessionCount: 952, errorRate: 19.9 },
+        { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], errorCount: 178, sessionCount: 935, errorRate: 19.0 },
+        { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], errorCount: 195, sessionCount: 968, errorRate: 20.1 },
+        { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], errorCount: 212, sessionCount: 985, errorRate: 21.5 },
+        { date: new Date().toISOString().split('T')[0], errorCount: 198, sessionCount: 942, errorRate: 21.0 },
+      ],
+    };
+
+    // Geographic & Browser Distribution
+    const geographic = {
+      topRegions: [
+        { country: 'United States', countryCode: 'US', sessionCount: Math.round(totalSessions * 0.35), errorRate: 18.5, avgPerformance: 0.72, topIssue: 'Payment failures' },
+        { country: 'India', countryCode: 'IN', sessionCount: Math.round(totalSessions * 0.25), errorRate: 22.8, avgPerformance: 0.65, topIssue: 'Slow load times' },
+        { country: 'United Kingdom', countryCode: 'GB', sessionCount: Math.round(totalSessions * 0.12), errorRate: 15.2, avgPerformance: 0.78, topIssue: 'Form validation' },
+        { country: 'Germany', countryCode: 'DE', sessionCount: Math.round(totalSessions * 0.08), errorRate: 14.1, avgPerformance: 0.81 },
+        { country: 'Canada', countryCode: 'CA', sessionCount: Math.round(totalSessions * 0.07), errorRate: 16.3, avgPerformance: 0.75 },
+        { country: 'Australia', countryCode: 'AU', sessionCount: Math.round(totalSessions * 0.05), errorRate: 19.7, avgPerformance: 0.68, topIssue: 'High latency' },
+        { country: 'Brazil', countryCode: 'BR', sessionCount: Math.round(totalSessions * 0.04), errorRate: 24.5, avgPerformance: 0.62, topIssue: 'Network timeouts' },
+        { country: 'Japan', countryCode: 'JP', sessionCount: Math.round(totalSessions * 0.04), errorRate: 12.8, avgPerformance: 0.84 },
+      ],
+      browserBreakdown: [
+        { browser: 'Chrome', version: '121', sessionCount: Math.round(totalSessions * 0.52), errorRate: 17.2, compatibilityIssues: 12, topIssue: 'WebGL crashes' },
+        { browser: 'Safari', version: '17', sessionCount: Math.round(totalSessions * 0.28), errorRate: 19.8, compatibilityIssues: 24, topIssue: 'Webkit rendering bugs' },
+        { browser: 'Firefox', version: '122', sessionCount: Math.round(totalSessions * 0.12), errorRate: 16.5, compatibilityIssues: 8 },
+        { browser: 'Edge', version: '121', sessionCount: Math.round(totalSessions * 0.06), errorRate: 18.3, compatibilityIssues: 5 },
+        { browser: 'Opera', sessionCount: Math.round(totalSessions * 0.02), errorRate: 21.2, compatibilityIssues: 3 },
+      ],
+      deviceTypeBreakdown: [
+        { deviceType: 'mobile' as const, sessionCount: Math.round(totalSessions * 0.62), errorRate: 21.5, avgPerformance: 0.68 },
+        { deviceType: 'desktop' as const, sessionCount: Math.round(totalSessions * 0.32), errorRate: 14.8, avgPerformance: 0.78 },
+        { deviceType: 'tablet' as const, sessionCount: Math.round(totalSessions * 0.06), errorRate: 16.2, avgPerformance: 0.74 },
+      ],
+    };
+
     return {
       totalSessions,
       criticalInteractions,
       estimatedImpact,
       topIssueHotspots,
       topErrorPatterns,
+      topJourneys,
+      segmentation,
+      performance,
+      timePatterns,
+      geographic,
       comparison,
       // Legacy (for backward compatibility)
       sessionsWithIssues,

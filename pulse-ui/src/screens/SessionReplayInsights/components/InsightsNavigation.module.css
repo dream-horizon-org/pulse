@@ -1,0 +1,187 @@
+/* Sticky Navigation Bar at Top */
+.stickyNav {
+  position: sticky;
+  top: 60px;
+  z-index: 100;
+  background: rgba(249, 250, 251, 0.8);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  padding: 6px;
+  border-radius: 10px;
+  margin-bottom: var(--mantine-spacing-xl);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 16px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+}
+
+/* Top gradient overlay - fills gap above navbar */
+.stickyNav::before {
+  content: "";
+  position: absolute;
+  top: -60px;
+  left: -20px;
+  right: -20px;
+  height: 60px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.6) 100%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Bottom gradient overlay/fade effect */
+.stickyNav::after {
+  content: "";
+  position: absolute;
+  bottom: -24px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.navGroup {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mantine-color-gray-3) transparent;
+  padding: 0 var(--mantine-spacing-lg);
+  display: flex;
+  gap: var(--mantine-spacing-sm);
+}
+
+.navGroup::-webkit-scrollbar {
+  height: 4px;
+}
+
+.navGroup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.navGroup::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-gray-3);
+  border-radius: 4px;
+}
+
+.navGroup::-webkit-scrollbar-thumb:hover {
+  background: var(--mantine-color-gray-4);
+}
+
+.navButton {
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  color: var(--mantine-color-gray-7);
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+  margin: 2px 0;
+  padding: 0 6px !important;
+}
+
+.navButton:hover {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--mantine-color-gray-9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.navButton.active {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--mantine-color-teal-6);
+  font-weight: 600;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark mode support */
+[data-mantine-color-scheme="dark"] .stickyNav {
+  background: rgba(26, 27, 30, 0.8);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode top gradient */
+[data-mantine-color-scheme="dark"] .stickyNav::before {
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 27, 30, 0) 0%,
+    rgba(26, 27, 30, 0.25) 50%,
+    rgba(26, 27, 30, 0.5) 100%
+  );
+}
+
+/* Dark mode bottom gradient */
+[data-mantine-color-scheme="dark"] .stickyNav::after {
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 27, 30, 0.5) 0%,
+    rgba(26, 27, 30, 0.25) 50%,
+    rgba(26, 27, 30, 0) 100%
+  );
+}
+
+[data-mantine-color-scheme="dark"] .navButton {
+  color: var(--mantine-color-gray-5);
+}
+
+[data-mantine-color-scheme="dark"] .navButton:hover {
+  background: rgba(55, 58, 64, 0.9);
+  color: var(--mantine-color-gray-3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-mantine-color-scheme="dark"] .navButton.active {
+  background: rgba(55, 58, 64, 0.95);
+  color: var(--mantine-color-teal-4);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+[data-mantine-color-scheme="dark"] .navGroup::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .navGroup::-webkit-scrollbar-thumb:hover {
+  background: var(--mantine-color-dark-3);
+}
+
+/* Responsive: Make text smaller on mobile */
+@media (max-width: 768px) {
+  .navButton {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  .stickyNav {
+    padding: 5px;
+  }
+}
+
+/* Remove the slide-down animation */
+.stickyNav {
+  /* Animation removed for cleaner load */
+}

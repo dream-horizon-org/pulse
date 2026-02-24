@@ -16,7 +16,12 @@ export interface GetSessionsRequest {
     mobile?: boolean;
     newUsers?: boolean;
   };
-  advancedFilters?: FilterGroup; // Now uses structured FilterGroup
+  advancedFilters?: FilterGroup;
+  drillDown?: {
+    type: 'conversion_loss' | 'affected_users' | 'sessions_with_issues' | 
+          'interaction' | 'journey' | 'cardinality' | 'error_pattern' | 'friction_hotspot';
+    value: any;
+  };
   page?: number;
   pageSize?: number;
   sortBy?: string;
@@ -82,6 +87,148 @@ export interface GetSessionsResponse {
   metrics: SessionReplayMetrics;
 }
 
+// Journey Analysis - Path analysis for Product teams
+export interface JourneyPath {
+  path: string[]; // e.g., ['Home', 'Product', 'Cart', 'Checkout']
+  sessionCount: number;
+  completionRate: number; // % of sessions that completed the journey
+  avgDuration: number; // milliseconds
+  dropOffPoint?: string; // Where most users drop off
+  conversionRate?: number; // For conversion-focused journeys
+  pathLength: number; // Number of screens/steps in the path
+  isCompleted: boolean; // True if journey reached a successful outcome
+  isBounce: boolean; // True if only 1 screen visited
+}
+
+// Segmentation - Non-opinionated session breakdowns only
+export interface SegmentationMetrics {
+  byPlatform: PlatformSegment[];
+  byAppVersion?: AppVersionSegment[]; // Optional: App version breakdown
+  byCountry?: CountrySegment[]; // Optional: Geographic breakdown (top 5)
+  // Note: byUserType and byQuality removed - opinionated segmentations
+}
+
+export interface PlatformSegment {
+  platform: 'iOS' | 'Android' | 'Web';
+  sessionCount: number;
+  errorRate: number;
+  topIssue?: string; // Most common error type
+}
+
+export interface AppVersionSegment {
+  version: string; // e.g., "2.5.1"
+  platform: 'iOS' | 'Android' | 'Web';
+  sessionCount: number;
+  errorRate: number;
+  releaseDate?: string; // ISO date
+  isLatest: boolean;
+}
+
+export interface CountrySegment {
+  countryCode: string; // ISO code
+  countryName: string;
+  sessionCount: number;
+  errorRate: number;
+}
+
+// Performance Metrics - Core Web Vitals & RUM
+export interface PerformanceMetrics {
+  coreWebVitals: CoreWebVitals;
+  pageLoadDistribution: PageLoadDistribution;
+  networkHealth: NetworkHealth;
+}
+
+export interface CoreWebVitals {
+  lcp: WebVitalMetric; // Largest Contentful Paint
+  fid: WebVitalMetric; // First Input Delay
+  cls: WebVitalMetric; // Cumulative Layout Shift
+}
+
+export interface WebVitalMetric {
+  p50: number;
+  p75: number;
+  p95: number;
+  rating: 'good' | 'needs-improvement' | 'poor';
+  sessionsGood: number;
+  sessionsNeedsImprovement: number;
+  sessionsPoor: number;
+}
+
+export interface PageLoadDistribution {
+  under1s: number; // percentage
+  between1and3s: number;
+  between3and5s: number;
+  over5s: number;
+  avgLoadTime: number; // milliseconds
+}
+
+export interface NetworkHealth {
+  apiSuccessRate: number; // percentage
+  avgApiLatency: number; // milliseconds
+  failedRequests: number;
+  totalRequests: number;
+  slowRequests: number; // requests > 3s
+}
+
+// Time-based Patterns
+export interface TimeBasedPatterns {
+  peakErrorHours: HourlyPattern[];
+  performanceByHour: HourlyPerformance[];
+  errorTrend: TrendDataPoint[];
+}
+
+export interface HourlyPattern {
+  hour: number; // 0-23
+  errorCount: number;
+  sessionCount: number;
+  errorRate: number; // percentage
+}
+
+export interface HourlyPerformance {
+  hour: number; // 0-23
+  avgResponseTime: number; // milliseconds
+  rating: 'excellent' | 'good' | 'fair' | 'poor';
+}
+
+export interface TrendDataPoint {
+  date: string; // ISO date
+  errorCount: number;
+  sessionCount: number;
+  errorRate: number;
+}
+
+// Geographic & Browser Distribution
+export interface GeographicMetrics {
+  topRegions: RegionMetric[];
+  browserBreakdown: BrowserMetric[];
+  deviceTypeBreakdown: DeviceTypeMetric[];
+}
+
+export interface RegionMetric {
+  country: string;
+  countryCode: string;
+  sessionCount: number;
+  errorRate: number;
+  avgPerformance: number; // Apdex-like score
+  topIssue?: string;
+}
+
+export interface BrowserMetric {
+  browser: string; // 'Chrome', 'Safari', 'Firefox', etc.
+  version?: string;
+  sessionCount: number;
+  errorRate: number;
+  compatibilityIssues: number;
+  topIssue?: string;
+}
+
+export interface DeviceTypeMetric {
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  sessionCount: number;
+  errorRate: number;
+  avgPerformance: number;
+}
+
 // Investigation-focused metrics for Session Replay
 export interface SessionReplayMetrics {
   totalSessions: number;
@@ -95,6 +242,21 @@ export interface SessionReplayMetrics {
   
   // Error Patterns (for Tech) - clusters identical errors to avoid watching duplicate sessions
   topErrorPatterns: ErrorPattern[]; // Max 3, sorted by severity × affected sessions
+  
+  // Journey Analysis (for Product - path analysis)
+  topJourneys?: JourneyPath[]; // Top 10 unique paths by frequency
+  
+  // Segmentation (for Product - cardinality analysis)
+  segmentation?: SegmentationMetrics;
+  
+  // Performance Metrics (for RUM/Tech)
+  performance?: PerformanceMetrics;
+  
+  // Time-based Patterns (for monitoring trends)
+  timePatterns?: TimeBasedPatterns;
+  
+  // Geographic & Browser Distribution
+  geographic?: GeographicMetrics;
   
   // Context & Trends
   comparison: ComparisonMetrics;

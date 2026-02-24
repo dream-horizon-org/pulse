@@ -51,6 +51,9 @@ import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
 import { SessionReplay } from "../screens/SessionReplay";
+import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import { SessionReplayInsights } from "../screens/SessionReplayInsights";
+import { SessionReplaySessions } from "../screens/SessionReplaySessions";
 
 export const APP_NAME: string = "Pulse";
 
@@ -234,6 +237,24 @@ export const ROUTES: Routes = {
     basePath: "/session-replay",
     path: "/session-replay",
     element: SessionReplay,
+  },
+  SESSION_REPLAY_INSIGHTS: {
+    key: "SESSION_REPLAY_INSIGHTS",
+    basePath: "/session-replay/insights",
+    path: "/session-replay/insights",
+    element: SessionReplayInsights,
+  },
+  SESSION_REPLAY_SESSIONS: {
+    key: "SESSION_REPLAY_SESSIONS",
+    basePath: "/session-replay/sessions",
+    path: "/session-replay/sessions",
+    element: SessionReplaySessions,
+  },
+  SESSION_REPLAY_DETAIL: {
+    key: "SESSION_REPLAY_DETAIL",
+    basePath: "/session-replay",
+    path: "/session-replay/:sessionId",
+    element: SessionReplayDetail,
   },
 };
 

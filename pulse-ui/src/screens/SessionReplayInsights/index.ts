@@ -1,0 +1,1 @@
+export { SessionReplayInsights } from './SessionReplayInsights';
