@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket       = "pulse-deployment-config"
-    key          = "production/terraform.tfstate"
+    key          = "terraform/production/terraform.tfstate"
     region       = "ap-south-1"
     use_lockfile = true
   }
