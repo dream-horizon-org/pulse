@@ -217,6 +217,18 @@ resource "aws_autoscaling_group" "pulse_ui" {
   protect_from_scale_in     = true
   target_group_arns = [aws_lb_target_group.pulse_ui.arn]
 
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      # This ensures your app doesn't go down during the refresh.
+      # Since your desired capacity is 1, AWS will temporarily spin up a 2nd instance,
+      # wait for it to pass ALB health checks, and THEN terminate the old 1st instance.
+      min_healthy_percentage = 100
+    }
+    # This tells Terraform to trigger a refresh if the Launch Template changes
+    triggers = ["launch_template"]
+  }
+
   tag {
     key                 = "Name"
     value               = "pulse-ui-test-asg"
