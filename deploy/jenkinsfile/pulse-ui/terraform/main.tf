@@ -266,7 +266,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
 # -------------------------------------------------------------------
 resource "aws_route53_record" "pulse_ui" {
   zone_id = var.route53_zone_id
-  name    = var.route53_record_name
+  name    = "fancode1"
   type    = "A"
 
   alias {
