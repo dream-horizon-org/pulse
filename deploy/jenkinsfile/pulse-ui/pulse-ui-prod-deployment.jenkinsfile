@@ -28,6 +28,7 @@ pipeline {
             steps {
                 // We use single quotes (''') for multi-line bash scripts in Jenkins
                 sh '''
+                    pwd
                     cd deploy/jenkinsfile/pulse-ui/terraform
                     echo "Fetching variables from AWS Secrets Manager..."
                     aws secretsmanager get-secret-value \
@@ -41,19 +42,23 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                echo "Initializing Terraform..."
-                sh "cd deploy/jenkinsfile/pulse-ui/terraform"
-                // Initializes the working directory, downloads providers, configures S3 backend
-                sh 'terraform init'
+                sh '''
+                    echo "Initializing Terraform..."
+                    cd deploy/jenkinsfile/pulse-ui/terraform"
+                    pwd
+                    terraform init
+                '''
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                echo "Running Terraform Plan..."
-                sh "cd deploy/jenkinsfile/pulse-ui/terraform"
-                // Creates the plan and saves it to a file called 'tfplan'
-                sh 'terraform plan -out=tfplan'
+                sh '''
+                    echo "Running Terraform Plan..."
+                    cd deploy/jenkinsfile/pulse-ui/terraform
+                    pwd
+                    terraform plan -out=tfplan
+                '''
             }
         }
 
@@ -66,10 +71,12 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                echo "Applying Terraform Apply..."
-                sh "cd deploy/jenkinsfile/pulse-ui/terraform"
-                // Applies the exact plan file we generated earlier, skipping the interactive yes/no prompt
-                sh 'terraform apply -input=false tfplan'
+                sh '''
+                    echo "Applying Terraform Apply..."
+                    cd deploy/jenkinsfile/pulse-ui/terraform
+                    pwd
+                    terraform apply -input=false tfplan
+                '''
             }
         }
     }
