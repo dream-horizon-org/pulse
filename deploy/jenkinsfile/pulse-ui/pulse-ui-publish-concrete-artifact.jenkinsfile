@@ -62,7 +62,7 @@ pipeline {
     post {
         success {
             script {
-                def message = "<!channel> Pulse UI version *${publishedVersion}* published\n" +
+                def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* published\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
