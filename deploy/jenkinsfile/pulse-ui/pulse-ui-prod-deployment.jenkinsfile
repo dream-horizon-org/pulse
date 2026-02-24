@@ -50,7 +50,7 @@ pipeline {
             steps {
                 sh '''
                     echo "Initializing Terraform..."
-                    cd deploy/jenkinsfile/pulse-ui/terraform"
+                    cd deploy/jenkinsfile/pulse-ui/terraform
                     pwd
                     terraform init
                 '''
