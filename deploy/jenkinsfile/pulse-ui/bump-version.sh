@@ -20,6 +20,11 @@ if [ -z "$GIT_TOKEN" ]; then
     exit 1
 fi
 
+if [ -z "$ARTIFACT_VERSION" ]; then
+    echo 'Missing option -v (Artifact version)' >&2
+    exit 1
+fi
+
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 

@@ -8,7 +8,7 @@ do
     esac
 done
 
-if [ -z "$GIT_USER" ]; then
+if [ -z "$VERSION" ]; then
     echo 'Missing option -a (Git username)' >&2
     exit 1
 fi
