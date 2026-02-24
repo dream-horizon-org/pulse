@@ -75,6 +75,45 @@ transforms:
         "props": encode_json(props_map)
       }
 
+  # -----------------------------------------------------------------------
+  # CONVERT LOGS → COUNTER METRIC (per project)
+  # -----------------------------------------------------------------------
+  log_to_metric_count:
+    type: log_to_metric
+    inputs:
+      - to_pulse_schema
+    metrics:
+      - type: counter
+        field: event_name
+        name: project_events_total
+        namespace: pulse
+        tags:
+          project_id: "{{project_id}}"
+
+  # -----------------------------------------------------------------------
+  # FORMAT METRIC FOR CLICKHOUSE
+  # -----------------------------------------------------------------------
+  format_for_clickhouse:
+    type: remap
+    inputs:
+      - log_to_metric_count
+    source: |-
+      # Extract project_id safely
+      project_id = string(.tags.project_id) ?? "unknown"
+
+      # Extract counter value safely
+      event_count = to_int(.counter.value) ?? 0
+
+      # Get first day of current month (use now() for current time)
+      month = format_timestamp!(now(), format: "%Y-%m-01")
+
+      . = {
+        "project_id": project_id,
+        "month": month, // YYYY-MM-01
+        "source": "vector",
+        "event_count": event_count
+      }
+
 # =========================================================================
 # SINKS
 # =========================================================================
@@ -89,6 +128,29 @@ sinks:
       - vector_metrics
     address: "0.0.0.0:9598"
 
+  # -----------------------------------------------------------------------
+  # CLICKHOUSE SINK (Project Monthly Events)
+  # -----------------------------------------------------------------------
+  clickhouse_project_events:
+    type: clickhouse
+    inputs:
+      - format_for_clickhouse
+
+    endpoint: "http://clickhouse:8123"
+    database: "otel"
+    table: "project_monthly_usage"
+
+    auth:
+      strategy: "basic"
+      user: "pulse_user"
+      password: "pulse_password"
+
+    skip_unknown_fields: true
+
+    batch:
+      timeout_secs: 15
+
+  
   # -------------------------------------------------------------------------
   # S3 PARQUET (PRODUCTION GRADE)
   # -------------------------------------------------------------------------

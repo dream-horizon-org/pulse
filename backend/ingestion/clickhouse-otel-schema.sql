@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `Links.SpanId` Array(String) CODEC(ZSTD(1)),
     `Links.TraceState` Array(String) CODEC(ZSTD(1)),
     `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''), // DEPRECATED: Use PulseType instead
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
@@ -34,11 +35,13 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['metering.session.id'], ''),
     `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
 
@@ -60,6 +63,8 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
@@ -76,6 +81,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity = 8192;
 
@@ -97,8 +103,10 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
     `Value` Float64 CODEC(ZSTD(1)),
     `Flags` UInt32 CODEC(ZSTD(1)),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['metering.session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
@@ -116,6 +124,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
 )
 ENGINE = MergeTree
 PARTITION BY toDate(TimeUnix)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
 SETTINGS index_granularity = 8192;
 
@@ -159,22 +168,21 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
-    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 SETTINGS index_granularity = 8192;
 
--- ============================================================
--- Aggregation table: monthly event counts + unique session counts
--- Uses AggregatingMergeTree so uniqState/uniqMerge properly
--- deduplicates session IDs across all 4 source tables.
--- ============================================================
-CREATE TABLE IF NOT EXISTS otel.tenant_monthly_usage
+
+CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
 (
-    tenant String,
+    project_id String,
     month Date,
     source LowCardinality(String),
     event_count SimpleAggregateFunction(sum, UInt64),
@@ -182,63 +190,50 @@ CREATE TABLE IF NOT EXISTS otel.tenant_monthly_usage
 )
 ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(month)
-ORDER BY (tenant, month, source);
+ORDER BY (project_id, month, source);
 
--- ============================================================
--- EVENT COUNT MVs (2 tables: logs + traces)
--- These also contribute session IDs for deduplication.
--- ============================================================
-
--- MV 1: Logs (events + sessions)
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_logs_mv
-TO otel.tenant_monthly_usage
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_logs_mv
+TO otel.project_monthly_usage
 AS SELECT
-    ServiceName AS tenant,
+    ProjectId AS project_id,
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
     count() AS event_count,
-    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
 FROM otel.otel_logs
-GROUP BY tenant, month, source;
+GROUP BY project_id, month, source;
 
 -- MV 2: Traces (events + sessions)
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_traces_mv
-TO otel.tenant_monthly_usage
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_traces_mv
+TO otel.project_monthly_usage
 AS SELECT
-    ServiceName AS tenant,
+    ProjectId AS project_id,
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
     count() AS event_count,
-    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
 FROM otel.otel_traces
-GROUP BY tenant, month, source;
+GROUP BY project_id, month, source;
 
--- ============================================================
--- SESSION-ONLY MVs (2 more tables: metrics + stack traces)
--- event_count = 0 because we don't count events from these.
--- They only contribute session IDs for deduplication.
--- ============================================================
-
--- MV 3: Metrics (sessions only, no event count)
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_metrics_sessions_mv
-TO otel.tenant_monthly_usage
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_sessions_mv
+TO otel.project_monthly_usage
 AS SELECT
-    ServiceName AS tenant,
+    ProjectId AS project_id,
     toStartOfMonth(TimeUnix) AS month,
     'otel' AS source,
     0 AS event_count,
-    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
 FROM otel.otel_metrics_gauge
-GROUP BY tenant, month, source;
+GROUP BY project_id, month, source;
 
--- MV 4: Stack trace events (sessions only, no event count)
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.tenant_monthly_stacktraces_sessions_mv
-TO otel.tenant_monthly_usage
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stacktraces_sessions_mv
+TO otel.project_monthly_usage
 AS SELECT
-    TenantId AS tenant,
+    ProjectId AS project_id,
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
     0 AS event_count,
-    uniqCombined64StateIf(SessionId, SessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
 FROM otel.stack_trace_events
-GROUP BY tenant, month, source;
+GROUP BY project_id, month, source;
