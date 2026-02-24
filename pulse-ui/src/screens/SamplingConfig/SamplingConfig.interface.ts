@@ -71,6 +71,13 @@ export interface AttributeToAdd {
   condition: EventFilter;
 }
 
+// Attribute to drop with condition
+export interface AttributeToDrop {
+  id?: string; // For UI tracking only
+  values: string[]; // Attribute names to drop
+  condition: EventFilter;
+}
+
 // ============================================================================
 // FILTERS CONFIGURATION - Nested under signals
 // ============================================================================
@@ -138,7 +145,7 @@ export interface SignalsConfig {
   metricCollectorUrl?: string; // Auto-filled by backend if not provided
   spanCollectorUrl?: string; // Auto-filled by backend if not provided
   customEventCollectorUrl?: string; // Auto-filled by backend if not provided
-  attributesToDrop: EventFilter[];
+  attributesToDrop: AttributeToDrop[];
   attributesToAdd?: AttributeToAdd[];
 }
 
@@ -250,8 +257,8 @@ export interface FiltersConfigProps {
 }
 
 export interface AttributesToDropProps {
-  attributes: EventFilter[];
-  onChange: (attributes: EventFilter[]) => void;
+  attributes: AttributeToDrop[];
+  onChange: (attributes: AttributeToDrop[]) => void;
   disabled?: boolean;
 }
 
