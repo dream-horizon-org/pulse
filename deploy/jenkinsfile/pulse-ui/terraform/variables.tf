@@ -88,8 +88,8 @@ variable "healthcheck_port" {
 }
 
 variable "artifact_version" {
-  description = "Healthcheck port"
-  type        = number
+  description = "Artifact version"
+  type        = string
 }
 
 # -----------------------------
