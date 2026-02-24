@@ -122,8 +122,9 @@ public class QueryServiceImplTest {
 
     assertThat(result).isNotNull();
     assertThat(result.getJobId()).isEqualTo(jobId);
-    verify(queryJobDao).createJob(anyString(), eq(query), eq("test@example.com"));
-    verify(queryClient).submitQuery(eq(query));
+    verify(queryJobDao).createJob(anyString(), eq(query + String.format(" AND project_id = '%s';", TenantContext.requireTenantId())),
+        eq("test@example.com"));
+    verify(queryClient).submitQuery(eq(query + String.format(" AND project_id = '%s';", TenantContext.requireTenantId())));
   }
 
   @Test

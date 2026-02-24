@@ -212,7 +212,7 @@ else
 fi
 
 print_info "Testing MySQL connection..."
-if docker exec -T "$CONTAINER_MYSQL" mysql -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" -e "SELECT 1" > /dev/null 2>&1; then
+if docker exec "$CONTAINER_MYSQL" mysql -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" -e "SELECT 1" > /dev/null 2>&1; then
     print_success "MySQL is accessible"
 else
     print_warning "MySQL connection failed"
@@ -223,6 +223,28 @@ if curl -s "http://localhost:8123/?query=SELECT+1&user=${OTEL_CLICKHOUSE_USER}&p
     print_success "ClickHouse is accessible"
 else
     print_warning "ClickHouse connection failed"
+fi
+
+echo ""
+print_info "Verifying database initialization..."
+INIT_OK=true
+
+if ! verify_mysql_init; then
+    INIT_OK=false
+fi
+if ! verify_clickhouse_init; then
+    INIT_OK=false
+fi
+
+if [ "$INIT_OK" = "false" ]; then
+    print_error "Database initialization failed!"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  MySQL errors:      docker logs $CONTAINER_MYSQL 2>&1 | grep '^ERROR'"
+    echo "  ClickHouse logs:   docker logs $CONTAINER_CLICKHOUSE"
+    echo ""
+    echo "Fix the init scripts, then run: ./deploy/scripts/reset-databases.sh"
+    exit 1
 fi
 
 # ============================================================================

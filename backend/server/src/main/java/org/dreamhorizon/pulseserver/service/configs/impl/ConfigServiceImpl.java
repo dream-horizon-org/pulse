@@ -51,15 +51,15 @@ public class ConfigServiceImpl implements ConfigService {
         .recordStats()
         .buildAsync((String tenantId, java.util.concurrent.Executor executor) -> {
           log.info("Loading config into cache for tenant: {}", tenantId);
-          return sdkConfigsDao.getConfig()
+          return sdkConfigsDao.getConfig(tenantId)
               .toCompletionStage()
               .toCompletableFuture();
         });
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(long version) {
-    return sdkConfigsDao.getConfig(version);
+  public Single<PulseConfig> getSdkConfig(String tenantId, long version) {
+    return sdkConfigsDao.getConfig(tenantId, version);
   }
 
   @Override

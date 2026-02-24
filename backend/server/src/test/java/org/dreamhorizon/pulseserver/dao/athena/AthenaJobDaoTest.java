@@ -206,7 +206,7 @@ class AthenaJobDaoTest {
       String jobId = "job-123";
       LocalDateTime now = LocalDateTime.now();
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(1);
       when(rowSet.iterator()).thenReturn(rowIterator);
@@ -235,7 +235,7 @@ class AthenaJobDaoTest {
     void shouldReturnErrorWhenJobNotFound() {
       String jobId = "job-123";
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(0);
 
@@ -249,7 +249,7 @@ class AthenaJobDaoTest {
       LocalDateTime now = LocalDateTime.now();
       LocalDateTime completedAt = now.plusHours(1);
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(1);
       when(rowSet.iterator()).thenReturn(rowIterator);
@@ -277,7 +277,7 @@ class AthenaJobDaoTest {
     void shouldPropagateErrorWhenGetJobFails() {
       String jobId = "job-123";
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       RuntimeException error = new RuntimeException("Database error");
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(error));
 
