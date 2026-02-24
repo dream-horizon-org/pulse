@@ -88,7 +88,9 @@ resource "aws_launch_template" "pulse_ui" {
     http_tokens   = "required"
   }
 
-  user_data = base64encode("${path.module}/user-data.sh")
+  user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+    artifact_version = var.artifact_version
+  }))
 }
 
 # -------------------------------------------------------------------

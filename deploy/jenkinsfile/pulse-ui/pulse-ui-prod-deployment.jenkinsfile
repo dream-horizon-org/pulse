@@ -6,11 +6,17 @@ pipeline {
 
     options {
         ansiColor('xterm')
+        timestamp()
+    }
+
+    parameters {
+        string(name: 'ARTIFACT_VERSION', description: 'Artifact version to be deployed')
     }
 
     // Define environment variables to be used throughout the pipeline
     environment {
         TF_IN_AUTOMATION = 'true'
+        TF_VAR_artifact_version = "${params.ARTIFACT_VERSION}"
         // If your Jenkins server doesn't have an IAM role, you can inject credentials here
         // AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
         // AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')

@@ -16,7 +16,7 @@ AWS_REGION="ap-south-1"
 CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-ui"
 APPLICATION_NAME="pulse-ui"
-VERSION=0.1.3
+VERSION=${artifact_version}
 
 aws codeartifact get-package-version-asset \
   --region "$AWS_REGION" \
@@ -26,7 +26,7 @@ aws codeartifact get-package-version-asset \
   --namespace "pulse" \
   --package "$APPLICATION_NAME" \
   --package-version "$VERSION" \
-  --asset "pulse-ui-0.1.3.zip" \
+  --asset "pulse-ui-$VERSION.zip" \
   pulse-ui.zip
 
 # 4. Unzip artifact

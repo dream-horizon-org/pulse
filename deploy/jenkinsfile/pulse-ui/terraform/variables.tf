@@ -87,6 +87,11 @@ variable "healthcheck_port" {
   type        = number
 }
 
+variable "artifact_version" {
+  description = "Healthcheck port"
+  type        = number
+}
+
 # -----------------------------
 # App deployment vars
 # -----------------------------
