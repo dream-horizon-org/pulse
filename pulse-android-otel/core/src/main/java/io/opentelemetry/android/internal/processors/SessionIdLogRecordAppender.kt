@@ -5,6 +5,8 @@
 
 package io.opentelemetry.android.internal.processors
 
+import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_END
+import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_START
 import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.logs.LogRecordProcessor
@@ -18,6 +20,10 @@ internal class SessionIdLogRecordAppender(
         context: Context,
         logRecord: ReadWriteLogRecord,
     ) {
+        val eventName = logRecord.eventName
+        if (eventName == EVENT_SESSION_START || eventName == EVENT_SESSION_END) {
+            return
+        }
         logRecord.setAttribute(SESSION_ID, sessionProvider.getSessionId())
     }
 }

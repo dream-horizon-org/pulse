@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.service.configs.models;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,7 +42,7 @@ class SignalsConfigTest {
       FilterConfig filters = FilterConfig.builder()
           .mode(FilterMode.blacklist)
           .build();
-      List<EventFilter> attributesToDrop = new ArrayList<>();
+      List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       SignalsConfig signalsConfig = SignalsConfig.builder()
@@ -71,7 +73,7 @@ class SignalsConfigTest {
     @Test
     void shouldCreateWithAllArgsConstructor() {
       FilterConfig filters = FilterConfig.builder().mode(FilterMode.whitelist).build();
-      List<EventFilter> attributesToDrop = new ArrayList<>();
+      List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       SignalsConfig signalsConfig = new SignalsConfig(
@@ -168,7 +170,7 @@ class SignalsConfigTest {
     void shouldSetAndGetAllFields() {
       SignalsConfig signalsConfig = new SignalsConfig();
       FilterConfig filters = new FilterConfig();
-      List<EventFilter> attributesToDrop = new ArrayList<>();
+      List<AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       signalsConfig.setScheduleDurationMs(10000);
@@ -271,6 +273,261 @@ class SignalsConfigTest {
           .build();
 
       assertEquals(config1, config2);
+    }
+
+    /**
+     * Verifies equality with fully populated attributesToDrop lists.
+     */
+    @Test
+    void shouldBeEqualWithSameAttributesToDrop() {
+      AttributeToDrop dropRule = AttributeToDrop.builder()
+          .values(java.util.Arrays.asList("attr1", "attr2"))
+          .condition(EventFilter.builder()
+              .name("testEvent")
+              .scopes(java.util.Arrays.asList(Scope.logs))
+              .sdks(java.util.Arrays.asList(Sdk.pulse_android_java))
+              .build())
+          .build();
+
+      List<AttributeToDrop> dropList = new ArrayList<>();
+      dropList.add(dropRule);
+
+      SignalsConfig config1 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToDrop(dropList)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToDrop(dropList)
+          .build();
+
+      assertEquals(config1, config2);
+      assertEquals(config1.hashCode(), config2.hashCode());
+    }
+
+    /**
+     * Verifies inequality when attributesToDrop lists differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenAttributesToDropDiffer() {
+      AttributeToDrop dropRule1 = AttributeToDrop.builder()
+          .values(java.util.Arrays.asList("attr1"))
+          .build();
+      AttributeToDrop dropRule2 = AttributeToDrop.builder()
+          .values(java.util.Arrays.asList("attr2"))
+          .build();
+
+      List<AttributeToDrop> dropList1 = new ArrayList<>();
+      dropList1.add(dropRule1);
+      List<AttributeToDrop> dropList2 = new ArrayList<>();
+      dropList2.add(dropRule2);
+
+      SignalsConfig config1 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToDrop(dropList1)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToDrop(dropList2)
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies inequality when one has null and the other has non-null attributesToDrop.
+     */
+    @Test
+    void shouldNotBeEqualWhenOneHasNullAttributesToDrop() {
+      SignalsConfig config1 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToDrop(null)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToDrop(new ArrayList<>())
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies equality with fully populated attributesToAdd lists.
+     */
+    @Test
+    void shouldBeEqualWithSameAttributesToAdd() {
+      AttributeToAdd addRule = AttributeToAdd.builder()
+          .values(java.util.Arrays.asList(
+              AttributeValue.builder().name("env").value("prod").build()))
+          .condition(EventFilter.builder().name("httpEvent").build())
+          .build();
+
+      List<AttributeToAdd> addList = new ArrayList<>();
+      addList.add(addRule);
+
+      SignalsConfig config1 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToAdd(addList)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToAdd(addList)
+          .build();
+
+      assertEquals(config1, config2);
+      assertEquals(config1.hashCode(), config2.hashCode());
+    }
+
+    /**
+     * Verifies inequality when attributesToAdd lists differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenAttributesToAddDiffer() {
+      AttributeToAdd addRule1 = AttributeToAdd.builder()
+          .values(java.util.Arrays.asList(
+              AttributeValue.builder().name("env").value("prod").build()))
+          .build();
+      AttributeToAdd addRule2 = AttributeToAdd.builder()
+          .values(java.util.Arrays.asList(
+              AttributeValue.builder().name("env").value("staging").build()))
+          .build();
+
+      List<AttributeToAdd> addList1 = new ArrayList<>();
+      addList1.add(addRule1);
+      List<AttributeToAdd> addList2 = new ArrayList<>();
+      addList2.add(addRule2);
+
+      SignalsConfig config1 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToAdd(addList1)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .attributesToAdd(addList2)
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies equality is reflexive.
+     */
+    @Test
+    void shouldBeEqualToItself() {
+      SignalsConfig config = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .build();
+
+      assertEquals(config, config);
+    }
+
+    /**
+     * Verifies not equal to null.
+     */
+    @Test
+    void shouldNotBeEqualToNull() {
+      SignalsConfig config = new SignalsConfig();
+
+      assertNotEquals(null, config);
+    }
+
+    /**
+     * Verifies not equal to different type.
+     */
+    @Test
+    void shouldNotBeEqualToDifferentType() {
+      SignalsConfig config = new SignalsConfig();
+
+      assertFalse(config.equals("string"));
+    }
+
+    /**
+     * Tests canEqual method.
+     */
+    @Test
+    void shouldHandleCanEqual() {
+      SignalsConfig config = new SignalsConfig();
+
+      assertTrue(config.canEqual(new SignalsConfig()));
+      assertFalse(config.canEqual("string"));
+    }
+
+    /**
+     * Verifies inequality when scheduleDurationMs differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenScheduleDurationMsDiffer() {
+      SignalsConfig config1 = SignalsConfig.builder()
+          .scheduleDurationMs(5000)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .scheduleDurationMs(10000)
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies inequality when logsCollectorUrl differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenLogsCollectorUrlDiffer() {
+      SignalsConfig config1 = SignalsConfig.builder()
+          .logsCollectorUrl("http://logs1.example.com")
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .logsCollectorUrl("http://logs2.example.com")
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies inequality when metricCollectorUrl differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenMetricCollectorUrlDiffer() {
+      SignalsConfig config1 = SignalsConfig.builder()
+          .metricCollectorUrl("http://metrics1.example.com")
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .metricCollectorUrl("http://metrics2.example.com")
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies inequality when spanCollectorUrl differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenSpanCollectorUrlDiffer() {
+      SignalsConfig config1 = SignalsConfig.builder()
+          .spanCollectorUrl("http://spans1.example.com")
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .spanCollectorUrl("http://spans2.example.com")
+          .build();
+
+      assertNotEquals(config1, config2);
+    }
+
+    /**
+     * Verifies inequality when filters differ.
+     */
+    @Test
+    void shouldNotBeEqualWhenFiltersDiffer() {
+      FilterConfig filters1 = FilterConfig.builder().mode(FilterMode.blacklist).build();
+      FilterConfig filters2 = FilterConfig.builder().mode(FilterMode.whitelist).build();
+
+      SignalsConfig config1 = SignalsConfig.builder()
+          .filters(filters1)
+          .build();
+      SignalsConfig config2 = SignalsConfig.builder()
+          .filters(filters2)
+          .build();
+
+      assertNotEquals(config1, config2);
     }
   }
 

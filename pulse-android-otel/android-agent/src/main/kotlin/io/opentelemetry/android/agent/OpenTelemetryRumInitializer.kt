@@ -23,6 +23,7 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
+import io.opentelemetry.sdk.common.Clock
 import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
@@ -31,6 +32,7 @@ import io.opentelemetry.sdk.resources.ResourceBuilder
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import java.util.function.BiFunction
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
@@ -72,6 +74,7 @@ object OpenTelemetryRumInitializer {
             ),
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
+        meteredSessionProvider: SessionProvider? = null,
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
@@ -115,6 +118,7 @@ object OpenTelemetryRumInitializer {
             .apply {
                 setResource(finalResource)
                 setSessionProvider(createSessionProvider(application, sessionConfig))
+                meteredSessionProvider?.let { setMeteredSessionProvider(it) }
                 addSpanExporterCustomizer { spanExporter }
                 addLogRecordExporterCustomizer { logRecordExporter }
                 addMetricExporterCustomizer { metricExporter }
@@ -128,8 +132,30 @@ object OpenTelemetryRumInitializer {
         application: Application,
         sessionConfig: SessionConfig,
     ): SessionProvider {
-        val timeoutHandler = SessionIdTimeoutHandler(sessionConfig)
-        Services.get(application).appLifecycle.registerListener(timeoutHandler)
-        return SessionManager.create(timeoutHandler, sessionConfig)
+        val timeoutHandler: SessionIdTimeoutHandler? =
+            sessionConfig.backgroundInactivityTimeout?.let {
+                val handler = SessionIdTimeoutHandler(Clock.getDefault(), it)
+                Services.get(application).appLifecycle.registerListener(handler)
+                handler
+            }
+
+        return SessionManager.create(application, timeoutHandler, sessionConfig)
+    }
+
+    @OptIn(Incubating::class)
+    @JvmStatic
+    fun createMeteredSessionManager(application: Application): SessionProvider {
+        val meteredSessionConfig =
+            SessionConfig(
+                backgroundInactivityTimeout = null,
+                maxLifetime = 30.minutes,
+                shouldPersist = true,
+            )
+        return SessionManager.create(
+            application = application,
+            timeoutHandler = null,
+            sessionConfig = meteredSessionConfig,
+            storageKey = "pulse_metered_session_storage",
+        )
     }
 }

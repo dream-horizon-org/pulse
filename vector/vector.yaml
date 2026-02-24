@@ -1,0 +1,142 @@
+# =========================================================================
+# GLOBAL SETTINGS
+# =========================================================================
+# CRITICAL: Required for Disk Buffers.
+# This is where Vector saves data if the process crashes.
+data_dir: "/var/lib/vector"
+
+api:
+  enabled: true
+  address: "0.0.0.0:8686"
+
+# =========================================================================
+# SOURCES
+# =========================================================================
+sources:
+  otlp_logs:
+    type: opentelemetry
+    grpc:
+      address: "0.0.0.0:4317"
+    http:
+      address: "0.0.0.0:4318"
+
+  # Vector's internal metrics for observability
+  vector_metrics:
+    type: internal_metrics
+
+# =========================================================================
+# TRANSFORMS
+# =========================================================================
+transforms:
+  to_pulse_schema:
+    type: remap
+    inputs:
+      - otlp_logs.logs
+    source: |-
+      res = object(.resources) ?? {}
+      attrs = object(.attributes) ?? {}
+
+      # Merge: log attributes override resource attributes
+      props_map = merge(res, attrs)
+
+      # Build final event structure
+      . = {
+        "event_name": .message,
+        "project_id": res."project.id",
+        "user_id": attrs."user.id",
+        "installation_id": attrs."installation.id",
+
+
+        # Schema Columns (Promoted for fast queries)
+        "android_os_api_level": res."android.os.api_level",
+        "os_version": res."os.version",
+        "app_build_id": res."app.build_id",
+        "app_build_name": res."app.build_name",
+        "device_manufacturer": res."device.manufacturer",
+        "device_model_identifier": res."device.model.identifier",
+        "os_name": res."os.name",
+        "service_name": res."service.name",
+
+        "session_id": attrs."session.id",
+        "screen_name": attrs."screen.name",
+        "network_carrier_mcc": attrs."network.carrier.mcc",
+        "network_carrier_mnc": attrs."network.carrier.mnc",
+        "network_carrier_icc": attrs."network.carrier.icc",
+        "pulse_app_state": attrs."pulse.app_state",
+
+        "span_id": .span_id,
+        "trace_id": .trace_id,
+        "timestamp": .timestamp,
+        "vector_observed_timestamp": .observed_timestamp,
+        "scope_name": .scope.name,
+        "flags": .flags,
+
+        # Catch-all for everything else
+        "props": encode_json(props_map)
+      }
+
+# =========================================================================
+# SINKS
+# =========================================================================
+sinks:
+  # -------------------------------------------------------------------------
+  # PROMETHEUS EXPORTER (Vector Observability)
+  # -------------------------------------------------------------------------
+  # Exposes Vector's internal metrics at http://<host>:9598/metrics
+  prometheus_exporter:
+    type: prometheus_exporter
+    inputs:
+      - vector_metrics
+    address: "0.0.0.0:9598"
+
+  # -------------------------------------------------------------------------
+  # S3 PARQUET (PRODUCTION GRADE)
+  # -------------------------------------------------------------------------
+  s3_events:
+    type: aws_s3
+    inputs:
+      - to_pulse_schema
+    bucket: "pulse-otel-{{ project_id }}"
+    region: "ap-south-1"
+
+    # Date/hour partitioning only; project isolation is by bucket.
+    key_prefix: "vector-logs/%Y-%m-%d/%H/"
+    # ---------------------------------------------------------------------
+    # 1. DISK BUFFER (Durability)
+    # ---------------------------------------------------------------------
+    # Protects data if Vector crashes or restarts.
+    buffer:
+      type: "disk"
+      max_size: 10737418240  # 10 GB limit on disk
+      when_full: "block"     # Stop accepting new logs if disk is full (Backpressure)
+
+    # ---------------------------------------------------------------------
+    # 2. ADAPTIVE CONCURRENCY (Throughput)
+    # ---------------------------------------------------------------------
+    # Automatically scales upload connections based on network latency.
+    request:
+      concurrency: "adaptive"
+      timeout_secs: 60 # 1 minutes (Allow large files time to upload)
+
+      adaptive_concurrency:
+        max_concurrency_limit: 50
+        initial_concurrency: 10
+
+    # ---------------------------------------------------------------------
+    # 3. BATCHING OPTIMIZATION (For Parquet)
+    # ---------------------------------------------------------------------
+    # Parquet needs LARGE batches for compression to work well.
+    # 5,000 events is too small. We aim for ~150MB - 500MB files.
+    batch:
+      max_bytes: 536870912 # 512 MB (Uncompressed) - Safe start point
+      timeout_secs: 30    # 30 Seconds
+
+    # ---------------------------------------------------------------------
+    # 4. ENCODING
+    # ---------------------------------------------------------------------
+    compression: "none" # Wrapper compression (Keep 'none' for Parquet)
+    encoding:
+      codec: "parquet"
+      parquet:
+        infer_schema: true
+        compression: "zstd" # The actual column compression

@@ -143,6 +143,11 @@ internal class ForegroundBackgroundTracker(
          * Same as `androidx.lifecycle.ProcessLifecycleOwner` and is used to avoid reporting
          * background / foreground changes when there is only 1 Activity being restarted for configuration
          * changes.
+         *
+         * This 700ms delay causes a time delta between `device.app.lifecycle` event (emitted immediately
+         * on background detection) and `session.end` event (emitted when `getSessionId()` is called
+         * during the next span/activity). The delay ensures we don't emit false positive background
+         * events during activity configuration changes.
          */
         @VisibleForTesting
         internal const val BACKGROUND_TIMEOUT_MS = 700L

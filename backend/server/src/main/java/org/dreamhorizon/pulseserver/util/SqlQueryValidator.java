@@ -46,7 +46,7 @@ public class SqlQueryValidator {
     }
 
     if (!hasTimestampInWhereClause(trimmedQuery)) {
-      return ValidationResult.invalid("Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, (2) partition columns (year, month, day, hour), or (3) TIMESTAMP literals");
+      return ValidationResult.invalid("Query must include timestamp filter in WHERE clause. Use one of: (1) timestamp column with comparison operators, (2) partition columns (date, hour), or (3) TIMESTAMP literals");
     }
 
     return ValidationResult.valid();
@@ -61,13 +61,11 @@ public class SqlQueryValidator {
     int whereEnd = whereMatcher.end();
     String whereClause = query.substring(whereEnd);
 
-    // Check for partition columns (year, month, day, hour)
-    boolean hasYear = containsColumn(whereClause, "year");
-    boolean hasMonth = containsColumn(whereClause, "month");
-    boolean hasDay = containsColumn(whereClause, "day");
+    // Check for partition columns (date, hour)
+    boolean hasDate = containsColumn(whereClause, "date");
     boolean hasHour = containsColumn(whereClause, "hour");
 
-    if (hasYear && hasMonth && hasDay && hasHour) {
+    if (hasDate && hasHour) {
       return true;
     }
 

@@ -20,7 +20,8 @@ public final class io/opentelemetry/android/session/Session$DefaultSession : io/
 }
 
 public abstract interface class io/opentelemetry/android/session/SessionObserver {
-	public abstract fun onSessionEnded (Lio/opentelemetry/android/session/Session;)V
+	public abstract fun onSessionEnded (Lio/opentelemetry/android/session/Session;Ljava/lang/Long;)V
+	public static synthetic fun onSessionEnded$default (Lio/opentelemetry/android/session/SessionObserver;Lio/opentelemetry/android/session/Session;Ljava/lang/Long;ILjava/lang/Object;)V
 	public abstract fun onSessionStarted (Lio/opentelemetry/android/session/Session;Lio/opentelemetry/android/session/Session;)V
 }
 
