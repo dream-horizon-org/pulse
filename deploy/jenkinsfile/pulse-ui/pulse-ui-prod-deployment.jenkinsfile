@@ -13,6 +13,12 @@ pipeline {
     }
 
     stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Checkout') {
             steps {
                 // Pulls the code from your Git repository
