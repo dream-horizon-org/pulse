@@ -110,6 +110,7 @@ public final class OpenTelemetryRumBuilder {
 
     @Nullable private ExportScheduleHandler exportScheduleHandler;
     @Nullable private SessionProvider sessionProvider;
+    @Nullable private SessionProvider meteredSessionProvider;
 
     private static TextMapPropagator buildDefaultPropagator() {
         return TextMapPropagator.composite(
@@ -335,7 +336,8 @@ public final class OpenTelemetryRumBuilder {
         otelSdkReadyListeners.forEach(listener -> listener.accept(sdk));
 
         SdkPreconfiguredRumBuilder delegate =
-                new SdkPreconfiguredRumBuilder(application, sdk, sessionProvider, config)
+                new SdkPreconfiguredRumBuilder(
+                                application, sdk, sessionProvider, meteredSessionProvider, config)
                         .setShutdownHook(
                                 () -> {
                                     if (exportScheduleHandler != null) {
@@ -414,6 +416,12 @@ public final class OpenTelemetryRumBuilder {
 
     public OpenTelemetryRumBuilder setSessionProvider(SessionProvider sessionProvider) {
         this.sessionProvider = sessionProvider;
+        return this;
+    }
+
+    public OpenTelemetryRumBuilder setMeteredSessionProvider(
+            SessionProvider meteredSessionProvider) {
+        this.meteredSessionProvider = meteredSessionProvider;
         return this;
     }
 
