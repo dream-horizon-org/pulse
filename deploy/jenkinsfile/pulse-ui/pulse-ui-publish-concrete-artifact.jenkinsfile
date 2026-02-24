@@ -46,12 +46,11 @@ pipeline {
                 }
             }
         }
-
-        post {
-            success {
-                script {
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds', botUser: true)
-                }
+    }
+    post {
+        success {
+            script {
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: 'Test', tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
     }
