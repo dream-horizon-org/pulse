@@ -33,31 +33,31 @@ pipeline {
             }
         }
 
-//        stage('Publish Artifact') {
-//            steps {
-//                script {
-//                    sh """
-//                        #!/bin/bash -el
-//                        chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
-//                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh -v ${ARTIFACT_VERSION}
-//                    """
-//                }
-//            }
-//        }
-//
-//        stage('Bump snapshot version') {
-//            steps {
-//                script {
-//                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-//                        sh """
-//                            #!/bin/bash -el
-//                            chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-//                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN" -v ${ARTIFACT_VERSION}
-//                        """
-//                    }
-//                }
-//            }
-//        }
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    sh """
+                        #!/bin/bash -el
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh -v ${ARTIFACT_VERSION}
+                    """
+                }
+            }
+        }
+
+        stage('Bump snapshot version') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN" -v ${ARTIFACT_VERSION}
+                        """
+                    }
+                }
+            }
+        }
     }
     post {
         success {
