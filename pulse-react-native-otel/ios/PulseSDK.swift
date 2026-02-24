@@ -9,6 +9,7 @@ public class PulseSDK: NSObject {
     // Swift-only method (not exposed to Objective-C because closures can't be represented in ObjC)
     public static func initialize(
         endpointBaseUrl: String,
+        projectId: String,
         endpointHeaders: [String: String]?,
         globalAttributes: [String: PulseAttributeValue]?,
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
@@ -58,6 +59,7 @@ public class PulseSDK: NSObject {
         
         PulseKit.shared.initialize(
             endpointBaseUrl: endpointBaseUrl,
+            projectId: projectId,
             endpointHeaders: endpointHeaders,
             globalAttributes: convertedAttributes,
             resource: rnResource,
@@ -67,14 +69,16 @@ public class PulseSDK: NSObject {
         )
     }
     
-    @objc(initializeWithEndpointBaseUrl:endpointHeaders:globalAttributes:)
+    @objc(initializeWithEndpointBaseUrl:projectId:endpointHeaders:globalAttributes:)
     public static func initialize(
         endpointBaseUrl: String,
+        projectId: String,
         endpointHeaders: [String: String]?,
         globalAttributes: [String: PulseAttributeValue]?
     ) {
         initialize(
             endpointBaseUrl: endpointBaseUrl,
+            projectId: projectId,
             endpointHeaders: endpointHeaders,
             globalAttributes: globalAttributes,
             resource: nil,
@@ -83,11 +87,12 @@ public class PulseSDK: NSObject {
             loggerProviderCustomizer: nil
         )
     }
-    
-    @objc(initializeWithEndpointBaseUrl:)
-    public static func initialize(endpointBaseUrl: String) {
+
+    @objc(initializeWithEndpointBaseUrl:projectId:)
+    public static func initialize(endpointBaseUrl: String, projectId: String) {
         initialize(
             endpointBaseUrl: endpointBaseUrl,
+            projectId: projectId,
             endpointHeaders: nil,
             globalAttributes: nil,
             resource: nil,
@@ -99,6 +104,37 @@ public class PulseSDK: NSObject {
     
     @objc public static func isSDKInitialized() -> Bool {
         return PulseKit.shared.isSDKInitialized()
+    }
+
+    /// Returns feature flags from persisted SDK config, filtered for pulse_ios_rn.
+    @objc(getAllFeatures)
+    public static func getAllFeatures() -> [String: Bool]? {
+        let storage = PulseSdkConfigStorage()
+        guard let config = storage.load() else {
+            return nil
+        }
+        var featureMap: [String: Bool] = [:]
+        for featureConfig in config.features {
+            if featureConfig.sdks.contains(.pulse_ios_rn) {
+                if featureConfig.featureName == .unknown { continue }
+                let featureNameStr = featureConfig.featureName.rawValue
+                let isEnabled = featureConfig.sessionSampleRate > 0
+                featureMap[featureNameStr] = isEnabled
+            }
+        }
+        let requiredFeatures = [
+            "rn_screen_load",
+            "screen_session",
+            "rn_screen_interactive",
+            "network_instrumentation",
+            "custom_events",
+            "js_crash"
+        ]
+        var result: [String: Bool] = [:]
+        for featureName in requiredFeatures {
+            result[featureName] = featureMap[featureName] ?? false
+        }
+        return result
     }
     
     @objc(setUserId:)

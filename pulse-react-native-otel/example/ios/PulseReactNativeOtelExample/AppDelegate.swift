@@ -3,7 +3,6 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import PulseReactNativeOtel
-import PulseKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -33,6 +32,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // You can configure URLSession, Sessions, SignPost, and Interaction instrumentations
     PulseSDK.initialize(
       endpointBaseUrl: "http://127.0.0.1:4318",
+      projectId: "default",
       endpointHeaders: nil,
       globalAttributes: globalAttributes,
       instrumentations: { config in

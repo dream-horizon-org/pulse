@@ -28,7 +28,7 @@ RCT_EXPORT_MODULE()
   return @YES;
 }
 
-- (NSString *)doStartSpan:(NSString *)name inheritContext:(NSNumber *)inheritContext attributes:(NSDictionary *)attributes
+- (NSString *)doStartSpan:(NSString *)name inheritContext:(BOOL)inheritContext attributes:(NSDictionary *)attributes
 {
   return [PulseReactNativeOtelTracer startSpan:name inheritContext:inheritContext attributes:attributes];
 }
@@ -94,7 +94,7 @@ RCT_EXPORT_MODULE()
 
 - (NSDictionary *)doGetAllFeatures
 {
-  return nil;
+  return [PulseSDK getAllFeatures];
 }
 
 #pragma mark - New Architecture (no macros; TurboModule/spec calls these directly)
@@ -106,7 +106,7 @@ RCT_EXPORT_MODULE()
 - (NSNumber *)trackEvent:(NSString *)event observedTimeMs:(double)observedTimeMs properties:(NSDictionary *)properties
 { return [self doTrackEvent:event observedTimeMs:observedTimeMs properties:properties]; }
 
-- (NSString *)startSpan:(NSString *)name inheritContext:(NSNumber *)inheritContext attributes:(NSDictionary *)attributes
+- (NSString *)startSpan:(NSString *)name inheritContext:(BOOL)inheritContext attributes:(NSDictionary *)attributes
 { return [self doStartSpan:name inheritContext:inheritContext attributes:attributes]; }
 
 - (NSNumber *)endSpan:(NSString *)spanId statusCode:(NSString *)statusCode

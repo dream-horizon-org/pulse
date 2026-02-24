@@ -46,7 +46,7 @@ PODS:
     - Pulse-Swift-SdkResourceExtension (= 0.0.1)
     - Pulse-Swift-Sessions (= 0.0.1)
     - Pulse-Swift-SignPostIntegration (= 0.0.1)
-  - PulseReactNativeOtel (0.0.2):
+  - PulseReactNativeOtel (0.0.4):
     - boost
     - DoubleConversion
     - fast_float
@@ -2783,7 +2783,7 @@ SPEC CHECKSUMS:
   Pulse-Swift-Sessions: 9e73325dd15a33acb66cbd33a7f8e3832f9521de
   Pulse-Swift-SignPostIntegration: 8f8f602b0bf1c9b90f006c27c8773005210c4347
   PulseKit: 6adb820053705fe665cfb921a077059246998e18
-  PulseReactNativeOtel: f1020951f91657fca33d9405e19c8449bd03f1ac
+  PulseReactNativeOtel: 8e72f674b75189474cd486d22ac390b08a7f0803
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: c4b9e2fd0ab200e3af72b013ed6113187c607077
   RCTRequired: e97dd5dafc1db8094e63bc5031e0371f092ae92a
