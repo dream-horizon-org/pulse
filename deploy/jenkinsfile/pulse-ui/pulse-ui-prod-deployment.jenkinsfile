@@ -4,6 +4,10 @@ pipeline {
         node { label 'ec2-pulse-deployment-fleet' }
     }
 
+    options {
+        ansiColor('xterm')
+    }
+
     // Define environment variables to be used throughout the pipeline
     environment {
         TF_IN_AUTOMATION = 'true'
