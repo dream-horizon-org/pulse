@@ -6,14 +6,15 @@ exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
 # 2. Activating NVM
-source ~/.bashrc
+echo "Installing Node and PM2"
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-echo "Sourcing NVM directly"
 export NVM_DIR="$HOME/.nvm"
 # Load nvm function into the current shell session
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+nvm install 20
 nvm use 20
+npm install -g pm2
+npm install -g yarn
 which pm2
 
 # 3. Download code artifact
