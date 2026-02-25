@@ -74,7 +74,7 @@ APPLICATION_NAME="pulse-ui"
 ZIP_NAME="$APPLICATION_NAME-$VERSION.zip"
 
 cd ..
-zip -q -r $ZIP_NAME $APPLICATION_NAME
+zip -q -r $ZIP_NAME $APPLICATION_NAME -x "${APPLICATION_NAME}/node_modules/*"
 
 # 7. Upload zip to AWS CodeArtifact (generic package)
 echo "Uploading $ZIP_NAME to AWS CodeArtifact..."
