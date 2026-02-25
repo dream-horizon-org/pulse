@@ -224,6 +224,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
       # Since your desired capacity is 1, AWS will temporarily spin up a 2nd instance,
       # wait for it to pass ALB health checks, and THEN terminate the old 1st instance.
       min_healthy_percentage = 100
+      scale_in_protected_instances = "refresh"
     }
     # This tells Terraform to trigger a refresh if the Launch Template changes
     triggers = ["launch_template"]
