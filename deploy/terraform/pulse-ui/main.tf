@@ -30,10 +30,10 @@ provider "aws" {
 # Launch Template
 # -------------------------------------------------------------------
 resource "aws_launch_template" "pulse_ui" {
-  name = "pulse-ui-test-lt"
+  name = "pulse-ui-lt"
 
   tags = {
-    Name                = "pulse-ui-test-lt"
+    Name                = "pulse-ui-lt"
     org_name            = "horizon"
     environment_name    = "production"
     provisioned-by-user = "yasir.ansari@dream11.com"
@@ -50,7 +50,7 @@ resource "aws_launch_template" "pulse_ui" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name                = "pulse-ui-test-instance"
+      Name                = "pulse-ui-instance"
       org_name            = "horizon"
       environment_name    = "production"
       provisioned-by-user = "yasir.ansari@dream11.com"
@@ -64,7 +64,7 @@ resource "aws_launch_template" "pulse_ui" {
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name                = "pulse-ui-test-volume"
+      Name                = "pulse-ui-volume"
       org_name            = "horizon"
       environment_name    = "production"
       provisioned-by-user = "yasir.ansari@dream11.com"
@@ -98,7 +98,7 @@ resource "aws_launch_template" "pulse_ui" {
 # -------------------------------------------------------------------
 resource "aws_lb" "pulse_ui" {
   load_balancer_type         = "application"
-  name                       = "pulse-ui-test-alb"
+  name                       = "pulse-ui-alb"
   internal                   = true
   ip_address_type            = "ipv4"
   subnets                    = var.alb_subnet_ids
@@ -107,7 +107,7 @@ resource "aws_lb" "pulse_ui" {
   drop_invalid_header_fields = true
 
   tags = {
-    Name                = "pulse-ui-test-lb"
+    Name                = "pulse-ui-lb"
     org_name            = "horizon"
     environment_name    = "production"
     provisioned-by-user = "yasir.ansari@dream11.com"
@@ -120,7 +120,7 @@ resource "aws_lb" "pulse_ui" {
 
 resource "aws_lb_target_group" "pulse_ui" {
   target_type     = "instance"
-  name            = "pulse-ui-test-tg"
+  name            = "pulse-ui-tg"
   port            = 3000
   ip_address_type = "ipv4"
   vpc_id          = var.vpc_id
@@ -141,7 +141,7 @@ resource "aws_lb_target_group" "pulse_ui" {
   deregistration_delay = 30
 
   tags = {
-    Name                = "pulse-ui-test-tg"
+    Name                = "pulse-ui-tg"
     org_name            = "horizon"
     environment_name    = "production"
     provisioned-by-user = "yasir.ansari@dream11.com"
@@ -184,7 +184,7 @@ resource "aws_lb_listener" "pulse_ui_http" {
 # Autoscaling Group
 # -------------------------------------------------------------------
 resource "aws_autoscaling_group" "pulse_ui" {
-  name = "pulse-ui-test-asg"
+  name = "pulse-ui-asg"
 
   mixed_instances_policy {
     instances_distribution {
@@ -232,7 +232,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
 
   tag {
     key                 = "Name"
-    value               = "pulse-ui-test-asg"
+    value               = "pulse-ui-asg"
     propagate_at_launch = false
   }
   tag {

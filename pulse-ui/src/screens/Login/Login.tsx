@@ -44,7 +44,6 @@ export function Login() {
 
   const googleOAuthEnabled = process.env.REACT_APP_GOOGLE_OAUTH_ENABLED;
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";
-  console.log("googleClientId", googleClientId);
   const isDevMode = process.env.NODE_ENV === "development";
 
   // Determine if dummy login should be shown
