@@ -1,6 +1,6 @@
 {
   "name": "pulse-client",
-  "version": "0.1.6-SNAPSHOT",
+  "version": "0.1.7-SNAPSHOT",
   "private": true,
   "dependencies": {
     "@babel/core": "^7.16.0",
