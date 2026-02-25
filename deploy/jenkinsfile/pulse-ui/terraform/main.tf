@@ -133,8 +133,8 @@ resource "aws_lb_target_group" "pulse_ui" {
     port                = "traffic-port"
     healthy_threshold   = 5
     unhealthy_threshold = 2
-    timeout             = 5
-    interval            = 30
+    timeout             = 10
+    interval            = 120
     matcher             = "200"
   }
 

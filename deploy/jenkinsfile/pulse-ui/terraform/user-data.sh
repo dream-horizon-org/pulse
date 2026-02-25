@@ -5,6 +5,9 @@ set -e  # Exit on error
 exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
+echo "Changing to home directory"
+cd /home/admin
+
 # 2. Activating NVM
 echo "Installing Node and PM2"
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
@@ -14,8 +17,9 @@ export NVM_DIR="$HOME/.nvm"
 nvm install 20
 nvm use 20
 npm install -g pm2
-npm install -g yarn
 which pm2
+npm install -g yarn
+which yarn
 
 # 3. Download code artifact
 AWS_REGION="ap-south-1"
