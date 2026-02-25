@@ -2,9 +2,9 @@
 
 package com.pulse.android.sdk.internal
 
-import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
+import com.pulse.utils.PulseNetworkingUtils
 import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger

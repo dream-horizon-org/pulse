@@ -1,4 +1,4 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task

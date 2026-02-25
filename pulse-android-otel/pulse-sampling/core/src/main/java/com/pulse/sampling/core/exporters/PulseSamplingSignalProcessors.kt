@@ -1,8 +1,6 @@
 package com.pulse.sampling.core.exporters
 
 import android.content.Context
-import com.pulse.otel.utils.matchesFromRegexCache
-import com.pulse.otel.utils.toMap
 import com.pulse.sampling.core.PulseSessionConfigParser
 import com.pulse.sampling.core.PulseSessionParser
 import com.pulse.sampling.core.PulseSignalMatcher
@@ -15,6 +13,8 @@ import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.utils.matchesFromRegexCache
+import com.pulse.utils.toMap
 import io.opentelemetry.android.export.ModifiedSpanData
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes

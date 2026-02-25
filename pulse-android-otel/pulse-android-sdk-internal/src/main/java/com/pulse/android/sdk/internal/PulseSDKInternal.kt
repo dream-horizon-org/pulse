@@ -6,11 +6,6 @@ package com.pulse.android.sdk.internal
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
-import com.pulse.otel.utils.PulseNetworkingUtils
-import com.pulse.otel.utils.PulseOtelUtils
-import com.pulse.otel.utils.PulseSerialisationUtils
-import com.pulse.otel.utils.putAttributesFrom
-import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
@@ -23,6 +18,11 @@ import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
+import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseSerialisationUtils
+import com.pulse.utils.putAttributesFrom
+import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum

@@ -1,4 +1,4 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName

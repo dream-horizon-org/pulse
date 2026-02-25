@@ -1,7 +1,6 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import android.util.Log
-import com.pulse.utils.BuildConfig
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder

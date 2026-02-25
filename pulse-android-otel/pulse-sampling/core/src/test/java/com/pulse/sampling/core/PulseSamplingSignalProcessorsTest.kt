@@ -3,7 +3,6 @@
 package com.pulse.sampling.core
 
 import android.content.Context
-import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseCriticalEventPolicies
@@ -17,6 +16,7 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCo
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.utils.toAttributes
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk

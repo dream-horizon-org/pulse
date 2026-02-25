@@ -1,6 +1,5 @@
 package com.pulse.sampling.core.exporters
 
-import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.PulseSignalMatcher
 import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeProp
@@ -8,6 +7,7 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCo
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import com.pulse.utils.toAttributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.sdk.logs.SdkLoggerProvider

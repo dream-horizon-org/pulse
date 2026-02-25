@@ -1,4 +1,4 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -6,7 +6,7 @@ import io.opentelemetry.api.trace.Span
 import io.opentelemetry.sdk.trace.ReadableSpan
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
-import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -103,14 +103,14 @@ class PulseOtelUtilsTest {
         attributesBuilder putAttributesFrom map
         val attributes = attributesBuilder.build()
 
-        assertThat(attributes.get(AttributeKey.stringKey("string.key"))).isEqualTo("string.value")
-        assertThat(attributes.get(AttributeKey.longKey("long.key"))).isEqualTo(123L)
-        assertThat(attributes.get(AttributeKey.doubleKey("double.key"))).isEqualTo(45.67)
-        assertThat(attributes.get(AttributeKey.booleanKey("boolean.key"))).isEqualTo(true)
-        assertThat(attributes.get(AttributeKey.stringKey("nested.key1"))).isEqualTo("nested.value1")
-        assertThat(attributes.get(AttributeKey.longKey("nested.key2"))).isEqualTo(42L)
-        assertThat(attributes.get(AttributeKey.stringKey("int.key"))).isEqualTo("999")
-        assertThat(attributes.get(AttributeKey.stringKey("null.key"))).isNull()
+        Assertions.assertThat(attributes.get(AttributeKey.stringKey("string.key"))).isEqualTo("string.value")
+        Assertions.assertThat(attributes.get(AttributeKey.longKey("long.key"))).isEqualTo(123L)
+        Assertions.assertThat(attributes.get(AttributeKey.doubleKey("double.key"))).isEqualTo(45.67)
+        Assertions.assertThat(attributes.get(AttributeKey.booleanKey("boolean.key"))).isEqualTo(true)
+        Assertions.assertThat(attributes.get(AttributeKey.stringKey("nested.key1"))).isEqualTo("nested.value1")
+        Assertions.assertThat(attributes.get(AttributeKey.longKey("nested.key2"))).isEqualTo(42L)
+        Assertions.assertThat(attributes.get(AttributeKey.stringKey("int.key"))).isEqualTo("999")
+        Assertions.assertThat(attributes.get(AttributeKey.stringKey("null.key"))).isNull()
     }
 
     @Test
@@ -125,16 +125,21 @@ class PulseOtelUtilsTest {
         attributesBuilder putAttributesFrom map
         val attributes = attributesBuilder.build()
 
-        assertThat(attributes.get(AttributeKey.stringKey("pulse.internal.debug"))).isNull()
-        assertThat(attributes.get(AttributeKey.stringKey("pulse.internal"))).isNull()
-        assertThat(attributes.size()).isZero
+        Assertions.assertThat(attributes.get(AttributeKey.stringKey("pulse.internal.debug"))).isNull()
+        Assertions.assertThat(attributes.get(AttributeKey.stringKey("pulse.internal"))).isNull()
+        Assertions.assertThat(attributes.size()).isZero
     }
 
     private fun assertIsNetworkSpan(
         span: Span,
         value: Boolean,
     ) {
-        assertThat(PulseOtelUtils.isNetworkSpan(span as? ReadableSpan ?: error("Not a ReadableSpan"))).isEqualTo(value)
+        Assertions
+            .assertThat(
+                PulseOtelUtils.isNetworkSpan(
+                    span as? ReadableSpan ?: error("Not a ReadableSpan"),
+                ),
+            ).isEqualTo(value)
     }
 
     @RepeatedTest(10)
@@ -170,8 +175,8 @@ class PulseOtelUtilsTest {
         executor.shutdown()
         executor.awaitTermination(5, TimeUnit.SECONDS)
 
-        assertThat(incorrectResults.get()).isEqualTo(0)
-        assertThat(correctResults.get()).isEqualTo(threadCount * iterationsPerThread)
+        Assertions.assertThat(incorrectResults.get()).isEqualTo(0)
+        Assertions.assertThat(correctResults.get()).isEqualTo(threadCount * iterationsPerThread)
     }
 
     @RepeatedTest(10)
@@ -208,8 +213,8 @@ class PulseOtelUtilsTest {
         executor.shutdown()
         executor.awaitTermination(5, TimeUnit.SECONDS)
 
-        assertThat(incorrectResults.get()).isEqualTo(0)
-        assertThat(correctResults.get()).isEqualTo(threadCount * 100)
+        Assertions.assertThat(incorrectResults.get()).isEqualTo(0)
+        Assertions.assertThat(correctResults.get()).isEqualTo(threadCount * 100)
     }
 
     companion object {

@@ -1,6 +1,6 @@
 package com.pulse.sampling.core.providers
 
-import com.pulse.otel.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseNetworkingUtils
 import kotlinx.coroutines.test.runTest
 import okhttp3.Cache
 import okhttp3.OkHttpClient

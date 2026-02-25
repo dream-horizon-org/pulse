@@ -5,8 +5,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.telephony.TelephonyManager
 import androidx.annotation.Keep
-import com.pulse.otel.utils.PulseFallbackToUnknownEnumSerializer
-import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.utils.PulseFallbackToUnknownEnumSerializer
+import com.pulse.utils.PulseOtelUtils
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
