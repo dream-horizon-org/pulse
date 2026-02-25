@@ -196,7 +196,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
     launch_template {
       launch_template_specification {
         launch_template_id = aws_launch_template.pulse_ui.id
-        version            = "$Latest"
+        version            = aws_launch_template.pulse_ui.latest_version
       }
       # The correct way to pass a list of specific instance types
       dynamic "override" {
