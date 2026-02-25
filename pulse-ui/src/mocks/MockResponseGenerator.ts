@@ -2612,7 +2612,7 @@ export class MockResponseGenerator {
     // Get table metadata (legacy POST endpoint)
     if (pathname.includes("/query/metadata/table") && method === "POST") {
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] Returning table metadata for otel_data");
+        console.log("[Mock Server] Returning table metadata for otel_data_1");
       }
       return {
         data: mockTableMetadata,

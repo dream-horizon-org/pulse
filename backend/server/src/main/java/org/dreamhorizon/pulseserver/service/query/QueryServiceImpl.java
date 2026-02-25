@@ -42,10 +42,9 @@ public class QueryServiceImpl implements QueryService {
     }
 
     String tenantId = TenantContext.requireTenantId();
-    // Appending TenantId for now. Will be changed to projectId once those changes are deployed.
     String queryWithProjectId = appendProjectId(queryString, tenantId);
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId, tenantId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
@@ -638,20 +637,23 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("Database name is not configured"));
     }
 
+    String projectId = TenantContext.requireTenantId();
+    String projectTable = "otel_data_" + projectId;
+
     String tablesQuery = String.format(
         "SELECT table_schema, table_name, table_type " +
             "FROM information_schema.tables " +
-            "WHERE table_schema = '%s' " +
+            "WHERE table_schema = '%s' AND table_name = '%s' " +
             "ORDER BY table_name",
-        database
+        database, projectTable
     );
 
     String columnsQuery = String.format(
         "SELECT table_schema, table_name, column_name, data_type, ordinal_position, is_nullable " +
             "FROM information_schema.columns " +
-            "WHERE table_schema = '%s' " +
+            "WHERE table_schema = '%s' AND table_name = '%s' " +
             "ORDER BY table_name, ordinal_position",
-        database
+        database, projectTable
     );
 
     return queryClient.submitQuery(tablesQuery)

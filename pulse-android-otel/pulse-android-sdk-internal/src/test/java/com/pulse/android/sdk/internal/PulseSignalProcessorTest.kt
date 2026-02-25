@@ -1,6 +1,6 @@
 @file:Suppress("DEPRECATION", "ClassName")
 
-package com.pulse.android.sdk
+package com.pulse.android.sdk.internal
 
 import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.semconv.PulseAttributes
@@ -254,7 +254,7 @@ class PulseSignalProcessorTest {
                 assertSessionEndCounts(sessionEndLog, anrCount = 1L, crashCount = 1L, nonFatalCount = 0L)
 
                 logExporter.reset()
-                logger.logRecordBuilder().setEventName(PulseSDKImpl.CUSTOM_NON_FATAL_EVENT_NAME).emit()
+                logger.logRecordBuilder().setEventName(PulseSDKInternal.CUSTOM_NON_FATAL_EVENT_NAME).emit()
                 logger.logRecordBuilder().setEventName(RumConstants.Events.EVENT_SESSION_END).emit()
 
                 assertThat(logExporter.finishedLogRecordItems).hasSize(2)

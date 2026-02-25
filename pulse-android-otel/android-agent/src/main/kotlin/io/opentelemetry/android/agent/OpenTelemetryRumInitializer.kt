@@ -49,7 +49,6 @@ object OpenTelemetryRumInitializer {
      * @param globalAttributes Configures the set of global attributes to emit with every span and event.
      * @param diskBuffering Configures the disk buffering feature.
      * @param resource Configures the resource attributes that are used globally by acting on a [ResourceBuilder].
-     * @param instrumentations Configurations for all the default instrumentations.
      */
     @Suppress("LongParameterList")
     @JvmStatic

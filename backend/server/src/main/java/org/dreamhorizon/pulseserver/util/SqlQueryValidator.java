@@ -17,6 +17,34 @@ public class SqlQueryValidator {
   private static final Pattern CONTROL_CHAR_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
   private static final Pattern WHERE_PATTERN = Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
   private static final int MAX_QUERY_LENGTH = 100000;
+  private static final String TABLE_NAME_PREFIX = "otel_data_";
+
+  /**
+   * Validates a query and enforces that it references the correct project-scoped
+   * Athena table (otel_data_{projectId}).
+   */
+  public static ValidationResult validateQuery(String query, String projectId) {
+    ValidationResult baseResult = validateQuery(query);
+    if (!baseResult.isValid()) {
+      return baseResult;
+    }
+
+    if (projectId == null || projectId.trim().isEmpty()) {
+      return ValidationResult.invalid("Project ID is required for query validation");
+    }
+
+    String expectedTable = TABLE_NAME_PREFIX + projectId.trim();
+    String upperQuery = query.toUpperCase(Locale.ROOT);
+    String upperTable = expectedTable.toUpperCase(Locale.ROOT);
+
+    if (!upperQuery.contains(upperTable)) {
+      return ValidationResult.invalid(
+          "Query must reference the project table: " + expectedTable
+              + " (e.g. SELECT * FROM pulse_athena_db." + expectedTable + " WHERE ...)");
+    }
+
+    return ValidationResult.valid();
+  }
 
   public static ValidationResult validateQuery(String query) {
     if (query == null || query.trim().isEmpty()) {
