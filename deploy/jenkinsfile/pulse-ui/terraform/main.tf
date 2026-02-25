@@ -209,7 +209,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   }
 
   vpc_zone_identifier       = var.ec2_subnet_ids
-  health_check_type         = "EC2"
+  health_check_type         = "ELB"
   health_check_grace_period = 300
   desired_capacity          = var.desired_capacity
   min_size                  = var.asg_min_size

@@ -6,10 +6,7 @@ exec > >(sudo tee /var/log/user-data.log) 2>&1
 echo "Starting user-data script at $(date)"
 
 # 2. Activating NVM
-echo "Sourcing NVM directly"
-export NVM_DIR="$HOME/.nvm"
-# Load nvm function into the current shell session
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+source ~./profile
 
 # 3. Download code artifact
 AWS_REGION="ap-south-1"
