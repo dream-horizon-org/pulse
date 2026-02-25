@@ -105,9 +105,11 @@ pipeline {
         }
         success {
             script {
-                def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_ID}\n" +
-                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_ID}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
             }
         }
         failure {
