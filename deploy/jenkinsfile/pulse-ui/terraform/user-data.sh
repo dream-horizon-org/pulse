@@ -45,8 +45,8 @@ echo "### Starting pulse dashboard with PM2..."
 pm2 start "pm2/pm2-prod.json" -i 1
 
 # This makes sure PM2 restarts the app if the EC2 instance reboots
-pm2 save
-pm2 startup systemd -u root --hp /root
-env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u root --hp /root
+#pm2 save
+#pm2 startup systemd -u root --hp /root
+#env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u root --hp /root
 
 echo "### User-data script completed at $(date)"
