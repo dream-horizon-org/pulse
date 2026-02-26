@@ -7,9 +7,11 @@ Specialized AI assistants for building Pulse features. Each solves specific prob
 | Agent | Solves | Use When |
 |-------|--------|----------|
 | **product-manager** | Feature prioritization, requirements | "Should we build this?" |
+| **backend-architect** | API design, database schemas, performance | "How should the backend work?" |
+| **react-architect** | Code architecture, types, performance | "How should I structure this?" |
+| **ui-ux-designer** | UX flows, information architecture, interaction design | "How should users navigate this?" |
 | **ux-reviewer** | UX issues, accessibility | "Is this flow confusing?" |
-| **ui-polish** | Visual inconsistencies | "Why does spacing look off?" |
-| **react-architect** | Code architecture, types | "How should I structure this?" |
+| **ui-polish** | Visual inconsistencies, design system | "Why does spacing look off?" |
 | **manual-tester** | Testing, bugs | "Test this implementation" |
 
 ---
@@ -213,9 +215,11 @@ pulse-ui/
   .cursor/
     agents/
       product-manager.md      # Feature prioritization
+      backend-architect.md    # Backend APIs, schemas, performance
+      react-architect.md      # Code architecture
+      ui-ux-designer.md       # UX flows, interaction design
       ux-reviewer.md          # UX + accessibility
       ui-polish.md            # Visual consistency
-      react-architect.md      # Code architecture
       manual-tester.md        # QA testing
       README.md               # This file
 ```
@@ -228,10 +232,12 @@ Ask natural questions and the right agent will help:
 
 ```
 "Should we add this feature?"              → product-manager
-"This navigation feels confusing"          → ux-reviewer  
-"Why is the spacing inconsistent?"        → ui-polish
-"How do I type this complex state?"       → react-architect
-"Test the new filtering implementation"   → manual-tester
+"How should the backend API work?"         → backend-architect
+"This navigation feels confusing"          → ux-reviewer
+"How should users interact with this?"     → ui-ux-designer  
+"Why is the spacing inconsistent?"         → ui-polish
+"How do I type this complex state?"        → react-architect
+"Test the new filtering implementation"    → manual-tester
 ```
 
 ---
@@ -255,6 +261,8 @@ Ask natural questions and the right agent will help:
 ## Need Help?
 
 - **Feature prioritization**: `/product-manager`
+- **Backend architecture**: `/backend-architect`
+- **UX design**: `/ui-ux-designer`
 - **UX problems**: `/ux-reviewer`
 - **Visual issues**: `/ui-polish`
 - **Code architecture**: `/react-architect`

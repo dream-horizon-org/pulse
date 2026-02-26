@@ -1,0 +1,218 @@
+/* Container */
+.container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: var(--mantine-spacing-lg);
+}
+
+/* Header */
+.header {
+  padding: var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+}
+
+/* Persona Selector - Clean button in header */
+.personaSelector {
+  padding: 6px 12px;
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.personaSelector:hover {
+  background: var(--mantine-color-gray-0);
+  border-color: var(--mantine-color-gray-4);
+}
+
+.personaSelector:active {
+  transform: translateY(1px);
+}
+
+/* Summary Stats */
+.summaryStats {
+  padding: var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-gray-0);
+}
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statCardError {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mantine-color-gray-9);
+  line-height: 1;
+}
+
+.statCardError .statValue {
+  color: var(--mantine-color-red-6);
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--mantine-color-gray-6);
+  letter-spacing: 0.5px;
+}
+
+/* Player Container */
+.playerContainer {
+  padding: 0;
+  border-radius: var(--mantine-spacing-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.playerHeader {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  background: var(--mantine-color-gray-0);
+}
+
+.playerViewport {
+  position: relative;
+  min-height: 450px;
+  background: var(--mantine-color-gray-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.playerPlaceholder {
+  padding: var(--mantine-spacing-xl);
+}
+
+.syncMarker {
+  position: absolute;
+  top: var(--mantine-spacing-sm);
+  right: var(--mantine-spacing-sm);
+  z-index: 10;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.playerControls {
+  padding: var(--mantine-spacing-md);
+  background: var(--mantine-color-white);
+}
+
+/* Context Panel */
+.contextPanel {
+  padding: 0;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+  height: 600px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tabContent {
+  padding: var(--mantine-spacing-md);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Timeline Section */
+.timelineSection {
+  padding: var(--mantine-spacing-lg);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+  overflow: hidden;
+}
+
+/* Dark mode */
+[data-mantine-color-scheme="dark"] .header,
+[data-mantine-color-scheme="dark"] .personaSelector,
+[data-mantine-color-scheme="dark"] .playerContainer,
+[data-mantine-color-scheme="dark"] .contextPanel,
+[data-mantine-color-scheme="dark"] .timelineSection {
+  background: var(--mantine-color-dark-6);
+  border-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .personaSelector:hover {
+  background: var(--mantine-color-dark-5);
+}
+
+[data-mantine-color-scheme="dark"] .playerHeader {
+  background: var(--mantine-color-dark-7);
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .playerViewport {
+  background: var(--mantine-color-dark-7);
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .playerControls {
+  background: var(--mantine-color-dark-6);
+}
+
+[data-mantine-color-scheme="dark"] .summaryStats {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .statValue {
+  color: var(--mantine-color-gray-1);
+}
+
+[data-mantine-color-scheme="dark"] .playerPlaceholder {
+  background: var(--mantine-color-dark-8);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .header {
+    padding: var(--mantine-spacing-sm);
+  }
+
+  .summaryStats {
+    padding: var(--mantine-spacing-sm);
+  }
+
+  .statValue {
+    font-size: 20px;
+  }
+
+  .playerContainer,
+  .contextPanel,
+  .timelineSection {
+    padding: var(--mantine-spacing-md);
+  }
+
+  .playerPlaceholder {
+    min-height: 300px;
+  }
+}
