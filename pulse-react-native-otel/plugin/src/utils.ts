@@ -101,6 +101,11 @@ export function buildPulseInitializationCode(options: {
     params.push(`globalAttributes = ${attributesLambda}`);
   }
 
+  // TODO: beforeSendData requires a Kotlin subclass of PulseBeforeSendData which cannot
+  // be expressed in a static app.json config. Expo users should configure it directly
+  // in their native MainApplication.kt instead of through this plugin.
+  params.push('beforeSendData = null');
+
   let code = `\n    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}",\n      ${params.join(',\n      ')}\n    ) {\n`;
 
   if (instrumentation?.interaction !== undefined) {

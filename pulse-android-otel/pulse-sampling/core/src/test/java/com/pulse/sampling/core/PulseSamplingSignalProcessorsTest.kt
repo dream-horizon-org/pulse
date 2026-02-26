@@ -16,21 +16,15 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCo
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
-import com.pulse.utils.toAttributes
+import com.pulse.utils.createLogRecordData
+import com.pulse.utils.createSpanData
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import io.opentelemetry.api.common.Value
-import io.opentelemetry.api.trace.SpanKind
-import io.opentelemetry.sdk.logs.data.Body
-import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
 import io.opentelemetry.sdk.testing.exporter.InMemoryLogRecordExporter
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricExporter
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
-import io.opentelemetry.sdk.testing.trace.TestSpanData
-import io.opentelemetry.sdk.trace.data.SpanData
-import io.opentelemetry.sdk.trace.data.StatusData
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -1286,35 +1280,6 @@ class PulseSamplingSignalProcessorsTest {
             )
         }
     }
-
-    private fun createSpanData(
-        name: String = "test-span",
-        attributes: Map<String, Any?> = emptyMap(),
-    ): SpanData =
-        TestSpanData
-            .builder()
-            .setName(name)
-            .setKind(SpanKind.INTERNAL)
-            .setStatus(StatusData.unset())
-            .setHasEnded(true)
-            .setStartEpochNanos(0)
-            .setEndEpochNanos(123)
-            .setAttributes(attributes.toAttributes())
-            .build()
-
-    private fun createLogRecordData(
-        body: String,
-        attributes: Map<String, Any?>,
-        eventName: String? = null,
-    ): LogRecordData =
-        mockk<LogRecordData>()
-            .apply {
-                every { this@apply.attributes } returns attributes.toAttributes()
-                every { this@apply.bodyValue } returns Value.of(body)
-                @Suppress("DEPRECATION")
-                every { this@apply.body } returns Body.string(body)
-                every { this@apply.eventName } returns eventName
-            }
 
     private fun createSamplingSignalProcessors(
         config: PulseSdkConfig,

@@ -3,10 +3,10 @@ plugins {
     id("otel.publish-conventions")
 }
 
-description = "Pulse SDK for mobile observability"
+description = "Pulse Android API - utils for mobile observability"
 
 android {
-    namespace = "com.pulse.android.sdk"
+    namespace = "com.pulse.android.api"
 }
 
 kotlin {
@@ -14,9 +14,6 @@ kotlin {
 }
 
 dependencies {
-    api(projects.pulseAndroidApi)
-    api(projects.androidAgent)
-    implementation(projects.pulseAndroidSdkInternal)
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)

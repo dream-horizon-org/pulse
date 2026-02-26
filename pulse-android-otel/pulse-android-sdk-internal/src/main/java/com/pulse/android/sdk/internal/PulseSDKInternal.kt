@@ -6,6 +6,10 @@ package com.pulse.android.sdk.internal
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
+import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
+import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
+import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
@@ -94,6 +98,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
+        beforeSendData: PulseBeforeSendData? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
@@ -128,6 +133,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 globalAttributes = globalAttributes,
                 diskBuffering = diskBuffering,
                 ioDispatcher = Dispatchers.IO,
+                beforeSendData = beforeSendData,
             )
         }.also {
             PulseOtelUtils.logDebug(TAG) { "Initialisation succeeded in $it ns" }
@@ -152,6 +158,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         endpointHeaders: Map<String, String>,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
+        beforeSendData: PulseBeforeSendData? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         ioDispatcher: CoroutineDispatcher,
     ) {
@@ -320,9 +327,16 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 .setHeaders { finalMetricEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
                 .build()
 
-        val spanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
-        val logExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
-        val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
+        val baseSpanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
+        val baseLogExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
+        val baseMetricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
+
+        val spanExporter: SpanExporter =
+            beforeSendData?.let { PulseBeforeSendSpanExporter(it, baseSpanExporter) } ?: baseSpanExporter
+        val logExporter: LogRecordExporter =
+            beforeSendData?.let { PulseBeforeSendLogExporter(it, baseLogExporter) } ?: baseLogExporter
+        val metricExporter: MetricExporter =
+            beforeSendData?.let { PulseBeforeSendMetricExporter(it, baseMetricExporter) } ?: baseMetricExporter
 
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)

@@ -3,6 +3,7 @@
 package com.pulse.android.sdk
 
 import android.app.Application
+import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -59,6 +60,7 @@ public interface PulseSDK {
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
+        beforeSendData: PulseBeforeSendData? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )

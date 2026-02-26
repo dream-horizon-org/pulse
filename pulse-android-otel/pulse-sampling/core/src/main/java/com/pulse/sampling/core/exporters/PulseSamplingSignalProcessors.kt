@@ -1,6 +1,7 @@
 package com.pulse.sampling.core.exporters
 
 import android.content.Context
+import com.pulse.android.api.otel.models.copy
 import com.pulse.sampling.core.PulseSessionConfigParser
 import com.pulse.sampling.core.PulseSessionParser
 import com.pulse.sampling.core.PulseSignalMatcher
@@ -15,10 +16,8 @@ import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.utils.matchesFromRegexCache
 import com.pulse.utils.toMap
-import io.opentelemetry.android.export.ModifiedSpanData
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
-import io.opentelemetry.api.common.Value
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.common.export.MemoryMode
 import io.opentelemetry.sdk.logs.data.LogRecordData
@@ -91,11 +90,11 @@ public class PulseSamplingSignalProcessors internal constructor(
                                         PulseSignalScope.TRACES,
                                         attributesToDrop,
                                     ) { newAttributes ->
-                                        ModifiedSpanData(spanData, newAttributes)
+                                        spanData.copy(attributes = newAttributes)
                                     }
                                 if (droppedResult != null) {
                                     modifiedSpanData = droppedResult
-                                    currentAttributes = droppedResult.attributes
+                                    currentAttributes = droppedResult.getAttributes()
                                 }
                             }
 
@@ -107,7 +106,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                                         PulseSignalScope.TRACES,
                                         attributesToAdd,
                                     ) { newAttributes ->
-                                        ModifiedSpanData(spanData, newAttributes)
+                                        spanData.copy(attributes = newAttributes)
                                     }
                                 if (addedResult != null) {
                                     modifiedSpanData = addedResult
@@ -176,11 +175,11 @@ public class PulseSamplingSignalProcessors internal constructor(
                                         PulseSignalScope.LOGS,
                                         attributesToDrop,
                                     ) { newAttributes ->
-                                        ModifiedLAttributeRecordData(newAttributes, logRecord)
+                                        logRecord.copy(attributes = newAttributes)
                                     }
                                 if (droppedResult != null) {
                                     modifiedLogRecord = droppedResult
-                                    currentAttributes = droppedResult.attributes
+                                    currentAttributes = droppedResult.getAttributes()
                                 }
                             }
 
@@ -193,7 +192,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                                         PulseSignalScope.LOGS,
                                         attributesToAdd,
                                     ) { newAttributes ->
-                                        ModifiedLAttributeRecordData(newAttributes, logRecord)
+                                        logRecord.copy(attributes = newAttributes)
                                     }
                                 if (addedResult != null) {
                                     modifiedLogRecord = addedResult
@@ -225,19 +224,6 @@ public class PulseSamplingSignalProcessors internal constructor(
 
         override fun close() {
             delegateExporter.close()
-        }
-
-        // issue raised at https://github.com/detekt/detekt/issues/8928
-        @Suppress("UnnecessaryInnerClass")
-        private inner class ModifiedLAttributeRecordData(
-            private val attributes: Attributes,
-            private val oldLogRecordData: LogRecordData,
-        ) : LogRecordData by oldLogRecordData {
-            override fun getAttributes(): Attributes = attributes
-
-            override fun getBodyValue(): Value<*>? = oldLogRecordData.getBodyValue()
-
-            override fun getEventName(): String? = oldLogRecordData.eventName
         }
     }
 
