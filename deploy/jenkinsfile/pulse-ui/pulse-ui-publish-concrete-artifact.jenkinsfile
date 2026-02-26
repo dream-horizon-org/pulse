@@ -5,6 +5,8 @@ pipeline {
 
     environment {
         ARTIFACT_VERSION = ''
+        GITBOT_USERNAME = credentials('github-bot-username')
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
     }
 
     stages {
@@ -52,7 +54,7 @@ pipeline {
                         sh """
                             #!/bin/bash -el
                             chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
-                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN" -v ${ARTIFACT_VERSION}
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN" -v ${ARTIFACT_VERSION} -g ${GITBOT_USERNAME}
                         """
                     }
                 }
@@ -64,7 +66,8 @@ pipeline {
             script {
                 def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* published\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
     }

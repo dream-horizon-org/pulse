@@ -16,6 +16,7 @@ pipeline {
     environment {
         TF_IN_AUTOMATION = 'true'
         TF_VAR_artifact_version = "${params.ARTIFACT_VERSION}"
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
         // If your Jenkins server doesn't have an IAM role, you can inject credentials here
         // AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
         // AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
@@ -108,7 +109,8 @@ pipeline {
                 wrap([$class: 'BuildUser']) {
                     def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
                             "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
                 }
             }
         }
@@ -116,7 +118,8 @@ pipeline {
             script {
                 def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* deployment failed on production\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'C0AGKH4JN4V', color: 'red', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'red', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
     }

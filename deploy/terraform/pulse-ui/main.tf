@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket       = "pulse-deployment-config"
-    key          = "terraform/production/terraform.tfstate"
+    key          = "terraform/production/pulse-ui/terraform.tfstate"
     region       = "ap-south-1"
     use_lockfile = true
   }
@@ -184,7 +184,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   mixed_instances_policy {
     instances_distribution {
       on_demand_percentage_above_base_capacity = 0
-      on_demand_base_capacity                  = 0
+      on_demand_base_capacity                  = var.asg_on_demand_base_capacity
       spot_allocation_strategy                 = "price-capacity-optimized"
     }
 

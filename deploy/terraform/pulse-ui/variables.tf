@@ -31,6 +31,11 @@ variable "asg_max_size" {
   type        = number
 }
 
+variable "asg_on_demand_base_capacity" {
+  description = "Number of base on demand instances"
+  type        = number
+}
+
 variable "ec2_subnet_ids" {
   description = "Subnets for instances (ASG)"
   type        = list(string)

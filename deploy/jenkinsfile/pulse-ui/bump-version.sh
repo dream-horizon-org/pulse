@@ -7,6 +7,7 @@ do
         u) GIT_USER=${OPTARG};;
         p) GIT_TOKEN=${OPTARG};;
         v) ARTIFACT_VERSION=${OPTARG};;
+        g) GITBOT_USERNAME=${OPTARG};;
     esac
 done
 
@@ -22,6 +23,11 @@ fi
 
 if [ -z "$ARTIFACT_VERSION" ]; then
     echo 'Missing option -v (Artifact version)' >&2
+    exit 1
+fi
+
+if [ -z "$GITBOT_USERNAME" ]; then
+    echo 'Missing option -v (Github bot username version)' >&2
     exit 1
 fi
 
@@ -47,8 +53,8 @@ mv package.json.tmp package.json
 cd ..
 
 # Configure git
-git config user.name "d11-horizon-bot"
-git config user.email "d11-horizon-bot@users.noreply.github.com"
+git config user.name "${GITBOT_USERNAME}"
+git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
 
 git add pulse-ui/package.json
 git commit -m "chore: release pulse-ui version $PUBLISHED_VERSION"
