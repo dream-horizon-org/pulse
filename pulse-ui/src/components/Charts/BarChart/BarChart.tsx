@@ -41,9 +41,9 @@ export function BarChart({
       },
       grid: {
         top: "20",
-        left: "25",
-        right: "25",
-        bottom: "50",
+        left: "90",
+        right: "30",
+        bottom: "60",
         containLabel: true,
       },
       xAxis: {
@@ -57,9 +57,15 @@ export function BarChart({
       },
       yAxis: {
         splitNumber: 4,
+        nameGap: 50,
         axisLabel: {
           color: theme.colors.gray[6],
           fontFamily: theme.fontFamily,
+          margin: 10,
+          padding: [0, 0, 0, 0],
+        },
+        nameTextStyle: {
+          padding: [0, 0, 0, 20],
         },
         splitLine: {
           show: true,
@@ -91,6 +97,10 @@ export function BarChart({
     () => ({
       ...defaultOptions,
       ...option,
+      grid: {
+        ...defaultOptions.grid,
+        ...option?.grid,
+      },
       tooltip: {
         ...defaultOptions.tooltip,
         ...option?.tooltip,
@@ -129,6 +139,10 @@ export function BarChart({
               ...defaultOptions.yAxis.axisLabel,
               ...yAxisItem?.axisLabel,
             },
+            nameTextStyle: {
+              ...defaultOptions.yAxis.nameTextStyle,
+              ...yAxisItem?.nameTextStyle,
+            },
             splitLine: {
               ...defaultOptions.yAxis.splitLine,
               ...yAxisItem?.splitLine,
@@ -144,6 +158,10 @@ export function BarChart({
             axisLabel: {
               ...defaultOptions.yAxis.axisLabel,
               ...option?.yAxis?.axisLabel,
+            },
+            nameTextStyle: {
+              ...defaultOptions.yAxis.nameTextStyle,
+              ...option?.yAxis?.nameTextStyle,
             },
             splitLine: {
               ...defaultOptions.yAxis.splitLine,

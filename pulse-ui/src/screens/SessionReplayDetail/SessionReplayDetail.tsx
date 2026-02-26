@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Button, Paper, Group, Text, Badge, Stack, Grid, Tabs, Card, Timeline, Code, Table, Slider, ActionIcon, RingProgress, ScrollArea, Menu, UnstyledButton, Tooltip } from '@mantine/core';
+import { Box, Button, Paper, Group, Text, Badge, Stack, Grid, Tabs, Card, Timeline, Code, Table, Slider, ActionIcon, RingProgress, ScrollArea, Menu, UnstyledButton, Tooltip, SegmentedControl } from '@mantine/core';
 import { 
   IconArrowLeft, 
   IconClock, 
@@ -42,6 +42,11 @@ import { PersonaType } from '../../contexts/PersonaContext';
 import { SupportSummaryTab } from './components/SupportSummaryTab';
 import { BusinessImpactTab } from './components/BusinessImpactTab';
 import { TechnicalTab } from './components/TechnicalTab';
+import { PerformanceVisualization } from './components/PerformanceVisualization';
+import { NetworkVisualization } from './components/NetworkVisualization';
+import { EventsVisualization } from './components/EventsVisualization';
+import { ConsoleVisualization } from './components/ConsoleVisualization';
+import { InfoVisualization } from './components/InfoVisualization';
 import classes from './SessionReplayDetail.module.css';
 import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
@@ -73,6 +78,13 @@ export const SessionReplayDetail: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('session-info');
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
+  
+  // View mode for each tab (text vs graph)
+  const [infoViewMode, setInfoViewMode] = useState<'text' | 'graph'>('text');
+  const [eventsViewMode, setEventsViewMode] = useState<'text' | 'graph'>('text');
+  const [consoleViewMode, setConsoleViewMode] = useState<'text' | 'graph'>('text');
+  const [networkViewMode, setNetworkViewMode] = useState<'text' | 'graph'>('text');
+  const [performanceViewMode, setPerformanceViewMode] = useState<'text' | 'graph'>('text');
   
   // PERSONA STATE
   const [activePersona, setActivePersona] = useState<PersonaType>('all');
@@ -497,6 +509,24 @@ export const SessionReplayDetail: React.FC = () => {
                 <Box className={classes.tabContent}>
                 <Tabs.Panel value="session-info">
                   <Stack gap="lg">
+                    <Group justify="flex-end">
+                      <SegmentedControl
+                        size="xs"
+                        value={infoViewMode}
+                        onChange={(value) => setInfoViewMode(value as 'text' | 'graph')}
+                        data={[
+                          { label: 'Text', value: 'text' },
+                          { label: 'Graph', value: 'graph' },
+                        ]}
+                      />
+                    </Group>
+                    {infoViewMode === 'graph' ? (
+                      <InfoVisualization
+                        criticalInteractions={sessionData.criticalInteractions}
+                        journey={sessionData.journey}
+                      />
+                    ) : (
+                      <>
                     {/* Quality Score Card */}
                     <Card padding="md" withBorder>
                       <Group justify="space-between" align="center">
@@ -623,11 +653,31 @@ export const SessionReplayDetail: React.FC = () => {
                         </Stack>
                       </Card>
                     </Box>
+                    </>
+                    )}
                   </Stack>
                 </Tabs.Panel>
 
                 <Tabs.Panel value="events">
                   <Stack gap="xs">
+                    <Group justify="flex-end">
+                      <SegmentedControl
+                        size="xs"
+                        value={eventsViewMode}
+                        onChange={(value) => setEventsViewMode(value as 'text' | 'graph')}
+                        data={[
+                          { label: 'Text', value: 'text' },
+                          { label: 'Graph', value: 'graph' },
+                        ]}
+                      />
+                    </Group>
+                    {eventsViewMode === 'graph' ? (
+                      <EventsVisualization
+                        events={sessionData.events}
+                        sessionStartTime={new Date(sessionData.startTime)}
+                      />
+                    ) : (
+                      <>
                     <Timeline active={sessionData.events.length} bulletSize={20} lineWidth={2}>
                       {sessionData.events.map((event, idx) => (
                         <Timeline.Item key={idx} bullet={<Box style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--mantine-color-teal-6)' }} />}>
@@ -637,11 +687,31 @@ export const SessionReplayDetail: React.FC = () => {
                         </Timeline.Item>
                       ))}
                     </Timeline>
+                    </>
+                    )}
                   </Stack>
                 </Tabs.Panel>
 
                 <Tabs.Panel value="console">
                   <Stack gap="xs">
+                    <Group justify="flex-end">
+                      <SegmentedControl
+                        size="xs"
+                        value={consoleViewMode}
+                        onChange={(value) => setConsoleViewMode(value as 'text' | 'graph')}
+                        data={[
+                          { label: 'Text', value: 'text' },
+                          { label: 'Graph', value: 'graph' },
+                        ]}
+                      />
+                    </Group>
+                    {consoleViewMode === 'graph' ? (
+                      <ConsoleVisualization
+                        consoleLogs={sessionData.consoleLogs}
+                        sessionStartTime={new Date(sessionData.startTime)}
+                      />
+                    ) : (
+                      <>
                     {sessionData.consoleLogs.map((log, idx) => (
                       <Card key={idx} padding="xs" withBorder>
                         <Group justify="space-between" mb={4}>
@@ -656,11 +726,31 @@ export const SessionReplayDetail: React.FC = () => {
                         )}
                       </Card>
                     ))}
+                    </>
+                    )}
                   </Stack>
                 </Tabs.Panel>
 
                 <Tabs.Panel value="network">
                   <Stack gap="xs">
+                    <Group justify="flex-end">
+                      <SegmentedControl
+                        size="xs"
+                        value={networkViewMode}
+                        onChange={(value) => setNetworkViewMode(value as 'text' | 'graph')}
+                        data={[
+                          { label: 'Text', value: 'text' },
+                          { label: 'Graph', value: 'graph' },
+                        ]}
+                      />
+                    </Group>
+                    {networkViewMode === 'graph' ? (
+                      <NetworkVisualization
+                        networkRequests={sessionData.networkRequests}
+                        sessionStartTime={new Date(sessionData.startTime)}
+                      />
+                    ) : (
+                      <>
                     {sessionData.networkRequests.map((req, idx) => (
                       <Card key={idx} padding="sm" withBorder>
                         <Group justify="space-between" mb={4}>
@@ -676,11 +766,30 @@ export const SessionReplayDetail: React.FC = () => {
                         <Text size="xs" c="dimmed" mt={4}>{formatTimestamp(req.timestamp, new Date(sessionData.startTime))}</Text>
                       </Card>
                     ))}
+                    </>
+                    )}
                   </Stack>
                 </Tabs.Panel>
 
                 <Tabs.Panel value="performance">
                   <Stack gap="md">
+                    <Group justify="flex-end">
+                      <SegmentedControl
+                        size="xs"
+                        value={performanceViewMode}
+                        onChange={(value) => setPerformanceViewMode(value as 'text' | 'graph')}
+                        data={[
+                          { label: 'Text', value: 'text' },
+                          { label: 'Graph', value: 'graph' },
+                        ]}
+                      />
+                    </Group>
+                    {performanceViewMode === 'graph' ? (
+                      <PerformanceVisualization
+                        performance={sessionData.performance}
+                      />
+                    ) : (
+                      <>
                     <Box>
                       <Text size="xs" tt="uppercase" fw={600} c="dimmed" mb="xs">Interaction Metrics</Text>
                       <Table>
@@ -706,6 +815,8 @@ export const SessionReplayDetail: React.FC = () => {
                         </Table.Tbody>
                       </Table>
                     </Box>
+                    </>
+                    )}
                   </Stack>
                 </Tabs.Panel>
               </Box>

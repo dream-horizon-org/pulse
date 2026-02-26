@@ -42,9 +42,9 @@ export const useChartOptions = ({
       }),
       grid: {
         top: "20",
-        left: "25",
-        right: "25",
-        bottom: "50",
+        left: "90",
+        right: "30",
+        bottom: "60",
         containLabel: true,
       },
       xAxis: {
@@ -69,6 +69,10 @@ export const useChartOptions = ({
           },
           hideOverlap: true,
         },
+        nameGap: 40,
+        nameTextStyle: {
+          padding: [15, 0, 0, 0],
+        },
         axisPointer: {
           show: true,
           type: "line",
@@ -80,9 +84,15 @@ export const useChartOptions = ({
       yAxis: {
         ...(chartType === "area" && { type: "value" }),
         splitNumber: 4,
+        nameGap: 50,
         axisLabel: {
           color: theme.colors.gray[6],
           fontFamily: theme.fontFamily,
+          margin: 10,
+          padding: [0, 0, 0, 0],
+        },
+        nameTextStyle: {
+          padding: [0, 0, 0, 20],
         },
         splitLine: {
           show: true,
@@ -131,6 +141,10 @@ export const useChartOptions = ({
     () => (option: any) => ({
       ...defaultOptions,
       ...option,
+      grid: {
+        ...defaultOptions.grid,
+        ...option?.grid,
+      },
       tooltip: {
         ...defaultOptions.tooltip,
         ...option?.tooltip,
@@ -152,6 +166,10 @@ export const useChartOptions = ({
               ...defaultOptions.xAxis.axisLabel,
               ...xAxisItem?.axisLabel,
             },
+            nameTextStyle: {
+              ...defaultOptions.xAxis.nameTextStyle,
+              ...xAxisItem?.nameTextStyle,
+            },
           }))
         : {
             ...defaultOptions.xAxis,
@@ -159,6 +177,10 @@ export const useChartOptions = ({
             axisLabel: {
               ...defaultOptions.xAxis.axisLabel,
               ...option?.xAxis?.axisLabel,
+            },
+            nameTextStyle: {
+              ...defaultOptions.xAxis.nameTextStyle,
+              ...option?.xAxis?.nameTextStyle,
             },
           },
       yAxis: Array.isArray(option?.yAxis)
@@ -168,6 +190,10 @@ export const useChartOptions = ({
             axisLabel: {
               ...defaultOptions.yAxis.axisLabel,
               ...yAxisItem?.axisLabel,
+            },
+            nameTextStyle: {
+              ...defaultOptions.yAxis.nameTextStyle,
+              ...yAxisItem?.nameTextStyle,
             },
             splitLine: {
               ...defaultOptions.yAxis.splitLine,
@@ -184,6 +210,10 @@ export const useChartOptions = ({
             axisLabel: {
               ...defaultOptions.yAxis.axisLabel,
               ...option?.yAxis?.axisLabel,
+            },
+            nameTextStyle: {
+              ...defaultOptions.yAxis.nameTextStyle,
+              ...option?.yAxis?.nameTextStyle,
             },
             splitLine: {
               ...defaultOptions.yAxis.splitLine,
