@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
-    `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['pulse.metering.session.id'], ''),
     `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
-    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
     -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
-    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['pulse.metering.session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
-    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['metering.session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
