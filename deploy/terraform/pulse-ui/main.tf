@@ -36,7 +36,6 @@ resource "aws_launch_template" "pulse_ui" {
     Name                = "pulse-ui-lt"
     org_name            = "horizon"
     environment_name    = "production"
-    provisioned-by-user = "yasir.ansari@dream11.com"
     component_name      = "pulse-ui"
     component_type      = "application"
     service_name        = "pulse"
@@ -53,7 +52,6 @@ resource "aws_launch_template" "pulse_ui" {
       Name                = "pulse-ui-instance"
       org_name            = "horizon"
       environment_name    = "production"
-      provisioned-by-user = "yasir.ansari@dream11.com"
       component_name      = "pulse-ui"
       component_type      = "application"
       service_name        = "pulse"
@@ -67,7 +65,6 @@ resource "aws_launch_template" "pulse_ui" {
       Name                = "pulse-ui-volume"
       org_name            = "horizon"
       environment_name    = "production"
-      provisioned-by-user = "yasir.ansari@dream11.com"
       component_name      = "pulse-ui"
       component_type      = "application"
       service_name        = "pulse"
@@ -110,7 +107,6 @@ resource "aws_lb" "pulse_ui" {
     Name                = "pulse-ui-lb"
     org_name            = "horizon"
     environment_name    = "production"
-    provisioned-by-user = "yasir.ansari@dream11.com"
     component_name      = "pulse-ui"
     component_type      = "application"
     service_name        = "pulse"
@@ -144,7 +140,6 @@ resource "aws_lb_target_group" "pulse_ui" {
     Name                = "pulse-ui-tg"
     org_name            = "horizon"
     environment_name    = "production"
-    provisioned-by-user = "yasir.ansari@dream11.com"
     component_name      = "pulse-ui"
     component_type      = "application"
     service_name        = "pulse"
@@ -243,11 +238,6 @@ resource "aws_autoscaling_group" "pulse_ui" {
   tag {
     key                 = "environment_name"
     value               = "production"
-    propagate_at_launch = false
-  }
-  tag {
-    key                 = "provisioned-by-user"
-    value               = "yasir.ansari@dream11.com"
     propagate_at_launch = false
   }
   tag {
