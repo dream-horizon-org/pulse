@@ -32,6 +32,8 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,9 @@ class ConfigControllerTest {
   @BeforeEach
   void setup() {
     configController = new ConfigController(configService, applicationConfig);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("default")
+        .build());
   }
 
   @Nested
@@ -68,6 +73,8 @@ class ConfigControllerTest {
     @Test
     void shouldGetConfigByVersion(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+
+        TenantContext.setTenantId("default");
         // Given
         Integer version = 1;
         PulseConfig mockConfig = PulseConfig.builder()
@@ -75,7 +82,7 @@ class ConfigControllerTest {
             .description("Test Config")
             .build();
 
-        when(configService.getSdkConfig(version)).thenReturn(Single.just(mockConfig));
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version)).thenReturn(Single.just(mockConfig));
 
         // When
         CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
@@ -87,7 +94,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
             assertEquals("Test Config", resp.getData().getDescription());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
           });
           testContext.completeNow();
         });
@@ -99,8 +106,8 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 999;
-
-        when(configService.getSdkConfig(version))
+        TenantContext.setTenantId("default");
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Config not found", "Config not found", 404)));
 
@@ -114,7 +121,7 @@ class ConfigControllerTest {
             assertInstanceOf(WebApplicationException.class, err);
             WebApplicationException webException = (WebApplicationException) err;
             assertEquals(404, webException.getResponse().getStatus());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
           });
           testContext.completeNow();
         });
@@ -126,8 +133,8 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 1;
-
-        when(configService.getSdkConfig(version))
+        TenantContext.setTenantId("default");
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
 
@@ -156,25 +163,26 @@ class ConfigControllerTest {
     @Test
     void shouldGetActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
         PulseConfig mockConfig = PulseConfig.builder()
             .version(5L)
             .description("Active Config")
             .build();
 
-        when(configService.getActiveSdkConfig()).thenReturn(Single.just(mockConfig));
+        when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertNotNull(resp.getData());
-            assertEquals(5L, resp.getData().getVersion());
-            assertEquals("Active Config", resp.getData().getDescription());
-            verify(configService, times(1)).getActiveSdkConfig();
+            assertNotNull(resp);
+            assertEquals(5L, resp.getVersion());
+            assertEquals("Active Config", resp.getDescription());
+            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
           });
           testContext.completeNow();
         });
@@ -184,20 +192,21 @@ class ConfigControllerTest {
     @Test
     void shouldHandleServiceErrorForActiveConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
-        when(configService.getActiveSdkConfig())
+        when(configService.getActiveSdkConfig(TenantContext.requireTenantId()))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "No active config", "No active config", 404)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNotNull(err);
             assertInstanceOf(WebApplicationException.class, err);
-            verify(configService, times(1)).getActiveSdkConfig();
+            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
           });
           testContext.completeNow();
         });
@@ -311,6 +320,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -330,7 +342,9 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
             verify(applicationConfig, times(1)).getInteractionConfigUrl();
           });
           testContext.completeNow();
@@ -341,6 +355,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl("http://custom-collector.example.com");
@@ -360,7 +377,9 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
         });
@@ -370,6 +389,9 @@ class ConfigControllerTest {
     @Test
     void shouldApplyBothDefaultUrlsWhenBothNullOrBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        // Set tenant context inside Vert.x context
+        vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
+
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getInteraction().setCollectorUrl(null);
@@ -391,7 +413,9 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals("http://default-collector.example.com", pulseConfig.getInteraction().getCollectorUrl());
-            assertEquals("http://default-config.example.com", pulseConfig.getInteraction().getConfigUrl());
+            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
+            assertEquals("http://default-config.example.com/default/config/interaction.json",
+                pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
         });
@@ -793,17 +817,14 @@ class ConfigControllerTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(Arrays.asList(
-                  PulseConfig.EventFilter.builder()
-                      .name("sensitiveAttr1")
-                      .props(List.of())
-                      .scopes(Arrays.asList(Scope.logs))
-                      .sdks(Arrays.asList(Sdk.pulse_android_java))
-                      .build(),
-                  PulseConfig.EventFilter.builder()
-                      .name("sensitiveAttr2")
-                      .props(List.of())
-                      .scopes(Arrays.asList(Scope.logs))
-                      .sdks(Arrays.asList(Sdk.pulse_android_java))
+                  PulseConfig.AttributeToDrop.builder()
+                      .values(Arrays.asList("sensitiveAttr1", "sensitiveAttr2"))
+                      .condition(PulseConfig.EventFilter.builder()
+                          .name("sensitiveFilter")
+                          .props(List.of())
+                          .scopes(Arrays.asList(Scope.logs))
+                          .sdks(Arrays.asList(Sdk.pulse_android_java))
+                          .build())
                       .build()
               ))
               .attributesToAdd(Arrays.asList(
@@ -1127,7 +1148,7 @@ class ConfigControllerTest {
             assertNull(err);
             assertNotNull(resp.getData());
             assertEquals(20L, resp.getData().getVersion());
-            
+
             // Verify the mapper converted all nested objects
             ConfigData capturedData = configDataCaptor.getValue();
             assertNotNull(capturedData);

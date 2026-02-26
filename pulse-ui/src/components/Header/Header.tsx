@@ -31,19 +31,30 @@ import Cookies from "js-cookie";
 import { useRef } from "react";
 import { googleLogout } from "@react-oauth/google";
 import { getCookies, removeAllCookies } from "../../helpers/cookies";
+import {
+  signOutFirebase,
+  isGcpMultiTenantEnabled,
+} from "../../helpers/gcpAuth";
+import { MULTI_TENANT_CONSTANTS } from "../../constants";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
+  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
 
   const onClick = () => {
     navigate("/");
   };
 
-  const onLogoutClick = () => {
-    googleLogout();
+  const onLogoutClick = async () => {
+    if (gcpMultiTenantEnabled) {
+      await signOutFirebase();
+    } else {
+      googleLogout();
+    }
     removeAllCookies();
     navigate(ROUTES.LOGIN.basePath);
   };
@@ -94,6 +105,14 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                   <IconUserScan size={22} color="#0ba09a" />
                   <Text>{getCookies(COOKIES_KEY.USER_NAME)}</Text>
                 </Group>
+                {gcpMultiTenantEnabled &&
+                  currentTenantId &&
+                  currentTenantId !== "undefined" && (
+                    <Text size="xs" c="dimmed">
+                      {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
+                      {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
+                    </Text>
+                )}
                 <Button
                   leftSection={<IconLogout size={18} />}
                   onClick={onLogoutClick}

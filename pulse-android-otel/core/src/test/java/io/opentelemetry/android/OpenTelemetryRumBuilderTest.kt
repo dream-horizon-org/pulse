@@ -456,10 +456,9 @@ class OpenTelemetryRumBuilderTest {
             .setSeverity(Severity.FATAL3)
             .setAttribute(AttributeKey.stringKey("bing"), "bang")
             .emit()
-        // 5 sec is default
         Awaitility
             .await()
-            .atMost(Duration.ofSeconds(5))
+            .atMost(Duration.ofSeconds(6))
             .untilAsserted {
                 assertThat(logsExporter.finishedLogRecordItems)
                     .isNotEmpty()

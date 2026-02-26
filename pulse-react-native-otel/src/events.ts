@@ -1,11 +1,15 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
-import { getFeaturesFromRemoteConfig } from './config';
+import {
+  getFeaturesFromRemoteConfig,
+  getIsShutdown,
+  getIsStarted,
+} from './config';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { isSupportedPlatform } from './initialization';
 import type { PulseAttributes } from './pulse.interface';
 
 export function trackEvent(event: string, attributes?: PulseAttributes): void {
-  if (!isSupportedPlatform()) {
+  if (!isSupportedPlatform() || !getIsStarted() || getIsShutdown()) {
     return;
   }
   const features = getFeaturesFromRemoteConfig();

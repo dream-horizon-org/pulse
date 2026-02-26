@@ -120,11 +120,13 @@ export default function ErrorHandlerDemo() {
             color="#FF5722"
           />
         </View>
-
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            💡 Check logs for span correlation with errors
-          </Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pulse.shutdown()</Text>
+          <Button
+            title="Trigger Pulse.shutdown()"
+            onPress={() => Pulse.shutdown()}
+            color="#FF5722"
+          />
         </View>
       </ScrollView>
     </View>

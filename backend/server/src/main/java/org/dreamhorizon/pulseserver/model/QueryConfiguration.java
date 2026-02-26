@@ -13,17 +13,20 @@ public class QueryConfiguration {
   private final boolean useLegacySql;
   private final Integer timeoutMs;
   private final JobCreationMode jobCreationMode;
+  private final String tenantId;
 
   private QueryConfiguration(
       String query,
       boolean useLegacySql,
       Integer timeoutMs,
-      JobCreationMode jobCreationMode
+      JobCreationMode jobCreationMode,
+      String tenantId
   ) {
     this.query = query;
     this.useLegacySql = useLegacySql;
     this.timeoutMs = timeoutMs;
     this.jobCreationMode = jobCreationMode;
+    this.tenantId = tenantId;
   }
 
   public static QueryConfigurationBuilder newQuery(@NotBlank @Valid String query) {
@@ -37,6 +40,7 @@ public class QueryConfiguration {
     private Integer timeoutMs;
     private final Boolean useLegacySql = false;
     private JobCreationMode jobCreationMode;
+    private String tenantId;
 
     private QueryConfigurationBuilder(String query) {
       this.query = query;
@@ -52,13 +56,18 @@ public class QueryConfiguration {
       return this;
     }
 
+    public QueryConfigurationBuilder tenantId(String tenantId) {
+      this.tenantId = tenantId;
+      return this;
+    }
+
     public QueryConfiguration build() {
       // TODO: Find better way to handle defaults
       if (timeoutMs == null) {
         timeoutMs = 60000;
       }
 
-      return new QueryConfiguration(this.query, this.useLegacySql, this.timeoutMs, jobCreationMode);
+      return new QueryConfiguration(this.query, this.useLegacySql, this.timeoutMs, jobCreationMode, tenantId);
     }
   }
 }

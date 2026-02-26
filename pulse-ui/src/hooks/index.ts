@@ -39,3 +39,4 @@ export * from "./useSubmitQuery";
 export * from "./useCancelQuery";
 export * from "./useGetQueryHistory";
 export * from "./useQueryStats";
+export * from "./useAiQuery";

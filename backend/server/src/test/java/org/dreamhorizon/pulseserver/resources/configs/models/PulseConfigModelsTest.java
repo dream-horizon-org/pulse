@@ -233,6 +233,125 @@ class PulseConfigModelsTest {
     }
   }
 
+  // AttributeToDrop Tests
+  @Nested
+  class TestAttributeToDrop {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop();
+      assertNotNull(attributeToDrop);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      List<String> values = Arrays.asList("sensitiveAttr1", "sensitiveAttr2");
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("http.request")
+          .props(new ArrayList<>())
+          .scopes(Arrays.asList(Scope.logs))
+          .sdks(Arrays.asList(Sdk.pulse_android_java))
+          .build();
+
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+
+      assertEquals(values, attributeToDrop.getValues());
+      assertEquals(condition, attributeToDrop.getCondition());
+      assertEquals(2, attributeToDrop.getValues().size());
+    }
+
+    @Test
+    void shouldCreateWithAllArgsConstructor() {
+      List<String> values = Arrays.asList("attr1", "attr2");
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("testEvent")
+          .build();
+
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop(values, condition);
+
+      assertEquals(values, attributeToDrop.getValues());
+      assertEquals(condition, attributeToDrop.getCondition());
+    }
+
+    @Test
+    void shouldSetAndGetValues() {
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop();
+      List<String> values = Arrays.asList("attr1", "attr2", "attr3");
+
+      attributeToDrop.setValues(values);
+
+      assertEquals(values, attributeToDrop.getValues());
+      assertEquals(3, attributeToDrop.getValues().size());
+    }
+
+    @Test
+    void shouldSetAndGetCondition() {
+      PulseConfig.AttributeToDrop attributeToDrop = new PulseConfig.AttributeToDrop();
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("test")
+          .build();
+
+      attributeToDrop.setCondition(condition);
+
+      assertEquals(condition, attributeToDrop.getCondition());
+    }
+
+    @Test
+    void shouldHaveCorrectEqualsAndHashCode() {
+      List<String> values = Arrays.asList("attr1", "attr2");
+      PulseConfig.EventFilter condition = PulseConfig.EventFilter.builder()
+          .name("event")
+          .build();
+
+      PulseConfig.AttributeToDrop attr1 = PulseConfig.AttributeToDrop.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+      PulseConfig.AttributeToDrop attr2 = PulseConfig.AttributeToDrop.builder()
+          .values(values)
+          .condition(condition)
+          .build();
+
+      assertEquals(attr1, attr2);
+      assertEquals(attr1.hashCode(), attr2.hashCode());
+    }
+
+    @Test
+    void shouldHaveCorrectToString() {
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(Arrays.asList("sensitiveAttr"))
+          .build();
+
+      String toString = attributeToDrop.toString();
+      assertNotNull(toString);
+      assertTrue(toString.contains("sensitiveAttr"));
+    }
+
+    @Test
+    void shouldHandleNullFields() {
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(null)
+          .condition(null)
+          .build();
+
+      assertEquals(null, attributeToDrop.getValues());
+      assertEquals(null, attributeToDrop.getCondition());
+    }
+
+    @Test
+    void shouldHandleEmptyValues() {
+      PulseConfig.AttributeToDrop attributeToDrop = PulseConfig.AttributeToDrop.builder()
+          .values(new ArrayList<>())
+          .build();
+
+      assertNotNull(attributeToDrop.getValues());
+      assertTrue(attributeToDrop.getValues().isEmpty());
+    }
+  }
+
   // EventFilter Tests
   @Nested
   class TestEventFilter {
@@ -528,7 +647,7 @@ class PulseConfigModelsTest {
       PulseConfig.FilterConfig filters = PulseConfig.FilterConfig.builder()
           .mode(FilterMode.blacklist)
           .build();
-      List<PulseConfig.EventFilter> attributesToDrop = new ArrayList<>();
+      List<PulseConfig.AttributeToDrop> attributesToDrop = new ArrayList<>();
       List<PulseConfig.AttributeToAdd> attributesToAdd = new ArrayList<>();
 
       PulseConfig.SignalsConfig signalsConfig = PulseConfig.SignalsConfig.builder()

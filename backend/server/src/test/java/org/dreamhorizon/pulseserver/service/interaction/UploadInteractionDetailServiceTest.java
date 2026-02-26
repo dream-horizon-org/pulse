@@ -20,6 +20,8 @@ import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -47,12 +49,18 @@ class UploadInteractionDetailServiceTest {
   UploadInteractionDetailService uploadInteractionDetailService;
 
   private static final String TEST_BUCKET_NAME = "test-interaction-bucket";
-  private static final String TEST_FILE_PATH = "config/interaction-config.json";
+  private static final String TEST_FILE_PATH = "interaction-config.json";
   private static final String TEST_DISTRIBUTION_ID = "EABC123456789";
-  private static final String TEST_ASSET_PATH = "/config/interaction-config.json";
+  private static final String TEST_ASSET_PATH = "interaction-config.json";
+  private static final String TEST_TENANT_ID = "test-tenant";
+  private static final String TEST_TENANT_FILE_PATH = "config/tenants/" + TEST_TENANT_ID + "/" + TEST_FILE_PATH;
+  private static final String TEST_TENANT_ASSET_PATH = "/config/tenants/" + TEST_TENANT_ID + "/" + TEST_ASSET_PATH;
 
   @BeforeEach
   void setUp() {
+    // Setup tenant context for multi-tenancy
+    TenantContext.setTenantId(TEST_TENANT_ID);
+
     uploadInteractionDetailService = new UploadInteractionDetailService(
         s3BucketClient,
         cloudFrontClient,
@@ -65,6 +73,11 @@ class UploadInteractionDetailServiceTest {
     when(applicationConfig.getInteractionDetailsS3BucketFilePath()).thenReturn(TEST_FILE_PATH);
     when(applicationConfig.getCloudFrontDistributionId()).thenReturn(TEST_DISTRIBUTION_ID);
     when(applicationConfig.getInteractionDetailCloudFrontAssetPath()).thenReturn(TEST_ASSET_PATH);
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
   }
 
   private InteractionDetails createTestInteractionDetails(String name) {
@@ -101,23 +114,23 @@ class UploadInteractionDetailServiceTest {
           createTestInteractionDetails("Interaction2")
       );
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(interactions));
-      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any()))
+      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
-      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
+      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
-      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any());
-      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any());
+      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
       verifyNoMoreInteractions(interactionDao, s3BucketClient, cloudFrontClient);
     }
 
@@ -126,40 +139,40 @@ class UploadInteractionDetailServiceTest {
       // Given
       List<InteractionDetails> emptyInteractions = List.of();
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(emptyInteractions));
-      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any()))
+      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
-      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
+      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
-      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any());
-      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any());
+      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
     }
 
     @Test
     void shouldPropagateErrorWhenInteractionDaoFails() {
       // Given
       RuntimeException daoError = new RuntimeException("Failed to get interactions");
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.error(daoError));
 
       // When
-      var testObserver = uploadInteractionDetailService.pushInteractionDetailsToObjectStore().test();
+      var testObserver = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to get interactions"));
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
       verify(s3BucketClient, never()).uploadObject(any(), any(), any());
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
@@ -173,20 +186,20 @@ class UploadInteractionDetailServiceTest {
 
       RuntimeException s3Error = new RuntimeException("S3 upload failed");
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(interactions));
-      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any()))
+      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any()))
           .thenReturn(Single.error(s3Error));
 
       // When
-      var testObserver = uploadInteractionDetailService.pushInteractionDetailsToObjectStore().test();
+      var testObserver = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("S3 upload failed"));
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
-      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any());
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any());
       verify(cloudFrontClient, never()).invalidateCache(any(), any());
     }
 
@@ -199,23 +212,23 @@ class UploadInteractionDetailServiceTest {
 
       RuntimeException cloudFrontError = new RuntimeException("CloudFront invalidation failed");
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(interactions));
-      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any()))
+      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
-      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
+      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.error(cloudFrontError));
 
       // When
-      var testObserver = uploadInteractionDetailService.pushInteractionDetailsToObjectStore().test();
+      var testObserver = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("CloudFront invalidation failed"));
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
-      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any());
-      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any());
+      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
     }
 
     @Test
@@ -225,6 +238,8 @@ class UploadInteractionDetailServiceTest {
       String customFilePath = "custom/interaction-path.json";
       String customDistributionId = "ECUSTOM12345";
       String customAssetPath = "/custom/interaction-path.json";
+      String customTenantFilePath = "config/tenants/" + TEST_TENANT_ID + "/" + customFilePath;
+      String customTenantAssetPath = "/config/tenants/" + TEST_TENANT_ID + "/" + customAssetPath;
 
       when(applicationConfig.getS3BucketName()).thenReturn(customBucket);
       when(applicationConfig.getInteractionDetailsS3BucketFilePath()).thenReturn(customFilePath);
@@ -235,22 +250,22 @@ class UploadInteractionDetailServiceTest {
           createTestInteractionDetails("CustomInteraction")
       );
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(interactions));
-      when(s3BucketClient.uploadObject(eq(customBucket), eq(customFilePath), any()))
+      when(s3BucketClient.uploadObject(eq(customBucket), eq(customTenantFilePath), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
-      when(cloudFrontClient.invalidateCache(eq(customDistributionId), eq(customAssetPath)))
+      when(cloudFrontClient.invalidateCache(eq(customDistributionId), eq(customTenantAssetPath)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(s3BucketClient).uploadObject(eq(customBucket), eq(customFilePath), any());
-      verify(cloudFrontClient).invalidateCache(customDistributionId, customAssetPath);
+      verify(s3BucketClient).uploadObject(eq(customBucket), eq(customTenantFilePath), any());
+      verify(cloudFrontClient).invalidateCache(customDistributionId, customTenantAssetPath);
     }
 
     @Test
@@ -260,23 +275,23 @@ class UploadInteractionDetailServiceTest {
           createTestInteractionDetails("SingleInteraction")
       );
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(interactions));
-      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any()))
+      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
-      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
+      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
-      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any());
-      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any());
+      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
     }
 
     @Test
@@ -290,23 +305,23 @@ class UploadInteractionDetailServiceTest {
           createTestInteractionDetails("Interaction5")
       );
 
-      when(interactionDao.getAllActiveAndRunningInteractions())
+      when(interactionDao.getAllActiveAndRunningInteractions(TenantContext.requireTenantId()))
           .thenReturn(Single.just(interactions));
-      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any()))
+      when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
-      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_ASSET_PATH)))
+      when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_TENANT_ASSET_PATH)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore()
+      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TenantContext.requireTenantId())
           .blockingGet();
 
       // Then
       assertThat(result).isEqualTo(EmptyResponse.emptyResponse);
 
-      verify(interactionDao).getAllActiveAndRunningInteractions();
-      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_FILE_PATH), any());
-      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_ASSET_PATH);
+      verify(interactionDao).getAllActiveAndRunningInteractions(TenantContext.requireTenantId());
+      verify(s3BucketClient).uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_TENANT_FILE_PATH), any());
+      verify(cloudFrontClient).invalidateCache(TEST_DISTRIBUTION_ID, TEST_TENANT_ASSET_PATH);
     }
   }
 

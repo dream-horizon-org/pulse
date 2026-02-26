@@ -40,30 +40,44 @@ public class UploadConfigDetailService {
   }
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
-      PulseConfig config
+      PulseConfig config,
+      String tenantId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
+    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getConfigDetailsS3BucketFilePath());
+    String cloudFrontAssetPath = String.format("/%s",
+        getTenantAwarePath(tenantId, applicationConfig.getConfigDetailCloudFrontAssetPath()));
 
+    log.info("Uploading to S3 at path: {}", s3FilePath);
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
-            applicationConfig.getConfigDetailsS3BucketFilePath(),
+            s3FilePath,
             config);
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful, invalidating CloudFront cache for distribution: {}", distributionId);
+          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
+              tenantId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
-                  applicationConfig.getConfigDetailCloudFrontAssetPath());
+                  cloudFrontAssetPath);
         });
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
+  /**
+   * Constructs a tenant-aware path by prefixing the base path with tenant directory.
+   * Format: tenants/{tenantId}/{basePath}
+   */
+  private String getTenantAwarePath(String tenantId, String basePath) {
+    return String.format("config/tenants/%s/%s", tenantId, basePath);
+  }
+
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
     return configService
-        .getActiveSdkConfig()
-        .flatMap(this::pushToObjectStoreAndInvalidateCache)
+        .getActiveSdkConfig(tenant)
+        .flatMap(config -> pushToObjectStoreAndInvalidateCache(config, tenant))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

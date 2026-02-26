@@ -71,6 +71,7 @@ import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -105,8 +106,11 @@ public final class OpenTelemetryRumBuilder {
 
     private Resource resource;
 
+    private static final int LOGS_EXPORT_SCHEDULE_IN_SEC = 5;
+
     @Nullable private ExportScheduleHandler exportScheduleHandler;
     @Nullable private SessionProvider sessionProvider;
+    @Nullable private SessionProvider meteredSessionProvider;
 
     private static TextMapPropagator buildDefaultPropagator() {
         return TextMapPropagator.composite(
@@ -332,7 +336,8 @@ public final class OpenTelemetryRumBuilder {
         otelSdkReadyListeners.forEach(listener -> listener.accept(sdk));
 
         SdkPreconfiguredRumBuilder delegate =
-                new SdkPreconfiguredRumBuilder(application, sdk, sessionProvider, config)
+                new SdkPreconfiguredRumBuilder(
+                                application, sdk, sessionProvider, meteredSessionProvider, config)
                         .setShutdownHook(
                                 () -> {
                                     if (exportScheduleHandler != null) {
@@ -411,6 +416,12 @@ public final class OpenTelemetryRumBuilder {
 
     public OpenTelemetryRumBuilder setSessionProvider(SessionProvider sessionProvider) {
         this.sessionProvider = sessionProvider;
+        return this;
+    }
+
+    public OpenTelemetryRumBuilder setMeteredSessionProvider(
+            SessionProvider meteredSessionProvider) {
+        this.meteredSessionProvider = meteredSessionProvider;
         return this;
     }
 
@@ -548,7 +559,10 @@ public final class OpenTelemetryRumBuilder {
                         .setResource(resource)
                         .addSpanProcessor(new SessionIdSpanAppender(sessionProvider));
 
-        BatchSpanProcessor batchSpanProcessor = BatchSpanProcessor.builder(spanExporter).build();
+        BatchSpanProcessor batchSpanProcessor =
+                BatchSpanProcessor.builder(spanExporter)
+                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS)
+                        .build();
         tracerProviderBuilder.addSpanProcessor(batchSpanProcessor);
 
         for (BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>
@@ -570,7 +584,9 @@ public final class OpenTelemetryRumBuilder {
                                 new GlobalAttributesLogRecordAppender(
                                         config.getGlobalAttributesSupplier()));
         LogRecordProcessor batchLogsProcessor =
-                BatchLogRecordProcessor.builder(logsExporter).build();
+                BatchLogRecordProcessor.builder(logsExporter)
+                        .setScheduleDelay(LOGS_EXPORT_SCHEDULE_IN_SEC, TimeUnit.SECONDS)
+                        .build();
         loggerProviderBuilder.addLogRecordProcessor(batchLogsProcessor);
         for (BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>
                 customizer : loggerProviderCustomizers) {

@@ -77,11 +77,14 @@ repositories {
   google()
 }
 
-def pulse_version = "0.0.2-alpha"
+def pulse_version = "0.0.4-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
-  api("org.dreamhorizon:pulse-android-sdk:$pulse_version") {
+  api("org.dreamhorizon:android-agent:$pulse_version") {
+    exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
+  }
+  api("org.dreamhorizon:pulse-android-sdk-internal:$pulse_version") {
     exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
   }
   implementation("org.dreamhorizon:pulse-semconv:$pulse_version")

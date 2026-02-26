@@ -18,14 +18,14 @@ variable "instance_count" {
   type        = number
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs for NLB and instances"
+variable "private_ec2_subnet_ids" {
+  description = "List of subnet IDs for instances"
   type        = list(string)
 }
 
-variable "security_group_id" {
+variable "security_group_ids" {
   description = "Security group to attach to all resources"
-  type        = string
+  type        = list(string)
 }
 
 variable "nlb_security_group_ids" {
@@ -73,12 +73,13 @@ variable "vector_listen_port" {
   type        = number
 }
 
-variable "public_subnet_ids" {
-  description = "List of public subnets for the NLB"
+variable "otel_listen_port" {
+  description = "OTEL collector port"
+  type        = number
+}
+
+variable "private_nlb_subnet_ids" {
+  description = "List of private subnets for the NLB"
   type        = list(string)
 }
 
-variable "acm_certificate_arn" {
-  description = "acm certificate to add to the listener"
-  type        = string
-}

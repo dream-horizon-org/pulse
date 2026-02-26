@@ -37,13 +37,15 @@ public class Authenticate {
   public CompletionStage<Response<AuthenticateResponseDto>> getAccessAndRefreshTokens(
       @RequestBody(description = "Request body to authenticate user")
       @Valid
-      AuthenticateRequestDto authenticateRequestDto) {
+      AuthenticateRequestDto authenticateRequestDto,
+      @HeaderParam("tenant-id") String tenantId) {
     try {
       return authService
-          .verifyGoogleIdToken(authenticateRequestDto.identifier)
+          .verifyGoogleIdToken(authenticateRequestDto.identifier, tenantId)
           .to(RestResponse.jaxrsRestHandler());
     } catch (Exception e) {
-      throw ServiceError.SERVICE_UNKNOWN_EXCEPTION.getException();
+      String cause = e.getMessage() != null ? e.getMessage() : "Invalid ID token";
+      throw ServiceError.SERVICE_UNKNOWN_EXCEPTION.getCustomException("Something went wrong", cause);
     }
   }
 

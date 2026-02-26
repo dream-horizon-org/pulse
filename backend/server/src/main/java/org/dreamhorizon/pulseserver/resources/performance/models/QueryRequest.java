@@ -25,6 +25,8 @@ public class QueryRequest {
 
   private Integer limit;
 
+  private String tenantId;
+
   public enum Direction {
     ASC, DESC
   }

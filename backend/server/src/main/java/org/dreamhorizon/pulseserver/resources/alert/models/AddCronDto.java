@@ -1,0 +1,28 @@
+package org.dreamhorizon.pulseserver.resources.alert.models;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class AddCronDto {
+  @NotNull
+  @JsonProperty("id")
+  Integer id;
+
+  @NotNull
+  @JsonProperty("interval")
+  Integer interval;
+
+  @NotNull
+  @JsonProperty("url")
+  String url;
+
+  @NotNull
+  @JsonProperty(value = "tenantId")
+  private String tenantId;
+}

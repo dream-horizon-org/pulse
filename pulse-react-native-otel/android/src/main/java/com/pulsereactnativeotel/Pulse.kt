@@ -3,9 +3,10 @@
 package com.pulsereactnativeotel
 
 import android.app.Application
-import com.pulse.android.sdk.PulseSDK
+import com.pulse.android.sdk.internal.PulseSDKInternal
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
+import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -19,22 +20,24 @@ import java.util.function.BiFunction
  * React Native wrapper for PulseSDK that automatically adds React Native screen name processors.
  * This ensures React Native screen names override Android Activity/Fragment names in telemetry.
  */
-public object Pulse : PulseSDK by PulseSDK.INSTANCE {
-    public override fun initialize(
+public object Pulse {
+    internal val sdkInternal by lazy { PulseSDKInternal() }
+    @JvmStatic
+    public fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        endpointHeaders: Map<String, String>,
-        spanEndpointConnectivity: EndpointConnectivity,
-        logEndpointConnectivity: EndpointConnectivity,
-        metricEndpointConnectivity: EndpointConnectivity,
-        customEventConnectivity: EndpointConnectivity,
-        resource: (ResourceBuilder.() -> Unit)?,
-        sessionConfig: SessionConfig,
-        globalAttributes: (() -> Attributes)?,
-        diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
-        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
-        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
+        projectId: String,
+        endpointHeaders: Map<String, String> = emptyMap(),
+        spanEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forTraces(endpointBaseUrl, endpointHeaders),
+        logEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forLogs(endpointBaseUrl, endpointHeaders),
+        metricEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forMetrics(endpointBaseUrl, endpointHeaders),
+        customEventConnectivity: EndpointConnectivity = logEndpointConnectivity,
+        configEndpointUrl: String? = null,
+        resource: (ResourceBuilder.() -> Unit)? = null,
+        sessionConfig: SessionConfig = SessionConfig.withDefaults(),
+        globalAttributes: (() -> Attributes)? = null,
+        diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     ) {
         val rnTracerProviderCustomizer = BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, _ ->
             tracerProviderBuilder.addSpanProcessor(ReactNativeScreenAttributesSpanProcessor())
@@ -44,44 +47,28 @@ public object Pulse : PulseSDK by PulseSDK.INSTANCE {
             loggerProviderBuilder.addLogRecordProcessor(ReactNativeScreenAttributesLogRecordProcessor())
         }
 
-        val mergedTracerProviderCustomizer = if (tracerProviderCustomizer != null) {
-            BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, application ->
-                val builderWithRn = rnTracerProviderCustomizer.apply(tracerProviderBuilder, application)
-                tracerProviderCustomizer.apply(builderWithRn, application)
-            }
-        } else {
-            rnTracerProviderCustomizer
-        }
-
-        val mergedLoggerProviderCustomizer = if (loggerProviderCustomizer != null) {
-            BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, application ->
-                val builderWithRn = rnLoggerProviderCustomizer.apply(loggerProviderBuilder, application)
-                loggerProviderCustomizer.apply(builderWithRn, application)
-            }
-        } else {
-            rnLoggerProviderCustomizer
-        }
-
         // Set telemetry.sdk.name for React Native SDK (read in OpenTelemetryRumInitializer for sampling)
         val rnResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_RN)
             resource?.invoke(this)
         }
 
-        PulseSDK.INSTANCE.initialize(
+        sdkInternal.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
+            projectId = projectId,
             endpointHeaders = endpointHeaders,
             spanEndpointConnectivity = spanEndpointConnectivity,
             logEndpointConnectivity = logEndpointConnectivity,
             metricEndpointConnectivity = metricEndpointConnectivity,
             customEventConnectivity = customEventConnectivity,
+            configEndpointUrl = configEndpointUrl,
             resource = rnResource,
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
             diskBuffering = diskBuffering,
-            tracerProviderCustomizer = mergedTracerProviderCustomizer,
-            loggerProviderCustomizer = mergedLoggerProviderCustomizer,
+            tracerProviderCustomizer = rnTracerProviderCustomizer,
+            loggerProviderCustomizer = rnLoggerProviderCustomizer,
             instrumentations = instrumentations,
         )
     }

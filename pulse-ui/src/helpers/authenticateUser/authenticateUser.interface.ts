@@ -24,3 +24,15 @@ export type GuardianDecodedToken = {
   lastName: string;
   profilePicture: string;
 };
+
+export type FirebaseDecodedToken = {
+  email?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+  firstName?: string;
+  lastName?: string;
+  profilePicture?: string;
+  "firebase.tenant"?: string;
+};

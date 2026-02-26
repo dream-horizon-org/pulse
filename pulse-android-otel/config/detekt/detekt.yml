@@ -114,6 +114,7 @@ complexity:
     ignoredLabels: [ ]
   LargeClass:
     active: true
+    excludes: *testFolders
     threshold: 600
   LongMethod:
     active: true

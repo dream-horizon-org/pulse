@@ -47,6 +47,7 @@ class OtelDemoApplication : Application() {
             PulseSDK.INSTANCE.initialize(
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
+                projectId = "project-123",
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },

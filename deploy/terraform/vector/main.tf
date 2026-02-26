@@ -34,7 +34,7 @@ resource "aws_launch_template" "vector" {
     name = var.instance_profile_name
   }
 
-  vpc_security_group_ids = [var.security_group_id]
+  vpc_security_group_ids = var.security_group_ids
 
   instance_market_options {
     market_type = "spot"
@@ -70,10 +70,10 @@ resource "aws_launch_template" "vector" {
 
 resource "aws_lb" "vector" {
   name               = "pulse-vector-nlb"
-  internal           = false
+  internal           = true
   load_balancer_type = "network"
   security_groups    = var.nlb_security_group_ids
-  subnets            = var.public_subnet_ids
+  subnets            = var.private_nlb_subnet_ids
   drop_invalid_header_fields = true
   enable_deletion_protection = false
 }
@@ -93,16 +93,40 @@ resource "aws_lb_target_group" "vector" {
   }
 }
 
+resource "aws_lb_target_group" "otel" {
+  name        = "pulse-otel-tg"
+  port        = var.otel_listen_port
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+  target_type = "instance"
+
+  health_check {
+    path                = var.healthcheck_path
+    port                = tostring(var.healthcheck_port)
+    matcher             = "200-399"
+    protocol            = "HTTP"
+  }
+}
+
 resource "aws_lb_listener" "vector" {
   load_balancer_arn = aws_lb.vector.arn
   port              = var.vector_listen_port
-  protocol          = "TLS"
+  protocol          = "TCP"
 
-  certificate_arn = var.acm_certificate_arn
-  ssl_policy = "ELBSecurityPolicy-2016-08"
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.vector.arn
+  }
+}
+
+resource "aws_lb_listener" "otel" {
+  load_balancer_arn = aws_lb.vector.arn
+  port              = var.otel_listen_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.otel.arn
   }
 }
 
@@ -117,8 +141,8 @@ resource "aws_autoscaling_group" "vector" {
   max_size         = var.instance_count
   desired_capacity = var.instance_count
 
-  vpc_zone_identifier = var.subnet_ids
-  target_group_arns   = [aws_lb_target_group.vector.arn]
+  vpc_zone_identifier = var.private_ec2_subnet_ids
+  target_group_arns   = [aws_lb_target_group.vector.arn, aws_lb_target_group.otel.arn]
 
   health_check_type         = "EC2"
   health_check_grace_period = 60
