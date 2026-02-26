@@ -109,7 +109,7 @@ transforms:
 
       . = {
         "project_id": project_id,
-        "month": month, // YYYY-MM-01
+        "month": month, 
         "source": "vector",
         "event_count": event_count
       }
