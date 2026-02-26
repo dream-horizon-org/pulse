@@ -53,4 +53,4 @@ git config user.email "d11-horizon-bot@users.noreply.github.com"
 git add pulse-ui/package.json
 git commit -m "chore: release pulse-ui version $PUBLISHED_VERSION"
 
-git push "https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git" HEAD:feat/deployment
+git push "https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git" HEAD:main

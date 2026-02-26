@@ -33,7 +33,7 @@ pipeline {
                 // Pulls the code from your Git repository
                 checkout([
                         $class: 'GitSCM',
-                        branches: [[name: '*/feat/deployment']],
+                        branches: [[name: '*/main']],
                         userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
                 ])
             }
