@@ -3,6 +3,7 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import PulseReactNativeOtel
+import OpenTelemetryApi
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -67,15 +68,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         name: "test_event_from_app_delegate",
         observedTimeStampInMs: currentTimeMs,
         params: [
-          "test_param": PulseAttributeValue.string("test_value"),
-          "source": PulseAttributeValue.string("app_delegate")
+          "test_param": AttributeValue.string("test_value"),
+          "source": AttributeValue.string("app_delegate")
         ]
       )
       
       let span = PulseSDK.startSpan(
         name: "test_span_from_app_delegate",
         params: [
-          "span_param": PulseAttributeValue.string("span_value")
+          "span_param": AttributeValue.string("span_value")
         ]
       )
       span.end()

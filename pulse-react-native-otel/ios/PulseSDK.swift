@@ -5,25 +5,29 @@ import OpenTelemetrySdk
 
 @objc(PulseSDK)
 public class PulseSDK: NSObject {
-    
-    // Swift-only method (not exposed to Objective-C because closures can't be represented in ObjC)
+
+    // MARK: - Swift API
+  
     public static func initialize(
         endpointBaseUrl: String,
         projectId: String,
-        endpointHeaders: [String: String]?,
-        globalAttributes: [String: PulseAttributeValue]?,
+        configEndpointUrl: String? = nil,
+        customEventCollectorUrl: String? = nil,
+        endpointHeaders: [String: String]? = nil,
+        globalAttributes: [String: AttributeValue]? = nil,
         resource: ((inout [String: AttributeValue]) -> Void)? = nil,
+        configuration: ((inout PulseKitConfiguration) -> Void)? = nil,
         instrumentations: ((inout InstrumentationConfiguration) -> Void)? = nil,
         tracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = nil,
         loggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = nil
     ) {
-        let convertedAttributes: [String: AttributeValue]? = globalAttributes?.toSwiftAttributes()
-        
+        let convertedAttributes = globalAttributes
+
         let rnTracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder) = { builder in
             return builder.add(spanProcessor: ReactNativeScreenAttributesSpanProcessor())
         }
-        
-        let mergedTracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? = 
+
+        let mergedTracerProviderCustomizer: ((TracerProviderBuilder) -> TracerProviderBuilder)? =
             if let userCustomizer = tracerProviderCustomizer {
                 { builder in
                     let builderWithRn = rnTracerProviderCustomizer(builder)
@@ -32,7 +36,7 @@ public class PulseSDK: NSObject {
             } else {
                 rnTracerProviderCustomizer
             }
-        
+
         let rnLoggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor]) = { processors in
             guard let lastIndex = processors.indices.last else {
                 return processors
@@ -41,8 +45,8 @@ public class PulseSDK: NSObject {
             modified[lastIndex] = ReactNativeScreenAttributesLogRecordProcessor(nextProcessor: processors[lastIndex])
             return modified
         }
-        
-        let mergedLoggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? = 
+
+        let mergedLoggerProviderCustomizer: (([LogRecordProcessor]) -> [LogRecordProcessor])? =
             if let userCustomizer = loggerProviderCustomizer {
                 { processors in
                     let withRn = rnLoggerProviderCustomizer(processors)
@@ -51,63 +55,160 @@ public class PulseSDK: NSObject {
             } else {
                 rnLoggerProviderCustomizer
             }
-        
+
         let rnResource: ((inout [String: AttributeValue]) -> Void) = { attributes in
             attributes[ResourceAttributes.telemetrySdkName.rawValue] = AttributeValue.string(PulseAttributes.PulseSdkNames.iosRn)
             resource?(&attributes)
         }
-        
+
         PulseKit.shared.initialize(
             endpointBaseUrl: endpointBaseUrl,
             projectId: projectId,
+            configEndpointUrl: configEndpointUrl,
+            customEventCollectorUrl: customEventCollectorUrl,
             endpointHeaders: endpointHeaders,
             globalAttributes: convertedAttributes,
             resource: rnResource,
+            configuration: configuration,
             instrumentations: instrumentations,
             tracerProviderCustomizer: mergedTracerProviderCustomizer,
             loggerProviderCustomizer: mergedLoggerProviderCustomizer
         )
     }
-    
-    @objc(initializeWithEndpointBaseUrl:projectId:endpointHeaders:globalAttributes:)
-    public static func initialize(
-        endpointBaseUrl: String,
-        projectId: String,
-        endpointHeaders: [String: String]?,
-        globalAttributes: [String: PulseAttributeValue]?
+  
+    public func isSDKInitialized() -> Bool {
+      return PulseKit.shared.isSDKInitialized()
+    }
+  
+    public func setUserId(_ id: String?) {
+        PulseKit.shared.setUserId(id)
+    }
+
+    public static func setUserProperty(name: String, value: AttributeValue?) {
+        PulseKit.shared.setUserProperty(name: name, value: value)
+    }
+
+    public static func setUserProperties(_ properties: [String: AttributeValue]) {
+        let asOptional = properties.mapValues { Optional.some($0) }
+        PulseKit.shared.setUserProperties(asOptional)
+    }
+
+    public static func setUserProperties(_ builderAction: (inout [String: AttributeValue?]) -> Void) {
+        PulseKit.shared.setUserProperties(builderAction)
+    }
+
+    public static func trackEvent(
+        name: String,
+        observedTimeStampInMs: Double,
+        params: [String: AttributeValue] = [:]
     ) {
-        initialize(
-            endpointBaseUrl: endpointBaseUrl,
-            projectId: projectId,
-            endpointHeaders: endpointHeaders,
-            globalAttributes: globalAttributes,
-            resource: nil,
-            instrumentations: nil,
-            tracerProviderCustomizer: nil,
-            loggerProviderCustomizer: nil
+        PulseKit.shared.trackEvent(
+            name: name,
+            observedTimeStampInMs: observedTimeStampInMs,
+            params: params
         )
     }
 
-    @objc(initializeWithEndpointBaseUrl:projectId:)
-    public static func initialize(endpointBaseUrl: String, projectId: String) {
-        initialize(
-            endpointBaseUrl: endpointBaseUrl,
-            projectId: projectId,
-            endpointHeaders: nil,
-            globalAttributes: nil,
-            resource: nil,
-            instrumentations: nil,
-            tracerProviderCustomizer: nil,
-            loggerProviderCustomizer: nil
+    public static func trackNonFatal(
+        name: String,
+        observedTimeStampInMs: Int64,
+        params: [String: AttributeValue] = [:]
+    ) {
+        PulseKit.shared.trackNonFatal(
+            name: name,
+            observedTimeStampInMs: observedTimeStampInMs,
+            params: params
         )
     }
-    
-    @objc public static func isSDKInitialized() -> Bool {
+
+    public static func trackNonFatal(
+        error: Error,
+        observedTimeStampInMs: Int64,
+        params: [String: AttributeValue] = [:]
+    ) {
+        PulseKit.shared.trackNonFatal(
+            error: error,
+            observedTimeStampInMs: observedTimeStampInMs,
+            params: params
+        )
+    }
+
+    public static func startSpan(
+        name: String,
+        params: [String: AttributeValue] = [:]
+    ) -> Span {
+        return PulseKit.shared.startSpan(name: name, params: params)
+    }
+
+    public static func trackSpan<T>(
+        name: String,
+        params: [String: AttributeValue] = [:],
+        action: () throws -> T
+    ) rethrows -> T {
+        return try PulseKit.shared.trackSpan(name: name, params: params, action: action)
+    }
+
+    public static func getOpenTelemetry() -> OpenTelemetry? {
+        return PulseKit.shared.getOpenTelemetry()
+    }
+
+    public static func getOtelOrNull() -> OpenTelemetry? {
+        return PulseKit.shared.getOtelOrNull()
+    }
+
+    public static func getOtelOrThrow() -> OpenTelemetry {
+        return PulseKit.shared.getOtelOrThrow()
+    }
+
+    // MARK: - RN bridge only (@objc; PulseAttributeValue overloads)
+  
+    @objc(pulseSetUserId:)
+    public static func setUserId(_ userId: String?) {
+        PulseKit.shared.setUserId(userId)
+    }
+  
+    @objc(pulseSetUserProperty:value:)
+    public static func setUserProperty(name: String, value: PulseAttributeValue?) {
+        PulseKit.shared.setUserProperty(name: name, value: value?.swiftValue)
+    }
+
+    @objc(pulseSetUserProperties:)
+    public static func setUserProperties(_ properties: [String: PulseAttributeValue]) {
+        PulseKit.shared.setUserProperties(properties.toSwiftAttributes())
+    }
+
+    @objc(pulseTrackEvent:observedTimeStampInMs:params:)
+    public static func trackEvent(
+        name: String,
+        observedTimeStampInMs: Double,
+        params: [String: PulseAttributeValue]
+    ) {
+        PulseKit.shared.trackEvent(
+            name: name,
+            observedTimeStampInMs: observedTimeStampInMs,
+            params: params.toSwiftAttributes()
+        )
+    }
+
+    @objc(pulseTrackNonFatal:observedTimeStampInMs:params:)
+    public static func trackNonFatal(
+        name: String,
+        observedTimeStampInMs: Int64,
+        params: [String: PulseAttributeValue]
+    ) {
+        PulseKit.shared.trackNonFatal(
+            name: name,
+            observedTimeStampInMs: observedTimeStampInMs,
+            params: params.toSwiftAttributes()
+        )
+    }
+  
+    @objc(pulseIsInitialized)
+    public static func isSDKInitialized() -> Bool {
         return PulseKit.shared.isSDKInitialized()
     }
 
-    /// Returns feature flags from persisted SDK config, filtered for pulse_ios_rn.
-    @objc(getAllFeatures)
+    @objc(pulseGetAllFeatures)
     public static func getAllFeatures() -> [String: Bool]? {
         let storage = PulseSdkConfigStorage()
         guard let config = storage.load() else {
@@ -135,72 +236,5 @@ public class PulseSDK: NSObject {
             result[featureName] = featureMap[featureName] ?? false
         }
         return result
-    }
-    
-    @objc(setUserId:)
-    public static func setUserId(_ userId: String?) {
-        PulseKit.shared.setUserId(userId)
-    }
-    
-    @objc(setUserProperty:value:)
-    public static func setUserProperty(name: String, value: PulseAttributeValue?) {
-        PulseKit.shared.setUserProperty(name: name, value: value?.swiftValue)
-    }
-    
-    @objc(setUserProperties:)
-    public static func setUserProperties(_ properties: [String: PulseAttributeValue]) {
-        PulseKit.shared.setUserProperties(properties.toSwiftAttributes())
-    }
-    
-    @objc(trackEventWithName:observedTimeStampInMs:params:)
-    public static func trackEvent(
-        name: String,
-        observedTimeStampInMs: Double,
-        params: [String: PulseAttributeValue]
-    ) {
-        PulseKit.shared.trackEvent(
-            name: name,
-            observedTimeStampInMs: observedTimeStampInMs,
-            params: params.toSwiftAttributes()
-        )
-    }
-    
-    @objc(trackNonFatalWithName:observedTimeStampInMs:params:)
-    public static func trackNonFatal(
-        name: String,
-        observedTimeStampInMs: Int64,
-        params: [String: PulseAttributeValue]
-    ) {
-        PulseKit.shared.trackNonFatal(
-            name: name,
-            observedTimeStampInMs: observedTimeStampInMs,
-            params: params.toSwiftAttributes()
-        )
-    }
-    
-    public static func startSpan(
-        name: String,
-        params: [String: PulseAttributeValue] = [:]
-    ) -> Span {
-        return PulseKit.shared.startSpan(
-            name: name,
-            params: params.toSwiftAttributes()
-        )
-    }
-    
-    public static func trackSpan<T>(
-        name: String,
-        params: [String: PulseAttributeValue] = [:],
-        action: () throws -> T
-    ) rethrows -> T {
-        return try PulseKit.shared.trackSpan(
-            name: name,
-            params: params.toSwiftAttributes(),
-            action: action
-        )
-    }
-    
-    static func getOtelOrThrow() -> OpenTelemetry {
-        return PulseKit.shared.getOtelOrThrow()
     }
 }

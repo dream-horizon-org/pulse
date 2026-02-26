@@ -19,7 +19,7 @@ RCT_EXPORT_MODULE()
 
 - (NSNumber *)doIsInitialized
 {
-  return @([PulseSDK isSDKInitialized]);
+  return @([PulseSDK pulseIsInitialized]);
 }
 
 - (NSNumber *)doTrackEvent:(NSString *)event observedTimeMs:(double)observedTimeMs properties:(NSDictionary *)properties
@@ -71,19 +71,19 @@ RCT_EXPORT_MODULE()
 
 - (void)doSetUserId:(NSString *)id
 {
-  [PulseSDK setUserId:id];
+  [PulseSDK pulseSetUserId:id];
 }
 
 - (void)doSetUserProperties:(NSDictionary *)properties
 {
   NSDictionary<NSString *, PulseAttributeValue *> *converted = [AttributeValueConverter convertFromDictionary:properties];
-  [PulseSDK setUserProperties:converted];
+  [PulseSDK pulseSetUserProperties:converted];
 }
 
 - (void)doSetUserProperty:(NSString *)name value:(NSString *)value
 {
   PulseAttributeValue *attrValue = value ? [PulseAttributeValue attributeValueFromValue:value] : nil;
-  [PulseSDK setUserProperty:name value:attrValue];
+  [PulseSDK pulseSetUserProperty:name value:attrValue];
 }
 
 - (NSNumber *)doSetCurrentScreenName:(NSString *)screenName
@@ -94,7 +94,7 @@ RCT_EXPORT_MODULE()
 
 - (NSDictionary *)doGetAllFeatures
 {
-  return [PulseSDK getAllFeatures];
+  return [PulseSDK pulseGetAllFeatures];
 }
 
 #pragma mark - New Architecture (no macros; TurboModule/spec calls these directly)
