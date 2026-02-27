@@ -161,7 +161,20 @@ public class PulseSDK: NSObject {
     }
 
     // MARK: - RN bridge only (@objc; PulseAttributeValue overloads)
-  
+
+    @objc public static func shutdown() -> Bool {
+        guard PulseKit.shared.isSDKInitialized() else { return false }
+        let runShutdown = {
+            PulseKit.shared.shutdown()
+        }
+        if Thread.isMainThread {
+            runShutdown()
+        } else {
+            DispatchQueue.main.async(execute: runShutdown)
+        }
+        return true
+    }
+
     @objc(pulseSetUserId:)
     public static func setUserId(_ userId: String?) {
         PulseKit.shared.setUserId(userId)
