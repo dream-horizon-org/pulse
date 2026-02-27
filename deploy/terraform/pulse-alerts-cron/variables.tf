@@ -7,7 +7,7 @@ variable "aws_region" {
 }
 
 variable "ami_id" {
-  description = "AMI ID for the backend instance"
+  description = "AMI ID for the instance"
   type        = string
 }
 
@@ -42,20 +42,19 @@ variable "ec2_subnet_ids" {
 }
 
 variable "alb_subnet_ids" {
-  description = "Subnets for alb"
+  description = "Subnets for ALB"
   type        = list(string)
 }
 
 variable "alb_security_group_ids" {
-  description = "Public subnets for the ALB"
+  description = "Security groups for the ALB"
   type        = list(string)
 }
 
 variable "ec2_security_group_ids" {
-  description = "Public subnets for the instance"
+  description = "Security groups for the instances"
   type        = list(string)
 }
-
 
 variable "ssh_key_name" {
   description = "Existing SSH keypair name"
@@ -93,7 +92,7 @@ variable "healthcheck_port" {
 }
 
 variable "artifact_version" {
-  description = "Artifact version"
+  description = "Artifact version to deploy"
   type        = string
 }
 
@@ -108,15 +107,5 @@ variable "app_env" {
     value = string
   }))
   default = []
-}
-
-variable "acm_cert" {
-  description = "acm of the ssl certificate"
-  type        = string
-}
-
-variable "ssl_policy" {
-  description = "ssl policy to be used"
-  type        = string
 }
 

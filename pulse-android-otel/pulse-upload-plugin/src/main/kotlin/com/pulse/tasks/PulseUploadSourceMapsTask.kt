@@ -27,6 +27,8 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         private const val DEBUG_URL_PREFIX = "   URL: "
         private const val DEBUG_RESPONSE_PREFIX = "   Response: "
         private const val UNKNOWN_ERROR = "Unknown error"
+        private const val X_API_KEY_HEADER = "X-API-KEY"
+        private const val API_KEY_OPTION = "--api-key=<key>"
     }
 
     @get:Option(option = "api-url", description = "API URL for uploading source maps")
@@ -38,13 +40,17 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val mappingFile: RegularFileProperty
 
-    @get:Option(option = "app-version", description = "App version (e.g., 1.0.0). Required.")
+    @get:Option(option = "app-version", description = "App version (e.g., 1.0.0)")
     @get:Input
     abstract val appVersion: Property<String>
 
-    @get:Option(option = "version-code", description = "Version code (positive integer, e.g., 1). Required.")
+    @get:Option(option = "version-code", description = "Version code (positive integer, e.g., 1)")
     @get:Input
     abstract val versionCode: Property<Int>
+
+    @get:Option(option = "api-key", description = "API key for authenticating API requests (sent as X-API-KEY header)")
+    @get:Input
+    abstract val apiKey: Property<String>
 
     @get:Internal
     internal abstract val projectDirectory: DirectoryProperty
@@ -58,6 +64,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
     @TaskAction
     fun upload() {
         val apiUrlValue = validateRequiredString(apiUrl, "API URL", "--api-url=<url>")
+        val apiKeyValue = validateRequiredString(apiKey, X_API_KEY_HEADER, API_KEY_OPTION)
         val mappingFileObj = resolveMappingFile()
         val appVersionValue = validateRequiredString(appVersion, "App version", "--app-version=<version>")
         val versionCodeValue = validateAndGetVersionCode()
@@ -66,7 +73,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         val type = "mapping"
         val fileName = mappingFileObj.name
 
-        logger.info("\n📤 Uploading to Pulse backend...")
+        logger.info("\n Uploading to Pulse backend...")
         logger.info("   File: ${mappingFileObj.name} (${formatFileSize(mappingFileObj.length())})")
         logger.info("   Version: $appVersionValue (code: $versionCodeValue)")
 
@@ -78,6 +85,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         try {
             uploadFile(
                 apiUrl = apiUrlValue,
+                apiKey = apiKeyValue,
                 file = mappingFileObj,
                 appVersion = appVersionValue,
                 versionCode = versionCodeValue,
@@ -153,6 +161,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
 
     private fun uploadFile(
         apiUrl: String,
+        apiKey: String,
         file: File,
         appVersion: String,
         versionCode: Int,
@@ -171,6 +180,7 @@ abstract class PulseUploadSourceMapsTask : DefaultTask() {
         try {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            connection.setRequestProperty(X_API_KEY_HEADER, apiKey)
             connection.doOutput = true
             connection.connectTimeout = 30000
             connection.readTimeout = 60000
