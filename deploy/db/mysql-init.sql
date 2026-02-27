@@ -390,6 +390,21 @@ CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS incidents (
+    id             BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title          VARCHAR(255) NOT NULL,
+    description    TEXT NOT NULL,
+    severity       ENUM('P1','P2','P3') NOT NULL,
+    reporter_name  VARCHAR(255) NOT NULL,
+    reporter_email VARCHAR(255) NOT NULL,
+    org_identifier VARCHAR(64) NOT NULL,
+    status         ENUM('OPEN','ACKNOWLEDGED','RECOVERED','CLOSED') NOT NULL DEFAULT 'OPEN',
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_incidents_org (org_identifier),
+    INDEX idx_incidents_severity (severity)
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
