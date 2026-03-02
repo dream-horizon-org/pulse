@@ -6,8 +6,10 @@
 package io.opentelemetry.android.demo
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -22,17 +24,18 @@ import androidx.compose.ui.unit.sp
 fun LauncherButton(
     text: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
     Row {
-        Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(1.dp))
     }
     Button(
         onClick = onClick,
         border = BorderStroke(1.dp, Color.Gray),
-        modifier = Modifier
+        modifier = modifier
             .padding(16.dp)
-            .height(75.dp),
+            .height(64.dp),
         enabled = enabled,
         colors =
             ButtonDefaults.buttonColors(
@@ -40,7 +43,7 @@ fun LauncherButton(
                 contentColor = Color(0xFF425CC7),
             ),
         content = {
-            CenterText(text = text, fontSize = 24.sp)
+            SelectableText(text = text, fontSize = 20.sp)
         },
     )
 }

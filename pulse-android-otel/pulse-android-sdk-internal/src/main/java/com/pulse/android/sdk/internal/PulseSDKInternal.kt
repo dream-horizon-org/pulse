@@ -7,6 +7,7 @@ import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
 import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
@@ -77,6 +78,7 @@ import kotlin.system.measureNanoTime
  * Provides initialization with tracer and logger provider customizers for React Native
  * and other integrations that need to add custom processors.
  */
+@Suppress("LargeClass")
 public class PulseSDKInternal : CoroutineScope by MainScope() {
     public fun isInitialized(): Boolean = isInitialised && !isShutdown
 
@@ -89,6 +91,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
+        dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
@@ -119,6 +122,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
                 projectId = projectId,
+                dataCollectionState = dataCollectionState,
                 tracerProviderCustomizer = tracerProviderCustomizer,
                 loggerProviderCustomizer = loggerProviderCustomizer,
                 spanEndpointConnectivity = spanEndpointConnectivity,
@@ -146,6 +150,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
+        dataCollectionState: PulseDataCollectionConsent,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
         spanEndpointConnectivity: EndpointConnectivity,
@@ -162,6 +167,11 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         ioDispatcher: CoroutineDispatcher,
     ) {
+        if (dataCollectionState == PulseDataCollectionConsent.DENIED) {
+            oldState = PulseDataCollectionConsent.DENIED
+            PulseOtelUtils.logDebug(TAG) { "initializeInternal returned early as started with DENIED consent" }
+            return
+        }
         val sharedPrefs =
             application.getSharedPreferences(
                 "pulse_sdk_config",
@@ -410,6 +420,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             OpenTelemetryRumInitializer.initialize(
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
+                shouldStartSendingData = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
                 endpointHeaders = endpointHeadersWithProject,
                 // todo make it explicit as to which config should be chosen
                 //  1. Either remove this value
@@ -667,10 +678,44 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
                 return@launch
             }
+            OpenTelemetryRumInitializer.disposeExporters()
             otelInstance?.shutdown()
             otelInstance = null
             isShutdown = true
             PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+        }
+    }
+
+    public fun setDataCollectionState(newState: PulseDataCollectionConsent) {
+        if (oldState == PulseDataCollectionConsent.DENIED) {
+            PulseOtelUtils.logDebug(TAG) { "setDataCollectionState skipped: SDK has been denied" }
+            return
+        }
+        if (isShutdown) {
+            PulseOtelUtils.logDebug(TAG) { "setDataCollectionState skipped: SDK has been shut down" }
+            return
+        }
+        if (newState == oldState) {
+            PulseOtelUtils.logDebug(TAG) {
+                "setDataCollectionState skipped: oldState = ${oldState ?: "null"} is equal to newState = $newState"
+            }
+            return
+        }
+
+        when (newState) {
+            PulseDataCollectionConsent.PENDING -> {
+                // no-op
+            }
+
+            PulseDataCollectionConsent.DENIED -> {
+                shutdown()
+                oldState = newState
+            }
+
+            PulseDataCollectionConsent.ALLOWED -> {
+                OpenTelemetryRumInitializer.setupExporters()
+                oldState = newState
+            }
         }
     }
 
@@ -733,6 +778,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null
+    private var oldState: PulseDataCollectionConsent? = null
 
     internal companion object {
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"

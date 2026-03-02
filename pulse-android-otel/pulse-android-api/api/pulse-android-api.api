@@ -6,6 +6,14 @@ public class com/pulse/android/api/otel/PulseBeforeSendData {
 	public fun beforeSendSpan (Lcom/pulse/android/api/otel/models/PulseSpanData;)Lcom/pulse/android/api/otel/models/PulseSpanData;
 }
 
+public final class com/pulse/android/api/otel/PulseDataCollectionConsent : java/lang/Enum {
+	public static final field ALLOWED Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static final field DENIED Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static final field PENDING Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static fun values ()[Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+}
+
 public final class com/pulse/android/api/otel/models/PulseLogRecordData : com/pulse/android/api/otel/models/PulseSignalData, io/opentelemetry/sdk/logs/data/LogRecordData {
 	public fun <init> (Lio/opentelemetry/sdk/logs/data/LogRecordData;Lio/opentelemetry/sdk/resources/Resource;Ljava/lang/String;Lio/opentelemetry/api/common/Value;Lio/opentelemetry/api/common/Attributes;Lio/opentelemetry/api/logs/Severity;Ljava/lang/String;)V
 	public fun equals (Ljava/lang/Object;)Z

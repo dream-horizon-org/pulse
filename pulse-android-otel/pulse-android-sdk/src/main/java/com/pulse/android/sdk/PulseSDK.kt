@@ -4,6 +4,7 @@ package com.pulse.android.sdk
 
 import android.app.Application
 import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -31,6 +32,10 @@ public interface PulseSDK {
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
+        /**
+         * Initial data collection consent state. See [com.pulse.android.api.otel.PulseDataCollectionConsent] for different values
+         */
+        dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity =
             HttpEndpointConnectivity.forTraces(
@@ -64,6 +69,11 @@ public interface PulseSDK {
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )
+
+    /**
+     * Updates the data collection consent state. See [PulseDataCollectionConsent] for all allowed values
+     */
+    public fun setDataCollectionState(newState: PulseDataCollectionConsent)
 
     /**
      * Set user id for the session. Setting null will reset the id
