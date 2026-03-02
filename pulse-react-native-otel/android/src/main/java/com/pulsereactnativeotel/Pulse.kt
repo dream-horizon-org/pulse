@@ -4,6 +4,7 @@ package com.pulsereactnativeotel
 
 import android.app.Application
 import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
@@ -23,11 +24,13 @@ import java.util.function.BiFunction
  */
 public object Pulse {
     internal val sdkInternal by lazy { PulseSDKInternal() }
+
     @JvmStatic
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
+        dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forTraces(endpointBaseUrl, endpointHeaders),
         logEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forLogs(endpointBaseUrl, endpointHeaders),
@@ -59,6 +62,7 @@ public object Pulse {
             application = application,
             endpointBaseUrl = endpointBaseUrl,
             projectId = projectId,
+            dataCollectionState = dataCollectionState,
             endpointHeaders = endpointHeaders,
             spanEndpointConnectivity = spanEndpointConnectivity,
             logEndpointConnectivity = logEndpointConnectivity,
@@ -75,5 +79,12 @@ public object Pulse {
             beforeSendData = beforeSendData,
         )
     }
-}
 
+    /**
+     * Updates the data collection consent state. See [PulseDataCollectionConsent] for all the allowed values
+     */
+    @JvmStatic
+    public fun setDataCollectionState(newState: PulseDataCollectionConsent) {
+        sdkInternal.setDataCollectionState(newState)
+    }
+}

@@ -5,6 +5,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import android.content.Context
 import android.os.Looper
@@ -87,6 +88,15 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
         }
       }
     }
+  }
+
+  override fun setDataCollectionState(state: String) {
+    val consent = when (state.uppercase()) {
+      "ALLOWED" -> PulseDataCollectionConsent.ALLOWED
+      "DENIED" -> PulseDataCollectionConsent.DENIED
+      else -> PulseDataCollectionConsent.PENDING
+    }
+    Pulse.setDataCollectionState(consent)
   }
 
   override fun shutdown(): Boolean {

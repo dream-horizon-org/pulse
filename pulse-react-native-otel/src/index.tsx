@@ -1,7 +1,7 @@
 import { startSpan, trackSpan } from './trace';
 import { reportException } from './errorHandler';
 import { trackEvent } from './events';
-import { start, shutdown } from './config';
+import { start, shutdown, setDataCollectionState } from './config';
 import { isInitialized } from './initialization';
 import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
@@ -20,10 +20,13 @@ export type {
 export type { ErrorBoundaryProps, FallbackRender } from './errorBoundary';
 
 export { SpanStatusCode } from './trace';
+export { PulseDataCollectionConsent } from './NativePulseReactNativeOtel';
+
 export const Pulse = {
   start,
   shutdown,
   isInitialized,
+  setDataCollectionState,
   useNavigationTracking,
   markContentReady,
   trackEvent,
