@@ -40,3 +40,5 @@ export * from "./useCancelQuery";
 export * from "./useGetQueryHistory";
 export * from "./useQueryStats";
 export * from "./useAiQuery";
+// Funnel hooks
+export * from "./useGetFunnelData";

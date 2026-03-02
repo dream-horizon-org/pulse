@@ -13,6 +13,7 @@ import {
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
+  IconChartFunnel,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -49,6 +50,7 @@ import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { FunnelAnalysis } from "../screens/FunnelAnalysis";
 
 export const APP_NAME: string = "Pulse";
 
@@ -227,6 +229,12 @@ export const ROUTES: Routes = {
     path: "/query-builder",
     element: RealTimeQuery,
   },
+  FUNNEL_ANALYSIS: {
+    key: "FUNNEL_ANALYSIS",
+    basePath: "/funnel-analysis",
+    path: "/funnel-analysis",
+    element: FunnelAnalysis,
+  },
 };
 
 // Settings sub-routes (handled internally by Settings component)
@@ -286,6 +294,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconDatabaseSearch,
     routeTo: ROUTES.QUERY_BUILDER.basePath,
     path: ROUTES.QUERY_BUILDER.path,
+    iconSize: 25,
+  },
+  {
+    tabName: "Funnel Analysis",
+    icon: IconChartFunnel,
+    routeTo: ROUTES.FUNNEL_ANALYSIS.basePath,
+    path: ROUTES.FUNNEL_ANALYSIS.path,
     iconSize: 25,
   },
   {
@@ -686,6 +701,21 @@ export const API_ROUTES: StreamverseRoutes = {
   AI_QUERY: {
     key: "AI_QUERY",
     apiPath: `/query/ai`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_ANALYZE: {
+    key: "FUNNEL_ANALYZE",
+    apiPath: `/v1/funnel/analyze`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_HEALTH: {
+    key: "FUNNEL_HEALTH",
+    apiPath: `/v1/funnel/health`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_SESSIONS: {
+    key: "FUNNEL_SESSIONS",
+    apiPath: `/v1/funnel/sessions`,
     method: API_METHODS.POST,
   },
 };

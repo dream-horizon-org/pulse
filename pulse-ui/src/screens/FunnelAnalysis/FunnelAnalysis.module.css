@@ -1,0 +1,198 @@
+.pageContainer {
+  padding: var(--mantine-spacing-md);
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.pageHeader {
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.titleSection {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mantine-spacing-sm);
+  padding-left: 12px;
+  position: relative;
+}
+
+.titleSection::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(180deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 2px;
+}
+
+.pageTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--mantine-color-dark-8);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.controlsSection {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  padding: 16px;
+  border-radius: var(--mantine-radius-md);
+  margin-bottom: 16px;
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.stepsSection {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  padding: 20px;
+  border-radius: var(--mantine-radius-md);
+  margin-bottom: 16px;
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--mantine-radius-sm);
+  background: rgba(14, 201, 194, 0.03);
+  border: 1px solid rgba(14, 201, 194, 0.08);
+  transition: all 0.2s ease;
+}
+
+.stepRow:hover {
+  border-color: rgba(14, 201, 194, 0.2);
+  background: rgba(14, 201, 194, 0.05);
+}
+
+.stepNumber {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.stepConnector {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.connectorLine {
+  width: 2px;
+  height: 16px;
+  background: linear-gradient(180deg, #0ec9c2, rgba(14, 201, 194, 0.3));
+  border-radius: 1px;
+  margin-left: 20px;
+}
+
+.resultsSection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.chartContainer {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  padding: 20px;
+  border-radius: var(--mantine-radius-md);
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.tableContainer {
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  padding: 20px;
+  border-radius: var(--mantine-radius-md);
+  box-shadow:
+    0 8px 20px rgba(14, 201, 194, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.summaryCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summaryCard {
+  padding: 16px;
+  border-radius: var(--mantine-radius-md);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.06);
+  text-align: center;
+}
+
+.summaryValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0ba09a;
+  line-height: 1.2;
+}
+
+.summaryLabel {
+  font-size: 12px;
+  color: var(--mantine-color-gray-6);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--mantine-color-gray-5);
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: var(--mantine-radius-md);
+  border: 1px dashed rgba(14, 201, 194, 0.2);
+  margin-top: 16px;
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  margin-top: 16px;
+}
+
+@media (max-width: 1200px) {
+  .resultsSection {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryCards {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
