@@ -72,6 +72,13 @@ public class FunnelServiceImpl implements FunnelService {
   }
 
   private Single<FunnelResponse> executeSimpleFunnel(FunnelRequest request) {
+    String tableName = resolveTableName(request.getSteps());
+    String eventField = request.getSteps().isEmpty() ? "N/A" : resolveEventField(request.getSteps().get(0));
+    log.info("Funnel config: table={}, eventField={}, mode={}, steps={}, timeRange=[{} -> {}]",
+        tableName, eventField, request.getMode(),
+        request.getSteps().stream().map(FunnelStep::getEventName).collect(Collectors.toList()),
+        request.getTimeRange().getStart(), request.getTimeRange().getEnd());
+
     String query = buildFunnelQuery(request, null);
     log.info("Executing funnel query: {}", query);
 
@@ -162,7 +169,7 @@ public class FunnelServiceImpl implements FunnelService {
   private String resolveEventField(FunnelStep step) {
     String dataType = step.getDataType();
     if (dataType != null && dataType.equalsIgnoreCase("LOGS")) {
-      return "EventName";
+      return "Body";
     }
     return "SpanName";
   }
@@ -208,16 +215,16 @@ public class FunnelServiceImpl implements FunnelService {
   }
 
   private FunnelResponse parseFunnelResults(GetRawUserEventsResponseDto data, FunnelRequest request) {
-    // windowFunnel returns levels 0..N where level K means user reached step K
-    // level 0 = didn't complete any step, level 1 = completed step 1, etc.
     Map<Integer, Long> levelCounts = new LinkedHashMap<>();
     List<GetRawUserEventsResponseDto.Row> rows = data.getRows();
 
+    log.info("Funnel query returned {} rows", rows.size());
     for (GetRawUserEventsResponseDto.Row row : rows) {
       int level = Integer.parseInt(row.getRowFields().get(0).getValue().toString());
       long count = Long.parseLong(row.getRowFields().get(1).getValue().toString());
       levelCounts.put(level, count);
     }
+    log.info("Funnel level counts: {}", levelCounts);
 
     int totalSteps = request.getSteps().size();
     List<FunnelStepResult> stepResults = computeStepResults(levelCounts, totalSteps, request);

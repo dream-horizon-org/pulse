@@ -44,6 +44,7 @@ export const useGetFunnelData = ({
       JSON.stringify(requestBody.filters),
       requestBody.groupBy,
       requestBody.mode,
+      requestBody.windowSeconds,
     ],
     queryFn: async () => {
       return makeRequest<FunnelResponse>({

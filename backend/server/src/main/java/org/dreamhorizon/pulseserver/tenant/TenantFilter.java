@@ -28,7 +28,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 @Priority(Priorities.AUTHENTICATION + 10) // Run after authentication but before authorization
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
-  public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String TENANT_HEADER = "X-API-KEY";
   public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";

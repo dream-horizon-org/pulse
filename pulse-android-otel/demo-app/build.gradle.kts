@@ -51,8 +51,8 @@ android {
     }
     val javaVersion = JavaVersion.VERSION_11
     compileOptions {
-        sourceCompatibility(JavaVersion.VERSION_17)
-        targetCompatibility(JavaVersion.VERSION_17)
+        sourceCompatibility(javaVersion)
+        targetCompatibility(javaVersion)
         isCoreLibraryDesugaringEnabled = true
     }
 
