@@ -14,12 +14,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Slf4j
 public class MysqlSymbolFileService extends SymbolFileService {
   private final MysqlClient d11MysqlClient;
+
+  /**
+   * Gets the current project ID from the ProjectContext.
+   */
+  private String getProjectId() {
+    return ProjectContext.getProjectId();
+  }
 
   @SneakyThrows
   public static Buffer toBuffer(InputStream in) {
@@ -36,7 +44,9 @@ public class MysqlSymbolFileService extends SymbolFileService {
 
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)
-        .execute(Tuple.wrap(Arrays.asList(metadata.getAppVersion(),
+        .execute(Tuple.wrap(Arrays.asList(
+            getProjectId(),
+            metadata.getAppVersion(),
             metadata.getVersionCode(),
             metadata.getPlatform(),
             metadata.getType(),
@@ -56,11 +66,12 @@ public class MysqlSymbolFileService extends SymbolFileService {
     final String sql = """
         SELECT file_content
         FROM symbol_files
-        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=? AND project_id=?
+        WHERE project_id=? AND app_version=? AND app_version_code=? AND platform=? AND framework=?
         LIMIT 1
         """;
 
     Tuple params = Tuple.of(
+        getProjectId(),
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),

@@ -15,7 +15,7 @@ import {
   Divider,
   ActionIcon,
 } from "@mantine/core";
-import { useLocation, useNavigate } from "react-router-dom";
+import {useLocation, useNavigate} from "react-router-dom";
 import {
   COMMON_CONSTANTS,
   COOKIES_KEY,
@@ -32,28 +32,33 @@ import {
   IconMessageCircle,
   IconUserCircle,
   IconSettings,
+  IconMail,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
-import { useRef } from "react";
-import { googleLogout } from "@react-oauth/google";
-import { getCookies, removeAllCookies } from "../../helpers/cookies";
+import {useRef, useState} from "react";
+import {googleLogout} from "@react-oauth/google";
+import {getCookies, removeAllCookies} from "../../helpers/cookies";
 import {
   signOutFirebase,
   isGcpMultiTenantEnabled,
 } from "../../helpers/gcpAuth";
+import {useDisclosure} from "@mantine/hooks";
+import {ContactUsModal} from "../ContactUsModal/ContactUsModal";
 
 export function Navbar({
-  toggle,
-  opened,
-}: {
+                         toggle,
+                         opened,
+                       }: {
   toggle: () => void;
   opened: boolean;
 }) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const {pathname} = useLocation();
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
+  const [contactUsOpened, { open: openContactUs, close: closeContactUs }] = useDisclosure(false);
+  const [popoverOpened, setPopoverOpened] = useState(false);
 
   function onItemClick(routeTo: string) {
     navigate(routeTo);
@@ -132,7 +137,7 @@ export function Navbar({
         </Box>
       </AppShell.Section>
 
-      <Divider my="sm" />
+      <Divider my="sm"/>
       <AppShell.Section
         grow
         my="md"
@@ -158,7 +163,7 @@ export function Navbar({
               <NavbarIcon
                 size={item.iconSize}
                 className={classes.navbarIcon}
-                style={{ color: active ? "#0ba09a" : "#64748b" }}
+                style={{color: active ? "#0ba09a" : "#64748b"}}
               />
               {opened && (
                 <Text className={classes.navbarText}>{item.tabName}</Text>
@@ -186,17 +191,18 @@ export function Navbar({
 
       {/* Bottom Section: Menu Button */}
       <AppShell.Section className={classes.menuSectionContainer}>
-        <Divider my="sm" />
+        <Divider my="sm"/>
 
-        <Popover width={280} position="right-end" withArrow shadow="md">
+        <Popover width={280} position="right-end" withArrow shadow="md" opened={popoverOpened} onChange={setPopoverOpened}>
           <Popover.Target>
             {opened ? (
               <Button
                 variant="light"
                 color="teal"
                 fullWidth
-                leftSection={<IconUserCircle size={20} />}
+                leftSection={<IconUserCircle size={20}/>}
                 className={classes.menuButton}
+                onClick={() => setPopoverOpened((o) => !o)}
               >
                 More
               </Button>
@@ -207,13 +213,14 @@ export function Navbar({
                   color="teal"
                   size="lg"
                   className={classes.menuButtonCollapsed}
+                  onClick={() => setPopoverOpened((o) => !o)}
                 >
-                  <IconUserCircle size={22} />
+                  <IconUserCircle size={22}/>
                 </ActionIcon>
               </Tooltip>
             )}
           </Popover.Target>
-          <Popover.Dropdown p="md" style={{ width: 350 }}>
+          <Popover.Dropdown p="md" style={{width: 350}}>
             <Stack gap="md">
               {/* User Profile Section */}
               <Box>
@@ -223,7 +230,7 @@ export function Navbar({
                     radius="md"
                     src={userProfilePicture.current}
                   />
-                  <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Box style={{flex: 1, minWidth: 0}}>
                     <Text size="sm" fw={600} truncate>
                       {getCookies(COOKIES_KEY.USER_NAME)}
                     </Text>
@@ -237,21 +244,24 @@ export function Navbar({
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
                           {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
                         </Text>
-                    )}
+                      )}
                   </Box>
                 </Group>
               </Box>
 
-              <Divider />
+              <Divider/>
 
               {/* Settings Link */}
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.SETTINGS.basePath)}
-                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  navigate(ROUTES.SETTINGS.basePath);
+                }}
+                style={{cursor: 'pointer'}}
               >
                 <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <IconSettings size={20} style={{color: "#0ba09a"}}/>
                   <Box>
                     <Text size="sm" fw={500}>Settings</Text>
                     <Text size="xs" c="dimmed">SDK Configuration & more</Text>
@@ -267,10 +277,28 @@ export function Navbar({
                 className={classes.menuItem}
               >
                 <Group gap="sm">
-                  <IconHelp size={20} style={{ color: "#0ba09a" }} />
+                  <IconHelp size={20} style={{color: "#0ba09a"}}/>
                   <Text size="sm">{NAVBAR_CONSTANTS.HELP_BAR_TEXT}</Text>
                 </Group>
               </Anchor>
+
+              {/* Contact Us */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  openContactUs();
+                }}
+                style={{cursor: "pointer"}}
+              >
+                <Group gap="sm">
+                  <IconMail size={20} style={{color: "#0ba09a"}}/>
+                  <Box>
+                    <Text size="sm" fw={500}>Contact Us</Text>
+                    <Text size="xs" c="dimmed">Report an issue or ask a question</Text>
+                  </Box>
+                </Group>
+              </Box>
 
               {/* Footer Message - Discord Link */}
               <Anchor
@@ -282,20 +310,23 @@ export function Navbar({
                 <Group gap="xs" className={classes.menuFooterMessageContent}>
                   <IconMessageCircle
                     size={18}
-                    style={{ color: "#0ba09a", flexShrink: 0, marginTop: 2 }}
+                    style={{color: "#0ba09a", flexShrink: 0, marginTop: 2}}
                   />
-                  <Text size="xs" c="dimmed" style={{ lineHeight: 1.4 }}>
+                  <Text size="xs" c="dimmed" style={{lineHeight: 1.4}}>
                     {FOOTER_CONSTANTS.FOOTER_MESSAGE}
                   </Text>
                 </Group>
               </Anchor>
 
-              <Divider />
+              <Divider/>
 
               {/* Logout Button */}
               <Button
-                leftSection={<IconLogout size={18} />}
-                onClick={onLogoutClick}
+                leftSection={<IconLogout size={18}/>}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  onLogoutClick();
+                }}
                 variant="light"
                 color="red"
                 size="sm"
@@ -307,6 +338,7 @@ export function Navbar({
           </Popover.Dropdown>
         </Popover>
       </AppShell.Section>
+      <ContactUsModal opened={contactUsOpened} onClose={closeContactUs} />
     </AppShell.Navbar>
   );
 }

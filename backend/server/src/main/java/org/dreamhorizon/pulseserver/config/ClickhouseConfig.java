@@ -16,7 +16,6 @@ public class ClickhouseConfig {
   private String r2dbcUrl;
   private String username;
   private String password;
-  private String encryptionMasterKey;
   private Integer initsize;
   private Integer maxsize;
   private String host;

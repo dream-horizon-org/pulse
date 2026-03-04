@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
-import org.dreamhorizon.pulseserver.dao.tenantdao.models.Tenant;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.resources.tenants.models.AuditListRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.AuditLogRestResponse;
 import org.dreamhorizon.pulseserver.resources.tenants.models.CreateCredentialsRestRequest;
@@ -218,7 +218,7 @@ class TenantMapperTest {
     void shouldMapClickhouseTenantCredentialAuditToAuditLogRestResponse() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
           .details("{\"action\":\"test\"}")
@@ -229,7 +229,7 @@ class TenantMapperTest {
 
       assertNotNull(result);
       assertEquals(1L, result.getId());
-      assertEquals("test_tenant", result.getTenantId());
+      assertEquals("test_tenant", result.getProjectId());
       assertEquals("CREDENTIALS_CREATED", result.getAction());
       assertEquals("admin@example.com", result.getPerformedBy());
       assertEquals("{\"action\":\"test\"}", result.getDetails());
@@ -240,7 +240,7 @@ class TenantMapperTest {
     void shouldMapAuditListToAuditListRestResponse() {
       ClickhouseTenantCredentialAudit audit1 = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
           .createdAt("2026-01-01T00:00:00")
@@ -248,7 +248,7 @@ class TenantMapperTest {
 
       ClickhouseTenantCredentialAudit audit2 = ClickhouseTenantCredentialAudit.builder()
           .id(2L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_UPDATED")
           .performedBy("admin@example.com")
           .createdAt("2026-01-01T01:00:00")
@@ -300,7 +300,7 @@ class TenantMapperTest {
     void shouldHandleNullAuditFields() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .tenantId("test_tenant")
+          .projectId("test_tenant")
           .action("CREDENTIALS_CREATED")
           .performedBy("admin@example.com")
           .details(null)

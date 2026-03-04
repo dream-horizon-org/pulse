@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.models.InteractionDetailRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
@@ -36,7 +37,6 @@ import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRe
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
-import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,9 +81,7 @@ class InteractionDaoTest {
   @BeforeEach
   void setUp() {
     interactionDao = new InteractionDao(mysqlClient, clickhouseQueryService, objectMapper, baseInteractionDao);
-    TenantContext.setTenant(Tenant.builder()
-        .tenantId("default")
-        .build());
+    ProjectContext.setProjectId("default");
   }
 
   @Nested
@@ -294,8 +292,8 @@ class InteractionDaoTest {
   public class TestGetInteractionDetails {
 
     private final String GET_INTERACTION_DETAILS = "SELECT "
-        + "interaction_id, tenant_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
-        + " from interaction where tenant_id = ? and name = ? and is_archived = 0";
+        + "interaction_id, project_id, name, status, details, created_at, created_by, last_updated_at, updated_by "
+        + " from interaction where project_id = ? and name = ? and is_archived = 0";
 
     @Test
     void shouldThrowExceptionWhenInteractionIsNotPresent() {
@@ -333,7 +331,7 @@ class InteractionDaoTest {
       var now = java.time.LocalDateTime.now();
       var expectedInteraction = InteractionDetails.builder()
           .id(1L)
-          .tenantId(TenantContext.requireTenantId())
+          .projectId(ProjectContext.requireProjectId())
           .name(useCaseId)
           .description("test description")
           .uptimeLowerLimitInMs(10)
@@ -370,7 +368,7 @@ class InteractionDaoTest {
       when(mockRow.getLocalDateTime("created_at")).thenReturn(expectedInteraction.getCreatedAt().toLocalDateTime());
       when(mockRow.getString("updated_by")).thenReturn(expectedInteraction.getUpdatedBy());
       when(mockRow.getLocalDateTime("last_updated_at")).thenReturn(expectedInteraction.getUpdatedAt().toLocalDateTime());
-      when(mockRow.getString("tenant_id")).thenReturn(expectedInteraction.getTenantId());
+      when(mockRow.getString("project_id")).thenReturn(expectedInteraction.getProjectId());
       when(mockRow.getValue("details")).thenReturn(objectMapper.writeValueAsString(interactionDetailRow));
 
       RowSet<Row> mockRowSet = Mockito.mock(RowSet.class);
@@ -438,10 +436,10 @@ class InteractionDaoTest {
   @ExtendWith(MockitoExtension.class)
   public class TestGetInteractions {
 
-    String GET_INTERACTIONS_BASE_QUERY = "SELECT interaction_id, tenant_id, name, "
+    String GET_INTERACTIONS_BASE_QUERY = "SELECT interaction_id, project_id, name, "
         + " created_by, updated_by, created_at, last_updated_at, status, details, "
         + " COUNT(*) OVER() AS total_interactions FROM interaction "
-        + " WHERE tenant_id = 'default' AND is_archived = 0 ";
+        + " WHERE project_id = 'default' AND is_archived = 0 ";
 
     @Test
     void shouldGetInteractionsWithPagination() {
@@ -831,6 +829,11 @@ class InteractionDaoTest {
   @ExtendWith(MockitoExtension.class)
   @MockitoSettings(strictness = Strictness.LENIENT)
   public class TestGetTelemetryFilterOptions {
+
+    @BeforeEach
+    void setup() {
+      TenantContext.setTenantId("test");
+    }
 
     @Test
     void shouldReturnTelemetryFilterOptionsSuccessfully() {
