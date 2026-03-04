@@ -4,15 +4,19 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.model.User;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
+import org.dreamhorizon.pulseserver.service.notification.NotificationService;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
 /**
  * Service for managing project memberships.
@@ -31,11 +35,17 @@ import java.util.List;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ProjectMemberService {
     
+    private static final String DEFAULT_PROJECT_ID = "default-project";
+    private static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
+    private static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
+    private static final String EVENT_COLLABORATOR_ROLE_UPDATED = "collaborator_role_updated";
+    
     private final UserService userService;
     private final ProjectDao projectDao;
     private final OpenFgaService openFgaService;
     private final EmailService emailService;
     private final TenantMemberService tenantMemberService;
+    private final NotificationService notificationService;
     
     /**
      * Add a member to a project with the specified role.
@@ -95,16 +105,13 @@ public class ProjectMemberService {
                 .andThen(Single.just(ctx)))
             // Send notification email
             .doOnSuccess(ctx -> {
-                try {
-                    emailService.sendProjectAccessEmail(
-                        ctx.newUser.getEmail(),
-                        ctx.project.getName(),
-                        role,
-                        ctx.admin.getName(),
-                        projectId);
-                } catch (Exception e) {
-                    log.error("Failed to send project access email to {}", ctx.newUser.getEmail(), e);
-                }
+                sendCollaboratorAddedNotification(
+                    ctx.newUser.getEmail(),
+                    ctx.project.getName(),
+                    ctx.project.getProjectId(),
+                    role,
+                    ctx.admin.getName()
+                );
                 log.info("Member added to project successfully: userId={}, project={}, role={}", 
                     ctx.newUser.getUserId(), projectId, role);
             })
@@ -170,14 +177,11 @@ public class ProjectMemberService {
                 .andThen(Single.just(ctx)))
             // Send notification
             .doOnSuccess(ctx -> {
-                try {
-                    emailService.sendAccessRemovedEmail(
-                        ctx.userToRemove.getEmail(),
-                        ctx.project.getName(),
-                        ctx.admin.getName());
-                } catch (Exception e) {
-                    log.error("Failed to send removal email to {}", ctx.userToRemove.getEmail(), e);
-                }
+                sendCollaboratorRemovedNotification(
+                    ctx.userToRemove.getEmail(),
+                    ctx.project.getName(),
+                    ctx.admin.getName()
+                );
                 log.info("Member removed from project successfully: user={}, project={}", userIdToRemove, projectId);
             })
             .ignoreElement()
@@ -289,15 +293,12 @@ public class ProjectMemberService {
                 .andThen(Single.just(ctx)))
             // Send notification
             .doOnSuccess(ctx -> {
-                try {
-                    emailService.sendRoleUpdatedEmail(
-                        ctx.userToUpdate.getEmail(),
-                        ctx.project.getName(),
-                        newRole,
-                        ctx.admin.getName());
-                } catch (Exception e) {
-                    log.error("Failed to send role update email to {}", ctx.userToUpdate.getEmail(), e);
-                }
+                sendCollaboratorRoleUpdatedNotification(
+                    ctx.userToUpdate.getEmail(),
+                    ctx.project.getName(),
+                    newRole,
+                    ctx.admin.getName()
+                );
                 log.info("Project role updated successfully: user={}, project={}, newRole={}", 
                     userId, projectId, newRole);
             })
@@ -363,6 +364,105 @@ public class ProjectMemberService {
      */
     private boolean isValidProjectRole(String role) {
         return "admin".equals(role) || "editor".equals(role) || "viewer".equals(role);
+    }
+    
+    /**
+     * Sends notification when a collaborator is added to a project.
+     * Fire-and-forget: failures are logged but don't break the main flow.
+     */
+    private void sendCollaboratorAddedNotification(
+            String recipientEmail, 
+            String projectName, 
+            String projectId,
+            String role, 
+            String addedByName) {
+        try {
+            SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+                .eventName(EVENT_COLLABORATOR_ADDED)
+                .recipients(RecipientsDto.builder()
+                    .emails(List.of(recipientEmail))
+                    .build())
+                .channelTypes(List.of(ChannelType.EMAIL))
+                .params(Map.of(
+                    "projectName", projectName,
+                    "projectId", projectId,
+                    "role", role,
+                    "addedBy", addedByName
+                ))
+                .build();
+            
+            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
+                .doOnError(error -> log.error(
+                    "Failed to send collaborator added notification to {}: {}", 
+                    recipientEmail, error.getMessage()))
+                .subscribe();
+        } catch (Exception e) {
+            log.error("Failed to send collaborator added notification to {}", recipientEmail, e);
+        }
+    }
+    
+    /**
+     * Sends notification when a collaborator is removed from a project.
+     * Fire-and-forget: failures are logged but don't break the main flow.
+     */
+    private void sendCollaboratorRemovedNotification(
+            String recipientEmail, 
+            String projectName, 
+            String removedByName) {
+        try {
+            SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+                .eventName(EVENT_COLLABORATOR_REMOVED)
+                .recipients(RecipientsDto.builder()
+                    .emails(List.of(recipientEmail))
+                    .build())
+                .channelTypes(List.of(ChannelType.EMAIL))
+                .params(Map.of(
+                    "projectName", projectName,
+                    "removedBy", removedByName
+                ))
+                .build();
+            
+            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
+                .doOnError(error -> log.error(
+                    "Failed to send collaborator removed notification to {}: {}", 
+                    recipientEmail, error.getMessage()))
+                .subscribe();
+        } catch (Exception e) {
+            log.error("Failed to send collaborator removed notification to {}", recipientEmail, e);
+        }
+    }
+    
+    /**
+     * Sends notification when a collaborator's role is updated.
+     * Fire-and-forget: failures are logged but don't break the main flow.
+     */
+    private void sendCollaboratorRoleUpdatedNotification(
+            String recipientEmail, 
+            String projectName, 
+            String newRole, 
+            String updatedByName) {
+        try {
+            SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+                .eventName(EVENT_COLLABORATOR_ROLE_UPDATED)
+                .recipients(RecipientsDto.builder()
+                    .emails(List.of(recipientEmail))
+                    .build())
+                .channelTypes(List.of(ChannelType.EMAIL))
+                .params(Map.of(
+                    "projectName", projectName,
+                    "newRole", newRole,
+                    "updatedBy", updatedByName
+                ))
+                .build();
+            
+            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
+                .doOnError(error -> log.error(
+                    "Failed to send role updated notification to {}: {}", 
+                    recipientEmail, error.getMessage()))
+                .subscribe();
+        } catch (Exception e) {
+            log.error("Failed to send role updated notification to {}", recipientEmail, e);
+        }
     }
     
     // Helper classes for cleaner code

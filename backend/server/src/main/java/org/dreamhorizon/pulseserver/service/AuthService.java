@@ -219,6 +219,14 @@ public class AuthService {
   }
 
   /**
+   * Public method to verify Firebase token for onboarding flow.
+   * This is used during onboarding when the user doesn't yet have a tenant/project.
+   */
+  public Single<UserInfo> verifyFirebaseTokenForOnboarding(String idTokenString) {
+    return verifySimpleFirebaseToken(idTokenString);
+  }
+
+  /**
    * Simple Firebase token verification without tenant claim checking.
    * Only verifies signature, issuer, audience, and expiration.
    */
@@ -297,14 +305,15 @@ public class AuthService {
 
   /**
    * Helper class for user information from Firebase token.
+   * Made public for use in onboarding flow.
    */
-  private static class UserInfo {
-    final String userId;
-    final String email;
-    final String name;
-    final String profilePicture;
+  public static class UserInfo {
+    public final String userId;
+    public final String email;
+    public final String name;
+    public final String profilePicture;
 
-    UserInfo(String userId, String email, String name, String profilePicture) {
+    public UserInfo(String userId, String email, String name, String profilePicture) {
       this.userId = userId;
       this.email = email != null ? email : "";
       this.name = name != null ? name : "";

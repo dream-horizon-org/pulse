@@ -97,7 +97,10 @@ public class ConfigServiceImpl implements ConfigService {
     log.debug("Creating initial SDK config for project: {} within transaction", projectId);
     ConfigData defaultConfig = DefaultSdkConfigTemplate.createDefaultConfig(createdBy);
     return sdkConfigsDao.createInitialConfig(conn, projectId, defaultConfig)
-        .doOnSuccess(config -> log.debug("Created initial SDK config for project: {}, version: {}", projectId, config.getVersion()))
+        .doOnSuccess(config -> {
+          latestConfigCache.put(projectId, CompletableFuture.completedFuture(config));
+          log.debug("Created and cached initial SDK config for project: {}, version: {}", projectId, config.getVersion());
+        })
         .doOnError(err -> log.error("Failed to create initial SDK config for project: {}", projectId, err));
   }
 

@@ -6,6 +6,7 @@ import {
 import { Loader, Tooltip } from "@mantine/core";
 import { IconEdit } from "@tabler/icons-react";
 import { ActionProps } from "./Actions.interface";
+import { useProjectContext } from "../../../../contexts";
 
 export function EditAction({
   iconColor,
@@ -13,10 +14,11 @@ export function EditAction({
   isLoading,
 }: ActionProps) {
   const navigate = useNavigate();
+  const { projectId } = useProjectContext();
 
   const onClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    navigate(`${ROUTES.CRITICAL_INTERACTION_FORM.basePath}/${name}`);
+    navigate(`/projects/${projectId}/critical-interaction-form/${name}`);
   };
 
   if (isLoading) {

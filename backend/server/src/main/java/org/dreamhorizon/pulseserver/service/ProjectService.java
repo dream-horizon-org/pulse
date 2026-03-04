@@ -5,6 +5,7 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
@@ -12,9 +13,14 @@ import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
 import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
+import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
+import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.service.apikey.ProjectApiKeyService;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
+import org.dreamhorizon.pulseserver.service.notification.NotificationService;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
 import org.dreamhorizon.pulseserver.util.SecureRandomUtil;
 
@@ -24,6 +30,9 @@ public class ProjectService {
 
   private static final int PROJECT_ID_RANDOM_LENGTH = 8;
 
+  private static final String DEFAULT_PROJECT_ID = "default-project";
+  private static final String PROJECT_CREATED_EVENT = "project_created";
+
   private final MysqlClient mysqlClient;
   private final ProjectDao projectDao;
   private final OpenFgaService openFgaService;
@@ -32,6 +41,7 @@ public class ProjectService {
   private final ConfigService configService;
   private final UsageLimitService usageLimitService;
   private final UploadConfigDetailService uploadConfigDetailService;
+  private final NotificationService notificationService;
 
   @Inject
   public ProjectService(
@@ -42,7 +52,8 @@ public class ProjectService {
       ProjectApiKeyService projectApiKeyService,
       ConfigService configService,
       UsageLimitService usageLimitService,
-      UploadConfigDetailService uploadConfigDetailService) {
+      UploadConfigDetailService uploadConfigDetailService,
+      NotificationService notificationService) {
     this.mysqlClient = mysqlClient;
     this.projectDao = projectDao;
     this.openFgaService = openFgaService;
@@ -51,20 +62,11 @@ public class ProjectService {
     this.configService = configService;
     this.usageLimitService = usageLimitService;
     this.uploadConfigDetailService = uploadConfigDetailService;
+    this.notificationService = notificationService;
   }
 
-  /**
-   * Create a new project within a tenant.
-   * <p>
-   * Flow:
-   * 1. Pre-transaction: Generate projectId
-   * 2. Transaction: All DB inserts via service methods (project, credentials, API key, usage limits, SDK config)
-   * 3. Blocking: OpenFGA role assignment and tenant linking
-   * 4. Fire-and-forget: ClickHouse user creation, S3 upload
-   *
-   * @return ProjectCreationResult containing the created project and raw API key
-   */
-  public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, String createdBy) {
+  public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, ReqUserInfo userInfo) {
+    String createdBy = userInfo.getUserId();
     log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, createdBy);
 
     // 1. Pre-transaction: Generate projectId
@@ -86,9 +88,9 @@ public class ProjectService {
             assignRolesAndLink(result.project, createdBy, tenantId)
                 .andThen(Single.just(result))
         )
-        // 4. Fire-and-forget: Async tasks
+        // 4. Fire-and-forget: Async tasks (including email notification)
         .doOnSuccess(result -> {
-          executeAsyncTasks(result, projectId).subscribe();
+          executeAsyncTasks(result, projectId, tenantId, userInfo).subscribe();
         })
         .map(result -> ProjectCreationResult.builder()
             .project(result.project)
@@ -118,7 +120,7 @@ public class ProjectService {
                           .map(apiKeyInfo -> new TransactionResult(result.project, result.chCredentials, apiKeyInfo.getRawApiKey()))
                   )
                   .flatMap(result ->
-                      usageLimitService.createInitialLimits(conn, project.getProjectId(), createdBy)
+                      usageLimitService.createInitialLimits(conn, project.getProjectId(), "admin")
                           .map(limit -> result)
                   )
                   .flatMap(result ->
@@ -148,7 +150,7 @@ public class ProjectService {
         .doOnError(err -> log.error("OpenFGA operations failed for project: {}", project.getProjectId(), err));
   }
 
-  private Completable executeAsyncTasks(TransactionResult result, String projectId) {
+  private Completable executeAsyncTasks(TransactionResult result, String projectId, String tenantId, ReqUserInfo userInfo) {
     var chCreds = result.chCredentials;
     log.debug("Executing async tasks for project: {}", projectId);
 
@@ -164,14 +166,56 @@ public class ProjectService {
             .ignoreElement()
             .doOnComplete(() -> log.info("SDK config uploaded to S3 for project: {}", projectId))
             .doOnError(err -> log.warn("S3 upload failed for project: {}, will serve from DB", projectId, err))
+            .onErrorComplete(),
+
+        // Send project creation email notification
+        sendProjectCreatedEmail(result, projectId, tenantId, userInfo)
+            .doOnComplete(() -> log.info("Project creation email sent for project: {}", projectId))
+            .doOnError(err -> log.warn("Failed to send project creation email for project: {}", projectId, err))
             .onErrorComplete()
     );
+  }
+
+  private Completable sendProjectCreatedEmail(TransactionResult result, String projectId, String tenantId, ReqUserInfo userInfo) {
+    if (userInfo.getEmail() == null || userInfo.getEmail().isBlank()) {
+      log.warn("Cannot send project creation email: user email not available for project: {}", projectId);
+      return Completable.complete();
+    }
+
+    // Determine display name: prefer name, fallback to email
+    String displayName = (userInfo.getName() != null && !userInfo.getName().isBlank())
+        ? userInfo.getName()
+        : userInfo.getEmail();
+
+    // Build template parameters
+    Map<String, Object> params = Map.of(
+        "createdBy", displayName,
+        "projectName", result.project.getName(),
+        "apiKey", result.rawApiKey != null ? result.rawApiKey : "[API key not available]"
+    );
+
+    // Build recipient
+    RecipientsDto recipients = RecipientsDto.builder()
+        .emails(List.of(userInfo.getEmail()))
+        .build();
+
+    // Build notification request (uses default-project for template lookup)
+    SendNotificationRequestDto notificationRequest = SendNotificationRequestDto.builder()
+        .eventName(PROJECT_CREATED_EVENT)
+        .channelTypes(List.of(ChannelType.EMAIL))
+        .recipients(recipients)
+        .params(params)
+        .build();
+
+    return notificationService.sendNotification(DEFAULT_PROJECT_ID, notificationRequest)
+        .ignoreElement();
   }
 
   // ==================== HELPER METHODS ====================
 
   private String generateProjectId(String projectName) {
-    return projectName + "-" + SecureRandomUtil.generateAlphanumeric(PROJECT_ID_RANDOM_LENGTH);
+    String sanitized = projectName.replaceAll("\\s+", "-");
+    return sanitized + "-" + SecureRandomUtil.generateAlphanumeric(PROJECT_ID_RANDOM_LENGTH);
   }
 
   // ==================== NESTED CLASSES ====================

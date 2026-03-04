@@ -644,6 +644,15 @@ CREATE TABLE IF NOT EXISTS project_notification_channels (
     INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
 );
 
+-- Insert default platform email channel for system notifications (onboarding, etc.)
+INSERT INTO project_notification_channels (project_id, channel_type, name, config) VALUES
+('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
+    'type', 'EMAIL',
+    'fromAddress', 'noreply@pulse-ux.com',
+    'fromName', 'Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE config = config;
+
 CREATE TABLE IF NOT EXISTS project_notification_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
@@ -658,6 +667,42 @@ CREATE TABLE IF NOT EXISTS project_notification_templates (
     UNIQUE KEY unique_template_version (project_id, event_name, channel_type, version),
     INDEX idx_template_event (project_id, event_name, is_active)
 );
+
+-- Insert project creation onboarding email template
+INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
+('default-project', 'project_created', 'EMAIL', 1, JSON_OBJECT(
+    'subject', '[Pulse] Welcome - {{projectName}} is ready!',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Welcome to Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi <strong>{{createdBy}}</strong>,</p><p style=\"font-size: 16px;\">Great news! Your project <strong style=\"color: #00BFA5;\">{{projectName}}</strong> has been successfully created.</p><p style=\"font-size: 16px; margin-top: 25px;\"><strong>Your API Key</strong></p><p style=\"font-size: 14px; color: #666;\">Use this key to integrate the Pulse SDK into your application:</p><div style=\"background: #1a1a2e; color: #00BFA5; padding: 15px 20px; border-radius: 8px; font-family: \'Courier New\', monospace; font-size: 14px; word-break: break-all; margin: 15px 0; border-left: 4px solid #00BFA5;\">{{apiKey}}</div><p style=\"color: #888; font-size: 12px; margin-top: 5px;\">Keep this key secure. Do not share it publicly or commit it to version control.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help integrating? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">SDK documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] Welcome - {{projectName}} is ready!\n\nHi {{createdBy}},\n\nGreat news! Your project {{projectName}} has been successfully created.\n\nYour API Key:\n{{apiKey}}\n\nUse this key to integrate the Pulse SDK into your application.\n\nKeep this key secure. Do not share it publicly or commit it to version control.\n\nGo to Dashboard: https://pulse-ux.com\n\nNeed help integrating? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Insert collaborator added email template
+INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
+('default-project', 'collaborator_added', 'EMAIL', 1, JSON_OBJECT(
+    'subject', '[Pulse] You''ve been added to {{projectName}}',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">You have been added to a new project in Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{addedBy}}</strong> has added you to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project with <strong>{{role}}</strong> access.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com/projects/{{projectId}}\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help getting started? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] You''ve been added to {{projectName}}\n\nHi,\n\n{{addedBy}} has added you to {{projectName}} project with {{role}} access.\n\nGo to Dashboard: https://pulse-ux.com/projects/{{projectId}}\n\nNeed help getting started? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Insert collaborator removed email template
+INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
+('default-project', 'collaborator_removed', 'EMAIL', 1, JSON_OBJECT(
+    'subject', '[Pulse] Your access to {{projectName}} has been revoked',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Your access for a project in Pulse has been revoked.</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{removedBy}}</strong> has revoked your access to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project.</p><p style=\"font-size: 14px; color: #666; margin-top: 20px;\">If you believe this was a mistake, please contact your project administrator.</p><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] Your access to {{projectName}} has been revoked\n\nHi,\n\n{{removedBy}} has revoked your access to {{projectName}} project.\n\nIf you believe this was a mistake, please contact your project administrator.\n\n-- The Pulse Team'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Insert collaborator role updated email template
+INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
+('default-project', 'collaborator_role_updated', 'EMAIL', 1, JSON_OBJECT(
+    'subject', '[Pulse] Your role in {{projectName}} has been updated',
+    'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Your access for a project in Pulse has been updated.</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{updatedBy}}</strong> has updated your access to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project to <strong>{{newRole}}</strong>.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
+    'text', '[Pulse] Your role in {{projectName}} has been updated\n\nHi,\n\n{{updatedBy}} has updated your access to {{projectName}} project to {{newRole}}.\n\nGo to Dashboard: https://pulse-ux.com\n\n-- The Pulse Team'
+))
+ON DUPLICATE KEY UPDATE body = body;
 
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -682,7 +727,7 @@ CREATE TABLE IF NOT EXISTS notification_logs (
     CONSTRAINT fk_notification_log_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     INDEX idx_log_batch (batch_id),
     INDEX idx_log_project_status (project_id, status),
-    UNIQUE INDEX idx_log_idempotency (project_id, idempotency_key, channel_type, recipient),
+    UNIQUE INDEX idx_log_idempotency (project_id, idempotency_key(128), channel_type, recipient(128)),
     INDEX idx_log_external_id (external_id)
 );
 

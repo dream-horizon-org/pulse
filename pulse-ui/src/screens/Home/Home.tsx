@@ -17,36 +17,38 @@ import { QuickAccessLinks, QuickLink } from "./components/QuickAccessLinks";
 import { ScreensHealth } from "./components/ScreensHealth";
 import { TopInteractionsHealth } from "./components/TopInteractionsHealth";
 import { useAnalytics } from "../../hooks/useAnalytics";
+import { useProjectContext } from "../../contexts";
 
 dayjs.extend(utc);
 
 export function Home(_props: HomeProps) {
   const navigate = useNavigate();
   const { trackClick } = useAnalytics("Home");
+  const { projectId } = useProjectContext();
 
   const quickLinks: QuickLink[] = [
     {
       title: "Interactions",
       description: "View and manage all configured user interactions",
-      route: ROUTES.CRITICAL_INTERACTIONS.basePath,
+      route: `/projects/${projectId}/interactions`,
       icon: IconListDetails,
     },
     {
       title: "App Vitals",
       description: "View and manage all configured app vitals",
-      route: ROUTES.APP_VITALS.basePath,
+      route: `/projects/${projectId}/app-vitals`,
       icon: IconActivityHeartbeat,
     },
     {
       title: "Screens",
       description: "View and manage all configured screens",
-      route: ROUTES.SCREENS.basePath,
+      route: `/projects/${projectId}/screens`,
       icon: IconDeviceDesktop,
     },
     {
       title: "Network APIs",
       description: "View and manage all configured network APIs",
-      route: ROUTES.NETWORK_LIST.basePath,
+      route: `/projects/${projectId}/network-apis`,
       icon: IconNetwork,
     }
   ];
@@ -59,7 +61,7 @@ export function Home(_props: HomeProps) {
 
   const handleViewAllInteractions = () => {
     trackClick("ViewAllInteractions");
-    navigate(ROUTES.CRITICAL_INTERACTIONS.basePath);
+    navigate(`/projects/${projectId}/interactions`);
   };
 
   const handleInteractionCardClick = (interaction: {
@@ -68,19 +70,19 @@ export function Home(_props: HomeProps) {
   }) => {
     trackClick(`InteractionCard: ${interaction.name}`);
     navigate(
-      `${ROUTES.CRITICAL_INTERACTION_DETAILS.basePath}/${interaction.name}`,
+      `/projects/${projectId}/interaction-details/${interaction.name}`,
     );
   };
 
   const handleViewAllScreens = () => {
     trackClick("ViewAllScreens");
-    navigate(ROUTES.SCREENS.basePath);
+    navigate(`/projects/${projectId}/screens`);
   };
 
   const handleScreenCardClick = (screenName: string) => {
     trackClick(`ScreenCard: ${screenName}`);
     navigate(
-      `${ROUTES.SCREEN_DETAILS.basePath}/${encodeURIComponent(screenName)}`,
+      `/projects/${projectId}/screens/${encodeURIComponent(screenName)}`,
     );
   };
 

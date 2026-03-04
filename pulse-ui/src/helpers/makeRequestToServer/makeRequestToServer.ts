@@ -19,16 +19,50 @@ const getMockServer = async () => {
  * Uses the backend-generated access token stored in cookies after successful authentication.
  */
 function buildAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  
+  // Only add Authorization header if access token exists (user is logged in)
   const accessToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
-  const tokenType = getCookies(COOKIES_KEY.TOKEN_TYPE) || "Bearer";
+  if (accessToken && accessToken !== "undefined") {
+    const tokenType = getCookies(COOKIES_KEY.TOKEN_TYPE) || "Bearer";
+    headers["Authorization"] = `${tokenType} ${accessToken}`;
+  }
+
+  // Add user email if available
   const userEmail = getCookies(COOKIES_KEY.USER_EMAIL);
-
-  const headers: Record<string, string> = {
-    Authorization: `${tokenType} ${accessToken}`,
-  };
-
   if (userEmail && userEmail !== "undefined") {
     headers["user-email"] = userEmail;
+  }
+
+  // Add project-id header for project-scoped requests
+  // Priority: 1) URL params, 2) sessionStorage, 3) cookies (legacy)
+  let projectId = getCookies(COOKIES_KEY.PROJECT_ID);
+  
+  // Fallback 1: Extract projectId from URL (/projects/:projectId/...)
+  if (!projectId || projectId === "undefined") {
+    const pathMatch = window.location.pathname.match(/\/projects\/([^\/]+)/);
+    if (pathMatch && pathMatch[1]) {
+      projectId = pathMatch[1];
+    }
+  }
+  
+  // Fallback 2: Try sessionStorage (ProjectContext)
+  if (!projectId || projectId === "undefined") {
+    try {
+      const stored = sessionStorage.getItem('pulse_project_context');
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (data.projectId) {
+          projectId = data.projectId;
+        }
+      }
+    } catch (error) {
+      // Silently ignore parsing errors
+    }
+  }
+  
+  if (projectId && projectId !== "undefined") {
+    headers["X-Project-ID"] = projectId;
   }
 
   return headers;

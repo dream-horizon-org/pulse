@@ -42,6 +42,11 @@ import { NetworkDetail } from "../screens/NetworkDetail";
 import { NetworkList } from "../screens/NetworkList";
 import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
+import { Onboarding } from "../screens/Onboarding";
+import { OnboardingSuccess } from "../screens/OnboardingSuccess";
+import { ProjectSelection } from "../screens/ProjectSelection";
+import { Pricing } from "../screens/Pricing";
+import { ProjectSettings } from "../screens/ProjectSettings";
 import { SamplingConfig } from "../screens/SamplingConfig";
 import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
@@ -49,6 +54,12 @@ import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { OrganizationDashboard } from "../screens/OrganizationDashboard";
+import { OrganizationSettings } from "../screens/OrganizationSettings";
+import { OrganizationMembers } from "../screens/OrganizationMembers";
+import { OrganizationProjects } from "../screens/OrganizationProjects";
+import { CreateProject } from "../screens/CreateProject";
+import { LegacyRedirect } from "../components/LegacyRedirect";
 
 export const APP_NAME: string = "Pulse";
 
@@ -89,41 +100,208 @@ export const IS_UAT: boolean =
   process.env.REACT_APP_PULSE_SERVER_URL?.includes("-uat") ?? false;
 
 export const ROUTES: Routes = {
+  // Organization-level routes
+  ORGANIZATION_DASHBOARD: {
+    key: "ORGANIZATION_DASHBOARD",
+    basePath: "/organization",
+    path: "/organization",
+    element: OrganizationDashboard,
+  },
+  ORGANIZATION_SETTINGS: {
+    key: "ORGANIZATION_SETTINGS",
+    basePath: "/organization/settings",
+    path: "/organization/settings",
+    element: OrganizationSettings,
+  },
+  ORGANIZATION_MEMBERS: {
+    key: "ORGANIZATION_MEMBERS",
+    basePath: "/organization/members",
+    path: "/organization/members/*",
+    element: OrganizationMembers,
+  },
+  ORGANIZATION_PROJECTS: {
+    key: "ORGANIZATION_PROJECTS",
+    basePath: "/organization/projects",
+    path: "/organization/projects",
+    element: OrganizationProjects,
+  },
+  CREATE_PROJECT: {
+    key: "CREATE_PROJECT",
+    basePath: "/organization/projects/new",
+    path: "/organization/projects/new",
+    element: CreateProject,
+  },
+  
+  // Project-scoped routes (nested under /projects/:projectId)
+  PROJECT_DASHBOARD: {
+    key: "PROJECT_DASHBOARD",
+    basePath: "/projects/:projectId",
+    path: "/projects/:projectId",
+    element: Home,
+  },
+  PROJECT_ONBOARDING_SUCCESS: {
+    key: "PROJECT_ONBOARDING_SUCCESS",
+    basePath: "/projects/:projectId/onboarding",
+    path: "/projects/:projectId/onboarding",
+    element: OnboardingSuccess,
+  },
+  PROJECT_USER_ENGAGEMENT: {
+    key: "PROJECT_USER_ENGAGEMENT",
+    basePath: "/projects/:projectId/user-engagement",
+    path: "/projects/:projectId/user-engagement",
+    element: UserEngagement,
+  },
+  PROJECT_INTERACTIONS: {
+    key: "PROJECT_INTERACTIONS",
+    basePath: "/projects/:projectId/interactions",
+    path: "/projects/:projectId/interactions",
+    element: CriticalInteractionList,
+  },
+  PROJECT_INTERACTION_FORM: {
+    key: "PROJECT_INTERACTION_FORM",
+    basePath: "/projects/:projectId/critical-interaction-form",
+    path: "/projects/:projectId/critical-interaction-form/*",
+    element: CriticalInteractionForm,
+  },
+  PROJECT_ALL_INTERACTION_DETAILS: {
+    key: "PROJECT_ALL_INTERACTION_DETAILS",
+    basePath: "/projects/:projectId/user-experience",
+    path: "/projects/:projectId/user-experience",
+    element: CiritcalInteractionDetails,
+  },
+  PROJECT_INTERACTION_DETAILS: {
+    key: "PROJECT_INTERACTION_DETAILS",
+    basePath: "/projects/:projectId/interaction-details",
+    path: "/projects/:projectId/interaction-details/*",
+    element: CiritcalInteractionDetails,
+  },
+  PROJECT_UNIVERSAL_QUERYING: {
+    key: "PROJECT_UNIVERSAL_QUERYING",
+    basePath: "/projects/:projectId/universal-querying",
+    path: "/projects/:projectId/universal-querying",
+    element: UniversalEventQuery,
+  },
+  PROJECT_APP_VITALS: {
+    key: "PROJECT_APP_VITALS",
+    basePath: "/projects/:projectId/app-vitals",
+    path: "/projects/:projectId/app-vitals",
+    element: AppVitals,
+  },
+  PROJECT_APP_VITALS_ISSUE_DETAIL: {
+    key: "PROJECT_APP_VITALS_ISSUE_DETAIL",
+    basePath: "/projects/:projectId/app-vitals/:groupId",
+    path: "/projects/:projectId/app-vitals/:groupId",
+    element: IssueDetail,
+  },
+  PROJECT_APP_VITALS_OCCURRENCE_DETAIL: {
+    key: "PROJECT_APP_VITALS_OCCURRENCE_DETAIL",
+    basePath: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    path: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    element: OccurrenceDetail,
+  },
+  PROJECT_SESSION_TIMELINE: {
+    key: "PROJECT_SESSION_TIMELINE",
+    basePath: "/projects/:projectId/session/:id",
+    path: "/projects/:projectId/session/:id",
+    element: SessionTimeline,
+  },
+  PROJECT_SCREENS: {
+    key: "PROJECT_SCREENS",
+    basePath: "/projects/:projectId/screens",
+    path: "/projects/:projectId/screens",
+    element: ScreenList,
+  },
+  PROJECT_SCREEN_DETAILS: {
+    key: "PROJECT_SCREEN_DETAILS",
+    basePath: "/projects/:projectId/screens",
+    path: "/projects/:projectId/screens/:screenName",
+    element: ScreenDetail,
+  },
+  PROJECT_NETWORK_LIST: {
+    key: "PROJECT_NETWORK_LIST",
+    basePath: "/projects/:projectId/network-apis",
+    path: "/projects/:projectId/network-apis",
+    element: NetworkList,
+  },
+  PROJECT_NETWORK_DETAIL: {
+    key: "PROJECT_NETWORK_DETAIL",
+    basePath: "/projects/:projectId/network-apis",
+    path: "/projects/:projectId/network-apis/:apiId",
+    element: NetworkDetail,
+  },
+  PROJECT_SDK_CONFIG: {
+    key: "PROJECT_SDK_CONFIG",
+    basePath: "/projects/:projectId/sdk-config",
+    path: "/projects/:projectId/sdk-config",
+    element: SamplingConfig,
+  },
+  PROJECT_SETTINGS_ROUTE: {
+    key: "PROJECT_SETTINGS_ROUTE",
+    basePath: "/projects/:projectId/settings",
+    path: "/projects/:projectId/settings/*",
+    element: Settings,
+  },
+  PROJECT_ALERTS: {
+    key: "PROJECT_ALERTS",
+    basePath: "/projects/:projectId/alerts",
+    path: "/projects/:projectId/alerts",
+    element: AlertListingPage,
+  },
+  PROJECT_ALERT_DETAIL: {
+    key: "PROJECT_ALERT_DETAIL",
+    basePath: "/projects/:projectId/alerts",
+    path: "/projects/:projectId/alerts/:alertId",
+    element: AlertDetail,
+  },
+  PROJECT_ALERTS_FORM: {
+    key: "PROJECT_ALERTS_FORM",
+    basePath: "/projects/:projectId/configure-alert",
+    path: "/projects/:projectId/configure-alert/*",
+    element: AlertForm,
+  },
+  PROJECT_QUERY_BUILDER: {
+    key: "PROJECT_QUERY_BUILDER",
+    basePath: "/projects/:projectId/query-builder",
+    path: "/projects/:projectId/query-builder",
+    element: RealTimeQuery,
+  },
+  
+  // Legacy flat routes (kept for backward compatibility)
   HOME: {
     key: "HOME",
     basePath: "/",
     path: "/",
-    element: Home,
+    element: LegacyRedirect,
   },
   USER_ENGAGEMENT: {
     key: "USER_ENGAGEMENT",
     basePath: "/user-engagement",
     path: "/user-engagement",
-    element: UserEngagement,
+    element: LegacyRedirect,
   },
   CRITICAL_INTERACTIONS: {
     key: "CRITICAL_INTERACTIONS",
     basePath: "/interactions",
     path: "/interactions",
-    element: CriticalInteractionList,
+    element: LegacyRedirect,
   },
   CRITICAL_INTERACTION_FORM: {
     key: "CRITICAL_INTERACTION_FORM",
     basePath: "/critical-interaction-form",
     path: "/critical-interaction-form/*",
-    element: CriticalInteractionForm,
+    element: LegacyRedirect,
   },
   ALL_INTERACTION_DETAILS: {
     key: "ALL_INTERACTION_DETAILS",
     basePath: "/user-experience",
     path: "/user-experience",
-    element: CiritcalInteractionDetails,
+    element: LegacyRedirect,
   },
   CRITICAL_INTERACTION_DETAILS: {
     key: "CRITICAL_INTERACTION_DETAILS",
     basePath: "/interaction-details",
     path: "/interaction-details/*",
-    element: CiritcalInteractionDetails,
+    element: LegacyRedirect,
   },
   LOGIN: {
     key: "LOGIN",
@@ -131,59 +309,77 @@ export const ROUTES: Routes = {
     path: "/login",
     element: Login,
   },
+  ONBOARDING: {
+    key: "ONBOARDING",
+    basePath: "/onboarding",
+    path: "/onboarding",
+    element: Onboarding,
+  },
+  PRICING: {
+    key: "PRICING",
+    basePath: "/pricing",
+    path: "/pricing",
+    element: Pricing,
+  },
+  PROJECT_SELECTION: {
+    key: "PROJECT_SELECTION",
+    basePath: "/project-selection",
+    path: "/project-selection",
+    element: ProjectSelection,
+  },
   UNIVERSAL_QUERYING: {
     key: "UNIVERSAL_QUERYING",
     basePath: "/universal-querying",
     path: "/universal-querying",
-    element: UniversalEventQuery,
+    element: LegacyRedirect,
   },
   APP_VITALS: {
     key: "APP_VITALS",
     basePath: "/app-vitals",
     path: "/app-vitals",
-    element: AppVitals,
+    element: LegacyRedirect,
   },
   APP_VITALS_ISSUE_DETAIL: {
     key: "APP_VITALS_ISSUE_DETAIL",
     basePath: "/app-vitals/:groupId",
     path: "/app-vitals/:groupId",
-    element: IssueDetail,
+    element: LegacyRedirect,
   },
   APP_VITALS_OCCURRENCE_DETAIL: {
     key: "APP_VITALS_OCCURRENCE_DETAIL",
     basePath: "/app-vitals/:issueId/occurrence/:occurrenceId",
     path: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    element: OccurrenceDetail,
+    element: LegacyRedirect,
   },
   SESSION_TIMELINE: {
     key: "SESSION_TIMELINE",
     basePath: "/session/:id",
     path: "/session/:id",
-    element: SessionTimeline,
+    element: LegacyRedirect,
   },
   SCREENS: {
     key: "SCREENS",
     basePath: "/screens",
     path: "/screens",
-    element: ScreenList,
+    element: LegacyRedirect,
   },
   SCREEN_DETAILS: {
     key: "SCREEN_DETAILS",
     basePath: "/screens",
     path: "/screens/:screenName",
-    element: ScreenDetail,
+    element: LegacyRedirect,
   },
   NETWORK_LIST: {
     key: "NETWORK_LIST",
     basePath: "/network-apis",
     path: "/network-apis",
-    element: NetworkList,
+    element: LegacyRedirect,
   },
   NETWORK_DETAIL: {
     key: "NETWORK_DETAIL",
     basePath: "/network-apis",
     path: "/network-apis/:apiId",
-    element: NetworkDetail,
+    element: LegacyRedirect,
   },
   COMING_SOON: {
     key: "COMING_SOON",
@@ -195,37 +391,43 @@ export const ROUTES: Routes = {
     key: "SDK_CONFIG",
     basePath: "/sdk-config",
     path: "/sdk-config",
-    element: SamplingConfig,
+    element: LegacyRedirect,
   },
   SETTINGS: {
     key: "SETTINGS",
     basePath: "/settings",
     path: "/settings/*",
-    element: Settings,
+    element: LegacyRedirect,
+  },
+  PROJECT_SETTINGS: {
+    key: "PROJECT_SETTINGS",
+    basePath: "/project-settings",
+    path: "/project-settings",
+    element: ProjectSettings,
   },
   ALERTS: {
     key: "ALERTS",
     basePath: "/alerts",
     path: "/alerts",
-    element: AlertListingPage,
+    element: LegacyRedirect,
   },
   ALERT_DETAIL: {
     key: "ALERT_DETAIL",
     basePath: "/alerts",
     path: "/alerts/:alertId",
-    element: AlertDetail,
+    element: LegacyRedirect,
   },
   ALERTS_FORM: {
     key: "ALERTS_FORM",
     basePath: "/configure-alert",
     path: "/configure-alert/*",
-    element: AlertForm,
+    element: LegacyRedirect,
   },
   QUERY_BUILDER: {
     key: "QUERY_BUILDER",
     basePath: "/query-builder",
     path: "/query-builder",
-    element: RealTimeQuery,
+    element: LegacyRedirect,
   },
 };
 
@@ -803,14 +1005,15 @@ export const RADIO_LABLES: Record<string, string> = {
 export const COOKIES_KEY: Record<string, string> = {
   ACCESS_TOKEN: "accessToken",
   REFRESH_TOKEN: "refreshToken",
+  USER_ID: "userId",
   USER_NAME: "userName",
   USER_PICTURE: "userPicture",
   USER_EMAIL: "userEmail",
   ID_TOKEN: "idToken",
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
-  TENANT_ID: "tenantId",
-  TENANT_NAME: "tenantName",
+  TENANT_ID: "tenantId", // Keep for initial hydration only
+  // REMOVED: PROJECT_ID, PROJECT_NAME, TENANT_NAME - Now handled by React Context
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {

@@ -18,9 +18,8 @@ import org.dreamhorizon.pulseserver.resources.v1.onboarding.models.OnboardingReq
 import org.dreamhorizon.pulseserver.resources.v1.onboarding.models.OnboardingResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.AuthService;
 import org.dreamhorizon.pulseserver.service.OnboardingService;
-import io.jsonwebtoken.Claims;
 
 /**
  * JAX-RS resource for onboarding new users.
@@ -32,14 +31,14 @@ import io.jsonwebtoken.Claims;
 public class OnboardingResource {
     
     private final OnboardingService onboardingService;
-    private final JwtService jwtService;
+    private final AuthService authService;
     
     /**
      * Complete onboarding for a new user.
      * Creates organization (tenant) and first project.
-     * Requires a temporary JWT token from login (without tenant).
+     * Requires a Firebase ID token.
      * 
-     * @param authorization Authorization header with temporary JWT
+     * @param authorization Authorization header with Firebase token
      * @param request Onboarding details
      * @return OnboardingResponse with tokens and project details
      */
@@ -54,53 +53,33 @@ public class OnboardingResource {
             OnboardingRequest request) {
         
         try {
-            // Extract user info from JWT token (temporary token from login) or Firebase token
+            // Extract Firebase token from Authorization header
             String token = extractToken(authorization);
             if (token == null) {
                 throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
                     .getCustomException("Missing authorization", "Authorization header required");
             }
             
-            String userId;
-            String email;
-            String name;
-            
-            // Check if it's a mock/development token (Firebase format)
+            // Check if it's a mock/development token
             if (isMockToken(token)) {
                 log.info("Using mock token for onboarding");
-                // Parse mock token to determine user
-                if (token.contains("user2") || token.contains("2")) {
-                    userId = "mock-user-2";
-                    email = "user2@example.com";
-                    name = "Test User 2";
-                } else {
-                    userId = "mock-user-1";
-                    email = "user1@example.com";
-                    name = "Test User 1";
-                }
-            } else {
-                // Try to parse as JWT (our backend token)
-                Claims claims = jwtService.verifyToken(token);
-                userId = claims.getSubject();
-                email = claims.get("email", String.class);
-                name = claims.get("name", String.class);
+                return handleMockOnboarding(token, request);
             }
             
-            if (userId == null || userId.isBlank()) {
-                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
-                    .getCustomException("Invalid token", "Token missing user ID");
-            }
-            
-            log.info("Processing onboarding: userId={}, org={}, project={}", 
-                userId, request.getOrganizationName(), request.getProjectName());
-            
-            return onboardingService.completeOnboarding(
-                    userId,
-                    email,
-                    name,
-                    request.getOrganizationName(),
-                    request.getProjectName(),
-                    request.getProjectDescription())
+            // Verify Firebase token and complete onboarding
+            return authService.verifyFirebaseTokenForOnboarding(token)
+                .flatMap(userInfo -> {
+                    log.info("Processing onboarding: userId={}, email={}, org={}, project={}", 
+                        userInfo.userId, userInfo.email, request.getOrganizationName(), request.getProjectName());
+                    
+                    return onboardingService.completeOnboarding(
+                            userInfo.userId,
+                            userInfo.email,
+                            userInfo.name,
+                            request.getOrganizationName(),
+                            request.getProjectName(),
+                            request.getProjectDescription());
+                })
                 .map(result -> OnboardingResponse.builder()
                     .userId(result.getUserId())
                     .email(result.getEmail())

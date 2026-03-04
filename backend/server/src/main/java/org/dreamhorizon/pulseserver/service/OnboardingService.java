@@ -7,6 +7,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
+import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
@@ -117,10 +118,17 @@ public class OnboardingService {
             .domainName(null)
             .build();
         
+        // Build user info for project creation
+        ReqUserInfo userInfo = ReqUserInfo.builder()
+            .userId(userId)
+            .email(email)
+            .name(name)
+            .build();
+
         return tenantService.createTenant(tenantRequest)
             .flatMap(tenant -> 
                 // Step 2: Create first project within tenant
-                projectService.createProject(tenantId, projectName, projectDescription, userId)
+                projectService.createProject(tenantId, projectName, projectDescription, userInfo)
                     .flatMap(creationResult ->
                         // Step 3: Assign tenant admin role to user
                         openFgaService.assignTenantRole(userId, tenantId, "admin")

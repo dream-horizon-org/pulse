@@ -20,13 +20,17 @@ import {
   IconBell,
   IconShield,
   IconChevronRight,
+  IconKey,
+  IconUsers,
 } from '@tabler/icons-react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { SamplingConfig } from '../SamplingConfig';
 import { NotificationChannels } from './components/NotificationChannels';
+import { ApiKeyManagement } from '../ProjectSettings/components/ApiKeyManagement';
+import { CollaboratorManagement } from '../ProjectSettings/components/CollaboratorManagement';
 import classes from './Settings.module.css';
 
-type SettingsTab = 'sdk-config' | 'notifications' | 'security';
+type SettingsTab = 'sdk-config' | 'notifications' | 'api-keys' | 'collaborators' | 'security';
 
 interface SettingsNavItem {
   id: SettingsTab;
@@ -47,6 +51,20 @@ const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
     icon: IconAdjustments,
   },
   {
+    id: 'api-keys',
+    path: 'api-keys',
+    label: 'API Keys',
+    description: 'Manage project API keys',
+    icon: IconKey,
+  },
+  {
+    id: 'collaborators',
+    path: 'collaborators',
+    label: 'Team Members',
+    description: 'Manage project collaborators',
+    icon: IconUsers,
+  },
+  {
     id: 'notifications',
     path: 'notifications',
     label: 'Notifications',
@@ -57,7 +75,7 @@ const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
     id: 'security',
     path: 'security',
     label: 'Security & Access',
-    description: 'API keys and permissions',
+    description: 'Advanced security settings',
     icon: IconShield,
     badge: 'Coming Soon',
     disabled: true,
@@ -82,6 +100,8 @@ export function Settings() {
   // Determine active tab from current path
   const getActiveTab = (): SettingsTab => {
     const path = location.pathname;
+    if (path.includes('/api-keys')) return 'api-keys';
+    if (path.includes('/collaborators')) return 'collaborators';
     if (path.includes('/notifications')) return 'notifications';
     if (path.includes('/security')) return 'security';
     return 'sdk-config';
@@ -91,7 +111,14 @@ export function Settings() {
 
   const handleNavClick = (item: SettingsNavItem) => {
     if (!item.disabled) {
-      navigate(`/settings/${item.path}`);
+      // Use project-scoped route if we're on a project page
+      const projectMatch = location.pathname.match(/\/projects\/([^/]+)/);
+      if (projectMatch) {
+        const projectId = projectMatch[1];
+        navigate(`/projects/${projectId}/settings/${item.path}`);
+      } else {
+        navigate(`/settings/${item.path}`);
+      }
     }
   };
 
@@ -146,6 +173,8 @@ export function Settings() {
         <Routes>
           <Route index element={<Navigate to="sdk-config" replace />} />
           <Route path="sdk-config/*" element={<SamplingConfig />} />
+          <Route path="api-keys" element={<ApiKeyManagement />} />
+          <Route path="collaborators" element={<CollaboratorManagement />} />
           <Route path="notifications" element={<NotificationChannels />} />
           <Route path="security" element={<ComingSoonSection icon={IconShield} title="Security & Access" />} />
         </Routes>

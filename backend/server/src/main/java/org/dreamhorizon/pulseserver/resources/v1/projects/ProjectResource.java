@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.dto.request.ReqUserInfo;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.v1.projects.models.CreateProjectRequest;
@@ -53,35 +54,39 @@ public class ProjectResource {
                     .getCustomException("Missing tenant context", "Tenant ID not found in request");
             }
             
-            // Extract user ID from JWT token
+            // Extract user info from JWT token
             String token = extractToken(authorization);
             if (token == null) {
                 throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
                     .getCustomException("Missing authorization", "Authorization header required");
             }
             
-            String userId;
+            ReqUserInfo userInfo;
             try {
                 var claims = jwtService.verifyToken(token);
-                userId = claims.getSubject();
+                userInfo = ReqUserInfo.builder()
+                    .userId(claims.getSubject())
+                    .email(claims.get("email", String.class))
+                    .name(claims.get("name", String.class))
+                    .build();
             } catch (Exception e) {
                 throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
                     .getCustomException("Invalid token", e.getMessage());
             }
             
-            if (userId == null || userId.isBlank()) {
+            if (userInfo.getUserId() == null || userInfo.getUserId().isBlank()) {
                 throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
                     .getCustomException("Invalid token", "User ID not found in token");
             }
             
             log.info("Creating project: name={}, tenantId={}, userId={}", 
-                request.getName(), tenantId, userId);
+                request.getName(), tenantId, userInfo.getUserId());
             
             return projectService.createProject(
                     tenantId,
                     request.getName(),
                     request.getDescription(),
-                    userId)
+                    userInfo)
                 .map(creationResult -> {
                     var project = creationResult.getProject();
                     return ProjectResponse.builder()

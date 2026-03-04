@@ -32,7 +32,7 @@ import {
   IconMessageCircle,
   IconUserCircle,
   IconSettings,
-  IconMail,
+  IconMail, IconFolder,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import {useRef, useState} from "react";
@@ -44,6 +44,9 @@ import {
 } from "../../helpers/gcpAuth";
 import {useDisclosure} from "@mantine/hooks";
 import {ContactUsModal} from "../ContactUsModal/ContactUsModal";
+import {useTenantContext, useProjectContext} from "../../contexts";
+import {usePermissions} from "../../hooks";
+import {performLogout} from "../../helpers/logout";
 
 export function Navbar({
                          toggle,
@@ -57,36 +60,68 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const [contactUsOpened, { open: openContactUs, close: closeContactUs }] = useDisclosure(false);
+  const [contactUsOpened, {open: openContactUs, close: closeContactUs}] = useDisclosure(false);
   const [popoverOpened, setPopoverOpened] = useState(false);
+  const {projectId: contextProjectId, clearProject, plan} = useProjectContext();
+  const {tenantId, tenantName, clearTenant} = useTenantContext();
+  const permissions = usePermissions();
+
+  const handleAllProjectsClick = () => {
+    console.log('[Navbar] Clearing project context and navigating to project selection');
+    clearProject();
+    navigate(ROUTES.PROJECT_SELECTION.basePath);
+  };
 
   function onItemClick(routeTo: string) {
-    navigate(routeTo);
+    // Transform flat routes to project-scoped routes
+    if (contextProjectId && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
+      const projectScopedRoute = `/projects/${contextProjectId}${routeTo}`;
+      navigate(projectScopedRoute);
+    } else {
+      navigate(routeTo);
+    }
   }
 
   const isActive = (path: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
+
+    // For project-scoped routes, check the part after /projects/:projectId
+    if (decodedRouteName.startsWith('/projects/')) {
+      const projectPathParts = decodedRouteName.split('/').slice(3); // Skip '', 'projects', projectId
+      const projectPath = '/' + projectPathParts.join('/');
+      const basePath = '/' + path.split('/')[1];
+      return projectPath.startsWith(basePath);
+    }
+
+    // For other routes, use the old logic
     const base = path.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
     return base === baseMatch;
   };
 
   const onLogoClick = () => {
-    navigate("/");
+    if (contextProjectId) {
+      navigate(`/projects/${contextProjectId}`);
+    } else {
+      navigate(ROUTES.PROJECT_SELECTION.basePath);
+    }
   };
 
   const onLogoutClick = async () => {
-    if (isGcpMultiTenantEnabled()) {
-      await signOutFirebase();
-    } else {
-      googleLogout();
-    }
-    removeAllCookies();
+    // Clear all React contexts explicitly
+    clearProject();
+    clearTenant();
+    console.log('[Navbar] Cleared project and tenant contexts');
+
+    // Perform logout (clears cookies, sessionStorage, and signs out)
+    await performLogout();
+
+    // Navigate to login
     navigate(ROUTES.LOGIN.basePath);
   };
 
   const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
-  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  const currentTenantId = tenantId || getCookies(COOKIES_KEY.TENANT_ID);
 
   return (
     <AppShell.Navbar pt="md" pb="md" className={classes.navbarContainer}>
@@ -193,7 +228,8 @@ export function Navbar({
       <AppShell.Section className={classes.menuSectionContainer}>
         <Divider my="sm"/>
 
-        <Popover width={280} position="right-end" withArrow shadow="md" opened={popoverOpened} onChange={setPopoverOpened}>
+        <Popover width={280} position="right-end" withArrow shadow="md" opened={popoverOpened}
+                 onChange={setPopoverOpened}>
           <Popover.Target>
             {opened ? (
               <Button
@@ -242,7 +278,7 @@ export function Navbar({
                       currentTenantId !== "undefined" && (
                         <Text size="xs" c="dimmed" mt={4}>
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                          {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
+                          {tenantName || currentTenantId}
                         </Text>
                       )}
                   </Box>
@@ -251,7 +287,25 @@ export function Navbar({
 
               <Divider/>
 
-              {/* Settings Link */}
+              {/* Organization Section */}
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
+
+              {plan === 'enterprise' && (
+                <Box
+                  className={classes.menuItem}
+                  onClick={handleAllProjectsClick}
+                  style={{cursor: 'pointer'}}
+                >
+                  <Group gap="sm">
+                    <IconFolder size={20} style={{color: "#0ba09a"}}/>
+                    <Box>
+                      <Text size="sm" fw={500}>All Projects</Text>
+                      <Text size="xs" c="dimmed">Switch projects</Text>
+                    </Box>
+                  </Group>
+                </Box>
+              )}
+
               <Box
                 className={classes.menuItem}
                 onClick={() => {
@@ -263,12 +317,39 @@ export function Navbar({
                 <Group gap="sm">
                   <IconSettings size={20} style={{color: "#0ba09a"}}/>
                   <Box>
-                    <Text size="sm" fw={500}>Settings</Text>
-                    <Text size="xs" c="dimmed">SDK Configuration & more</Text>
+                    <Text size="sm" fw={500}>Members</Text>
+                    <Text size="xs" c="dimmed">Team management</Text>
                   </Box>
                 </Group>
               </Box>
 
+              <Divider/>
+
+              {/* Project Section - Only show if a project is selected */}
+              {contextProjectId && (
+                <>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Current Project</Text>
+
+                  {/* Settings Link */}
+                  {permissions.canManageProjectSettings && (
+                    <Box
+                      className={classes.menuItem}
+                      onClick={() => navigate(`/projects/${contextProjectId}/settings`)}
+                      style={{cursor: 'pointer'}}
+                    >
+                      <Group gap="sm">
+                        <IconSettings size={20} style={{color: "#0ba09a"}}/>
+                        <Box>
+                          <Text size="sm" fw={500}>Settings</Text>
+                          <Text size="xs" c="dimmed">API Keys, Team & Configuration</Text>
+                        </Box>
+                      </Group>
+                    </Box>
+                  )}
+                </>
+              )}
+
+              <Divider/>
               {/* Help Link */}
               <Anchor
                 href={NAVBAR_CONSTANTS.HELP_LINK}
@@ -338,7 +419,7 @@ export function Navbar({
           </Popover.Dropdown>
         </Popover>
       </AppShell.Section>
-      <ContactUsModal opened={contactUsOpened} onClose={closeContactUs} />
+      <ContactUsModal opened={contactUsOpened} onClose={closeContactUs}/>
     </AppShell.Navbar>
   );
 }

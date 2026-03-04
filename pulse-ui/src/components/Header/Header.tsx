@@ -3,66 +3,39 @@ import {
   Tooltip,
   Group,
   Text,
-  Image,
   Box,
-  Popover,
-  Avatar,
-  Button,
-  Stack,
+  Select,
+  Badge,
 } from "@mantine/core";
 
 import classes from "./Header.module.css";
 import { HeaderProps } from "./Header.interface";
 import { useNavigate } from "react-router-dom";
 import {
-  COMMON_CONSTANTS,
-  COOKIES_KEY,
-  HEADER_CONSTANTS,
-  ROUTES,
   TOOLTIP_LABLES,
 } from "../../constants";
 import {
   IconCircleChevronLeft,
   IconCircleChevronRight,
-  IconLogout,
-  IconUserScan,
+  IconFolder,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
-import { useRef } from "react";
-import { googleLogout } from "@react-oauth/google";
-import { getCookies, removeAllCookies } from "../../helpers/cookies";
-import {
-  signOutFirebase,
-  isGcpMultiTenantEnabled,
-} from "../../helpers/gcpAuth";
-import { MULTI_TENANT_CONSTANTS } from "../../constants";
+import { useTenantContext, useProjectContext } from "../../contexts";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
-  const userProfilePicture = useRef<string>(
-    Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
-  );
-  const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
-  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  const { projects } = useTenantContext();
+  const { projectId, projectName, plan, switchProject } = useProjectContext();
 
-  const onClick = () => {
-    navigate("/");
-  };
-
-  const onLogoutClick = async () => {
-    if (gcpMultiTenantEnabled) {
-      await signOutFirebase();
-    } else {
-      googleLogout();
-    }
-    removeAllCookies();
-    navigate(ROUTES.LOGIN.basePath);
+  const handleProjectSwitch = async (newProjectId: string | null) => {
+    if (!newProjectId || newProjectId === projectId) return;
+    await switchProject(newProjectId);
   };
 
   return (
     <AppShell.Header>
       <Box className={classes.headerContainer}>
-        <Group h="100%" px="md" grow>
+        {/* Navbar Toggle */}
+        <Box className={classes.leftSection}>
           {opened ? (
             <Tooltip label={TOOLTIP_LABLES.CLOSE_NAVBAR}>
               <IconCircleChevronLeft
@@ -78,54 +51,40 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
               />
             </Tooltip>
           )}
-          <div className={classes.logoContainer} onClick={onClick}>
-            <Image
-              src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
-              radius="md"
-              className={classes.logo}
-              alt=""
+        </Box>
+        
+        {/* Project Display Section */}
+        <Box className={classes.projectSection}>
+          {projectId && projects.length <= 1 ? (
+            // Single project - show name with upgrade badge (Free plan)
+            <Group gap="xs" className={classes.projectInfo}>
+              <IconFolder size={18} style={{ color: '#0ba09a' }} />
+              <Text className={classes.projectName}>{projectName}</Text>
+              <Badge 
+                variant="light" 
+                color="teal"
+                size="sm"
+                className={classes.upgradeBadge}
+                onClick={() => navigate('/pricing')}
+              >
+                {plan === 'free' ? 'Free' : 'Enterprise'} · Upgrade
+              </Badge>
+            </Group>
+          ) : projectId && projects.length > 1 ? (
+            // Multiple projects - show selector
+            <Select
+              leftSection={<IconFolder size={18} />}
+              placeholder="Select project"
+              data={projects.map(p => ({
+                value: p.projectId,
+                label: p.name,
+              }))}
+              value={projectId}
+              onChange={handleProjectSwitch}
+              className={classes.projectDropdown}
+              comboboxProps={{ withinPortal: true }}
             />
-            <Text fs="lg" fw="bold" ml="sm" className={classes.appName}>
-              {COMMON_CONSTANTS.APP_NAME}
-            </Text>
-          </div>
-        </Group>
-        <Box className={classes.userInformation}>
-          <Popover width={200} position="bottom" withArrow shadow="md">
-            <Popover.Target>
-              <Avatar
-                size={"md"}
-                radius={"md"}
-                src={userProfilePicture.current}
-              />
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack justify="space-between" gap="sm">
-                <Group className={classes.userName}>
-                  <IconUserScan size={22} color="#0ba09a" />
-                  <Text>{getCookies(COOKIES_KEY.USER_NAME)}</Text>
-                </Group>
-                {gcpMultiTenantEnabled &&
-                  currentTenantId &&
-                  currentTenantId !== "undefined" && (
-                    <Text size="xs" c="dimmed">
-                      {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                      {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
-                    </Text>
-                )}
-                <Button
-                  leftSection={<IconLogout size={18} />}
-                  onClick={onLogoutClick}
-                  variant="light"
-                  color="red"
-                  size="sm"
-                  fullWidth
-                >
-                  {HEADER_CONSTANTS.LOGOUT_TEXT}
-                </Button>
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
+          ) : null}
         </Box>
       </Box>
     </AppShell.Header>
