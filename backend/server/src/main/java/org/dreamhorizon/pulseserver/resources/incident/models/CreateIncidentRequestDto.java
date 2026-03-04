@@ -21,7 +21,7 @@ public class CreateIncidentRequestDto {
   private String description;
 
   @NotNull
-  private IncidentSeverity severity;
+  private IncidentSeverity severity = IncidentSeverity.P4;
 
   @NotBlank
   private String reporterName;

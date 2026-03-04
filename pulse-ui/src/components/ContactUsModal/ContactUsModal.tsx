@@ -18,13 +18,6 @@ interface ContactUsModalProps {
   onClose: () => void;
 }
 
-const SEVERITY_OPTIONS = [
-  { value: "P1", label: "P1 - Critical" },
-  { value: "P2", label: "P2 - High" },
-  { value: "P3", label: "P3 - Medium" },
-  { value: "P4", label: "P4 - Low" },
-];
-
 interface IncidentResponse {
   id: number;
   status: string;
@@ -34,13 +27,11 @@ interface IncidentResponse {
 export function ContactUsModal({ opened, onClose }: ContactUsModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [severity, setSeverity] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setSeverity(null);
   };
 
   const handleClose = () => {
@@ -50,7 +41,7 @@ export function ContactUsModal({ opened, onClose }: ContactUsModalProps) {
 
   const handleSubmit = async () => {
     console.log("orgIdentifier", getCookies(COOKIES_KEY.TENANT_ID));
-    if (!title.trim() || !description.trim() || !severity) return;
+    if (!title.trim() || !description.trim()) return;
 
     setLoading(true);
     try {
@@ -61,7 +52,6 @@ export function ContactUsModal({ opened, onClose }: ContactUsModalProps) {
           body: JSON.stringify({
             title: title.trim(),
             description: description.trim(),
-            severity,
             reporterName: getCookies(COOKIES_KEY.USER_NAME),
             reporterEmail: getCookies(COOKIES_KEY.USER_EMAIL),
             orgIdentifier: getCookies(COOKIES_KEY.TENANT_ID) || "default",
@@ -90,7 +80,7 @@ export function ContactUsModal({ opened, onClose }: ContactUsModalProps) {
     }
   };
 
-  const isFormValid = title.trim() && description.trim() && severity;
+  const isFormValid = title.trim() && description.trim();
 
   return (
     <Modal
@@ -114,14 +104,6 @@ export function ContactUsModal({ opened, onClose }: ContactUsModalProps) {
           value={description}
           onChange={(e) => setDescription(e.currentTarget.value)}
           minRows={4}
-          required
-        />
-        <Select
-          label="Severity"
-          placeholder="Select severity"
-          data={SEVERITY_OPTIONS}
-          value={severity}
-          onChange={setSeverity}
           required
         />
         <Button
