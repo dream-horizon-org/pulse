@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket       = "pulse-deployment-config"
-    key          = "terraform/production/pulse-ui/terraform.tfstate"
+    key          = "terraform/production/pulse-alerts-cron/terraform.tfstate"
     region       = "ap-south-1"
     use_lockfile = true
   }
@@ -29,17 +29,17 @@ provider "aws" {
 # -------------------------------------------------------------------
 # Launch Template
 # -------------------------------------------------------------------
-resource "aws_launch_template" "pulse_ui" {
-  name = "pulse-ui-lt"
+resource "aws_launch_template" "pulse_alerts_cron" {
+  name = "pulse-alerts-cron-lt"
 
   tags = {
-    Name                = "pulse-ui-lt"
-    org_name            = "horizon"
-    environment_name    = "production"
-    component_name      = "pulse-ui"
-    component_type      = "application"
-    service_name        = "pulse"
-    resource_type       = "lt"
+    Name             = "pulse-alerts-cron-lt"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-alerts-cron"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lt"
   }
 
   image_id               = var.ami_id
@@ -49,26 +49,26 @@ resource "aws_launch_template" "pulse_ui" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name                = "pulse-ui-instance"
-      org_name            = "horizon"
-      environment_name    = "production"
-      component_name      = "pulse-ui"
-      component_type      = "application"
-      service_name        = "pulse"
-      resource_type       = "ec2"
+      Name             = "pulse-alerts-cron-instance"
+      org_name         = "horizon"
+      environment_name = "production"
+      component_name   = "pulse-alerts-cron"
+      component_type   = "application"
+      service_name     = "pulse"
+      resource_type    = "ec2"
     }
   }
 
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name                = "pulse-ui-volume"
-      org_name            = "horizon"
-      environment_name    = "production"
-      component_name      = "pulse-ui"
-      component_type      = "application"
-      service_name        = "pulse"
-      resource_type       = "ebs"
+      Name             = "pulse-alerts-cron-volume"
+      org_name         = "horizon"
+      environment_name = "production"
+      component_name   = "pulse-alerts-cron"
+      component_type   = "application"
+      service_name     = "pulse"
+      resource_type    = "ebs"
     }
   }
 
@@ -87,15 +87,16 @@ resource "aws_launch_template" "pulse_ui" {
 
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
     artifact_version = var.artifact_version
+    app_env          = var.app_env
   }))
 }
 
 # -------------------------------------------------------------------
-# NLB + Target Group + Listener
+# ALB + Target Group + Listeners
 # -------------------------------------------------------------------
-resource "aws_lb" "pulse_ui" {
+resource "aws_lb" "pulse_alerts_cron" {
   load_balancer_type         = "application"
-  name                       = "pulse-ui-alb"
+  name                       = "pulse-alerts-cron-alb"
   internal                   = true
   ip_address_type            = "ipv4"
   subnets                    = var.alb_subnet_ids
@@ -104,20 +105,20 @@ resource "aws_lb" "pulse_ui" {
   drop_invalid_header_fields = true
 
   tags = {
-    Name                = "pulse-ui-lb"
-    org_name            = "horizon"
-    environment_name    = "production"
-    component_name      = "pulse-ui"
-    component_type      = "application"
-    service_name        = "pulse"
-    resource_type       = "lb"
+    Name             = "pulse-alerts-cron-lb"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-alerts-cron"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lb"
   }
 }
 
-resource "aws_lb_target_group" "pulse_ui" {
+resource "aws_lb_target_group" "pulse_alerts_cron" {
   target_type     = "instance"
-  name            = "pulse-ui-tg"
-  port            = 3000
+  name            = "pulse-alerts-cron-tg"
+  port            = 4000
   ip_address_type = "ipv4"
   vpc_id          = var.vpc_id
   protocol        = "HTTP"
@@ -137,49 +138,32 @@ resource "aws_lb_target_group" "pulse_ui" {
   deregistration_delay = 30
 
   tags = {
-    Name                = "pulse-ui-tg"
-    org_name            = "horizon"
-    environment_name    = "production"
-    component_name      = "pulse-ui"
-    component_type      = "application"
-    service_name        = "pulse"
-    resource_type       = "tg"
+    Name             = "pulse-alerts-cron-tg"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-alerts-cron"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "tg"
   }
 }
 
-resource "aws_lb_listener" "pulse_ui_https" {
-  load_balancer_arn = aws_lb.pulse_ui.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = var.ssl_policy
-  certificate_arn   = var.acm_cert
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.pulse_ui.arn
-  }
-}
-
-resource "aws_lb_listener" "pulse_ui_http" {
-  load_balancer_arn = aws_lb.pulse_ui.arn
+resource "aws_lb_listener" "pulse_alerts_cron_http" {
+  load_balancer_arn = aws_lb.pulse_alerts_cron.arn
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.pulse_alerts_cron.arn
   }
 }
 
 # -------------------------------------------------------------------
 # Autoscaling Group
 # -------------------------------------------------------------------
-resource "aws_autoscaling_group" "pulse_ui" {
-  name = "pulse-ui-asg"
+resource "aws_autoscaling_group" "pulse_alerts_cron" {
+  name = "pulse-alerts-cron-asg"
 
   mixed_instances_policy {
     instances_distribution {
@@ -190,10 +174,10 @@ resource "aws_autoscaling_group" "pulse_ui" {
 
     launch_template {
       launch_template_specification {
-        launch_template_id = aws_launch_template.pulse_ui.id
-        version            = aws_launch_template.pulse_ui.latest_version
+        launch_template_id = aws_launch_template.pulse_alerts_cron.id
+        version            = aws_launch_template.pulse_alerts_cron.latest_version
       }
-      # The correct way to pass a list of specific instance types
+
       dynamic "override" {
         for_each = var.instance_types
         content {
@@ -210,24 +194,19 @@ resource "aws_autoscaling_group" "pulse_ui" {
   min_size                  = var.asg_min_size
   max_size                  = var.asg_max_size
   protect_from_scale_in     = true
-  target_group_arns = [aws_lb_target_group.pulse_ui.arn]
+  target_group_arns         = [aws_lb_target_group.pulse_alerts_cron.arn]
 
   instance_refresh {
     strategy = "Rolling"
     preferences {
-      # This ensures your app doesn't go down during the refresh.
-      # Since your desired capacity is 1, AWS will temporarily spin up a 2nd instance,
-      # wait for it to pass ALB health checks, and THEN terminate the old 1st instance.
-      min_healthy_percentage = 100
+      min_healthy_percentage       = 100
       scale_in_protected_instances = "Refresh"
     }
-    # This tells Terraform to trigger a refresh if the Launch Template changes
-    triggers = ["launch_template"]
   }
 
   tag {
     key                 = "Name"
-    value               = "pulse-ui-asg"
+    value               = "pulse-alerts-cron-asg"
     propagate_at_launch = false
   }
   tag {
@@ -242,7 +221,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   }
   tag {
     key                 = "component_name"
-    value               = "pulse-ui"
+    value               = "pulse-alerts-cron"
     propagate_at_launch = false
   }
   tag {
@@ -267,16 +246,16 @@ resource "aws_autoscaling_group" "pulse_ui" {
 }
 
 # -------------------------------------------------------------------
-# Route53 Alias Record (recommended)
+# Route53 Alias Record
 # -------------------------------------------------------------------
-resource "aws_route53_record" "pulse_ui" {
+resource "aws_route53_record" "pulse_alerts_cron" {
   zone_id = var.route53_zone_id
   name    = var.route53_record_name
   type    = "A"
 
   alias {
-    name                   = aws_lb.pulse_ui.dns_name
-    zone_id                = aws_lb.pulse_ui.zone_id
+    name                   = aws_lb.pulse_alerts_cron.dns_name
+    zone_id                = aws_lb.pulse_alerts_cron.zone_id
     evaluate_target_health = false
   }
 }

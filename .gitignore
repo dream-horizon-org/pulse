@@ -1,16 +1,19 @@
 .idea
+.vscode
 .gradle
 .DS_Store
 **/build/
 .kotlin/
+lib/
 
 .env
 
-
+.cursor/
 .terraform/
 *.tfstate
 *.tfstate.*
 *.tfvars
+*.tfvars.*
 .terraformrc
 terraform.rc
 
