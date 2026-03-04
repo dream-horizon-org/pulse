@@ -30,8 +30,8 @@ public class MysqlSymbolFileService extends SymbolFileService {
   public Single<Boolean> uploadFile(String fileName, InputStream fileInputStream, UploadMetadata metadata) {
     final String sql =
         "INSERT INTO symbol_files "
-            + "  (app_version, app_version_code, platform, framework, file_content, bundleid) "
-            + "VALUES (?,?,?,?,?,?) "
+            + "  (app_version, app_version_code, platform, framework, file_content, bundleid, project_id) "
+            + "VALUES (?,?,?,?,?,?,?) "
             + "ON DUPLICATE KEY UPDATE file_content = VALUES(file_content), bundleid = VALUES(bundleid)";
 
     return d11MysqlClient.getWriterPool()
@@ -41,7 +41,8 @@ public class MysqlSymbolFileService extends SymbolFileService {
             metadata.getPlatform(),
             metadata.getType(),
             toBuffer(fileInputStream),
-            metadata.getBundleId())))
+            metadata.getBundleId(),
+            metadata.getProjectId())))
         .map(rows -> true)
         .onErrorResumeNext(err -> {
           log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());
@@ -55,7 +56,7 @@ public class MysqlSymbolFileService extends SymbolFileService {
     final String sql = """
         SELECT file_content
         FROM symbol_files
-        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=?
+        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=? AND project_id=?
         LIMIT 1
         """;
 
@@ -63,7 +64,8 @@ public class MysqlSymbolFileService extends SymbolFileService {
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),
-        metadata.getType()
+        metadata.getType(),
+        metadata.getProjectId()
     );
 
     return d11MysqlClient.getReaderPool()

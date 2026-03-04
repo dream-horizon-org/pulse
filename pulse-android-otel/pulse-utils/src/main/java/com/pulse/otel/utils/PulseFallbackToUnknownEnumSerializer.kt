@@ -8,7 +8,23 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 import kotlin.reflect.KClass
+
+public object PulseSerialisationUtils {
+    public val jsonConfigForSerialisation: Json = createJsonConfig(isStrict = PulseOtelUtils.isDebug())
+
+    public fun createJsonConfig(isStrict: Boolean): Json =
+        Json {
+            encodeDefaults = true
+            explicitNulls = false
+            ignoreUnknownKeys = !isStrict
+            prettyPrint = isStrict
+            isLenient = !isStrict
+            allowSpecialFloatingPointValues = true
+            useAlternativeNames = true
+        }
+}
 
 public open class PulseFallbackToUnknownEnumSerializer<T : Enum<T>>(
     enumClass: KClass<T>,

@@ -23,9 +23,9 @@ variable "private_ec2_subnet_ids" {
   type        = list(string)
 }
 
-variable "security_group_id" {
+variable "security_group_ids" {
   description = "Security group to attach to all resources"
-  type        = string
+  type        = list(string)
 }
 
 variable "nlb_security_group_ids" {

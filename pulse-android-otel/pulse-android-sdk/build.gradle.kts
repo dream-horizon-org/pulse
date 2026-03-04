@@ -7,12 +7,6 @@ description = "Pulse SDK for mobile observability"
 
 android {
     namespace = "com.pulse.android.sdk"
-
-    testOptions {
-        unitTests {
-            isReturnDefaultValues = true
-        }
-    }
 }
 
 kotlin {
@@ -22,17 +16,8 @@ kotlin {
 dependencies {
     api(projects.androidAgent)
     api(projects.instrumentation.sessionReplay)
-    implementation(projects.common)
-    implementation(projects.pulseSemconv)
-    implementation(projects.pulseSamplingModels)
-    implementation(projects.pulseSamplingCore)
-    implementation(projects.pulseUtils)
-    implementation(projects.instrumentation.interaction.interactionLibrary)
-    implementation(projects.instrumentation.location.locationProcessors)
+    implementation(projects.pulseAndroidSdkInternal)
     implementation(platform(libs.opentelemetry.platform.alpha))
-    implementation(libs.opentelemetry.exporter.otlp)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
-    implementation(libs.opentelemetry.semconv.incubating)
-    implementation(libs.kotlin.serialisation)
 }

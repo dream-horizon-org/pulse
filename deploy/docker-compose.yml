@@ -6,10 +6,10 @@ services:
     ports:
       - "3307:3306"  # Using 3307 on host to avoid conflicts
     environment:
-      - MYSQL_ROOT_PASSWORD=pulse_root_password
-      - MYSQL_DATABASE=pulse_db
-      - MYSQL_USER=pulse_user
-      - MYSQL_PASSWORD=pulse_password
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pulse_root_password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
+      - MYSQL_USER=${MYSQL_USER:-pulse_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
     volumes:
       - mysql-data:/var/lib/mysql
       - ./db/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -17,7 +17,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppulse_root_password" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER:-pulse_user}", "-p${MYSQL_PASSWORD:-pulse_password}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,9 +31,9 @@ services:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native client
     environment:
-      - CLICKHOUSE_DB=otel
-      - CLICKHOUSE_USER=pulse_user
-      - CLICKHOUSE_PASSWORD=pulse_password
+      - CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE:-otel}
+      - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
+      - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - clickhouse-data:/var/lib/clickhouse
@@ -56,12 +56,145 @@ services:
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
       - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
+      - ../backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro
+    environment:
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
+      - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
+      - CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE:-otel}
     networks:
       - pulse-network
     depends_on:
       clickhouse:
         condition: service_healthy
-    restart: "no"  # Only run once
+      kafka:
+        condition: service_healthy
+    restart: "no"
+
+  # Kafka (KRaft mode, no Zookeeper)
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: pulse-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 12
+      KAFKA_LOG_RETENTION_HOURS: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # MinIO (S3-compatible storage for session recordings)
+  minio:
+    image: minio/minio:latest
+    container_name: pulse-minio
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pulse_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-pulse_minio_secret}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # MinIO bucket initializer (creates the session-recordings bucket)
+  minio-init:
+    image: minio/mc:latest
+    container_name: pulse-minio-init
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 pulse_minio pulse_minio_secret;
+      mc mb --ignore-existing local/session-recordings;
+      echo 'Bucket session-recordings ready';
+      "
+    networks:
+      - pulse-network
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
+  # Session Capture Service (Rust — HTTP ingestion for mobile SDK)
+  pulse-session-capture:
+    build:
+      context: ../backend/session-capture-service
+      dockerfile: Dockerfile
+    container_name: pulse-session-capture
+    ports:
+      - "3400:3400"
+    environment:
+      PORT: "3400"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: session_recording_events
+      RUST_LOG: pulse_session_capture=info
+    networks:
+      - pulse-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3400/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Session Replay Ingestion Consumer (Node.js — Kafka → S3 + ClickHouse)
+  pulse-session-replay-ingestion:
+    build:
+      context: ../backend/session-replay-ingestion
+      dockerfile: Dockerfile
+    container_name: pulse-session-replay-ingestion
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: session_recording_events
+      KAFKA_METADATA_TOPIC: clickhouse_session_replay_events
+      KAFKA_GROUP_ID: session-replay-ingestion
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: session-recordings
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-pulse_minio}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-pulse_minio_secret}
+      S3_REGION: us-east-1
+      MAX_BATCH_SIZE_KB: "102400"
+      MAX_BATCH_AGE_MS: "10000"
+    networks:
+      - pulse-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
@@ -75,12 +208,10 @@ services:
       clickhouse:
         condition: service_healthy
     restart: unless-stopped
+    # Healthcheck disabled: the contrib image is scratch-based (no shell,
+    # wget, or curl). Health is verified externally via :13133.
     healthcheck:
-      test: [ "CMD", "/otelcol-contrib", "validate", "--config=/etc/otel-collector.yaml" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      disable: true
     environment:
       - CLICKHOUSE_ENDPOINT=tcp://clickhouse:9000
       - CLICKHOUSE_DATABASE=${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -103,7 +234,7 @@ services:
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
     container_name: pulse-ui
     ports:
-      - "3000:80"
+      - "3000:8080"
     environment:
       - NODE_ENV=production
     networks:
@@ -113,11 +244,41 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost/healthcheck.txt" ]
+      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthcheck.txt" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  # Vector Service (Data Collector)
+  vector:
+    build:
+      context: ../vector
+      dockerfile: Dockerfile
+      args:
+        VECTOR_REPO: https://github.com/parth-modh/vector
+        VECTOR_REF: forked/multi-bucket
+        DEBIAN_VERSION: "12"
+    container_name: vector
+    command: [ ]
+    environment:
+      - VECTOR_LOG=debug
+    volumes:
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - vector-data:/var/lib/vector
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8686:8686"
+      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -136,11 +297,11 @@ services:
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql
-      - MYSQL_DATABASE=pulse_db
-      - MYSQL_USER=pulse_user
-      - MYSQL_PASSWORD=pulse_password
-      - MYSQL_WRITER_MAX_POOL_SIZE=10
-      - MYSQL_READER_MAX_POOL_SIZE=10
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
+      - MYSQL_USER=${MYSQL_USER:-pulse_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
+      - MYSQL_WRITER_MAX_POOL_SIZE=${MYSQL_WRITER_MAX_POOL_SIZE:-10}
+      - MYSQL_READER_MAX_POOL_SIZE=${MYSQL_READER_MAX_POOL_SIZE:-10}
 
       # Application Configuration
       - CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL=${CONFIG_SERVICE_APPLICATION_CRONMANAGERBASEURL:-http://pulse-alerts-cron:4000/cron}
@@ -151,9 +312,9 @@ services:
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
 
       # ClickHouse Database Configuration
-      - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/otel
-      - CLICKHOUSE_USERNAME=pulse_user
-      - CLICKHOUSE_PASSWORD=pulse_password
+      - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
+      - CLICKHOUSE_USERNAME=${OTEL_CLICKHOUSE_USER:-pulse_user}
+      - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=8123
       - ENCRYPTION_MASTER_KEY=${VAULT_ENCRYPTION_MASTER_KEY}
@@ -213,9 +374,9 @@ services:
       # MySQL Database Configuration
       - MYSQL_WRITER_HOST=mysql
       - MYSQL_READER_HOST=mysql
-      - MYSQL_DATABASE=pulse_db
-      - MYSQL_USER=pulse_user
-      - MYSQL_PASSWORD=pulse_password
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
+      - MYSQL_USER=${MYSQL_USER:-pulse_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pulse_password}
 
       # Application Configuration
       - CONFIG_SERVICE_APPLICATION_PULSESERVERURL=${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}
@@ -246,5 +407,11 @@ volumes:
   mysql-data:
     driver: local
   clickhouse-data:
+    driver: local
+  vector-data:
+    driver: local
+  kafka-data:
+    driver: local
+  minio-data:
     driver: local
 

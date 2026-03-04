@@ -23,11 +23,11 @@ public object PulseAttributes {
     public val TELEMETRY_SDK_NAME_KEY: AttributeKey<String> = TelemetryAttributes.TELEMETRY_SDK_NAME
 
     /**
-     * Tenant ID for multi-tenant applications.
-     * Used in both HTTP headers (as "tenant-id") and as a global attribute (as "tenant.id").
+     * Project ID for multi-tenant applications.
+     * Used in both HTTP headers (as "X-API-KEY") and as a global attribute (as "project.id").
      */
     @JvmField
-    public val TENANT_ID: AttributeKey<String> = stringKey("tenant.id")
+    public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
     public object PulseSdkNames {
         public const val ANDROID_JAVA: String = "pulse_android_java"

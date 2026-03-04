@@ -82,7 +82,7 @@ public class SessionService {
     QueryConfiguration configuration = QueryConfiguration
         .newQuery(formattedQuery)
         .timeoutMs(2000)
-        .tenantId(TenantContext.getTenantId())
+        .tenantId(TenantContext.requireTenantId())
         .build();
     return clickhouseQueryService.executeQueryOrCreateJob(configuration, GetSessionResponse.Session.class)
         .map(result -> {

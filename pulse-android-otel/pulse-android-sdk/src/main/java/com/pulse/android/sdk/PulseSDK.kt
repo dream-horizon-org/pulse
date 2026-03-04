@@ -3,6 +3,7 @@
 package com.pulse.android.sdk
 
 import android.app.Application
+import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
@@ -11,10 +12,7 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
-import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.resources.ResourceBuilder
-import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
-import java.util.function.BiFunction
 
 /**
  * Interface defining the public API for the PulseSDK
@@ -31,7 +29,7 @@ public interface PulseSDK {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        tenantId: String,
+        projectId: String,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity =
             HttpEndpointConnectivity.forTraces(
@@ -62,12 +60,6 @@ public interface PulseSDK {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
-        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
-        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
-        /**
-         * When non-null, Session Replay is enabled and will be initialized with this config.
-         * Replay events are emitted as log records with pulse.type = session_replay.
-         */
         sessionReplayConfig: com.pulse.android.sdk.replay.SessionReplayConfig? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )
@@ -141,6 +133,8 @@ public interface PulseSDK {
 
     public companion object {
         @JvmStatic
-        public val INSTANCE: PulseSDK by lazy { PulseSDKImpl() }
+        public val INSTANCE: PulseSDK by lazy {
+            PulseSDKAdapter(PulseSDKInternal())
+        }
     }
 }

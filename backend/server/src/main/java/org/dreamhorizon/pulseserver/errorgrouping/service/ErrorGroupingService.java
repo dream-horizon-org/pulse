@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.protobuf.ByteString;
 import io.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest;
+import io.opentelemetry.proto.common.v1.AnyValue;
 import io.opentelemetry.proto.common.v1.KeyValue;
 import io.opentelemetry.proto.logs.v1.LogRecord;
 import io.opentelemetry.proto.logs.v1.ResourceLogs;
@@ -251,6 +252,7 @@ public class ErrorGroupingService {
       String appVersionCode = getResourceAttribute(resourceAttrMap, "app.build_id").orElse(null);
       String platform = getResourceAttribute(resourceAttrMap, "os.name").orElse(null);
       String bundleId = getResourceAttribute(resourceAttrMap, "bundle_id").orElse(null);
+      String projectId = getResourceAttribute(resourceAttrMap, "project.id").orElse(null);
 
 
       for (ScopeLogs scopeLogs : rl.getScopeLogsList()) {
@@ -266,6 +268,7 @@ public class ErrorGroupingService {
               .appVersionCode(appVersionCode)
               .platform(platform)
               .bundleId(bundleId)
+              .projectId(projectId)
               .build();
 
           // Use processWithCompleteSymbolication to get both grouping and full symbolication
@@ -330,9 +333,43 @@ public class ErrorGroupingService {
   private Map<String, String> attributesToMap(List<KeyValue> attributes) {
     Map<String, String> map = new HashMap<>();
     for (KeyValue kv : attributes) {
-      map.put(kv.getKey(), kv.getValue().getStringValue());
+      String value = anyValueToString(kv.getValue());
+      map.put(kv.getKey(), value);
     }
     return map;
+  }
+
+  // Convert OTLP AnyValue to String (handles all types: string, bool, int, double, array)
+  private String anyValueToString(AnyValue anyValue) {
+    if (anyValue.hasStringValue()) {
+      return anyValue.getStringValue();
+    } else if (anyValue.hasBoolValue()) {
+      return String.valueOf(anyValue.getBoolValue());
+    } else if (anyValue.hasIntValue()) {
+      return String.valueOf(anyValue.getIntValue());
+    } else if (anyValue.hasDoubleValue()) {
+      // Format double to match Android format (with .0 for integers)
+      double val = anyValue.getDoubleValue();
+      if (val == (long) val) {
+        return String.valueOf((long) val) + ".0";
+      }
+      return String.valueOf(val);
+    } else if (anyValue.hasArrayValue()) {
+      // Convert array to string format matching Android: "[value1, value2, value3]"
+      List<String> values = new ArrayList<>();
+      for (AnyValue item : anyValue.getArrayValue().getValuesList()) {
+        values.add(anyValueToString(item));
+      }
+      return "[" + String.join(", ", values) + "]";
+    } else if (anyValue.hasKvlistValue()) {
+      // Convert key-value list to JSON-like string
+      Map<String, String> nested = new HashMap<>();
+      for (KeyValue nestedKv : anyValue.getKvlistValue().getValuesList()) {
+        nested.put(nestedKv.getKey(), anyValueToString(nestedKv.getValue()));
+      }
+      return nested.toString();
+    }
+    return "";
   }
 
   private Single<List<String>> symbolicate(Lane lane, List<Frame> frames, EventMeta eventMeta) {

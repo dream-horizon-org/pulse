@@ -21,7 +21,7 @@ public class BaseInteractionDao {
    * Gets the current tenant ID from the TenantContext.
    */
   private String getTenantId() {
-    return TenantContext.getTenantId();
+    return TenantContext.requireTenantId();
   }
 
   public Single<Boolean> archiveJob(SqlConnection conn, String interactionName, String user) {

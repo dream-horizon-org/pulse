@@ -81,6 +81,7 @@ public class Symbolicator {
             .appVersion(eventMeta.getAppVersion())
             .platform(eventMeta.getPlatform())
             .bundleId(eventMeta.getBundleId())
+            .projectId(eventMeta.getProjectId())
             .type("JS")
             .build())
         .map(sourcemap -> {
@@ -114,6 +115,7 @@ public class Symbolicator {
             .versionCode(eventMeta.getAppVersionCode())
             .appVersion(eventMeta.getAppVersion())
             .platform(eventMeta.getPlatform())
+            .projectId(eventMeta.getProjectId())
             .type("JAVA")
             .build())
         .map(proguardMapProducer -> {

@@ -1411,17 +1411,23 @@ export class MockDataStore {
         attributesToDrop: [
           {
             id: generateId(),
-            name: '^user\\.email$',
-            props: [],
-            scopes: ['logs', 'traces'],
-            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+            values: ['user.email', 'auth_token', 'credit_card'],
+            condition: {
+              name: '',
+              props: [],
+              scopes: ['logs', 'traces'],
+              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+            },
           },
           {
             id: generateId(),
-            name: '^auth_token$',
-            props: [],
-            scopes: ['logs', 'traces', 'metrics'],
-            sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+            values: ['ssn', 'password'],
+            condition: {
+              name: '^http\\.request$',
+              props: [],
+              scopes: ['logs', 'traces', 'metrics'],
+              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+            },
           },
         ],
         attributesToAdd: [],
@@ -1648,6 +1654,12 @@ interface SamplingConfigV1 {
   criticalSessionPolicies: { alwaysSend: CriticalPolicyRuleV1[] };
 }
 
+interface AttributeToDropV1 {
+  id?: string;
+  values: string[];
+  condition: EventFilterV1;
+}
+
 interface SignalsConfigV1 {
   filters: FilterConfigV1;
   scheduleDurationMs: number;
@@ -1655,7 +1667,7 @@ interface SignalsConfigV1 {
   metricCollectorUrl?: string;
   spanCollectorUrl?: string;
   customEventCollectorUrl?: string;
-  attributesToDrop: EventFilterV1[];
+  attributesToDrop: AttributeToDropV1[];
   attributesToAdd?: AttributeToAddV1[];
 }
 

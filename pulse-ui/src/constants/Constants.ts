@@ -683,6 +683,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/tables`,
     method: API_METHODS.GET,
   },
+  AI_QUERY: {
+    key: "AI_QUERY",
+    apiPath: `/query/ai`,
+    method: API_METHODS.POST,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {

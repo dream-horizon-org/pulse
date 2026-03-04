@@ -93,14 +93,14 @@ public class MainVerticle extends AbstractVerticle {
   @Override
   public Completable rxStop() {
     try {
-      ClickhouseTenantConnectionPoolManager poolManager = 
+      ClickhouseTenantConnectionPoolManager poolManager =
           SharedDataUtils.get(vertx.getDelegate(), ClickhouseTenantConnectionPoolManager.class);
       poolManager.closeAllPools();
       log.info("Closed all tenant connection pools");
     } catch (Exception e) {
       log.warn("Error closing tenant pools", e);
     }
-    
+
     this.webClient.close();
     return mysqlClient.rxClose();
   }

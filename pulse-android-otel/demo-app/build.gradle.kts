@@ -119,6 +119,7 @@ configurations.all {
 pulse {
     sourcemaps {
         apiUrl.set("http://localhost:8080/v1/symbolicate/file/upload")
+        apiKey.set("default-api-key")
         mappingFile.set(file("/tmp/test-upload/mapping.txt"))
         appVersion.set("0.0.1")
         versionCode.set(123)

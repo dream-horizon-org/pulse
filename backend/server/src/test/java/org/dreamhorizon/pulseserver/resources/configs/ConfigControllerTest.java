@@ -73,6 +73,8 @@ class ConfigControllerTest {
     @Test
     void shouldGetConfigByVersion(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+
+        TenantContext.setTenantId("default");
         // Given
         Integer version = 1;
         PulseConfig mockConfig = PulseConfig.builder()
@@ -80,7 +82,7 @@ class ConfigControllerTest {
             .description("Test Config")
             .build();
 
-        when(configService.getSdkConfig(version)).thenReturn(Single.just(mockConfig));
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version)).thenReturn(Single.just(mockConfig));
 
         // When
         CompletionStage<Response<PulseConfig>> result = configController.getSdkConfig(version);
@@ -92,7 +94,7 @@ class ConfigControllerTest {
             assertNotNull(resp.getData());
             assertEquals(1L, resp.getData().getVersion());
             assertEquals("Test Config", resp.getData().getDescription());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
           });
           testContext.completeNow();
         });
@@ -104,8 +106,8 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 999;
-
-        when(configService.getSdkConfig(version))
+        TenantContext.setTenantId("default");
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Config not found", "Config not found", 404)));
 
@@ -119,7 +121,7 @@ class ConfigControllerTest {
             assertInstanceOf(WebApplicationException.class, err);
             WebApplicationException webException = (WebApplicationException) err;
             assertEquals(404, webException.getResponse().getStatus());
-            verify(configService, times(1)).getSdkConfig(version);
+            verify(configService, times(1)).getSdkConfig(TenantContext.requireTenantId(), version);
           });
           testContext.completeNow();
         });
@@ -131,8 +133,8 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         // Given
         Integer version = 1;
-
-        when(configService.getSdkConfig(version))
+        TenantContext.setTenantId("default");
+        when(configService.getSdkConfig(TenantContext.requireTenantId(), version))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "Database error", "Database error", 500)));
 
@@ -168,19 +170,19 @@ class ConfigControllerTest {
             .description("Active Config")
             .build();
 
-        when(configService.getActiveSdkConfig()).thenReturn(Single.just(mockConfig));
+        when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(mockConfig));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            assertNotNull(resp.getData());
-            assertEquals(5L, resp.getData().getVersion());
-            assertEquals("Active Config", resp.getData().getDescription());
-            verify(configService, times(1)).getActiveSdkConfig();
+            assertNotNull(resp);
+            assertEquals(5L, resp.getVersion());
+            assertEquals("Active Config", resp.getDescription());
+            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
           });
           testContext.completeNow();
         });
@@ -192,19 +194,19 @@ class ConfigControllerTest {
       vertx.runOnContext(v -> {
         vertx.getOrCreateContext().putLocal("pulse.tenant.id", "default");
         // Given
-        when(configService.getActiveSdkConfig())
+        when(configService.getActiveSdkConfig(TenantContext.requireTenantId()))
             .thenReturn(Single.error(ServiceError.DATABASE_ERROR.getCustomException(
                 "No active config", "No active config", 404)));
 
         // When
-        CompletionStage<Response<PulseConfig>> result = configController.getActiveSdkConfig();
+        CompletionStage<PulseConfig> result = configController.getActiveSdkConfig();
 
         // Then
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNotNull(err);
             assertInstanceOf(WebApplicationException.class, err);
-            verify(configService, times(1)).getActiveSdkConfig();
+            verify(configService, times(1)).getActiveSdkConfig(TenantContext.requireTenantId());
           });
           testContext.completeNow();
         });
@@ -815,17 +817,14 @@ class ConfigControllerTest {
               .metricCollectorUrl("http://metrics.example.com")
               .spanCollectorUrl("http://spans.example.com")
               .attributesToDrop(Arrays.asList(
-                  PulseConfig.EventFilter.builder()
-                      .name("sensitiveAttr1")
-                      .props(List.of())
-                      .scopes(Arrays.asList(Scope.logs))
-                      .sdks(Arrays.asList(Sdk.pulse_android_java))
-                      .build(),
-                  PulseConfig.EventFilter.builder()
-                      .name("sensitiveAttr2")
-                      .props(List.of())
-                      .scopes(Arrays.asList(Scope.logs))
-                      .sdks(Arrays.asList(Sdk.pulse_android_java))
+                  PulseConfig.AttributeToDrop.builder()
+                      .values(Arrays.asList("sensitiveAttr1", "sensitiveAttr2"))
+                      .condition(PulseConfig.EventFilter.builder()
+                          .name("sensitiveFilter")
+                          .props(List.of())
+                          .scopes(Arrays.asList(Scope.logs))
+                          .sdks(Arrays.asList(Sdk.pulse_android_java))
+                          .build())
                       .build()
               ))
               .attributesToAdd(Arrays.asList(

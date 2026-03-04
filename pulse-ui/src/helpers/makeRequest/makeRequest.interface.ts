@@ -1,6 +1,8 @@
 export type MakeRequestConfig = {
   url: RequestInfo | URL;
   init?: RequestInit;
+  /** Set to true for endpoints that return raw data without the { data, error } wrapper */
+  unwrapped?: boolean;
 };
 
 export type DefaultErrorResponse = {

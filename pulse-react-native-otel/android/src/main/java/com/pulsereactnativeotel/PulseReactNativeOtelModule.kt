@@ -5,7 +5,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
-import com.pulse.android.sdk.PulseSDK
+import com.pulse.android.sdk.internal.PulseSDKInternal
 import android.content.Context
 import android.os.Looper
 import android.util.Log
@@ -24,7 +24,7 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
   }
 
   override fun isInitialized(): Boolean {
-    return PulseSDK.INSTANCE.isInitialized()
+    return Pulse.sdkInternal.isInitialized()
   }
 
   override fun setCurrentScreenName(screenName: String): Boolean {
@@ -72,16 +72,16 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
   }
 
   override fun setUserId(id: String?) {
-    PulseSDK.INSTANCE.setUserId(id)
+    Pulse.sdkInternal.setUserId(id)
   }
 
   override fun setUserProperty(name: String, value: String?) {
-    PulseSDK.INSTANCE.setUserProperty(name, value)
+    Pulse.sdkInternal.setUserProperty(name, value)
   }
 
   override fun setUserProperties(properties: ReadableMap?) {
     properties?.let { props ->
-      PulseSDK.INSTANCE.setUserProperties {
+      Pulse.sdkInternal.setUserProperties {
         props.entryIterator.forEach { (key, value) ->
           put(key, value)
         }
@@ -90,7 +90,7 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
   }
 
   override fun shutdown(): Boolean {
-    PulseSDK.INSTANCE.shutdown()
+    Pulse.sdkInternal.shutdown()
     return true
   }
 
@@ -108,10 +108,7 @@ internal class PulseReactNativeOtelModule(reactContext: ReactApplicationContext)
       Context.MODE_PRIVATE
     )
 
-    val configJson = sharedPrefs.getString("sdk_config", null)
-    if (configJson == null) {
-      return null
-    }
+    val configJson = sharedPrefs.getString("sdk_config", null) ?: return null
 
     val json = Json {
       ignoreUnknownKeys = true

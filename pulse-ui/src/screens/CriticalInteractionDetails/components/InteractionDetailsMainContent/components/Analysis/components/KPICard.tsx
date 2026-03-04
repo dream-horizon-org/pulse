@@ -18,14 +18,6 @@ const KPICard: React.FC<KPICardProps> = ({
   const isPositive = trend === "up";
   const isNegative = trend === "down";
 
-  const colorMap: Record<string, string> = {
-    blue: "#228be6",
-    green: "#37b24d",
-    red: "#f03e3e",
-    orange: "#f76707",
-    gray: "#868e96",
-  };
-
   return (
     <Card
       shadow="sm"

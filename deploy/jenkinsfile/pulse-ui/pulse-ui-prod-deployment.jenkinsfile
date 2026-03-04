@@ -1,0 +1,126 @@
+pipeline {
+    // This runs the pipeline on any available Jenkins agent
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(name: 'ARTIFACT_VERSION', description: 'Artifact version to be deployed')
+    }
+
+    // Define environment variables to be used throughout the pipeline
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        TF_VAR_artifact_version = "${params.ARTIFACT_VERSION}"
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+        // If your Jenkins server doesn't have an IAM role, you can inject credentials here
+        // AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        // AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                // Pulls the code from your Git repository
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                // We use single quotes (''') for multi-line bash scripts in Jenkins
+                sh '''
+                    pwd
+                    cd deploy/terraform/pulse-ui
+                    echo "Fetching variables from AWS Secrets Manager..."
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/pulseui/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh '''
+                    echo "Initializing Terraform..."
+                    cd deploy/terraform/pulse-ui
+                    pwd
+                    terraform init
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh '''
+                    echo "Running Terraform Plan..."
+                    cd deploy/terraform/pulse-ui
+                    pwd
+                    terraform plan -out=tfplan
+                '''
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                // This halts the pipeline and waits for a human to click "Proceed" in the Jenkins UI
+                input message: 'Review the Terraform Plan output above. Do you want to apply these changes to AWS?', ok: 'Yes, Deploy!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh '''
+                    echo "Applying Terraform Apply..."
+                    cd deploy/terraform/pulse-ui
+                    pwd
+                    terraform apply -input=false tfplan
+                '''
+            }
+        }
+    }
+
+    post {
+        // This runs after the pipeline finishes, regardless of success or failure
+        always {
+            echo "Cleaning up workspace..."
+            // It's good practice to delete the plan file so sensitive data doesn't sit on the Jenkins server
+            sh 'rm -f tfplan'
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* deployment failed on production\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'red', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}
