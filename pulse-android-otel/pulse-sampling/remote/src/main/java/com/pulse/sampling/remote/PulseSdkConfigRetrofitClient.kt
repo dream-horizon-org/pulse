@@ -1,33 +1,26 @@
 package com.pulse.sampling.remote
 
-import com.pulse.sampling.models.BuildConfig
+import com.pulse.otel.utils.PulseNetworkingUtils
+import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.otel.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
-import okhttp3.Cache
+import okhttp3.Call
+import okhttp3.EventListener
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Response
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
-import java.io.File
 
 public class PulseSdkConfigRetrofitClient(
     private val url: String,
-    private val cacheDir: File,
-    private val json: Json =
-        Json {
-            encodeDefaults = true
-            explicitNulls = false
-            ignoreUnknownKeys = !BuildConfig.DEBUG
-            prettyPrint = BuildConfig.DEBUG
-            isLenient = !BuildConfig.DEBUG
-            allowSpecialFloatingPointValues = true
-            useAlternativeNames = true
-        },
-    private val okhttpClient: OkHttpClient? = null,
+    private val okhttpClient: OkHttpClient,
+    private val json: Json = PulseSerialisationUtils.jsonConfigForSerialisation,
 ) {
     private val retrofit: Retrofit by lazy {
         Retrofit
             .Builder()
-            .baseUrl(url)
+            .baseUrl(PulseNetworkingUtils.extractBaseUrlWithSlash(url))
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .client(buildOkHttpClient())
             .build()
@@ -37,25 +30,52 @@ public class PulseSdkConfigRetrofitClient(
         retrofit.create(PulseSdkConfigApiService::class.java)
     }
 
-    private fun buildOkHttpClient(): OkHttpClient {
-        val builder = okhttpClient?.newBuilder() ?: OkHttpClient.Builder()
-        if (okhttpClient?.cache == null) {
-            val cache = Cache(cacheDir, MAX_CACHE_SIZE_BYTE)
-            builder.cache(cache)
-        }
+    private fun buildOkHttpClient(): OkHttpClient =
+        if (okhttpClient.cache != null && PulseOtelUtils.isDebug()) {
+            val builder = okhttpClient.newBuilder()
+            builder.eventListener(
+                object : EventListener() {
+                    override fun cacheConditionalHit(
+                        call: Call,
+                        cachedResponse: Response,
+                    ) {
+                        super.cacheConditionalHit(call, cachedResponse)
+                        PulseOtelUtils.logDebug(TAG) {
+                            "checking cache for url = ${call.request().url}"
+                        }
+                    }
 
-        return builder.build()
-    }
+                    override fun cacheHit(
+                        call: Call,
+                        response: Response,
+                    ) {
+                        super.cacheHit(call, response)
+                        PulseOtelUtils.logDebug(TAG) {
+                            "cacheHit for url = ${call.request().url}"
+                        }
+                    }
+
+                    override fun cacheMiss(call: Call) {
+                        super.cacheMiss(call)
+                        PulseOtelUtils.logDebug(TAG) {
+                            "cacheMiss for url = ${call.request().url}"
+                        }
+                    }
+                },
+            )
+            builder.build()
+        } else {
+            okhttpClient
+        }
 
     private companion object {
-        private const val MAX_CACHE_SIZE_BYTE: Long = 10 * 1024 * 1024
+        private const val TAG = "PulseSdkConfigRetrofitClient"
     }
 
-    public fun newInstance(url: String): PulseSdkConfigRetrofitClient = PulseSdkConfigRetrofitClient(url, cacheDir, json, okhttpClient)
-
-    init {
-        assert(!cacheDir.isFile) {
-            "cacheDir = ${cacheDir.absolutePath} is not directory"
-        }
-    }
+    public fun newInstance(url: String): PulseSdkConfigRetrofitClient =
+        PulseSdkConfigRetrofitClient(
+            url = url,
+            okhttpClient = okhttpClient,
+            json = json,
+        )
 }

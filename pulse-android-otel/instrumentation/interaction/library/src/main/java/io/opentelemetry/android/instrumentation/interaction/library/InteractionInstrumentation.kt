@@ -18,13 +18,20 @@ import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.StatusCode
-import io.opentelemetry.api.trace.TracerProvider
+import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.logs.LogRecordProcessor
 import io.opentelemetry.sdk.trace.SpanProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 
@@ -49,24 +56,50 @@ class InteractionInstrumentation :
 
     val interactionManagerInstance by lazy {
         InteractionManager(
-            interactionConfigFetcher ?: InteractionConfigRestFetcher {
-                "http://10.0.2.2:8080/v1/interaction-configs/"
-            },
+            interactionConfigFetcher ?: InteractionConfigRestFetcher(
+                urlProvider = { "http://10.0.2.2:8080/v1/interaction-configs/" },
+                headers = emptyMap(),
+            ),
         )
     }
 
+    private var tracer: Tracer? = null
+    private var interactionListenerJob: Job? = null
+    private val interactionHandledMap: ConcurrentHashMap<String, Boolean> = ConcurrentHashMap()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun install(ctx: InstallationContext) {
         additionalAttributeExtractors.add(InteractionDefaultAttributesExtractor())
-        launch {
-            interactionManagerInstance.init()
-            interactionManagerInstance.interactionTrackerStatesState.collect { interactionRunningStatuses ->
-                handleSuccessInteraction(
-                    ctx.openTelemetry.tracerProvider,
-                    additionalAttributeExtractors,
-                    interactionRunningStatuses,
-                )
+        interactionListenerJob =
+            launch {
+                interactionManagerInstance.init()
+                val localTracer =
+                    tracer ?: ctx.openTelemetry.tracerProvider
+                        .tracerBuilder("pulse.otel.interaction")
+                        .build()
+                tracer = localTracer
+                interactionManagerInstance
+                    .interactionTrackerStatesState
+                    .flatMapMerge { it.asFlow() }
+                    .filterIsInstance<InteractionRunningStatus.OngoingMatch>()
+                    .filter { it.interaction != null }
+                    .collect { interactionRunningStatus ->
+                        if (!interactionHandledMap.containsKey(interactionRunningStatus.interactionId)) {
+                            handleSuccessInteraction(
+                                localTracer,
+                                additionalAttributeExtractors,
+                                interactionRunningStatus,
+                            )
+                            interactionHandledMap[interactionRunningStatus.interactionId] = true
+                        }
+                    }
             }
-        }
+    }
+
+    override fun uninstall(ctx: InstallationContext) {
+        interactionListenerJob?.cancel()
+        interactionHandledMap.clear()
+        super.uninstall(ctx)
     }
 
     /**
@@ -88,48 +121,34 @@ class InteractionInstrumentation :
         fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor = InteractionLogListener(interactionManager)
 
         private fun handleSuccessInteraction(
-            tracerProvider: TracerProvider,
+            tracer: Tracer,
             additionalAttributeExtractors: List<InteractionAttributesExtractor>,
-            interactionStatuses: List<InteractionRunningStatus>,
+            interactionStatus: InteractionRunningStatus.OngoingMatch,
         ) {
-            val tracer =
-                tracerProvider
-                    .tracerBuilder("pulse.otel.interaction")
-                    .build()
-            interactionStatuses.map { interactionRunningStatus ->
-                when (interactionRunningStatus) {
-                    is InteractionRunningStatus.NoOngoingMatch -> {
-                        // no-op
-                    }
-
-                    is InteractionRunningStatus.OngoingMatch -> {
-                        interactionRunningStatus.interaction?.let { interaction ->
-                            // TODO: Investigate why timeSpanInNanos can be null (empty events list)
-                            // This safety check prevents crash but we need to understand root cause
-                            val timeSpanInNano = interaction.timeSpanInNanos ?: return@let
-                            val span =
-                                tracer
-                                    .spanBuilder(interaction.name)
-                                    .apply {
-                                        setNoParent()
-                                        val attributesBuilder = Attributes.builder()
-                                        additionalAttributeExtractors.forEach(
-                                            Consumer { extractor: InteractionAttributesExtractor ->
-                                                extractor(attributesBuilder, interaction)
-                                            },
-                                        )
-                                        setAllAttributes(attributesBuilder.build())
-                                        setStartTimestamp(timeSpanInNano.first, TimeUnit.NANOSECONDS)
-                                    }.startSpan()
-                            interaction.events addAsSpanEventsTo span
-                            interaction.markerEvents addAsSpanEventsTo span
-                            if (interaction.isErrored) {
-                                span.setStatus(StatusCode.ERROR)
-                            }
-                            span.end(timeSpanInNano.second, TimeUnit.NANOSECONDS)
-                        }
-                    }
+            interactionStatus.interaction?.let { interaction ->
+                // TODO: Investigate why timeSpanInNanos can be null (empty events list)
+                // This safety check prevents crash but we need to understand root cause
+                val timeSpanInNano = interaction.timeSpanInNanos ?: return@let
+                val span =
+                    tracer
+                        .spanBuilder(interaction.name)
+                        .apply {
+                            setNoParent()
+                            val attributesBuilder = Attributes.builder()
+                            additionalAttributeExtractors.forEach(
+                                Consumer { extractor: InteractionAttributesExtractor ->
+                                    extractor(attributesBuilder, interaction)
+                                },
+                            )
+                            setAllAttributes(attributesBuilder.build())
+                            setStartTimestamp(timeSpanInNano.first, TimeUnit.NANOSECONDS)
+                        }.startSpan()
+                interaction.events addAsSpanEventsTo span
+                interaction.markerEvents addAsSpanEventsTo span
+                if (interaction.isErrored) {
+                    span.setStatus(StatusCode.ERROR)
                 }
+                span.end(timeSpanInNano.second, TimeUnit.NANOSECONDS)
             }
         }
 

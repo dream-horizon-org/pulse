@@ -2,7 +2,8 @@
   "apps": [
     {
       "name": "pulse-ui",
-      "script": "scripts/start.js",
+      "script": "npx",
+      "args": "serve -s build -l 3000",
       "instances": "MAX",
       "watch": false,
       "merge_logs": true,

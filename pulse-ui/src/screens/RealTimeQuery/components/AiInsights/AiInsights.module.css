@@ -1,0 +1,218 @@
+.container {
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+}
+
+.summaryCard {
+  background: linear-gradient(135deg, rgba(14, 201, 194, 0.08) 0%, rgba(14, 201, 194, 0.04) 100%);
+  border-left: 4px solid rgba(14, 201, 194, 0.6);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.summaryText {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--mantine-color-dark-7);
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.findingsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.findingItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--mantine-color-gray-0);
+  border-radius: 8px;
+  border-left: 3px solid rgba(14, 201, 194, 0.3);
+  transition: all 0.2s ease;
+}
+
+.findingItem:hover {
+  background: rgba(14, 201, 194, 0.04);
+  border-left-color: rgba(14, 201, 194, 0.6);
+  transform: translateX(2px);
+}
+
+.findingIcon {
+  color: var(--mantine-color-teal-6);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.findingText {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--mantine-color-dark-6);
+}
+
+.statisticsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.statCard {
+  background: linear-gradient(145deg, rgba(14, 201, 194, 0.05) 0%, rgba(14, 201, 194, 0.02) 100%);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.statCard:hover {
+  border-color: rgba(14, 201, 194, 0.3);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.1);
+  transform: translateY(-2px);
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--mantine-color-gray-6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mantine-color-teal-7);
+}
+
+.trendItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: var(--mantine-color-gray-0);
+  border-radius: 8px;
+  border-left: 3px solid rgba(251, 191, 36, 0.3);
+}
+
+.trendIcon {
+  color: var(--mantine-color-yellow-6);
+  flex-shrink: 0;
+}
+
+.trendText {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--mantine-color-dark-6);
+}
+
+.recommendationItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: linear-gradient(145deg, rgba(139, 92, 246, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%);
+  border-radius: 8px;
+  border-left: 3px solid rgba(139, 92, 246, 0.3);
+}
+
+.recommendationIcon {
+  color: var(--mantine-color-violet-6);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.recommendationText {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--mantine-color-dark-6);
+}
+
+.sourcesSection {
+  background: var(--mantine-color-gray-0);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.sourcesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sourceBadge {
+  font-size: 12px;
+}
+
+.partitionInfo {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.partitionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.partitionLabel {
+  font-weight: 600;
+  color: var(--mantine-color-gray-7);
+  min-width: 120px;
+}
+
+.partitionValue {
+  color: var(--mantine-color-dark-6);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.partitionsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.partitionTag {
+  font-size: 11px;
+  padding: 4px 8px;
+  background: rgba(14, 201, 194, 0.08);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 4px;
+  color: var(--mantine-color-teal-7);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+

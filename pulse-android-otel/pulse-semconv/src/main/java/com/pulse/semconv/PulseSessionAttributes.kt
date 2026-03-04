@@ -13,6 +13,10 @@ public object PulseSessionAttributes {
 
     @JvmField
     public val PULSE_SESSION_CRASH_NON_FATAL: AttributeKey<Long> = AttributeKey.longKey("pulse.session.non_fatal.count")
+
+    @JvmField
+    public val PULSE_METERING_SESSION_ID: AttributeKey<String> = AttributeKey.stringKey("pulse.metering.session.id")
+
     private val PULSE_SESSION_SLOW_FRAMES_COUNT =
         AttributeKey.longKey("pulse.session.jank.frozen.count")
     private val PULSE_SESSION_FROZEN_FRAMES_COUNT =

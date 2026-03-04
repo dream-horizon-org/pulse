@@ -1,0 +1,103 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  # file_storage:
+  #   directory: /var/lib/otelcol-contrib/storage
+
+processors:
+  batch:
+    send_batch_size: 50000
+    timeout: 1s
+    send_batch_max_size: 75000
+
+exporters:
+  clickhouse:
+    # driven by env vars from docker-compose
+    endpoint: ${CLICKHOUSE_ENDPOINT}
+    database: ${CLICKHOUSE_DATABASE}
+    username: ${CLICKHOUSE_USER}
+    password: ${CLICKHOUSE_PASSWORD}
+
+    create_schema: false
+    traces_table_name: otel_traces
+    logs_table_name: otel_logs
+    metrics_table_name: otel_metrics_gauge
+    async_insert: false
+    timeout: 10s
+    # sending_queue:
+    #   storage: file_storage
+    #   sizer: bytes
+    #   queue_size: 10000000000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  otlphttp/pulse:
+    endpoint: http://pulse-server:8080
+    tls:
+      insecure: true
+    compression: gzip
+    retry_on_failure:
+      enabled: false
+    sending_queue:
+      enabled: true
+      queue_size: 1000
+
+connectors:
+  routing/pulse:
+    default_pipelines: [ logs/to-clickhouse ]
+    table:
+      - context: log
+        statement: route() where attributes["pulse.type"] != nil and (attributes["pulse.type"] == "device.anr" or attributes["pulse.type"] == "device.crash" or attributes["pulse.type"] == "non_fatal")
+        pipelines: [ logs/to-backend ]
+
+service:
+  extensions: [ health_check ]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+
+  pipelines:
+    traces:
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]
+
+    metrics:
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]
+
+    # Entry pipeline -> route via connector
+    logs/in:
+      receivers: [ otlp ]
+      exporters: [ routing/pulse ]
+
+    # Matched pulse.type -> backend
+    logs/to-backend:
+      receivers: [ routing/pulse ]
+      processors: [ batch ]
+      exporters: [ otlphttp/pulse ]
+
+    # Everything else -> ClickHouse
+    logs/to-clickhouse:
+      receivers: [ routing/pulse ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]

@@ -218,13 +218,18 @@ export function isJsonColumn(columnName: string, dataType: string): boolean {
   return isJsonType || hasJsonName;
 }
 
+/** Partition columns managed by the Time Range picker — excluded from user-selectable lists */
+const PARTITION_COLUMN_NAMES = new Set(["date", "hour"]);
+
 /**
- * Enhance raw columns with metadata
+ * Enhance raw columns with metadata.
+ * Partition columns (date, hour) are excluded because the Time Range section
+ * generates their filters automatically.
  */
 export function enhanceColumns(columns: { columnName: string; dataType: string }[] | undefined | null): EnhancedColumn[] {
   if (!columns || !Array.isArray(columns)) return [];
   return columns
-    .filter(col => col && col.columnName)
+    .filter(col => col && col.columnName && !PARTITION_COLUMN_NAMES.has(col.columnName))
     .map(col => ({
       name: col.columnName,
       type: col.dataType || "unknown",

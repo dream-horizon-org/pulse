@@ -52,17 +52,20 @@ export class MockServer {
       await this.responseGenerator.generateResponse(mockRequest);
 
     // Convert mock response to fetch Response object
-    return this.createFetchResponse(mockResponse);
+    return this.createFetchResponse(mockResponse, requestConfig.unwrapped);
   }
 
   /**
    * Convert mock response to fetch Response object
    */
-  private createFetchResponse(mockResponse: MockResponse): Response {
-    const responseBody = JSON.stringify({
-      data: mockResponse.data,
-      error: mockResponse.error,
-    });
+  private createFetchResponse(mockResponse: MockResponse, unwrapped?: boolean): Response {
+    // For unwrapped endpoints, return the data directly without { data, error } wrapper
+    const responseBody = unwrapped
+      ? JSON.stringify(mockResponse.data)
+      : JSON.stringify({
+          data: mockResponse.data,
+          error: mockResponse.error,
+        });
 
     const responseInit: ResponseInit = {
       status: mockResponse.status,

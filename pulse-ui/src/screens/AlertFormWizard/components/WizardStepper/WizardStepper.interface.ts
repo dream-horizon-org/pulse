@@ -2,7 +2,6 @@
  * Wizard Stepper Interfaces
  */
 
-import { WizardStep } from "../../types";
 import { StepInfo } from "../../hooks";
 
 export interface WizardStepperProps {

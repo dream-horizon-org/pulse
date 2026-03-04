@@ -1,7 +1,7 @@
 package com.pulse.android.remote.models
 
 import androidx.annotation.Keep
-import com.pulse.android.remote.BuildConfig
+import com.pulse.otel.utils.PulseOtelUtils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -18,7 +18,7 @@ public class InteractionConfig internal constructor(
     public val uptimeUpperLimitInMs: Long,
     public val thresholdInMs: Long,
     @Transient
-    internal val shouldThrowOnWrongConfig: Boolean = BuildConfig.DEBUG,
+    internal val shouldThrowOnWrongConfig: Boolean = PulseOtelUtils.isDebug(),
 ) {
     public val eventsSize: Int = events.size
 

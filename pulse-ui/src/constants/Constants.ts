@@ -386,6 +386,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/auth/social/authenticate`,
     method: API_METHODS.POST,
   },
+  TENANT_LOOKUP: {
+    key: "TENANT_LOOKUP",
+    apiPath: `/v1/auth/tenant/lookup`,
+    method: API_METHODS.GET,
+  },
   GET_APDEX_SCORE: {
     key: "GET_APDEX_SCORE",
     apiPath: `/v2/getApdexScore`,
@@ -678,6 +683,11 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/tables`,
     method: API_METHODS.GET,
   },
+  AI_QUERY: {
+    key: "AI_QUERY",
+    apiPath: `/query/ai`,
+    method: API_METHODS.POST,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
@@ -799,6 +809,8 @@ export const COOKIES_KEY: Record<string, string> = {
   ID_TOKEN: "idToken",
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
+  TENANT_ID: "tenantId",
+  TENANT_NAME: "tenantName",
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {
@@ -893,6 +905,15 @@ export const HEADER_CONSTANTS: Record<string, string> = {
 export const LOGIN_PAGE_CONSTANTS: Record<string, string> = {
   SIGNING_IN_MESSAGE: "Authenticating your credentials",
 };
+
+export const MULTI_TENANT_CONSTANTS = {
+  BADGE_LABEL: "Multi-tenant",
+  TENANT_LABEL: "Organization",
+  TENANT_PLACEHOLDER: "Select organization",
+  CURRENT_TENANT_LABEL: "Organization",
+  SIGN_IN_BUTTON: "Sign in with Google (GCP)",
+  SIGN_IN_SUBTEXT: "Sign in with Google via GCP Identity Platform",
+} as const;
 
 export const CRITICAL_INTERACTION_FORM_STEPS: CriticalInteractionFormSteps = [
   {

@@ -13,6 +13,7 @@ public final class io/opentelemetry/android/instrumentation/interaction/library/
 	public fun getName ()Ljava/lang/String;
 	public fun install (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
 	public final fun setConfigFetcher (Lcom/pulse/android/core/config/InteractionConfigFetcher;)Lio/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation;
+	public fun uninstall (Lio/opentelemetry/android/instrumentation/InstallationContext;)V
 }
 
 public final class io/opentelemetry/android/instrumentation/interaction/library/InteractionInstrumentation$Companion {

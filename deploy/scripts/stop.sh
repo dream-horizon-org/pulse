@@ -1,76 +1,152 @@
 #!/bin/bash
 
+# ============================================================================
 # Pulse Observability - Stop Script
-# This script stops all Docker containers
+# Stops and removes Pulse containers.
+# Uses Docker Compose if available, otherwise falls back to Docker CLI.
+#
+# Usage:
+#   ./stop.sh [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel]
+# ============================================================================
 
-set -e  # Exit on error
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Script directory
+# Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/common.sh"
 
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║   Pulse Observability - Stop Script       ║${NC}"
+echo -e "${BLUE}║   Pulse Observability - Stop Script        ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Change to deploy directory
-cd "$DEPLOY_DIR"
-
-# Parse command line arguments
+# ── Parse arguments ────────────────────────────────────────────────────────
 REMOVE_VOLUMES=""
-SERVICES=""
+REMOVE_NETWORK=""
+SERVICES=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -v|--volumes)
-            REMOVE_VOLUMES="-v"
+            REMOVE_VOLUMES="true"
+            shift
+            ;;
+        --all)
+            REMOVE_VOLUMES="true"
+            REMOVE_NETWORK="true"
             shift
             ;;
         ui|pulse-ui)
-            SERVICES="$SERVICES pulse-ui"
+            SERVICES+=("$CONTAINER_UI")
             shift
             ;;
         server|pulse-server)
-            SERVICES="$SERVICES pulse-server"
+            SERVICES+=("$CONTAINER_SERVER")
             shift
             ;;
-        alerting|pulse-alerting)
-            SERVICES="$SERVICES pulse-alerting"
+        cron|alerts-cron|pulse-alerts-cron)
+            SERVICES+=("$CONTAINER_ALERTS_CRON")
             shift
+            ;;
+        mysql)
+            SERVICES+=("$CONTAINER_MYSQL")
+            shift
+            ;;
+        clickhouse)
+            SERVICES+=("$CONTAINER_CLICKHOUSE")
+            shift
+            ;;
+        otel|otel-collector)
+            SERVICES+=("$CONTAINER_OTEL_COLLECTOR")
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel]"
+            exit 0
             ;;
         *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Usage: $0 [-v|--volumes] [ui|server|alerting]"
+            print_error "Unknown option: $1"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel]"
             exit 1
             ;;
     esac
 done
 
-# Stop containers
-echo -e "${BLUE}🛑 Stopping services...${NC}"
+# ── Compose path (when no specific services selected) ────────────────────
+if has_compose && [ ${#SERVICES[@]} -eq 0 ]; then
+    cd "$DEPLOY_DIR"
+    COMPOSE_ARGS=""
+    [ "$REMOVE_VOLUMES" = "true" ] && COMPOSE_ARGS="-v"
+
+    print_info "Stopping services via Docker Compose..."
+    # shellcheck disable=SC2086
+    run_compose down $COMPOSE_ARGS
+
+    if [ "$REMOVE_NETWORK" = "true" ]; then
+        if docker network inspect "$NETWORK_NAME" > /dev/null 2>&1; then
+            docker network rm "$NETWORK_NAME" > /dev/null
+            print_success "Removed network $NETWORK_NAME"
+        fi
+    fi
+
+    echo ""
+    print_success "All done"
+    exit 0
+fi
+
+# ── Docker CLI path ──────────────────────────────────────────────────────
+# Default: stop all containers in reverse dependency order
+if [ ${#SERVICES[@]} -eq 0 ]; then
+    SERVICES=(
+        "$CONTAINER_ALERTS_CRON"
+        "$CONTAINER_UI"
+        "$CONTAINER_SERVER"
+        "$CONTAINER_OTEL_COLLECTOR"
+        "$CONTAINER_CLICKHOUSE_INIT"
+        "$CONTAINER_CLICKHOUSE"
+        "$CONTAINER_MYSQL"
+    )
+fi
+
+print_info "Stopping containers..."
 echo ""
 
-if [ -z "$SERVICES" ]; then
-    if [ ! -z "$REMOVE_VOLUMES" ]; then
-        echo -e "${YELLOW}Stopping all services and removing volumes...${NC}"
-        docker-compose down $REMOVE_VOLUMES
+for container in "${SERVICES[@]}"; do
+    if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+        echo -n "  Stopping $container ... "
+        docker stop "$container" > /dev/null 2>&1 || true
+        docker rm "$container" > /dev/null 2>&1 || true
+        echo -e "${GREEN}done${NC}"
     else
-        echo -e "${YELLOW}Stopping all services...${NC}"
-        docker-compose down
+        echo -e "  $container ${YELLOW}not found (skipped)${NC}"
     fi
-else
-    echo -e "${YELLOW}Stopping services: $SERVICES${NC}"
-    docker-compose stop $SERVICES
+done
+
+echo ""
+print_success "Containers stopped"
+
+if [ "$REMOVE_VOLUMES" = "true" ]; then
+    echo ""
+    print_info "Removing data volumes..."
+    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
+        if docker volume inspect "$vol" > /dev/null 2>&1; then
+            docker volume rm "$vol" > /dev/null
+            print_success "Removed volume $vol"
+        else
+            echo -e "  Volume $vol ${YELLOW}not found (skipped)${NC}"
+        fi
+    done
+fi
+
+if [ "$REMOVE_NETWORK" = "true" ]; then
+    echo ""
+    print_info "Removing network..."
+    if docker network inspect "$NETWORK_NAME" > /dev/null 2>&1; then
+        docker network rm "$NETWORK_NAME" > /dev/null
+        print_success "Removed network $NETWORK_NAME"
+    else
+        echo -e "  Network $NETWORK_NAME ${YELLOW}not found (skipped)${NC}"
+    fi
 fi
 
 echo ""
-echo -e "${GREEN}✓ Services stopped successfully${NC}"
-
+print_success "All done"

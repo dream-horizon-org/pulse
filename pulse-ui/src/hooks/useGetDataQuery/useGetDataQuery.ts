@@ -62,7 +62,7 @@ export const useGetDataQuery = ({
     refetchOnWindowFocus: false,
     refetchInterval,
     enabled: enabled,
-    staleTime: 0,
+    staleTime: 10000,
     placeholderData: undefined,
   });
 };

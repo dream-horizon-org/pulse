@@ -1,5 +1,5 @@
 # Multi-stage build for pulse-server (Java/Vert.x)
-FROM maven:3.9-eclipse-temurin-17@sha256:e4a7ace3dc0d645ed97f8d9ad0b0d3f0b14fa8d150138f27f116d7105a639b82 AS builder
+FROM maven:3.9-eclipse-temurin-17 AS builder
 
 # Create a non-root user
 RUN mkdir -p /app && chown -R 10001:0 /app
@@ -18,7 +18,7 @@ RUN mvn clean package -DskipTests -Dcheckstyle.skip=true
 
 # Runtime stage
 # Using full JRE image instead of alpine for better compatibility
-FROM eclipse-temurin:17-jre@sha256:75ab7d1b4b18483e9245342cbee253b558952c1def5c1c18956196330a01683e
+FROM eclipse-temurin:17-jre
 
 # Install curl for healthcheck
 RUN set -eux; \

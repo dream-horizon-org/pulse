@@ -1,5 +1,5 @@
 import PulseReactNativeOtel from './NativePulseReactNativeOtel';
-import { getIsShutdown } from './config';
+import { getIsShutdown, getIsStarted } from './config';
 import { isSupportedPlatform } from './initialization';
 import { mergeWithGlobalAttributes } from './globalAttributes';
 import { extractErrorDetails } from './utility';
@@ -39,7 +39,7 @@ export type Span = {
 };
 
 export function startSpan(name: string, options?: SpanOptions): Span {
-  if (!isSupportedPlatform() || getIsShutdown()) {
+  if (!isSupportedPlatform() || !getIsStarted() || getIsShutdown()) {
     return noopSpan;
   }
 
@@ -72,7 +72,7 @@ export function trackSpan<T>(
   options: SpanOptions,
   fn: () => T | Promise<T>
 ): T | Promise<T> {
-  if (!isSupportedPlatform() || getIsShutdown()) {
+  if (!isSupportedPlatform() || !getIsStarted() || getIsShutdown()) {
     return fn();
   }
 
@@ -102,7 +102,7 @@ function endSpan(spanId: string, statusCode?: SpanStatusCode): void {
 }
 
 export function discardSpan(spanId: string): void {
-  if (!isSupportedPlatform() || getIsShutdown()) {
+  if (!isSupportedPlatform() || !getIsStarted() || getIsShutdown()) {
     return;
   }
   PulseReactNativeOtel.discardSpan(spanId);

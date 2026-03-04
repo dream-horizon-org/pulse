@@ -1,5 +1,3 @@
-import { INTERACTION_STATUS } from "../../constants";
-
 export type GetInteractionDetailsParams = {
   queryParams: {
     name: string | null;

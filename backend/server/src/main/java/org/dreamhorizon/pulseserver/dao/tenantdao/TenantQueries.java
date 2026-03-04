@@ -32,4 +32,12 @@ public class TenantQueries {
 
   public static final String CHECK_TENANT_EXISTS =
       "SELECT COUNT(*) as count FROM tenants WHERE tenant_id = ?";
+
+  public static final String GET_TENANT_BY_GCP_TENANT_ID =
+      "SELECT tenant_id, name, description, is_active, created_at, updated_at, gcp_tenant_id, domain_name "
+          + "FROM tenants WHERE gcp_tenant_id = ?";
+
+  public static final String GET_TENANT_BY_DOMAIN_NAME =
+      "SELECT tenant_id, name, description, is_active, created_at, updated_at, gcp_tenant_id, domain_name "
+          + "FROM tenants WHERE domain_name = ?";
 }

@@ -1,4 +1,5 @@
 import { Pulse, type Span } from '../index';
+import { getIsStarted } from '../config';
 import { Platform } from 'react-native';
 import { SPAN_NAMES, ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import { discardSpan } from '../trace';
@@ -131,6 +132,9 @@ export function createScreenInteractiveTracker(
 }
 
 export function markContentReady(): void {
+  if (!getIsStarted()) {
+    return;
+  }
   if (globalMarkContentReady) {
     globalMarkContentReady();
   } else {

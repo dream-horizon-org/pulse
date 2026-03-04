@@ -34,7 +34,7 @@ resource "aws_launch_template" "vector" {
     name = var.instance_profile_name
   }
 
-  vpc_security_group_ids = [var.security_group_id]
+  vpc_security_group_ids = var.security_group_ids
 
   instance_market_options {
     market_type = "spot"

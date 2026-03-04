@@ -14,6 +14,26 @@ const getMockServer = async () => {
   return MockServer;
 };
 
+/**
+ * Builds authentication headers for API requests.
+ * Uses the backend-generated access token stored in cookies after successful authentication.
+ */
+function buildAuthHeaders(): Record<string, string> {
+  const accessToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
+  const tokenType = getCookies(COOKIES_KEY.TOKEN_TYPE) || "Bearer";
+  const userEmail = getCookies(COOKIES_KEY.USER_EMAIL);
+
+  const headers: Record<string, string> = {
+    Authorization: `${tokenType} ${accessToken}`,
+  };
+
+  if (userEmail && userEmail !== "undefined") {
+    headers["user-email"] = userEmail;
+  }
+
+  return headers;
+}
+
 export const makeRequestToServer = async (
   requestConfig: MakeRequestConfig,
 ): Promise<Response> => {
@@ -38,14 +58,14 @@ export const makeRequestToServer = async (
   // Original implementation - real API call
   const { url, init } = requestConfig;
   const { headers, body, method, ...rest } = init ?? {};
+  const authHeaders = buildAuthHeaders();
 
   return await fetch(url, {
     method: method ?? API_METHODS.GET,
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      Authorization: `${getCookies(COOKIES_KEY.TOKEN_TYPE)} ${getCookies(COOKIES_KEY.ACCESS_TOKEN)}`,
-      "user-email": `${getCookies(COOKIES_KEY.USER_EMAIL)}`,
+      ...authHeaders,
       ...(headers && { ...headers }),
     },
     ...(body && { body }),

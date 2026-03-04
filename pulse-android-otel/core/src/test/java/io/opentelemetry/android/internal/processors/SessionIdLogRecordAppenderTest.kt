@@ -9,6 +9,8 @@ import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.verify
+import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_END
+import io.opentelemetry.android.common.RumConstants.Events.EVENT_SESSION_START
 import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.context.Context
@@ -35,10 +37,31 @@ class SessionIdLogRecordAppenderTest {
 
     @Test
     fun `should set sessionId as log record attribute`() {
+        every { log.eventName } returns null
         val underTest = SessionIdLogRecordAppender(sessionProvider)
 
         underTest.onEmit(Context.root(), log)
 
         verify { log.setAttribute(SessionIncubatingAttributes.SESSION_ID, SESSION_ID_VALUE) }
+    }
+
+    @Test
+    fun shouldNotSetSessionIdForSessionStartEvent() {
+        every { log.eventName } returns EVENT_SESSION_START
+        val underTest = SessionIdLogRecordAppender(sessionProvider)
+
+        underTest.onEmit(Context.root(), log)
+
+        verify(exactly = 0) { log.setAttribute(any<AttributeKey<String>>(), any<String>()) }
+    }
+
+    @Test
+    fun shouldNotSetSessionIdForSessionEndEvent() {
+        every { log.eventName } returns EVENT_SESSION_END
+        val underTest = SessionIdLogRecordAppender(sessionProvider)
+
+        underTest.onEmit(Context.root(), log)
+
+        verify(exactly = 0) { log.setAttribute(any<AttributeKey<String>>(), any<String>()) }
     }
 }
