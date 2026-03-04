@@ -25,23 +25,54 @@ import { showNotification } from "../../helpers/showNotification";
 import { getCookies } from "../../helpers/cookies";
 import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpiration";
 import { logEvent } from "../../helpers/googleAnalytics";
+import {
+  isGcpMultiTenantEnabled,
+  signInWithGoogleGcp,
+} from "../../helpers/gcpAuth";
+import { lookupTenant, TenantLookupResponse } from "../../helpers/tenantLookup";
 
 export function Login() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
   const [isFetchingTokensFromServer, setIsFetchingTokensFromServer] =
     useState<boolean>(false);
+  const [isLoadingTenant, setIsLoadingTenant] = useState<boolean>(false);
+  const [tenantInfo, setTenantInfo] = useState<TenantLookupResponse | null>(null);
+  const [tenantLookupError, setTenantLookupError] = useState<string | null>(null);
 
-  // Check if we should show dummy login
-  // Priority: 1. Explicit GOOGLE_OAUTH_ENABLED env var, 2. Dev mode + no client ID
+  const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
+
   const googleOAuthEnabled = process.env.REACT_APP_GOOGLE_OAUTH_ENABLED;
   const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID ?? "";
   const isDevMode = process.env.NODE_ENV === "development";
 
   // Determine if dummy login should be shown
   const shouldShowDummyLogin =
-    googleOAuthEnabled === "false" ||
-    (isDevMode && (!googleClientId || googleClientId.trim() === ""));
+    !gcpMultiTenantEnabled &&
+    (googleOAuthEnabled === "false" ||
+      (isDevMode && (!googleClientId || googleClientId.trim() === "")));
+
+  // Fetch tenant info on mount when GCP multi-tenant is enabled
+  useEffect(() => {
+    const fetchTenantInfo = async () => {
+      if (!gcpMultiTenantEnabled) return;
+
+      setIsLoadingTenant(true);
+      setTenantLookupError(null);
+
+      const { data, error } = await lookupTenant();
+
+      if (data) {
+        setTenantInfo(data);
+      } else if (error) {
+        setTenantLookupError(error.message || "Failed to lookup tenant");
+      }
+
+      setIsLoadingTenant(false);
+    };
+
+    fetchTenantInfo();
+  }, [gcpMultiTenantEnabled]);
 
   useEffect(() => {
     const refreshToken = getCookies(COOKIES_KEY.REFRESH_TOKEN);
@@ -100,6 +131,43 @@ export function Login() {
     }
   };
 
+  const onGcpSignIn = async () => {
+    if (!tenantInfo?.gcpTenantId) {
+      showErrorToast("Tenant information not available. Please refresh the page.");
+      return;
+    }
+
+    const gcpTenantId = tenantInfo.gcpTenantId;
+    setIsFetchingTokensFromServer(true);
+    logEvent("User logged in (GCP)", ROUTES.LOGIN.key);
+
+    try {
+      const { idToken, email, tenantId: effectiveTenantId } =
+        await signInWithGoogleGcp(gcpTenantId);
+      const { data, error } = await authenticateUser(idToken, {
+        tenantId: effectiveTenantId ?? gcpTenantId,
+        userEmail: email,
+      });
+      if (data) {
+        await setCookiesAfterAuthentication(data, {
+          tenantId: effectiveTenantId ?? gcpTenantId,
+          tenantName: tenantInfo.tenantName,
+        });
+        navigate(ROUTES.HOME.basePath);
+        setIsFetchingTokensFromServer(false);
+        return;
+      }
+      if (error) {
+        showErrorToast(error.message);
+      }
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE,
+      );
+    }
+    setIsFetchingTokensFromServer(false);
+  };
+
   return (
     <Box className={classes.loginContainer}>
       <Container size="fluid" className={classes.mainWrapper}>
@@ -133,23 +201,66 @@ export function Login() {
               </Stack>
 
               <Box className={classes.loginCard}>
-                {isFetchingTokensFromServer ? (
+                {isFetchingTokensFromServer || isLoadingTenant ? (
                   <LoaderWithMessage
                     className={classes.loader}
-                    loadingMessage={LOGIN_PAGE_CONSTANTS.SIGNING_IN_MESSAGE}
+                    loadingMessage={
+                      isLoadingTenant
+                        ? "Loading tenant information..."
+                        : LOGIN_PAGE_CONSTANTS.SIGNING_IN_MESSAGE
+                    }
                   />
                 ) : (
                   <Stack align="center" gap="lg">
                     <Text className={classes.loginPrompt}>
                       Sign in to get started
                     </Text>
-                    {shouldShowDummyLogin ? (
+                    {gcpMultiTenantEnabled ? (
+                      tenantLookupError ? (
+                        <Stack align="center" gap="md">
+                          <Text c="red" size="sm">
+                            {tenantLookupError}
+                          </Text>
+                          <Button
+                            size="md"
+                            radius="xl"
+                            variant="outline"
+                            onClick={() => window.location.reload()}
+                          >
+                            Retry
+                          </Button>
+                        </Stack>
+                      ) : tenantInfo ? (
+                        <Stack align="center" gap="md">
+                          <Text size="sm" c="dimmed">
+                            Signing in to: <strong>{tenantInfo.tenantName}</strong>
+                          </Text>
+                          <Button
+                            size="lg"
+                            radius="xl"
+                            onClick={onGcpSignIn}
+                            style={{
+                              background:
+                                "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                              border: "none",
+                              fontWeight: 600,
+                              fontSize: "16px",
+                              padding: "12px 32px",
+                              minWidth: "240px",
+                            }}
+                          >
+                            Sign in with Google
+                          </Button>
+                        </Stack>
+                      ) : null
+                    ) : shouldShowDummyLogin ? (
                       <Button
                         size="lg"
                         radius="xl"
                         onClick={onDummyLogin}
                         style={{
-                          background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                          background:
+                            "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
                           border: "none",
                           fontWeight: 600,
                           fontSize: "16px",
@@ -168,9 +279,11 @@ export function Login() {
                       />
                     )}
                     <Text className={classes.loginSubtext}>
-                      {shouldShowDummyLogin
-                        ? "Development mode: Using dummy authentication"
-                        : "Access powerful analytics and insights"}
+                      {gcpMultiTenantEnabled
+                        ? "Sign in with your organization account"
+                        : shouldShowDummyLogin
+                          ? "Development mode: Using dummy authentication"
+                          : "Access powerful analytics and insights"}
                     </Text>
                   </Stack>
                 )}

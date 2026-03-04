@@ -1,14 +1,12 @@
 package org.dreamhorizon.pulseserver.service.athena;
 
 import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.athena.AthenaClient;
@@ -27,154 +25,6 @@ public class AthenaService {
 
   private final AthenaClient athenaClient;
   private final AthenaJobDao athenaJobDao;
-
-  public Single<AthenaJob> submitQuery(String queryString, String userEmail) {
-    if (userEmail == null || userEmail.trim().isEmpty()) {
-      return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
-    }
-
-    return athenaJobDao.createJob(queryString, userEmail.trim())
-        .flatMap(jobId -> athenaClient.submitQuery(queryString)
-            .flatMap(queryExecutionId -> athenaClient.getQueryExecution(queryExecutionId)
-                .flatMap(execution -> {
-                  Long initialDataScannedBytes = extractDataScannedBytes(execution);
-                  Timestamp submissionDateTime = extractSubmissionDateTime(execution);
-
-                  return athenaJobDao.updateJobWithExecutionId(jobId, queryExecutionId, AthenaJobStatus.RUNNING, submissionDateTime)
-                      .flatMap(result -> waitForCompletionWithTimeout(queryExecutionId, Constants.QUERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                          .flatMap(state -> handleQueryState(jobId, queryExecutionId, state, initialDataScannedBytes))
-                          .onErrorResumeNext(error -> {
-                            log.debug("Error or timeout waiting for query completion for job: {}, returning job ID only", jobId);
-                            return athenaJobDao.getJobById(jobId)
-                                .map(job -> buildJobWithDataScanned(job, initialDataScannedBytes));
-                          }));
-                }))
-            .onErrorResumeNext(error -> {
-              log.error("Error submitting query to Athena for job: {}", jobId, error);
-              return athenaJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage(), null)
-                  .flatMap(v -> Single.error(error));
-            }));
-  }
-
-  private Single<AthenaJob> handleQueryState(String jobId, String queryExecutionId, QueryExecutionState state,
-                                             Long initialDataScannedBytes) {
-    if (state == QueryExecutionState.SUCCEEDED) {
-      log.info("Query completed within {} seconds for job: {}", Constants.QUERY_TIMEOUT_SECONDS, jobId);
-      return fetchResultsForJob(jobId, queryExecutionId, initialDataScannedBytes);
-    } else if (state == QueryExecutionState.FAILED || state == QueryExecutionState.CANCELLED) {
-      log.warn("Query failed within {} seconds for job: {}, state: {}", Constants.QUERY_TIMEOUT_SECONDS, jobId, state);
-      return handleFailedQuery(jobId, queryExecutionId, state, initialDataScannedBytes);
-    } else {
-      log.debug("Query still running after {} seconds for job: {}, returning job ID only", Constants.QUERY_TIMEOUT_SECONDS, jobId);
-      return athenaJobDao.getJobById(jobId)
-          .map(job -> buildJobWithDataScanned(job, initialDataScannedBytes));
-    }
-  }
-
-  private Single<AthenaJob> handleFailedQuery(String jobId, String queryExecutionId, QueryExecutionState state,
-                                              Long fallbackDataScannedBytes) {
-    return athenaClient.getQueryExecution(queryExecutionId)
-        .flatMap(execution -> {
-          String errorMessage = execution.status().stateChangeReason() != null
-              ? execution.status().stateChangeReason()
-              : "Query " + state.name().toLowerCase();
-          Long dataScannedBytes = extractDataScannedBytes(execution, fallbackDataScannedBytes);
-          Timestamp completionDateTime = extractCompletionDateTime(execution);
-          return athenaJobDao.updateJobFailed(jobId, errorMessage, completionDateTime)
-              .flatMap(v -> athenaJobDao.getJobById(jobId)
-                  .map(job -> buildJobWithDataScanned(job, dataScannedBytes)));
-        });
-  }
-
-  private Single<QueryExecutionState> waitForCompletionWithTimeout(String queryExecutionId, long timeout, TimeUnit unit) {
-    long startTime = System.currentTimeMillis();
-
-    return athenaClient.getQueryStatus(queryExecutionId)
-        .flatMap(initialState -> {
-          if (isQueryExecutionStateFinal(initialState)) {
-            long elapsed = System.currentTimeMillis() - startTime;
-            log.debug("Query already in final state: {} (checked in {}ms)", initialState, elapsed);
-            return Single.just(initialState);
-          }
-
-          long elapsed = System.currentTimeMillis() - startTime;
-          long remainingTimeout = unit.toMillis(timeout) - elapsed;
-
-          if (remainingTimeout <= 0) {
-            log.debug("Timeout already exceeded after initial check, returning current state: {}", initialState);
-            return Single.just(initialState);
-          }
-
-          log.debug("Query not in final state yet ({}), starting to poll every {}ms for up to {}ms",
-              initialState, Constants.QUERY_POLL_INTERVAL_MS, remainingTimeout);
-
-          return Observable.interval(Constants.QUERY_POLL_INTERVAL_MS, TimeUnit.MILLISECONDS)
-              .flatMapSingle(tick -> athenaClient.getQueryStatus(queryExecutionId))
-              .filter(this::isQueryExecutionStateFinal)
-              .firstOrError()
-              .timeout(remainingTimeout, TimeUnit.MILLISECONDS)
-              .onErrorResumeNext(error -> {
-                long totalElapsed = System.currentTimeMillis() - startTime;
-                log.debug("Timeout waiting for query completion after {}ms (requested {} {}), checking current status",
-                    totalElapsed, timeout, unit);
-                return athenaClient.getQueryStatus(queryExecutionId);
-              });
-        });
-  }
-
-  private Single<AthenaJob> fetchResultsForJob(String jobId, String queryExecutionId, Long fallbackDataScannedBytes) {
-    return athenaClient.getQueryExecution(queryExecutionId)
-        .flatMap(execution -> {
-          String resultLocation = execution.resultConfiguration() != null
-              ? execution.resultConfiguration().outputLocation()
-              : null;
-          Long dataScannedBytes = extractDataScannedBytes(execution, fallbackDataScannedBytes);
-          Timestamp completionDateTime = extractCompletionDateTime(execution);
-
-          return athenaJobDao.updateJobCompleted(jobId, resultLocation, completionDateTime)
-              .flatMap(v -> Single.timer(Constants.RESULT_FETCH_DELAY_MS, TimeUnit.MILLISECONDS)
-                  .flatMap(tick -> fetchResultsWithRetry(queryExecutionId, Constants.MAX_RESULT_FETCH_RETRIES,
-                      Constants.RESULT_FETCH_RETRY_DELAY_MS)
-                      .flatMap(resultSetWithToken -> {
-                        JsonArray resultData = convertResultSetToJsonArray(resultSetWithToken.getResultSet());
-                        log.info("Successfully fetched {} result rows for job: {}", resultData.size(), jobId);
-
-                        return athenaJobDao.getJobById(jobId)
-                            .map(job -> buildCompletedJob(job, resultData, resultSetWithToken.getNextToken(), dataScannedBytes));
-                      })));
-        })
-        .onErrorResumeNext(error -> {
-          log.error("Error fetching results for job: {} after retries. Error: {}", jobId, error.getMessage(), error);
-          return athenaClient.getQueryExecution(queryExecutionId)
-              .flatMap(execution -> {
-                Long dataScannedBytes = extractDataScannedBytes(execution, fallbackDataScannedBytes);
-                return athenaJobDao.getJobById(jobId)
-                    .map(job -> buildCompletedJob(job, null, null, dataScannedBytes));
-              })
-              .onErrorResumeNext(fallbackError -> athenaJobDao.getJobById(jobId)
-                  .map(job -> buildCompletedJob(job, null, null, fallbackDataScannedBytes)));
-        });
-  }
-
-  private Single<org.dreamhorizon.pulseserver.client.athena.models.ResultSetWithToken> fetchResultsWithRetry(
-      String queryExecutionId, int maxRetries, long delayMs) {
-    return athenaClient.getQueryResults(queryExecutionId, 1000, null)
-        .onErrorResumeNext(error -> {
-          if (maxRetries > 0) {
-            log.warn("Failed to fetch results for query {}: {}. Retrying in {}ms ({} retries left)",
-                queryExecutionId, error.getMessage(), delayMs, maxRetries);
-            return Single.timer(delayMs, TimeUnit.MILLISECONDS)
-                .flatMap(tick -> {
-                  log.debug("Retrying to fetch results for query: {}", queryExecutionId);
-                  return fetchResultsWithRetry(queryExecutionId, maxRetries - 1, delayMs);
-                });
-          } else {
-            log.error("Failed to fetch results for query {} after all retries. Last error: {}",
-                queryExecutionId, error.getMessage(), error);
-            return Single.error(error);
-          }
-        });
-  }
 
   public Single<AthenaJob> getJobStatus(String jobId, Integer maxResults, String nextToken) {
     return athenaJobDao.getJobById(jobId)
@@ -392,23 +242,6 @@ public class AthenaService {
         .build();
   }
 
-  private AthenaJob buildCompletedJob(AthenaJob job, JsonArray resultData, String nextToken, Long dataScannedBytes) {
-    return AthenaJob.builder()
-        .jobId(job.getJobId())
-        .queryString(job.getQueryString())
-        .queryExecutionId(job.getQueryExecutionId())
-        .status(AthenaJobStatus.COMPLETED)
-        .resultLocation(job.getResultLocation())
-        .errorMessage(job.getErrorMessage())
-        .resultData(resultData)
-        .nextToken(nextToken)
-        .dataScannedInBytes(dataScannedBytes)
-        .createdAt(job.getCreatedAt())
-        .updatedAt(job.getUpdatedAt())
-        .completedAt(job.getCompletedAt())
-        .build();
-  }
-
   private AthenaJob buildJobWithResults(AthenaJob job, JsonArray resultData, String nextToken) {
     return AthenaJob.builder()
         .jobId(job.getJobId())
@@ -426,12 +259,6 @@ public class AthenaService {
         .build();
   }
 
-  private boolean isQueryExecutionStateFinal(QueryExecutionState state) {
-    return state == QueryExecutionState.SUCCEEDED
-        || state == QueryExecutionState.FAILED
-        || state == QueryExecutionState.CANCELLED;
-  }
-
   private boolean isFinalState(AthenaJobStatus status) {
     return status == AthenaJobStatus.COMPLETED
         || status == AthenaJobStatus.FAILED
@@ -439,18 +266,12 @@ public class AthenaService {
   }
 
   private AthenaJobStatus mapAthenaStateToJobStatus(QueryExecutionState state) {
-    switch (state) {
-      case QUEUED:
-      case RUNNING:
-        return AthenaJobStatus.RUNNING;
-      case SUCCEEDED:
-        return AthenaJobStatus.COMPLETED;
-      case FAILED:
-        return AthenaJobStatus.FAILED;
-      case CANCELLED:
-        return AthenaJobStatus.CANCELLED;
-      default:
-        return AthenaJobStatus.SUBMITTED;
-    }
+    return switch (state) {
+      case QUEUED, RUNNING -> AthenaJobStatus.RUNNING;
+      case SUCCEEDED -> AthenaJobStatus.COMPLETED;
+      case FAILED -> AthenaJobStatus.FAILED;
+      case CANCELLED -> AthenaJobStatus.CANCELLED;
+      default -> AthenaJobStatus.SUBMITTED;
+    };
   }
 }

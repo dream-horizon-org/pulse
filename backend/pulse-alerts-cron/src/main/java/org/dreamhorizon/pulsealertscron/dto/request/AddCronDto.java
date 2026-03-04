@@ -21,4 +21,8 @@ public class AddCronDto {
   @NotNull
   @JsonProperty(value = "interval")
   private Integer interval;
+
+  @NotNull
+  @JsonProperty(value = "tenantId")
+  private String tenantId;
 }

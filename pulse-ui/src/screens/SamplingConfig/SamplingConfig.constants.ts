@@ -431,11 +431,17 @@ export const stripUIFields = (config: PulseConfig): PulseConfig => {
   // Remove id fields from filters
   cleanConfig.signals.filters.values.forEach((f: { id?: string }) => delete f.id);
   
-  // Remove id fields from attributesToDrop
-  cleanConfig.signals.attributesToDrop.forEach((a: { id?: string }) => delete a.id);
+  // Remove id fields from attributesToDrop and their conditions
+  cleanConfig.signals.attributesToDrop.forEach((a: { id?: string; condition?: { id?: string } }) => {
+    delete a.id;
+    if (a.condition) delete a.condition.id;
+  });
   
-  // Remove id fields from attributesToAdd
-  cleanConfig.signals.attributesToAdd?.forEach((a: { id?: string }) => delete a.id);
+  // Remove id fields from attributesToAdd and their conditions
+  cleanConfig.signals.attributesToAdd?.forEach((a: { id?: string; condition?: { id?: string } }) => {
+    delete a.id;
+    if (a.condition) delete a.condition.id;
+  });
   
   // Remove id fields from sampling rules
   cleanConfig.sampling.rules.forEach((r: { id?: string }) => delete r.id);

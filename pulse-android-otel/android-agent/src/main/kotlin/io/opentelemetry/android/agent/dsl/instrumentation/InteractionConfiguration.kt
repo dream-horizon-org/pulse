@@ -16,6 +16,7 @@ import io.opentelemetry.android.instrumentation.interaction.library.InteractionI
 @OpenTelemetryDslMarker
 class InteractionConfiguration internal constructor(
     private val config: OtelRumConfig,
+    private val defaultHeaders: Map<String, String> = emptyMap(),
 ) : CanBeEnabledAndDisabled {
     private val interactionInstrumentation: InteractionInstrumentation by lazy {
         AndroidInstrumentationLoader.getInstrumentation(
@@ -27,11 +28,12 @@ class InteractionConfiguration internal constructor(
      * Configure the URL provider for the Interaction rest API. `Get` call will performed in this
      * URL to fetch the list of interaction configs
      * If not set, defaults to "http://10.0.2.2:8080/v1/interaction-configs/"
+     * Headers from endpointHeaders + projectId are automatically included.
      * Also see [setConfigFetcher]
      */
     fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration =
         apply {
-            interactionInstrumentation.setConfigFetcher(InteractionConfigRestFetcher(urlProvider))
+            interactionInstrumentation.setConfigFetcher(InteractionConfigRestFetcher(urlProvider, defaultHeaders))
         }
 
     /**

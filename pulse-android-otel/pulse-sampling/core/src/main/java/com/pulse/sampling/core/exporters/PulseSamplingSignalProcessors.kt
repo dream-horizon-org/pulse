@@ -9,12 +9,12 @@ import com.pulse.sampling.core.PulseSignalMatcher
 import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseAttributesToAddEntry
+import com.pulse.sampling.models.PulseAttributesToDropEntry
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
-import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import io.opentelemetry.android.export.ModifiedSpanData
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
@@ -42,11 +42,11 @@ public class PulseSamplingSignalProcessors internal constructor(
     private val sessionParser: PulseSessionParser = PulseSessionConfigParser(),
     private val randomIdGenerator: Random = SecureRandom(),
 ) {
-    private fun getDroppedAttributesConfig(scope: PulseSignalScope): List<PulseSignalMatchCondition> =
+    private fun getDroppedAttributesConfig(scope: PulseSignalScope): List<PulseAttributesToDropEntry> =
         sdkConfig
             .signals
             .attributesToDrop
-            .filter { it.scopes.contains(scope) && currentSdkName in it.sdks }
+            .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
 
     private fun getAddedAttributesConfig(scope: PulseSignalScope): List<PulseAttributesToAddEntry> =
         sdkConfig
@@ -85,7 +85,12 @@ public class PulseSamplingSignalProcessors internal constructor(
 
                             if (attributesToDrop.isNotEmpty()) {
                                 val droppedResult =
-                                    filterAttributes(spanData.name, currentAttributes, attributesToDrop) { newAttributes ->
+                                    filterAttributes(
+                                        spanData.name,
+                                        currentAttributes,
+                                        PulseSignalScope.TRACES,
+                                        attributesToDrop,
+                                    ) { newAttributes ->
                                         ModifiedSpanData(spanData, newAttributes)
                                     }
                                 if (droppedResult != null) {
@@ -168,6 +173,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                                     filterAttributes(
                                         logName,
                                         currentAttributes,
+                                        PulseSignalScope.LOGS,
                                         attributesToDrop,
                                     ) { newAttributes ->
                                         ModifiedLAttributeRecordData(newAttributes, logRecord)
@@ -299,39 +305,36 @@ public class PulseSamplingSignalProcessors internal constructor(
     private inline fun <S> filterAttributes(
         signalName: String,
         signalAttributes: Attributes,
-        attributesToDrop: List<PulseSignalMatchCondition>,
+        scope: PulseSignalScope,
+        attributesToDrop: List<PulseAttributesToDropEntry>,
         updateAttributes: (newAttributes: Attributes) -> S,
     ): S? {
-        val finalAttributesToDrop =
+        val spanAttributes = signalAttributes.toMap()
+        val matchingEntries =
             attributesToDrop
                 .filter {
-                    signalName.matchesFromRegexCache(it.name)
-                }.flatMap { it.props }
-                .groupBy({ it.name }) { it.value }
+                    signalMatcher.matches(
+                        scope = scope,
+                        name = signalName,
+                        props = spanAttributes,
+                        signalMatchConfig = it.condition,
+                        sdkName = currentSdkName,
+                    )
+                }
 
-        if (finalAttributesToDrop.isEmpty()) {
+        if (matchingEntries.isEmpty()) {
             return null
         }
 
-        val spanAttributes = signalAttributes.toMap()
-        if (finalAttributesToDrop.none { it.key in spanAttributes.keys }) {
-            return null
-        }
+        val keysToDrop = matchingEntries.flatMap { it.values }
 
         val newAttributes =
             signalAttributes
                 .toBuilder()
                 .apply {
                     signalAttributes
-                        .forEach { key, value ->
-                            val keyString = key.toString()
-                            if (
-                                keyString in finalAttributesToDrop.keys &&
-                                finalAttributesToDrop[keyString]?.any {
-                                    (it == null && value == null) ||
-                                        (it != null && it == value.toString())
-                                } == true
-                            ) {
+                        .forEach { key, _ ->
+                            if (keysToDrop.any { key.key.matchesFromRegexCache(it) }) {
                                 remove(key)
                             }
                         }

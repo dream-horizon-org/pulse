@@ -24,11 +24,12 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 public class ConfigServiceImpl implements ConfigService {
 
-  private static final String LATEST_CONFIG_KEY = "latest-config";
+  private static final int MAX_TENANTS_IN_CACHE = 100;
 
   private final SdkConfigsDao sdkConfigsDao;
   private final UploadConfigDetailService uploadConfigDetailService;
@@ -44,33 +45,33 @@ public class ConfigServiceImpl implements ConfigService {
     Objects.requireNonNull(ctx, "ConfigServiceImpl must be created on a Vert.x context thread");
 
     this.latestConfigCache = Caffeine.newBuilder()
-        .maximumSize(1)
+        .maximumSize(MAX_TENANTS_IN_CACHE)
         .executor(cmd -> ctx.runOnContext(v -> cmd.run()))
         .expireAfterWrite(Duration.ofHours(1))
         .recordStats()
-        .buildAsync((String key, java.util.concurrent.Executor executor) -> {
-          log.info("Loading config into cache for key: {}", key);
-          return sdkConfigsDao.getConfig()
+        .buildAsync((String tenantId, java.util.concurrent.Executor executor) -> {
+          log.info("Loading config into cache for tenant: {}", tenantId);
+          return sdkConfigsDao.getConfig(tenantId)
               .toCompletionStage()
               .toCompletableFuture();
         });
   }
 
   @Override
-  public Single<PulseConfig> getSdkConfig(long version) {
-    return sdkConfigsDao.getConfig(version);
+  public Single<PulseConfig> getSdkConfig(String tenantId, long version) {
+    return sdkConfigsDao.getConfig(tenantId, version);
   }
 
   @Override
-  public Single<PulseConfig> getActiveSdkConfig() {
-    CompletableFuture<PulseConfig> fut = latestConfigCache.get(LATEST_CONFIG_KEY);
+  public Single<PulseConfig> getActiveSdkConfig(String tenantId) {
+    CompletableFuture<PulseConfig> fut = latestConfigCache.get(tenantId);
     return Single.create(emitter -> {
       fut.whenComplete((result, throwable) -> {
         if (throwable != null) {
-          log.error("Error fetching config from cache", throwable);
+          log.error("Error fetching config from cache for tenant: {}", tenantId, throwable);
           emitter.onError(throwable);
         } else {
-          log.debug("Returning config from cache");
+          log.debug("Returning config from cache for tenant: {}", tenantId);
           emitter.onSuccess(result);
         }
       });
@@ -79,14 +80,16 @@ public class ConfigServiceImpl implements ConfigService {
 
   @Override
   public Single<PulseConfig> createSdkConfig(ConfigData createConfigRequest) {
+    String tenantId = TenantContext.requireTenantId();
     return sdkConfigsDao.createConfig(createConfigRequest)
         .doOnSuccess(resp -> {
-          latestConfigCache.synchronous().invalidate(LATEST_CONFIG_KEY);
+          latestConfigCache.synchronous().invalidate(tenantId);
+          log.info("Invalidated config cache for tenant: {}", tenantId);
           uploadConfigDetailService
-              .pushInteractionDetailsToObjectStore()
+              .pushInteractionDetailsToObjectStore(tenantId)
               .subscribe();
         })
-        .doOnError(err -> log.error("error while creating interaction", err));
+        .doOnError(err -> log.error("error while creating config for tenant: {}", tenantId, err));
   }
 
   @Override

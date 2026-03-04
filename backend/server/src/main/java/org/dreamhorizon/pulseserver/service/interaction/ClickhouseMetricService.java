@@ -230,6 +230,7 @@ public class ClickhouseMetricService implements PerformanceMetricService {
     return clickhouseQueryService.executeQueryOrCreateJob(QueryConfiguration.newQuery(finalQuery)
             .timeoutMs(2000)
             .jobCreationMode(JobCreationMode.JOB_CREATION_OPTIONAL)
+            .tenantId(request.getTenantId())
             .build())
         .map(rawRes -> {
           GetRawUserEventsResponseDto.Schema schema = rawRes.data.getSchema();

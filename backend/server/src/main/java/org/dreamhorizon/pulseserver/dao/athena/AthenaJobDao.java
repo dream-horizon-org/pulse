@@ -5,6 +5,7 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -12,17 +13,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AthenaJobDao {
   private final MysqlClient mysqlClient;
 
-  public Single<String> createJob(String queryString, String userEmail) {
+  /**
+   * Gets the current tenant ID from the TenantContext.
+   */
+  private String getTenantId() {
+    return TenantContext.requireTenantId();
+  }
+
+  public Single<String> createJob(String tenantId, String queryString, String userEmail) {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, queryString, userEmail),
+        Tuple.of(jobId, tenantId, queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );
@@ -66,7 +75,8 @@ public class AthenaJobDao {
     Timestamp finalUpdatedAt = updatedAt != null ? updatedAt : new Timestamp(System.currentTimeMillis());
     return executeUpdate(
         AthenaJobQueries.UPDATE_JOB_STATISTICS,
-        Tuple.of(dataScannedInBytes, executionTimeMillis, engineExecutionTimeMillis, queryQueueTimeMillis, finalUpdatedAt, jobId),
+        Tuple.wrap(Arrays.asList(dataScannedInBytes, executionTimeMillis, engineExecutionTimeMillis,
+            queryQueueTimeMillis, finalUpdatedAt, jobId)),
         true,
         "Error updating job statistics: " + jobId
     );
@@ -83,7 +93,7 @@ public class AthenaJobDao {
   }
 
   public Single<AthenaJob> getJobById(String jobId) {
-    return mysqlClient.getReaderPool()
+    return mysqlClient.getWriterPool()
         .preparedQuery(AthenaJobQueries.GET_JOB_BY_ID)
         .rxExecute(Tuple.of(jobId))
         .map(rowSet -> {
@@ -114,7 +124,7 @@ public class AthenaJobDao {
   public Single<List<AthenaJob>> getQueryHistory(String userEmail, Integer limit, Integer offset) {
     return mysqlClient.getReaderPool()
         .preparedQuery(AthenaJobQueries.GET_QUERY_HISTORY)
-        .rxExecute(Tuple.of(userEmail, limit, offset))
+        .rxExecute(Tuple.of(getTenantId(), userEmail, limit, offset))
         .map(rowSet -> {
           List<AthenaJob> jobs = new ArrayList<>();
           for (io.vertx.rxjava3.sqlclient.Row row : rowSet) {
@@ -132,7 +142,7 @@ public class AthenaJobDao {
                                                          java.time.LocalDateTime endDate) {
     return mysqlClient.getReaderPool()
         .preparedQuery(AthenaJobQueries.GET_QUERIES_FOR_STATISTICS)
-        .rxExecute(Tuple.of(userEmail, startDate, endDate))
+        .rxExecute(Tuple.of(getTenantId(), userEmail, startDate, endDate))
         .map(rowSet -> {
           List<AthenaJob> jobs = new ArrayList<>();
           for (io.vertx.rxjava3.sqlclient.Row row : rowSet) {

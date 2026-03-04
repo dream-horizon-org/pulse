@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.concurrent.TimeUnit
 import kotlin.error
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @ExtendWith(MockKExtension::class)
@@ -443,6 +444,96 @@ class InteractionManagerTest {
                     emptyMap(),
                 )
                 assertSingleFinalInteraction(id)
+            }
+
+        @Test
+        fun `two interaction config with same event sequence`() =
+            runTest(standardTestDispatcher) {
+                val firstConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        id = 1,
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    )
+                val secondConfig =
+                    InteractionRemoteFakeUtils.createFakeInteractionConfig(
+                        id = 2,
+                        eventSequence =
+                            listOf(
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event1",
+                                ),
+                                InteractionRemoteFakeUtils.createFakeInteractionEvent(
+                                    name = "event2",
+                                ),
+                            ),
+                    )
+
+                initMockInteractionManager(firstConfig, secondConfig)
+                addEventWithNanoTimeFromBoot(
+                    "event1",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction == null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                val ids = mockInteractionManager.interactionTrackerStatesState.value.runningIds
+
+                addEventWithNanoTimeFromBoot(
+                    "eventUnknown",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction == null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value.runningIds).containsAll(ids)
+                addEventWithNanoTimeFromBoot(
+                    "event2",
+                    emptyMap(),
+                )
+                advanceTimeBy(100.milliseconds)
+                Assertions
+                    .assertThat(mockInteractionManager.interactionTrackerStatesState.value)
+                    .hasSize(2)
+                    .allSatisfy { it is InteractionRunningStatus.OngoingMatch }
+                    .allSatisfy { ((it ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interaction != null }
+                    .extracting(
+                        { interactionRunningStatus ->
+                            ((interactionRunningStatus ?: error("null assertion")) as InteractionRunningStatus.OngoingMatch).interactionId
+                        },
+                    ).doesNotHaveDuplicates()
+
+                Assertions
+                    .assertThat(
+                        mockInteractionManager.interactionTrackerStatesState.value.map {
+                            (it as InteractionRunningStatus.OngoingMatch).interaction!!.id
+                        },
+                    ).containsAll(ids)
             }
     }
 

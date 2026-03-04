@@ -24,6 +24,9 @@ public class AlertDetailsResponseDto {
   @JsonProperty("alert_id")
   Integer alertId;
 
+  @JsonProperty("tenant_id")
+  private String tenantId;
+
   @NotNull
   @JsonProperty("name")
   String name;

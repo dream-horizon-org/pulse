@@ -42,13 +42,14 @@ public class AthenaQueryJobDaoAdapterTest {
       String queryString = "SELECT * FROM table";
       String userEmail = "test@example.com";
       String jobId = "job-123";
+      String tenantId = "test_tenant";
 
-      when(athenaJobDao.createJob(queryString, userEmail)).thenReturn(Single.just(jobId));
+      when(athenaJobDao.createJob(tenantId, queryString, userEmail)).thenReturn(Single.just(jobId));
 
-      String result = adapter.createJob(queryString, userEmail).blockingGet();
+      String result = adapter.createJob(tenantId, queryString, userEmail).blockingGet();
 
       assertThat(result).isEqualTo(jobId);
-      verify(athenaJobDao).createJob(queryString, userEmail);
+      verify(athenaJobDao).createJob(tenantId, queryString, userEmail);
     }
   }
 

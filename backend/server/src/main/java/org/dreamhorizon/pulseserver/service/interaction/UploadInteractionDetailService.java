@@ -43,31 +43,45 @@ public class UploadInteractionDetailService {
   }
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
-      List<InteractionConfig> interactions
+      List<InteractionConfig> interactions,
+      String tenantId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
+    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
+    String cloudFrontAssetPath = String.format("/%s",
+        getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
+    log.info("Uploading to S3 at path: {}", s3FilePath);
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
-            applicationConfig.getInteractionDetailsS3BucketFilePath(),
+            s3FilePath,
             interactions);
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful, invalidating CloudFront cache for distribution: {}", distributionId);
+          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
+              tenantId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
-                  applicationConfig.getInteractionDetailCloudFrontAssetPath());
+                  cloudFrontAssetPath);
         });
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore() {
+  /**
+   * Constructs a tenant-aware path by prefixing the base path with tenant directory.
+   * Format: tenants/{tenantId}/{basePath}
+   */
+  private String getTenantAwarePath(String tenantId, String basePath) {
+    return String.format("config/tenants/%s/%s", tenantId, basePath);
+  }
+
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
     return interactionDao
-        .getAllActiveAndRunningInteractions()
+        .getAllActiveAndRunningInteractions(tenant)
         .map(this::toInteractionConfigs)
-        .flatMap(this::pushToObjectStoreAndInvalidateCache)
+        .flatMap(res -> pushToObjectStoreAndInvalidateCache(res, tenant))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
+import org.dreamhorizon.pulseserver.tenant.Tenant;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,9 @@ class AthenaJobDaoTest {
     when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     when(mysqlClient.getReaderPool()).thenReturn(readerPool);
     athenaJobDao = new AthenaJobDao(mysqlClient);
+    TenantContext.setTenant(Tenant.builder()
+        .tenantId("test")
+        .build());
   }
 
   @Nested
@@ -71,7 +76,7 @@ class AthenaJobDaoTest {
       when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String jobId = athenaJobDao.createJob(queryString, userEmail).blockingGet();
+      String jobId = athenaJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail).blockingGet();
 
       assertThat(jobId).isNotNull();
       assertThat(jobId).isNotEmpty();
@@ -84,8 +89,9 @@ class AthenaJobDaoTest {
       verify(preparedQuery).rxExecute(tupleCaptor.capture());
       Tuple capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isEqualTo(jobId);
-      assertThat(capturedTuple.getString(1)).isEqualTo(queryString);
-      assertThat(capturedTuple.getString(2)).isEqualTo(userEmail);
+      assertThat(capturedTuple.getString(1)).isEqualTo(TenantContext.requireTenantId());
+      assertThat(capturedTuple.getString(2)).isEqualTo(queryString);
+      assertThat(capturedTuple.getString(3)).isEqualTo(userEmail);
     }
 
     @Test
@@ -96,7 +102,7 @@ class AthenaJobDaoTest {
       RuntimeException error = new RuntimeException("Database error");
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(error));
 
-      var testObserver = athenaJobDao.createJob(queryString, userEmail).test();
+      var testObserver = athenaJobDao.createJob(TenantContext.requireTenantId(), queryString, userEmail).test();
       testObserver.assertError(Throwable.class);
     }
   }
@@ -200,7 +206,7 @@ class AthenaJobDaoTest {
       String jobId = "job-123";
       LocalDateTime now = LocalDateTime.now();
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(1);
       when(rowSet.iterator()).thenReturn(rowIterator);
@@ -229,7 +235,7 @@ class AthenaJobDaoTest {
     void shouldReturnErrorWhenJobNotFound() {
       String jobId = "job-123";
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(0);
 
@@ -243,7 +249,7 @@ class AthenaJobDaoTest {
       LocalDateTime now = LocalDateTime.now();
       LocalDateTime completedAt = now.plusHours(1);
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
       when(rowSet.size()).thenReturn(1);
       when(rowSet.iterator()).thenReturn(rowIterator);
@@ -271,7 +277,7 @@ class AthenaJobDaoTest {
     void shouldPropagateErrorWhenGetJobFails() {
       String jobId = "job-123";
 
-      when(readerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
+      when(writerPool.preparedQuery(any(String.class))).thenReturn(preparedQuery);
       RuntimeException error = new RuntimeException("Database error");
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(error));
 

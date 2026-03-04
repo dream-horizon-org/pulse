@@ -14,7 +14,7 @@
         <main.class>org.dreamhorizon.pulseserver.MainApplication</main.class>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <app.release.artifact>/target/pulse-server</app.release.artifact>
-        <google.guava.version>25.1-jre</google.guava.version>
+        <google.guava.version>32.0.1-jre</google.guava.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <clickhouse.r2dbc.version>0.9.1</clickhouse.r2dbc.version>
         <r2dbc-pool.version>0.8.0.RELEASE</r2dbc-pool.version>
@@ -142,18 +142,18 @@
             <version>${guice.version}</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.google.auth/google-auth-library-oauth2-http -->
-        <dependency>
-            <groupId>com.google.auth</groupId>
-            <artifactId>google-auth-library-oauth2-http</artifactId>
-            <version>1.30.1</version>
-        </dependency>
-
-        <!-- Google API Client for ID token verification -->
+        <!-- Google API Client for ID token verification (Google OAuth ID token, non-Firebase) -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>2.2.0</version>
+        </dependency>
+
+        <!-- Nimbus JOSE+JWT for Firebase ID token verification via JWKS (no firebase-admin; avoids google-api-core) -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>9.37.3</version>
         </dependency>
 
         <!-- JJWT for JWT token generation -->
@@ -185,18 +185,6 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct-processor</artifactId>
             <version>${mapstruct.version}</version>
-        </dependency>
-
-        <!-- AWS SDK for Athena -->
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>athena</artifactId>
-            <version>2.20.162</version>
-        </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>url-connection-client</artifactId>
-            <version>2.20.162</version>
         </dependency>
 
         <!-- JUnit Jupiter for new tests -->
@@ -340,28 +328,6 @@
             <scope>compile</scope>
         </dependency>
 
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <version>${awssdk.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>netty-nio-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>apache-client</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>netty-nio-client</artifactId>
-            <version>${awssdk.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -626,6 +592,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -653,6 +620,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/vertx/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
                                 <!-- Exclude untestable classes -->
                                 <exclude>org/dreamhorizon/pulseserver/util/RxObjectMapper.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/util/Utils.class</exclude>

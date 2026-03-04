@@ -15,4 +15,5 @@ public class EventMeta {
   private String appVersion;      // "6.1.0-100034" (or split into name+code)
   private String appVersionCode;
   private String bundleId;
+  private String projectId;
 }

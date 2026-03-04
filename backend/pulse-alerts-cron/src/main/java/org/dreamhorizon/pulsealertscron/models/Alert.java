@@ -15,6 +15,9 @@ import lombok.NoArgsConstructor;
 public class Alert {
   @JsonProperty("alert_id")
   private Integer alertId;
+  
+  @JsonProperty("tenant_id")
+  private String tenantId;
 
   @JsonProperty("evaluation_interval")
   private Integer evaluationInterval;

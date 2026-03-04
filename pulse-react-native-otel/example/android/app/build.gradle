@@ -120,7 +120,7 @@ dependencies {
     
     implementation("com.squareup.okhttp3:okhttp:5.0.0")
     
-    implementation("org.dreamhorizon.instrumentation:okhttp3-library:0.0.1-alpha")
-    byteBuddy("org.dreamhorizon.instrumentation:okhttp3-agent:0.0.1-alpha")
+    implementation("org.dreamhorizon.instrumentation:okhttp3-library:0.0.4-alpha")
+    byteBuddy("org.dreamhorizon.instrumentation:okhttp3-agent:0.0.4-alpha")
     
 }

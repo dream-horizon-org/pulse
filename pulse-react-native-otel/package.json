@@ -1,6 +1,6 @@
 {
   "name": "@dreamhorizonorg/pulse-react-native",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "Production-grade observability SDK for React Native applications with OpenTelemetry support. Real-time monitoring, error tracking, performance insights, and distributed tracing.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

@@ -31,6 +31,9 @@ public class Alert {
   Integer alertId;
 
   @NotNull
+  String tenantId;
+
+  @NotNull
   String name;
 
   @NotNull

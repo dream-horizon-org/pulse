@@ -1,25 +1,20 @@
 #!/bin/bash
 
+# ============================================================================
 # Pulse Observability - Logs Script
-# This script shows logs from Docker containers
+# Shows logs from Pulse containers.
+# Uses Docker Compose if available, otherwise falls back to Docker CLI.
+#
+# Usage:
+#   ./logs.sh [--no-follow] [--tail N] [ui|server|cron|mysql|clickhouse|otel]
+# ============================================================================
 
-set -e  # Exit on error
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Script directory
+# Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/common.sh"
 
-# Change to deploy directory
-cd "$DEPLOY_DIR"
-
-# Parse command line arguments
+# ── Parse arguments ────────────────────────────────────────────────────────
 FOLLOW="-f"
 TAIL=""
 SERVICE=""
@@ -31,35 +26,82 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --tail)
+            if [ -z "${2:-}" ]; then
+                print_error "--tail requires a numeric argument (e.g. --tail 100)"
+                exit 1
+            fi
             TAIL="--tail=$2"
             shift 2
             ;;
         ui|pulse-ui)
-            SERVICE="pulse-ui"
+            SERVICE="$CONTAINER_UI"
             shift
             ;;
         server|pulse-server)
-            SERVICE="pulse-server"
+            SERVICE="$CONTAINER_SERVER"
             shift
             ;;
-        alerting|pulse-alerting)
-            SERVICE="pulse-alerting"
+        cron|alerts-cron|pulse-alerts-cron)
+            SERVICE="$CONTAINER_ALERTS_CRON"
             shift
+            ;;
+        mysql)
+            SERVICE="$CONTAINER_MYSQL"
+            shift
+            ;;
+        clickhouse)
+            SERVICE="$CONTAINER_CLICKHOUSE"
+            shift
+            ;;
+        otel|otel-collector)
+            SERVICE="$CONTAINER_OTEL_COLLECTOR"
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--no-follow] [--tail N] [ui|server|cron|mysql|clickhouse|otel]"
+            exit 0
             ;;
         *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Usage: $0 [--no-follow] [--tail N] [ui|server|alerting]"
+            print_error "Unknown option: $1"
+            echo "Usage: $0 [--no-follow] [--tail N] [ui|server|cron|mysql|clickhouse|otel]"
             exit 1
             ;;
     esac
 done
 
-# Show logs
-if [ -z "$SERVICE" ]; then
-    echo -e "${BLUE}📋 Showing logs for all services...${NC}"
-    docker-compose logs $FOLLOW $TAIL
-else
-    echo -e "${BLUE}📋 Showing logs for $SERVICE...${NC}"
-    docker-compose logs $FOLLOW $TAIL $SERVICE
+# ── Compose path (when showing all or a single compose service) ──────────
+if has_compose && [ -z "$SERVICE" ]; then
+    cd "$DEPLOY_DIR"
+    echo -e "${BLUE}Showing logs for all services...${NC}"
+    # shellcheck disable=SC2086
+    run_compose logs $FOLLOW $TAIL
+    exit 0
 fi
 
+# ── Docker CLI path ──────────────────────────────────────────────────────
+if [ -n "$SERVICE" ]; then
+    echo -e "${BLUE}Showing logs for $SERVICE ...${NC}"
+    # shellcheck disable=SC2086
+    docker logs $FOLLOW $TAIL "$SERVICE"
+else
+    echo -e "${BLUE}Showing logs for all Pulse containers ...${NC}"
+    echo -e "${YELLOW}(Ctrl+C to stop)${NC}"
+    echo ""
+
+    PIDS=()
+    for container in "${ALL_CONTAINERS[@]}"; do
+        if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
+            # shellcheck disable=SC2086
+            docker logs $FOLLOW $TAIL "$container" 2>&1 | sed "s/^/[$container] /" &
+            PIDS+=($!)
+        fi
+    done
+
+    if [ ${#PIDS[@]} -eq 0 ]; then
+        print_warning "No running Pulse containers found"
+        exit 0
+    fi
+
+    trap 'kill "${PIDS[@]}" 2>/dev/null; exit 0' INT TERM
+    wait "${PIDS[@]}" 2>/dev/null
+fi

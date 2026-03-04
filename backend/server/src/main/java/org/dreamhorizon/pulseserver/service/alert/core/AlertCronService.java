@@ -8,9 +8,9 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.resources.alert.models.AddAlertToCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.AddCronDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.DeleteAlertFromCronManager;
-import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertInCronManager;
+import org.dreamhorizon.pulseserver.resources.alert.models.UpdateCronDto;
 
 @Slf4j
 @Data
@@ -19,7 +19,7 @@ public class AlertCronService {
   private final WebClient d11WebClient;
   private final ApplicationConfig applicationConfig;
 
-  public Single<Boolean> createAlertCron(@NotNull AddAlertToCronManager cron) {
+  public Single<Boolean> createAlertCron(@NotNull AddCronDto cron) {
     log.info("Creating alert cron: {}", cron);
     log.info("Cron manager base url: {}", applicationConfig.getCronManagerBaseUrl());
     return d11WebClient
@@ -39,7 +39,7 @@ public class AlertCronService {
         .map(response -> response.statusCode() == 200);
   }
 
-  public Single<Boolean> updateAlertCron(@NotNull UpdateAlertInCronManager cron) {
+  public Single<Boolean> updateAlertCron(@NotNull UpdateCronDto cron) {
     log.info("Updating alert cron: {}", cron);
     log.info("Cron manager base url: {}", applicationConfig.getCronManagerBaseUrl());
     return d11WebClient
