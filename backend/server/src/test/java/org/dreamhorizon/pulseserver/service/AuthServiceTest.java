@@ -91,8 +91,8 @@ class AuthServiceTest {
     @Test
     void returnsDevelopmentUserWhenGoogleSignInDisabled() throws Exception {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
-      when(jwtService.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("access");
-      when(jwtService.generateRefreshToken(anyString(), anyString(), anyString())).thenReturn("refresh");
+      when(jwtService.generateAccessToken(anyString(), anyString(), anyString(), anyString())).thenReturn("access");
+      when(jwtService.generateRefreshToken(anyString(), anyString(), anyString(), anyString())).thenReturn("refresh");
       when(jwtService.generateIdToken(anyString(), anyString(), anyString(), anyString(), anyString()))
           .thenReturn("id");
 

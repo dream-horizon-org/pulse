@@ -39,6 +39,7 @@ public class AuthService {
   private static final long JWKS_CACHE_TTL_MS = 3600_000L;
 
   // Development mode constants
+  private static final String DEV_TENANT_ID = "default";
   private static final String DEV_USER_ID = "dev-user";
   private static final String DEV_EMAIL = "dev-user@localhost.local";
   private static final String DEV_NAME = "Development User";
@@ -73,8 +74,8 @@ public class AuthService {
   }
 
   private AuthenticateResponseDto createDevelopmentUser() {
-    String accessToken = jwtService.generateAccessToken(DEV_USER_ID, DEV_EMAIL, DEV_NAME);
-    String refreshToken = jwtService.generateRefreshToken(DEV_USER_ID, DEV_EMAIL, DEV_NAME);
+    String accessToken = jwtService.generateAccessToken(DEV_USER_ID, DEV_EMAIL, DEV_NAME, DEV_TENANT_ID);
+    String refreshToken = jwtService.generateRefreshToken(DEV_USER_ID, DEV_EMAIL, DEV_NAME, DEV_TENANT_ID);
     String idToken = jwtService.generateIdToken(DEV_USER_ID, DEV_EMAIL, DEV_FIRST_NAME, DEV_LAST_NAME, DEV_PROFILE_PICTURE);
 
     return AuthenticateResponseDto.builder()

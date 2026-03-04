@@ -30,6 +30,7 @@ import {
   IconCheck,
   IconCode,
   IconWand,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { useState, useMemo, useCallback } from "react";
 import { notifications } from "@mantine/notifications";
@@ -38,6 +39,7 @@ import { SqlEditor } from "./components/SqlEditor";
 import { QueryResults } from "./components/QueryResults";
 import { QueryBuilder } from "./components/QueryBuilder";
 import { QueryHistory } from "./components/QueryHistory";
+import { AiChat } from "./components/AiChat";
 
 import { QueryResult, VisualizationConfig, ColumnMetadata, TableMetadata } from "./RealTimeQuery.interface";
 import { useQueryExecution } from "./hooks";
@@ -52,11 +54,11 @@ import {
 import classes from "./RealTimeQuery.module.css";
 
 // Query mode type
-type QueryMode = "builder" | "sql";
+type QueryMode = "builder" | "sql" | "ai";
 
 export function RealTimeQuery() {
   // Query mode state
-  const [queryMode, setQueryMode] = useState<QueryMode>("builder");
+  const [queryMode, setQueryMode] = useState<QueryMode>("ai");
   
   // SQL query state (for SQL mode)
   const [sqlQuery, setSqlQuery] = useState<string>("");
@@ -98,7 +100,7 @@ export function RealTimeQuery() {
     refetch: refetchMetadata,
   } = useQueryMetadata();
 
-  // Query execution hook
+  // Query execution hook (for builder and SQL modes)
   const {
     executeQuery,
     cancelQuery,
@@ -175,11 +177,93 @@ export function RealTimeQuery() {
     });
   }, [cancelQuery]);
 
-  const canRunQuery = queryMode === "sql" ? sqlQuery.trim().length > 0 : builderSql.trim().length > 0;
+  const canRunQuery = queryMode === "sql"
+    ? sqlQuery.trim().length > 0
+    : queryMode === "builder"
+      ? builderSql.trim().length > 0
+      : false; // AI mode has its own send button inside the chat
   const isSubmitting = executionState.status === "submitting";
   const isPolling = executionState.status === "polling";
   const canCancel = isPolling && !!executionState.jobId;
 
+  // In AI mode, render the full-screen chat interface
+  if (queryMode === "ai") {
+    return (
+      <Box className={classes.pageContainer}>
+        {/* Page Header */}
+        <Box className={classes.pageHeader}>
+          <Box className={classes.headerContent}>
+            <Box className={classes.titleSection}>
+              <h1 className={classes.pageTitle}>{REALTIME_QUERY_TEXTS.PAGE_TITLE}</h1>
+              <p className={classes.pageSubtitle}>{REALTIME_QUERY_TEXTS.PAGE_SUBTITLE}</p>
+            </Box>
+            <Box className={classes.actionsSection}>
+              {/* Mode Toggle */}
+              <SegmentedControl
+                value={queryMode}
+                onChange={handleModeChange}
+                data={[
+                  {
+                    value: "ai",
+                    label: (
+                      <Group gap={6} wrap="nowrap">
+                        <IconSparkles size={16} />
+                        <Text size="sm" fw={600}>AI</Text>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: "builder",
+                    label: (
+                      <Group gap={6} wrap="nowrap">
+                        <IconWand size={16} />
+                        <Text size="sm" fw={600}>Builder</Text>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: "sql",
+                    label: (
+                      <Group gap={6} wrap="nowrap">
+                        <IconCode size={16} />
+                        <Text size="sm" fw={600}>Code</Text>
+                      </Group>
+                    ),
+                  },
+                ]}
+                size="sm"
+                className={classes.modeToggle}
+              />
+
+              <Tooltip label="Query History">
+                <ActionIcon
+                  variant="light"
+                  size="lg"
+                  color="teal"
+                  onClick={() => setHistoryModalOpen(true)}
+                >
+                  <IconHistory size={18} />
+                </ActionIcon>
+              </Tooltip>
+              {/* No Run Query button in AI mode — send happens from the chat input */}
+            </Box>
+          </Box>
+        </Box>
+
+        {/* AI Chat takes the full content area */}
+        <AiChat />
+
+        {/* Query History Modal */}
+        <QueryHistory
+          opened={historyModalOpen}
+          onClose={() => setHistoryModalOpen(false)}
+          onSelectQuery={handleSelectHistoryQuery}
+        />
+      </Box>
+    );
+  }
+
+  // Builder / SQL modes
   return (
     <Box className={classes.pageContainer}>
       {/* Page Header */}
@@ -195,6 +279,15 @@ export function RealTimeQuery() {
               value={queryMode}
               onChange={handleModeChange}
               data={[
+                {
+                  value: "ai",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <IconSparkles size={16} />
+                      <Text size="sm" fw={600}>AI</Text>
+                    </Group>
+                  ),
+                },
                 {
                   value: "builder",
                   label: (
@@ -397,7 +490,7 @@ export function RealTimeQuery() {
         )}
 
         {/* Main - SQL Editor or Query Builder */}
-        <Grid.Col span={{ base: 12, md: queryMode === "builder" ? 12 : 9 }}>
+        <Grid.Col span={{ base: 12, md: queryMode === "sql" ? 9 : 12 }}>
           {queryMode === "sql" ? (
             <SqlEditor
               value={sqlQuery}
@@ -419,17 +512,20 @@ export function RealTimeQuery() {
 
       {/* Results Section */}
       <Box className={classes.resultsSection}>
-        <h2 className={classes.sectionTitle}>
-          Results
-          {result && (
-            <Badge size="sm" variant="light" color="teal" ml="sm">
-              {result.rows.length.toLocaleString()}
-              {result.hasMore || result.rows.length < result.totalRows 
-                ? ` of ${result.totalRows.toLocaleString()}` 
-                : ""} rows
-            </Badge>
-          )}
-        </h2>
+        <Group justify="space-between" align="center" mb="md">
+          <h2 className={classes.sectionTitle}>
+            Results
+            {result && (
+              <Badge size="sm" variant="light" color="teal" ml="sm">
+                {result.rows.length.toLocaleString()}
+                {result.hasMore || result.rows.length < result.totalRows 
+                  ? ` of ${result.totalRows.toLocaleString()}` 
+                  : ""} rows
+              </Badge>
+            )}
+          </h2>
+        </Group>
+
         <QueryResults
           data={result}
           visualization={visualization}

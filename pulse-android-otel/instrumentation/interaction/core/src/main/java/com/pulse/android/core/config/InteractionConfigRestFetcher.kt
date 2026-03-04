@@ -1,9 +1,9 @@
 package com.pulse.android.core.config
 
-import com.pulse.android.core.logDebug
 import com.pulse.android.remote.InteractionApiService
 import com.pulse.android.remote.InteractionRetrofitClient
 import com.pulse.android.remote.models.InteractionConfig
+import com.pulse.otel.utils.PulseNetworkingUtils
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -19,27 +19,23 @@ public class InteractionConfigRestFetcher(
     private val restClients = ConcurrentHashMap<String, InteractionApiService>()
     private var interactionRetrofitClient: InteractionRetrofitClient? = null
 
-    override suspend fun getConfigs(): List<InteractionConfig>? {
+    override suspend fun getConfigs(): List<InteractionConfig> {
         val url = urlProvider()
         val restResponse =
             restClients
                 .getOrPut(url) {
                     (
-                        interactionRetrofitClient?.newInstance(url, headers)
+                        interactionRetrofitClient?.newInstance(url)
                             ?: run {
-                                InteractionRetrofitClient(url, headers = headers).apply {
+                                InteractionRetrofitClient(
+                                    url = url,
+                                    okHttpClient = PulseNetworkingUtils.okHttpClient,
+                                ).apply {
                                     interactionRetrofitClient = this
                                 }
                             }
                     ).apiService
-                }.getInteractions()
-        return if (restResponse.error == null) {
-            restResponse.data
-        } else {
-            logDebug {
-                "Failed to fetch interactions: ${(restResponse.error ?: error("error is null in getConfigs")).message}"
-            }
-            null
-        }
+                }.getInteractions(fullFileUrl = url, headers = headers)
+        return restResponse
     }
 }

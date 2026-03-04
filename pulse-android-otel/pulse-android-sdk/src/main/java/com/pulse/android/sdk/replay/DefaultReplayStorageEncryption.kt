@@ -17,8 +17,8 @@ private const val PREF_KEY_SECRET = "replay_key"
 
 /**
  * Default encryption for replay files: AES-256-GCM. Key is generated once and stored in
- * app-private SharedPreferences. Applied by the SDK for all persisted replay files.
- * For hardware-backed key storage, provide a custom [ReplayStorageEncryption] using Android Keystore.
+ * app-private SharedPreferences. The SDK uses this for all persisted replay files; storage
+ * directory and encryption are not configurable.
  */
 internal class DefaultReplayStorageEncryption(context: Context) : ReplayStorageEncryption {
 

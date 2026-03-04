@@ -13,11 +13,9 @@ import {
   TimeRangePreset,
 } from "../QueryBuilder.interface";
 
-// Partition column names
+// Partition column names (simplified date/hour structure)
 const PARTITION_COLUMNS = {
-  year: "year",
-  month: "month",
-  day: "day",
+  date: "date",
   hour: "hour",
 };
 
@@ -68,33 +66,53 @@ function formatDateForSql(date: Date): string {
 }
 
 /**
- * Generate partition-efficient time filter for Athena
- * Uses tuple comparison for partition pruning + precise timestamp filter
+ * Format a Date to the partition date string 'YYYY-MM-DD' in UTC.
+ */
+function formatPartitionDate(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Format a Date to the partition hour string 'HH' in UTC.
+ */
+function formatPartitionHour(d: Date): string {
+  return String(d.getUTCHours()).padStart(2, "0");
+}
+
+/**
+ * Generate partition-efficient time filter for Athena.
+ *
+ * Partition layout: date STRING ('YYYY-MM-DD'), hour STRING ('HH')
+ * stored at s3://…/vector-logs/YYYY-MM-DD/HH/
+ *
+ * For same-day queries we can prune both date and hour partitions.
+ * For multi-day queries the hour range may wrap (e.g. start 20:00 → end 08:00),
+ * so we only prune on the date partition and let the precise timestamp filter
+ * handle the hour boundaries.
  */
 function generatePartitionTimeFilter(startDate: Date, endDate: Date): string {
-  // Use UTC values to match S3 data storage format
-  const startYear = startDate.getUTCFullYear();
-  const startMonth = startDate.getUTCMonth() + 1;
-  const startDay = startDate.getUTCDate();
-  const startHour = startDate.getUTCHours();
-
-  const endYear = endDate.getUTCFullYear();
-  const endMonth = endDate.getUTCMonth() + 1;
-  const endDay = endDate.getUTCDate();
-  const endHour = endDate.getUTCHours();
-
-  // Tuple comparison for partition columns
-  const partitionTuple = `(${PARTITION_COLUMNS.year}, ${PARTITION_COLUMNS.month}, ${PARTITION_COLUMNS.day}, ${PARTITION_COLUMNS.hour})`;
-  const startTuple = `(${startYear}, ${startMonth}, ${startDay}, ${startHour})`;
-  const endTuple = `(${endYear}, ${endMonth}, ${endDay}, ${endHour})`;
+  const startDateStr = formatPartitionDate(startDate);
+  const endDateStr = formatPartitionDate(endDate);
 
   const conditions: string[] = [];
 
-  // Partition tuple comparison
-  conditions.push(`${partitionTuple} >= ${startTuple}`);
-  conditions.push(`${partitionTuple} <= ${endTuple}`);
+  const isSameDay = startDateStr === endDateStr;
 
-  // Precise timestamp filters
+  if (isSameDay) {
+    conditions.push(`${PARTITION_COLUMNS.date} = '${startDateStr}'`);
+    const startHour = formatPartitionHour(startDate);
+    const endHour = formatPartitionHour(endDate);
+    conditions.push(`${PARTITION_COLUMNS.hour} >= '${startHour}'`);
+    conditions.push(`${PARTITION_COLUMNS.hour} <= '${endHour}'`);
+  } else {
+    conditions.push(`${PARTITION_COLUMNS.date} >= '${startDateStr}'`);
+    conditions.push(`${PARTITION_COLUMNS.date} <= '${endDateStr}'`);
+  }
+
+  // Precise timestamp filters always applied for exact boundaries
   conditions.push(`${TIMESTAMP_COLUMN} >= TIMESTAMP '${formatDateForSql(startDate)}'`);
   conditions.push(`${TIMESTAMP_COLUMN} <= TIMESTAMP '${formatDateForSql(endDate)}'`);
 

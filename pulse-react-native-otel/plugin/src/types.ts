@@ -23,7 +23,7 @@ interface IInteractionConfig {
 
 export interface PulsePluginProps {
   endpointBaseUrl: string;
-  tenantId: string;
+  projectId: string;
   endpointHeaders?: Record<string, string>;
   /**
    * Optional custom URL for fetching SDK configuration.

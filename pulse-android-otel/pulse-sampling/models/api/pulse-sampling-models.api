@@ -64,6 +64,26 @@ public final class com/pulse/sampling/models/PulseAttributesToAddEntry$Companion
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
+public final class com/pulse/sampling/models/PulseAttributesToDropEntry {
+	public static final field Companion Lcom/pulse/sampling/models/PulseAttributesToDropEntry$Companion;
+	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
+	public final fun getValues ()Ljava/util/List;
+}
+
+public final class com/pulse/sampling/models/PulseAttributesToDropEntry$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/sampling/models/PulseAttributesToDropEntry$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/sampling/models/PulseAttributesToDropEntry;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseAttributesToDropEntry;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/sampling/models/PulseAttributesToDropEntry$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
 public final class com/pulse/sampling/models/PulseCriticalEventPolicies {
 	public static final field Companion Lcom/pulse/sampling/models/PulseCriticalEventPolicies$Companion;
 	public final fun getAlwaysSend ()Ljava/util/List;

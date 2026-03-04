@@ -3,7 +3,7 @@ package com.pulsereactnativeotel
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
-import com.pulse.android.sdk.PulseSDK
+import com.pulse.android.sdk.internal.PulseSDKInternal
 import com.pulse.semconv.PulseAttributes
 
 internal object PulseReactNativeOtelLogger {
@@ -17,7 +17,7 @@ internal object PulseReactNativeOtelLogger {
             properties?.let { putAll(it.toMap()) }
         }
 
-        PulseSDK.INSTANCE.trackEvent(event, observedTimeMs, params)
+        Pulse.sdkInternal.trackEvent(event, observedTimeMs, params)
     }
 
     fun reportException(
@@ -40,7 +40,7 @@ internal object PulseReactNativeOtelLogger {
             attributes?.let { putAll(it.toMap()) }
         }
 
-        PulseSDK.INSTANCE.trackNonFatal(errorMessage, observedTimeMs, params)
+        Pulse.sdkInternal.trackNonFatal(errorMessage, observedTimeMs, params)
     }
 
     private fun getCurrentThreadId(): String {

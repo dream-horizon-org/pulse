@@ -304,7 +304,7 @@ class InteractionDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
       var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
       when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture()))
@@ -333,6 +333,7 @@ class InteractionDaoTest {
       var now = java.time.LocalDateTime.now();
       var expectedInteraction = InteractionDetails.builder()
           .id(1L)
+          .tenantId(TenantContext.requireTenantId())
           .name(useCaseId)
           .description("test description")
           .uptimeLowerLimitInMs(10)
@@ -369,6 +370,7 @@ class InteractionDaoTest {
       when(mockRow.getLocalDateTime("created_at")).thenReturn(expectedInteraction.getCreatedAt().toLocalDateTime());
       when(mockRow.getString("updated_by")).thenReturn(expectedInteraction.getUpdatedBy());
       when(mockRow.getLocalDateTime("last_updated_at")).thenReturn(expectedInteraction.getUpdatedAt().toLocalDateTime());
+      when(mockRow.getString("tenant_id")).thenReturn(expectedInteraction.getTenantId());
       when(mockRow.getValue("details")).thenReturn(objectMapper.writeValueAsString(interactionDetailRow));
 
       RowSet<Row> mockRowSet = Mockito.mock(RowSet.class);
@@ -380,7 +382,7 @@ class InteractionDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
       var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
       when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture()))
@@ -409,7 +411,7 @@ class InteractionDaoTest {
       var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
       RuntimeException expectedError = new RuntimeException("Database connection failed");
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
       when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture()))
@@ -499,8 +501,8 @@ class InteractionDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-      when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute())
           .thenReturn(Single.just(rowSet));
@@ -576,8 +578,8 @@ class InteractionDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-      when(mysqlClient.getReaderPool().preparedQuery(
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool().preparedQuery(
           GET_INTERACTIONS_BASE_QUERY +
               " AND created_by = 'test@example.com'" +
               " AND name LIKE '%test%'" +
@@ -609,8 +611,8 @@ class InteractionDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
       RuntimeException expectedError = new RuntimeException("Database connection failed");
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-      when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute())
           .thenReturn(Single.error(expectedError));

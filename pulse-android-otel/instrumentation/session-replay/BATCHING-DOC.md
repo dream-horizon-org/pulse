@@ -138,7 +138,7 @@ WHAT IS NOT CONFIGURABLE
 
 • Send cached on startup: Always runs once when the SDK initializes session replay; there is no switch to disable it.
 
-• Encryption: Always on (default or custom); there is no option to disable encryption for persistence.
+• Encryption and storage directory: Always on; fixed by the SDK (not configurable).
 
 
 -------------------------------------------------------------------------------

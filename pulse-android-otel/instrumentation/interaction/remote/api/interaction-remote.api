@@ -6,15 +6,14 @@ public final class com/pulse/android/remote/BuildConfig {
 }
 
 public abstract interface class com/pulse/android/remote/InteractionApiService {
-	public abstract fun getInteractions (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun getInteractions (Ljava/lang/String;Ljava/util/Map;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
 public final class com/pulse/android/remote/InteractionRetrofitClient {
-	public fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/Json;Lokhttp3/OkHttpClient;Ljava/util/Map;)V
-	public synthetic fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/Json;Lokhttp3/OkHttpClient;Ljava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lokhttp3/OkHttpClient;Lkotlinx/serialization/json/Json;)V
+	public synthetic fun <init> (Ljava/lang/String;Lokhttp3/OkHttpClient;Lkotlinx/serialization/json/Json;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getApiService ()Lcom/pulse/android/remote/InteractionApiService;
-	public final fun newInstance (Ljava/lang/String;Ljava/util/Map;)Lcom/pulse/android/remote/InteractionRetrofitClient;
-	public static synthetic fun newInstance$default (Lcom/pulse/android/remote/InteractionRetrofitClient;Ljava/lang/String;Ljava/util/Map;ILjava/lang/Object;)Lcom/pulse/android/remote/InteractionRetrofitClient;
+	public final fun newInstance (Ljava/lang/String;)Lcom/pulse/android/remote/InteractionRetrofitClient;
 }
 
 public final class com/pulse/android/remote/models/InteractionAttrsEntry {

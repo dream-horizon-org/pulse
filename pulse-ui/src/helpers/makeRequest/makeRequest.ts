@@ -31,7 +31,7 @@ export const makeRequest = async <D>(
         response = await makeRequestToServer(requestConfig);
       }
 
-      return await processServerResponse(response);
+      return await processServerResponse(response, requestConfig.unwrapped);
     });
   } catch (error: unknown) {
     console.error(error);

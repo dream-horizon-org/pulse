@@ -8,6 +8,10 @@ plugins {
 
 android {
     namespace = "com.pulse.sampling.remote"
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 kotlin {

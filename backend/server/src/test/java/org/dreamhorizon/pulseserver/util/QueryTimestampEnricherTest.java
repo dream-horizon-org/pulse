@@ -18,10 +18,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
-      assertThat(result).contains("month = 12");
-      assertThat(result).contains("day = 23");
-      assertThat(result).contains("hour = 11");
+      assertThat(result).contains("date = '2025-12-23'");
+      assertThat(result).contains("hour = '11'");
       assertThat(result).contains("WHERE");
     }
 
@@ -31,7 +29,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
     }
 
     @Test
@@ -41,7 +40,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
       assertThat(result).contains("timestamp");
     }
 
@@ -52,13 +52,14 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
       assertThat(result).contains("AND \"timestamp\"");
     }
 
     @Test
     void shouldSkipEnrichmentIfPartitionFiltersAlreadyExist() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String timestamp = "2025-12-23 11:29:35";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
@@ -133,7 +134,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("hour = 11");
+      assertThat(result).contains("hour = '11'");
     }
 
     @Test
@@ -143,7 +144,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("hour = 1");
+      assertThat(result).contains("hour = '01'");
     }
 
     @Test
@@ -153,10 +154,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year = 2025");
-      assertThat(result).contains("month = 12");
-      assertThat(result).contains("day = 23");
-      assertThat(result).contains("hour = 11");
+      assertThat(result).contains("date = '2025-12-23'");
+      assertThat(result).contains("hour = '11'");
     }
 
     @Test
@@ -166,7 +165,9 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 10)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).contains("hour");
+      assertThat(result).contains("10");
     }
 
     @Test
@@ -184,7 +185,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(queryWithControl, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).doesNotContain("\u0000");
     }
 
@@ -219,18 +220,18 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleUnicodeNormalizationInQuery() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String timestamp = "2025-12-23 11:29:35";
       String queryWithUnicode = query.replace("SELECT", "SELECT\u200B");
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(queryWithUnicode, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
     void shouldRejectTimestampWithInvalidUnicodeCharacters() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String timestamp = "2025-12-23 11:29:35";
       String timestampWithUnicode = timestamp.replace("-", "-\u200B");
 
@@ -241,7 +242,7 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldRejectTimestampWithInvalidUTF8Encoding() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       byte[] invalidBytes = {(byte) 0xFF, (byte) 0xFE, (byte) 0xFD};
       String invalidTimestamp = "2025-12-23 " + new String(invalidBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
 
@@ -253,18 +254,18 @@ class QueryTimestampEnricherTest {
     @Test
     void shouldHandleQueryWithUnicodeCharactersInStringLiterals() {
       String query =
-          "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11 AND name = 'José'";
+          "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11' AND name = 'José'";
       String timestamp = "2025-12-23 11:29:35";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).contains("José");
     }
 
     @Test
     void shouldHandleTimestampWithOnlySpaces() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, "    ");
 
@@ -273,7 +274,7 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleNullTimestampAfterNormalization() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
@@ -282,7 +283,7 @@ class QueryTimestampEnricherTest {
 
     @Test
     void shouldHandleInvalidTimestampFormat() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String invalidTimestamp = "2025-13-45 25:99:99";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, invalidTimestamp);
@@ -299,8 +300,8 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
-      assertThat(result).endsWith("hour = 11");
+      assertThat(result).contains("date = '2025-12-23'");
+      assertThat(result).endsWith("hour = '11'");
     }
 
     @Test
@@ -323,7 +324,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).contains("AND column1");
     }
 
@@ -334,7 +335,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).contains("AND column1");
     }
 
@@ -345,7 +346,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).contains("column1");
     }
 
@@ -374,7 +375,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
     }
 
     @Test
@@ -383,7 +385,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
     }
 
     @Test
@@ -393,7 +396,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
     }
 
     @Test
@@ -403,7 +407,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("hour = 1");
+      assertThat(result).contains("hour = '01'");
     }
 
     @Test
@@ -413,12 +417,12 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("hour = 1");
+      assertThat(result).contains("hour = '01'");
     }
 
     @Test
     void shouldHandleInvalidTimeFormat() {
-      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE year = 2025 AND month = 12 AND day = 23 AND hour = 11";
+      String query = "SELECT * FROM pulse_athena_db.otel_data WHERE date = '2025-12-23' AND hour = '11'";
       String timestamp = "25:99:99";
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
@@ -447,7 +451,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(queryWithUTF8, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -457,7 +461,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).contains("column1 = 'value'");
     }
 
@@ -468,7 +472,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -478,8 +482,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year = 2025");
-      assertThat(result).contains("hour = 11");
+      assertThat(result).contains("date = '2025-12-23'");
+      assertThat(result).contains("hour = '11'");
     }
 
     @Test
@@ -489,7 +493,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("(year, month, day, hour) >= (2025, 12, 23, 11)");
+      assertThat(result).containsAnyOf("date >= '2025-12-23'", "date = '2025-12-23'");
+      assertThat(result).containsAnyOf("hour >= '11'", "hour = '11'");
     }
 
     @Test
@@ -499,7 +504,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).contains("column1 = 'value'");
     }
 
@@ -510,10 +515,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
-      assertThat(result).contains("month = 12");
-      assertThat(result).contains("day = 23");
-      assertThat(result).contains("hour = 11");
+      assertThat(result).contains("date = '2025-12-23'");
+      assertThat(result).contains("hour = '11'");
       assertThat(result).contains("WHERE");
     }
 
@@ -525,7 +528,7 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       int whereIndex = result.indexOf("WHERE");
       int groupByIndex = result.indexOf("GROUP BY");
       assertThat(whereIndex).isLessThan(groupByIndex);
@@ -539,7 +542,7 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       int whereIndex = result.indexOf("WHERE");
       int orderByIndex = result.indexOf("ORDER BY");
       assertThat(whereIndex).isLessThan(orderByIndex);
@@ -553,7 +556,7 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       int whereIndex = result.indexOf("WHERE");
       int limitIndex = result.indexOf("LIMIT");
       assertThat(whereIndex).isLessThan(limitIndex);
@@ -566,7 +569,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -576,7 +579,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -586,7 +589,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -597,7 +600,7 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -608,7 +611,7 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -619,7 +622,7 @@ class QueryTimestampEnricherTest {
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
       assertThat(result).contains("WHERE");
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -629,7 +632,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result.toLowerCase()).contains("group by");
       assertThat(result.toLowerCase()).contains("order by");
       assertThat(result.toLowerCase()).contains("limit");
@@ -649,7 +652,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
       assertThat(result).doesNotContain("\u0000");
     }
 
@@ -670,7 +673,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, timestamp);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -700,9 +703,8 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year");
-      assertThat(result).contains("month");
-      assertThat(result).contains("day");
+      assertThat(result).contains("date");
+      assertThat(result).contains("hour");
     }
 
     @Test
@@ -711,7 +713,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -720,7 +722,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -729,7 +731,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year = 2025");
+      assertThat(result).contains("date = '2025-12-23'");
     }
 
     @Test
@@ -739,7 +741,7 @@ class QueryTimestampEnricherTest {
 
       String result = QueryTimestampEnricher.enrichQueryWithTimestamp(query, null);
 
-      assertThat(result).contains("year");
+      assertThat(result).contains("date");
       assertThat(result).contains("2025");
     }
 

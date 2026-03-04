@@ -29,11 +29,13 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
   public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String LOGS_INGESTION_PATH = "v1/logs";
 
   private JwtService jwtService;
 
@@ -71,7 +73,8 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-        || normalizedPath.startsWith(ALERTS_PATH_PREFIX);
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
   }
 
   @Override
@@ -100,6 +103,13 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     if (headerTenantId != null && !headerTenantId.isBlank()) {
       log.debug("Tenant ID resolved from header: {}", headerTenantId);
       return headerTenantId.trim();
+    }
+
+    //This a Temporary fix for supporting the projectId.
+    //TODO: This will be replaced once we have the complete project Onboarding in place
+    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (projectId != null && !projectId.isBlank()) {
+      return projectId.trim();
     }
 
     log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",
