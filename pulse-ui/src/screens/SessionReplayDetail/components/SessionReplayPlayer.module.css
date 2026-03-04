@@ -1,0 +1,87 @@
+.playerContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  background: var(--mantine-color-gray-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--mantine-radius-md);
+}
+
+.imageViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.currentImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 10;
+  image-rendering: auto;
+  -webkit-image-rendering: auto;
+  display: block !important;
+  visibility: visible !important;
+  background: transparent;
+  will-change: opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0); /* Force hardware acceleration */
+  -webkit-transform: translateZ(0);
+}
+
+/* Ensure image viewport is visible */
+.imageViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  overflow: hidden;
+}
+
+.transitionImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 9;
+  image-rendering: auto;
+  -webkit-image-rendering: auto;
+  pointer-events: none;
+  will-change: opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0); /* Force hardware acceleration */
+  -webkit-transform: translateZ(0);
+}
+
+.placeholder {
+  padding: var(--mantine-spacing-xl);
+  text-align: center;
+  color: var(--mantine-color-gray-6);
+}
+
+/* Dark mode */
+[data-mantine-color-scheme="dark"] .playerContainer {
+  background: var(--mantine-color-dark-7);
+}
+
+[data-mantine-color-scheme="dark"] .placeholder {
+  color: var(--mantine-color-gray-4);
+}

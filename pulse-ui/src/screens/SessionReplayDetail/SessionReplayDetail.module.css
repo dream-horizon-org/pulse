@@ -90,12 +90,26 @@
 
 .playerViewport {
   position: relative;
-  min-height: 450px;
+  min-height: 500px;
   background: var(--mantine-color-gray-0);
   display: flex;
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid var(--mantine-color-gray-2);
+  overflow: hidden;
+}
+
+.loadingSpinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .playerPlaceholder {
@@ -118,6 +132,30 @@
 .playerControls {
   padding: var(--mantine-spacing-md);
   background: var(--mantine-color-white);
+  border-top: 1px solid var(--mantine-color-gray-2);
+}
+
+.playerControls .timelineContainer {
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.playerControls .controlsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+}
+
+.playerControls .playbackButtons {
+  display: flex;
+  gap: var(--mantine-spacing-xs);
+  align-items: center;
+}
+
+.playerControls .speedControls {
+  display: flex;
+  gap: var(--mantine-spacing-xs);
+  align-items: center;
 }
 
 /* Context Panel */
@@ -126,10 +164,35 @@
   border-radius: var(--mantine-radius-md);
   border: 1px solid var(--mantine-color-gray-3);
   background: var(--mantine-color-white);
-  height: 600px;
+  min-height: 400px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* Raw Events Container */
+.rawEventsContainer {
+  padding: var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+}
+
+/* All Tab Container - Above Player */
+.allTabContainer {
+  padding: 0;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.allTabContainer .tabContent {
+  padding: var(--mantine-spacing-md);
+  overflow-y: auto;
+  flex: 1;
 }
 
 .tabContent {
