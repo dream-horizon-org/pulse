@@ -714,7 +714,7 @@ public class AlertsDao {
 
   public Maybe<NotificationChannelInfo> getNotificationChannelById(@NotNull Integer notificationChannelId) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL)
-        .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .rxExecute(Tuple.of(notificationChannelId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching notification channel from db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -737,6 +737,7 @@ public class AlertsDao {
   public Maybe<AlertNotificationChannelResponseDto> getNotificationChannelDetailsById(@NotNull Integer notificationChannelId) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL_BY_ID)
         .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .rxExecute(Tuple.of(notificationChannelId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching notification channel details from db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
