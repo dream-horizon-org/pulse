@@ -64,6 +64,11 @@ public interface PulseSDK {
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
+        /**
+         * When non-null, Session Replay is enabled and will be initialized with this config.
+         * Replay events are emitted as log records with pulse.type = session_replay.
+         */
+        sessionReplayConfig: com.pulse.android.sdk.replay.SessionReplayConfig? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )
 

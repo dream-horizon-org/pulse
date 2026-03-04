@@ -21,6 +21,7 @@ kotlin {
 
 dependencies {
     api(projects.androidAgent)
+    api(projects.instrumentation.sessionReplay)
     implementation(projects.common)
     implementation(projects.pulseSemconv)
     implementation(projects.pulseSamplingModels)

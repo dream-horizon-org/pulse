@@ -59,8 +59,14 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.function.BiFunction
 import java.util.function.Predicate
 import kotlin.system.measureNanoTime
@@ -77,6 +83,10 @@ internal class PulseSDKImpl :
         }
         launch(Dispatchers.Main.immediate) {
             if (isShutdown) return@launch
+            persistingReplayEmitter?.flush()
+            sessionReplay?.uninstall()
+            sessionReplay = null
+            persistingReplayEmitter = null
             otelInstance?.shutdown()
             otelInstance = null
             isShutdown = true
@@ -100,6 +110,7 @@ internal class PulseSDKImpl :
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
+        sessionReplayConfig: com.pulse.android.sdk.replay.SessionReplayConfig?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (isShutdown) {
@@ -123,11 +134,12 @@ internal class PulseSDKImpl :
                 customEventConnectivity,
                 configEndpointUrl,
                 resource,
-                instrumentations,
                 endpointHeaders,
                 sessionConfig,
                 globalAttributes,
                 diskBuffering,
+                sessionReplayConfig,
+                instrumentations,
             )
         }.also {
             PulseOtelUtils.logDebug(TAG) { "Initialisation succeeded in $it ns" }
@@ -148,11 +160,12 @@ internal class PulseSDKImpl :
         customEventConnectivity: EndpointConnectivity,
         configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        sessionReplayConfig: com.pulse.android.sdk.replay.SessionReplayConfig?,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         this.application = application
 
@@ -429,6 +442,72 @@ internal class PulseSDKImpl :
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
             )
+
+        if (sessionReplayConfig != null) {
+            val replayStorageDir = File(application.filesDir, "pulse_replay")
+            val buildReplayEnvelope: (String, List<com.pulse.android.sdk.replay.events.ReplayEvent>) -> String =
+                { sessionId, events ->
+                    val snapshotDataJson = com.pulse.android.sdk.replay.encoding.ReplayEventPayloadEncoder.encodeToJson(events)
+                    val ts = events.firstOrNull()?.timestamp ?: System.currentTimeMillis()
+                    val timestampIso8601 = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                    }.format(Date(ts))
+                    val properties = JSONObject().apply {
+                        put("session_id", sessionId)
+                        put("snapshot_data", JSONArray(snapshotDataJson))
+                        put("snapshot_source", "android")
+                    }
+                    JSONObject().apply {
+                        put("event", "snapshot")
+                        put("timestamp", timestampIso8601)
+                        put("properties", properties)
+                    }.toString()
+                }
+            val sendReplayPayload: (String) -> Unit = { payload ->
+                val ts = System.currentTimeMillis()
+                val payloadSizeKb = payload.length / 1024
+                android.util.Log.d(SESSION_REPLAY_LOG_TAG, "Sending replay payload: $payloadSizeKb KB (${payload.length} bytes)")
+                val maxLogLen = 4000
+                if (payload.length <= maxLogLen) {
+                    android.util.Log.d(SESSION_REPLAY_LOG_TAG, "Replay payload: $payload")
+                } else {
+                    var offset = 0
+                    var part = 0
+                    while (offset < payload.length) {
+                        val chunk = payload.substring(offset, (offset + maxLogLen).coerceAtMost(payload.length))
+                        android.util.Log.d(SESSION_REPLAY_LOG_TAG, "Replay payload part ${++part}: $chunk")
+                        offset += maxLogLen
+                    }
+                }
+                logger
+                    .logRecordBuilder()
+                    .setBody(payload)
+                    .setEventName(SESSION_REPLAY_EVENT_NAME)
+                    .setAttribute(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.SESSION_REPLAY)
+                    .setObservedTimestamp(ts, TimeUnit.MILLISECONDS)
+                    .emit()
+            }
+            val persistingEmitter = com.pulse.android.sdk.replay.PersistingReplayEmitter(
+                storageDir = replayStorageDir,
+                buildEnvelope = buildReplayEnvelope,
+                realSend = sendReplayPayload,
+                flushIntervalSeconds = sessionReplayConfig.flushIntervalSeconds,
+                flushAt = sessionReplayConfig.flushAt,
+                maxBatchSize = sessionReplayConfig.maxBatchSize,
+                replayStorageEncryption = com.pulse.android.sdk.replay.DefaultReplayStorageEncryption(application),
+                logger = { PulseOtelUtils.logDebug(TAG) { it } },
+            )
+            persistingReplayEmitter = persistingEmitter
+            persistingEmitter.sendCachedEvents()
+            sessionReplay = com.pulse.android.sdk.replay.SessionReplayIntegration(
+                context = application,
+                config = sessionReplayConfig,
+                eventEmitter = persistingEmitter,
+                logger = { PulseOtelUtils.logDebug(TAG) { it } },
+            )
+            sessionReplay!!.install()
+            sessionReplay!!.start(resumeCurrent = false)
+        }
     }
 
     private fun createSignalsProcessors(
@@ -685,6 +764,8 @@ internal class PulseSDKImpl :
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
     private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
+    private var sessionReplay: com.pulse.android.sdk.replay.SessionReplayIntegration? = null
+    private var persistingReplayEmitter: com.pulse.android.sdk.replay.PersistingReplayEmitter? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null
@@ -693,6 +774,8 @@ internal class PulseSDKImpl :
         private const val INSTRUMENTATION_SCOPE = "com.pulse.android.sdk"
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
+        private const val SESSION_REPLAY_EVENT_NAME = "pulse.session_replay"
+        private const val SESSION_REPLAY_LOG_TAG = "PulseSessionReplay"
         private const val TAG = "AndroidSDK"
         private const val TENANT_ID_HEADER_KEY = "tenant-id"
 

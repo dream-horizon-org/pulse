@@ -11,6 +11,7 @@ import android.annotation.SuppressLint
 import android.app.Application
 import android.util.Log
 import com.pulse.android.sdk.PulseSDK
+import com.pulse.android.sdk.replay.SessionReplayConfig
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -54,6 +55,11 @@ class OtelDemoApplication : Application() {
                 sessionConfig = SessionConfig(
                     backgroundInactivityTimeout = 2.minutes,
                     maxLifetime = 1.days
+                ),
+                sessionReplayConfig = SessionReplayConfig(
+                    screenshot = true,
+                    throttleDelayMs = 1000L,
+                    screenshotQuality = 30,
                 ),
             ) {
                 interaction {
