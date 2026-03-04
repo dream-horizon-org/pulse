@@ -10,7 +10,6 @@ import io.vertx.rxjava3.sqlclient.Tuple;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j

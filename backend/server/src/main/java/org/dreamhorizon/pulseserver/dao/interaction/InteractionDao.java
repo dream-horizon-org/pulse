@@ -201,6 +201,13 @@ public class InteractionDao {
         }).doOnError(error -> log.error("error in querying jobs : ", error));
   }
 
+  /**
+   * Gets all active and running interactions for the current project.
+   * Uses ProjectContext.getProjectId() internally.
+   * 
+   * @param projectId The project ID (kept for API compatibility, but internally uses ProjectContext)
+   * @return Single emitting list of active and running interaction details
+   */
   public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions(String projectId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS)
@@ -276,7 +283,6 @@ public class InteractionDao {
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
     QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
-        .tenantId(TenantContext.requireTenantId())
         .projectId(getProjectId())
         .build();
 

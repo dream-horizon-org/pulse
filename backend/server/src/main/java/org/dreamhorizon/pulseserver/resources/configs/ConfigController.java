@@ -24,7 +24,6 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
@@ -48,7 +47,9 @@ public class ConfigController {
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<PulseConfig> getActiveSdkConfig() {
-    return configService.getActiveSdkConfig(ProjectContext.getProjectId())
+    String projectId = ProjectContext.getProjectId();
+    log.info("Fetching active SDK config for project: {}", projectId);
+    return configService.getActiveSdkConfig(projectId)
         .to(CompletableFutureUtils::fromSingle);
   }
 
@@ -77,8 +78,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        String tenantId = TenantContext.requireTenantId();
-        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        String projectId = ProjectContext.getProjectId();
+        String configUrl = String.format("%s/projects/%s/interaction.json", 
+            applicationConfig.getInteractionConfigUrl(), projectId);
         interaction.setConfigUrl(configUrl);
       }
     }

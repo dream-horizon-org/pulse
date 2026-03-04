@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 /**
  * Full API key information including the raw key.
  * Used for internal responses and when returning to the user on creation.
@@ -19,11 +21,11 @@ public class ApiKeyInfo {
   private String displayName;
   private String rawApiKey; // Only populated on creation or for internal endpoints
   private Boolean isActive;
-  private String expiresAt;
-  private String gracePeriodEndsAt;
+  private Instant expiresAt;
+  private Instant gracePeriodEndsAt;
   private String createdBy;
-  private String createdAt;
-  private String deactivatedAt;
+  private Instant createdAt;
+  private Instant deactivatedAt;
   private String deactivatedBy;
   private String deactivationReason;
 }

@@ -19,7 +19,8 @@ import org.dreamhorizon.pulseserver.util.SecureRandomUtil;
 import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
 import org.dreamhorizon.pulseserver.util.encryption.ProjectApiKeyEncryptionUtil;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Slf4j
@@ -86,7 +87,7 @@ public class ProjectApiKeyService {
    */
   public Completable revokeApiKey(RevokeApiKeyRequest request) {
     int gracePeriodDays = request.getGracePeriodDays() != null ? request.getGracePeriodDays() : 0;
-    LocalDateTime gracePeriodEndsAt = LocalDateTime.now().plusDays(gracePeriodDays);
+    Instant gracePeriodEndsAt = Instant.now().plus(gracePeriodDays, ChronoUnit.DAYS);
 
     log.info("Revoking API key {} for project: {} with grace period: {} days by: {}",
         request.getApiKeyId(), request.getProjectId(), gracePeriodDays, request.getRevokedBy());

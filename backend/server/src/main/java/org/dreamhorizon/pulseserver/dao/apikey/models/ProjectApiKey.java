@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,11 +19,11 @@ public class ProjectApiKey {
   private String encryptionSalt;
   private String apiKeyDigest;
   private Boolean isActive;
-  private String expiresAt;
-  private String gracePeriodEndsAt;
+  private Instant expiresAt;
+  private Instant gracePeriodEndsAt;
   private String createdBy;
-  private String createdAt;
-  private String deactivatedAt;
+  private Instant createdAt;
+  private Instant deactivatedAt;
   private String deactivatedBy;
   private String deactivationReason;
 }

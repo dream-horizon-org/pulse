@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -20,9 +21,9 @@ public class ProjectUsageLimitInfo {
   private String projectId;
   private Map<String, UsageLimitValue> usageLimits;
   private Boolean isActive;
-  private String createdAt;
+  private Instant createdAt;
   private String createdBy;
-  private String disabledAt;
+  private Instant disabledAt;
   private String disabledBy;
   private String disabledReason;
 }

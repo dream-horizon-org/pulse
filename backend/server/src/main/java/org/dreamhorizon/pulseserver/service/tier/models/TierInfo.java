@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -23,6 +24,6 @@ public class TierInfo {
   private Boolean isCustomLimitsAllowed;
   private Map<String, UsageLimitValue> usageLimitDefaults;
   private Boolean isActive;
-  private String createdAt;
+  private Instant createdAt;
 }
 

@@ -53,3 +53,6 @@ TestReport/
 
 docs/
 postman/
+
+# Local E2E test scripts
+test-scripts/

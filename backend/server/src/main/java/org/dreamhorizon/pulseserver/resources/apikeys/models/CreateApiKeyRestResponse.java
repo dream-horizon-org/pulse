@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 /**
  * REST response for creating a new API key.
  * Contains the raw API key (only returned on creation).
@@ -18,7 +20,7 @@ public class CreateApiKeyRestResponse {
   private String projectId;
   private String displayName;
   private String apiKey; // The raw API key - only returned on creation!
-  private String expiresAt;
-  private String createdAt;
+  private Instant expiresAt;
+  private Instant createdAt;
 }
 

@@ -50,12 +50,13 @@ class TenantServiceTest {
   ClickhouseTenantConnectionPoolManager poolManager;
 
   @Mock
-  OpenFgaService openFgaService;
+  org.dreamhorizon.pulseserver.service.OpenFgaService openFgaService;
 
   TenantService tenantService;
 
   @BeforeEach
   void setup() {
+    tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
     tenantService = new TenantService(tenantDao, credentialsDao, poolManager, openFgaService);
   }
 
@@ -87,7 +88,7 @@ class TenantServiceTest {
   private ClickhouseTenantCredentialAudit createMockAudit() {
     return ClickhouseTenantCredentialAudit.builder()
         .id(1L)
-        .projectId("test_tenant")
+        .projectId("test_project")
         .action("CREDENTIALS_CREATED")
         .performedBy("admin@example.com")
         .details("{\"action\":\"test\"}")
@@ -663,10 +664,10 @@ class TenantServiceTest {
     @Test
     void shouldGetAuditHistorySuccessfully() {
       ClickhouseTenantCredentialAudit mockAudit = createMockAudit();
-      when(credentialsDao.getAuditLogsByProjectId("test_tenant"))
+      when(credentialsDao.getAuditLogsByProjectId("test_project"))
           .thenReturn(Flowable.just(mockAudit));
 
-      List<ClickhouseTenantCredentialAudit> result = tenantService.getCredentialsAuditHistory("test_tenant").toList().blockingGet();
+      List<ClickhouseTenantCredentialAudit> result = tenantService.getCredentialsAuditHistory("test_project").toList().blockingGet();
 
       assertNotNull(result);
       assertEquals(1, result.size());
@@ -679,7 +680,7 @@ class TenantServiceTest {
           .thenReturn(Flowable.error(new RuntimeException("Database error")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> tenantService.getCredentialsAuditHistory("test_tenant").toList().blockingGet());
+          () -> tenantService.getCredentialsAuditHistory("test_project").toList().blockingGet());
       assertTrue(ex.getMessage().contains("Database error"));
     }
   }

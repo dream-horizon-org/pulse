@@ -150,4 +150,45 @@ public class OnboardingResource {
             || token.equals("test-token-user2")
             || !token.contains(".");
     }
+    
+    /**
+     * Handle mock onboarding for development/testing.
+     */
+    private CompletionStage<Response<OnboardingResponse>> handleMockOnboarding(
+            String token, 
+            @Valid OnboardingRequest request) {
+        
+        // Extract mock user info from token
+        String mockUserId = token.replace("mock-", "").replace("dev-", "");
+        String mockEmail = mockUserId + "@mock.test";
+        String mockName = "Mock User " + mockUserId;
+        
+        log.info("Processing mock onboarding: userId={}, email={}, org={}, project={}", 
+            mockUserId, mockEmail, request.getOrganizationName(), request.getProjectName());
+        
+        return onboardingService.completeOnboarding(
+                mockUserId,
+                mockEmail,
+                mockName,
+                request.getOrganizationName(),
+                request.getProjectName(),
+                request.getProjectDescription())
+            .map(result -> OnboardingResponse.builder()
+                .userId(result.getUserId())
+                .email(result.getEmail())
+                .name(result.getName())
+                .tenantId(result.getTenantId())
+                .tenantName(result.getTenantName())
+                .tier(result.getTier())
+                .projectId(result.getProjectId())
+                .projectName(result.getProjectName())
+                .projectApiKey(result.getProjectApiKey())
+                .accessToken(result.getAccessToken())
+                .refreshToken(result.getRefreshToken())
+                .tokenType(result.getTokenType())
+                .expiresIn(result.getExpiresIn())
+                .redirectTo(result.getRedirectTo())
+                .build())
+            .to(RestResponse.jaxrsRestHandler());
+    }
 }

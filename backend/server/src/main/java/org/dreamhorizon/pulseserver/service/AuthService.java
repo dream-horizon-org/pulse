@@ -25,6 +25,7 @@ import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateRespons
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.LoginResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.VerifyAuthTokenResponseDto;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.dreamhorizon.pulseserver.util.JwtUtils;
 
 @Slf4j
@@ -40,6 +41,7 @@ public class AuthService {
   private final UserService userService;
   private final OpenFgaService openFgaService;
   private final ProjectService projectService;
+  private final TierService tierService;
   private volatile String firebaseJwksCache;
   private volatile long firebaseJwksCacheExpiryMillis;
   private static final long JWKS_CACHE_TTL_MS = 3600_000L;
@@ -169,34 +171,44 @@ public class AuthService {
                       .flatMap(project -> {
                         String tenantId = project.getTenantId();
 
-                        // Get user's tenant role
-                        return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
-                            .map(roleOpt -> {
-                              String tenantRole = roleOpt.orElse("member");
+                        // Fetch tenant to get tier ID
+                        return tenantDao.getTenantById(tenantId)
+                            .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+                            .flatMap(tenant -> {
+                              // Get tier name from tier ID
+                              return tierService.getTierNameById(tenant.getTierId())
+                                  .defaultIfEmpty("free")  // Fallback if tier not found
+                                  .flatMap(tierName ->
+                                      // Get user's tenant role
+                                      openFgaService.getUserTenantRole(user.getUserId(), tenantId)
+                                          .map(roleOpt -> {
+                                            String tenantRole = roleOpt.orElse("member");
 
-                              // Generate JWT tokens with tenantId
-                              String accessToken = jwtService.generateAccessToken(
-                                  user.getUserId(), user.getEmail(), user.getName(), tenantId);
-                              String refreshToken = jwtService.generateRefreshToken(
-                                  user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                            // Generate JWT tokens with tenantId
+                                            String accessToken = jwtService.generateAccessToken(
+                                                user.getUserId(), user.getEmail(), user.getName(), tenantId);
+                                            String refreshToken = jwtService.generateRefreshToken(
+                                                user.getUserId(), user.getEmail(), user.getName(), tenantId);
 
-                              log.info("Login successful: userId={}, tenantId={}, tenantRole={}",
-                                  user.getUserId(), tenantId, tenantRole);
+                                            log.info("Login successful: userId={}, tenantId={}, tenantRole={}, tier={}",
+                                                user.getUserId(), tenantId, tenantRole, tierName);
 
-                                return LoginResponse.builder()
-                                    .status(LoginStatus.SUCCESS)
-                                    .accessToken(accessToken)
-                                    .refreshToken(refreshToken)
-                                    .userId(user.getUserId())
-                                    .email(user.getEmail())
-                                    .name(user.getName())
-                                    .tenantId(tenantId)
-                                    .tenantRole(tenantRole)
-                                    .tier("free")  // TODO: Query from database
-                                    .needsOnboarding(false)
-                                    .tokenType(TOKEN_TYPE_BEARER)
-                                    .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                                    .build();
+                                            return LoginResponse.builder()
+                                                .status(LoginStatus.SUCCESS)
+                                                .accessToken(accessToken)
+                                                .refreshToken(refreshToken)
+                                                .userId(user.getUserId())
+                                                .email(user.getEmail())
+                                                .name(user.getName())
+                                                .tenantId(tenantId)
+                                                .tenantRole(tenantRole)
+                                                .tier(tierName)
+                                                .needsOnboarding(false)
+                                                .tokenType(TOKEN_TYPE_BEARER)
+                                                .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                                                .build();
+                                          })
+                                  );
                             });
                       });
                 })

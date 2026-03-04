@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 /**
  * REST response for API key.
  */
@@ -18,11 +20,11 @@ public class ApiKeyRestResponse {
   private String displayName;
   private String apiKey;
   private Boolean isActive;
-  private String expiresAt;
-  private String gracePeriodEndsAt;
+  private Instant expiresAt;
+  private Instant gracePeriodEndsAt;
   private String createdBy;
-  private String createdAt;
-  private String deactivatedAt;
+  private Instant createdAt;
+  private Instant deactivatedAt;
   private String deactivatedBy;
   private String deactivationReason;
 }

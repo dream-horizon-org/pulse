@@ -15,8 +15,6 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,13 +23,11 @@ public abstract class ApiKeyMapper {
 
   public static final ApiKeyMapper INSTANCE = Mappers.getMapper(ApiKeyMapper.class);
 
-  private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
   // ==================== Request Mappings ====================
 
   @Mapping(target = "projectId", source = "projectId")
   @Mapping(target = "displayName", source = "request.displayName")
-  @Mapping(target = "expiresAt", expression = "java(parseDateTime(request.getExpiresAt()))")
+  @Mapping(target = "expiresAt", source = "request.expiresAt")
   @Mapping(target = "createdBy", source = "createdBy")
   public abstract CreateApiKeyRequest toCreateApiKeyRequest(
       String projectId,
@@ -129,15 +125,6 @@ public abstract class ApiKeyMapper {
         .apiKeys(responses)
         .count(responses.size())
         .build();
-  }
-
-  // ==================== Helper Methods ====================
-
-  protected LocalDateTime parseDateTime(String dateTimeStr) {
-    if (dateTimeStr == null || dateTimeStr.isBlank()) {
-      return null;
-    }
-    return LocalDateTime.parse(dateTimeStr, ISO_FORMATTER);
   }
 }
 

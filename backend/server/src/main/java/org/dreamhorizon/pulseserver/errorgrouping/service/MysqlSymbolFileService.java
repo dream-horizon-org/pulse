@@ -14,20 +14,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 @Slf4j
 public class MysqlSymbolFileService extends SymbolFileService {
   private final MysqlClient d11MysqlClient;
-
-  /**
-   * Gets the current project ID from the ProjectContext.
-   */
-  private String getProjectId() {
-    return ProjectContext.getProjectId();
-  }
 
   @SneakyThrows
   public static Buffer toBuffer(InputStream in) {
@@ -45,7 +37,6 @@ public class MysqlSymbolFileService extends SymbolFileService {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)
         .execute(Tuple.wrap(Arrays.asList(
-            getProjectId(),
             metadata.getAppVersion(),
             metadata.getVersionCode(),
             metadata.getPlatform(),
@@ -55,7 +46,7 @@ public class MysqlSymbolFileService extends SymbolFileService {
             metadata.getProjectId())))
         .map(rows -> true)
         .onErrorResumeNext(err -> {
-          log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());
+          log.error("Exception while uploading mapping file for {}: {}", metadata, err.getMessage());
           return Single.just(false);
         });
   }
@@ -71,12 +62,11 @@ public class MysqlSymbolFileService extends SymbolFileService {
         """;
 
     Tuple params = Tuple.of(
-        getProjectId(),
+        metadata.getProjectId(),
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),
-        metadata.getType(),
-        metadata.getProjectId()
+        metadata.getType()
     );
 
     return d11MysqlClient.getReaderPool()

@@ -11,6 +11,7 @@ import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 import org.dreamhorizon.pulseserver.service.tenant.models.CreateTenantRequest;
+import org.dreamhorizon.pulseserver.service.tier.TierService;
 
 /**
  * Service for onboarding new users.
@@ -31,6 +32,7 @@ public class OnboardingService {
     private final OpenFgaService openFgaService;
     private final JwtService jwtService;
     private final UserService userService;
+    private final TierService tierService;
 
     /**
      * Complete onboarding for a new user.
@@ -124,31 +126,38 @@ public class OnboardingService {
                         openFgaService.assignTenantRole(userId, tenantId, "admin")
                             .andThen(Single.just(creationResult))
                     )
-                    .map(creationResult -> {
+                    .flatMap(creationResult -> {
                         Project project = creationResult.getProject();
-                        // Step 4: Generate JWT tokens with tenantId
-                        String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-                        String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
                         
-                        log.info("Onboarding completed: userId={}, tenantId={}, projectId={}", 
-                            userId, tenantId, project.getProjectId());
-                        
-                        return OnboardingResult.builder()
-                            .userId(userId)
-                            .email(email)
-                            .name(name)
-                            .tenantId(tenantId)
-                            .tenantName(organizationName)
-                            .tier("free")  // New tenants always start with free tier
-                            .projectId(project.getProjectId())
-                            .projectName(project.getName())
-                            .projectApiKey(creationResult.getRawApiKey())
-                            .accessToken(accessToken)
-                            .refreshToken(refreshToken)
-                            .tokenType("Bearer")
-                            .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-                            .redirectTo("/projects/" + project.getProjectId())
-                            .build();
+                        // Step 4: Get tier name from tenant's tier ID (robust approach)
+                        // New tenants are created with tier_id = 1 (free), but we query it for consistency
+                        return tierService.getTierNameById(tenant.getTierId())
+                            .defaultIfEmpty("free")  // Fallback to "free" if tier not found
+                            .map(tierName -> {
+                                // Step 5: Generate JWT tokens with tenantId
+                                String accessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+                                String refreshToken = jwtService.generateRefreshToken(userId, email, name, tenantId);
+                                
+                                log.info("Onboarding completed: userId={}, tenantId={}, projectId={}, tier={}", 
+                                    userId, tenantId, project.getProjectId(), tierName);
+                                
+                                return OnboardingResult.builder()
+                                    .userId(userId)
+                                    .email(email)
+                                    .name(name)
+                                    .tenantId(tenantId)
+                                    .tenantName(organizationName)
+                                    .tier(tierName)
+                                    .projectId(project.getProjectId())
+                                    .projectName(project.getName())
+                                    .projectApiKey(creationResult.getRawApiKey())
+                                    .accessToken(accessToken)
+                                    .refreshToken(refreshToken)
+                                    .tokenType("Bearer")
+                                    .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+                                    .redirectTo("/projects/" + project.getProjectId())
+                                    .build();
+                            });
                     })
             )
             .doOnError(error -> 

@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
+import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
@@ -212,7 +213,9 @@ public class UsageLimitService {
                     .map(limit -> new CustomLimitContext(project, tenant, null, limit));
               }
               return tierDao.getTierById(tierId)
-                  .defaultIfEmpty(null)
+                  .toSingle()
+                  .onErrorResumeNext(e -> Single.error(
+                      new RuntimeException("Tier not found: " + tierId)))
                   .flatMap(tier -> usageLimitDao.getActiveLimitByProjectId(projectId)
                       .switchIfEmpty(Single.error(new RuntimeException(
                           "No active limits found for project: " + projectId)))
@@ -226,14 +229,17 @@ public class UsageLimitService {
    * Validates that custom limits are allowed for the project's tenant.
    * Pure validation - uses already-fetched context.
    *
-   * @throws IllegalStateException if custom limits are not allowed
+   * @throws ForbiddenOperationException if custom limits are not allowed
    */
   private void validateCustomLimitsAllowed(CustomLimitContext ctx) {
     if (ctx.getTier() == null) {
-      throw new IllegalStateException("Custom limits not allowed. Tenant has no tier assigned.");
+      throw new ForbiddenOperationException(
+          "CUSTOM_LIMITS_NOT_ALLOWED",
+          "Custom limits not allowed. Tenant has no tier assigned.");
     }
     if (!ctx.getTier().getIsCustomLimitsAllowed()) {
-      throw new IllegalStateException(
+      throw new ForbiddenOperationException(
+          "CUSTOM_LIMITS_NOT_ALLOWED",
           "Custom limits not allowed for this project. Tenant must be on enterprise tier.");
     }
   }

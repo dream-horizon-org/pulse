@@ -23,6 +23,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -54,6 +56,7 @@ public class TierDao {
               .isCustomLimitsAllowed(tier.getIsCustomLimitsAllowed())
               .usageLimitDefaults(tier.getUsageLimitDefaults())
               .isActive(tier.getIsActive() != null ? tier.getIsActive() : true)
+              .createdAt(Instant.now())
               .build();
         })
         .doOnError(error -> log.error("Failed to create tier: {}", tier.getName(), error));
@@ -220,7 +223,7 @@ public class TierDao {
         .usageLimitDefaults(usageLimitDefaults)
         .isActive(row.getBoolean("is_active"))
         .createdAt(row.getLocalDateTime("created_at") != null
-            ? row.getLocalDateTime("created_at").toString()
+            ? row.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC)
             : null)
         .build();
   }

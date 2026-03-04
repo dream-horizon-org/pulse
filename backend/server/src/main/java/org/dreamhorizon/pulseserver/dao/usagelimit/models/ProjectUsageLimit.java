@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -14,8 +16,8 @@ public class ProjectUsageLimit {
   private String projectId;
   private String usageLimits; // JSON string
   private Boolean isActive;
-  private String createdAt;
-  private String disabledAt;
+  private Instant createdAt;
+  private Instant disabledAt;
   private String disabledBy;
   private String disabledReason;
   private String createdBy;

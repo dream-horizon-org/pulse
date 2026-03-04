@@ -196,7 +196,7 @@ class DaoModelsTest {
     void shouldBuildWithAllFields() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
           .id(1L)
-          .projectId("tenant_1")
+          .projectId("project_1")
           .action("CREATED")
           .performedBy("admin")
           .details("Details here")
@@ -204,7 +204,7 @@ class DaoModelsTest {
           .build();
 
       assertEquals(1L, audit.getId());
-      assertEquals("tenant_1", audit.getProjectId());
+      assertEquals("project_1", audit.getProjectId());
       assertEquals("CREATED", audit.getAction());
       assertEquals("admin", audit.getPerformedBy());
       assertEquals("Details here", audit.getDetails());
@@ -216,15 +216,16 @@ class DaoModelsTest {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
       assertNull(audit.getId());
       assertNull(audit.getProjectId());
+      assertNull(audit.getProjectId());
     }
 
     @Test
     void shouldCreateWithAllArgsConstructor() {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit(
-          1L, "t1", "CREATED", "admin", "details", "2024-01-01"
+          1L, "p1", "CREATED", "admin", "details", "2024-01-01"
       );
       assertEquals(1L, audit.getId());
-      assertEquals("t1", audit.getProjectId());
+      assertEquals("p1", audit.getProjectId());
       assertEquals("CREATED", audit.getAction());
     }
 
@@ -232,14 +233,14 @@ class DaoModelsTest {
     void shouldSetAndGetAllProperties() {
       ClickhouseTenantCredentialAudit audit = new ClickhouseTenantCredentialAudit();
       audit.setId(1L);
-      audit.getProjectId();
+      audit.setProjectId("p1");
       audit.setAction("UPDATED");
       audit.setPerformedBy("system");
       audit.setDetails("some details");
       audit.setCreatedAt("2024-01-01");
 
       assertEquals(1L, audit.getId());
-      assertEquals("t1", audit.getProjectId());
+      assertEquals("p1", audit.getProjectId());
       assertEquals("UPDATED", audit.getAction());
       assertEquals("system", audit.getPerformedBy());
       assertEquals("some details", audit.getDetails());
@@ -249,11 +250,11 @@ class DaoModelsTest {
     @Test
     void shouldImplementEqualsCorrectly() {
       ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").build();
+          .id(1L).projectId("p1").build();
       ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").build();
+          .id(1L).projectId("p1").build();
       ClickhouseTenantCredentialAudit a3 = ClickhouseTenantCredentialAudit.builder()
-          .id(2L).projectId("t1").build();
+          .id(2L).projectId("p1").build();
 
       assertEquals(a1, a2);
       assertNotEquals(a1, a3);
@@ -265,30 +266,30 @@ class DaoModelsTest {
     @Test
     void shouldImplementHashCodeCorrectly() {
       ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").build();
+          .id(1L).projectId("p1").build();
       ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").build();
+          .id(1L).projectId("p1").build();
       assertEquals(a1.hashCode(), a2.hashCode());
     }
 
     @Test
     void shouldImplementToString() {
       ClickhouseTenantCredentialAudit audit = ClickhouseTenantCredentialAudit.builder()
-          .projectId("t1").action("CREATED").build();
+          .projectId("p1").action("CREATED").build();
       assertNotNull(audit.toString());
     }
 
     @Test
     void shouldHandleEqualsWithDifferentFields() {
       ClickhouseTenantCredentialAudit base = ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").action("CREATED").performedBy("admin").build();
-
+          .id(1L).projectId("p1").action("CREATED").performedBy("admin").build();
+      
       assertNotEquals(base, ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t2").action("CREATED").performedBy("admin").build());
+          .id(1L).projectId("p2").action("CREATED").performedBy("admin").build());
       assertNotEquals(base, ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").action("UPDATED").performedBy("admin").build());
+          .id(1L).projectId("p1").action("UPDATED").performedBy("admin").build());
       assertNotEquals(base, ClickhouseTenantCredentialAudit.builder()
-          .id(1L).projectId("t1").action("CREATED").performedBy("system").build());
+          .id(1L).projectId("p1").action("CREATED").performedBy("system").build());
     }
 
     @Test
@@ -296,7 +297,7 @@ class DaoModelsTest {
       ClickhouseTenantCredentialAudit a1 = ClickhouseTenantCredentialAudit.builder()
           .projectId(null).build();
       ClickhouseTenantCredentialAudit a2 = ClickhouseTenantCredentialAudit.builder()
-          .projectId("t1").build();
+          .projectId("p1").build();
       assertNotEquals(a1, a2);
       assertNotEquals(a2, a1);
     }

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.resources.tiers.models.UsageLimitValueRestDto;
 
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -20,9 +21,9 @@ public class ProjectUsageLimitRestResponse {
   private String projectId;
   private Map<String, UsageLimitValueRestDto> usageLimits;
   private Boolean isActive;
-  private String createdAt;
+  private Instant createdAt;
   private String createdBy;
-  private String disabledAt;
+  private Instant disabledAt;
   private String disabledBy;
   private String disabledReason;
 }

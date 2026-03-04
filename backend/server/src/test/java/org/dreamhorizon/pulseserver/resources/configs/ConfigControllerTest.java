@@ -34,7 +34,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -327,8 +326,6 @@ class ConfigControllerTest {
     void shouldApplyDefaultConfigUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
-        // Set tenant context inside Vert.x context
-        TenantContext.setTenantId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -349,8 +346,8 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
-            assertEquals("http://default-config.example.com/test/config/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
             verify(applicationConfig, times(1)).getInteractionConfigUrl();
           });
@@ -363,7 +360,6 @@ class ConfigControllerTest {
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("default");
-        TenantContext.setTenantId("test");
         // Set tenant context inside Vert.x context
 
         // Given
@@ -385,8 +381,8 @@ class ConfigControllerTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertNull(err);
-            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
-            assertEquals("http://default-config.example.com/test/config/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
@@ -398,8 +394,6 @@ class ConfigControllerTest {
     void shouldApplyBothDefaultUrlsWhenBothNullOrBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
-        // Set tenant context inside Vert.x context
-        TenantContext.setTenantId("test");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -422,8 +416,8 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals("http://default-collector.example.com", pulseConfig.getInteraction().getCollectorUrl());
-            // URL should include tenant ID path: base_url/{tenant_id}/config/interaction.json
-            assertEquals("http://default-config.example.com/test/config/interaction.json",
+            // URL should include project path only: base_url/projects/{project_id}/interaction.json
+            assertEquals("http://default-config.example.com/projects/test-project/interaction.json",
                 pulseConfig.getInteraction().getConfigUrl());
           });
           testContext.completeNow();
@@ -466,7 +460,6 @@ class ConfigControllerTest {
     void shouldApplyDefaultLogsCollectorUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
-        TenantContext.setTenantId("test");
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.getSignals().setLogsCollectorUrl(null);
@@ -1013,7 +1006,6 @@ class ConfigControllerTest {
     void shouldCreateConfigWithPartiallyPopulatedFilterEvents(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
-        TenantContext.setTenantId("test");
 
         // Given - Test with filter events that have null props/scope/sdks
         PulseConfig pulseConfig = PulseConfig.builder()
@@ -1157,7 +1149,6 @@ class ConfigControllerTest {
     void shouldCreateConfigWithFullyPopulatedData(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         ProjectContext.setProjectId("test");
-        TenantContext.setTenantId("test");
         // Given - Use fully populated config to exercise all mapper branches
         PulseConfig pulseConfig = createFullyPopulatedPulseConfig();
 

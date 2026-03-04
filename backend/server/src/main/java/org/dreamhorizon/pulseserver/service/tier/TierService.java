@@ -181,6 +181,26 @@ public class TierService {
   }
 
   /**
+   * Maps tier ID to tier name string for API responses.
+   * Returns "free" or "enterprise" based on tier ID.
+   * Falls back to "free" if tier not found.
+   * 
+   * @param tierId The tier ID from tenant
+   * @return Maybe<String> containing tier name ("free", "enterprise", etc.)
+   */
+  public Maybe<String> getTierNameById(Integer tierId) {
+    if (tierId == null) {
+      log.warn("Tier ID is null, defaulting to 'free'");
+      return Maybe.just("free");
+    }
+    
+    return tierDao.getTierById(tierId)
+        .map(Tier::getName)
+        .doOnSuccess(name -> log.debug("Mapped tier ID {} to name: {}", tierId, name))
+        .doOnError(error -> log.error("Failed to get tier name for ID: {}", tierId, error));
+  }
+
+  /**
    * Gets all active tiers (public simplified info).
    */
   public Flowable<TierPublicInfo> getAllActiveTiersPublic() {

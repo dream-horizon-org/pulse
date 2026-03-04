@@ -216,9 +216,7 @@ public class AlertsQuery {
       + "is_active) "
       + "VALUES (?,?,?,?,TRUE);";
 
-  public static final String DELETE_ALERT = "UPDATE alerts SET is_active = FALSE WHERE id = ? AND tenant_id = ?;";
-
-  public static final String UPDATE_ALERT_STATE = "UPDATE alert_scope SET state = ? WHERE alert_id = ? AND name = ?;";
+  public static final String DELETE_ALERT = "UPDATE alerts SET is_active = FALSE WHERE id = ? AND project_id = ?;";
 
   public static final String UPDATE_ALERT = "UPDATE alerts SET "
       + "name = ?, "
@@ -232,18 +230,16 @@ public class AlertsQuery {
       + "evaluation_interval = ?, "
       + "updated_by = ?, "
       + "updated_at = CURRENT_TIMESTAMP "
-      + "WHERE id = ? AND tenant_id = ?;";
+      + "WHERE id = ? AND project_id = ?;";
 
   public static final String DELETE_ALERT_SCOPES =
       "UPDATE alert_scope SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE alert_id = ?;";
 
   public static final String SNOOZE_ALERT = "UPDATE alerts "
-      + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE id = ? AND tenant_id = ?;";
+      + "set last_snoozed_at = ?, snoozed_from = ?, snoozed_until = ?, updated_by = ? WHERE id = ? AND project_id = ?;";
 
   public static final String DELETE_SNOOZE = "UPDATE alerts "
-      + "set snoozed_from = null, snoozed_until = null, updated_by = ? WHERE id = ? AND tenant_id = ?;";
-
-  public static final String GET_CURRENT_STATE_OF_ALERT = "SELECT current_state FROM alerts WHERE id = ? AND tenant_id = ?;";
+      + "set snoozed_from = null, snoozed_until = null, updated_by = ? WHERE id = ? AND project_id = ?;";
 
   public static final String GET_ALERT_FILTERS =
       "SELECT DISTINCT A.name as name, A.scope as scope, A.created_by as created_by, A.updated_by as updated_by,"
@@ -256,11 +252,11 @@ public class AlertsQuery {
 
   public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels WHERE project_id = ? AND is_active = TRUE;";
   public static final String CREATE_NOTIFICATION_CHANNEL =
-      "INSERT INTO notification_channels(tenant_id, name, type, config, is_active) VALUES (?,?,?,?,TRUE);";
+      "INSERT INTO notification_channels(project_id, name, type, config, is_active) VALUES (?,?,?,?,TRUE);";
   public static final String UPDATE_NOTIFICATION_CHANNEL =
       "UPDATE notification_channels SET name = ?, type = ?, config = ? WHERE notification_channel_id = ? AND project_id = ? AND is_active = TRUE;";
   public static final String DELETE_NOTIFICATION_CHANNEL =
-      "UPDATE notification_channels SET is_active = FALSE WHERE notification_channel_id = ? AND tenant_id = ?;";
+      "UPDATE notification_channels SET is_active = FALSE WHERE notification_channel_id = ? AND project_id = ?;";
 
   public static final String CREATE_TAG = "INSERT INTO tags(name) VALUES (?);";
   public static final String GET_TAGS_FOR_ALERT =
@@ -294,7 +290,7 @@ public class AlertsQuery {
       + "snoozed_from, "
       + "snoozed_until "
       + "FROM alerts "
-      + "WHERE id = ? AND tenant_id = ? AND is_active = TRUE;";
+      + "WHERE id = ? AND project_id = ? AND is_active = TRUE;";
 
 
   public static final String UPDATE_SCOPE_STATE = "UPDATE alert_scope SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;";

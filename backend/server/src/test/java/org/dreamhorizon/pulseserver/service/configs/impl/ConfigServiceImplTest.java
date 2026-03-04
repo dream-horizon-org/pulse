@@ -34,7 +34,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
 import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -64,8 +63,8 @@ class ConfigServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    // Set up tenant context for multi-tenancy tests
-    ProjectContext.setProjectId("test-tenant");
+    // Set up project context for multi-tenancy tests
+    ProjectContext.setProjectId("test-project");
 
     when(vertx.getOrCreateContext()).thenReturn(context);
     // Mock the context.runOnContext to just run the command immediately
@@ -79,7 +78,7 @@ class ConfigServiceImplTest {
 
   @AfterEach
   void tearDown() {
-    TenantContext.clear();
+    ProjectContext.clear();
   }
 
   @Nested
@@ -96,17 +95,17 @@ class ConfigServiceImplTest {
           .description("Test Config")
           .build();
 
-      when(sdkConfigsDao.getConfig(ProjectContext.getProjectId(), version)).thenReturn(Single.just(expectedConfig));
+      when(sdkConfigsDao.getConfig(version)).thenReturn(Single.just(expectedConfig));
 
       // When
-      PulseConfig result = configService.getSdkConfig(ProjectContext.getProjectId(), version).blockingGet();
+      PulseConfig result = configService.getSdkConfig("test-project", version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(version);
       assertThat(result.getDescription()).isEqualTo("Test Config");
 
-      verify(sdkConfigsDao, times(1)).getConfig(ProjectContext.getProjectId(), version);
+      verify(sdkConfigsDao, times(1)).getConfig(version);
       verifyNoMoreInteractions(sdkConfigsDao);
     }
 
@@ -116,16 +115,16 @@ class ConfigServiceImplTest {
       long version = 1L;
       RuntimeException daoError = new RuntimeException("Config not found");
 
-      when(sdkConfigsDao.getConfig(ProjectContext.getProjectId(), version)).thenReturn(Single.error(daoError));
+      when(sdkConfigsDao.getConfig(version)).thenReturn(Single.error(daoError));
 
       // When
-      var testObserver = configService.getSdkConfig(ProjectContext.getProjectId(), version).test();
+      var testObserver = configService.getSdkConfig("test-project", version).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Config not found"));
 
-      verify(sdkConfigsDao, times(1)).getConfig(ProjectContext.getProjectId(), version);
+      verify(sdkConfigsDao, times(1)).getConfig(version);
       verifyNoMoreInteractions(sdkConfigsDao);
     }
   }
@@ -143,17 +142,17 @@ class ConfigServiceImplTest {
           .description("Active Config")
           .build();
 
-      when(sdkConfigsDao.getConfig(ProjectContext.getProjectId())).thenReturn(Single.just(expectedConfig));
+      when(sdkConfigsDao.getConfig()).thenReturn(Single.just(expectedConfig));
 
       // When
-      PulseConfig result = configService.getActiveSdkConfig(ProjectContext.getProjectId()).blockingGet();
+      PulseConfig result = configService.getActiveSdkConfig("test-project").blockingGet();
 
       // Then
       assertThat(result).isNotNull();
       assertThat(result.getVersion()).isEqualTo(5L);
       assertThat(result.getDescription()).isEqualTo("Active Config");
 
-      verify(sdkConfigsDao, times(1)).getConfig(ProjectContext.getProjectId());
+      verify(sdkConfigsDao, times(1)).getConfig();
     }
 
     @Test
@@ -164,12 +163,12 @@ class ConfigServiceImplTest {
           .description("Active Config")
           .build();
 
-      when(sdkConfigsDao.getConfig(ProjectContext.getProjectId())).thenReturn(Single.just(expectedConfig));
+      when(sdkConfigsDao.getConfig()).thenReturn(Single.just(expectedConfig));
 
       // When - first call
-      PulseConfig result1 = configService.getActiveSdkConfig(ProjectContext.getProjectId()).blockingGet();
+      PulseConfig result1 = configService.getActiveSdkConfig("test-project").blockingGet();
       // Second call - should use cache
-      PulseConfig result2 = configService.getActiveSdkConfig(ProjectContext.getProjectId()).blockingGet();
+      PulseConfig result2 = configService.getActiveSdkConfig("test-project").blockingGet();
 
       // Then
       assertThat(result1).isNotNull();
@@ -177,7 +176,7 @@ class ConfigServiceImplTest {
       assertThat(result1.getVersion()).isEqualTo(result2.getVersion());
 
       // DAO should only be called once because of caching
-      verify(sdkConfigsDao, times(1)).getConfig(ProjectContext.getProjectId());
+      verify(sdkConfigsDao, times(1)).getConfig();
     }
 
     @Test
@@ -185,10 +184,10 @@ class ConfigServiceImplTest {
       // Given
       RuntimeException daoError = new RuntimeException("Failed to load config");
 
-      when(sdkConfigsDao.getConfig(ProjectContext.getProjectId())).thenReturn(Single.error(daoError));
+      when(sdkConfigsDao.getConfig()).thenReturn(Single.error(daoError));
 
       // When
-      var testObserver = configService.getActiveSdkConfig(ProjectContext.getProjectId()).test();
+      var testObserver = configService.getActiveSdkConfig("test-project").test();
 
       // Then
       testObserver.assertError(Throwable.class);
@@ -238,8 +237,8 @@ class ConfigServiceImplTest {
           .description("New Config")
           .build();
 
-      when(sdkConfigsDao.createConfig(ProjectContext.getProjectId(), configData)).thenReturn(Single.just(createdConfig));
-      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()))
+      when(sdkConfigsDao.createConfig(configData)).thenReturn(Single.just(createdConfig));
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore("test-project"))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
@@ -272,23 +271,23 @@ class ConfigServiceImplTest {
           .build();
 
       // First load to populate cache
-      when(sdkConfigsDao.getConfig(ProjectContext.getProjectId())).thenReturn(Single.just(initialConfig), Single.just(newConfig));
-      when(sdkConfigsDao.createConfig(any(), any())).thenReturn(Single.just(newConfig));
-      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId()))
+      when(sdkConfigsDao.getConfig()).thenReturn(Single.just(initialConfig), Single.just(newConfig));
+      when(sdkConfigsDao.createConfig(any())).thenReturn(Single.just(newConfig));
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore("test-project"))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
       // First call populates cache
-      configService.getActiveSdkConfig(ProjectContext.getProjectId()).blockingGet();
+      configService.getActiveSdkConfig("test-project").blockingGet();
       // Create config should invalidate cache
       configService.createSdkConfig(ProjectContext.getProjectId(), configData).blockingGet();
       // This should reload from DAO, not cache
-      PulseConfig result = configService.getActiveSdkConfig(ProjectContext.getProjectId()).blockingGet();
+      PulseConfig result = configService.getActiveSdkConfig("test-project").blockingGet();
 
       // Then
       assertThat(result.getVersion()).isEqualTo(6L);
       // getConfig() should be called twice (initial load + after cache invalidation)
-      verify(sdkConfigsDao, times(2)).getConfig(ProjectContext.getProjectId());
+      verify(sdkConfigsDao, times(2)).getConfig();
     }
 
     @Test

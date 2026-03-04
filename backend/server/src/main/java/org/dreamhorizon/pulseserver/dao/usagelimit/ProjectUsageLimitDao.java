@@ -21,6 +21,8 @@ import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +64,7 @@ public class ProjectUsageLimitDao {
         .usageLimits(usageLimitsJson)
         .isActive(true)
         .createdBy(createdBy)
+        .createdAt(Instant.now())
         .build();
   }
 
@@ -194,13 +197,26 @@ public class ProjectUsageLimitDao {
   }
 
   private ProjectUsageLimit mapRowToUsageLimit(Row row) {
+    // MySQL JSON column returns JsonObject, convert to String for the model
+    String usageLimitsJson = null;
+    Object usageLimitsValue = row.getValue("usage_limits");
+    if (usageLimitsValue != null) {
+      if (usageLimitsValue instanceof io.vertx.core.json.JsonObject) {
+        usageLimitsJson = ((io.vertx.core.json.JsonObject) usageLimitsValue).encode();
+      } else {
+        usageLimitsJson = usageLimitsValue.toString();
+      }
+    }
+    
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
         .projectId(row.getString("project_id"))
-        .usageLimits(row.getString("usage_limits"))
+        .usageLimits(usageLimitsJson)
         .isActive(row.getBoolean("is_active"))
-        .createdAt(row.getLocalDateTime("created_at") != null ? row.getLocalDateTime("created_at").toString() : null)
-        .disabledAt(row.getLocalDateTime("disabled_at") != null ? row.getLocalDateTime("disabled_at").toString() : null)
+        .createdAt(row.getLocalDateTime("created_at") != null
+            ? row.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
+        .disabledAt(row.getLocalDateTime("disabled_at") != null
+            ? row.getLocalDateTime("disabled_at").toInstant(ZoneOffset.UTC) : null)
         .disabledBy(row.getString("disabled_by"))
         .disabledReason(row.getString("disabled_reason"))
         .createdBy(row.getString("created_by"))

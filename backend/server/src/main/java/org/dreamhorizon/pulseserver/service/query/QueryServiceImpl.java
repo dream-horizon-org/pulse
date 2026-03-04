@@ -638,20 +638,23 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("Database name is not configured"));
     }
 
+    String projectId = ProjectContext.getProjectId();
+    String projectTable = "otel_data_" + projectId;
+
     String tablesQuery = String.format(
         "SELECT table_schema, table_name, table_type " +
             "FROM information_schema.tables " +
-            "WHERE table_schema = '%s' " +
+            "WHERE table_schema = '%s' AND table_name = '%s' " +
             "ORDER BY table_name",
-        database
+        database, projectTable
     );
 
     String columnsQuery = String.format(
         "SELECT table_schema, table_name, column_name, data_type, ordinal_position, is_nullable " +
             "FROM information_schema.columns " +
-            "WHERE table_schema = '%s' " +
+            "WHERE table_schema = '%s' AND table_name = '%s' " +
             "ORDER BY table_name, ordinal_position",
-        database
+        database, projectTable
     );
 
     return queryClient.submitQuery(tablesQuery)

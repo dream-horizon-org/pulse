@@ -19,7 +19,9 @@ import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -37,7 +39,7 @@ public class ProjectApiKeyDao {
       String apiKeyEncrypted,
       String encryptionSalt,
       String apiKeyDigest,
-      LocalDateTime expiresAt,
+      Instant expiresAt,
       String createdBy) {
     MySQLPool pool = mysqlClient.getWriterPool();
     return pool.preparedQuery(INSERT_API_KEY)
@@ -53,7 +55,7 @@ public class ProjectApiKeyDao {
       String apiKeyEncrypted,
       String encryptionSalt,
       String apiKeyDigest,
-      LocalDateTime expiresAt,
+      Instant expiresAt,
       String createdBy) {
     return conn.preparedQuery(INSERT_API_KEY)
         .rxExecute(buildApiKeyTuple(projectId, displayName, apiKeyEncrypted, encryptionSalt, apiKeyDigest, expiresAt, createdBy))
@@ -67,15 +69,16 @@ public class ProjectApiKeyDao {
       String apiKeyEncrypted,
       String encryptionSalt,
       String apiKeyDigest,
-      LocalDateTime expiresAt,
+      Instant expiresAt,
       String createdBy) {
+    LocalDateTime expiresAtLocal = expiresAt != null ? LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC) : null;
     return Tuple.tuple()
         .addString(projectId)
         .addString(displayName)
         .addString(apiKeyEncrypted)
         .addString(encryptionSalt)
         .addString(apiKeyDigest)
-        .addLocalDateTime(expiresAt)
+        .addLocalDateTime(expiresAtLocal)
         .addString(createdBy);
   }
 
@@ -86,7 +89,7 @@ public class ProjectApiKeyDao {
       String apiKeyEncrypted,
       String encryptionSalt,
       String apiKeyDigest,
-      LocalDateTime expiresAt,
+      Instant expiresAt,
       String createdBy) {
     long generatedId = Long.parseLong(result.property(io.vertx.rxjava3.mysqlclient.MySQLClient.LAST_INSERTED_ID).toString());
     log.info("Created API key {} for project: {}", generatedId, projectId);
@@ -98,8 +101,9 @@ public class ProjectApiKeyDao {
         .encryptionSalt(encryptionSalt)
         .apiKeyDigest(apiKeyDigest)
         .isActive(true)
-        .expiresAt(expiresAt != null ? expiresAt.toString() : null)
+        .expiresAt(expiresAt)
         .createdBy(createdBy)
+        .createdAt(Instant.now())
         .build();
   }
 
@@ -152,10 +156,11 @@ public class ProjectApiKeyDao {
       String projectId,
       String deactivatedBy,
       String deactivationReason,
-      LocalDateTime gracePeriodEndsAt) {
+      Instant gracePeriodEndsAt) {
     MySQLPool pool = mysqlClient.getWriterPool();
+    LocalDateTime gracePeriodLocal = gracePeriodEndsAt != null ? LocalDateTime.ofInstant(gracePeriodEndsAt, ZoneOffset.UTC) : null;
     return pool.preparedQuery(DEACTIVATE_API_KEY)
-        .rxExecute(Tuple.of(deactivatedBy, deactivationReason, gracePeriodEndsAt, apiKeyId, projectId))
+        .rxExecute(Tuple.of(deactivatedBy, deactivationReason, gracePeriodLocal, apiKeyId, projectId))
         .flatMapCompletable(result -> {
           if (result.rowCount() == 0) {
             return Completable.error(new RuntimeException("API key not found or does not belong to project: " + apiKeyId));
@@ -200,14 +205,14 @@ public class ProjectApiKeyDao {
         .apiKeyDigest(row.getString("api_key_digest"))
         .isActive(row.getBoolean("is_active"))
         .expiresAt(row.getLocalDateTime("expires_at") != null
-            ? row.getLocalDateTime("expires_at").toString() : null)
+            ? row.getLocalDateTime("expires_at").toInstant(ZoneOffset.UTC) : null)
         .gracePeriodEndsAt(row.getLocalDateTime("grace_period_ends_at") != null
-            ? row.getLocalDateTime("grace_period_ends_at").toString() : null)
+            ? row.getLocalDateTime("grace_period_ends_at").toInstant(ZoneOffset.UTC) : null)
         .createdBy(row.getString("created_by"))
         .createdAt(row.getLocalDateTime("created_at") != null
-            ? row.getLocalDateTime("created_at").toString() : null)
+            ? row.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
         .deactivatedAt(row.getLocalDateTime("deactivated_at") != null
-            ? row.getLocalDateTime("deactivated_at").toString() : null)
+            ? row.getLocalDateTime("deactivated_at").toInstant(ZoneOffset.UTC) : null)
         .deactivatedBy(row.getString("deactivated_by"))
         .deactivationReason(row.getString("deactivation_reason"))
         .build();

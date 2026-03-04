@@ -44,11 +44,11 @@ public class UploadConfigDetailService {
       String projectId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String s3FilePath = getTenantAwarePath(projectId, applicationConfig.getConfigDetailsS3BucketFilePath());
+    String s3FilePath = getProjectAwarePath(projectId, applicationConfig.getConfigDetailsS3BucketFilePath());
     String cloudFrontAssetPath = String.format("/%s",
-        getTenantAwarePath(projectId, applicationConfig.getConfigDetailCloudFrontAssetPath()));
+        getProjectAwarePath(projectId, applicationConfig.getConfigDetailCloudFrontAssetPath()));
 
-    log.info("Uploading to S3 at path: {}", s3FilePath);
+    log.info("Uploading to S3 at path: {} for project: {}", s3FilePath, projectId);
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
@@ -67,11 +67,11 @@ public class UploadConfigDetailService {
   }
 
   /**
-   * Constructs a tenant-aware path by prefixing the base path with tenant directory.
-   * Format: tenants/{tenantId}/{basePath}
+   * Constructs a pure project-based path.
+   * Format: config/projects/{projectId}/{basePath}
    */
-  private String getTenantAwarePath(String projectId, String basePath) {
-    return String.format("config/tenants/%s/%s", projectId, basePath);
+  private String getProjectAwarePath(String projectId, String basePath) {
+    return String.format("config/projects/%s/%s", projectId, basePath);
   }
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String projectId) {

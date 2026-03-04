@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 /**
  * REST request to create a new API key for a project.
  */
@@ -17,6 +19,6 @@ public class CreateApiKeyRestRequest {
   @NotBlank(message = "Display name is required")
   private String displayName;
   
-  private String expiresAt; // ISO 8601 format, optional (null means never expires)
+  private Instant expiresAt; // UTC instant, optional (null means never expires)
 }
 

@@ -41,6 +41,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String AUTH_PATH_PREFIX = "v1/auth";
   private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
   private static final String INVITE_ACCEPT_PATH_PREFIX = "v1/invites/accept";
+  private static final String INTERNAL_PATH_PREFIX = "internal/";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
@@ -70,9 +71,10 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     }
 
     String tenantId = resolveTenantId(requestContext);
-    TenantContext.setTenantId(tenantId);
-    log.debug("Request tenant context set to: {} for path: {}",
-        tenantId, path);
+    if (tenantId != null && !tenantId.isBlank()) {
+      TenantContext.setTenantId(tenantId.trim());
+      log.debug("Request tenant context set to: {} for path: {}", tenantId, path);
+    }
 
     // Extract project ID from X-Project-ID header if present
     String projectId = requestContext.getHeaderString(PROJECT_HEADER);
@@ -93,6 +95,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)
         || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
         || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
+        || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
         || normalizedPath.startsWith(LOGS_INGESTION_PATH)
             || normalizedPath.contains(NOTIFICATIONS_PATH_PREFIX)

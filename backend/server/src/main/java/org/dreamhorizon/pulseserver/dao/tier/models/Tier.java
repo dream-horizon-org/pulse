@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,5 +18,5 @@ public class Tier {
   private Boolean isCustomLimitsAllowed;
   private String usageLimitDefaults; // JSON string
   private Boolean isActive;
-  private String createdAt;
+  private Instant createdAt;
 }
