@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { SessionBlockMetadata } from './session-block-metadata'
 import { KafkaProducer } from '../kafka/producer'
 
@@ -27,16 +26,13 @@ export class SessionMetadataStore {
             // ClickHouse DateTime64 with JSONEachRow expects 'YYYY-MM-DD HH:MM:SS.ffffff' format
             const chTimestampFormat = 'yyyy-MM-dd HH:mm:ss.SSS000'
             const event = {
-                uuid: randomUUID(),
                 session_id: metadata.sessionId,
                 project_id: metadata.projectId,
                 user_id: metadata.userId,
                 first_timestamp: metadata.startDateTime.toUTC().toFormat(chTimestampFormat),
                 last_timestamp: metadata.endDateTime.toUTC().toFormat(chTimestampFormat),
                 block_url: metadata.blockUrl,
-                size: metadata.size,
-                snapshot_source: metadata.snapshotSource,
-                snapshot_library: metadata.snapshotLibrary,
+                snapshot_source: metadata.snapshotSource ?? '',
             }
 
             await this.producer.produce(

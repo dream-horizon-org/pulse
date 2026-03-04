@@ -115,7 +115,7 @@ export class KafkaMessageParser {
             return this.drop('invalid event schema', message)
         }
 
-        const { snapshot_items, session_id, snapshot_source, lib } = eventResult.data.properties
+        const { snapshot_items, session_id, snapshot_source } = eventResult.data.properties
 
         if (eventResult.data.event !== 'snapshot_items' || !snapshot_items || !session_id) {
             return this.drop('not a snapshot event', message)
@@ -160,7 +160,6 @@ export class KafkaMessageParser {
             events: validEvents,
             eventsRange: { start: startDateTime, end: endDateTime },
             snapshot_source: snapshot_source ?? null,
-            snapshot_library: lib ?? null,
             metadata,
         }
     }

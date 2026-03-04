@@ -71,7 +71,6 @@ export class SessionBatchRecorder {
                 sessionId: message.session_id,
                 userId: message.user_id,
                 snapshotSource: message.snapshot_source,
-                snapshotLibrary: message.snapshot_library,
             }
             sessions.set(sessionKey, sessionInfo)
         }
@@ -125,9 +124,7 @@ export class SessionBatchRecorder {
                     startDateTime: endResult.startDateTime,
                     endDateTime: endResult.endDateTime,
                     blockUrl: writeResult.url,
-                    size: endResult.compressedSize,
                     snapshotSource: sessionInfo.snapshotSource,
-                    snapshotLibrary: sessionInfo.snapshotLibrary,
                 })
             }
         }
@@ -176,5 +173,4 @@ interface SessionInfo {
     sessionId: string
     userId: string
     snapshotSource: string | null
-    snapshotLibrary: string | null
 }

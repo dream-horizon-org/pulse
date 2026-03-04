@@ -33,7 +33,6 @@ const EventPropertiesSchema = z
         snapshot_items: z.array(z.unknown()).optional(),
         session_id: z.string().optional(),
         snapshot_source: z.string().optional(),
-        lib: z.string().optional(),
         user_id: z.string().optional(),
     })
     .partial()
@@ -52,7 +51,6 @@ export interface ParsedMessageData {
     events: SnapshotEvent[]
     eventsRange: { start: DateTime; end: DateTime }
     snapshot_source: string | null
-    snapshot_library: string | null
     metadata: MessageMetadata
 }
 
