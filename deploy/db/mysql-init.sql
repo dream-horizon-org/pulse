@@ -703,7 +703,7 @@ CREATE TABLE IF NOT EXISTS incidents (
     id             BIGINT PRIMARY KEY AUTO_INCREMENT,
     title          VARCHAR(255) NOT NULL,
     description    TEXT NOT NULL,
-    severity       ENUM('P1','P2','P3') NOT NULL,
+    severity       ENUM('P1','P2','P3', 'P4') NOT NULL,
     reporter_name  VARCHAR(255) NOT NULL,
     reporter_email VARCHAR(255) NOT NULL,
     org_identifier VARCHAR(64) NOT NULL,
