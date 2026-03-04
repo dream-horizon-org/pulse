@@ -28,7 +28,7 @@ public class AlertsQuery {
           alerts A
       LEFT JOIN  
           notification_channels NC ON A.notification_channel_id = NC.notification_channel_id 
-      WHERE A.id = ? AND A.tenant_id = ? AND A.is_active = TRUE;""";
+      WHERE A.id = ? AND A.is_active = TRUE;""";
 
   public static final String GET_ALERT_SCOPES = """
       SELECT 
@@ -307,10 +307,10 @@ public class AlertsQuery {
 
   public static final String GET_NOTIFICATION_CHANNEL = "SELECT type, config, is_active "
       + "FROM notification_channels "
-      + "WHERE notification_channel_id = ? AND tenant_id = ? AND is_active = TRUE;";
+      + "WHERE notification_channel_id = ? AND is_active = TRUE;";
 
   public static final String GET_NOTIFICATION_CHANNEL_BY_ID =
-      "SELECT * FROM notification_channels WHERE notification_channel_id = ? AND tenant_id = ?;";
+      "SELECT * FROM notification_channels WHERE notification_channel_id = ?;";
 
   public static final String GET_SCOPE_STATE = "SELECT state "
       + "FROM alert_scope "
@@ -326,6 +326,6 @@ public class AlertsQuery {
       + "FROM alert_evaluation_history eh "
       + "INNER JOIN alert_scope as_scope ON eh.scope_id = as_scope.id "
       + "INNER JOIN alerts a ON as_scope.alert_id = a.id "
-      + "WHERE as_scope.alert_id = ? AND a.tenant_id = ? AND as_scope.is_active = TRUE "
+      + "WHERE as_scope.alert_id = ? AND as_scope.is_active = TRUE "
       + "ORDER BY as_scope.id, eh.evaluated_at DESC LIMIT 200;";
 }
