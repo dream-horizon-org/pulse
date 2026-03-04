@@ -16,7 +16,7 @@ public class UsageLimitsApiResponse {
   @AllArgsConstructor
   public static class Response {
     private List<ProjectLimit> limits;
-    private Integer count;
+    private Integer totalCount;
   }
 
   @Data

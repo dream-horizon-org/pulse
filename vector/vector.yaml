@@ -76,40 +76,51 @@ transforms:
       }
 
   # -----------------------------------------------------------------------
-  # CONVERT LOGS → COUNTER METRIC (per project)
+  # ADD COUNTER FIELD FOR AGGREGATION
   # -----------------------------------------------------------------------
-  log_to_metric_count:
-    type: log_to_metric
+  add_counter:
+    type: remap
     inputs:
       - to_pulse_schema
-    metrics:
-      - type: counter
-        field: event_name
-        name: project_events_total
-        namespace: pulse
-        tags:
-          project_id: "{{project_id}}"
+    source: |-
+      .event_count = 1
 
   # -----------------------------------------------------------------------
-  # FORMAT METRIC FOR CLICKHOUSE
+  # AGGREGATE EVENTS PER PROJECT PER MINUTE
+  # -----------------------------------------------------------------------
+  aggregate_by_project:
+    type: reduce
+    inputs:
+      - add_counter
+    group_by:
+      - project_id
+    expire_after_ms: 1000
+    flush_period_ms: 1000
+    merge_strategies:
+      event_count: sum
+    ends_when: |
+      false
+
+  # -----------------------------------------------------------------------
+  # FORMAT AGGREGATED DATA FOR CLICKHOUSE
   # -----------------------------------------------------------------------
   format_for_clickhouse:
     type: remap
     inputs:
-      - log_to_metric_count
+      - aggregate_by_project
     source: |-
       # Extract project_id safely
-      project_id = string(.tags.project_id) ?? "unknown"
+      project_id = string(.project_id) ?? "unknown"
 
-      # Extract counter value safely
-      event_count = to_int(.counter.value) ?? 0
+      # Event count from aggregation
+      event_count = to_int(.event_count) ?? 1
 
-      # Get first day of current month (use now() for current time)
+      # Get first day of current month
       month = format_timestamp!(now(), format: "%Y-%m-01")
 
       . = {
         "project_id": project_id,
-        "month": month, 
+        "month": month,
         "source": "vector",
         "event_count": event_count
       }
@@ -148,7 +159,7 @@ sinks:
     skip_unknown_fields: true
 
     batch:
-      timeout_secs: 15
+      timeout_secs: 1
 
   
   # -------------------------------------------------------------------------

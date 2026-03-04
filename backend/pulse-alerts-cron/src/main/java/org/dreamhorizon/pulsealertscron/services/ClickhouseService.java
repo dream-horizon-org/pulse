@@ -54,12 +54,12 @@ public class ClickhouseService {
   public Single<List<UsageStats>> getCurrentMonthUsage() {
     String query = """
         SELECT 
-            tenant,
+            project_id,
             sum(event_count) as events_used,
             uniqCombined64Merge(session_count) as sessions_used
-        FROM otel.tenant_monthly_usage
+        FROM otel.project_monthly_usage
         WHERE month = toStartOfMonth(now())
-        GROUP BY tenant
+        GROUP BY project_id
         """;
 
     log.info("Executing ClickHouse query to fetch current month usage");
@@ -70,15 +70,15 @@ public class ClickhouseService {
               Flux<UsageStats> statsFlux = Flux.from(connection.createStatement(query).execute())
                   .flatMap(result -> 
                       result.map((row, metadata) -> {
-                          String tenant = row.get("tenant", String.class);
+                          String project_id = row.get("project_id", String.class);
                           Long eventsUsed = row.get("events_used", Long.class);
                           Long sessionsUsed = row.get("sessions_used", Long.class);
                           
-                          log.debug("Row: tenant={}, events={}, sessions={}", 
-                              tenant, eventsUsed, sessionsUsed);
+                          log.debug("Row: project_id={}, events={}, sessions={}", 
+                              project_id, eventsUsed, sessionsUsed);
                           
                           return UsageStats.builder()
-                              .tenant(tenant)
+                              .project_id(project_id)
                               .eventsUsed(eventsUsed != null ? eventsUsed : 0L)
                               .sessionsUsed(sessionsUsed != null ? sessionsUsed : 0L)
                               .build();
@@ -92,7 +92,7 @@ public class ClickhouseService {
 
       return RxJava3Adapter.monoToSingle(mono);
     }).doOnSuccess(stats -> {
-        log.info("✅ Successfully fetched usage stats for {} tenants", stats.size());
+        log.info("✅ Successfully fetched usage stats for {} projects", stats.size());
         stats.forEach(stat -> 
             log.info("  → {}", stat)
         );
