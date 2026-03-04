@@ -734,9 +734,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         }
 
         internal fun extractProjectID(projectId: String): String {
-            val hyphenIndex = projectId.indexOf('-')
-            return if (hyphenIndex > 0) {
-                projectId.substring(0, hyphenIndex)
+            val lastUnderscoreIndex = projectId.lastIndexOf('_')
+            return if (lastUnderscoreIndex > 0) {
+                projectId.substring(0, lastUnderscoreIndex)
             } else {
                 projectId
             }

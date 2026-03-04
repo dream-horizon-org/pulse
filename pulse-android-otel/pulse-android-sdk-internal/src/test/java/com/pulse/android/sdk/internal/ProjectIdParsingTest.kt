@@ -7,65 +7,72 @@ import org.junit.jupiter.api.TestInstance
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class ProjectIdParsingTest {
     @Test
-    fun `when project ID contains hyphen, should return prefix before hyphen`() {
-        val projectId = "tenant123-7876796bhbghb"
-        val result = PulseSDKInternal.extractProjectID(projectId)
-        assertThat(result).isEqualTo("tenant123")
+    fun `when API key contains underscore, should return prefix before last underscore`() {
+        val apiKey = "test_project-XwzBrFCb_fYJmt8hy0wmZcXvDq3DGRn7x"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
+        assertThat(result).isEqualTo("test_project-XwzBrFCb")
     }
 
     @Test
-    fun `when project ID has no hyphen, should return original ID`() {
-        val projectId = "simpleid"
-        val result = PulseSDKInternal.extractProjectID(projectId)
+    fun `when API key has no underscore, should return original ID`() {
+        val apiKey = "simpleid"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
         assertThat(result).isEqualTo("simpleid")
     }
 
     @Test
-    fun `when project ID contains multiple hyphens, should return prefix before first hyphen`() {
-        val projectId = "tenant123-7876796bhbghb-extra-suffix"
-        val result = PulseSDKInternal.extractProjectID(projectId)
-        assertThat(result).isEqualTo("tenant123")
+    fun `when API key contains multiple underscores, should return prefix before last underscore`() {
+        val apiKey = "project_name_random_secret"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
+        assertThat(result).isEqualTo("project_name_random")
     }
 
     @Test
-    fun `when hyphen is at start of project ID, should return original ID`() {
-        val projectId = "-tenant123"
-        val result = PulseSDKInternal.extractProjectID(projectId)
-        assertThat(result).isEqualTo("-tenant123")
+    fun `when underscore is at start of API key, should return original ID`() {
+        val apiKey = "_project123"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
+        assertThat(result).isEqualTo("_project123")
     }
 
     @Test
-    fun `when project ID is empty string, should return empty string`() {
-        val projectId = ""
-        val result = PulseSDKInternal.extractProjectID(projectId)
+    fun `when API key is empty string, should return empty string`() {
+        val apiKey = ""
+        val result = PulseSDKInternal.extractProjectID(apiKey)
         assertThat(result).isEqualTo("")
     }
 
     @Test
-    fun `when project ID has single character before hyphen, should return that character`() {
-        val projectId = "a-123456"
-        val result = PulseSDKInternal.extractProjectID(projectId)
+    fun `when API key has single character before last underscore, should return that character`() {
+        val apiKey = "a_secret"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
         assertThat(result).isEqualTo("a")
     }
 
     @Test
-    fun `when project ID is only hyphen, should return hyphen`() {
-        val projectId = "-"
-        val result = PulseSDKInternal.extractProjectID(projectId)
-        assertThat(result).isEqualTo("-")
+    fun `when API key is only underscore, should return underscore string`() {
+        val apiKey = "_"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
+        assertThat(result).isEqualTo("_")
     }
 
     @Test
-    fun `when project ID contains numbers and letters, should return prefix correctly`() {
-        val projectId = "project123-abc456def"
-        val result = PulseSDKInternal.extractProjectID(projectId)
-        assertThat(result).isEqualTo("project123")
+    fun `when API key contains project ID with hyphen and secret, should return project ID correctly`() {
+        val apiKey = "test_project-XwzBrFCb_fYJmt8hy0wmZcXvDq3DGRn7x"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
+        assertThat(result).isEqualTo("test_project-XwzBrFCb")
     }
 
     @Test
-    fun `when project ID prefix contains underscores, should return prefix with underscores`() {
-        val projectId = "tenant_123-7876796bhbghb"
-        val result = PulseSDKInternal.extractProjectID(projectId)
+    fun `when API key contains underscores in project ID part, should return all before last underscore`() {
+        val apiKey = "tenant_123_secret456"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
         assertThat(result).isEqualTo("tenant_123")
+    }
+
+    @Test
+    fun `when API key ends with underscore, should return prefix correctly`() {
+        val apiKey = "project123_"
+        val result = PulseSDKInternal.extractProjectID(apiKey)
+        assertThat(result).isEqualTo("project123")
     }
 }
