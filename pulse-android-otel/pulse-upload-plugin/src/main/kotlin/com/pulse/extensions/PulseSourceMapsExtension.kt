@@ -8,12 +8,14 @@ abstract class PulseSourceMapsExtension {
     abstract val mappingFile: RegularFileProperty
     abstract val appVersion: Property<String>
     abstract val versionCode: Property<Int>
+    abstract val apiKey: Property<String>
 
     fun isConfigured(): Boolean {
         return apiUrl.isPresent &&
             mappingFile.isPresent &&
             appVersion.isPresent &&
-            versionCode.isPresent
+            versionCode.isPresent &&
+            apiKey.isPresent
     }
 }
 

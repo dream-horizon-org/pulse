@@ -363,7 +363,6 @@ export const useFilterStore = create<FilterStore>()(
         // don't overwrite with quick filter times even if selectedQuickTimeFilterIndex is 0
         // This handles the case where the prop hasn't updated yet but store has
         if (currentState.quickTimeRangeFilterIndex === -1) {
-          // Store has custom dates from URL, don't overwrite
           return;
         }
         
@@ -373,30 +372,33 @@ export const useFilterStore = create<FilterStore>()(
           return;
         }
         
-        // IMPORTANT: If the store's activeQuickTimeFilter is different from what's being passed,
+        // If the store already has valid times for the SAME quick filter index,
+        // skip re-initialization. Without this guard, each call generates
+        // slightly different times via now(), which updates the store, which
+        // changes DateTimeRangePicker's defaultStartTime/defaultEndTime props,
+        // which re-triggers its useEffect, creating an infinite render loop.
+        if (currentState.startTime && currentState.endTime && 
+            currentState.activeQuickTimeFilter === selectedQuickTimeFilterIndex &&
+            selectedQuickTimeFilterIndex >= 0) {
+          return;
+        }
+        
+        // If the store's activeQuickTimeFilter is different from what's being passed,
         // AND the store already has valid times, the store was just updated by handleDateTimeApply.
         // Don't overwrite with potentially stale prop values.
         if (currentState.startTime && currentState.endTime && 
             currentState.activeQuickTimeFilter !== selectedQuickTimeFilterIndex &&
             currentState.activeQuickTimeFilter >= 0) {
-          // Store has more recent data from handleDateTimeApply, skip re-initialization
           return;
         }
         
         // For quick filters: generate fresh UTC times
         // For custom dates: preserve existing UTC times in store, only update display state
         if (selectedQuickTimeFilterIndex !== -1) {
-          // Quick filter - generate fresh times
           const quickFilterTimes = getStartAndEndDateTimeString(
                 quickTimeRangeString,
                 subtractMinutes,
           );
-          
-          // Skip if times haven't changed
-          if (currentState.startTime === quickFilterTimes.startDate && 
-              currentState.endTime === quickFilterTimes.endDate) {
-            return;
-          }
 
           set({
             selectedTimeFilter: quickFilterTimes,
@@ -404,7 +406,6 @@ export const useFilterStore = create<FilterStore>()(
             pendingTimeFilter: quickFilterTimes,
             pendingQuickTimeFilter: selectedQuickTimeFilterIndex,
             dateTimePickerOpened: false,
-            // Quick filter times are already UTC
             startTime: quickFilterTimes.startDate,
             endTime: quickFilterTimes.endDate,
           });

@@ -445,7 +445,7 @@ public class AlertsDao {
     Pool pool = d11MysqlClient.getWriterPool();
 
     Single<Alert> alertSingle = pool.preparedQuery(AlertsQuery.GET_ALERT_DETAILS)
-        .rxExecute(Tuple.of(alertId, getTenantId()))
+        .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching alert details from db for alert id {}: {}", alertId, error.getMessage());
           return Single.error(ServiceError.DATABASE_ERROR.getCustomException(error.getMessage()));
@@ -714,7 +714,7 @@ public class AlertsDao {
 
   public Maybe<NotificationChannelInfo> getNotificationChannelById(@NotNull Integer notificationChannelId) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL)
-        .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .rxExecute(Tuple.of(notificationChannelId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching notification channel from db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -736,7 +736,7 @@ public class AlertsDao {
 
   public Maybe<AlertNotificationChannelResponseDto> getNotificationChannelDetailsById(@NotNull Integer notificationChannelId) {
     return d11MysqlClient.getWriterPool().preparedQuery(AlertsQuery.GET_NOTIFICATION_CHANNEL_BY_ID)
-        .rxExecute(Tuple.of(notificationChannelId, getTenantId()))
+        .rxExecute(Tuple.of(notificationChannelId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching notification channel details from db: {}", error.getMessage());
           MySQLException mySqlException = (MySQLException) error;
@@ -1081,7 +1081,7 @@ public class AlertsDao {
   public Single<List<ScopeEvaluationHistoryDto>> getEvaluationHistoryByAlert(Integer alertId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(AlertsQuery.GET_EVALUATION_HISTORY_BY_ALERT)
-        .rxExecute(Tuple.of(alertId, getTenantId()))
+        .rxExecute(Tuple.of(alertId))
         .onErrorResumeNext(error -> {
           log.error("Error while fetching evaluation history for alert id {}: {}", alertId, error.getMessage());
           MySQLException mySqlException = (MySQLException) error;

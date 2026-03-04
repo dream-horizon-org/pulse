@@ -8,7 +8,7 @@ lib/
 
 .env
 
-
+.cursor/
 .terraform/
 *.tfstate
 *.tfstate.*
