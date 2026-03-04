@@ -1,0 +1,264 @@
+.eventCount {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+}
+
+.container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: var(--mantine-spacing-xs) 0;
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
+  color: var(--mantine-color-dimmed);
+  font-size: 14px;
+}
+
+.timelineItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-sm);
+  padding: 6px var(--mantine-spacing-sm);
+  border-radius: 6px;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.timelineItem:hover {
+  background: rgba(14, 201, 194, 0.04);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  position: relative;
+}
+
+.iconWrapper {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.iconNavigation {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.iconUserAction {
+  background: rgba(168, 85, 247, 0.12);
+  color: #8b5cf6;
+}
+
+.iconNetwork {
+  background: rgba(14, 201, 194, 0.12);
+  color: #0ec9c2;
+}
+
+.iconSystem {
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
+}
+
+.iconPerformance {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.iconInteraction {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.iconCustom {
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+}
+
+.iconError {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.connector {
+  width: 2px;
+  flex: 1;
+  min-height: 8px;
+  background: rgba(14, 201, 194, 0.15);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.eventTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+
+.categoryBadge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.catNavigation {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+}
+
+.catUserAction {
+  background: rgba(168, 85, 247, 0.08);
+  color: #8b5cf6;
+}
+
+.catNetwork {
+  background: rgba(14, 201, 194, 0.08);
+  color: #0ba09a;
+}
+
+.catSystem {
+  background: rgba(107, 114, 128, 0.08);
+  color: #6b7280;
+}
+
+.catPerformance {
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+}
+
+.catInteraction {
+  background: rgba(16, 185, 129, 0.08);
+  color: #059669;
+}
+
+.catCustom {
+  background: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+}
+
+.catError {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.duration {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-4);
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+.relativeTime {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  min-width: 60px;
+  text-align: right;
+}
+
+.timeBefore {
+  color: var(--mantine-color-dark-4);
+}
+
+.timeAfter {
+  color: #f59e0b;
+}
+
+.statusOk {
+  color: #10b981;
+}
+
+.statusError {
+  color: #ef4444;
+}
+
+.errorItem {
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+  border-radius: 6px;
+}
+
+.errorItem:hover {
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.expandIcon {
+  display: flex;
+  align-items: center;
+  color: var(--mantine-color-dark-3);
+  flex-shrink: 0;
+}
+
+.absTime {
+  font-size: 11px;
+  color: var(--mantine-color-dark-3);
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  white-space: nowrap;
+}
+
+.propsContainer {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.propRow {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  align-items: baseline;
+}
+
+.propKey {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-5);
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.propValue {
+  font-size: 11px;
+  color: var(--mantine-color-dark-4);
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  word-break: break-all;
+}
