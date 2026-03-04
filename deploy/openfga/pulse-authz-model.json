@@ -1,0 +1,203 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user"
+    },
+    {
+      "type": "tenant",
+      "relations": {
+        "admin": {
+          "this": {}
+        },
+        "member": {
+          "this": {}
+        },
+        "belongs_to": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "admin"}},
+              {"computedUserset": {"relation": "member"}}
+            ]
+          }
+        },
+        "can_manage_tenant": {
+          "computedUserset": {"relation": "admin"}
+        },
+        "can_manage_projects": {
+          "computedUserset": {"relation": "admin"}
+        },
+        "can_invite_users": {
+          "computedUserset": {"relation": "admin"}
+        },
+        "can_view_tenant": {
+          "computedUserset": {"relation": "belongs_to"}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "admin": {"directly_related_user_types": [{"type": "user"}]},
+          "member": {"directly_related_user_types": [{"type": "user"}]}
+        }
+      }
+    },
+    {
+      "type": "project",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "admin": {
+          "this": {}
+        },
+        "editor": {
+          "this": {}
+        },
+        "viewer": {
+          "this": {}
+        },
+        "has_project_access": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "admin"}},
+              {"computedUserset": {"relation": "editor"}},
+              {"computedUserset": {"relation": "viewer"}}
+            ]
+          }
+        },
+        "effective_admin": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "admin"}},
+              {"tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_projects"}}}
+            ]
+          }
+        },
+        "can_delete_project": {
+          "computedUserset": {"relation": "effective_admin"}
+        },
+        "can_manage_settings": {
+          "computedUserset": {"relation": "effective_admin"}
+        },
+        "can_manage_members": {
+          "computedUserset": {"relation": "effective_admin"}
+        },
+        "can_edit": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "effective_admin"}},
+              {"computedUserset": {"relation": "editor"}}
+            ]
+          }
+        },
+        "can_view": {
+          "union": {
+            "child": [
+              {"computedUserset": {"relation": "effective_admin"}},
+              {"computedUserset": {"relation": "editor"}},
+              {"computedUserset": {"relation": "viewer"}},
+              {"tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view_tenant"}}}
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "tenant"}]},
+          "admin": {"directly_related_user_types": [{"type": "user"}]},
+          "editor": {"directly_related_user_types": [{"type": "user"}]},
+          "viewer": {"directly_related_user_types": [{"type": "user"}]}
+        }
+      }
+    },
+    {
+      "type": "alert",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    },
+    {
+      "type": "sdk_config",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    },
+    {
+      "type": "interaction",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    },
+    {
+      "type": "dashboard",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "can_delete": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_manage_settings"}}
+        },
+        "can_edit": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_edit"}}
+        },
+        "can_view": {
+          "tupleToUserset": {"tupleset": {"relation": "parent"}, "computedUserset": {"relation": "can_view"}}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {"directly_related_user_types": [{"type": "project"}]}
+        }
+      }
+    }
+  ]
+}
+

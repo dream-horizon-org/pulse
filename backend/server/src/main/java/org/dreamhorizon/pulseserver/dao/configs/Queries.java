@@ -2,13 +2,13 @@ package org.dreamhorizon.pulseserver.dao.configs;
 
 public class Queries {
   public static final String INSERT_CONFIG =
-      "INSERT INTO pulse_sdk_configs (tenant_id, config_json, is_active, created_by, description) VALUES (?, ?, ?, ?, ?);";
+      "INSERT INTO pulse_sdk_configs (project_id, config_json, is_active, created_by, description) VALUES (?, ?, ?, ?, ?);";
   public static final String GET_CONFIG_BY_VERSION =
-      "SELECT config_json, version, description FROM pulse_sdk_configs WHERE tenant_id = ? AND version = ?";
+      "SELECT config_json, version, description FROM pulse_sdk_configs WHERE project_id = ? AND version = ?";
   public static final String GET_LATEST_VERSION =
-      "SELECT version FROM pulse_sdk_configs WHERE tenant_id = ? AND is_active = 1 LIMIT 1";
+      "SELECT version FROM pulse_sdk_configs WHERE project_id = ? AND is_active = 1 LIMIT 1";
   public static final String GET_ALL_CONFIG_DETAILS =
-      "SELECT version, description, created_by, created_at, is_active FROM pulse_sdk_configs WHERE tenant_id = ?";
+      "SELECT version, description, created_by, created_at, is_active FROM pulse_sdk_configs WHERE project_id = ?";
   public static final String DEACTIVATE_ACTIVE_CONFIG =
-      "UPDATE pulse_sdk_configs SET is_active = FALSE WHERE tenant_id = ? AND is_active = TRUE";
+      "UPDATE pulse_sdk_configs SET is_active = FALSE WHERE project_id = ? AND is_active = TRUE";
 }

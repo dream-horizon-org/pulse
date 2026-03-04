@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.tenant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,10 +80,9 @@ class TenantContextTest {
 
       TenantContext.setTenant(tenant);
 
-      Optional<Tenant> result = TenantContext.getCurrentTenant();
+      Optional<String> result = TenantContext.getCurrentTenantId();
       assertTrue(result.isPresent());
-      assertEquals("test-tenant", result.get().getTenantId());
-      assertEquals("Test Tenant", result.get().getName());
+      assertEquals("test-tenant", result.get());
     }
 
     @Test
@@ -101,7 +99,7 @@ class TenantContextTest {
 
     @Test
     void shouldReturnEmptyOptionalWhenTenantNotSet() {
-      Optional<Tenant> result = TenantContext.getCurrentTenant();
+      Optional<String> result = TenantContext.getCurrentTenantId();
 
       assertTrue(result.isEmpty());
     }
@@ -110,7 +108,7 @@ class TenantContextTest {
     void shouldHandleNullTenant() {
       TenantContext.setTenant(null);
 
-      Optional<Tenant> result = TenantContext.getCurrentTenant();
+      Optional<String> result = TenantContext.getCurrentTenantId();
       assertTrue(result.isEmpty());
     }
   }
@@ -137,7 +135,7 @@ class TenantContextTest {
 
       TenantContext.clear();
 
-      assertTrue(TenantContext.getCurrentTenant().isEmpty());
+      assertTrue(TenantContext.getCurrentTenantId().isEmpty());
     }
 
     @Test
@@ -146,30 +144,6 @@ class TenantContextTest {
       TenantContext.clear(); // Should not throw
 
       assertNull(TenantContext.getTenantId());
-    }
-  }
-
-  @Nested
-  class IsSetTests {
-
-    @Test
-    void shouldReturnTrueWhenTenantIdIsSet() {
-      TenantContext.setTenantId("test-tenant");
-
-      assertTrue(TenantContext.isSet());
-    }
-
-    @Test
-    void shouldReturnFalseWhenTenantIdNotSet() {
-      assertFalse(TenantContext.isSet());
-    }
-
-    @Test
-    void shouldReturnFalseAfterClear() {
-      TenantContext.setTenantId("test-tenant");
-      TenantContext.clear();
-
-      assertFalse(TenantContext.isSet());
     }
   }
 
@@ -250,9 +224,9 @@ class TenantContextTest {
       TenantContext.setTenant(tenant1);
       TenantContext.setTenant(tenant2);
 
-      Optional<Tenant> result = TenantContext.getCurrentTenant();
+      Optional<String> result = TenantContext.getCurrentTenantId();
       assertTrue(result.isPresent());
-      assertEquals("tenant-2", result.get().getTenantId());
+      assertEquals("tenant-2", result.get());
     }
 
     @Test
@@ -266,8 +240,6 @@ class TenantContextTest {
       TenantContext.clear();
 
       assertNull(TenantContext.getTenantId());
-      assertTrue(TenantContext.getCurrentTenant().isEmpty());
-      assertFalse(TenantContext.isSet());
     }
 
     @Test

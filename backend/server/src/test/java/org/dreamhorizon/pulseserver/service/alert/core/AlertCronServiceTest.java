@@ -424,7 +424,8 @@ class AlertCronServiceTest {
           "/config/details.json",
           "http://webhook.url",
           "interaction/details.json",
-          "/interaction/details.json"
+          "/interaction/details.json",
+          "encryptionKey"
       );
 
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
@@ -519,7 +520,8 @@ class AlertCronServiceTest {
           "/config/details.json",
           "http://webhook.url",
           "interaction/details.json",
-          "/interaction/details.json"
+          "/interaction/details.json",
+          "key"
       );
       String toString = config.toString();
 
@@ -533,19 +535,22 @@ class AlertCronServiceTest {
           "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json"
+          "interaction-path.json", "/interaction-path.json",
+          "key"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json"
+          "interaction-path.json", "/interaction-path.json",
+          "key"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json"
+          "interaction-path.json", "/interaction-path.json",
+          "key"
       );
 
       assertEquals(config1, config2);

@@ -18,6 +18,7 @@ import org.dreamhorizon.pulseserver.client.query.models.QueryExecutionInfo;
 import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
@@ -52,6 +53,7 @@ public class QueryServiceImplTest {
     TenantContext.setTenant(Tenant.builder()
         .tenantId("test_tenant")
         .build());
+    ProjectContext.setProjectId("test_tenant");
     when(athenaConfig.getDatabase()).thenReturn("test_database");
     queryService = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
   }

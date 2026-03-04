@@ -14,7 +14,9 @@ import static org.mockito.Mockito.when;
 import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Single;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
+import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.GetAccessTokenFromRefreshTokenResponseDto;
@@ -41,11 +43,27 @@ class AuthServiceTest {
   @Mock
   TenantDao tenantDao;
 
+  @Mock
+  OpenFgaConfig openFgaConfig;
+
+  @Mock
+  OpenFgaService openFgaService;
+
+  @Mock
+  UserService userService;
+
+  @Mock
+  UserDao userDao;
+
+  @Mock
+  ProjectService projectService;
+
   AuthService authService;
 
   @BeforeEach
   void setUp() {
-    authService = new AuthService(applicationConfig, jwtService, tenantDao);
+    authService = new AuthService(applicationConfig, jwtService, tenantDao, userService,
+        openFgaService, projectService);
   }
 
   @Nested

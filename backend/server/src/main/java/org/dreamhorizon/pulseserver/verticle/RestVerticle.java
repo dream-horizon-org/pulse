@@ -49,7 +49,9 @@ public class RestVerticle extends AbstractRestVerticle {
     allowedHeaders.add("accept");
     allowedHeaders.add("X-PINGARUNER");
     allowedHeaders.add("Authorization");
+    allowedHeaders.add("user-email");   // User email header for audit trails
     allowedHeaders.add("X-Tenant-ID");  // Multi-tenancy support
+    allowedHeaders.add("X-Project-ID"); // Project-level isolation support
 
     final Set<HttpMethod> allowedMethods = new HashSet<>();
     allowedMethods.add(HttpMethod.GET);

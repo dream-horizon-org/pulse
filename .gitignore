@@ -13,3 +13,5 @@
 *.tfvars
 .terraformrc
 terraform.rc
+
+docs/

@@ -4,7 +4,7 @@ public class AlertsQuery {
   public static final String GET_ALERT_DETAILS = """
       SELECT 
           A.id AS alert_id,
-          A.tenant_id,
+          A.project_id,
           A.name,
           A.description,
           A.scope,
@@ -28,7 +28,7 @@ public class AlertsQuery {
           alerts A
       LEFT JOIN  
           notification_channels NC ON A.notification_channel_id = NC.notification_channel_id 
-      WHERE A.id = ? AND A.tenant_id = ? AND A.is_active = TRUE;""";
+      WHERE A.id = ? AND A.project_id = ? AND A.is_active = TRUE;""";
 
   public static final String GET_ALERT_SCOPES = """
       SELECT 
@@ -73,7 +73,7 @@ public class AlertsQuery {
       WITH FilteredAlerts AS (
           SELECT
               A.id AS alert_id,
-              A.tenant_id,
+              A.project_id,
               A.name,
               A.description,
               A.scope,
@@ -94,7 +94,7 @@ public class AlertsQuery {
           FROM
               alerts A
           WHERE
-              A.tenant_id = ?
+              A.project_id = ?
               AND A.is_active = TRUE
               AND ( ? = '' OR A.name LIKE CONCAT('%', ?, '%'))
               AND ( ? = '' OR A.scope = ?)
@@ -138,7 +138,7 @@ public class AlertsQuery {
       )
       SELECT 
           FA.alert_id, 
-          FA.tenant_id,
+          FA.project_id,
           FA.name, 
           FA.description, 
           FA.scope, 
@@ -168,7 +168,7 @@ public class AlertsQuery {
   public static final String GET_ALL_ALERTS = """
       SELECT 
           A.id AS alert_id,
-          A.tenant_id,
+          A.project_id,
           A.name,
           A.description,
           A.scope,
@@ -195,7 +195,7 @@ public class AlertsQuery {
       WHERE A.is_active = TRUE;""";
 
   public static final String CREATE_ALERT = "INSERT INTO alerts("
-      + "tenant_id, "
+      + "project_id, "
       + "name, "
       + "description, "
       + "scope, "
@@ -249,16 +249,16 @@ public class AlertsQuery {
       "SELECT DISTINCT A.name as name, A.scope as scope, A.created_by as created_by, A.updated_by as updated_by,"
           + " S.state AS current_state FROM alerts A"
           + " LEFT JOIN alert_scope S ON A.id = S.alert_id AND S.is_active = TRUE"
-          + " WHERE A.tenant_id = ? AND A.is_active = TRUE;";
+          + " WHERE A.project_id = ? AND A.is_active = TRUE;";
 
   public static final String GET_SEVERITIES = "SELECT * FROM severity;";
   public static final String CREATE_SEVERITY = "INSERT INTO severity(name, description) VALUES (?,?);";
 
-  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels WHERE tenant_id = ? AND is_active = TRUE;";
+  public static final String GET_NOTIFICATION_CHANNELS = "SELECT * FROM notification_channels WHERE project_id = ? AND is_active = TRUE;";
   public static final String CREATE_NOTIFICATION_CHANNEL =
       "INSERT INTO notification_channels(tenant_id, name, type, config, is_active) VALUES (?,?,?,?,TRUE);";
   public static final String UPDATE_NOTIFICATION_CHANNEL =
-      "UPDATE notification_channels SET name = ?, type = ?, config = ? WHERE notification_channel_id = ? AND tenant_id = ? AND is_active = TRUE;";
+      "UPDATE notification_channels SET name = ?, type = ?, config = ? WHERE notification_channel_id = ? AND project_id = ? AND is_active = TRUE;";
   public static final String DELETE_NOTIFICATION_CHANNEL =
       "UPDATE notification_channels SET is_active = FALSE WHERE notification_channel_id = ? AND tenant_id = ?;";
 
@@ -276,7 +276,7 @@ public class AlertsQuery {
 
   public static final String GET_ALERT_DETAILS_FOR_EVALUATION = "SELECT "
       + "id, "
-      + "tenant_id, "
+      + "project_id, "
       + "name, "
       + "description, "
       + "scope, "
@@ -307,7 +307,7 @@ public class AlertsQuery {
 
   public static final String GET_NOTIFICATION_CHANNEL = "SELECT type, config, is_active "
       + "FROM notification_channels "
-      + "WHERE notification_channel_id = ? AND tenant_id = ? AND is_active = TRUE;";
+      + "WHERE notification_channel_id = ? AND project_id = ? AND is_active = TRUE;";
 
   public static final String GET_NOTIFICATION_CHANNEL_BY_ID =
       "SELECT * FROM notification_channels WHERE notification_channel_id = ? AND tenant_id = ?;";
@@ -326,6 +326,6 @@ public class AlertsQuery {
       + "FROM alert_evaluation_history eh "
       + "INNER JOIN alert_scope as_scope ON eh.scope_id = as_scope.id "
       + "INNER JOIN alerts a ON as_scope.alert_id = a.id "
-      + "WHERE as_scope.alert_id = ? AND a.tenant_id = ? AND as_scope.is_active = TRUE "
+      + "WHERE as_scope.alert_id = ? AND a.project_id = ? AND as_scope.is_active = TRUE "
       + "ORDER BY as_scope.id, eh.evaluated_at DESC LIMIT 200;";
 }

@@ -24,10 +24,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseTenantCredentialAudit;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseTenantCredentialAudit;
 import org.dreamhorizon.pulseserver.service.tenant.TenantAuditAction;
-import org.dreamhorizon.pulseserver.util.PasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.ClickhousePasswordEncryptionUtil;
+import org.dreamhorizon.pulseserver.util.encryption.EncryptedData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -45,7 +47,7 @@ class ClickhouseCredentialsDaoTest {
   MysqlClient mysqlClient;
 
   @Mock
-  PasswordEncryptionUtil encryptionUtil;
+  ClickhousePasswordEncryptionUtil encryptionUtil;
 
   @Mock
   MySQLPool writerPool;
@@ -107,7 +109,7 @@ class ClickhouseCredentialsDaoTest {
   private Row createMockCredentialsRow() {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
-    when(mockRow.getLong("credential_id")).thenReturn(1L);
+    when(mockRow.getLong("id")).thenReturn(1L);
     when(mockRow.getString("tenant_id")).thenReturn("test_tenant");
     when(mockRow.getString("clickhouse_username")).thenReturn("tenant_test_tenant");
     when(mockRow.getString("clickhouse_password_encrypted")).thenReturn("encrypted_password");
@@ -122,8 +124,8 @@ class ClickhouseCredentialsDaoTest {
   private Row createMockAuditRow() {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
-    when(mockRow.getLong("audit_id")).thenReturn(1L);
-    when(mockRow.getString("tenant_id")).thenReturn("test_tenant");
+    when(mockRow.getLong("id")).thenReturn(1L);
+    when(mockRow.getString("project_id")).thenReturn("test_tenant");
     when(mockRow.getString("action")).thenReturn("CREDENTIALS_CREATED");
     when(mockRow.getString("performed_by")).thenReturn("admin@example.com");
     when(mockRow.getString("details")).thenReturn("{\"action\":\"test\"}");
@@ -136,13 +138,11 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldSaveCredentialsSuccessfully() {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = PasswordEncryptionUtil.EncryptedPassword.builder()
-          .encryptedPassword("encrypted_pass")
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
           .salt("salt123")
-          .digest("digest123")
-          .build();
-
-      when(encryptionUtil.encryptPassword(anyString())).thenReturn(encrypted);
+          .build());
+      when(encryptionUtil.generateDigest(anyString())).thenReturn("digest123");
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
@@ -157,7 +157,7 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldThrowExceptionOnEncryptionError() {
-      when(encryptionUtil.encryptPassword(anyString()))
+      when(encryptionUtil.encrypt(anyString()))
           .thenThrow(new RuntimeException("Encryption failed"));
 
       Exception ex = assertThrows(RuntimeException.class,
@@ -167,13 +167,11 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldThrowExceptionOnDatabaseError() {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = PasswordEncryptionUtil.EncryptedPassword.builder()
-          .encryptedPassword("encrypted_pass")
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
           .salt("salt123")
-          .digest("digest123")
-          .build();
-
-      when(encryptionUtil.encryptPassword(anyString())).thenReturn(encrypted);
+          .build());
+      when(encryptionUtil.generateDigest(anyString())).thenReturn("digest123");
       setupWriterPreparedQuery();
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new MySQLException("DB Error", 400, "SQLSTATE")));
@@ -192,7 +190,7 @@ class ClickhouseCredentialsDaoTest {
       setupReaderPreparedQuery();
       Row credRow = createMockCredentialsRow();
 
-      when(encryptionUtil.decryptPassword(anyString())).thenReturn("decrypted_password");
+      when(encryptionUtil.decrypt(anyString())).thenReturn("decrypted_password");
 
       RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(credRow));
       when(rowSet.size()).thenReturn(1);
@@ -239,7 +237,7 @@ class ClickhouseCredentialsDaoTest {
       Row credRow = createMockCredentialsRow();
       when(credRow.getBoolean("is_active")).thenReturn(false);
 
-      when(encryptionUtil.decryptPassword(anyString())).thenReturn("decrypted_password");
+      when(encryptionUtil.decrypt(anyString())).thenReturn("decrypted_password");
 
       RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(credRow));
       when(rowSet.size()).thenReturn(1);
@@ -274,7 +272,7 @@ class ClickhouseCredentialsDaoTest {
       when(readerPool.query(anyString())).thenReturn(query);
 
       Row credRow = createMockCredentialsRow();
-      when(encryptionUtil.decryptPassword(anyString())).thenReturn("decrypted_password");
+      when(encryptionUtil.decrypt(anyString())).thenReturn("decrypted_password");
 
       RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(credRow));
       when(rowSet.iterator()).thenReturn(iterator);
@@ -320,14 +318,12 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldUpdateCredentialsSuccessfully() {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = PasswordEncryptionUtil.EncryptedPassword.builder()
-          .encryptedPassword("new_encrypted_pass")
-          .salt("new_salt")
-          .digest("new_digest")
-          .build();
-
-      when(encryptionUtil.encryptPassword(anyString())).thenReturn(encrypted);
-      when(encryptionUtil.decryptPassword(anyString())).thenReturn("new_password");
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
+          .salt("salt123")
+          .build());
+      when(encryptionUtil.generateDigest(anyString())).thenReturn("new_digest");
+      when(encryptionUtil.decrypt(anyString())).thenReturn("new_password");
 
       setupWriterPreparedQuery();
       setupReaderPool();
@@ -356,13 +352,11 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldThrowExceptionWhenCredentialsNotFound() {
-      PasswordEncryptionUtil.EncryptedPassword encrypted = PasswordEncryptionUtil.EncryptedPassword.builder()
-          .encryptedPassword("encrypted")
-          .salt("salt")
-          .digest("digest")
-          .build();
-
-      when(encryptionUtil.encryptPassword(anyString())).thenReturn(encrypted);
+      when(encryptionUtil.encrypt(anyString())).thenReturn(EncryptedData.builder()
+          .encryptedValue("encrypted_pass")
+          .salt("salt123")
+          .build());
+      when(encryptionUtil.generateDigest(anyString())).thenReturn("digest");
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
@@ -374,7 +368,7 @@ class ClickhouseCredentialsDaoTest {
 
     @Test
     void shouldThrowExceptionOnEncryptionError() {
-      when(encryptionUtil.encryptPassword(anyString()))
+      when(encryptionUtil.encrypt(anyString()))
           .thenThrow(new RuntimeException("Encryption failed"));
 
       Exception ex = assertThrows(RuntimeException.class,
@@ -504,11 +498,11 @@ class ClickhouseCredentialsDaoTest {
       when(rowSet.iterator()).thenReturn(iterator);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      List<ClickhouseTenantCredentialAudit> result = credentialsDao.getAuditLogsByTenantId("test_tenant").toList().blockingGet();
+      List<ClickhouseTenantCredentialAudit> result = credentialsDao.getAuditLogsByProjectId("test_tenant").toList().blockingGet();
 
       assertNotNull(result);
       assertEquals(1, result.size());
-      assertEquals("test_tenant", result.get(0).getTenantId());
+      assertEquals("test_tenant", result.get(0).getProjectId());
       assertEquals("CREDENTIALS_CREATED", result.get(0).getAction());
     }
 
@@ -519,7 +513,7 @@ class ClickhouseCredentialsDaoTest {
       when(rowSet.iterator()).thenReturn(iterator);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      List<ClickhouseTenantCredentialAudit> result = credentialsDao.getAuditLogsByTenantId("test_tenant").toList().blockingGet();
+      List<ClickhouseTenantCredentialAudit> result = credentialsDao.getAuditLogsByProjectId("test_tenant").toList().blockingGet();
 
       assertNotNull(result);
       assertTrue(result.isEmpty());
@@ -532,7 +526,7 @@ class ClickhouseCredentialsDaoTest {
           .thenReturn(Single.error(new MySQLException("DB Error", 500, "SQLSTATE")));
 
       Exception ex = assertThrows(RuntimeException.class,
-          () -> credentialsDao.getAuditLogsByTenantId("test_tenant").toList().blockingGet());
+          () -> credentialsDao.getAuditLogsByProjectId("test_tenant").toList().blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
     }
   }
@@ -545,7 +539,7 @@ class ClickhouseCredentialsDaoTest {
       setupReaderPreparedQuery();
       Row auditRow1 = createMockAuditRow();
       Row auditRow2 = createMockAuditRow();
-      when(auditRow2.getLong("audit_id")).thenReturn(2L);
+      when(auditRow2.getLong("id")).thenReturn(2L);
 
       RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(auditRow1, auditRow2));
       when(rowSet.iterator()).thenReturn(iterator);

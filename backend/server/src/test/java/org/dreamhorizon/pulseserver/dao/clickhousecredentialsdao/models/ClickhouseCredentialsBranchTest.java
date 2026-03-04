@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -111,7 +112,7 @@ class ClickhouseCredentialsBranchTest {
       ClickhouseCredentials cred2 = createFullCredentials();
       cred2.setTenantId(null);
       assertTrue(cred1.equals(cred2));
-      
+
       ClickhouseCredentials cred3 = createFullCredentials();
       assertFalse(cred1.equals(cred3));
       assertFalse(cred3.equals(cred1));
@@ -124,7 +125,7 @@ class ClickhouseCredentialsBranchTest {
       ClickhouseCredentials cred2 = createFullCredentials();
       cred2.setClickhouseUsername(null);
       assertTrue(cred1.equals(cred2));
-      
+
       ClickhouseCredentials cred3 = createFullCredentials();
       assertFalse(cred1.equals(cred3));
     }
@@ -137,7 +138,7 @@ class ClickhouseCredentialsBranchTest {
       ClickhouseCredentials cred2 = createFullCredentials();
       cred2.setClickhousePassword(null);
       assertTrue(cred1.equals(cred2));
-      
+
       ClickhouseCredentials cred3 = createFullCredentials();
       // Since password is transient, both are still equal
       assertTrue(cred1.equals(cred3));
@@ -269,7 +270,7 @@ class ClickhouseCredentialsBranchTest {
           .createdAt("2024-01-01")
           .updatedAt("2024-01-02")
           .build();
-      
+
       assertEquals("tenant1", cred.getTenantId());
       assertEquals("user1", cred.getClickhouseUsername());
       assertEquals("pass1", cred.getClickhousePassword());
@@ -290,7 +291,7 @@ class ClickhouseCredentialsBranchTest {
           .createdAt(null)
           .updatedAt(null)
           .build();
-      
+
       assertNull(cred.getTenantId());
       assertNull(cred.getClickhouseUsername());
     }
@@ -311,14 +312,14 @@ class ClickhouseCredentialsBranchTest {
     void canEqualShouldReturnTrueForSameType() {
       ClickhouseCredentials cred1 = createFullCredentials();
       ClickhouseCredentials cred2 = createFullCredentials();
-      assertTrue(cred1.canEqual(cred2));
+      assertEquals(cred1, cred2);
     }
 
     @Test
     void canEqualShouldReturnFalseForDifferentType() {
       ClickhouseCredentials cred = createFullCredentials();
-      assertFalse(cred.canEqual("string"));
-      assertFalse(cred.canEqual(123));
+      assertNotEquals("string", cred);
+      assertNotEquals(123, cred);
     }
   }
 
@@ -328,7 +329,7 @@ class ClickhouseCredentialsBranchTest {
     @Test
     void shouldSetAndGetAllFields() {
       ClickhouseCredentials cred = new ClickhouseCredentials();
-      
+
       cred.setId(1L);
       cred.setTenantId("t1");
       cred.setClickhouseUsername("u1");
@@ -338,7 +339,7 @@ class ClickhouseCredentialsBranchTest {
       cred.setIsActive(true);
       cred.setCreatedAt("c1");
       cred.setUpdatedAt("upd1");
-      
+
       assertEquals(1L, cred.getId());
       assertEquals("t1", cred.getTenantId());
       assertEquals("u1", cred.getClickhouseUsername());
@@ -358,7 +359,7 @@ class ClickhouseCredentialsBranchTest {
     void shouldCreateWithAllArgs() {
       ClickhouseCredentials cred = new ClickhouseCredentials(
           1L, "tenant", "user", "pass", "salt", "digest", true, "created", "updated");
-      
+
       assertEquals(1L, cred.getId());
       assertEquals("tenant", cred.getTenantId());
       assertEquals("user", cred.getClickhouseUsername());
@@ -374,7 +375,7 @@ class ClickhouseCredentialsBranchTest {
     void shouldCreateWithNullArgs() {
       ClickhouseCredentials cred = new ClickhouseCredentials(
           null, null, null, null, null, null, null, null, null);
-      
+
       assertNull(cred.getTenantId());
       assertNull(cred.getClickhouseUsername());
     }

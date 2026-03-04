@@ -11,8 +11,8 @@ import static org.mockito.Mockito.when;
 
 import com.clickhouse.client.api.insert.InsertResponse;
 import io.r2dbc.pool.ConnectionPool;
-import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.ColumnMetadata;
+import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.Result;
 import io.r2dbc.spi.Row;
 import io.r2dbc.spi.RowMetadata;
@@ -22,8 +22,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiFunction;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhousecredentials.models.ClickhouseCredentials;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
@@ -53,7 +54,13 @@ class ClickhouseQueryServiceTest {
   private ClickhouseTenantConnectionPoolManager poolManager;
 
   @Mock
+  private ClickhouseProjectConnectionPoolManager projectPoolManager;
+
+  @Mock
   private ClickhouseCredentialsDao credentialsDao;
+
+  @Mock
+  private ClickhouseProjectCredentialsDao projectCredentialsDao;
 
   @Mock
   private ConnectionPool connectionPool;
@@ -83,8 +90,8 @@ class ClickhouseQueryServiceTest {
     queryService = new ClickhouseQueryService(
         clickhouseReadClient,
         clickhouseWriteClient,
-        poolManager,
-        credentialsDao
+        projectPoolManager,
+        projectCredentialsDao
     );
   }
 
@@ -105,8 +112,6 @@ class ClickhouseQueryServiceTest {
       assertNotNull(queryService);
       assertNotNull(queryService.getClickhouseReadClient());
       assertNotNull(queryService.getClickhouseWriteClient());
-      assertNotNull(queryService.getClickhouseTenantConnectionPoolManager());
-      assertNotNull(queryService.getClickhouseCredentialsDao());
     }
 
     @Test
@@ -194,7 +199,7 @@ class ClickhouseQueryServiceTest {
       // Mock empty result
       when(result.map(any(BiFunction.class))).thenReturn(Flux.empty());
 
-      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response = 
+      GetQueryDataResponseDto<GetRawUserEventsResponseDto> response =
           queryService.executeQueryOrCreateJob(config).blockingGet();
 
       assertNotNull(response);
@@ -302,7 +307,7 @@ class ClickhouseQueryServiceTest {
       when(connection.close()).thenReturn(Mono.empty());
       when(result.map(any(BiFunction.class))).thenReturn(Flux.empty());
 
-      QueryResultResponse<TestDto> response = 
+      QueryResultResponse<TestDto> response =
           queryService.executeQueryOrCreateJob(config, TestDto.class).blockingGet();
 
       assertNotNull(response);
@@ -335,7 +340,7 @@ class ClickhouseQueryServiceTest {
     @Test
     void shouldDelegateToWriteClient() {
       List<StackTraceEvent> events = new ArrayList<>();
-      
+
       when(clickhouseWriteClient.insert(any()))
           .thenReturn(Single.error(new RuntimeException("Write error")));
 
@@ -401,16 +406,6 @@ class ClickhouseQueryServiceTest {
     }
 
     @Test
-    void shouldReturnPoolManager() {
-      assertEquals(poolManager, queryService.getClickhouseTenantConnectionPoolManager());
-    }
-
-    @Test
-    void shouldReturnCredentialsDao() {
-      assertEquals(credentialsDao, queryService.getClickhouseCredentialsDao());
-    }
-
-    @Test
     void shouldReturnObjectMapper() {
       assertNotNull(queryService.getObjectMapper());
     }
@@ -422,9 +417,9 @@ class ClickhouseQueryServiceTest {
     @Test
     void shouldImplementEquals() {
       ClickhouseQueryService service1 = new ClickhouseQueryService(
-          clickhouseReadClient, clickhouseWriteClient, poolManager, credentialsDao);
+          clickhouseReadClient, clickhouseWriteClient, projectPoolManager, projectCredentialsDao);
       ClickhouseQueryService service2 = new ClickhouseQueryService(
-          clickhouseReadClient, clickhouseWriteClient, poolManager, credentialsDao);
+          clickhouseReadClient, clickhouseWriteClient, projectPoolManager, projectCredentialsDao);
 
       // Lombok @Data generates equals based on fields
       // Since objectMapper is final and created inline, services with same deps should be equal
@@ -449,11 +444,11 @@ class ClickhouseQueryServiceTest {
   // Test DTO for generic query tests
   public static class TestDto {
     private String name;
-    
+
     public String getName() {
       return name;
     }
-    
+
     public void setName(String name) {
       this.name = name;
     }
