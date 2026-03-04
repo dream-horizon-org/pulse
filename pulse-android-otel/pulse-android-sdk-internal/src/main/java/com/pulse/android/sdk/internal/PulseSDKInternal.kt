@@ -1,7 +1,7 @@
 @file:OptIn(Incubating::class)
 @file:Suppress("unused")
 
-package com.pulse.android.sdk
+package com.pulse.android.sdk.internal
 
 import android.app.Application
 import android.content.Context
@@ -56,6 +56,7 @@ import io.opentelemetry.sdk.trace.export.SpanExporter
 import io.opentelemetry.semconv.ExceptionAttributes
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes
 import io.opentelemetry.semconv.incubating.UserIncubatingAttributes
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -67,26 +68,20 @@ import java.util.function.BiFunction
 import java.util.function.Predicate
 import kotlin.system.measureNanoTime
 
-internal class PulseSDKImpl :
-    PulseSDK,
-    CoroutineScope by MainScope() {
-    override fun isInitialized(): Boolean = isInitialised && !isShutdown
+/**
+ * Internal PulseSDK implementation. This is internal module so API compatibility and behaviour is not guaranteed.
+ * Provides initialization with tracer and logger provider customizers for React Native
+ * and other integrations that need to add custom processors.
+ */
+public class PulseSDKInternal : CoroutineScope by MainScope() {
+    public fun isInitialized(): Boolean = isInitialised && !isShutdown
 
-    override fun shutdown() {
-        if (isShutdown) {
-            PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down" }
-            return
-        }
-        launch(Dispatchers.Main.immediate) {
-            if (isShutdown) return@launch
-            otelInstance?.shutdown()
-            otelInstance = null
-            isShutdown = true
-            PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
-        }
-    }
-
-    override fun initialize(
+    /**
+     * Initialize the Pulse SDK with optional tracer and logger provider customizers.
+     * Used by React Native to add RN-specific screen attribute processors.
+     */
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
+    public fun initialize(
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
@@ -112,24 +107,27 @@ internal class PulseSDKImpl :
             PulseOtelUtils.logDebug(TAG) { "Initialisation skipped already initialised" }
             return
         }
+        this.application = application
         measureNanoTime {
+            @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
             initializeInternal(
-                application,
-                endpointBaseUrl,
-                projectId,
-                tracerProviderCustomizer,
-                loggerProviderCustomizer,
-                spanEndpointConnectivity,
-                logEndpointConnectivity,
-                metricEndpointConnectivity,
-                customEventConnectivity,
-                configEndpointUrl,
-                resource,
-                instrumentations,
-                endpointHeaders,
-                sessionConfig,
-                globalAttributes,
-                diskBuffering,
+                application = application,
+                endpointBaseUrl = endpointBaseUrl,
+                projectId = projectId,
+                tracerProviderCustomizer = tracerProviderCustomizer,
+                loggerProviderCustomizer = loggerProviderCustomizer,
+                spanEndpointConnectivity = spanEndpointConnectivity,
+                logEndpointConnectivity = logEndpointConnectivity,
+                metricEndpointConnectivity = metricEndpointConnectivity,
+                customEventConnectivity = customEventConnectivity,
+                configEndpointUrl = configEndpointUrl,
+                resource = resource,
+                instrumentations = instrumentations,
+                endpointHeaders = endpointHeaders,
+                sessionConfig = sessionConfig,
+                globalAttributes = globalAttributes,
+                diskBuffering = diskBuffering,
+                ioDispatcher = Dispatchers.IO,
             )
         }.also {
             PulseOtelUtils.logDebug(TAG) { "Initialisation succeeded in $it ns" }
@@ -155,9 +153,8 @@ internal class PulseSDKImpl :
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
+        ioDispatcher: CoroutineDispatcher,
     ) {
-        this.application = application
-
         val sharedPrefs =
             application.getSharedPreferences(
                 "pulse_sdk_config",
@@ -174,8 +171,7 @@ internal class PulseSDKImpl :
         val projectIdHeader = createProjectIdHeader(projectId)
         val endpointHeadersWithProject = endpointHeaders + projectIdHeader
 
-        @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
-        launch(Dispatchers.IO) {
+        launch(ioDispatcher) {
             val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
             apiCache.mkdirs()
             val newConfig =
@@ -459,7 +455,7 @@ internal class PulseSDKImpl :
                 tracerProviderBuilder.addSpanProcessor(
                     PulseSdkSignalProcessors.PulseSpanTypeAttributesAppender(),
                 )
-                // interaction specific attributed present in other spans
+                // interaction specific attributes to be attached to other spans
                 if (!config.isSuppressed(InteractionInstrumentation.INSTRUMENTATION_NAME)) {
                     tracerProviderBuilder.addSpanProcessor(
                         InteractionInstrumentation.createSpanProcessor(
@@ -515,12 +511,12 @@ internal class PulseSDKImpl :
         return tracerProviderCustomizer to loggerProviderCustomizer
     }
 
-    override fun setUserId(id: String?) {
+    public fun setUserId(id: String?) {
         if (isShutdown) return
         userSessionEmitter.userId = id
     }
 
-    override fun setUserProperty(
+    public fun setUserProperty(
         name: String,
         value: Any?,
     ) {
@@ -532,18 +528,18 @@ internal class PulseSDKImpl :
         }
     }
 
-    fun setUserProperties(properties: Map<String, Any?>) {
+    public fun setUserProperties(properties: Map<String, Any?>) {
         properties.forEach {
             setUserProperty(it.key, it.value)
         }
     }
 
-    override fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
+    public fun setUserProperties(builderAction: MutableMap<String, Any?>.() -> Unit) {
         if (isShutdown) return
         setUserProperties(mutableMapOf<String, Any?>().apply(builderAction))
     }
 
-    override fun trackEvent(
+    public fun trackEvent(
         name: String,
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
@@ -566,7 +562,7 @@ internal class PulseSDKImpl :
         }
     }
 
-    override fun trackNonFatal(
+    public fun trackNonFatal(
         name: String,
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
@@ -584,7 +580,7 @@ internal class PulseSDKImpl :
             }
     }
 
-    override fun trackNonFatal(
+    public fun trackNonFatal(
         throwable: Throwable,
         observedTimeStampInMs: Long,
         params: Map<String, Any?>,
@@ -611,7 +607,7 @@ internal class PulseSDKImpl :
             }
     }
 
-    override fun <T> trackSpan(
+    public fun <T> trackSpan(
         spanName: String,
         params: Map<String, Any?>,
         action: () -> T,
@@ -620,7 +616,11 @@ internal class PulseSDKImpl :
             action()
             return
         }
-        val span = tracer.spanBuilder(spanName).startSpan()
+        val span =
+            tracer
+                .spanBuilder(spanName)
+                .setAllAttributes(params.toAttributes())
+                .startSpan()
         try {
             action()
         } finally {
@@ -628,20 +628,41 @@ internal class PulseSDKImpl :
         }
     }
 
-    override fun startSpan(
+    public fun startSpan(
         spanName: String,
         params: Map<String, Any?>,
     ): () -> Unit {
         if (isShutdown) return {}
-        val span = tracer.spanBuilder(spanName).startSpan()
+        val span =
+            tracer
+                .spanBuilder(spanName)
+                .setAllAttributes(params.toAttributes())
+                .startSpan()
         return {
             span.end()
         }
     }
 
-    override fun getOtelOrNull(): OpenTelemetryRum? = if (isShutdown) null else otelInstance
+    public fun shutdown() {
+        if (isShutdown) {
+            PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down" }
+            return
+        }
+        launch(Dispatchers.Main.immediate) {
+            if (isShutdown) {
+                PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
+                return@launch
+            }
+            otelInstance?.shutdown()
+            otelInstance = null
+            isShutdown = true
+            PulseOtelUtils.logDebug(TAG) { "Pulse SDK shut down" }
+        }
+    }
 
-    override fun getOtelOrThrow(): OpenTelemetryRum {
+    public fun getOtelOrNull(): OpenTelemetryRum? = if (isShutdown) null else otelInstance
+
+    public fun getOtelOrThrow(): OpenTelemetryRum {
         if (isShutdown) throwShutdownError()
         return otelInstance ?: throwSdkNotInitError()
     }
@@ -712,9 +733,9 @@ internal class PulseSDKImpl :
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
 
-        internal fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
+        private fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
 
-        internal fun createMeteringSessionHeader(meteringSessionId: String): Map<String, String> =
+        private fun createMeteringSessionHeader(meteringSessionId: String): Map<String, String> =
             mapOf(METERING_SESSION_HEADER_KEY to meteringSessionId)
     }
 }

@@ -1,0 +1,82 @@
+pipeline {
+    agent {
+        node { label 'pulse-ui-build-ec2-fleet' }
+    }
+
+    environment {
+        ARTIFACT_VERSION = ''
+        GITBOT_USERNAME = credentials('github-bot-username')
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Read Version') {
+            steps {
+                script {
+                    ARTIFACT_VERSION = getVersionFromPackageJson()
+                    echo "Version to be published ${ARTIFACT_VERSION}"
+                }
+            }
+        }
+
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    sh """
+                        #!/bin/bash -el
+                        chmod +x ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh
+                        ./deploy/jenkinsfile/pulse-ui/publish-artifact.sh -v ${ARTIFACT_VERSION}
+                    """
+                }
+            }
+        }
+
+        stage('Bump snapshot version') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/pulse-ui/bump-version.sh
+                            ./deploy/jenkinsfile/pulse-ui/bump-version.sh -u $GIT_USER -p "$GIT_TOKEN" -v ${ARTIFACT_VERSION} -g ${GITBOT_USERNAME}
+                        """
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                def message = "<!channel> Pulse UI version *${ARTIFACT_VERSION}* published\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}
+
+def getVersionFromPackageJson(String path = 'pulse-ui/package.json') {
+    def rawVersion = sh(
+            script: "jq -r '.version' ${path}",
+            returnStdout: true
+    ).trim()
+    return rawVersion.replaceAll('-SNAPSHOT$', '')
+}

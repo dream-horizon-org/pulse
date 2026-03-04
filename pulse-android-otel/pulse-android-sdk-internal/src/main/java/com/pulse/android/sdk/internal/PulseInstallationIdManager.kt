@@ -1,4 +1,4 @@
-package com.pulse.android.sdk
+package com.pulse.android.sdk.internal
 
 import android.content.SharedPreferences
 import android.os.Handler

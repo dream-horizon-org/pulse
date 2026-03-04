@@ -1,4 +1,4 @@
-package com.pulse.android.sdk
+package com.pulse.android.sdk.internal
 
 import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.otel.utils.PulseOtelUtils
@@ -54,7 +54,7 @@ internal class PulseSdkSignalProcessors {
                             PulseAttributes.PulseTypeValues.TOUCH
                         }
 
-                        PulseSDKImpl.CUSTOM_NON_FATAL_EVENT_NAME -> {
+                        PulseSDKInternal.CUSTOM_NON_FATAL_EVENT_NAME -> {
                             PulseAttributes.PulseTypeValues.NON_FATAL
                         }
 

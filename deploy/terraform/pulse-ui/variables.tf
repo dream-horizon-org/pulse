@@ -11,13 +11,28 @@ variable "ami_id" {
   type        = string
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
+variable "instance_types" {
+  description = "List of EC2 instance types for the ASG mixed instances policy"
+  type        = list(string)
 }
 
-variable "instance_count" {
-  description = "Number of instances"
+variable "desired_capacity" {
+  description = "Number of desired instances"
+  type        = number
+}
+
+variable "asg_min_size" {
+  description = "Number of min instances"
+  type        = number
+}
+
+variable "asg_max_size" {
+  description = "Number of max instances"
+  type        = number
+}
+
+variable "asg_on_demand_base_capacity" {
+  description = "Number of base on demand instances"
   type        = number
 }
 
@@ -77,6 +92,11 @@ variable "healthcheck_port" {
   type        = number
 }
 
+variable "artifact_version" {
+  description = "Artifact version"
+  type        = string
+}
+
 # -----------------------------
 # App deployment vars
 # -----------------------------
@@ -91,12 +111,12 @@ variable "app_env" {
 }
 
 variable "acm_cert" {
-    description = "acm of the ssl certificate"
-    type        = string
+  description = "acm of the ssl certificate"
+  type        = string
 }
 
 variable "ssl_policy" {
-    description = "ssl policy to be used"
-    type        = string
+  description = "ssl policy to be used"
+  type        = string
 }
 
