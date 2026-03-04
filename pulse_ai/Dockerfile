@@ -17,5 +17,10 @@ COPY . /app/pulse_ai/
 # ADK web UI runs on port 8000 by default
 EXPOSE 8000
 
-# Run the ADK web UI — serves from /app which is the parent of pulse_ai/
-CMD ["adk", "web", "--port", "8000", "--host", "0.0.0.0"]
+# Run ADK web UI with auto-restart on Python file changes (hot reload)
+CMD ["watchmedo", "auto-restart", \
+     "--directory", "/app/pulse_ai", \
+     "--pattern", "*.py", \
+     "--recursive", \
+     "--", \
+     "adk", "web", "--port", "8000", "--host", "0.0.0.0"]

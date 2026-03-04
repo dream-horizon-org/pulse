@@ -6,6 +6,9 @@
 
 .env
 
+# Google ADK session data (auto-generated)
+.adk/
+__pycache__
 
 .terraform/
 *.tfstate

@@ -9,9 +9,9 @@ services:
     env_file:
       - .env
     volumes:
-      # Mount agent source for live development — changes reflect instantly
-      - ./__init__.py:/app/pulse_ai/__init__.py:ro
-      - ./agent.py:/app/pulse_ai/agent.py:ro
+      # Mount entire agent source for hot reload — code changes reflect without rebuild
+      # Not read-only because ADK writes session data to .adk/ (gitignored)
+      - .:/app/pulse_ai
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000"]
