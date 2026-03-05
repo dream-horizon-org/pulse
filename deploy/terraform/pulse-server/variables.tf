@@ -42,7 +42,7 @@ variable "ec2_subnet_ids" {
 }
 
 variable "alb_subnet_ids" {
-  description = "Subnets for instances (ASG)"
+  description = "Subnets for ALB"
   type        = list(string)
 }
 
@@ -52,7 +52,7 @@ variable "alb_security_group_ids" {
 }
 
 variable "ec2_security_group_ids" {
-  description = "Instance security group ids"
+  description = "EC2 Security Group IDs"
   type        = list(string)
 }
 
@@ -97,6 +97,15 @@ variable "healthcheck_port" {
   type        = number
 }
 
+variable "artifact_version" {
+  description = "Artifact version"
+  type        = string
+}
+
+variable "cloudfront_distribution" {
+  description = "Cloudfront distribution id for pulse-server"
+  type = string
+}
 # -----------------------------
 # App deployment vars
 # -----------------------------

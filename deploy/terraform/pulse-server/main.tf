@@ -10,7 +10,7 @@ terraform {
 
   backend "s3" {
     bucket       = "pulse-deployment-config"
-    key          = "terraform/production/pulse-ui/terraform.tfstate"
+    key          = "terraform/production/pulse-server/terraform.tfstate"
     region       = "ap-south-1"
     use_lockfile = true
   }
@@ -29,14 +29,14 @@ provider "aws" {
 # -------------------------------------------------------------------
 # Launch Template
 # -------------------------------------------------------------------
-resource "aws_launch_template" "pulse_ui" {
-  name = "pulse-ui-lt"
+resource "aws_launch_template" "pulse_server" {
+  name = "pulse-server-test-lt"
 
   tags = {
-    Name             = "pulse-ui-lt"
+    Name             = "pulse-server-test-lt"
     org_name         = "horizon"
     environment_name = "production"
-    component_name   = "pulse-ui"
+    component_name   = "pulse-server-test"
     component_type   = "application"
     service_name     = "pulse"
     resource_type    = "lt"
@@ -49,10 +49,10 @@ resource "aws_launch_template" "pulse_ui" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name             = "pulse-ui-instance"
+      Name             = "pulse-server-test-instance"
       org_name         = "horizon"
       environment_name = "production"
-      component_name   = "pulse-ui"
+      component_name   = "pulse-server-test"
       component_type   = "application"
       service_name     = "pulse"
       resource_type    = "ec2"
@@ -62,10 +62,10 @@ resource "aws_launch_template" "pulse_ui" {
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name             = "pulse-ui-volume"
+      Name             = "pulse-server-test-volume"
       org_name         = "horizon"
       environment_name = "production"
-      component_name   = "pulse-ui"
+      component_name   = "pulse-server-test"
       component_type   = "application"
       service_name     = "pulse"
       resource_type    = "ebs"
@@ -93,9 +93,9 @@ resource "aws_launch_template" "pulse_ui" {
 # -------------------------------------------------------------------
 # ALB + Target Group + Listeners
 # -------------------------------------------------------------------
-resource "aws_lb" "pulse_ui" {
+resource "aws_lb" "pulse_server" {
   load_balancer_type         = "application"
-  name                       = "pulse-ui-alb"
+  name                       = "pulse-server-test-alb"
   internal                   = true
   ip_address_type            = "ipv4"
   subnets                    = var.alb_subnet_ids
@@ -104,20 +104,20 @@ resource "aws_lb" "pulse_ui" {
   drop_invalid_header_fields = true
 
   tags = {
-    Name             = "pulse-ui-lb"
+    Name             = "pulse-server-test-lb"
     org_name         = "horizon"
     environment_name = "production"
-    component_name   = "pulse-ui"
+    component_name   = "pulse-server-test"
     component_type   = "application"
     service_name     = "pulse"
     resource_type    = "lb"
   }
 }
 
-resource "aws_lb_target_group" "pulse_ui" {
+resource "aws_lb_target_group" "pulse_server" {
   target_type     = "instance"
-  name            = "pulse-ui-tg"
-  port            = 3000
+  name            = "pulse-server-test-tg"
+  port            = 8080
   ip_address_type = "ipv4"
   vpc_id          = var.vpc_id
   protocol        = "HTTP"
@@ -137,18 +137,18 @@ resource "aws_lb_target_group" "pulse_ui" {
   deregistration_delay = 30
 
   tags = {
-    Name             = "pulse-ui-tg"
+    Name             = "pulse-server-test-tg"
     org_name         = "horizon"
     environment_name = "production"
-    component_name   = "pulse-ui"
+    component_name   = "pulse-server-test"
     component_type   = "application"
     service_name     = "pulse"
     resource_type    = "tg"
   }
 }
 
-resource "aws_lb_listener" "pulse_ui_https" {
-  load_balancer_arn = aws_lb.pulse_ui.arn
+resource "aws_lb_listener" "pulse_server_https" {
+  load_balancer_arn = aws_lb.pulse_server.arn
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = var.ssl_policy
@@ -156,12 +156,12 @@ resource "aws_lb_listener" "pulse_ui_https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.pulse_ui.arn
+    target_group_arn = aws_lb_target_group.pulse_server.arn
   }
 }
 
-resource "aws_lb_listener" "pulse_ui_http" {
-  load_balancer_arn = aws_lb.pulse_ui.arn
+resource "aws_lb_listener" "pulse_server_http" {
+  load_balancer_arn = aws_lb.pulse_server.arn
   port              = "80"
   protocol          = "HTTP"
 
@@ -178,8 +178,8 @@ resource "aws_lb_listener" "pulse_ui_http" {
 # -------------------------------------------------------------------
 # Autoscaling Group
 # -------------------------------------------------------------------
-resource "aws_autoscaling_group" "pulse_ui" {
-  name = "pulse-ui-asg"
+resource "aws_autoscaling_group" "pulse_server" {
+  name = "pulse-server-test-asg"
 
   mixed_instances_policy {
     instances_distribution {
@@ -190,10 +190,10 @@ resource "aws_autoscaling_group" "pulse_ui" {
 
     launch_template {
       launch_template_specification {
-        launch_template_id = aws_launch_template.pulse_ui.id
-        version            = aws_launch_template.pulse_ui.latest_version
+        launch_template_id = aws_launch_template.pulse_server.id
+        version            = aws_launch_template.pulse_server.latest_version
       }
-      # The correct way to pass a list of specific instance types
+
       dynamic "override" {
         for_each = var.instance_types
         content {
@@ -210,7 +210,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   min_size                  = var.asg_min_size
   max_size                  = var.asg_max_size
   protect_from_scale_in     = true
-  target_group_arns         = [aws_lb_target_group.pulse_ui.arn]
+  target_group_arns         = [aws_lb_target_group.pulse_server.arn]
 
   instance_refresh {
     strategy = "Rolling"
@@ -227,7 +227,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
 
   tag {
     key                 = "Name"
-    value               = "pulse-ui-asg"
+    value               = "pulse-server-test-asg"
     propagate_at_launch = false
   }
   tag {
@@ -242,7 +242,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   }
   tag {
     key                 = "component_name"
-    value               = "pulse-ui"
+    value               = "pulse-server-test"
     propagate_at_launch = false
   }
   tag {
@@ -267,16 +267,16 @@ resource "aws_autoscaling_group" "pulse_ui" {
 }
 
 # -------------------------------------------------------------------
-# Route53 Alias Record (recommended)
+# Route53 Alias Record
 # -------------------------------------------------------------------
-resource "aws_route53_record" "pulse_ui" {
+resource "aws_route53_record" "pulse_server" {
   zone_id = var.route53_zone_id
   name    = var.route53_record_name
   type    = "A"
 
   alias {
-    name                   = aws_lb.pulse_ui.dns_name
-    zone_id                = aws_lb.pulse_ui.zone_id
+    name                   = aws_lb.pulse_server.dns_name
+    zone_id                = aws_lb.pulse_server.zone_id
     evaluate_target_health = false
   }
 }

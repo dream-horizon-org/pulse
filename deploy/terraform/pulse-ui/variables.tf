@@ -42,17 +42,17 @@ variable "ec2_subnet_ids" {
 }
 
 variable "alb_subnet_ids" {
-  description = "Subnets for alb"
+  description = "Subnets for ALB"
   type        = list(string)
 }
 
 variable "alb_security_group_ids" {
-  description = "Public subnets for the ALB"
+  description = "SG for the ALB"
   type        = list(string)
 }
 
 variable "ec2_security_group_ids" {
-  description = "Public subnets for the instance"
+  description = "EC2 Security Group IDs"
   type        = list(string)
 }
 

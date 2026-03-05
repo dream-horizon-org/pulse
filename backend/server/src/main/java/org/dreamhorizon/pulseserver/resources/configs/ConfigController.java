@@ -75,6 +75,7 @@ public class ConfigController {
     if (config.getInteraction() != null) {
       PulseConfig.InteractionConfig interaction = config.getInteraction();
       if (interaction.getCollectorUrl() == null || interaction.getCollectorUrl().isBlank()) {
+        log.info("Otel Collector URL :: {}", applicationConfig.getOtelCollectorUrl());
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {

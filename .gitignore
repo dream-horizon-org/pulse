@@ -16,3 +16,4 @@ lib/
 *.tfvars.*
 .terraformrc
 terraform.rc
+env.json
