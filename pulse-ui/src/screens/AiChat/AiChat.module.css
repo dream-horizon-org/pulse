@@ -1,0 +1,23 @@
+/* ── Main Container ── */
+.container {
+  display: flex;
+  height: calc(100vh - 60px);
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(14, 201, 194, 0.12);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.06);
+  background: #ffffff;
+}
+
+.chatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+}
+
+.errorBar {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  flex-shrink: 0;
+}

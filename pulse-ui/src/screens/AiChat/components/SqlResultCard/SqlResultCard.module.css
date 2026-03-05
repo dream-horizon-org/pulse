@@ -1,0 +1,27 @@
+/* ── SQL Result Card ── */
+.container {
+  margin-top: var(--mantine-spacing-sm);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(14, 201, 194, 0.06);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.code {
+  margin: 0;
+  border-radius: 0;
+  font-size: 13px;
+  max-height: 300px;
+  overflow: auto;
+  background: var(--mantine-color-gray-0) !important;
+  color: var(--mantine-color-dark-7) !important;
+}

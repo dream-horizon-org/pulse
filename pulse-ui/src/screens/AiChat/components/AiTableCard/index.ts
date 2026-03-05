@@ -1,0 +1,1 @@
+export { AiTableCard } from "./AiTableCard";

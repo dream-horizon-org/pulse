@@ -1,0 +1,55 @@
+/* ── Sidebar ── */
+.container {
+  width: 260px;
+  min-width: 260px;
+  border-right: 1px solid rgba(14, 201, 194, 0.12);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: rgba(14, 201, 194, 0.02);
+}
+
+.sessionsTitle {
+  color: var(--mantine-color-dark-7);
+}
+
+.loadingState {
+  align-items: center;
+  padding: var(--mantine-spacing-md);
+  gap: var(--mantine-spacing-xs);
+}
+
+.emptyText {
+  text-align: center;
+  padding: var(--mantine-spacing-md);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+  background: rgba(14, 201, 194, 0.04);
+}
+
+.list {
+  flex: 1;
+  overflow: hidden;
+}
+
+.sessionItem {
+  border-radius: 0;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.sessionItem:hover {
+  background: rgba(14, 201, 194, 0.06);
+}
+
+.sessionItem[data-active] {
+  background: rgba(14, 201, 194, 0.1);
+  border-left-color: rgba(14, 201, 194, 0.6);
+}

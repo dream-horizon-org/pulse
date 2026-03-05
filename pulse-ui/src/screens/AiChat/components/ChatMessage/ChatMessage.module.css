@@ -1,0 +1,141 @@
+/* ── Message Bubbles ── */
+.row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 6px;
+  max-width: 85%;
+}
+
+.userRow {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.aiRow {
+  align-self: flex-start;
+}
+
+.avatar {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  word-break: break-word;
+  transition: all 0.15s ease;
+}
+
+.userBubble {
+  background: rgba(14, 201, 194, 0.1);
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  color: var(--mantine-color-dark-7);
+  border-bottom-right-radius: 4px;
+}
+
+.aiBubble {
+  background: var(--mantine-color-gray-0);
+  border: 1px solid var(--mantine-color-gray-2);
+  color: var(--mantine-color-dark-7);
+  border-bottom-left-radius: 4px;
+}
+
+/* ── Markdown ── */
+.markdown {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--mantine-color-dark-7);
+}
+
+.markdown p {
+  margin: 0 0 8px 0;
+}
+
+.markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown code {
+  background: rgba(14, 201, 194, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: var(--mantine-color-teal-8);
+}
+
+.markdown pre {
+  background: var(--mantine-color-gray-0);
+  border: 1px solid var(--mantine-color-gray-2);
+  padding: var(--mantine-spacing-sm);
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown pre code {
+  background: none;
+  padding: 0;
+  color: var(--mantine-color-dark-7);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 20px;
+  margin: 4px 0;
+}
+
+.markdown a {
+  color: var(--mantine-color-teal-7);
+  text-decoration: none;
+}
+
+.markdown a:hover {
+  text-decoration: underline;
+}
+
+/* ── GFM Tables ── */
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12.5px;
+}
+
+.markdown thead th {
+  background: rgba(14, 201, 194, 0.08);
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 2px solid rgba(14, 201, 194, 0.2);
+  white-space: nowrap;
+}
+
+.markdown tbody td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.markdown tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown tbody tr:hover {
+  background: rgba(14, 201, 194, 0.04);
+}
+
+/* ── GFM extras ── */
+.markdown del {
+  opacity: 0.5;
+}
+
+.markdown input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--mantine-color-teal-6);
+}
+
+.timestamp {
+  margin-top: 4px;
+  text-align: right;
+  opacity: 0.6;
+}

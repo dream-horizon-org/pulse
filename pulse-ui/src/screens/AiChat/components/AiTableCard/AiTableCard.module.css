@@ -1,0 +1,52 @@
+/* ── Table Card ── */
+.container {
+  margin-top: var(--mantine-spacing-sm);
+  border: 1px solid rgba(14, 201, 194, 0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(14, 201, 194, 0.03) 0%, #ffffff 100%);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(14, 201, 194, 0.06);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.headerIcon {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.table {
+  font-size: 12.5px;
+}
+
+.sortableHeader {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.sortableHeader:hover {
+  background: rgba(14, 201, 194, 0.08);
+}
+
+.sortIcon {
+  margin-left: 4px;
+  opacity: 0.5;
+  vertical-align: middle;
+}
+
+.numberCell {
+  font-variant-numeric: tabular-nums;
+}

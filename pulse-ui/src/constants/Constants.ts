@@ -13,6 +13,7 @@ import {
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
+  IconRobot,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -49,6 +50,7 @@ import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { AiChat } from "../screens/AiChat";
 
 export const APP_NAME: string = "Pulse";
 
@@ -72,6 +74,12 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
+
+export const AI_BASE_URL: string =
+  process.env.REACT_APP_AI_BASE_URL ?? "http://localhost:8000";
+
+export const ENABLE_AI_CHAT: boolean =
+  process.env.REACT_APP_ENABLE_AI_CHAT === "true";
 
 export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
@@ -227,6 +235,16 @@ export const ROUTES: Routes = {
     path: "/query-builder",
     element: RealTimeQuery,
   },
+  ...(ENABLE_AI_CHAT
+    ? {
+        AI_CHAT: {
+          key: "AI_CHAT",
+          basePath: "/ai-chat",
+          path: "/ai-chat",
+          element: AiChat,
+        },
+      }
+    : {}),
 };
 
 // Settings sub-routes (handled internally by Settings component)
@@ -295,6 +313,17 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: ROUTES.ALERTS.path,
     iconSize: 25,
   },
+  ...(ENABLE_AI_CHAT && ROUTES.AI_CHAT
+    ? [
+        {
+          tabName: "AI Chat",
+          icon: IconRobot,
+          routeTo: ROUTES.AI_CHAT.basePath,
+          path: ROUTES.AI_CHAT.path,
+          iconSize: 25,
+        },
+      ]
+    : []),
 ];
 
 export const API_METHODS: Record<string, string> = {
