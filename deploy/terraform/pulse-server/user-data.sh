@@ -34,11 +34,11 @@ if [ -z "$SECRET_JSON" ]; then
 fi
 
 # Write secrets to .env file
-touch "${ENV_FILE}"
-echo "${SECRET_JSON}" | jq -r '.app_env[] | "\(.key)=\(.value)"' > "${ENV_FILE}"
-chmod 600 "${ENV_FILE}"
+touch "$ENV_FILE"
+echo "${SECRET_JSON}" | jq -r '.app_env[] | "\(.key)=\(.value)"' > "$ENV_FILE"
+chmod 600 "$ENV_FILE"
 
-echo "Exported $(wc -l < ${ENV_FILE}) environment variables to ${HOME}/.pulse-server.env"
+echo "Exported $(wc -l < $ENV_FILE) environment variables to ${HOME}/.pulse-server.env"
 
 # -------------------------------------------------------------------
 # 4. Download code artifact
