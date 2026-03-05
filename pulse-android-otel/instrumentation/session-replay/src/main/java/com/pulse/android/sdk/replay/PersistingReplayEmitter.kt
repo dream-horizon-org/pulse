@@ -1,6 +1,10 @@
 package com.pulse.android.sdk.replay
 
+import android.util.Log
+import com.pulse.android.sdk.replay.events.ReplayCustomEvent
 import com.pulse.android.sdk.replay.events.ReplayEvent
+import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionEvent
+import com.pulse.android.sdk.replay.events.ReplayIncrementalSnapshotEvent
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -59,7 +63,20 @@ public class PersistingReplayEmitter(
                     deque.addLast(file)
                 }
                 logger("Replay batch persisted: ${file.name} (queue size: ${deque.size})")
+                val eventTypesSummary = events
+                    .groupBy { e ->
+                        when (e) {
+                            is ReplayIncrementalMouseInteractionEvent -> "Touch"
+                            is ReplayIncrementalSnapshotEvent -> "ViewMutation"
+                            is ReplayCustomEvent -> "Custom(${(e.data as? Map<*, *>)?.get("tag")?.toString() ?: "?"})"
+                            else -> e.type.name
+                        }
+                    }
+                    .entries.joinToString(", ") { "${it.key}(${it.value.size})" }
+                val eventWord = if (events.size == 1) "event" else "events"
+                Log.d(LOG_TAG, "[Replay flow] Batch persisted to disk (${events.size} $eventWord) — event types: [$eventTypesSummary] — queue size: ${deque.size}, flush at: $flushAt")
                 if (deque.size >= flushAt) {
+                    Log.d(LOG_TAG, "[Replay flow] Queue reached flush threshold ($flushAt) → triggering flush")
                     flushIfNeeded()
                 }
             } catch (e: Throwable) {
@@ -70,6 +87,7 @@ public class PersistingReplayEmitter(
 
     /**
      * Sends any replay batches that were persisted in a previous run (e.g. before app was killed).
+     * Batches all cached envelopes into a single request when possible.
      * Call once after SDK init, before starting session replay. Runs asynchronously on the queue executor.
      */
     public fun sendCachedEvents() {
@@ -79,16 +97,20 @@ public class PersistingReplayEmitter(
                     ?: emptyList()
                 if (files.isEmpty()) return@execute
                 logger("Sending ${files.size} cached replay batches from previous run")
-                for (file in files) {
+                Log.d(LOG_TAG, "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run")
+                val contents = files.mapNotNull { file ->
                     try {
-                        val content = readFileContent(file)
-                        if (content != null) {
-                            realSend(content)
-                        }
-                        file.delete()
+                        readFileContent(file).also { file.delete() }
                     } catch (e: Throwable) {
-                        logger("Failed to send cached replay file ${file.name}: $e")
+                        logger("Failed to read cached replay file ${file.name}: $e")
+                        file.delete()
+                        null
                     }
+                }
+                if (contents.isNotEmpty()) {
+                    val payload = if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
+                    Log.d(LOG_TAG, "[Replay flow] Cached → combining ${contents.size} batch(es) into single request (${payload.length} bytes) → flushing to backend")
+                    realSend(payload)
                 }
             } catch (e: Throwable) {
                 logger("Send cached replay events failed: $e")
@@ -114,17 +136,22 @@ public class PersistingReplayEmitter(
                     deque.removeFirstOrNull()?.let { toSend.add(it) }
                 }
             }
-            for (file in toSend) {
+            if (toSend.isEmpty()) return
+            Log.d(LOG_TAG, "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (maxBatchSize: $maxBatchSize)")
+            val contents = toSend.mapNotNull { file ->
                 try {
-                    val content = readFileContent(file)
-                    if (content != null) {
-                        realSend(content)
-                    }
+                    readFileContent(file)
                 } catch (e: Throwable) {
                     logger("Flush failed for ${file.name}: $e")
+                    null
                 } finally {
                     file.delete()
                 }
+            }
+            if (contents.isNotEmpty()) {
+                val payload = if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
+                Log.d(LOG_TAG, "[Replay flow] Flush → combining ${contents.size} batch(es) into single request (${payload.length} bytes) → sending to backend")
+                realSend(payload)
             }
         } finally {
             isFlushing.set(false)
@@ -138,6 +165,10 @@ public class PersistingReplayEmitter(
             flushIntervalSeconds.toLong(),
             TimeUnit.SECONDS,
         )
+    }
+
+    private companion object {
+        private const val LOG_TAG = "PulseSessionReplay"
     }
 
     private fun readFileContent(file: File): String? {

@@ -16,6 +16,7 @@ import android.graphics.drawable.Drawable
  * @param flushIntervalSeconds Interval in seconds to flush the replay queue (default 60).
  * @param flushAt Flush when queue size reaches this many batches (default 10).
  * @param maxBatchSize Maximum number of batches to send per flush / per cached send (default 50).
+ * @param replayApiBaseUrl When set, replay batches are sent to this URL (e.g. "http://localhost:3400") via POST to /s/. When null, batches are emitted as OTLP logs only.
  */
 public class SessionReplayConfig
 @JvmOverloads
@@ -31,6 +32,7 @@ constructor(
     public var flushIntervalSeconds: Int = 60,
     public var flushAt: Int = 10,
     public var maxBatchSize: Int = 50,
+    public var replayApiBaseUrl: String? = null,
 )
 
 /**

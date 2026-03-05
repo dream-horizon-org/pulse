@@ -60,6 +60,7 @@ class OtelDemoApplication : Application() {
                     screenshot = true,
                     throttleDelayMs = 1000L,
                     screenshotQuality = 30,
+                    replayApiBaseUrl = "http://10.0.2.2:3400", // emulator: 10.0.2.2 = host machine; device: use your machine's IP
                 ),
             ) {
                 interaction {
