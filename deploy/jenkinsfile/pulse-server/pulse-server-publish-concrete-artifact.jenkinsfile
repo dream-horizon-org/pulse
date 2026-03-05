@@ -37,14 +37,12 @@ pipeline {
 
         stage('Publish Artifact') {
             steps {
-                dir('deploy/jenkinsfile/pulse-server') {
-                    script {
-                        sh """
+                script {
+                    sh """
                             #!/bin/bash -el
-                            chmod +x ./publish-artifact.sh
-                            ./publish-artifact.sh -v ${ARTIFACT_VERSION}
+                            chmod +x ./deploy/jenkinsfile/pulse-server/publish-artifact.sh
+                            ./deploy/jenkinsfile/pulse-server/publish-artifact.sh -v ${ARTIFACT_VERSION}
                         """
-                    }
                 }
             }
         }
