@@ -29,7 +29,7 @@ ZIP_NAME="$APPLICATION_NAME-$VERSION.zip"
 JAR_PATH="backend/server/target/pulse-server/pulse-server.jar"
 
 mkdir -p artifact/${APPLICATION_NAME}
-cp ${jarPath} artifact/${APPLICATION_NAME}/
+cp ${JAR_PATH} artifact/${APPLICATION_NAME}/
 cp -r backend/server/src/main/resources/ artifact/${APPLICATION_NAME}/
 
 cd artifact
