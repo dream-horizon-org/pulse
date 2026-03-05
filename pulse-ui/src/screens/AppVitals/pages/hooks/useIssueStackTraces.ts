@@ -294,8 +294,10 @@ export function useIssueStackTraces({
           ? `${traceId}-${spanId}`
           : `log-${Date.now()}-${Math.random()}`;
 
+      const normalizedTimestamp = timestamp.includes("T") ? timestamp : timestamp.replace(" ", "T") + "Z";
+
       return {
-        timestamp: new Date(timestamp),
+        timestamp: new Date(normalizedTimestamp),
         device,
         osVersion,
         appVersion,

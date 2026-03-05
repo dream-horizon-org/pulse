@@ -94,7 +94,7 @@ export function useOccurrenceBreadcrumbs({
           parsedProps = propsRaw as Record<string, unknown>;
         }
 
-        const ts = new Date(timestampStr);
+        const ts = new Date(timestampStr.includes("T") ? timestampStr : timestampStr.replace(" ", "T") + "Z");
         const relativeMs = ts.getTime() - errorMs;
 
         return {
@@ -127,6 +127,9 @@ export function useOccurrenceBreadcrumbs({
 
       if (data.status === "COMPLETED" && data.resultData) {
         setBreadcrumbs(parseResults(data.resultData));
+        setQueryState({ isLoading: false, isError: false, errorMessage: undefined });
+      } else if (data.status === "COMPLETED" && !data.resultData) {
+        setBreadcrumbs([]);
         setQueryState({ isLoading: false, isError: false, errorMessage: undefined });
       } else if (data.status === "FAILED" || data.status === "CANCELLED") {
         setQueryState({
@@ -205,7 +208,17 @@ export function useOccurrenceBreadcrumbs({
 
     submitMutation.mutate(
       { sessionId, errorTimestamp: errorTimestamp.toISOString() },
-      { onSuccess: handleSubmitResponse },
+      {
+        onSuccess: handleSubmitResponse,
+        onError: (error: Error) => {
+          if (!isMountedRef.current) return;
+          setQueryState({
+            isLoading: false,
+            isError: true,
+            errorMessage: error.message || "Failed to fetch breadcrumbs",
+          });
+        },
+      },
     );
   }, [isReady, sessionId, errorTimestamp, submitMutation, handleSubmitResponse]);
 

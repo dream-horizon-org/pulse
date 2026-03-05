@@ -60,6 +60,11 @@ public class BreadcrumbServiceImpl implements BreadcrumbService {
       return Single.error(new IllegalArgumentException("User email is required"));
     }
 
+    // TODO: Add PII scrubbing to query results (GDPR Art. 5(1)(c), DPDP Sec. 4).
+    //  Business event props may contain PII (email, phone, etc.) that must be
+    //  redacted before returning to the client. Apply PII pattern matching as a
+    //  post-processing step on the Athena result rows, or via an OTel Collector
+    //  transform processor in the ingestion pipeline.
     String sql = buildQuery(sessionId, errorInstant);
     log.debug("Breadcrumb query for session {}: {}", sessionId, sql);
     return queryService.submitQuery(sql, userEmail);

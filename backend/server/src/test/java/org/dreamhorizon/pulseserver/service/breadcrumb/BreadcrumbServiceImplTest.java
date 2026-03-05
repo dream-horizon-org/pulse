@@ -14,6 +14,7 @@ import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,11 @@ public class BreadcrumbServiceImplTest {
     TenantContext.setTenant(Tenant.builder()
         .tenantId("test_tenant")
         .build());
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
   }
 
   @Test
@@ -101,7 +107,7 @@ public class BreadcrumbServiceImplTest {
   }
 
   @Test
-  void shouldEscapeSingleQuotesInSessionId() {
+  void shouldRejectSessionIdWithSpecialCharacters() {
     QueryJob job = QueryJob.builder().jobId("j4").status(QueryJobStatus.RUNNING).build();
     when(queryService.submitQuery(anyString(), eq("user@test.com")))
         .thenReturn(Single.just(job));
