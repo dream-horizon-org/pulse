@@ -81,7 +81,7 @@ pipeline {
                 def message = "<!channel> Pulse Server version *${ARTIFACT_VERSION}* published\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'U029B7UN3B9', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
         failure {
@@ -89,7 +89,7 @@ pipeline {
                 def message = "<!channel> Pulse Server version *${ARTIFACT_VERSION}* publish failed\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'U029B7UN3B9', color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
     }
