@@ -96,7 +96,7 @@ pipeline {
                     def message = "<!channel> Pulse Alerts Cron version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
                             "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                     def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: 'U029B7UN3B9', color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
                 }
             }
         }
@@ -105,7 +105,7 @@ pipeline {
                 def message = "<!channel> Pulse Alerts Cron version *${ARTIFACT_VERSION}* deployment failed on production\n" +
                         "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
                 def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
-                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: 'U029B7UN3B9', color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
             }
         }
     }
