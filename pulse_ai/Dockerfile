@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.13-slim
 
 WORKDIR /app
 
@@ -14,8 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy agent source code
 COPY . /app/pulse_ai/
 
-# ADK web UI runs on port 8000 by default
 EXPOSE 8000
 
-# Run the ADK web UI — serves from /app which is the parent of pulse_ai/
-CMD ["adk", "web", "--port", "8000", "--host", "0.0.0.0"]
+CMD ["uvicorn", "pulse_ai.server:app", "--host", "0.0.0.0", "--port", "8000"]

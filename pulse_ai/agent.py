@@ -1,17 +1,10 @@
-import os
+from google.adk.agents.sequential_agent import SequentialAgent
 
-from dotenv import load_dotenv
-from google.adk.agents.llm_agent import Agent
+from .agents import planner_agent, executor_agent, summary_agent, report_agent
+from .constants import PIPELINE_AGENT_NAME
 
-from .constants import AGENT_MODEL_ENV_KEY, DEFAULT_MODEL
-
-load_dotenv()
-
-agent_model = os.getenv(AGENT_MODEL_ENV_KEY, DEFAULT_MODEL)
-
-root_agent = Agent(
-    model=agent_model,
-    name='root_agent',
-    description='A helpful assistant for user questions.',
-    instruction='Answer user questions to the best of your knowledge',
+root_agent = SequentialAgent(
+    name=PIPELINE_AGENT_NAME,
+    sub_agents=[planner_agent, executor_agent, summary_agent, report_agent],
+    description="Sequential pipeline: Planner -> Executor -> Summary -> Report",
 )

@@ -9,12 +9,14 @@ services:
     env_file:
       - .env
     volumes:
-      # Mount agent source for live development — changes reflect instantly
       - ./__init__.py:/app/pulse_ai/__init__.py:ro
       - ./agent.py:/app/pulse_ai/agent.py:ro
+      - ./server:/app/pulse_ai/server:ro
+      - ./constants.py:/app/pulse_ai/constants.py:ro
+      - ./agents:/app/pulse_ai/agents:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -62,30 +62,47 @@ User Query
 
 **Report Agent** → Generates the final, structured response for the user.
 
-## Quick Start
+## Prerequisites
 
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) (that's it — no Python needed)
+- Python **3.12+**
 - A Google API key from [AI Studio](https://aistudio.google.com/apikey)
 
-### Setup
+## Quick Start (Local)
 
 ```bash
 cd pulse_ai
 
-# 1. Create your env file
+# 1. Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Create your env file and set your API key
 cp .env.example .env
+# Edit .env and paste your GOOGLE_API_KEY
 
-# 2. Edit .env and paste your GOOGLE_API_KEY
-
-# 3. Run
-./setup.sh
+# 4. Start the ADK web UI
+adk web
 ```
 
 The agent will be available at **http://localhost:8000**.
 
-### Commands
+## Quick Start (Docker)
+
+If you prefer Docker over a local Python setup:
+
+```bash
+cd pulse_ai
+
+# 1. Create your env file and set your API key
+cp .env.example .env
+# Edit .env and paste your GOOGLE_API_KEY
+
+# 2. Run
+./setup.sh
+```
 
 | Command | What it does |
 |---|---|
@@ -102,11 +119,15 @@ All configuration lives in the `.env` file:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `GOOGLE_API_KEY` | Yes | — | Google AI Studio API key |
+| `GOOGLE_GENAI_USE_VERTEXAI` | No | `0` | Set to `1` to use Vertex AI instead of AI Studio |
 | `AGENT_MODEL` | No | `gemini-2.5-flash` | Gemini model to use (e.g. `gemini-2.5-pro`) |
+| `LOG_LEVEL` | No | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `CORS_ALLOWED_ORIGINS` | No | `localhost:3000,3001` | Comma-separated allowed origins |
+| `SESSION_DB_URL` | No | in-memory | Session persistence URL (e.g. `sqlite:///sessions.db`) |
 
 ## Development
 
-Agent source files (`agent.py`, `__init__.py`) are volume-mounted into the container, so code changes are reflected without rebuilding. For dependency changes (`requirements.txt`), run:
+Agent source files (`agent.py`, `server/`, `constants.py`, `agents/`, `__init__.py`) are volume-mounted into the container, so code changes are reflected without rebuilding. For dependency changes (`requirements.txt`), run:
 
 ```bash
 ./setup.sh restart
