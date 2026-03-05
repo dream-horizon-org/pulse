@@ -127,7 +127,7 @@ public class BreadcrumbServiceImplTest {
     service.getSessionBreadcrumbs("  ", "2026-02-27T15:14:26Z", "user@test.com")
         .test()
         .assertError(IllegalArgumentException.class)
-        .assertError(e -> e.getMessage().contains("invalid characters"));
+        .assertError(e -> e.getMessage().contains("Session ID is required"));
 
     verify(queryService, never()).submitQuery(anyString(), anyString());
   }
