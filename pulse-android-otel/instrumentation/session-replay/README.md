@@ -198,6 +198,27 @@ This matches PostHog Android's behavior: file-per-batch persistence and a dedica
 
 ## Usage
 
+**With Pulse SDK (recommended):** enable session replay via the instrumentations block, same as activity, fragment, crashReporter, etc.:
+
+```kotlin
+PulseSDK.INSTANCE.initialize(
+    application = application,
+    endpointBaseUrl = "https://...",
+    projectId = "your-project",
+    instrumentations = {
+        activity { enabled(true) }
+        fragment { enabled(true) }
+        sessionReplay {
+            screenshot = true
+            throttleDelayMs = 1000L
+            replayApiBaseUrl = "https://your-replay-endpoint"
+        }
+    }
+)
+```
+
+**Standalone (custom pipeline):**
+
 ```kotlin
 // 1. Create config and emitter
 val config = SessionReplayConfig(

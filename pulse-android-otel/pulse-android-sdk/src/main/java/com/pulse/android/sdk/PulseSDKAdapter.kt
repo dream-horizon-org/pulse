@@ -37,7 +37,6 @@ internal class PulseSDKAdapter(
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
-        sessionReplayConfig: com.pulse.android.sdk.replay.SessionReplayConfig?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         delegate.initialize(
@@ -54,7 +53,6 @@ internal class PulseSDKAdapter(
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,
             diskBuffering = diskBuffering,
-            sessionReplayConfig = sessionReplayConfig,
             instrumentations = instrumentations,
             tracerProviderCustomizer = null,
             loggerProviderCustomizer = null,

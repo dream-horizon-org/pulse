@@ -60,7 +60,6 @@ public interface PulseSDK {
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
-        sessionReplayConfig: com.pulse.android.sdk.replay.SessionReplayConfig? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )
 

@@ -104,7 +104,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
-        sessionReplayConfig: SessionReplayConfig?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (isShutdown) {
@@ -136,7 +135,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 globalAttributes = globalAttributes,
                 diskBuffering = diskBuffering,
                 ioDispatcher = Dispatchers.IO,
-                sessionReplayConfig = sessionReplayConfig,
 
                 )
         }.also {
@@ -163,7 +161,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         globalAttributes: (() -> Attributes)?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         ioDispatcher: CoroutineDispatcher,
-        sessionReplayConfig: SessionReplayConfig?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         val sharedPrefs =
@@ -335,12 +332,14 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val logExporter: LogRecordExporter = pulseSamplingProcessors?.SampledLogExporter(otlpLogExporter) ?: otlpLogExporter
         val metricExporter: MetricExporter = pulseSamplingProcessors?.SampledMetricExporter(otlMetricExporter) ?: otlMetricExporter
 
+        var sessionReplayConfig: SessionReplayConfig? = null
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
             if (currentSdkConfig != null) {
                 instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
             }
+            sessionReplayConfig = instrumentationConfig.getSessionReplayConfig()
             pulseSamplingProcessors?.run {
                 val enabledFeatures = getEnabledFeatures()
                 enumValues<PulseFeatureName>().forEach { feature ->
@@ -447,9 +446,10 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 metricExporter = metricExporter,
             )
 
-        if (sessionReplayConfig != null) {
+        val replayConfig = sessionReplayConfig
+        if (replayConfig != null) {
             val replayStorageDir = File(application.filesDir, "pulse_replay")
-            val replayApiBaseUrl = sessionReplayConfig.replayApiBaseUrl
+            val replayApiBaseUrl = replayConfig.replayApiBaseUrl
             val replayApiClient =
                 replayApiBaseUrl?.let {
                     SessionReplayApiClient(baseUrl = it)
@@ -504,9 +504,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 storageDir = replayStorageDir,
                 buildEnvelope = buildReplayEnvelope,
                 realSend = sendReplayPayload,
-                flushIntervalSeconds = sessionReplayConfig.flushIntervalSeconds,
-                flushAt = sessionReplayConfig.flushAt,
-                maxBatchSize = sessionReplayConfig.maxBatchSize,
+                flushIntervalSeconds = replayConfig.flushIntervalSeconds,
+                flushAt = replayConfig.flushAt,
+                maxBatchSize = replayConfig.maxBatchSize,
                 replayStorageEncryption = DefaultReplayStorageEncryption(application),
                 logger = { PulseOtelUtils.logDebug(TAG) { it } },
             )
@@ -514,7 +514,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             persistingEmitter.sendCachedEvents()
             sessionReplay = SessionReplayIntegration(
                 context = application,
-                config = sessionReplayConfig,
+                config = replayConfig,
                 eventEmitter = persistingEmitter,
                 logger = { PulseOtelUtils.logDebug(TAG) { it } },
             )

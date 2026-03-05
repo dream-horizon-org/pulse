@@ -11,7 +11,6 @@ import android.annotation.SuppressLint
 import android.app.Application
 import android.util.Log
 import com.pulse.android.sdk.PulseSDK
-import com.pulse.android.sdk.replay.SessionReplayConfig
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -56,12 +55,6 @@ class OtelDemoApplication : Application() {
                     backgroundInactivityTimeout = 2.minutes,
                     maxLifetime = 1.days
                 ),
-                sessionReplayConfig = SessionReplayConfig(
-                    screenshot = true,
-                    throttleDelayMs = 1000L,
-                    screenshotQuality = 30,
-                    replayApiBaseUrl = "http://10.0.2.2:3400", // emulator: 10.0.2.2 = host machine; device: use your machine's IP
-                ),
             ) {
                 interaction {
                     enabled(true)
@@ -72,6 +65,12 @@ class OtelDemoApplication : Application() {
                 }
                 fragment {
                     enabled(true)
+                }
+                sessionReplay {
+                    screenshot = true
+                    throttleDelayMs = 1000L
+                    screenshotQuality = 30
+                    replayApiBaseUrl = "http://10.0.2.2:3400" // emulator: 10.0.2.2 = host machine; device: use your machine's IP
                 }
             }
             PulseSDK.INSTANCE.getOtelOrThrow()
