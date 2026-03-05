@@ -92,7 +92,8 @@ public class SessionReplayIntegration(
                                 logger("Session Replay onDecorViewReady failed: $e")
                             }
                         }
-                        window.touchEventInterceptors += onTouchEventListener
+                        // Touch/mouse events disabled for now
+                        // window.touchEventInterceptors += onTouchEventListener
                     }
                 } else {
                     window.peekDecorView()?.let { decorView ->
@@ -185,9 +186,10 @@ public class SessionReplayIntegration(
                 }
             }
         }
-        view.phoneWindow?.let { window ->
-            window.touchEventInterceptors -= onTouchEventListener
-        }
+        // Touch/mouse events disabled for now
+        // view.phoneWindow?.let { window ->
+        //     window.touchEventInterceptors -= onTouchEventListener
+        // }
         decorViews.remove(view)
     }
 

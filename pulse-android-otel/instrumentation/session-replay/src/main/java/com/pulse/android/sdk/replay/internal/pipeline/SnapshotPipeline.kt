@@ -69,9 +69,10 @@ internal object SnapshotPipeline {
             }
         }
 
-        val (keyboardVisible, keyboardEvent) = detectKeyboardVisibility(view, status.keyboardVisible, timestamp)
-        status.keyboardVisible = keyboardVisible
-        keyboardEvent?.let { events.add(it) }
+        // Custom events (e.g. keyboard) disabled for now
+        // val (keyboardVisible, keyboardEvent) = detectKeyboardVisibility(view, status.keyboardVisible, timestamp)
+        // status.keyboardVisible = keyboardVisible
+        // keyboardEvent?.let { events.add(it) }
 
         return events
     }

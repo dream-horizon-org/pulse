@@ -220,11 +220,15 @@ wait_for_healthy "$CONTAINER_MINIO" 60
 # Create MinIO bucket
 remove_container "$CONTAINER_MINIO_INIT"
 print_info "Creating MinIO bucket..."
-docker run --rm \
+if ! docker run --rm \
     --name "$CONTAINER_MINIO_INIT" \
     --network "$NETWORK_NAME" \
+    --entrypoint /bin/sh \
     "$IMAGE_MINIO_MC" \
-    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET}" > /dev/null 2>&1
+    -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET}"; then
+    print_error "MinIO bucket creation failed. Check that MinIO is healthy and credentials are correct."
+    exit 1
+fi
 
 print_success "MinIO bucket '${SESSION_REPLAY_S3_BUCKET}' ready"
 
