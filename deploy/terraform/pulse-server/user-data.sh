@@ -34,6 +34,7 @@ if [ -z "$SECRET_JSON" ]; then
 fi
 
 # Write secrets to .env file
+touch "${ENV_FILE}"
 echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' > "${ENV_FILE}"
 chmod 600 "${ENV_FILE}"
 
