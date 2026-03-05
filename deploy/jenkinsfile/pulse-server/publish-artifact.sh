@@ -38,7 +38,7 @@ zip -q -r ${ZIP_NAME} ${APPLICATION_NAME}
 # 4. Upload zip to AWS CodeArtifact (generic package)
 echo "Uploading $ZIP_NAME to AWS CodeArtifact..."
 AWS_REGION="ap-south-1"
-CODEARTIFACT_DOMAIN="pulse-server"
+CODEARTIFACT_DOMAIN="pulse-prod"
 CODEARTIFACT_REPOSITORY="pulse-server"
 FILE_HASH=$(sha256sum $ZIP_NAME | awk '{ print $1 }')
 
