@@ -71,14 +71,13 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "route53_zone_id" {
-  description = "Route53 hosted zone ID"
+variable "route53_com_zone_id" {
+  description = "Route53 hosted zone ID for pulse-ux.com"
   type        = string
 }
 
-
-variable "route53_zone_id_secure" {
-  description = "Route53 hosted zone ID secure"
+variable "route53_local_zone_id" {
+  description = "Route53 hosted zone ID for pulse.local"
   type        = string
 }
 

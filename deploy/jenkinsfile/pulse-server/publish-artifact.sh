@@ -30,7 +30,8 @@ JAR_PATH="target/pulse-server/pulse-server.jar"
 
 mkdir -p artifact/${APPLICATION_NAME}
 cp ${JAR_PATH} artifact/${APPLICATION_NAME}/
-cp -r src/main/resources/ artifact/${APPLICATION_NAME}/
+cp -r src/main/resources/conf artifact/${APPLICATION_NAME}/
+cp -r src/main/resources/logback artifact/${APPLICATION_NAME}/
 
 cd artifact
 zip -q -r ${ZIP_NAME} ${APPLICATION_NAME}

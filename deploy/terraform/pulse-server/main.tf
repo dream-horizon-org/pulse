@@ -166,12 +166,8 @@ resource "aws_lb_listener" "pulse_server_http" {
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+    type = "forward"
+    target_group_arn = aws_lb_target_group.pulse_server.arn
   }
 }
 
@@ -269,8 +265,20 @@ resource "aws_autoscaling_group" "pulse_server" {
 # -------------------------------------------------------------------
 # Route53 Alias Record
 # -------------------------------------------------------------------
-resource "aws_route53_record" "pulse_server" {
-  zone_id = var.route53_zone_id
+resource "aws_route53_record" "pulse_server_com" {
+  zone_id = var.route53_com_zone_id
+  name    = var.route53_record_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.pulse_server.dns_name
+    zone_id                = aws_lb.pulse_server.zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "pulse_server_local" {
+  zone_id = var.route53_local_zone_id
   name    = var.route53_record_name
   type    = "A"
 
