@@ -26,11 +26,11 @@ mvn clean package -DskipTests -Dcheckstyle.skip=true
 echo "Artifact version: $VERSION"
 APPLICATION_NAME="pulse-server"
 ZIP_NAME="$APPLICATION_NAME-$VERSION.zip"
-JAR_PATH="backend/server/target/pulse-server/pulse-server.jar"
+JAR_PATH="target/pulse-server/pulse-server.jar"
 
 mkdir -p artifact/${APPLICATION_NAME}
 cp ${JAR_PATH} artifact/${APPLICATION_NAME}/
-cp -r backend/server/src/main/resources/ artifact/${APPLICATION_NAME}/
+cp -r src/main/resources/ artifact/${APPLICATION_NAME}/
 
 cd artifact
 zip -q -r ${ZIP_NAME} ${APPLICATION_NAME}
