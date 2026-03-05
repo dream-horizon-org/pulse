@@ -1,0 +1,3 @@
+DEFAULT_MODEL = 'gemini-2.5-flash'
+
+AGENT_MODEL_ENV_KEY = 'AGENT_MODEL'
