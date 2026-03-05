@@ -38,7 +38,7 @@ touch "$ENV_FILE"
 echo "$SECRET_JSON" | jq -r '.app_env[] | "\(.key)=\(.value)"' > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
-echo "Exported $(wc -l < $ENV_FILE) environment variables to ${HOME}/.pulse-server.env"
+echo "Exported $(wc -l < $ENV_FILE) environment variables to $HOME/.pulse-server.env"
 
 # -------------------------------------------------------------------
 # 4. Download code artifact
@@ -50,24 +50,24 @@ APPLICATION_NAME="pulse-server"
 VERSION="${artifact_version}"
 
 aws codeartifact get-package-version-asset \
-  --region "${AWS_REGION}" \
-  --domain "${CODEARTIFACT_DOMAIN}" \
-  --repository "${CODEARTIFACT_REPOSITORY}" \
+  --region "$AWS_REGION" \
+  --domain "$CODEARTIFACT_DOMAIN" \
+  --repository "$CODEARTIFACT_REPOSITORY" \
   --format generic \
   --namespace "pulse" \
-  --package "${APPLICATION_NAME}" \
-  --package-version "${VERSION}" \
-  --asset "${APPLICATION_NAME}-${VERSION}.zip" \
-  "${APPLICATION_NAME}".zip
+  --package "$APPLICATION_NAME" \
+  --package-version "$VERSION" \
+  --asset "$APPLICATION_NAME-$VERSION.zip" \
+  "$APPLICATION_NAME".zip
 
 # -------------------------------------------------------------------
 # 5. Unzip and Verify artifact
 # -------------------------------------------------------------------
-unzip "${APPLICATION_NAME}".zip
-APP_DIR="${HOME}/${APPLICATION_NAME}"
+unzip "$APPLICATION_NAME".zip
+APP_DIR="$HOME/$APPLICATION_NAME"
 
-if [ ! -f "${APPLICATION_NAME}/${APPLICATION_NAME}.jar" ]; then
-    echo "ERROR: JAR file not found at ${APP_DIR}"
+if [ ! -f "$APPLICATION_NAME/$APPLICATION_NAME.jar" ]; then
+    echo "ERROR: JAR file not found at $APP_DIR"
     exit 1
 fi
 
@@ -76,20 +76,20 @@ fi
 # -------------------------------------------------------------------
 echo "Starting pulse-server"
 set -a
-source "${ENV_FILE}"
+source "$ENV_FILE"
 set +a
 
 nohup java \
-    -jar "${APPLICATION_NAME}/${APPLICATION_NAME}".jar \
+    -jar "$APPLICATION_NAME/$APPLICATION_NAME".jar \
     run org.dreamhorizon.pulseserver.verticle.MainVerticle \
-    > "${APPLICATION_NAME}".log 2>&1 &
+    > "$APPLICATION_NAME".log 2>&1 &
 
-echo $! > "${APPLICATION_NAME}".pid
+echo $! > "$APPLICATION_NAME".pid
 
 sleep 10
 
-if ps -p $(cat "${APPLICATION_NAME}".pid) > /dev/null 2>&1; then
-    echo "${APPLICATION_NAME} started successfully (PID: $(cat ${APPLICATION_NAME}.pid))"
+if ps -p $(cat "$APPLICATION_NAME".pid) > /dev/null 2>&1; then
+    echo "$APPLICATION_NAME started successfully (PID: $(cat $APPLICATION_NAME.pid))"
 
     echo "Waiting for application to be ready..."
     sleep 15
@@ -100,14 +100,14 @@ if ps -p $(cat "${APPLICATION_NAME}".pid) > /dev/null 2>&1; then
         echo "Warning: Port 8080 may not be listening yet"
     fi
 else
-    echo "Warning: ${APPLICATION_NAME} may not have started properly"
-    echo "Check logs at: ${HOME}/${APPLICATION_NAME}.log"
-    if [ -f "${APPLICATION_NAME}".log ]; then
+    echo "Warning: $APPLICATION_NAME may not have started properly"
+    echo "Check logs at: $HOME/$APPLICATION_NAME.log"
+    if [ -f "$APPLICATION_NAME".log ]; then
         echo "Recent log output:"
-        tail -n 50 "${APPLICATION_NAME}".log || true
+        tail -n 50 "$APPLICATION_NAME".log || true
     fi
 fi
 
-echo "Log file: ${HOME}/${APPLICATION_NAME}.log"
-echo "PID file: ${HOME}/${APPLICATION_NAME}.pid"
+echo "Log file: $HOME/$APPLICATION_NAME.log"
+echo "PID file: $HOME/$APPLICATION_NAME.pid"
 echo "User-data script completed at $(date)"
