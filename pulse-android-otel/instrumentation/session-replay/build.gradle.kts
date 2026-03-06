@@ -28,6 +28,8 @@ kotlin {
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 dependencies {
+    api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.session)
     implementation(projects.pulseUtils)
     implementation(libs.findLibrary("androidx-core").get())
     implementation("com.squareup.curtains:curtains:1.2.5")

@@ -24,11 +24,15 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - Each [emit] writes the batch (as envelope JSON, encrypted) to a file and adds it to an in-memory queue.
  * - A background timer flushes the queue periodically; flush also runs when queue size reaches [flushAt].
  * - On startup, call [sendCachedEvents] once to send any leftover files from a previous run.
+ *
+ * When [realSend] returns [Result.failure] (e.g. API error or no network), files are not deleted:
+ * - Flush: failed batches are re-queued and retried on the next flush or app launch.
+ * - Send cached: files stay on disk and are retried on the next app launch.
  */
 public class PersistingReplayEmitter(
     private val storageDir: File,
     private val buildEnvelope: (sessionId: String, events: List<ReplayEvent>) -> String,
-    private val realSend: (envelopeJson: String) -> Unit,
+    private val realSend: (envelopeJson: String) -> Result<Unit>,
     private val flushIntervalSeconds: Int,
     private val flushAt: Int,
     private val maxBatchSize: Int,
@@ -62,7 +66,7 @@ public class PersistingReplayEmitter(
                 synchronized(dequeLock) {
                     deque.addLast(file)
                 }
-                logger("Replay batch persisted: ${file.name} (queue size: ${deque.size})")
+                logger("Replay batch persisted: ${file.name} (queue size: ${deque.size}) session_id: $sessionId")
                 val eventTypesSummary = events
                     .groupBy { e ->
                         when (e) {
@@ -88,6 +92,7 @@ public class PersistingReplayEmitter(
     /**
      * Sends any replay batches that were persisted in a previous run (e.g. before app was killed).
      * Batches all cached envelopes into a single request when possible.
+     * Only deletes files after successful send; on failure files stay on disk and are retried on next launch.
      * Call once after SDK init, before starting session replay. Runs asynchronously on the queue executor.
      */
     public fun sendCachedEvents() {
@@ -98,20 +103,26 @@ public class PersistingReplayEmitter(
                 if (files.isEmpty()) return@execute
                 logger("Sending ${files.size} cached replay batches from previous run")
                 Log.d(LOG_TAG, "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run")
-                val contents = files.mapNotNull { file ->
+                val fileToContent = files.mapNotNull { file ->
                     try {
-                        readFileContent(file).also { file.delete() }
+                        readFileContent(file)?.let { file to it }
                     } catch (e: Throwable) {
                         logger("Failed to read cached replay file ${file.name}: $e")
                         file.delete()
                         null
                     }
                 }
-                if (contents.isNotEmpty()) {
-                    val payload = if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
-                    Log.d(LOG_TAG, "[Replay flow] Cached → combining ${contents.size} batch(es) into single request (${payload.length} bytes) → flushing to backend")
-                    realSend(payload)
-                }
+                if (fileToContent.isEmpty()) return@execute
+                val contents = fileToContent.map { it.second }
+                val payload = if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
+                Log.d(LOG_TAG, "[Replay flow] Cached → combining ${contents.size} batch(es) into single request (${payload.length} bytes) → flushing to backend")
+                realSend(payload).fold(
+                    onSuccess = { fileToContent.forEach { (file) -> file.delete() } },
+                    onFailure = { t ->
+                        Log.w(LOG_TAG, "[Replay flow] Cached send failed, ${fileToContent.size} batch(es) will be retried on next launch", t)
+                        logger("Send cached replay failed: ${t.message}")
+                    },
+                )
             } catch (e: Throwable) {
                 logger("Send cached replay events failed: $e")
             }
@@ -119,7 +130,8 @@ public class PersistingReplayEmitter(
     }
 
     /**
-     * Flushes the in-memory queue: sends up to [maxBatchSize] batches and deletes their files.
+     * Flushes the in-memory queue: sends up to [maxBatchSize] batches and deletes their files on success.
+     * On send failure batches are re-queued and retried on the next flush or app launch.
      * Called periodically and when queue size >= [flushAt].
      */
     public fun flush() {
@@ -138,21 +150,29 @@ public class PersistingReplayEmitter(
             }
             if (toSend.isEmpty()) return
             Log.d(LOG_TAG, "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (maxBatchSize: $maxBatchSize)")
-            val contents = toSend.mapNotNull { file ->
+            val fileToContent = toSend.mapNotNull { file ->
                 try {
-                    readFileContent(file)
+                    readFileContent(file)?.let { file to it }
                 } catch (e: Throwable) {
                     logger("Flush failed for ${file.name}: $e")
-                    null
-                } finally {
                     file.delete()
+                    null
                 }
             }
-            if (contents.isNotEmpty()) {
-                val payload = if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
-                Log.d(LOG_TAG, "[Replay flow] Flush → combining ${contents.size} batch(es) into single request (${payload.length} bytes) → sending to backend")
-                realSend(payload)
-            }
+            if (fileToContent.isEmpty()) return
+            val contents = fileToContent.map { it.second }
+            val payload = if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
+            Log.d(LOG_TAG, "[Replay flow] Flush → combining ${contents.size} batch(es) into single request (${payload.length} bytes) → sending to backend")
+            realSend(payload).fold(
+                onSuccess = { fileToContent.forEach { (file) -> file.delete() } },
+                onFailure = { t ->
+                    Log.w(LOG_TAG, "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry", t)
+                    logger("Flush send failed: ${t.message}")
+                    synchronized(dequeLock) {
+                        fileToContent.map { it.first }.forEach { deque.addFirst(it) }
+                    }
+                },
+            )
         } finally {
             isFlushing.set(false)
         }

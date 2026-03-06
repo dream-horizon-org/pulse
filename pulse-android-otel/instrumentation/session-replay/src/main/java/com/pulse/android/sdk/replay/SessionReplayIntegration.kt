@@ -33,14 +33,24 @@ import java.util.concurrent.Executors
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
  * Implements [SessionReplayController]. Install via [install]; provide [ReplayEventEmitter] to receive events.
+ *
+ * @param sessionIdProvider Supplies the session ID for each batch (e.g. from RUM [SessionProvider]).
+ *   Replay batches use this ID so they align with the same session as other telemetry.
+ *   If null (standalone usage), a single UUID is generated and reused for this integration's lifetime.
  */
 public class SessionReplayIntegration(
     private val context: Context,
     private val config: SessionReplayConfig,
     private val eventEmitter: ReplayEventEmitter,
+    sessionIdProvider: (() -> String)? = null,
     private val logger: (String) -> Unit = {},
     mainHandler: android.os.Handler? = null,
 ) : SessionReplayController {
+
+    private val sessionIdProvider: () -> String = sessionIdProvider ?: run {
+        var fallbackId: String? = null
+        { fallbackId ?: UUID.randomUUID().toString().also { fallbackId = it } }
+    }
 
     private val mainHandler = mainHandler ?: android.os.Handler(android.os.Looper.getMainLooper())
     private val dateProvider = DefaultDateProvider()
@@ -55,9 +65,6 @@ public class SessionReplayIntegration(
 
     @Volatile
     private var isOnDrawnCalled = false
-
-    @Volatile
-    private var currentSessionId: String? = null
 
     private fun onDrawCallback() { isOnDrawnCalled = true }
 
@@ -294,16 +301,22 @@ public class SessionReplayIntegration(
         decorViews.clear()
     }
 
+    /** Flushes any pending replay batches (e.g. before shutdown). No-op if emitter is not a [PersistingReplayEmitter]. */
+    public fun flush() {
+        (eventEmitter as? PersistingReplayEmitter)?.flush()
+    }
+
     override fun start(resumeCurrent: Boolean) {
         if (!resumeCurrent) {
             clearSnapshotStates()
-            currentSessionId = UUID.randomUUID().toString()
         }
         isSessionReplayActive = true
     }
 
-    private fun requireSessionId(): String =
-        currentSessionId ?: UUID.randomUUID().toString().also { currentSessionId = it }
+    private fun requireSessionId(): String {
+        val id = sessionIdProvider()
+        return id.ifEmpty { UUID.randomUUID().toString() }
+    }
 
     override fun stop() {
         isSessionReplayActive = false
