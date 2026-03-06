@@ -1,0 +1,7 @@
+{
+    "venvPath": "pulse_ai",
+    "venv": ".venv",
+    "pythonVersion": "3.11",
+    "include": ["pulse_ai/**"],
+    "exclude": ["**/node_modules", "**/__pycache__"]
+  }
