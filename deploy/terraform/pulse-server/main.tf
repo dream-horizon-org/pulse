@@ -271,8 +271,8 @@ resource "aws_route53_record" "pulse_server_com" {
   type    = "A"
 
   alias {
-    name                   = aws_lb.pulse_server.dns_name
-    zone_id                = aws_lb.pulse_server.zone_id
+    name                   = var.cloudfront_distribution
+    zone_id                = "Z2FDTNDATAQYW2" # This is the official AWS hardcoded Zone ID for ALL CloudFront distributions
     evaluate_target_health = false
   }
 }
