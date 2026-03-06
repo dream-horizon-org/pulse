@@ -49,6 +49,7 @@ public class MainVerticle extends AbstractVerticle {
           this.webClient = WebClient.create(vertx, getWebClientOptions(webClientConfig));
           SharedDataUtils.put(vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
           JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
+          log.info("Clickhouse Config :: {}", chConfig);
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
