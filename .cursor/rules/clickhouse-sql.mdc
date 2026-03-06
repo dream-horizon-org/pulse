@@ -1,0 +1,88 @@
+---
+description: ClickHouse SQL conventions and OTEL schema reference
+globs: "**/*.sql"
+alwaysApply: false
+---
+
+# ClickHouse SQL Conventions
+
+## Database: `otel`
+
+## Core Tables
+
+| Table | Engine | Purpose |
+|-------|--------|---------|
+| `otel_traces` | MergeTree | Spans — TraceId, SpanId, SpanName, Duration, SpanAttributes, ResourceAttributes |
+| `otel_logs` | MergeTree | Logs — TraceId, Body, SeverityText, LogAttributes, ResourceAttributes |
+| `otel_metrics_gauge` | MergeTree | Gauge metrics — MetricName, Value, Attributes, ResourceAttributes |
+| `stack_trace_events` | MergeTree | Symbolicated + grouped stack traces |
+
+## Key Columns in `otel_traces`
+
+`TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `ServiceName`, `Duration` (nanoseconds), `StatusCode`, `StatusMessage`, `SpanAttributes` (Map), `ResourceAttributes` (Map), `Timestamp` (DateTime64)
+
+## Materialized Columns
+
+These columns are extracted from Map attributes at insert time. **Always use these instead of accessing the Map columns directly** — they are faster and indexed.
+
+| Column | Source Key | Source Map | Available In |
+|--------|-----------|------------|--------------|
+| `ProjectId` | `project.id` | ResourceAttributes | all tables |
+| `PulseType` | `pulse.type` | SpanAttributes/LogAttributes | all tables |
+| `SessionId` | `session.id` | SpanAttributes/LogAttributes/Attributes | all tables |
+| `AppVersion` | `app.build_name` | ResourceAttributes | all tables |
+| `SDKVersion` | `rum.sdk.version` | ResourceAttributes | all tables |
+| `Platform` | `os.name` | ResourceAttributes | all tables |
+| `OsVersion` | `os.version` | ResourceAttributes | all tables |
+| `GeoState` | `geo.region.iso_code` | SpanAttributes/LogAttributes/Attributes | all tables |
+| `GeoCountry` | `geo.country.iso_code` | SpanAttributes/LogAttributes/Attributes | all tables |
+| `DeviceModel` | `device.model.name` | ResourceAttributes | all tables |
+| `NetworkProvider` | `network.carrier.name` | SpanAttributes/LogAttributes/Attributes | all tables |
+| `UserId` | `user.id` | SpanAttributes/LogAttributes/Attributes | all tables |
+
+`otel_traces` also has a deprecated `SpanType` column (same source as `PulseType`).
+
+## ORDER BY Keys
+
+All tables start their ORDER BY with `ProjectId` for multi-tenant isolation:
+
+| Table | ORDER BY |
+|-------|----------|
+| `otel_traces` | `(ProjectId, ServiceName, PulseType, SpanName, Timestamp)` |
+| `otel_logs` | `(ProjectId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)` |
+| `otel_metrics_gauge` | `(ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))` |
+| `stack_trace_events` | `(ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))` |
+
+## `stack_trace_events` Key Columns
+
+`Timestamp`, `TraceId`, `SpanId`, `GroupId`, `Fingerprint`, `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`, `ResourceAttributes`, `LogAttributes`, `ProjectId`, `PulseType`
+
+## Pulse-Specific Span Attributes
+
+Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for logs):
+- `pulse.type`, `pulse.interaction.name`, `screen.name`
+- `app.build_name` (→ `AppVersion`), `os.name` (→ `Platform`), `device.model.name` (→ `DeviceModel`)
+
+## Multi-Tenant Data Isolation
+
+Each tenant has dedicated ClickHouse credentials (stored in MySQL `clickhouse_credentials` table). The backend resolves the tenant from JWT/headers via `TenantFilter`, then uses `ClickhouseTenantConnectionPoolManager` to route queries through per-tenant connection pools — each pool authenticates as that tenant's ClickHouse user, scoping data access to their `ProjectId`.
+
+For local CLI queries, use the admin credentials from `deploy/.env`:
+- User: `OTEL_CLICKHOUSE_USER` (default: `pulse_user`)
+- Password: `OTEL_CLICKHOUSE_PASSWORD` (default: `pulse_password`)
+
+## Schema Conventions
+
+- Use `MergeTree` engine with `ORDER BY` tuples for efficient range queries
+- Partition by date (or `(ProjectId, date)` in replicated setup) for time-series data
+- `DateTime64(9)` for nanosecond timestamps
+- Map columns for flexible attributes
+- `LowCardinality(String)` for low-cardinality materialized columns
+
+## Query Rules
+
+- Always include time-range filter on `Timestamp`
+- Use `LIMIT` on all queries
+- Prefer `toDateTime64()` for timestamp comparisons
+- Use materialized columns (e.g., `Platform`, `AppVersion`) over Map access
+- Use the tenant user for all queries to enforce project isolation

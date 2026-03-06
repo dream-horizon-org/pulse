@@ -1,0 +1,60 @@
+---
+description: Instructions for using the knowledge graph memory MCP to persist learnings across sessions
+alwaysApply: true
+---
+
+# Knowledge Graph Memory
+
+You have access to a knowledge graph memory server via MCP. Use it to persist important context across sessions.
+
+## When to STORE (after completing tasks)
+
+Proactively store after every meaningful task:
+
+1. **Architecture decisions** — create entity (type: decision), add observations with rationale
+2. **Bug discoveries** — create entity (type: bug), relate to the affected service/component
+3. **Failed approaches** — add observation to relevant entity: what was tried and why it failed
+4. **Configuration gotchas** — add observation to the service/infra entity
+5. **User preferences** — create/update person entity with coding style observations
+6. **Cross-service learnings** — create relations between service entities
+
+### Entity Types
+
+Use these consistently: `service`, `database`, `component`, `table`, `decision`, `bug`, `preference`, `tool`, `concept`, `person`
+
+### Relation Types
+
+Use active voice: `depends_on`, `uses`, `contains`, `queries`, `exports_to`, `consumes_from`, `broke_because_of`, `was_fixed_by`, `prefers`
+
+### Examples
+
+```
+create_entities: [
+  { name: "ClickHouse", entityType: "database", observations: ["Analytics DB for OTEL data", "Uses MergeTree engine"] }
+]
+
+create_relations: [
+  { from: "pulse-server", to: "ClickHouse", relationType: "queries" }
+]
+
+add_observations: {
+  entityName: "ClickHouse",
+  observations: ["init container fails on M1 Macs -- increase start_period to 60s"]
+}
+```
+
+## When to SEARCH (before starting tasks)
+
+Before any non-trivial task, search memory for relevant context:
+
+1. `search_nodes` for the service/component you're about to modify
+2. `search_nodes` for known bugs or gotchas in that area
+3. `open_nodes` on key entities to see their relations and observations
+
+## Rules
+
+- Keep observations **atomic** — one fact per observation, max 500 chars
+- Prefer **updating** existing entities over creating duplicates
+- Always include the **"why"** not just the "what"
+- Don't store things already covered by cursor rules (coding conventions, folder structure, etc.)
+- Focus on **dynamic knowledge** that changes over time

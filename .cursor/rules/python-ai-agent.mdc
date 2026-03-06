@@ -1,0 +1,126 @@
+---
+description: Python/Google ADK conventions for the Pulse AI agent
+globs: pulse_ai/**/*.py
+alwaysApply: false
+---
+
+# Pulse AI Agent Conventions
+
+## Framework
+
+Google ADK (`google.adk.agents`) with Gemini models, served via `adk web` (ADK's built-in web UI).
+
+## Project Structure
+
+```
+pulse_ai/
+├── __init__.py              # Package init
+├── agent.py                 # Root agent definition (LlmAgent)
+├── constants.py             # Model config constants
+├── .env                     # Credentials (not committed)
+├── .env.example             # Env template
+├── Dockerfile               # Python 3.12-slim + google-adk
+├── docker-compose.yml       # Single-service compose for pulse-ai-agent
+├── setup.sh                 # CLI: start / stop / restart / logs / clean
+├── requirements.txt         # google-adk, python-dotenv
+└── README.md                # Architecture docs and quick start
+```
+
+## Running
+
+Docker-based via its own `docker-compose.yml` (separate from `deploy/docker-compose.yml`):
+
+```bash
+cd pulse_ai
+cp .env.example .env         # first time — set GOOGLE_API_KEY
+./setup.sh                   # build + start (Docker)
+./setup.sh stop              # stop
+./setup.sh restart           # rebuild + restart
+./setup.sh logs              # tail container logs
+./setup.sh clean             # remove containers, images, volumes
+```
+
+- Port: **8000** (ADK web UI)
+- Health check: `curl -f http://localhost:8000`
+- Source files (`agent.py`, `__init__.py`) are volume-mounted for live development — code changes reflect without rebuilding. Dependency changes require `./setup.sh restart`.
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GOOGLE_API_KEY` | Yes | — | Google AI Studio API key |
+| `AGENT_MODEL` | No | `gemini-2.5-flash` | Gemini model to use |
+| `GOOGLE_GENAI_USE_VERTEXAI` | No | `0` | Set to `1` for Vertex AI |
+
+## Agent Pattern
+
+Root agent defined in `agent.py`:
+
+```python
+from google.adk.agents.llm_agent import Agent
+root_agent = Agent(
+    model=agent_model,
+    name='root_agent',
+    description='...',
+    instruction='...',
+)
+```
+
+Constants in `constants.py`:
+
+```python
+DEFAULT_MODEL = 'gemini-2.5-flash'
+AGENT_MODEL_ENV_KEY = 'AGENT_MODEL'
+```
+
+## Planned Architecture (from README)
+
+Not yet implemented — the current codebase has only the root agent. The target pipeline:
+
+```
+User Query → Planner → Executor (loop over personas) → Summary Agent → Report Agent
+```
+
+Three core personas: Product Analytics, Engineering Manager, Designer.
+Two dependent personas: Customer Success, Business Leaders.
+
+When adding sub-agents, follow the ADK patterns below.
+
+## Agent Types
+
+| Type | Use |
+|------|-----|
+| `Agent` / `LlmAgent` | LLM-powered agents with instructions + tools |
+| `SequentialAgent` | Pipeline of sub-agents run in order |
+| `ParallelAgent` | Sub-agents run concurrently |
+| `LoopAgent` | Iterative refinement until exit condition |
+| `BaseAgent` | Custom routing logic (extend for deterministic routing) |
+
+## Tool Pattern
+
+```python
+from google.adk.tools import FunctionTool
+from google.adk.tools.tool_context import ToolContext
+
+def my_tool(tool_context: ToolContext) -> dict:
+    result = do_something()
+    return {"status": "success", "data": result}
+
+my_function_tool = FunctionTool(my_tool)
+```
+
+## File Naming
+
+- All Python files use `snake_case.py`
+- Every package has `__init__.py`
+- Agent definitions in `agent.py`
+- Constants in `constants.py`
+
+## Best Practices
+
+- Type hints on all function signatures
+- `snake_case` for modules, functions, variables; `PascalCase` for classes
+- Keep agent instructions concise and focused
+- Tools should be pure functions with deterministic behavior
+- Return structured dicts with clear status fields from tools
+- Use `.env` for all credentials — never hardcode

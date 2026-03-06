@@ -1,0 +1,76 @@
+---
+description: Java/Vert.x conventions for the pulse-alerts-cron service
+globs: backend/pulse-alerts-cron/**/*.java
+alwaysApply: false
+---
+
+# Alerts Cron Conventions
+
+## Package Structure
+
+```
+org.dreamhorizon.pulsealertscron/
+├── rest/               # REST controllers
+│   └── CronController.java
+├── services/           # Business logic
+│   ├── AlertsService.java
+│   └── CronManager.java
+├── dao/                # Data access
+├── dto/
+│   ├── request/        # AddCronDto, DeleteCronDto, UpdateCronDto
+│   └── response/       # AlertsResponseDto, CronManagerDto
+├── models/             # Domain models
+├── error/              # ServiceError enum
+├── config/             # ApplicationConfig
+├── constant/           # Shared constants
+├── guice/              # Guice injector setup
+├── module/             # Guice modules
+├── util/               # Utilities
+└── verticle/           # MainVerticle, RestVerticle
+```
+
+## File Naming
+
+| Type | Convention | Examples |
+|------|------------|---------|
+| Controllers | `*Controller` | `CronController` |
+| Services | `*Service` / `*Manager` | `AlertsService`, `CronManager` |
+| Request DTOs | `*Dto` in `dto/request/` | `AddCronDto`, `DeleteCronDto` |
+| Response DTOs | `*Dto` or `*ResponseDto` in `dto/response/` | `AlertsResponseDto`, `CronManagerDto` |
+| Verticles | `*Verticle` | `MainVerticle`, `RestVerticle` |
+
+## Architecture
+
+- **CronManager**: schedules and manages periodic alert evaluation tasks using Vert.x timers and `ConcurrentHashMap` groups
+- **AlertsService**: fetches alert definitions from `pulse-server` via `WebClient`, builds evaluation URLs
+- **RestVerticle / MainVerticle**: Vert.x verticle pattern with Guice injection
+- Port: 4000, healthcheck: `/healthcheck`
+
+## Alert Metric Scopes
+
+The cron evaluates alerts across four scopes:
+- `INTERACTION` — critical user interaction metrics
+- `SCREEN` — screen performance metrics
+- `NETWORK` — network call metrics
+- `APP_VITALS` — crash rate, ANR rate, app vitals
+
+## Key Patterns
+
+- DI via Guice: `@RequiredArgsConstructor(onConstructor = @__({@Inject}))`
+- RxJava3 `Single<T>` for async operations — never block
+- REST: JAX-RS annotations (`@Path`, `@POST`, `@PUT`, `@DELETE`) with `RestResponse.jaxrsRestHandler()`
+- DTOs: Lombok `@Data`, request/response split in `dto/request/` and `dto/response/`
+- Error handling: `ServiceError` enum
+- Retry: exponential backoff with `MAX_RETRY_ATTEMPTS = 3`, `INITIAL_RETRY_DELAY_MS = 1000`
+
+## Cross-Service Dependency
+
+- Calls `pulse-server` API to fetch alerts (`/alerts`) and trigger evaluation (`/v1/alert/evaluateAndTriggerAlert?alertId=`)
+- Server URL configured via `ApplicationConfig.getPulseServerUrl()`
+
+## Code Style
+
+- Google Checkstyle (140 char lines, 2-space indent)
+- No wildcard imports
+- Constants: `UPPER_SNAKE_CASE`
+- Logging: Lombok `@Slf4j`

@@ -1,0 +1,39 @@
+---
+description: Commit message and PR conventions for the Pulse monorepo
+alwaysApply: true
+---
+
+# Commit Conventions
+
+Use Conventional Commits with a scope prefix.
+
+## Format
+
+```
+<type>(<scope>): <short description>
+```
+
+## Types
+
+`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `perf`, `build`
+
+## Scopes
+
+`backend`, `ui`, `ai`, `android-sdk`, `rn-sdk`, `deploy`, `alerts-cron`, `ingestion`
+
+## Examples
+
+```
+feat(backend): add SLOW_RENDER_RATE alert metric
+fix(ui): resolve date picker timezone offset in filters
+refactor(ai): extract metric validation into separate tool
+docs(deploy): update quickstart for Apple Silicon
+test(backend): add InteractionService unit tests
+```
+
+## Rules
+
+- Subject line ≤ 72 characters
+- Use imperative mood ("add", not "added" or "adds")
+- No period at end of subject line
+- Body is optional; use for non-obvious "why"
