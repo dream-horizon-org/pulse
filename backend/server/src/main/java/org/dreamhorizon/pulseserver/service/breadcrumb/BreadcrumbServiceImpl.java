@@ -10,8 +10,10 @@ import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
+import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
+import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
 @Slf4j
@@ -34,7 +36,8 @@ public class BreadcrumbServiceImpl implements BreadcrumbService {
   private final AthenaConfig athenaConfig;
 
   @Override
-  public Single<QueryJob> getSessionBreadcrumbs(String sessionId, String errorTimestamp, String userEmail) {
+  public Single<SubmitQueryResponseDto> getSessionBreadcrumbs(
+      String sessionId, String errorTimestamp, String userEmail) {
     if (sessionId == null || sessionId.isBlank()) {
       return Single.error(new IllegalArgumentException("Session ID is required"));
     }
@@ -60,14 +63,70 @@ public class BreadcrumbServiceImpl implements BreadcrumbService {
       return Single.error(new IllegalArgumentException("User email is required"));
     }
 
-    // TODO: Add PII scrubbing to query results (GDPR Art. 5(1)(c), DPDP Sec. 4).
-    //  Business event props may contain PII (email, phone, etc.) that must be
-    //  redacted before returning to the client. Apply PII pattern matching as a
-    //  post-processing step on the Athena result rows, or via an OTel Collector
-    //  transform processor in the ingestion pipeline.
     String sql = buildQuery(sessionId, errorInstant);
     log.debug("Breadcrumb query for session {}: {}", sessionId, sql);
-    return queryService.submitQuery(sql, userEmail);
+    return queryService.submitQuery(sql, userEmail)
+        .map(this::mapToResponse);
+  }
+
+  SubmitQueryResponseDto mapToResponse(QueryJob job) {
+    if (job.getStatus() == QueryJobStatus.COMPLETED) {
+      return mapCompletedResponse(job);
+    } else if (job.getStatus() == QueryJobStatus.FAILED
+        || job.getStatus() == QueryJobStatus.CANCELLED) {
+      return mapFailedOrCancelledResponse(job);
+    } else {
+      return mapInProgressResponse(job);
+    }
+  }
+
+  SubmitQueryResponseDto mapCompletedResponse(QueryJob job) {
+    SubmitQueryResponseDto.SubmitQueryResponseDtoBuilder builder =
+        SubmitQueryResponseDto.builder()
+            .jobId(job.getJobId())
+            .status("COMPLETED")
+            .dataScannedInBytes(job.getDataScannedInBytes())
+            .createdAt(job.getCreatedAt())
+            .completedAt(job.getCompletedAt());
+
+    if (job.getResultData() != null) {
+      builder
+          .message("Breadcrumbs fetched successfully")
+          .resultData(job.getResultData())
+          .nextToken(job.getNextToken());
+    } else {
+      builder
+          .message("Query completed but results are not available yet."
+              + " Use GET /query/job/{jobId} to fetch results.")
+          .resultData(null);
+    }
+    return builder.build();
+  }
+
+  SubmitQueryResponseDto mapFailedOrCancelledResponse(QueryJob job) {
+    String message = job.getErrorMessage() != null
+        ? job.getErrorMessage()
+        : "Breadcrumb query "
+            + job.getStatus().name().toLowerCase();
+
+    return SubmitQueryResponseDto.builder()
+        .jobId(job.getJobId())
+        .status(job.getStatus().name())
+        .message(message)
+        .createdAt(job.getCreatedAt())
+        .completedAt(job.getCompletedAt())
+        .build();
+  }
+
+  SubmitQueryResponseDto mapInProgressResponse(QueryJob job) {
+    return SubmitQueryResponseDto.builder()
+        .jobId(job.getJobId())
+        .status(job.getStatus().name())
+        .message("Breadcrumb query submitted."
+            + " Use GET /query/job/{jobId}"
+            + " to check status and get results.")
+        .createdAt(job.getCreatedAt())
+        .build();
   }
 
   String buildQuery(String sessionId, Instant errorInstant) {

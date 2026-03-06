@@ -14,8 +14,6 @@ import org.dreamhorizon.pulseserver.resources.breadcrumb.models.BreadcrumbReques
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.breadcrumb.BreadcrumbService;
-import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
-import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import io.vertx.junit5.VertxExtension;
@@ -41,7 +39,7 @@ public class GetSessionBreadcrumbsTest {
   }
 
   @Test
-  void shouldReturnCompletedWithResults(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
+  void shouldDelegateToServiceAndReturnResponse(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
       String sessionId = "test-session-123";
       String errorTimestamp = "2026-02-27T15:14:26Z";
@@ -55,9 +53,10 @@ public class GetSessionBreadcrumbsTest {
           .put("screen_name", "LoginScreen")
           .put("props", "{\"method\":\"google\"}"));
 
-      QueryJob job = QueryJob.builder()
+      SubmitQueryResponseDto serviceResponse = SubmitQueryResponseDto.builder()
           .jobId("job-bc-001")
-          .status(QueryJobStatus.COMPLETED)
+          .status("COMPLETED")
+          .message("Breadcrumbs fetched successfully")
           .resultData(resultData)
           .dataScannedInBytes(2048L)
           .createdAt(now)
@@ -65,7 +64,7 @@ public class GetSessionBreadcrumbsTest {
           .build();
 
       when(breadcrumbService.getSessionBreadcrumbs(eq(sessionId), eq(errorTimestamp), eq("test@example.com")))
-          .thenReturn(Single.just(job));
+          .thenReturn(Single.just(serviceResponse));
 
       CompletionStage<Response<SubmitQueryResponseDto>> result =
           resource.getSessionBreadcrumbs("test@example.com", request);
@@ -91,138 +90,20 @@ public class GetSessionBreadcrumbsTest {
   }
 
   @Test
-  void shouldReturnRunningForAsyncQuery(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
-    vertx.runOnContext(v -> {
-      String sessionId = "test-session-456";
-      String errorTimestamp = "2026-02-27T15:14:26Z";
-      BreadcrumbRequestDto request = new BreadcrumbRequestDto(sessionId, errorTimestamp);
-
-      Timestamp now = new Timestamp(System.currentTimeMillis());
-      QueryJob job = QueryJob.builder()
-          .jobId("job-bc-002")
-          .status(QueryJobStatus.RUNNING)
-          .createdAt(now)
-          .build();
-
-      when(breadcrumbService.getSessionBreadcrumbs(eq(sessionId), eq(errorTimestamp), eq("test@example.com")))
-          .thenReturn(Single.just(job));
-
-      CompletionStage<Response<SubmitQueryResponseDto>> result =
-          resource.getSessionBreadcrumbs("test@example.com", request);
-
-      result.whenComplete((response, error) -> {
-        if (error != null) {
-          testContext.failNow(error);
-          return;
-        }
-        testContext.verify(() -> {
-          assertThat(response).isNotNull();
-          assertThat(response.getData()).isNotNull();
-          assertThat(response.getData().getJobId()).isEqualTo("job-bc-002");
-          assertThat(response.getData().getStatus()).isEqualTo("RUNNING");
-          assertThat(response.getData().getMessage()).contains("GET /query/job/");
-        });
-        testContext.completeNow();
-      });
-    });
-  }
-
-  @Test
-  void shouldReturnCompletedWithNullResults(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
+  void shouldPropagateServiceError(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
       BreadcrumbRequestDto request = new BreadcrumbRequestDto("session-1", "2026-02-27T15:14:26Z");
 
-      Timestamp now = new Timestamp(System.currentTimeMillis());
-      QueryJob job = QueryJob.builder()
-          .jobId("job-bc-003")
-          .status(QueryJobStatus.COMPLETED)
-          .resultData(null)
-          .createdAt(now)
-          .completedAt(now)
-          .build();
-
       when(breadcrumbService.getSessionBreadcrumbs("session-1", "2026-02-27T15:14:26Z", "test@example.com"))
-          .thenReturn(Single.just(job));
+          .thenReturn(Single.error(new IllegalArgumentException("Session ID is required")));
 
       CompletionStage<Response<SubmitQueryResponseDto>> result =
           resource.getSessionBreadcrumbs("test@example.com", request);
 
       result.whenComplete((response, error) -> {
-        if (error != null) {
-          testContext.failNow(error);
-          return;
-        }
         testContext.verify(() -> {
-          assertThat(response.getData().getStatus()).isEqualTo("COMPLETED");
-          assertThat(response.getData().getResultData()).isNull();
-          assertThat(response.getData().getMessage()).contains("results are not available yet");
-        });
-        testContext.completeNow();
-      });
-    });
-  }
-
-  @Test
-  void shouldHandleFailedQuery(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
-    vertx.runOnContext(v -> {
-      BreadcrumbRequestDto request = new BreadcrumbRequestDto("session-1", "2026-02-27T15:14:26Z");
-
-      Timestamp now = new Timestamp(System.currentTimeMillis());
-      QueryJob job = QueryJob.builder()
-          .jobId("job-bc-004")
-          .status(QueryJobStatus.FAILED)
-          .errorMessage("Table not found")
-          .createdAt(now)
-          .completedAt(now)
-          .build();
-
-      when(breadcrumbService.getSessionBreadcrumbs("session-1", "2026-02-27T15:14:26Z", "test@example.com"))
-          .thenReturn(Single.just(job));
-
-      CompletionStage<Response<SubmitQueryResponseDto>> result =
-          resource.getSessionBreadcrumbs("test@example.com", request);
-
-      result.whenComplete((response, error) -> {
-        if (error != null) {
-          testContext.failNow(error);
-          return;
-        }
-        testContext.verify(() -> {
-          assertThat(response.getData().getStatus()).isEqualTo("FAILED");
-          assertThat(response.getData().getMessage()).isEqualTo("Table not found");
-        });
-        testContext.completeNow();
-      });
-    });
-  }
-
-  @Test
-  void shouldHandleCancelledQuery(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
-    vertx.runOnContext(v -> {
-      BreadcrumbRequestDto request = new BreadcrumbRequestDto("session-1", "2026-02-27T15:14:26Z");
-
-      Timestamp now = new Timestamp(System.currentTimeMillis());
-      QueryJob job = QueryJob.builder()
-          .jobId("job-bc-005")
-          .status(QueryJobStatus.CANCELLED)
-          .createdAt(now)
-          .completedAt(now)
-          .build();
-
-      when(breadcrumbService.getSessionBreadcrumbs("session-1", "2026-02-27T15:14:26Z", "test@example.com"))
-          .thenReturn(Single.just(job));
-
-      CompletionStage<Response<SubmitQueryResponseDto>> result =
-          resource.getSessionBreadcrumbs("test@example.com", request);
-
-      result.whenComplete((response, error) -> {
-        if (error != null) {
-          testContext.failNow(error);
-          return;
-        }
-        testContext.verify(() -> {
-          assertThat(response.getData().getStatus()).isEqualTo("CANCELLED");
-          assertThat(response.getData().getMessage()).contains("cancelled");
+          assertThat(error).isNotNull();
+          assertThat(error).isInstanceOf(IllegalArgumentException.class);
         });
         testContext.completeNow();
       });
