@@ -1,4 +1,4 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import junit.framework.TestCase.assertEquals
 import kotlinx.serialization.ExperimentalSerializationApi

@@ -6,9 +6,13 @@ plugins {
 
 description = "Internal module for Pulse utils for mobile observability"
 
+@Suppress("UnstableApiUsage")
 android {
     namespace = "com.pulse.utils"
 
+    testFixtures {
+        enable = true
+    }
     buildFeatures {
         buildConfig = true
     }
@@ -30,4 +34,5 @@ dependencies {
     api(libs.okhttp)
     testImplementation(libs.bundles.junit)
     testImplementation(projects.testCommon)
+    testFixturesImplementation(libs.opentelemetry.sdk.testing)
 }

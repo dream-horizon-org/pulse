@@ -45,5 +45,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 USER 10001
 
 # Run the application
-ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback-docker.xml" , "-jar", "pulse-server.jar", "run", "org.dreamhorizon.pulseserver.verticle.MainVerticle"]
+ENTRYPOINT ["java", "-Dlogback.configurationFile=logback/logback.xml" , "-jar", "pulse-server.jar", "run", "org.dreamhorizon.pulseserver.verticle.MainVerticle"]
 

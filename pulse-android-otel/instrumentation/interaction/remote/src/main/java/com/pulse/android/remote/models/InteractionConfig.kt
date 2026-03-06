@@ -1,7 +1,7 @@
 package com.pulse.android.remote.models
 
 import androidx.annotation.Keep
-import com.pulse.otel.utils.PulseOtelUtils
+import com.pulse.utils.PulseOtelUtils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 

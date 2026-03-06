@@ -1,10 +1,6 @@
-/*
- * Copyright The OpenTelemetry Authors
- * SPDX-License-Identifier: Apache-2.0
- */
+package com.pulse.utils
 
-package com.pulse.otel.utils
-
+import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.TaskCompletionSource
 import com.google.android.gms.tasks.Tasks
 import kotlinx.coroutines.CoroutineScope
@@ -113,7 +109,7 @@ internal class TaskAwaitTest {
             assertThat(result3).isEqualTo("result3")
         }
 
-    private fun createDelayedSuccessTask(result: String): com.google.android.gms.tasks.Task<String> {
+    private fun createDelayedSuccessTask(result: String): Task<String> {
         val taskCompletionSource = TaskCompletionSource<String>()
 
         // Complete the task after a delay

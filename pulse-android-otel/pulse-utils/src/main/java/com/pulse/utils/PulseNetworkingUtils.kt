@@ -1,10 +1,10 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
-import com.pulse.otel.utils.PulseOtelUtils.ALPHANUMERIC
-import com.pulse.otel.utils.PulseOtelUtils.DIGITS
-import com.pulse.otel.utils.PulseOtelUtils.HEX_CHARS
-import com.pulse.otel.utils.PulseOtelUtils.REDACTED
-import com.pulse.otel.utils.PulseOtelUtils.ULID_CHARS
+import com.pulse.utils.PulseOtelUtils.ALPHANUMERIC
+import com.pulse.utils.PulseOtelUtils.DIGITS
+import com.pulse.utils.PulseOtelUtils.HEX_CHARS
+import com.pulse.utils.PulseOtelUtils.REDACTED
+import com.pulse.utils.PulseOtelUtils.ULID_CHARS
 import okhttp3.OkHttpClient
 import java.net.URL
 

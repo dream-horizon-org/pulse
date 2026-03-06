@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import com.pulse.android.sdk.PulseSDK
-import io.opentelemetry.android.demo.CenterText
+import io.opentelemetry.android.demo.SelectableText
 import io.opentelemetry.android.demo.LauncherButton
 import io.opentelemetry.android.demo.theme.DemoAppTheme
 import kotlinx.coroutines.CoroutineScope
@@ -84,7 +84,7 @@ fun BenchMarkScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
-            CenterText(
+            SelectableText(
                 fontSize = 40.sp,
                 text =
                     buildAnnotatedString {

@@ -1,4 +1,4 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest

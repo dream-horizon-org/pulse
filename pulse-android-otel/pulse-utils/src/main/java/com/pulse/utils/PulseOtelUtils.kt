@@ -1,28 +1,28 @@
-package com.pulse.otel.utils
+package com.pulse.utils
 
 import android.util.Log
-import com.pulse.utils.BuildConfig
-import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.sdk.trace.ReadableSpan
+import io.opentelemetry.semconv.HttpAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 
 public object PulseOtelUtils {
-    // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
-    //  use the new not deprecated attributes
-    @Suppress("DEPRECATION")
-    private val HTTP_METHOD_KEY: AttributeKey<String> = HttpIncubatingAttributes.HTTP_METHOD
     internal const val HEX_CHARS = "[0-9a-fA-F]"
     internal const val DIGITS = "\\d"
     internal const val ALPHANUMERIC = "[A-Za-z0-9]"
     internal const val ULID_CHARS = "[0-9A-HJKMNP-TV-Z]"
     internal const val REDACTED = "[redacted]"
 
-    public fun isNetworkSpan(span: ReadableSpan): Boolean = span.attributes.get(HTTP_METHOD_KEY) != null
+    // todo when https://github.com/open-telemetry/opentelemetry-android/issues/1393 is fixed
+    //  use the new not deprecated attributes
+    @Suppress("DEPRECATION")
+    public fun isNetworkSpan(span: ReadableSpan): Boolean =
+        span.attributes.get(HttpIncubatingAttributes.HTTP_METHOD) != null ||
+            span.attributes.get(HttpAttributes.HTTP_REQUEST_METHOD) != null
 
     public fun isDebug(): Boolean = BuildConfig.DEBUG
 
