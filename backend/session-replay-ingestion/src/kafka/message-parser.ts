@@ -69,6 +69,8 @@ function getValidEvents(
  * - Filters out events with invalid timestamps
  */
 export class KafkaMessageParser {
+    private readonly dropCounts = new Map<string, number>()
+
     public async parseBatch(messages: RawKafkaMessage[]): Promise<ParsedMessageData[]> {
         const parsed = await Promise.all(messages.map((m) => this.parseMessage(m)))
         return parsed.filter((msg): msg is ParsedMessageData => msg !== null)
@@ -165,11 +167,23 @@ export class KafkaMessageParser {
     }
 
     private drop(reason: string, message: RawKafkaMessage): null {
+        const count = (this.dropCounts.get(reason) || 0) + 1
+        this.dropCounts.set(reason, count)
+
         console.warn(
-            `[MessageParser] Dropping message: ${reason}`,
+            `[MessageParser] Dropping message: ${reason} (total=${count})`,
             `partition=${message.partition} offset=${message.offset}`
         )
         return null
+    }
+
+    /**
+     * Returns and resets the drop counters. Useful for periodic logging.
+     */
+    public getAndResetDropCounts(): Map<string, number> {
+        const counts = new Map(this.dropCounts)
+        this.dropCounts.clear()
+        return counts
     }
 
     private isGzipped(buffer: Buffer): boolean {

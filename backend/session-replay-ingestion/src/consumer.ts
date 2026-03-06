@@ -1,33 +1,37 @@
+import { S3Client } from '@aws-sdk/client-s3'
 import Kafka, { CODES as ErrorCodes, Message, TopicPartition } from 'node-rdkafka'
 
 import { Config } from './config'
 import { KafkaMessageParser } from './kafka/message-parser'
 import { KafkaOffsetManager } from './kafka/offset-manager'
 import { KafkaProducer } from './kafka/producer'
+import { ParsedMessageData } from './kafka/types'
 import { S3SessionBatchFileStorage } from './sessions/s3-session-batch-writer'
 import { SessionBatchManager } from './sessions/session-batch-manager'
+import { SessionBatchRecorder } from './sessions/session-batch-recorder'
 import { SessionMetadataStore } from './sessions/session-metadata-store'
 
 /**
  * Session Replay Ingestion Consumer
  *
  * Consumes recording events from Kafka, batches them in memory,
- * compresses with Snappy, uploads to S3, and publishes metadata
+ * compresses with zstd, uploads to S3, and publishes metadata
  * to ClickHouse via a Kafka topic.
  *
  * Lifecycle:
  *   1. Connect to Kafka consumer + producer
- *   2. Subscribe to session_recording_events topic
- *   3. Consume loop:
+ *   2. Check S3 storage health
+ *   3. Subscribe to session_recording_events topic
+ *   4. Consume loop:
  *      a. Pull batch of messages from Kafka
  *      b. Parse + validate messages
- *      c. Record into in-memory batch (grouped by partition → session)
+ *      c. Record into in-memory batch (grouped by partition -> session)
  *      d. If batch thresholds met (100MB or 10s):
- *         - Compress each session block with Snappy
- *         - Upload all blocks as single S3 file (multipart)
- *         - Publish block metadata to Kafka → ClickHouse
+ *         - Compress each session block with zstd
+ *         - Upload all blocks as single S3 file (streaming)
+ *         - Publish block metadata to Kafka -> ClickHouse
  *         - Commit Kafka consumer offsets
- *   4. On shutdown: flush remaining batch, disconnect
+ *   5. On shutdown: flush remaining batch, disconnect
  *
  * Rebalancing:
  *   When partitions are revoked, we discard in-memory data for those
@@ -43,7 +47,8 @@ export class SessionReplayConsumer {
     private consumer: Kafka.KafkaConsumer | null = null
     private producer: KafkaProducer | null = null
     private batchManager: SessionBatchManager | null = null
-    private parser: KafkaMessageParser
+    private fileStorage: S3SessionBatchFileStorage | null = null
+    private readonly parser: KafkaMessageParser
     private stopping: boolean = false
 
     constructor(private readonly config: Config) {
@@ -53,12 +58,37 @@ export class SessionReplayConsumer {
     public async start(): Promise<void> {
         console.log('[Consumer] Starting session replay ingestion consumer...')
 
-        // Initialize Kafka producer (for metadata → ClickHouse)
+        // Initialize Kafka producer (for metadata -> ClickHouse)
         this.producer = new KafkaProducer(this.config.kafkaBrokers)
         await this.producer.connect()
 
         // Initialize S3 storage
-        const s3Storage = new S3SessionBatchFileStorage(this.config)
+        const s3Client = new S3Client({
+            endpoint: this.config.s3Endpoint,
+            region: this.config.s3Region,
+            forcePathStyle: true,
+            credentials:
+                this.config.s3AccessKeyId && this.config.s3SecretAccessKey
+                    ? {
+                          accessKeyId: this.config.s3AccessKeyId,
+                          secretAccessKey: this.config.s3SecretAccessKey,
+                      }
+                    : undefined,
+        })
+
+        this.fileStorage = new S3SessionBatchFileStorage(
+            s3Client,
+            this.config.s3Bucket,
+            this.config.s3Prefix,
+            this.config.s3TimeoutMs
+        )
+
+        // Check S3 health before starting consumer
+        const s3Healthy = await this.fileStorage.checkHealth()
+        if (!s3Healthy) {
+            throw new Error(`S3 health check failed for bucket ${this.config.s3Bucket}`)
+        }
+        console.log('[Consumer] S3 storage health check passed')
 
         // Initialize metadata store
         const metadataStore = new SessionMetadataStore(this.producer, this.config.kafkaMetadataTopic)
@@ -69,9 +99,9 @@ export class SessionReplayConsumer {
                 'group.id': this.config.kafkaGroupId,
                 'metadata.broker.list': this.config.kafkaBrokers,
                 'enable.auto.commit': true,
-                'enable.auto.offset.store': false, // we control when offsets are stored
+                'enable.auto.offset.store': false,
                 'session.timeout.ms': 90000,
-                'max.poll.interval.ms': 300000, // 5min max between polls
+                'max.poll.interval.ms': 300000,
                 'fetch.min.bytes': 1,
                 'fetch.wait.max.ms': 500,
             } as any,
@@ -80,7 +110,7 @@ export class SessionReplayConsumer {
             }
         )
 
-        // Create offset manager that uses consumer.offsetsStore()
+        // Create offset manager
         const offsetManager = new KafkaOffsetManager(
             (offsets) => {
                 if (this.consumer) {
@@ -91,12 +121,13 @@ export class SessionReplayConsumer {
         )
 
         // Create batch manager
-        this.batchManager = new SessionBatchManager(
-            this.config,
-            s3Storage,
+        this.batchManager = new SessionBatchManager({
+            maxBatchSizeBytes: this.config.maxBatchSizeBytes,
+            maxBatchAgeMs: this.config.maxBatchAgeMs,
+            offsetManager,
+            fileStorage: this.fileStorage,
             metadataStore,
-            offsetManager
-        )
+        })
 
         // Handle rebalancing
         this.consumer.on('rebalance', (err: any, assignments: TopicPartition[]) => {
@@ -106,9 +137,7 @@ export class SessionReplayConsumer {
             } else if (err.code === ErrorCodes.ERRORS.ERR__REVOKE_PARTITIONS) {
                 const partitions = assignments.map((a) => a.partition)
                 console.log(`[Consumer] Partitions revoked: ${partitions.join(', ')}`)
-                for (const partition of partitions) {
-                    this.batchManager?.discardPartition(partition)
-                }
+                this.batchManager?.discardPartitions(partitions)
             }
         })
 
@@ -135,7 +164,6 @@ export class SessionReplayConsumer {
         console.log('[Consumer] Stopping...')
         this.stopping = true
 
-        // Flush remaining data
         if (this.batchManager) {
             try {
                 await this.batchManager.flush()
@@ -154,50 +182,29 @@ export class SessionReplayConsumer {
         console.log('[Consumer] Stopped')
     }
 
-    /**
-     * Main consume loop.
-     *
-     * Each iteration:
-     *   1. Pull up to fetchBatchSize messages from Kafka
-     *   2. Parse and validate
-     *   3. Record into batch
-     *   4. Check if batch should be flushed
-     *
-     * The `await consumeBatch()` call implicitly pauses consumption
-     * during flush — no explicit "stop consuming" needed. Node.js
-     * single-threaded event loop ensures sequential processing.
-     */
     private async consumeLoop(): Promise<void> {
         while (!this.stopping) {
             try {
-                // Pull messages from Kafka
                 const messages = await this.consumeBatch(this.config.fetchBatchSize)
 
                 if (messages.length > 0) {
                     await this.handleBatch(messages)
                 }
 
-                // Check flush thresholds
                 if (this.batchManager!.shouldFlush()) {
                     await this.batchManager!.flush()
                 }
             } catch (error) {
                 console.error('[Consumer] Fatal error in consume loop:', error)
-                // Crash the process — Kubernetes will restart, Kafka replays
                 process.exit(1)
             }
         }
     }
 
     /**
-     * Process a batch of raw Kafka messages:
-     *   - Parse JSON + decompress
-     *   - Validate schema and timestamps
-     *   - Extract project_id from Kafka headers
-     *   - Record into the current batch
+     * Parse a batch of raw Kafka messages and record into the current batch.
      */
     private async handleBatch(messages: Message[]): Promise<void> {
-        // Adapt node-rdkafka Message to our parser's expected format
         const rawMessages = messages.map((m) => ({
             value: m.value ?? null,
             timestamp: m.timestamp ?? Date.now(),
@@ -210,8 +217,16 @@ export class SessionReplayConsumer {
 
         const parsed = await this.parser.parseBatch(rawMessages)
 
-        for (const message of parsed) {
-            this.batchManager!.record(message)
+        this.processMessages(parsed)
+    }
+
+    /**
+     * Record parsed messages into the current batch.
+     */
+    private processMessages(parsedMessages: ParsedMessageData[]): void {
+        const batch = this.batchManager!.getCurrentBatch()
+        for (const message of parsedMessages) {
+            batch.record(message)
         }
     }
 
