@@ -30,13 +30,13 @@ provider "aws" {
 # Launch Template
 # -------------------------------------------------------------------
 resource "aws_launch_template" "pulse_server" {
-  name = "pulse-server-test-lt"
+  name = "pulse-server-lt"
 
   tags = {
-    Name             = "pulse-server-test-lt"
+    Name             = "pulse-server-lt"
     org_name         = "horizon"
     environment_name = "production"
-    component_name   = "pulse-server-test"
+    component_name   = "pulse-server"
     component_type   = "application"
     service_name     = "pulse"
     resource_type    = "lt"
@@ -49,10 +49,10 @@ resource "aws_launch_template" "pulse_server" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name             = "pulse-server-test-instance"
+      Name             = "pulse-server-instance"
       org_name         = "horizon"
       environment_name = "production"
-      component_name   = "pulse-server-test"
+      component_name   = "pulse-server"
       component_type   = "application"
       service_name     = "pulse"
       resource_type    = "ec2"
@@ -62,10 +62,10 @@ resource "aws_launch_template" "pulse_server" {
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name             = "pulse-server-test-volume"
+      Name             = "pulse-server-volume"
       org_name         = "horizon"
       environment_name = "production"
-      component_name   = "pulse-server-test"
+      component_name   = "pulse-server"
       component_type   = "application"
       service_name     = "pulse"
       resource_type    = "ebs"
@@ -95,7 +95,7 @@ resource "aws_launch_template" "pulse_server" {
 # -------------------------------------------------------------------
 resource "aws_lb" "pulse_server" {
   load_balancer_type         = "application"
-  name                       = "pulse-server-test-alb"
+  name                       = "pulse-server-alb"
   internal                   = true
   ip_address_type            = "ipv4"
   subnets                    = var.alb_subnet_ids
@@ -104,10 +104,10 @@ resource "aws_lb" "pulse_server" {
   drop_invalid_header_fields = true
 
   tags = {
-    Name             = "pulse-server-test-lb"
+    Name             = "pulse-server-lb"
     org_name         = "horizon"
     environment_name = "production"
-    component_name   = "pulse-server-test"
+    component_name   = "pulse-server"
     component_type   = "application"
     service_name     = "pulse"
     resource_type    = "lb"
@@ -116,7 +116,7 @@ resource "aws_lb" "pulse_server" {
 
 resource "aws_lb_target_group" "pulse_server" {
   target_type     = "instance"
-  name            = "pulse-server-test-tg"
+  name            = "pulse-server-tg"
   port            = 8080
   ip_address_type = "ipv4"
   vpc_id          = var.vpc_id
@@ -137,10 +137,10 @@ resource "aws_lb_target_group" "pulse_server" {
   deregistration_delay = 30
 
   tags = {
-    Name             = "pulse-server-test-tg"
+    Name             = "pulse-server-tg"
     org_name         = "horizon"
     environment_name = "production"
-    component_name   = "pulse-server-test"
+    component_name   = "pulse-server"
     component_type   = "application"
     service_name     = "pulse"
     resource_type    = "tg"
@@ -175,7 +175,7 @@ resource "aws_lb_listener" "pulse_server_http" {
 # Autoscaling Group
 # -------------------------------------------------------------------
 resource "aws_autoscaling_group" "pulse_server" {
-  name = "pulse-server-test-asg"
+  name = "pulse-server-asg"
 
   mixed_instances_policy {
     instances_distribution {
@@ -223,7 +223,7 @@ resource "aws_autoscaling_group" "pulse_server" {
 
   tag {
     key                 = "Name"
-    value               = "pulse-server-test-asg"
+    value               = "pulse-server-asg"
     propagate_at_launch = false
   }
   tag {
@@ -238,7 +238,7 @@ resource "aws_autoscaling_group" "pulse_server" {
   }
   tag {
     key                 = "component_name"
-    value               = "pulse-server-test"
+    value               = "pulse-server"
     propagate_at_launch = false
   }
   tag {
