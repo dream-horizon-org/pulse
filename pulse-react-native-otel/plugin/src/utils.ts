@@ -1,4 +1,6 @@
 export const PULSE_IMPORT = 'import com.pulsereactnativeotel.Pulse\n';
+export const PULSE_DATA_COLLECTION_CONSENT_IMPORT =
+  'import com.pulse.android.api.otel.PulseDataCollectionConsent\n';
 
 export const ATTRIBUTES_IMPORT =
   'import io.opentelemetry.api.common.Attributes\nimport io.opentelemetry.api.common.AttributeKey\n';
@@ -67,6 +69,7 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 export function buildPulseInitializationCode(options: {
   endpointBaseUrl: string;
   projectId: string;
+  dataCollectionState?: PulsePluginProps['dataCollectionState'];
   endpointHeaders?: Record<string, string>;
   configEndpointUrl?: string;
   globalAttributes?: PulsePluginProps['globalAttributes'];
@@ -75,6 +78,7 @@ export function buildPulseInitializationCode(options: {
   const {
     endpointBaseUrl,
     projectId,
+    dataCollectionState,
     endpointHeaders,
     configEndpointUrl,
     globalAttributes,
@@ -83,6 +87,10 @@ export function buildPulseInitializationCode(options: {
   const params: string[] = [];
 
   params.push(`projectId = "${projectId}"`);
+
+  params.push(
+    `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState ?? 'PENDING'}`
+  );
 
   if (endpointHeaders && Object.keys(endpointHeaders).length > 0) {
     params.push(
@@ -100,6 +108,11 @@ export function buildPulseInitializationCode(options: {
   if (attributesLambda && attributesLambda !== 'null') {
     params.push(`globalAttributes = ${attributesLambda}`);
   }
+
+  // TODO: beforeSendData requires a Kotlin subclass of PulseBeforeSendData which cannot
+  // be expressed in a static app.json config. Expo users should configure it directly
+  // in their native MainApplication.kt instead of through this plugin.
+  params.push('beforeSendData = null');
 
   let code = `\n    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}",\n      ${params.join(',\n      ')}\n    ) {\n`;
 

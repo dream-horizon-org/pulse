@@ -14,6 +14,7 @@ kotlin {
 }
 
 dependencies {
+    api(projects.pulseAndroidApi)
     api(projects.androidAgent)
     implementation(projects.pulseAndroidSdkInternal)
     implementation(platform(libs.opentelemetry.platform.alpha))

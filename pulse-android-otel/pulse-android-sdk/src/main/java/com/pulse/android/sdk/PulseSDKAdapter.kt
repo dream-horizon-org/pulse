@@ -3,6 +3,8 @@
 package com.pulse.android.sdk
 
 import android.app.Application
+import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -27,6 +29,7 @@ internal class PulseSDKAdapter(
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
+        dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
         logEndpointConnectivity: EndpointConnectivity,
@@ -36,6 +39,7 @@ internal class PulseSDKAdapter(
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
+        beforeSendData: PulseBeforeSendData?,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
@@ -56,7 +60,13 @@ internal class PulseSDKAdapter(
             instrumentations = instrumentations,
             tracerProviderCustomizer = null,
             loggerProviderCustomizer = null,
+            beforeSendData = beforeSendData,
+            dataCollectionState = dataCollectionState,
         )
+    }
+
+    override fun setDataCollectionState(newState: PulseDataCollectionConsent) {
+        delegate.setDataCollectionState(newState)
     }
 
     override fun setUserId(id: String?) {
