@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        node { label 'pulse-artifact-build-default-ec2-fleet' }
+        node { label 'ec2-pulse-deployment-fleet' }
     }
 
     options {
