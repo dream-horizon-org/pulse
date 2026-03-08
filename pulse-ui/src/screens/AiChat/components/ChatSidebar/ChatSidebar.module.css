@@ -2,12 +2,12 @@
 .container {
   width: 260px;
   min-width: 260px;
-  border-right: 1px solid rgba(14, 201, 194, 0.12);
+  border-right: 1px solid var(--ai-teal-12);
   height: 100%;
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: rgba(14, 201, 194, 0.02);
+  background: var(--ai-teal-02);
 }
 
 .sessionsTitle {
@@ -30,8 +30,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
-  background: rgba(14, 201, 194, 0.04);
+  border-bottom: 1px solid var(--ai-teal-12);
+  background: var(--ai-teal-04);
 }
 
 .list {
@@ -46,10 +46,10 @@
 }
 
 .sessionItem:hover {
-  background: rgba(14, 201, 194, 0.06);
+  background: var(--ai-teal-06);
 }
 
 .sessionItem[data-active] {
-  background: rgba(14, 201, 194, 0.1);
-  border-left-color: rgba(14, 201, 194, 0.6);
+  background: var(--ai-teal-10);
+  border-left-color: var(--ai-teal-60);
 }

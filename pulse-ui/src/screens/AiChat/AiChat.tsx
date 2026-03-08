@@ -6,6 +6,7 @@ import { useHandleSend } from "./hooks/useHandleSend";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { ChatMessageList } from "./components/ChatMessageList";
 import { ChatInput } from "./components/ChatInput";
+import "./AiChat.vars.css";
 import classes from "./AiChat.module.css";
 
 export const AiChat = () => {

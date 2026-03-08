@@ -1,6 +1,7 @@
 import { Component, ReactNode } from "react";
 import { Box, Text } from "@mantine/core";
 import { IconAlertTriangle } from "@tabler/icons-react";
+import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 import classes from "./TableErrorBoundary.module.css";
 
 interface Props {
@@ -20,7 +21,11 @@ export class TableErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error) {
-    console.error("[TableErrorBoundary] Render failed:", error, this.props.tableConfig);
+    console.error(
+      "[TableErrorBoundary] Render failed:",
+      error,
+      this.props.tableConfig,
+    );
   }
 
   render() {
@@ -29,7 +34,7 @@ export class TableErrorBoundary extends Component<Props, State> {
         <Box className={classes.errorFallback}>
           <IconAlertTriangle size={16} color="var(--mantine-color-gray-5)" />
           <Text size="sm" c="dimmed">
-            Table could not be rendered
+            {AI_CHAT_TEXTS.TABLE_RENDER_ERROR}
           </Text>
         </Box>
       );

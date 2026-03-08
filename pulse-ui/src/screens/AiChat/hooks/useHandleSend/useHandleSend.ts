@@ -3,15 +3,19 @@ import { v4 as uuidV4 } from "uuid";
 import { useChatStore } from "../../../../stores/useChatStore";
 import { useGetPulseAiResponse } from "../useGetPulseAiResponse";
 import { ChatMessage } from "../../types/chat";
+import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 
 export const useHandleSend = () => {
   const {
     activeSessionId,
     sessions,
     addMessage,
-    updateLastMessage,
+    appendToLastMessage,
     updateLastMessageCharts,
     updateLastMessageTables,
+    markLastMessageComplete,
+    markLastMessageError,
+    updateSessionTitle,
     setStreaming,
     setError,
   } = useChatStore();
@@ -32,13 +36,12 @@ export const useHandleSend = () => {
 
       if (
         sessions.find((s) => s.id === activeSessionId)?.title ===
-        "New conversation"
+        AI_CHAT_TEXTS.NEW_CONVERSATION
       ) {
-        const store = useChatStore.getState();
-        const updatedSessions = store.sessions.map((s) =>
-          s.id === activeSessionId ? { ...s, title: text.slice(0, 50) } : s,
+        updateSessionTitle(
+          activeSessionId,
+          text.slice(0, AI_CHAT_LIMITS.TITLE_MAX_LENGTH),
         );
-        useChatStore.setState({ sessions: updatedSessions });
       }
 
       const aiMsg: ChatMessage = {
@@ -55,12 +58,7 @@ export const useHandleSend = () => {
       const sid = activeSessionId;
       sendMessage(sid, text, {
         onToken: (token) => {
-          const store = useChatStore.getState();
-          const sessionMsgs = store.messages[sid] ?? [];
-          const last = sessionMsgs[sessionMsgs.length - 1];
-          if (last?.role === "model") {
-            updateLastMessage(sid, last.text + token);
-          }
+          appendToLastMessage(sid, token);
         },
         onCharts: (charts) => {
           updateLastMessageCharts(sid, charts);
@@ -70,32 +68,12 @@ export const useHandleSend = () => {
         },
         onComplete: () => {
           setStreaming(false);
-          const store = useChatStore.getState();
-          const sessionMsgs = store.messages[sid] ?? [];
-          const updatedMsgs = sessionMsgs.map((m, i) =>
-            i === sessionMsgs.length - 1 ? { ...m, isStreaming: false } : m,
-          );
-          useChatStore.setState({
-            messages: { ...store.messages, [sid]: updatedMsgs },
-          });
+          markLastMessageComplete(sid);
         },
         onError: (errMsg) => {
           setStreaming(false);
           setError(errMsg);
-          const store = useChatStore.getState();
-          const sessionMsgs = store.messages[sid] ?? [];
-          const updatedMsgs = sessionMsgs.map((m, i) =>
-            i === sessionMsgs.length - 1
-              ? {
-                  ...m,
-                  isStreaming: false,
-                  text: m.text || "Failed to get response.",
-                }
-              : m,
-          );
-          useChatStore.setState({
-            messages: { ...store.messages, [sid]: updatedMsgs },
-          });
+          markLastMessageError(sid, AI_CHAT_TEXTS.FAILED_RESPONSE);
         },
       });
     },
@@ -103,9 +81,12 @@ export const useHandleSend = () => {
       activeSessionId,
       sessions,
       addMessage,
-      updateLastMessage,
+      appendToLastMessage,
       updateLastMessageCharts,
       updateLastMessageTables,
+      markLastMessageComplete,
+      markLastMessageError,
+      updateSessionTitle,
       setStreaming,
       setError,
       sendMessage,

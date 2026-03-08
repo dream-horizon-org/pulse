@@ -7,12 +7,16 @@ import {
   OnSettled,
   UseCreateUserAiSessionResponse,
 } from "./useCreateUserAiSession.interface";
+import { AI_API_PATHS } from "../../AiChat.constants";
 
 export const useCreateUserAiSession = (onSettled: OnSettled) => {
-  return useMutation<UseCreateUserAiSessionResponse, unknown, CreateSessionInput>({
+  return useMutation<
+    UseCreateUserAiSessionResponse,
+    unknown,
+    CreateSessionInput
+  >({
     mutationFn: async (input: CreateSessionInput) => {
-      const userId =
-        getCookies(COOKIES_KEY.USER_EMAIL) || "anonymous";
+      const userId = getCookies(COOKIES_KEY.USER_EMAIL) || "anonymous";
 
       const params = new URLSearchParams({
         user_id: userId,
@@ -20,7 +24,7 @@ export const useCreateUserAiSession = (onSettled: OnSettled) => {
       });
 
       const response = await fetch(
-        `${AI_BASE_URL}/sessions?${params.toString()}`,
+        `${AI_BASE_URL}${AI_API_PATHS.SESSIONS}?${params.toString()}`,
         { method: "POST" },
       );
 

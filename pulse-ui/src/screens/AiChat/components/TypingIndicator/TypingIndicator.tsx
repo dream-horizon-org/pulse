@@ -1,5 +1,6 @@
 import { Box, Text } from "@mantine/core";
 import { IconSparkles } from "@tabler/icons-react";
+import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 import classes from "./TypingIndicator.module.css";
 
 export const TypingIndicator = () => (
@@ -8,7 +9,7 @@ export const TypingIndicator = () => (
     <Box className={classes.content}>
       <IconSparkles size={16} className={classes.icon} />
       <Text size="xs" c="dimmed" className={classes.label}>
-        Thinking
+        {AI_CHAT_TEXTS.THINKING}
       </Text>
       <Box className={classes.dots}>
         <Box className={classes.dot} />

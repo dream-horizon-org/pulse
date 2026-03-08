@@ -1,7 +1,7 @@
 import { useState, useRef, KeyboardEvent } from "react";
 import { Textarea, ActionIcon, Flex } from "@mantine/core";
 import { IconSend } from "@tabler/icons-react";
-import { AI_CHAT_TEXTS } from "../../AiChat.constants";
+import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 import { ChatInputProps } from "./ChatInput.interface";
 import classes from "./ChatInput.module.css";
 
@@ -35,8 +35,8 @@ export const ChatInput = ({ onSend, isStreaming }: ChatInputProps) => {
         onKeyDown={handleKeyDown}
         placeholder={AI_CHAT_TEXTS.PLACEHOLDER}
         autosize
-        minRows={1}
-        maxRows={6}
+        minRows={AI_CHAT_LIMITS.CHAT_INPUT_MIN_ROWS}
+        maxRows={AI_CHAT_LIMITS.CHAT_INPUT_MAX_ROWS}
         className={classes.input}
         disabled={isStreaming}
       />

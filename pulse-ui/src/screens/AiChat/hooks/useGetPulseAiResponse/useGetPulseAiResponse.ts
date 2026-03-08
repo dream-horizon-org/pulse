@@ -7,6 +7,7 @@ import {
   UseGetPulseAiResponseReturn,
 } from "./useGetPulseAiResponse.interface";
 import { readSseStream } from "./sseParser";
+import { AI_API_PATHS, AI_CHAT_TEXTS } from "../../AiChat.constants";
 
 export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -30,7 +31,7 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
         streaming: true,
       });
 
-      fetch(`${AI_BASE_URL}/run_sse`, {
+      fetch(`${AI_BASE_URL}${AI_API_PATHS.RUN_SSE}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -42,7 +43,7 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
             return;
           }
           if (!response.body) {
-            callbacks.onError("No response body");
+            callbacks.onError(AI_CHAT_TEXTS.NO_RESPONSE_BODY);
             return;
           }
 
@@ -51,13 +52,15 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
           } catch (err) {
             if ((err as Error).name === "AbortError") return;
             callbacks.onError(
-              (err as Error).message || "Stream reading failed",
+              (err as Error).message || AI_CHAT_TEXTS.STREAM_FAILED,
             );
           }
         })
         .catch((err) => {
           if ((err as Error).name === "AbortError") return;
-          callbacks.onError((err as Error).message || "Network error");
+          callbacks.onError(
+            (err as Error).message || AI_CHAT_TEXTS.NETWORK_ERROR,
+          );
         });
     },
     [],

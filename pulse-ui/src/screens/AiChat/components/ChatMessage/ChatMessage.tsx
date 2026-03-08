@@ -2,7 +2,6 @@ import { Box, Text, Avatar } from "@mantine/core";
 import { IconUser, IconSparkles } from "@tabler/icons-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChatMessage as ChatMessageType } from "../../types/chat";
 import { SqlResultCard } from "../SqlResultCard";
 import { AiChartCard } from "../AiChartCard";
 import { AiTableCard } from "../AiTableCard";
@@ -17,9 +16,17 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
   const displayText = sql ? stripSqlBlocks(message.text) : message.text;
 
   return (
-    <Box className={`${classes.row} ${isUser ? classes.userRow : classes.aiRow}`}>
+    <Box
+      className={`${classes.row} ${isUser ? classes.userRow : classes.aiRow}`}
+    >
       {!isUser && (
-        <Avatar size="sm" radius="xl" color="teal" variant="light" className={classes.avatar}>
+        <Avatar
+          size="sm"
+          radius="xl"
+          color="teal"
+          variant="light"
+          className={classes.avatar}
+        >
           <IconSparkles size={14} />
         </Avatar>
       )}
@@ -31,7 +38,9 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
         ) : (
           <>
             <div className={classes.markdown}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {displayText}
+              </ReactMarkdown>
             </div>
             {sql && <SqlResultCard sql={sql} />}
             {message.charts?.map((chart, idx) => (
@@ -50,7 +59,13 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
         </Text>
       </Box>
       {isUser && (
-        <Avatar size="sm" radius="xl" color="teal" variant="filled" className={classes.avatar}>
+        <Avatar
+          size="sm"
+          radius="xl"
+          color="teal"
+          variant="filled"
+          className={classes.avatar}
+        >
           <IconUser size={14} />
         </Avatar>
       )}

@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
 import { Box, Table, Text } from "@mantine/core";
-import { IconTable, IconArrowUp, IconArrowDown, IconArrowsSort } from "@tabler/icons-react";
+import {
+  IconTable,
+  IconArrowUp,
+  IconArrowDown,
+  IconArrowsSort,
+} from "@tabler/icons-react";
 import { AiTableCardProps } from "./AiTableCard.interface";
 import { TableErrorBoundary } from "./TableErrorBoundary";
+import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 import classes from "./AiTableCard.module.css";
 
 type SortDir = "asc" | "desc" | null;
@@ -13,7 +19,9 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : prev === "desc" ? null : "asc"));
+      setSortDir((prev) =>
+        prev === "asc" ? "desc" : prev === "desc" ? null : "asc",
+      );
       if (sortDir === "desc") setSortKey(null);
     } else {
       setSortKey(key);
@@ -41,8 +49,10 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
   if (!table.columns?.length) return null;
 
   const SortIndicator = ({ colKey }: { colKey: string }) => {
-    if (sortKey !== colKey) return <IconArrowsSort size={10} className={classes.sortIcon} />;
-    if (sortDir === "asc") return <IconArrowUp size={10} className={classes.sortIcon} />;
+    if (sortKey !== colKey)
+      return <IconArrowsSort size={10} className={classes.sortIcon} />;
+    if (sortDir === "asc")
+      return <IconArrowUp size={10} className={classes.sortIcon} />;
     return <IconArrowDown size={10} className={classes.sortIcon} />;
   };
 
@@ -54,10 +64,18 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
             <IconTable size={12} className={classes.headerIcon} />
             {table.title}
           </Text>
-          <Text size="xs" c="dimmed">{table.rows.length} rows</Text>
+          <Text size="xs" c="dimmed">
+            {table.rows.length}
+            {AI_CHAT_TEXTS.ROWS_SUFFIX}
+          </Text>
         </div>
         <div className={classes.tableWrapper}>
-          <Table className={classes.table} striped highlightOnHover withTableBorder={false}>
+          <Table
+            className={classes.table}
+            striped
+            highlightOnHover
+            withTableBorder={false}
+          >
             <Table.Thead>
               <Table.Tr>
                 {table.columns.map((col) => (
@@ -78,7 +96,9 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
                   {table.columns.map((col) => (
                     <Table.Td
                       key={col.key}
-                      className={col.type === "number" ? classes.numberCell : undefined}
+                      className={
+                        col.type === "number" ? classes.numberCell : undefined
+                      }
                     >
                       {String(row[col.key] ?? "")}
                     </Table.Td>

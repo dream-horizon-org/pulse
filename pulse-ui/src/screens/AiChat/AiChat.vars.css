@@ -1,0 +1,19 @@
+:root {
+  --ai-teal: 14, 201, 194;
+  --ai-indigo: 99, 102, 241;
+
+  --ai-teal-02: rgba(var(--ai-teal), 0.02);
+  --ai-teal-03: rgba(var(--ai-teal), 0.03);
+  --ai-teal-04: rgba(var(--ai-teal), 0.04);
+  --ai-teal-06: rgba(var(--ai-teal), 0.06);
+  --ai-teal-08: rgba(var(--ai-teal), 0.08);
+  --ai-teal-10: rgba(var(--ai-teal), 0.1);
+  --ai-teal-12: rgba(var(--ai-teal), 0.12);
+  --ai-teal-15: rgba(var(--ai-teal), 0.15);
+  --ai-teal-20: rgba(var(--ai-teal), 0.2);
+  --ai-teal-30: rgba(var(--ai-teal), 0.3);
+  --ai-teal-50: rgba(var(--ai-teal), 0.5);
+  --ai-teal-60: rgba(var(--ai-teal), 0.6);
+
+  --ai-indigo-04: rgba(var(--ai-indigo), 0.04);
+}

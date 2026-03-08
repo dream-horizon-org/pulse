@@ -1,10 +1,10 @@
 /* ── SQL Result Card ── */
 .container {
   margin-top: var(--mantine-spacing-sm);
-  border: 1px solid rgba(14, 201, 194, 0.15);
+  border: 1px solid var(--ai-teal-15);
   border-radius: 10px;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--mantine-color-white);
 }
 
 .header {
@@ -12,8 +12,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 14px;
-  background: rgba(14, 201, 194, 0.06);
-  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+  background: var(--ai-teal-06);
+  border-bottom: 1px solid var(--ai-teal-10);
 }
 
 .code {

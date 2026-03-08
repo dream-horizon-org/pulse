@@ -1,9 +1,14 @@
-import { StreamingCallbacks } from "./useGetPulseAiResponse.interface";
+import { AiChartConfig, AiTableConfig } from "../../types/chat";
+import {
+  ContentBlock,
+  StreamingCallbacks,
+} from "./useGetPulseAiResponse.interface";
+import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 
 interface SsePayload {
   type?: string;
   content?: string;
-  blocks?: Array<Record<string, unknown>>;
+  blocks?: ContentBlock[];
   message?: string;
 }
 
@@ -32,15 +37,15 @@ export function handleSseLine(
     ) {
       const charts = parsed.blocks
         .filter((b) => b.block_type === "chart")
-        .map(({ block_type, ...rest }) => rest);
+        .map(({ block_type, ...rest }) => rest as unknown as AiChartConfig);
       const tables = parsed.blocks
         .filter((b) => b.block_type === "table")
-        .map(({ block_type, ...rest }) => rest);
+        .map(({ block_type, ...rest }) => rest as unknown as AiTableConfig);
       if (charts.length) callbacks.onCharts(charts);
       if (tables.length) callbacks.onTables(tables);
       callbacks.onContentBlocks?.(parsed.blocks);
     } else if (parsed.type === "error") {
-      callbacks.onError(parsed.message || "Unknown agent error");
+      callbacks.onError(parsed.message || AI_CHAT_TEXTS.UNKNOWN_AGENT_ERROR);
     }
   } catch {
     // Non-JSON SSE line, skip

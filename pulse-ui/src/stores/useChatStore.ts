@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { AiChartConfig, AiTableConfig, ChatMessage, ChatSession } from "../types/chat";
+import {
+  AiChartConfig,
+  AiTableConfig,
+  ChatMessage,
+  ChatSession,
+} from "../types/chat";
 
 interface ChatState {
   sessions: ChatSession[];
@@ -19,6 +24,10 @@ interface ChatActions {
   updateLastMessage: (sessionId: string, text: string) => void;
   updateLastMessageCharts: (sessionId: string, charts: AiChartConfig[]) => void;
   updateLastMessageTables: (sessionId: string, tables: AiTableConfig[]) => void;
+  appendToLastMessage: (sessionId: string, token: string) => void;
+  markLastMessageComplete: (sessionId: string) => void;
+  markLastMessageError: (sessionId: string, fallbackText: string) => void;
+  updateSessionTitle: (sessionId: string, title: string) => void;
   setMessages: (sessionId: string, messages: ChatMessage[]) => void;
   setStreaming: (isStreaming: boolean) => void;
   setError: (error: string | null) => void;
@@ -56,7 +65,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
             messages: remaining,
             activeSessionId:
               state.activeSessionId === sessionId
-                ? filteredSessions[0]?.id ?? null
+                ? (filteredSessions[0]?.id ?? null)
                 : state.activeSessionId,
           };
         }),
@@ -70,11 +79,18 @@ export const useChatStore = create<ChatState & ChatActions>()(
           const existing = state.messages[sessionId] ?? [];
           const updatedSessions = state.sessions.map((s) =>
             s.id === sessionId
-              ? { ...s, lastMessage: message.text, updatedAt: message.timestamp }
+              ? {
+                  ...s,
+                  lastMessage: message.text,
+                  updatedAt: message.timestamp,
+                }
               : s,
           );
           return {
-            messages: { ...state.messages, [sessionId]: [...existing, message] },
+            messages: {
+              ...state.messages,
+              [sessionId]: [...existing, message],
+            },
             sessions: updatedSessions,
           };
         }),
@@ -114,6 +130,50 @@ export const useChatStore = create<ChatState & ChatActions>()(
             messages: { ...state.messages, [sessionId]: updated },
           };
         }),
+
+      appendToLastMessage: (sessionId, token) =>
+        set((state) => {
+          const sessionMessages = state.messages[sessionId] ?? [];
+          if (sessionMessages.length === 0) return state;
+          const updated = [...sessionMessages];
+          const last = updated[updated.length - 1];
+          if (last.role !== "model") return state;
+          updated[updated.length - 1] = { ...last, text: last.text + token };
+          return { messages: { ...state.messages, [sessionId]: updated } };
+        }),
+
+      markLastMessageComplete: (sessionId) =>
+        set((state) => {
+          const sessionMessages = state.messages[sessionId] ?? [];
+          if (sessionMessages.length === 0) return state;
+          const updated = [...sessionMessages];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            isStreaming: false,
+          };
+          return { messages: { ...state.messages, [sessionId]: updated } };
+        }),
+
+      markLastMessageError: (sessionId, fallbackText) =>
+        set((state) => {
+          const sessionMessages = state.messages[sessionId] ?? [];
+          if (sessionMessages.length === 0) return state;
+          const updated = [...sessionMessages];
+          const last = updated[updated.length - 1];
+          updated[updated.length - 1] = {
+            ...last,
+            isStreaming: false,
+            text: last.text || fallbackText,
+          };
+          return { messages: { ...state.messages, [sessionId]: updated } };
+        }),
+
+      updateSessionTitle: (sessionId, title) =>
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId ? { ...s, title } : s,
+          ),
+        })),
 
       setMessages: (sessionId, messages) =>
         set((state) => ({

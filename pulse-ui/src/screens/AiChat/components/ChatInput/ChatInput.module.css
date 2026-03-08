@@ -1,8 +1,8 @@
 /* ── Chat Input ── */
 .container {
   padding: 12px 16px;
-  border-top: 1px solid rgba(14, 201, 194, 0.12);
-  background: #ffffff;
+  border-top: 1px solid var(--ai-teal-12);
+  background: var(--mantine-color-white);
   gap: var(--mantine-spacing-sm);
   align-items: flex-end;
 }
@@ -18,15 +18,15 @@
 .input textarea {
   font-size: 13px;
   border-radius: 10px;
-  border: 1px solid rgba(14, 201, 194, 0.2);
-  background: #ffffff;
+  border: 1px solid var(--ai-teal-20);
+  background: var(--mantine-color-white);
   color: var(--mantine-color-dark-7);
   transition: all 0.15s ease;
 }
 
 .input textarea:focus {
-  border-color: rgba(14, 201, 194, 0.5);
-  box-shadow: 0 0 0 2px rgba(14, 201, 194, 0.12);
+  border-color: var(--ai-teal-50);
+  box-shadow: 0 0 0 2px var(--ai-teal-12);
 }
 
 .input textarea::placeholder {

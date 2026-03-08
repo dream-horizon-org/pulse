@@ -10,7 +10,7 @@ import {
   ChatMessage,
   ChatSession,
 } from "../../types/chat";
-import { AI_CHAT_TEXTS } from "../../AiChat.constants";
+import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 import { toMs } from "../../AiChat.utils";
 
 export const useAiChatHydration = () => {
@@ -21,6 +21,7 @@ export const useAiChatHydration = () => {
     switchSession,
     setSessions,
     setMessages,
+    updateSessionTitle,
     setError,
   } = useChatStore();
 
@@ -46,7 +47,7 @@ export const useAiChatHydration = () => {
     const sessionId = uuidV4();
     const session: ChatSession = {
       id: sessionId,
-      title: "New conversation",
+      title: AI_CHAT_TEXTS.NEW_CONVERSATION,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -73,7 +74,7 @@ export const useAiChatHydration = () => {
 
     const mapped: ChatSession[] = sessionsData.map((s) => ({
       id: s.id,
-      title: s.title || "New conversation",
+      title: s.title || AI_CHAT_TEXTS.NEW_CONVERSATION,
       createdAt: toMs(s.last_update_time),
       updatedAt: toMs(s.last_update_time),
     }));
@@ -98,16 +99,12 @@ export const useAiChatHydration = () => {
 
     const firstUserMsg = historyData.messages.find((m) => m.role === "user");
     if (firstUserMsg) {
-      const store = useChatStore.getState();
-      useChatStore.setState({
-        sessions: store.sessions.map((s) =>
-          s.id === activeSessionId
-            ? { ...s, title: firstUserMsg.text.slice(0, 50) }
-            : s,
-        ),
-      });
+      updateSessionTitle(
+        activeSessionId,
+        firstUserMsg.text.slice(0, AI_CHAT_LIMITS.TITLE_MAX_LENGTH),
+      );
     }
-  }, [historyData, activeSessionId, setMessages]);
+  }, [historyData, activeSessionId, setMessages, updateSessionTitle]);
 
   return { handleNewChat, isLoadingSessions };
 };

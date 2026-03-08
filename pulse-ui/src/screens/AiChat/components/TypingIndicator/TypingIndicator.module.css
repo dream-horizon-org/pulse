@@ -6,11 +6,11 @@
   overflow: hidden;
   background: linear-gradient(
     135deg,
-    rgba(14, 201, 194, 0.06) 0%,
-    rgba(14, 201, 194, 0.02) 50%,
-    rgba(99, 102, 241, 0.04) 100%
+    var(--ai-teal-06) 0%,
+    var(--ai-teal-02) 50%,
+    var(--ai-indigo-04) 100%
   );
-  border: 1px solid rgba(14, 201, 194, 0.15);
+  border: 1px solid var(--ai-teal-15);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -80,7 +80,11 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0ec9c2 0%, #6366f1 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--ai-teal)) 0%,
+    rgb(var(--ai-indigo)) 100%
+  );
   opacity: 0.8;
   animation: orbPulse 1.4s ease-in-out infinite both;
 }

@@ -35,18 +35,18 @@
 .chip {
   font-size: 13px;
   cursor: pointer;
-  border: 1px solid rgba(14, 201, 194, 0.15);
+  border: 1px solid var(--ai-teal-15);
   border-radius: 10px;
   padding: 10px 14px;
-  background: rgba(14, 201, 194, 0.04);
+  background: var(--ai-teal-04);
   color: var(--mantine-color-teal-7);
   transition: all 0.15s ease;
   text-align: left;
 }
 
 .chip:hover {
-  background: rgba(14, 201, 194, 0.12);
-  border-color: rgba(14, 201, 194, 0.3);
+  background: var(--ai-teal-12);
+  border-color: var(--ai-teal-30);
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(14, 201, 194, 0.1);
+  box-shadow: 0 2px 6px var(--ai-teal-10);
 }

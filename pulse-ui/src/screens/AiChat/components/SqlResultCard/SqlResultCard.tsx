@@ -1,6 +1,14 @@
-import { Box, Code, CopyButton, ActionIcon, Tooltip, Text } from "@mantine/core";
+import {
+  Box,
+  Code,
+  CopyButton,
+  ActionIcon,
+  Tooltip,
+  Text,
+} from "@mantine/core";
 import { IconCopy, IconCheck } from "@tabler/icons-react";
 import { SqlResultCardProps } from "./SqlResultCard.interface";
+import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 import classes from "./SqlResultCard.module.css";
 
 export const SqlResultCard = ({ sql }: SqlResultCardProps) => {
@@ -10,11 +18,18 @@ export const SqlResultCard = ({ sql }: SqlResultCardProps) => {
     <Box className={classes.container}>
       <div className={classes.header}>
         <Text size="xs" fw={600} c="dimmed">
-          Generated SQL
+          {AI_CHAT_TEXTS.GENERATED_SQL}
         </Text>
-        <CopyButton value={sql} timeout={2000}>
+        <CopyButton
+          value={sql}
+          timeout={AI_CHAT_LIMITS.COPY_TOOLTIP_TIMEOUT_MS}
+        >
           {({ copied, copy }) => (
-            <Tooltip label={copied ? "Copied" : "Copy"} withArrow position="left">
+            <Tooltip
+              label={copied ? AI_CHAT_TEXTS.COPIED : AI_CHAT_TEXTS.COPY}
+              withArrow
+              position="left"
+            >
               <ActionIcon
                 color={copied ? "teal" : "gray"}
                 variant="subtle"
