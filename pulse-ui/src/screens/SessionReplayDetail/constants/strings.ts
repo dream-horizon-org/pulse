@@ -101,6 +101,9 @@ export const LABELS = {
   DEPLOYED_AT: "Deployed At",
   FEATURE_FLAGS: "Feature Flags",
   ENGINEERING_ACTIONS: "Engineering Actions",
+  OCCURRENCES: "Occurrences",
+  FIRST_SEEN: "First Seen",
+  TREND: "Trend",
 } as const;
 
 // Status Labels
@@ -154,6 +157,7 @@ export const BUTTON_LABELS = {
   ADD_TO_WATCH_LIST: "Add to Watch List",
   VIEW_SIMILAR_SESSIONS: "View Similar Sessions",
   VIEW_IN_GITHUB: "View in GitHub",
+  VIEW_ALL_OCCURRENCES: "View All Occurrences",
 } as const;
 
 // Event Types
