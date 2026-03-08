@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { EChartsType } from "echarts/core";
 import { useFilterStore } from "../../../stores/useFilterStore";
 import {
   getUTCDateTimeFromLocalStringDateValue,
@@ -45,7 +46,7 @@ export const useChartReady = ({
     [handleDateTimeApply, searchParams, setSearchParams, onTimeFilterChange],
   );
   const onChartReady = useCallback(
-    (chartInstance: any) => {
+    (chartInstance: EChartsType) => {
       if (syncTooltips) {
         chartInstance.group = group;
       }
