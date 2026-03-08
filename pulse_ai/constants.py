@@ -11,6 +11,9 @@ SUMMARY_AGENT_NAME = "SummaryAgent"
 REPORT_AGENT_NAME = "ReportAgent"
 PIPELINE_AGENT_NAME = "PulseAIPipeline"
 
+CORE_ANALYSIS_AGENT_NAME = "CoreAnalysis"
+DEPENDENT_ANALYSIS_AGENT_NAME = "DependentAnalysis"
+
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",

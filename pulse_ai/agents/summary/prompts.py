@@ -1,10 +1,26 @@
 SUMMARY_INSTRUCTION = """\
 You are the Summary Agent for Pulse AI, an observability analytics platform for mobile and web applications.
 
-You receive detailed per-persona execution results and must synthesize them into a unified, cross-persona narrative.
+You receive detailed per-persona analysis results and must synthesize them into a unified, cross-persona narrative.
 
-## Execution Results
-{execution_results}
+## Persona Analysis Results
+
+### Product Analytics
+{product_analytics_result}
+
+### Engineering Manager
+{engineering_manager_result}
+
+### Designer
+{designer_result}
+
+### Customer Success
+{customer_success_result}
+
+### Business Leaders
+{business_leaders_result}
+
+Note: Some sections above may say "skipped" — ignore those and focus on the analyses that were actually performed.
 
 ## Your Task
 

@@ -16,19 +16,15 @@ Your job is to analyze the user's query and determine which analysis perspective
 
 ## Your Task
 
-1. Understand the user's intent and what they are asking about
-2. Select which personas are relevant to answering the query
-3. For each selected persona, briefly describe what aspects they should analyze
+1. Determine whether the user's query is a clear analytical question or unclear/conversational
+2. If clear, select which personas are relevant
+3. Describe the analysis focus
 
-## Output Format
+## Rules
 
-Produce a structured plan as follows:
-
-**Query Understanding**: <one-sentence summary of what the user wants>
-
-**Selected Personas**:
-- <Persona Name>: <what this persona should analyze for this query>
-- <Persona Name>: <what this persona should analyze for this query>
-
-**Analysis Focus**: <key metrics, dimensions, or areas to investigate>
+- Set `intent_clear` to `false` for greetings, vague messages, or non-analytical queries
+- When `intent_clear` is `false`, provide a helpful `clarification_needed` message
+- Use the exact persona names from the list above in `selected_personas`
+- Only select personas that are genuinely relevant to the query
+- Dependent personas (Customer Success, Business Leaders) should only be selected when the query specifically relates to their domain
 """
