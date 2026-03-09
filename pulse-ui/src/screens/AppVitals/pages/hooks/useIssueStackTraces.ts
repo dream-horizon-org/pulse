@@ -15,6 +15,13 @@ interface StackTrace {
   platform?: string;
   errorMessage?: string;
   errorType?: string;
+  sessionId?: string;
+  sdkVersion?: string;
+  appVersionCode?: string;
+  networkProvider?: string;
+  userId?: string;
+  interactions?: string[];
+  bundleId?: string;
 }
 
 interface UseIssueStackTracesParams {
@@ -159,6 +166,55 @@ export function useIssueStackTraces({
           },
           alias: "platform",
         },
+        {
+          function: "COL" as const,
+          param: {
+            field: "SessionId",
+          },
+          alias: "session_id",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "SdkVersion",
+          },
+          alias: "sdk_version",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "AppVersionCode",
+          },
+          alias: "app_version_code",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: "ResourceAttributes['network.carrier.name']",
+          },
+          alias: "network_provider",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "UserId",
+          },
+          alias: "user_id",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: "arrayStringConcat(Interactions, ', ')",
+          },
+          alias: "interactions",
+        },
+        {
+          function: "COL" as const,
+          param: {
+            field: "BundleId",
+          },
+          alias: "bundle_id",
+        },
       ],
       orderBy: [
         {
@@ -201,6 +257,13 @@ export function useIssueStackTraces({
     const titleIndex = fields.indexOf("title");
     const screenNameIndex = fields.indexOf("screen_name");
     const platformIndex = fields.indexOf("platform");
+    const sessionIdIndex = fields.indexOf("session_id");
+    const sdkVersionIndex = fields.indexOf("sdk_version");
+    const appVersionCodeIndex = fields.indexOf("app_version_code");
+    const networkProviderIndex = fields.indexOf("network_provider");
+    const userIdIndex = fields.indexOf("user_id");
+    const interactionsIndex = fields.indexOf("interactions");
+    const bundleIdIndex = fields.indexOf("bundle_id");
 
     return responseData.rows.map((row) => {
       const traceId = row[traceIdIndex] || "";
@@ -216,18 +279,25 @@ export function useIssueStackTraces({
       const title = row[titleIndex] || "";
       const screenName = row[screenNameIndex] || "";
       const platform = row[platformIndex] || "";
+      const sessionId = row[sessionIdIndex] || "";
+      const sdkVersion = sdkVersionIndex >= 0 ? row[sdkVersionIndex] || "" : "";
+      const appVersionCode = appVersionCodeIndex >= 0 ? row[appVersionCodeIndex] || "" : "";
+      const networkProvider = networkProviderIndex >= 0 ? row[networkProviderIndex] || "" : "";
+      const userId = userIdIndex >= 0 ? row[userIdIndex] || "" : "";
+      const interactionsStr = interactionsIndex >= 0 ? row[interactionsIndex] || "" : "";
+      const bundleId = bundleIdIndex >= 0 ? row[bundleIdIndex] || "" : "";
 
-      // Use stacktrace if available, fallback to raw stacktrace, then error message
       const trace = stacktrace || stacktraceRaw || errorMessage || "No stack trace available";
 
-      // Use traceId + spanId as unique identifier
       const logId =
         traceId && spanId
           ? `${traceId}-${spanId}`
           : `log-${Date.now()}-${Math.random()}`;
 
+      const normalizedTimestamp = timestamp.includes("T") ? timestamp : timestamp.replace(" ", "T") + "Z";
+
       return {
-        timestamp: new Date(timestamp),
+        timestamp: new Date(normalizedTimestamp),
         device,
         osVersion,
         appVersion,
@@ -238,6 +308,13 @@ export function useIssueStackTraces({
         platform: platform || undefined,
         errorMessage: errorMessage || undefined,
         errorType: errorType || undefined,
+        sessionId: sessionId || undefined,
+        sdkVersion: sdkVersion || undefined,
+        appVersionCode: appVersionCode || undefined,
+        networkProvider: networkProvider || undefined,
+        userId: userId || undefined,
+        interactions: interactionsStr ? interactionsStr.split(", ").filter(Boolean) : undefined,
+        bundleId: bundleId || undefined,
       };
     });
   }, [data]);
