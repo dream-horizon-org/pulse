@@ -214,6 +214,71 @@ wait_for_healthy() {
 }
 
 # ---------------------------------------------------------------------------
+# verify_mysql_init -- Wait for MySQL init scripts to finish, then check
+#                       container logs for errors and verify table count.
+#                       Returns non-zero on failure.
+#
+#   MySQL's healthcheck (mysqladmin ping) can pass while init scripts are
+#   still running on the temporary server, so we poll for tables before
+#   declaring success or failure.
+# ---------------------------------------------------------------------------
+verify_mysql_init() {
+    local table_count retries=0 max_retries=12
+
+    while [ "$retries" -lt "$max_retries" ]; do
+        table_count=$(docker exec "$CONTAINER_MYSQL" mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${MYSQL_DATABASE}" -sNe \
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${MYSQL_DATABASE}';" 2>/dev/null || echo "0")
+
+        if [ "$table_count" -gt 0 ] 2>/dev/null; then
+            break
+        fi
+
+        retries=$((retries + 1))
+        echo -ne "\r  Waiting for MySQL init to complete... (${retries}/${max_retries})  "
+        sleep 5
+    done
+    [ "$retries" -gt 0 ] && echo ""
+
+    local init_errors
+    init_errors=$(docker logs "$CONTAINER_MYSQL" 2>&1 | grep -E "^ERROR " || true)
+    if [ -n "$init_errors" ]; then
+        print_error "MySQL init script failed:"
+        echo "$init_errors" | while IFS= read -r line; do
+            echo -e "    ${RED}$line${NC}"
+        done
+        return 1
+    fi
+
+    if [ "$table_count" -eq 0 ] 2>/dev/null; then
+        print_error "MySQL init did not create any tables (timed out after $((max_retries * 5))s)"
+        print_info "Check logs: docker logs $CONTAINER_MYSQL"
+        return 1
+    fi
+
+    print_success "MySQL initialized ($table_count tables, no errors)"
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# verify_clickhouse_init -- Verify ClickHouse tables were created.
+#                            Returns non-zero on failure.
+# ---------------------------------------------------------------------------
+verify_clickhouse_init() {
+    local table_count
+    table_count=$(docker exec "$CONTAINER_CLICKHOUSE" clickhouse-client --query \
+        "SELECT count() FROM system.tables WHERE database = '${OTEL_CLICKHOUSE_DATABASE}'" 2>/dev/null || echo "0")
+
+    if [ "$table_count" -eq 0 ] 2>/dev/null; then
+        print_error "ClickHouse init failed: no tables in '${OTEL_CLICKHOUSE_DATABASE}' database"
+        print_info "Check logs: docker logs $CONTAINER_CLICKHOUSE"
+        return 1
+    fi
+
+    print_success "ClickHouse initialized ($table_count tables)"
+    return 0
+}
+
+# ---------------------------------------------------------------------------
 # ensure_network -- Create the Docker bridge network if it doesn't exist
 # ---------------------------------------------------------------------------
 ensure_network() {

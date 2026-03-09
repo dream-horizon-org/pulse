@@ -1,0 +1,113 @@
+pipeline {
+    agent {
+        node { label 'pulse-artifact-build-default-ec2-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    environment {
+        ARTIFACT_VERSION = ''
+        GITBOT_USERNAME = credentials('github-bot-username')
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Read Version') {
+            steps {
+                script {
+                    ARTIFACT_VERSION = getVersionFromPom()
+                    echo "Version to be published: ${ARTIFACT_VERSION}"
+                }
+            }
+        }
+
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    sh """
+                            #!/bin/bash -el
+                            chmod +x ./deploy/jenkinsfile/pulse-server/publish-artifact.sh
+                            ./deploy/jenkinsfile/pulse-server/publish-artifact.sh -v ${ARTIFACT_VERSION}
+                        """
+                }
+            }
+        }
+
+        stage('Bump snapshot version') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        def nextVersion = bumpMinorVersion(ARTIFACT_VERSION)
+                        sh """
+                            #!/bin/bash -el
+                            cd backend/server
+
+                            # Update pom.xml with next SNAPSHOT version
+                            mvn versions:set -DnewVersion=${nextVersion}-SNAPSHOT -DgenerateBackupPoms=false
+
+                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+                            git config user.name "${GITBOT_USERNAME}"
+
+                            git add pom.xml
+                            git commit -m "chore: bump pulse-server version to ${nextVersion}-SNAPSHOT"
+
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def message = "<!channel> Pulse Server version *${ARTIFACT_VERSION}* published\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> Pulse Server version *${ARTIFACT_VERSION}* publish failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}
+
+def getVersionFromPom(String path = 'backend/server/pom.xml') {
+    def rawVersion = sh(
+            script: "mvn -B -f ${path} help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/\\x1b\\[[0-9;]*m//g'",
+            returnStdout: true
+    ).trim()
+    return rawVersion.replaceAll('-SNAPSHOT$', '')
+}
+
+def bumpMinorVersion(String version) {
+    def parts = version.tokenize('.')
+    def major = parts[0] as int
+    def minor = parts.size() > 1 ? parts[1] as int : 0
+    return "${major}.${minor + 1}"
+}

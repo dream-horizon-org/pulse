@@ -110,6 +110,9 @@ public final class OpenTelemetryRumBuilder {
 
     @Nullable private ExportScheduleHandler exportScheduleHandler;
     @Nullable private SessionProvider sessionProvider;
+    @Nullable private SessionProvider meteredSessionProvider;
+    private boolean shouldStartSendingData = true;
+    @Nullable private Runnable setupExportersRunnable = null;
 
     private static TextMapPropagator buildDefaultPropagator() {
         return TextMapPropagator.composite(
@@ -134,6 +137,11 @@ public final class OpenTelemetryRumBuilder {
      */
     public OpenTelemetryRumBuilder setResource(Resource resource) {
         this.resource = resource;
+        return this;
+    }
+
+    public OpenTelemetryRumBuilder setShouldStartSendingData(boolean shouldStartSendingData) {
+        this.shouldStartSendingData = shouldStartSendingData;
         return this;
     }
 
@@ -297,6 +305,23 @@ public final class OpenTelemetryRumBuilder {
     }
 
     /**
+     * When builder is built with shouldStartSendingData this needs to be called to setup the
+     * exporter which sets the exporters for different signals
+     */
+    public void setupExporters() {
+        if (setupExportersRunnable != null) {
+            setupExportersRunnable.run();
+        }
+    }
+
+    /** Clears the setupExportersRunnable from the memory */
+    public void disposeExporters() {
+        if (setupExportersRunnable != null) {
+            setupExportersRunnable = null;
+        }
+    }
+
+    /**
      * Creates a new instance of {@link OpenTelemetryRum} with the settings of this {@link
      * OpenTelemetryRumBuilder}.
      *
@@ -335,7 +360,8 @@ public final class OpenTelemetryRumBuilder {
         otelSdkReadyListeners.forEach(listener -> listener.accept(sdk));
 
         SdkPreconfiguredRumBuilder delegate =
-                new SdkPreconfiguredRumBuilder(application, sdk, sessionProvider, config)
+                new SdkPreconfiguredRumBuilder(
+                                application, sdk, sessionProvider, meteredSessionProvider, config)
                         .setShutdownHook(
                                 () -> {
                                     if (exportScheduleHandler != null) {
@@ -344,16 +370,34 @@ public final class OpenTelemetryRumBuilder {
                                     services.close();
                                 });
 
-        // AsyncTask is deprecated but the thread pool is still used all over the Android SDK
-        // and it provides a way to get a background thread without having to create a new one.
-        android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute(
-                () ->
-                        initializeExporters(
-                                services,
-                                initializationEvents,
-                                bufferDelegatingSpanExporter,
-                                bufferDelegatingLogExporter,
-                                bufferDelegatingMetricExporter));
+        if (shouldStartSendingData) {
+            // AsyncTask is deprecated but the thread pool is still used all over the Android SDK
+            // and it provides a way to get a background thread without having to create a new one.
+            android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute(
+                    () ->
+                            initializeExporters(
+                                    services,
+                                    initializationEvents,
+                                    bufferDelegatingSpanExporter,
+                                    bufferDelegatingLogExporter,
+                                    bufferDelegatingMetricExporter));
+        } else {
+            setupExportersRunnable =
+                    () -> {
+                        // AsyncTask is deprecated but the thread pool is still used all over the
+                        // Android SDK
+                        // and it provides a way to get a background thread without having to create
+                        // a new one.
+                        android.os.AsyncTask.THREAD_POOL_EXECUTOR.execute(
+                                () ->
+                                        initializeExporters(
+                                                services,
+                                                initializationEvents,
+                                                bufferDelegatingSpanExporter,
+                                                bufferDelegatingLogExporter,
+                                                bufferDelegatingMetricExporter));
+                    };
+        }
 
         instrumentations.forEach(delegate::addInstrumentation);
 
@@ -414,6 +458,12 @@ public final class OpenTelemetryRumBuilder {
 
     public OpenTelemetryRumBuilder setSessionProvider(SessionProvider sessionProvider) {
         this.sessionProvider = sessionProvider;
+        return this;
+    }
+
+    public OpenTelemetryRumBuilder setMeteredSessionProvider(
+            SessionProvider meteredSessionProvider) {
+        this.meteredSessionProvider = meteredSessionProvider;
         return this;
     }
 

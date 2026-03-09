@@ -3,12 +3,12 @@
 package com.pulse.sampling.core
 
 import android.content.Context
-import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseCriticalEventPolicies
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils
+import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeAttributesToDropEntry
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeProp
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSamplingConfig
@@ -16,20 +16,15 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCo
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.utils.createLogRecordData
+import com.pulse.utils.createSpanData
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import io.opentelemetry.api.common.Value
-import io.opentelemetry.api.trace.SpanKind
-import io.opentelemetry.sdk.logs.data.Body
-import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
 import io.opentelemetry.sdk.testing.exporter.InMemoryLogRecordExporter
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricExporter
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
-import io.opentelemetry.sdk.testing.trace.TestSpanData
-import io.opentelemetry.sdk.trace.data.SpanData
-import io.opentelemetry.sdk.trace.data.StatusData
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -330,9 +325,13 @@ class PulseSamplingSignalProcessorsTest {
     inner class `With attributes to drop` {
         private val attributesToDrop =
             listOf(
-                createFakeSignalMatchCondition(
-                    name = "test-span",
-                    props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
+                createFakeAttributesToDropEntry(
+                    values = listOf("key1"),
+                    condition =
+                        createFakeSignalMatchCondition(
+                            name = "test-span",
+                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
+                        ),
                 ),
             )
         private val attributesDroppingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToDrop = attributesToDrop)
@@ -355,6 +354,7 @@ class PulseSamplingSignalProcessorsTest {
             OpenTelemetryAssertions
                 .assertThat(spanExporter.finishedSpanItems[0].attributes)
                 .doesNotContainKey("key1")
+                .containsKey("key2")
         }
 
         @Test
@@ -499,6 +499,109 @@ class PulseSamplingSignalProcessorsTest {
             OpenTelemetryAssertions
                 .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("key1", "value1")
+        }
+
+        @Test
+        fun `in log, export does filter keys matching regexes present in values array`() {
+            val attributesToDrop =
+                listOf(
+                    createFakeAttributesToDropEntry(
+                        values =
+                            listOf(
+                                "keyD\\d",
+                                "nonce",
+                            ),
+                        condition =
+                            createFakeSignalMatchCondition(
+                                name = "test-span\\d",
+                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
+                            ),
+                    ),
+                )
+            val attributesDroppingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToDrop = attributesToDrop)
+            val attributesDroppingProcessors = createSamplingSignalProcessors(attributesDroppingConfig)
+            val attributesDroppingLogExporter = attributesDroppingProcessors.SampledLogExporter(logExporter)
+
+            val sampleLogRecord =
+                createLogRecordData(
+                    "test-span2",
+                    mapOf(
+                        "key1" to "value1",
+                        "keyD1" to "value1",
+                        "keyD2" to "value1",
+                        "keyD3" to "value1",
+                        "nonce" to "value1",
+                        "other" to "value1",
+                    ),
+                )
+
+            attributesDroppingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span2")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry("key1", "value1")
+                .containsEntry("other", "value1")
+                .doesNotContainKey("keyD1")
+                .doesNotContainKey("keyD2")
+                .doesNotContainKey("keyD3")
+                .doesNotContainKey("nonce")
+        }
+
+        @Test
+        fun `in log, export does filter keys matching regexes present in values array where condition prop value also contain regex`() {
+            val attributesToDrop =
+                listOf(
+                    createFakeAttributesToDropEntry(
+                        values =
+                            listOf(
+                                "keyD\\d",
+                                "nonce",
+                            ),
+                        condition =
+                            createFakeSignalMatchCondition(
+                                name = "test-span\\d",
+                                // here value is regex
+                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value\\d")),
+                            ),
+                    ),
+                )
+            val attributesDroppingConfig = PulseSdkConfigFakeUtils.createFakeConfig(attributesToDrop = attributesToDrop)
+            val attributesDroppingProcessors = createSamplingSignalProcessors(attributesDroppingConfig)
+            val attributesDroppingLogExporter = attributesDroppingProcessors.SampledLogExporter(logExporter)
+
+            val sampleLogRecord =
+                createLogRecordData(
+                    "test-span2",
+                    mapOf(
+                        "key1" to "value1",
+                        "keyD1" to "value1",
+                        "keyD2" to "value1",
+                        "keyD3" to "value1",
+                        "nonce" to "value1",
+                        "other" to "value1",
+                    ),
+                )
+
+            attributesDroppingLogExporter.export(listOf(sampleLogRecord))
+
+            assertThat(logExporter.finishedLogRecordItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.bodyValue!!.asString() }
+                .isEqualTo("test-span2")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry("key1", "value1")
+                .containsEntry("other", "value1")
+                .doesNotContainKey("keyD1")
+                .doesNotContainKey("keyD2")
+                .doesNotContainKey("keyD3")
+                .doesNotContainKey("nonce")
         }
     }
 
@@ -1177,35 +1280,6 @@ class PulseSamplingSignalProcessorsTest {
             )
         }
     }
-
-    private fun createSpanData(
-        name: String = "test-span",
-        attributes: Map<String, Any?> = emptyMap(),
-    ): SpanData =
-        TestSpanData
-            .builder()
-            .setName(name)
-            .setKind(SpanKind.INTERNAL)
-            .setStatus(StatusData.unset())
-            .setHasEnded(true)
-            .setStartEpochNanos(0)
-            .setEndEpochNanos(123)
-            .setAttributes(attributes.toAttributes())
-            .build()
-
-    private fun createLogRecordData(
-        body: String,
-        attributes: Map<String, Any?>,
-        eventName: String? = null,
-    ): LogRecordData =
-        mockk<LogRecordData>()
-            .apply {
-                every { this@apply.attributes } returns attributes.toAttributes()
-                every { this@apply.bodyValue } returns Value.of(body)
-                @Suppress("DEPRECATION")
-                every { this@apply.body } returns Body.string(body)
-                every { this@apply.eventName } returns eventName
-            }
 
     private fun createSamplingSignalProcessors(
         config: PulseSdkConfig,

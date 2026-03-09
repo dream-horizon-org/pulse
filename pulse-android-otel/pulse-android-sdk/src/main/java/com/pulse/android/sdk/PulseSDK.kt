@@ -3,6 +3,9 @@
 package com.pulse.android.sdk
 
 import android.app.Application
+import com.pulse.android.api.otel.PulseBeforeSendData
+import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
@@ -11,10 +14,7 @@ import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
 import io.opentelemetry.api.common.Attributes
-import io.opentelemetry.sdk.logs.SdkLoggerProviderBuilder
 import io.opentelemetry.sdk.resources.ResourceBuilder
-import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
-import java.util.function.BiFunction
 
 /**
  * Interface defining the public API for the PulseSDK
@@ -32,6 +32,10 @@ public interface PulseSDK {
         application: Application,
         endpointBaseUrl: String,
         projectId: String,
+        /**
+         * Initial data collection consent state. See [com.pulse.android.api.otel.PulseDataCollectionConsent] for different values
+         */
+        dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity =
             HttpEndpointConnectivity.forTraces(
@@ -61,11 +65,15 @@ public interface PulseSDK {
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
+        beforeSendData: PulseBeforeSendData? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)? = null,
-        tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>? = null,
-        loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>? = null,
         instrumentations: (InstrumentationConfiguration.() -> Unit)? = null,
     )
+
+    /**
+     * Updates the data collection consent state. See [PulseDataCollectionConsent] for all allowed values
+     */
+    public fun setDataCollectionState(newState: PulseDataCollectionConsent)
 
     /**
      * Set user id for the session. Setting null will reset the id
@@ -136,6 +144,8 @@ public interface PulseSDK {
 
     public companion object {
         @JvmStatic
-        public val INSTANCE: PulseSDK by lazy { PulseSDKImpl() }
+        public val INSTANCE: PulseSDK by lazy {
+            PulseSDKAdapter(PulseSDKInternal())
+        }
     }
 }

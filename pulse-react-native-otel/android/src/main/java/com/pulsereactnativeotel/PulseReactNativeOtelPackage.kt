@@ -22,10 +22,10 @@ internal class PulseReactNativeOtelPackage : BaseReactPackage() {
       moduleInfos[PulseReactNativeOtelModule.NAME] = ReactModuleInfo(
         PulseReactNativeOtelModule.NAME,
         PulseReactNativeOtelModule.NAME,
-        false,  // canOverrideExistingModule
-        false,  // needsEagerInit
-        false,  // isCxxModule
-        true // isTurboModule
+        canOverrideExistingModule = false,
+        needsEagerInit = false,
+        isCxxModule = false,
+        isTurboModule = true,
       )
       moduleInfos
     }

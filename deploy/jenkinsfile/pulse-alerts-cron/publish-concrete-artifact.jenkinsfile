@@ -1,0 +1,150 @@
+pipeline {
+    agent {
+        node { label 'pulse-artifact-build-default-ec2-fleet' }
+    }
+
+    environment {
+        ARTIFACT_VERSION = ''
+        GITBOT_USERNAME = credentials('github-bot-username')
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Read Version') {
+            steps {
+                script {
+                    ARTIFACT_VERSION = getVersionFromPom()
+                    echo "Version to be published: ${ARTIFACT_VERSION}"
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('backend/pulse-alerts-cron') {
+                    sh '''
+                        #!/bin/bash -el
+                        echo "Building pulse-alerts-cron..."
+                        mvn clean package -DskipTests -Dcheckstyle.skip=true
+                    '''
+                }
+            }
+        }
+
+        stage('Publish Artifact') {
+            steps {
+                script {
+                    def applicationName = 'pulse-alerts-cron'
+                    def jarPath = "backend/pulse-alerts-cron/target/pulse-alerts-cron/pulse-alerts-cron.jar"
+                    def zipName = "${applicationName}-${ARTIFACT_VERSION}.zip"
+
+                    sh """
+                        #!/bin/bash -el
+                        echo "Preparing artifact: ${zipName}"
+
+                        mkdir -p artifact-staging/${applicationName}
+                        cp ${jarPath} artifact-staging/${applicationName}/
+                        cp backend/pulse-alerts-cron/Dockerfile artifact-staging/${applicationName}/
+                        cp -r backend/pulse-alerts-cron/src/main/resources/conf artifact-staging/${applicationName}/
+
+                        cd artifact-staging
+                        zip -q -r ../${zipName} ${applicationName}
+                        cd ..
+
+                        FILE_HASH=\$(sha256sum ${zipName} | awk '{ print \$1 }')
+
+                        echo "Uploading ${zipName} to AWS CodeArtifact..."
+                        aws codeartifact publish-package-version \
+                          --region "ap-south-1" \
+                          --domain "pulse-prod" \
+                          --repository "pulse-alerts-cron" \
+                          --format generic \
+                          --namespace "pulse" \
+                          --package "${applicationName}" \
+                          --package-version "${ARTIFACT_VERSION}" \
+                          --asset-name "${zipName}" \
+                          --asset-content "${zipName}" \
+                          --asset-sha256 "\$FILE_HASH"
+
+                        echo "Upload successful: ${applicationName}:${ARTIFACT_VERSION}"
+                    """
+                }
+            }
+        }
+
+        stage('Bump snapshot version') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'yasir6jan', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        def nextVersion = bumpMinorVersion(ARTIFACT_VERSION)
+                        sh """
+                            #!/bin/bash -el
+                            cd backend/pulse-alerts-cron
+
+                            # Update pom.xml with next SNAPSHOT version
+                            mvn versions:set -DnewVersion=${nextVersion}-SNAPSHOT -DgenerateBackupPoms=false
+
+                            git config user.email "${GITBOT_USERNAME}@users.noreply.github.com"
+                            git config user.name "${GITBOT_USERNAME}"
+
+                            git add pom.xml
+                            git commit -m "chore: bump pulse-alerts-cron version to ${nextVersion}-SNAPSHOT"
+
+                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/dream-horizon-org/pulse.git HEAD:main
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def message = "<!channel> Pulse Alerts Cron version *${ARTIFACT_VERSION}* published\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> Pulse Alerts Cron version *${ARTIFACT_VERSION}* publish failed\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}
+
+def getVersionFromPom(String path = 'backend/pulse-alerts-cron/pom.xml') {
+    def rawVersion = sh(
+            script: "mvn -B -f ${path} help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/\\x1b\\[[0-9;]*m//g'",
+            returnStdout: true
+    ).trim()
+    return rawVersion.replaceAll('-SNAPSHOT$', '')
+}
+
+def bumpMinorVersion(String version) {
+    def parts = version.tokenize('.')
+    def major = parts[0] as int
+    def minor = parts.size() > 1 ? parts[1] as int : 0
+    return "${major}.${minor + 1}"
+}

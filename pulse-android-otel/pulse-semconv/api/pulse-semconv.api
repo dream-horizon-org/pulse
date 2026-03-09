@@ -49,6 +49,7 @@ public final class com/pulse/semconv/PulseInteractionAttributes {
 
 public final class com/pulse/semconv/PulseSessionAttributes {
 	public static final field INSTANCE Lcom/pulse/semconv/PulseSessionAttributes;
+	public static final field PULSE_METERING_SESSION_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SESSION_ANR_COUNT Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SESSION_CRASH_COUNT Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SESSION_CRASH_NON_FATAL Lio/opentelemetry/api/common/AttributeKey;
