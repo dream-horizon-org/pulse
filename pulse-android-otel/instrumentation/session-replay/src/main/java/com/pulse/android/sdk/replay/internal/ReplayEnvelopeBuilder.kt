@@ -31,7 +31,7 @@ internal object ReplayEnvelopeBuilder {
             put("project_id", projectId)
             put("user_id", userId.ifEmpty { ANONYMOUS_USER_ID })
             put("properties", properties)
-        }.toString()
+        }.toString() ?: "{}"
     }
 
     /** Returns a string suitable for logging, e.g. "session_id: abc-123" or "session_ids: a, b" for batches. */

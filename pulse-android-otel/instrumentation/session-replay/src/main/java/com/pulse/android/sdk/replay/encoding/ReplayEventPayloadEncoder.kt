@@ -32,7 +32,7 @@ public object ReplayEventPayloadEncoder {
                 },
             )
         }
-        return arr.toString()
+        return arr.toString() ?: "[]"
     }
 
     private fun toJsonValue(value: Any?): Any? {
