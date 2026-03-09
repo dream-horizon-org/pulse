@@ -23,10 +23,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     
-    let globalAttributes: [String: PulseAttributeValue] = [
-      "global.string": PulseAttributeValue.string("test_string_value"),
-      "global.number": PulseAttributeValue.int(42),
-      "global.bool": PulseAttributeValue.bool(true),
+    let globalAttributes: [String: AttributeValue] = [
+      "global.string": AttributeValue.string("test_string_value"),
+      "global.number": AttributeValue.int(42),
+      "global.bool": AttributeValue.bool(true),
     ]
     
     // Example: Initialize with instrumentations configuration
@@ -34,7 +34,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     PulseSDK.initialize(
       endpointBaseUrl: "http://127.0.0.1:4318",
       projectId: "default",
-      endpointHeaders: nil,
       globalAttributes: globalAttributes,
       instrumentations: { config in
         // Configure URLSession instrumentation

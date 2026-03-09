@@ -12,7 +12,7 @@ public class PulseReactNativeOtelLogger: NSObject {
         properties: NSDictionary?
     ) {
         let params = AttributeValueConverter.convertToSwift(properties)
-        PulseKit.shared.trackEvent(
+        Pulse.shared.trackEvent(
             name: event,
             observedTimeStampInMs: observedTimeMs,
             params: params
@@ -38,7 +38,7 @@ public class PulseReactNativeOtelLogger: NSObject {
         params[PulseOtelConstants.ATTR_ERROR_SOURCE] = AttributeValue.string(PulseOtelConstants.ERROR_SOURCE_JS)
         params[PulseAttributes.pulseType] = AttributeValue.string(isFatal ? PulseAttributes.PulseTypeValues.crash : PulseAttributes.PulseTypeValues.nonFatal)
 
-        PulseKit.shared.trackNonFatal(
+        Pulse.shared.trackNonFatal(
             name: errorMessage,
             observedTimeStampInMs: Int64(observedTimeMs),
             params: params

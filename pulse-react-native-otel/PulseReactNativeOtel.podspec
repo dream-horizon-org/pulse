@@ -22,6 +22,10 @@ Pod::Spec.new do |s|
     'SWIFT_INSTALL_OBJC_HEADER' => 'YES'
   }
 
+  s.user_target_xcconfig = {
+    'OTHER_CFLAGS' => '$(inherited) -I"${PODS_CONFIGURATION_BUILD_DIR}/PulseReactNativeOtel/Swift Compatibility Header"'
+  }
+
   s.dependency 'PulseKit', '0.0.1'
 
   install_modules_dependencies(s)

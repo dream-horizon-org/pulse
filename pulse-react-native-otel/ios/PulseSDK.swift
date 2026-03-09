@@ -61,7 +61,7 @@ public class PulseSDK: NSObject {
             resource?(&attributes)
         }
 
-        PulseKit.shared.initialize(
+        Pulse.shared.initialize(
             endpointBaseUrl: endpointBaseUrl,
             projectId: projectId,
             configEndpointUrl: configEndpointUrl,
@@ -77,24 +77,24 @@ public class PulseSDK: NSObject {
     }
   
     public func isSDKInitialized() -> Bool {
-      return PulseKit.shared.isSDKInitialized()
+      return Pulse.shared.isSDKInitialized()
     }
   
     public func setUserId(_ id: String?) {
-        PulseKit.shared.setUserId(id)
+        Pulse.shared.setUserId(id)
     }
 
     public static func setUserProperty(name: String, value: AttributeValue?) {
-        PulseKit.shared.setUserProperty(name: name, value: value)
+        Pulse.shared.setUserProperty(name: name, value: value)
     }
 
     public static func setUserProperties(_ properties: [String: AttributeValue]) {
         let asOptional = properties.mapValues { Optional.some($0) }
-        PulseKit.shared.setUserProperties(asOptional)
+        Pulse.shared.setUserProperties(asOptional)
     }
 
     public static func setUserProperties(_ builderAction: (inout [String: AttributeValue?]) -> Void) {
-        PulseKit.shared.setUserProperties(builderAction)
+        Pulse.shared.setUserProperties(builderAction)
     }
 
     public static func trackEvent(
@@ -102,7 +102,7 @@ public class PulseSDK: NSObject {
         observedTimeStampInMs: Double,
         params: [String: AttributeValue] = [:]
     ) {
-        PulseKit.shared.trackEvent(
+        Pulse.shared.trackEvent(
             name: name,
             observedTimeStampInMs: observedTimeStampInMs,
             params: params
@@ -114,7 +114,7 @@ public class PulseSDK: NSObject {
         observedTimeStampInMs: Int64,
         params: [String: AttributeValue] = [:]
     ) {
-        PulseKit.shared.trackNonFatal(
+        Pulse.shared.trackNonFatal(
             name: name,
             observedTimeStampInMs: observedTimeStampInMs,
             params: params
@@ -126,7 +126,7 @@ public class PulseSDK: NSObject {
         observedTimeStampInMs: Int64,
         params: [String: AttributeValue] = [:]
     ) {
-        PulseKit.shared.trackNonFatal(
+        Pulse.shared.trackNonFatal(
             error: error,
             observedTimeStampInMs: observedTimeStampInMs,
             params: params
@@ -137,7 +137,7 @@ public class PulseSDK: NSObject {
         name: String,
         params: [String: AttributeValue] = [:]
     ) -> Span {
-        return PulseKit.shared.startSpan(name: name, params: params)
+        return Pulse.shared.startSpan(name: name, params: params)
     }
 
     public static func trackSpan<T>(
@@ -145,36 +145,36 @@ public class PulseSDK: NSObject {
         params: [String: AttributeValue] = [:],
         action: () throws -> T
     ) rethrows -> T {
-        return try PulseKit.shared.trackSpan(name: name, params: params, action: action)
+        return try Pulse.shared.trackSpan(name: name, params: params, action: action)
     }
 
     public static func getOpenTelemetry() -> OpenTelemetry? {
-        return PulseKit.shared.getOpenTelemetry()
+        return Pulse.shared.getOpenTelemetry()
     }
 
     public static func getOtelOrNull() -> OpenTelemetry? {
-        return PulseKit.shared.getOtelOrNull()
+        return Pulse.shared.getOtelOrNull()
     }
 
     public static func getOtelOrThrow() -> OpenTelemetry {
-        return PulseKit.shared.getOtelOrThrow()
+        return Pulse.shared.getOtelOrThrow()
     }
 
     // MARK: - RN bridge only (@objc; PulseAttributeValue overloads)
   
     @objc(pulseSetUserId:)
     public static func setUserId(_ userId: String?) {
-        PulseKit.shared.setUserId(userId)
+        Pulse.shared.setUserId(userId)
     }
   
     @objc(pulseSetUserProperty:value:)
     public static func setUserProperty(name: String, value: PulseAttributeValue?) {
-        PulseKit.shared.setUserProperty(name: name, value: value?.swiftValue)
+        Pulse.shared.setUserProperty(name: name, value: value?.swiftValue)
     }
 
     @objc(pulseSetUserProperties:)
     public static func setUserProperties(_ properties: [String: PulseAttributeValue]) {
-        PulseKit.shared.setUserProperties(properties.toSwiftAttributes())
+        Pulse.shared.setUserProperties(properties.toSwiftAttributes())
     }
 
     @objc(pulseTrackEvent:observedTimeStampInMs:params:)
@@ -183,7 +183,7 @@ public class PulseSDK: NSObject {
         observedTimeStampInMs: Double,
         params: [String: PulseAttributeValue]
     ) {
-        PulseKit.shared.trackEvent(
+        Pulse.shared.trackEvent(
             name: name,
             observedTimeStampInMs: observedTimeStampInMs,
             params: params.toSwiftAttributes()
@@ -196,7 +196,7 @@ public class PulseSDK: NSObject {
         observedTimeStampInMs: Int64,
         params: [String: PulseAttributeValue]
     ) {
-        PulseKit.shared.trackNonFatal(
+        Pulse.shared.trackNonFatal(
             name: name,
             observedTimeStampInMs: observedTimeStampInMs,
             params: params.toSwiftAttributes()
@@ -205,7 +205,7 @@ public class PulseSDK: NSObject {
   
     @objc(pulseIsInitialized)
     public static func isSDKInitialized() -> Bool {
-        return PulseKit.shared.isSDKInitialized()
+        return Pulse.shared.isSDKInitialized()
     }
 
     @objc(pulseGetAllFeatures)
