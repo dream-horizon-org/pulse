@@ -1,6 +1,10 @@
 pipeline {
     agent {
-        node { label 'ec2-pulse-ui-fleet' }
+        node { label 'pulse-ui-build-ec2-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
     }
 
     environment {

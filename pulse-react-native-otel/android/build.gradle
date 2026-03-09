@@ -81,6 +81,7 @@ def pulse_version = "0.0.4-alpha"
 dependencies {
   implementation("com.facebook.react:react-android")
 
+  api("org.dreamhorizon:pulse-android-api:$pulse_version")
   api("org.dreamhorizon:android-agent:$pulse_version") {
     exclude group: "com.squareup.okhttp3", module: "okhttp-jvm"
   }
