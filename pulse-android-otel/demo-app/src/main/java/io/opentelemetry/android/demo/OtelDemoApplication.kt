@@ -49,7 +49,7 @@ class OtelDemoApplication : Application() {
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
                 dataCollectionState = PulseDataCollectionConsent.ALLOWED,
-                projectId = "project-123",
+                projectId = "default",
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },
