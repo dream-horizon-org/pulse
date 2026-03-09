@@ -2,7 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../../../../test-utils/renderWithProviders";
 import { ChatMessageList } from "../ChatMessageList";
-import { mockMessages } from "../../../__tests__/__mocks__/chatMocks";
+import { mockMessages } from "../../../__mocks__/chatMocks";
 import { AI_CHAT_TEXTS, SUGGESTED_QUERIES } from "../../../AiChat.constants";
 
 describe("ChatMessageList", () => {
@@ -35,7 +35,9 @@ describe("ChatMessageList", () => {
     );
 
     expect(screen.getByText(AI_CHAT_TEXTS.WELCOME_TITLE)).toBeInTheDocument();
-    expect(screen.getByText(AI_CHAT_TEXTS.WELCOME_SUBTITLE)).toBeInTheDocument();
+    expect(
+      screen.getByText(AI_CHAT_TEXTS.WELCOME_SUBTITLE),
+    ).toBeInTheDocument();
   });
 
   it("renders suggestion chips in empty state", () => {

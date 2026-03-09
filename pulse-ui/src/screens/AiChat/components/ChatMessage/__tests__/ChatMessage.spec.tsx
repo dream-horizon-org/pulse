@@ -5,7 +5,7 @@ import {
   mockMessages,
   mockMessageWithSql,
   mockStreamingMessage,
-} from "../../../__tests__/__mocks__/chatMocks";
+} from "../../../__mocks__/chatMocks";
 
 describe("ChatMessage", () => {
   it("renders user message text", () => {

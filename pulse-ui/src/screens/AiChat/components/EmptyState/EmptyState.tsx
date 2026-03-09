@@ -1,4 +1,4 @@
-import { Box, Stack, Title, Text } from "@mantine/core";
+import { Box, Stack, Title, Text, UnstyledButton } from "@mantine/core";
 import { IconSparkles } from "@tabler/icons-react";
 import { AI_CHAT_TEXTS, SUGGESTED_QUERIES } from "../../AiChat.constants";
 import { EmptyStateProps } from "./EmptyState.interface";
@@ -15,13 +15,13 @@ export const EmptyState = ({ onSelectSuggestion }: EmptyStateProps) => (
     </Text>
     <Box className={classes.chips}>
       {SUGGESTED_QUERIES.map((query) => (
-        <Box
+        <UnstyledButton
           key={query}
           className={classes.chip}
           onClick={() => onSelectSuggestion(query)}
         >
           {query}
-        </Box>
+        </UnstyledButton>
       ))}
     </Box>
   </Stack>

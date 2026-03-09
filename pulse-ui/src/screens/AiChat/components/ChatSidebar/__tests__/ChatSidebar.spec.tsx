@@ -2,7 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../../../../test-utils/renderWithProviders";
 import { ChatSidebar } from "../ChatSidebar";
-import { mockSessions } from "../../../__tests__/__mocks__/chatMocks";
+import { mockSessions } from "../../../__mocks__/chatMocks";
 import { AI_CHAT_TEXTS } from "../../../AiChat.constants";
 
 describe("ChatSidebar", () => {
