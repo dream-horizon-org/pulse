@@ -1,9 +1,9 @@
 // Session Replay - Dynamic Quick Filters Hook
 // Fetches quick filter configuration from API
 
-import { useState, useEffect } from 'react';
-import { sessionReplayService } from '../../../services/sessionReplay/SessionReplayService';
-import { GetQuickFiltersResponse } from '../../../services/sessionReplay/types';
+import { useState, useEffect } from "react";
+import { sessionReplayService } from "../../../services/sessionReplay/SessionReplayService";
+import { GetQuickFiltersResponse } from "../../../services/sessionReplay/types";
 
 interface UseQuickFiltersResult {
   quickFilters: GetQuickFiltersResponse | null;
@@ -13,7 +13,8 @@ interface UseQuickFiltersResult {
 }
 
 export function useQuickFilters(): UseQuickFiltersResult {
-  const [quickFilters, setQuickFilters] = useState<GetQuickFiltersResponse | null>(null);
+  const [quickFilters, setQuickFilters] =
+    useState<GetQuickFiltersResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -25,7 +26,7 @@ export function useQuickFilters(): UseQuickFiltersResult {
       setQuickFilters(response);
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to fetch quick filters:', err);
+      console.error("Failed to fetch quick filters:", err);
     } finally {
       setLoading(false);
     }

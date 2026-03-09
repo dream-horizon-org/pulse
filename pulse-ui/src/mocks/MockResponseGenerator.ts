@@ -9,9 +9,9 @@ import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
-import { 
-  mockNotificationChannels, 
-  mockAlertSeverities, 
+import {
+  mockNotificationChannels,
+  mockAlertSeverities,
   mockAlertScopes,
   mockAlertMetrics,
   mockAlertFilters,
@@ -167,7 +167,8 @@ export class MockResponseGenerator {
 
     // Dashboard filters endpoint (MUST come before /v1/interactions to avoid being caught by job endpoints)
     if (
-      (pathname.includes("/telemetry-filters") || pathname.includes("/filter-options")) &&
+      (pathname.includes("/telemetry-filters") ||
+        pathname.includes("/filter-options")) &&
       method === "GET"
     ) {
       return this.handleDashboardFiltersEndpoint(pathname, method, request);
@@ -304,6 +305,14 @@ export class MockResponseGenerator {
       return this.handleSdkConfigEndpoints(pathname, method, request);
     }
 
+    // Sessions Listing API: POST /v1/sessions/listing, GET /v1/sessions/filters
+    if (
+      pathname.includes("/v1/sessions/listing") ||
+      pathname.includes("/v1/sessions/filters")
+    ) {
+      return this.handleV1SessionsEndpoints(pathname, method, request);
+    }
+
     // Session Replay endpoints (singular - new feature)
     if (pathname.includes("/session-replay")) {
       return this.handleSessionReplayEndpoints(pathname, method, request);
@@ -428,12 +437,12 @@ export class MockResponseGenerator {
         data: {
           rules: [
             "os_version",
-            "app_version", 
+            "app_version",
             "country",
             "platform",
             "state",
             "device",
-            "network"
+            "network",
           ],
           features: [
             "interaction",
@@ -446,7 +455,7 @@ export class MockResponseGenerator {
             "custom_events",
             "rn_screen_load",
             "rn_screen_interactive",
-          ]
+          ],
         },
         status: 200,
       };
@@ -457,7 +466,7 @@ export class MockResponseGenerator {
       return {
         data: {
           scope: ["logs", "traces", "metrics", "baggage"],
-          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"]
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
         },
         status: 200,
       };
@@ -474,7 +483,8 @@ export class MockResponseGenerator {
         status: 404,
         error: {
           code: "NOT_FOUND",
-          message: "No active configuration found. Please create a configuration first.",
+          message:
+            "No active configuration found. Please create a configuration first.",
           cause: "No active config exists",
         },
       };
@@ -609,18 +619,20 @@ export class MockResponseGenerator {
     // Handle token verify endpoint
     if (pathname.includes("/token/verify") && method === "GET") {
       // Check if authorization header is present
-      const authHeader = request.headers?.["authorization"] || 
-                        request.headers?.["Authorization"] || "";
-      
+      const authHeader =
+        request.headers?.["authorization"] ||
+        request.headers?.["Authorization"] ||
+        "";
+
       // Extract token from "Bearer <token>" format
       const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      
+
       // Validate token - consider it valid if it's a mock token or starts with "mock_"
-      const isValid = token.length > 0 && (
-        token.startsWith("mock_") || 
-        token.startsWith("Bearer mock_") ||
-        token.includes("access_token")
-      );
+      const isValid =
+        token.length > 0 &&
+        (token.startsWith("mock_") ||
+          token.startsWith("Bearer mock_") ||
+          token.includes("access_token"));
 
       return {
         data: {
@@ -686,18 +698,12 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    if (
-      pathname.includes("/telemetry-filters") &&
-      method === "GET"
-    ) {
+    if (pathname.includes("/telemetry-filters") && method === "GET") {
       return mockJobResponses.getDashboardFilters;
     }
 
     // Handle interaction filter options endpoint (/v1/interactions/filter-options)
-    if (
-      pathname.includes("/filter-options") &&
-      method === "GET"
-    ) {
+    if (pathname.includes("/filter-options") && method === "GET") {
       // Get unique users from actual job data
       const jobs = this.dataStore.getJobs();
       const uniqueUsers = Array.from(
@@ -714,11 +720,10 @@ export class MockResponseGenerator {
       return {
         data: {
           statuses: statuses,
-          createdBy: uniqueUsers.length > 0 ? uniqueUsers : [
-            "user1@example.com",
-            "user2@example.com",
-            "user3@example.com",
-          ],
+          createdBy:
+            uniqueUsers.length > 0
+              ? uniqueUsers
+              : ["user1@example.com", "user2@example.com", "user3@example.com"],
         },
         status: 200,
       };
@@ -769,20 +774,24 @@ export class MockResponseGenerator {
           console.log(
             `[Mock Server] Found interaction: ${job.interactionName}`,
           );
-          
+
           // Transform eventSequence to match interface (eventName -> name, propName -> name in props)
-          const transformedEvents = (job.eventSequence || []).map((event: any) => ({
-            name: event.eventName || event.name,
-            props: (event.props || []).map((prop: any) => ({
-              name: prop.propName || prop.name,
-              value: prop.propValue || prop.value,
-              operator: prop.operator,
-            })),
-            isBlacklisted: event.isBlacklisted,
-          }));
+          const transformedEvents = (job.eventSequence || []).map(
+            (event: any) => ({
+              name: event.eventName || event.name,
+              props: (event.props || []).map((prop: any) => ({
+                name: prop.propName || prop.name,
+                value: prop.propValue || prop.value,
+                operator: prop.operator,
+              })),
+              isBlacklisted: event.isBlacklisted,
+            }),
+          );
 
           // Transform globalBlacklistedEvents similarly
-          const transformedGlobalBlacklistedEvents = (job.globalBlacklistedEvents || []).map((event: any) => ({
+          const transformedGlobalBlacklistedEvents = (
+            job.globalBlacklistedEvents || []
+          ).map((event: any) => ({
             name: event.eventName || event.name,
             props: (event.props || []).map((prop: any) => ({
               name: prop.propName || prop.name,
@@ -845,16 +854,16 @@ export class MockResponseGenerator {
         // Apply userEmail filter (filter by createdBy)
         if (userEmailFilter) {
           jobs = jobs.filter(
-            (job) => job.createdBy?.toLowerCase() === userEmailFilter.toLowerCase(),
+            (job) =>
+              job.createdBy?.toLowerCase() === userEmailFilter.toLowerCase(),
           );
         }
 
         // Apply interactionName filter (search)
         if (interactionNameFilter) {
           const searchLower = interactionNameFilter.toLowerCase();
-          jobs = jobs.filter(
-            (job) =>
-              job.interactionName?.toLowerCase().includes(searchLower),
+          jobs = jobs.filter((job) =>
+            job.interactionName?.toLowerCase().includes(searchLower),
           );
         }
 
@@ -901,7 +910,7 @@ export class MockResponseGenerator {
         method === "POST"
       ) {
         const requestBody = JSON.parse(request.body || "{}");
-        
+
         // Check if interaction with same name already exists
         const existingJob = this.dataStore.findJobByName(requestBody.name);
         if (existingJob) {
@@ -935,7 +944,9 @@ export class MockResponseGenerator {
             })),
             isBlacklisted: event.isBlacklisted,
           })),
-          globalBlacklistedEvents: (requestBody.globalBlacklistedEvents || []).map((event: any) => ({
+          globalBlacklistedEvents: (
+            requestBody.globalBlacklistedEvents || []
+          ).map((event: any) => ({
             eventName: event.name,
             props: (event.props || []).map((prop: any) => ({
               propName: prop.name,
@@ -1016,15 +1027,16 @@ export class MockResponseGenerator {
         }
 
         if (jobDetails.globalBlacklistedEvents) {
-          updates.globalBlacklistedEvents = jobDetails.globalBlacklistedEvents.map((event: any) => ({
-            eventName: event.name,
-            props: (event.props || []).map((prop: any) => ({
-              propName: prop.name,
-              propValue: prop.value,
-              operator: prop.operator,
-            })),
-            isBlacklisted: event.isBlacklisted,
-          }));
+          updates.globalBlacklistedEvents =
+            jobDetails.globalBlacklistedEvents.map((event: any) => ({
+              eventName: event.name,
+              props: (event.props || []).map((prop: any) => ({
+                propName: prop.name,
+                propValue: prop.value,
+                operator: prop.operator,
+              })),
+              isBlacklisted: event.isBlacklisted,
+            }));
         }
 
         this.dataStore.updateJobByName(interactionName, updates);
@@ -1224,7 +1236,8 @@ export class MockResponseGenerator {
       return {
         data: {
           users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@example.com"],
-          statuses: uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
+          statuses:
+            uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
         },
         status: 200,
       };
@@ -1239,8 +1252,11 @@ export class MockResponseGenerator {
       }
 
       // Find the job by useCaseId (interaction name)
-      const job = this.dataStore.findJobByName(useCaseId) ||
-        this.dataStore.getJobs().find((j) => j.name === useCaseId || j.useCaseName === useCaseId);
+      const job =
+        this.dataStore.findJobByName(useCaseId) ||
+        this.dataStore
+          .getJobs()
+          .find((j) => j.name === useCaseId || j.useCaseName === useCaseId);
 
       if (job) {
         // Update the job status
@@ -1350,26 +1366,41 @@ export class MockResponseGenerator {
     // GET /v1/alert/notificationChannels/:id - Returns a single notification channel by ID
     // @see backend GetAlertNotificationChannelById.java
     // NOTE: This must come BEFORE the general GET to avoid being caught by the more general route
-    const channelByIdMatch = pathname.match(/\/alert\/notificationChannels\/(\d+)$/);
+    const channelByIdMatch = pathname.match(
+      /\/alert\/notificationChannels\/(\d+)$/,
+    );
     if (channelByIdMatch && method === "GET") {
       const channelId = parseInt(channelByIdMatch[1]);
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:", channelId);
+        console.log(
+          "[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:",
+          channelId,
+        );
       }
       const channel = mockNotificationChannels.find(
-        (c) => c.notification_channel_id === channelId
+        (c) => c.notification_channel_id === channelId,
       );
       if (channel) {
         return { data: channel, status: 200 };
       }
-      return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Notification channel not found", cause: "" } };
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Notification channel not found",
+          cause: "",
+        },
+      };
     }
 
     // GET /v1/alert/notificationChannels - Returns notification channels
     // @see backend AlertNotificationChannelResponseDto.java
     if (pathname.includes("/alert/notificationChannels") && method === "GET") {
       // Filter to only return active channels for the list endpoint
-      const activeChannels = mockNotificationChannels.filter((c) => c.is_active);
+      const activeChannels = mockNotificationChannels.filter(
+        (c) => c.is_active,
+      );
       return { data: activeChannels, status: 200 };
     }
 
@@ -1399,11 +1430,16 @@ export class MockResponseGenerator {
         const channelId = parseInt(channelIdMatch[1]);
         const body = JSON.parse(request.body || "{}");
         if (this.config.shouldLog()) {
-          console.log("[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:", channelId, "Body:", body);
+          console.log(
+            "[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:",
+            channelId,
+            "Body:",
+            body,
+          );
         }
         // Update in mock channels (in memory only)
         const channelIndex = mockNotificationChannels.findIndex(
-          (c) => c.notification_channel_id === channelId
+          (c) => c.notification_channel_id === channelId,
         );
         if (channelIndex !== -1) {
           mockNotificationChannels[channelIndex] = {
@@ -1414,27 +1450,41 @@ export class MockResponseGenerator {
           };
           return { data: true, status: 200 };
         }
-        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+        return {
+          data: null,
+          status: 404,
+          error: { code: "NOT_FOUND", message: "Channel not found", cause: "" },
+        };
       }
     }
 
     // DELETE /v1/alert/notificationChannels/:id - Delete notification channel
-    if (pathname.includes("/alert/notificationChannels/") && method === "DELETE") {
+    if (
+      pathname.includes("/alert/notificationChannels/") &&
+      method === "DELETE"
+    ) {
       const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
       if (channelIdMatch) {
         const channelId = parseInt(channelIdMatch[1]);
         if (this.config.shouldLog()) {
-          console.log("[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:", channelId);
+          console.log(
+            "[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:",
+            channelId,
+          );
         }
         // Remove from mock channels (in memory only)
         const channelIndex = mockNotificationChannels.findIndex(
-          (c) => c.notification_channel_id === channelId
+          (c) => c.notification_channel_id === channelId,
         );
         if (channelIndex !== -1) {
           mockNotificationChannels.splice(channelIndex, 1);
           return { data: true, status: 200 };
         }
-        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+        return {
+          data: null,
+          status: 404,
+          error: { code: "NOT_FOUND", message: "Channel not found", cause: "" },
+        };
       }
     }
 
@@ -1474,29 +1524,32 @@ export class MockResponseGenerator {
         // Generate mock evaluation history matching GetAlertEvaluationHistoryResponse
         // Format: Array of ScopeEvaluationHistory, each with scope_id, scope_name, and evaluation_history
         const now = Date.now();
-        
+
         // Get the alert's actual data from the datastore
         const alerts = this.dataStore.getAlerts();
         const alert = alerts.find((a: any) => a.alert_id === alertId);
-        
+
         if (!alert) {
           return { data: [], status: 200 };
         }
-        
+
         const alertStatus = alert.status || "NORMAL";
         const isAlertFiring = alertStatus === "FIRING";
         const isAlertNoData = alertStatus === "NO_DATA";
         const isAlertSnoozed = alertStatus === "SNOOZED" || alert.is_snoozed;
-        
+
         // Extract actual scope names and metrics from alert conditions
         // Each condition has: { alias, metric, metric_operator, threshold: { scopeName: value, ... } }
         const alertConditions = alert.alerts || [];
-        
+
         // Build scope configs from actual alert thresholds
         // Collect all unique scope names from all conditions
         const scopeNameSet = new Set<string>();
-        const scopeMetrics: Record<string, { metric: string; operator: string; threshold: number }[]> = {};
-        
+        const scopeMetrics: Record<
+          string,
+          { metric: string; operator: string; threshold: number }[]
+        > = {};
+
         alertConditions.forEach((condition: any) => {
           const thresholds = condition.threshold || {};
           Object.entries(thresholds).forEach(([scopeName, thresholdValue]) => {
@@ -1511,55 +1564,72 @@ export class MockResponseGenerator {
             });
           });
         });
-        
+
         const scopeNames = Array.from(scopeNameSet);
-        
+
         // Helper to generate human-readable metric values based on threshold
-        const generateMetricValue = (metric: string, threshold: number, operator: string, isFiring: boolean): string => {
+        const generateMetricValue = (
+          metric: string,
+          threshold: number,
+          operator: string,
+          isFiring: boolean,
+        ): string => {
           // Determine if we should be above or below threshold based on operator and firing state
-          const shouldExceed = (operator === "GREATER_THAN" && isFiring) || (operator === "LESS_THAN" && !isFiring);
-          
-          if (metric.includes("DURATION") || metric.includes("LOAD_TIME") || metric.includes("LATENCY")) {
+          const shouldExceed =
+            (operator === "GREATER_THAN" && isFiring) ||
+            (operator === "LESS_THAN" && !isFiring);
+
+          if (
+            metric.includes("DURATION") ||
+            metric.includes("LOAD_TIME") ||
+            metric.includes("LATENCY")
+          ) {
             // Duration metrics - values in ms
-            const value = shouldExceed 
-              ? threshold + Math.floor(Math.random() * 5) * 100 + 100  // Above threshold
-              : Math.max(100, threshold - Math.floor(Math.random() * 5) * 100 - 500); // Below threshold
+            const value = shouldExceed
+              ? threshold + Math.floor(Math.random() * 5) * 100 + 100 // Above threshold
+              : Math.max(
+                  100,
+                  threshold - Math.floor(Math.random() * 5) * 100 - 500,
+                ); // Below threshold
             return `${Math.round(value)}ms`;
           } else if (metric.includes("RATE") || metric.includes("5XX")) {
             // Rate metrics - typically 0-1 or 0-100
             if (threshold < 1) {
               // Decimal rate (0.05 = 5%)
               const pctThreshold = threshold * 100;
-              const value = shouldExceed 
+              const value = shouldExceed
                 ? pctThreshold + 2 + Math.floor(Math.random() * 3)
-                : Math.max(0.1, pctThreshold - 2 - Math.floor(Math.random() * 2));
+                : Math.max(
+                    0.1,
+                    pctThreshold - 2 - Math.floor(Math.random() * 2),
+                  );
               return `${value.toFixed(1)}%`;
             } else {
               // Percentage already
-              const value = shouldExceed 
+              const value = shouldExceed
                 ? threshold + 5 + Math.floor(Math.random() * 5)
                 : Math.max(1, threshold - 5 - Math.floor(Math.random() * 5));
               return `${value.toFixed(1)}%`;
             }
           } else if (metric === "APDEX") {
             // APDEX score 0-1
-            const value = shouldExceed 
+            const value = shouldExceed
               ? Math.min(0.99, threshold + 0.05 + Math.random() * 0.05)
               : Math.max(0.5, threshold - 0.1 - Math.random() * 0.1);
             return value.toFixed(2);
           } else if (metric.includes("COUNT")) {
             // Count metrics
-            const value = shouldExceed 
+            const value = shouldExceed
               ? threshold + Math.floor(Math.random() * 50) + 20
               : Math.max(0, threshold - Math.floor(Math.random() * 30) - 10);
             return `${Math.round(value)}`;
           } else {
             // Generic numeric
-            const value = shouldExceed 
+            const value = shouldExceed
               ? threshold * 1.2 + Math.random() * threshold * 0.2
               : threshold * 0.7 + Math.random() * threshold * 0.2;
-            return typeof threshold === 'number' && threshold < 1 
-              ? value.toFixed(2) 
+            return typeof threshold === "number" && threshold < 1
+              ? value.toFixed(2)
               : `${Math.round(value)}`;
           }
         };
@@ -1568,12 +1638,12 @@ export class MockResponseGenerator {
         const history = scopeNames.map((scopeName, idx) => {
           const evaluationHistory = [];
           const metricsForScope = scopeMetrics[scopeName] || [];
-          
+
           for (let i = 0; i < 12; i++) {
             // Determine state for this evaluation entry
             let isFiring: boolean;
             let stateValue: string;
-            
+
             if (isAlertNoData && i < 3) {
               stateValue = "NO_DATA";
               isFiring = false;
@@ -1591,13 +1661,18 @@ export class MockResponseGenerator {
               }
               stateValue = isFiring ? "FIRING" : "NORMAL";
             }
-            
+
             const evalTime = now - i * 3600000;
-            
+
             // Generate evaluation_result with actual metrics for this scope
             const metricReadings: Record<string, string> = {};
             metricsForScope.forEach(({ metric, operator, threshold }) => {
-              metricReadings[metric] = generateMetricValue(metric, threshold, operator, isFiring);
+              metricReadings[metric] = generateMetricValue(
+                metric,
+                threshold,
+                operator,
+                isFiring,
+              );
             });
 
             evaluationHistory.push({
@@ -1616,7 +1691,11 @@ export class MockResponseGenerator {
         });
 
         if (this.config.shouldLog()) {
-          console.log("[Mock Server] EVALUATION_HISTORY - Generated", history.length, "scopes");
+          console.log(
+            "[Mock Server] EVALUATION_HISTORY - Generated",
+            history.length,
+            "scopes",
+          );
         }
 
         return {
@@ -1664,50 +1743,54 @@ export class MockResponseGenerator {
     if (pathname.includes("/alert") && method === "GET") {
       const url = this.parseURL(request.url);
       let alerts = this.dataStore.getAlerts();
-      
+
       // Apply status filter
       const statusFilter = url.searchParams.get("status");
       if (statusFilter) {
         alerts = alerts.filter((a: any) => a.status === statusFilter);
       }
-      
+
       // Apply scope filter
       const scopeFilter = url.searchParams.get("scope");
       if (scopeFilter) {
         alerts = alerts.filter((a: any) => a.scope === scopeFilter);
       }
-      
+
       // Apply name search filter
       const nameFilter = url.searchParams.get("name");
       if (nameFilter) {
-        alerts = alerts.filter((a: any) => 
-          a.name.toLowerCase().includes(nameFilter.toLowerCase())
+        alerts = alerts.filter((a: any) =>
+          a.name.toLowerCase().includes(nameFilter.toLowerCase()),
         );
       }
-      
+
       // Apply created_by filter
       const createdByFilter = url.searchParams.get("created_by");
       if (createdByFilter) {
         alerts = alerts.filter((a: any) => a.created_by === createdByFilter);
       }
-      
+
       // Apply updated_by filter
       const updatedByFilter = url.searchParams.get("updated_by");
       if (updatedByFilter) {
         alerts = alerts.filter((a: any) => a.updated_by === updatedByFilter);
       }
-      
+
       // Apply pagination
       const offset = parseInt(url.searchParams.get("offset") || "0");
       const limit = parseInt(url.searchParams.get("limit") || "12");
       const totalAlerts = alerts.length;
       const paginatedAlerts = alerts.slice(offset, offset + limit);
-      
+
       if (this.config.shouldLog()) {
-        console.log(`[Mock Server] GET_ALERTS - Filters: status=${statusFilter}, scope=${scopeFilter}, name=${nameFilter}`);
-        console.log(`[Mock Server] GET_ALERTS - Total: ${totalAlerts}, Returning: ${paginatedAlerts.length}`);
+        console.log(
+          `[Mock Server] GET_ALERTS - Filters: status=${statusFilter}, scope=${scopeFilter}, name=${nameFilter}`,
+        );
+        console.log(
+          `[Mock Server] GET_ALERTS - Total: ${totalAlerts}, Returning: ${paginatedAlerts.length}`,
+        );
       }
-      
+
       return {
         data: {
           total_alerts: totalAlerts,
@@ -2629,7 +2712,9 @@ export class MockResponseGenerator {
     // Response must be an array of TableMetadata matching TableMetadataResponse type
     if (pathname.includes("/query/tables") && method === "GET") {
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET /query/tables - Returning table metadata");
+        console.log(
+          "[Mock Server] GET /query/tables - Returning table metadata",
+        );
       }
       return {
         data: [
@@ -2652,7 +2737,9 @@ export class MockResponseGenerator {
     // Get query history
     if (pathname.includes("/query/history") && method === "GET") {
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET /query/history - Returning query history");
+        console.log(
+          "[Mock Server] GET /query/history - Returning query history",
+        );
       }
       const history = generateMockQueryHistory();
       return {
@@ -2665,11 +2752,14 @@ export class MockResponseGenerator {
     if (pathname.includes("/query/job/") && method === "DELETE") {
       const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
       const jobId = jobIdMatch ? jobIdMatch[1] : "";
-      
+
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] DELETE /query/job/ - Cancelling job:", jobId);
+        console.log(
+          "[Mock Server] DELETE /query/job/ - Cancelling job:",
+          jobId,
+        );
       }
-      
+
       const result = cancelQueryJob(jobId);
       return {
         data: result,
@@ -2683,28 +2773,71 @@ export class MockResponseGenerator {
       const sessionId = sessionGetMatch[1];
       const session = this.getAiChatSession(sessionId);
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET /query/ai/session/", sessionId, session ? "found" : "not found");
+        console.log(
+          "[Mock Server] GET /query/ai/session/",
+          sessionId,
+          session ? "found" : "not found",
+        );
       }
       if (!session) {
-        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Session not found", cause: "Session ID not in store" } };
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: "Session not found",
+            cause: "Session ID not in store",
+          },
+        };
       }
       return { data: session, status: 200 };
     }
 
     // AI Chat Session - POST /query/ai/session (save for sharing)
-    if (pathname.includes("/query/ai/session") && !pathname.match(/\/query\/ai\/session\/[^/]+/) && method === "POST") {
-      let session: { id: string; messages: unknown[]; pinnedFindings: unknown[]; selectedMessageId: string | null; createdAt: number; updatedAt: number; title?: string };
+    if (
+      pathname.includes("/query/ai/session") &&
+      !pathname.match(/\/query\/ai\/session\/[^/]+/) &&
+      method === "POST"
+    ) {
+      let session: {
+        id: string;
+        messages: unknown[];
+        pinnedFindings: unknown[];
+        selectedMessageId: string | null;
+        createdAt: number;
+        updatedAt: number;
+        title?: string;
+      };
       try {
         session = JSON.parse(request.body || "{}");
       } catch {
-        return { data: null, status: 400, error: { code: "INVALID_REQUEST", message: "Invalid JSON body", cause: "Could not parse request body" } };
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Invalid JSON body",
+            cause: "Could not parse request body",
+          },
+        };
       }
       if (!session?.id) {
-        return { data: null, status: 400, error: { code: "INVALID_REQUEST", message: "Session id required", cause: "Missing session id in body" } };
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Session id required",
+            cause: "Missing session id in body",
+          },
+        };
       }
       this.saveAiChatSession(session);
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] POST /query/ai/session - Saved session", session.id);
+        console.log(
+          "[Mock Server] POST /query/ai/session - Saved session",
+          session.id,
+        );
       }
       return { data: { ok: true, id: session.id }, status: 200 };
     }
@@ -2742,10 +2875,16 @@ export class MockResponseGenerator {
       }
 
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] AI Query:", naturalLanguageQuery.substring(0, 100));
+        console.log(
+          "[Mock Server] AI Query:",
+          naturalLanguageQuery.substring(0, 100),
+        );
       }
 
-      const aiResult = generateAiQueryResponse(naturalLanguageQuery, requestBody.context);
+      const aiResult = generateAiQueryResponse(
+        naturalLanguageQuery,
+        requestBody.context,
+      );
       return {
         data: aiResult,
         status: 200,
@@ -2786,7 +2925,10 @@ export class MockResponseGenerator {
       }
 
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] Submitting query:", sql.substring(0, 100) + "...");
+        console.log(
+          "[Mock Server] Submitting query:",
+          sql.substring(0, 100) + "...",
+        );
       }
 
       // Check if we should return immediate results
@@ -2826,7 +2968,7 @@ export class MockResponseGenerator {
       // Extract job ID from pathname (stop at / or ? or end of string)
       const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
       let jobId = jobIdMatch ? jobIdMatch[1] : "";
-      
+
       // Also strip query params if somehow included
       if (jobId.includes("?")) {
         jobId = jobId.split("?")[0];
@@ -2847,17 +2989,20 @@ export class MockResponseGenerator {
       console.log("[Mock Server] Getting job status for:", jobId);
 
       const jobStatus = getQueryJobStatus(jobId);
-      console.log("[Mock Server] Job status result:", JSON.stringify(jobStatus));
-      
+      console.log(
+        "[Mock Server] Job status result:",
+        JSON.stringify(jobStatus),
+      );
+
       // Map SUCCEEDED to COMPLETED to match interface expectations
       const statusMap: Record<string, string> = {
-        "SUCCEEDED": "COMPLETED",
-        "QUEUED": "QUEUED",
-        "RUNNING": "RUNNING",
-        "FAILED": "FAILED",
+        SUCCEEDED: "COMPLETED",
+        QUEUED: "QUEUED",
+        RUNNING: "RUNNING",
+        FAILED: "FAILED",
       };
       const mappedStatus = statusMap[jobStatus.status] || jobStatus.status;
-      
+
       let response;
       if (mappedStatus === "COMPLETED" && jobStatus.results) {
         response = {
@@ -2890,7 +3035,10 @@ export class MockResponseGenerator {
         };
       }
 
-      console.log("[Mock Server] Returning job status response:", JSON.stringify(response));
+      console.log(
+        "[Mock Server] Returning job status response:",
+        JSON.stringify(response),
+      );
       return response;
     }
 
@@ -5210,12 +5358,322 @@ ${
   }
 
   /**
+   * Handle Sessions Listing API (contract: POST /v1/sessions/listing, GET /v1/sessions/filters)
+   */
+  private handleV1SessionsEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    if (pathname.includes("/v1/sessions/listing") && method === "POST") {
+      const body = request.body ? JSON.parse(request.body) : {};
+      const limit = Math.min(100, Math.max(1, body.page?.limit ?? 10));
+      const cursor = body.page?.cursor;
+
+      const allSessions = this.getMockSessionItems();
+      let startIndex = 0;
+      if (cursor && typeof atob === "function") {
+        try {
+          const decoded = JSON.parse(decodeURIComponent(atob(cursor)));
+          startIndex = Number(decoded.offset) || 0;
+        } catch {
+          startIndex = 0;
+        }
+      }
+      const slice = allSessions.slice(startIndex, startIndex + limit + 1);
+      const hasMore = slice.length > limit;
+      const sessions = slice.slice(0, limit);
+      const nextCursor =
+        hasMore && sessions.length > 0 && typeof btoa === "function"
+          ? btoa(
+              encodeURIComponent(
+                JSON.stringify({
+                  offset: startIndex + limit,
+                  lastId: sessions[sessions.length - 1]?.sessionId,
+                }),
+              ),
+            )
+          : null;
+
+      return {
+        data: {
+          sessions,
+          page: { limit, nextCursor, hasMore },
+        },
+        status: 200,
+      };
+    }
+
+    if (pathname.includes("/v1/sessions/filters") && method === "GET") {
+      return { data: this.getMockSessionsFilterConfig(), status: 200 };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: `Sessions endpoint not found: ${method} ${pathname}`,
+        cause: "Invalid endpoint or method",
+      },
+    };
+  }
+
+  private getMockSessionItems(): Array<{
+    sessionId: string;
+    startTime: string;
+    durationMs: number;
+    user: string | null;
+    qualityScore: number | null;
+    networkErrors: number;
+    interactionErrors: number;
+    crashCount: number;
+    anrCount: number;
+    nonFatal: number;
+    slowInteractionCount: number;
+    frozenFrameCount: number;
+    platform: string;
+    spanCount: number;
+    journey: string[];
+  }> {
+    const now = Date.now();
+    return [
+      {
+        sessionId: "sess_mock_001",
+        startTime: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+        durationMs: 159000,
+        user: "user_3456",
+        qualityScore: 0.86,
+        networkErrors: 2,
+        interactionErrors: 1,
+        crashCount: 0,
+        anrCount: 0,
+        nonFatal: 0,
+        slowInteractionCount: 1,
+        frozenFrameCount: 0,
+        platform: "Android",
+        spanCount: 34,
+        journey: ["/home", "/search", "/contest"],
+      },
+      {
+        sessionId: "sess_mock_002",
+        startTime: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
+        durationMs: 92000,
+        user: null,
+        qualityScore: 0.72,
+        networkErrors: 0,
+        interactionErrors: 0,
+        crashCount: 0,
+        anrCount: 0,
+        nonFatal: 1,
+        slowInteractionCount: 0,
+        frozenFrameCount: 2,
+        platform: "iOS",
+        spanCount: 22,
+        journey: ["/login", "/home", "/offers"],
+      },
+      {
+        sessionId: "sess_mock_003",
+        startTime: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
+        durationMs: 310000,
+        user: "user_1234",
+        qualityScore: 0.95,
+        networkErrors: 0,
+        interactionErrors: 0,
+        crashCount: 0,
+        anrCount: 0,
+        nonFatal: 0,
+        slowInteractionCount: 0,
+        frozenFrameCount: 0,
+        platform: "Web",
+        spanCount: 48,
+        journey: ["/home", "/search", "/contest", "/pay", "/wallet"],
+      },
+      {
+        sessionId: "sess_mock_004",
+        startTime: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+        durationMs: 45000,
+        user: "user_5678",
+        qualityScore: null,
+        networkErrors: 3,
+        interactionErrors: 2,
+        crashCount: 1,
+        anrCount: 0,
+        nonFatal: 2,
+        slowInteractionCount: 2,
+        frozenFrameCount: 1,
+        platform: "Android",
+        spanCount: 12,
+        journey: ["/home"],
+      },
+      {
+        sessionId: "sess_mock_005",
+        startTime: new Date(now - 8 * 60 * 60 * 1000).toISOString(),
+        durationMs: 210000,
+        user: "user_9012",
+        qualityScore: 0.68,
+        networkErrors: 1,
+        interactionErrors: 1,
+        crashCount: 0,
+        anrCount: 1,
+        nonFatal: 0,
+        slowInteractionCount: 3,
+        frozenFrameCount: 0,
+        platform: "iOS",
+        spanCount: 41,
+        journey: ["/home", "/profile", "/settings"],
+      },
+    ];
+  }
+
+  private getMockSessionsFilterConfig(): {
+    quick: Array<{ key: string; displayName: string; description: string }>;
+    advanced: Array<{
+      categoryKey: string;
+      displayName: string;
+      fields: Array<{
+        key: string;
+        displayName: string;
+        dataType: "string" | "integer" | "float";
+        allowedOperators: Array<{
+          key: string;
+          label: string;
+          valueType: "single" | "array" | "range" | "none";
+        }>;
+      }>;
+    }>;
+  } {
+    return {
+      quick: [
+        {
+          key: "FAILED_INTERACTIONS",
+          displayName: "Failed Interactions",
+          description: "Sessions with at least one failed interaction",
+        },
+        {
+          key: "ERRORS_AND_CRASHES",
+          displayName: "Errors & Crashes",
+          description:
+            "Sessions with any error, crash, ANR, or non-fatal exception",
+        },
+      ],
+      advanced: [
+        {
+          categoryKey: "SESSION",
+          displayName: "Session Properties",
+          fields: [
+            {
+              key: "DURATION",
+              displayName: "Duration (ms)",
+              dataType: "integer",
+              allowedOperators: [
+                { key: "GT", label: "greater than", valueType: "single" },
+                { key: "LT", label: "less than", valueType: "single" },
+                {
+                  key: "GTE",
+                  label: "greater than or equal to",
+                  valueType: "single",
+                },
+                {
+                  key: "LTE",
+                  label: "less than or equal to",
+                  valueType: "single",
+                },
+                { key: "BETWEEN", label: "between", valueType: "range" },
+              ],
+            },
+            {
+              key: "QUALITY_SCORE",
+              displayName: "Quality Score",
+              dataType: "float",
+              allowedOperators: [
+                { key: "GT", label: "greater than", valueType: "single" },
+                { key: "LT", label: "less than", valueType: "single" },
+                {
+                  key: "GTE",
+                  label: "greater than or equal to",
+                  valueType: "single",
+                },
+                {
+                  key: "LTE",
+                  label: "less than or equal to",
+                  valueType: "single",
+                },
+                { key: "BETWEEN", label: "between", valueType: "range" },
+                { key: "IS_NULL", label: "is null", valueType: "none" },
+                { key: "IS_NOT_NULL", label: "is not null", valueType: "none" },
+              ],
+            },
+            {
+              key: "PLATFORM",
+              displayName: "Platform",
+              dataType: "string",
+              allowedOperators: [
+                { key: "EQ", label: "equals", valueType: "single" },
+                { key: "IN", label: "is one of", valueType: "array" },
+              ],
+            },
+          ],
+        },
+        {
+          categoryKey: "DEVICE",
+          displayName: "Device",
+          fields: [
+            {
+              key: "APP_VERSION",
+              displayName: "App Version",
+              dataType: "string",
+              allowedOperators: [
+                { key: "EQ", label: "equals", valueType: "single" },
+                { key: "IN", label: "is one of", valueType: "array" },
+              ],
+            },
+            {
+              key: "OS_VERSION",
+              displayName: "OS Version",
+              dataType: "string",
+              allowedOperators: [
+                { key: "EQ", label: "equals", valueType: "single" },
+                { key: "IN", label: "is one of", valueType: "array" },
+              ],
+            },
+          ],
+        },
+        {
+          categoryKey: "STABILITY",
+          displayName: "Stability / Errors",
+          fields: [
+            {
+              key: "CRASHES",
+              displayName: "Crashes",
+              dataType: "integer",
+              allowedOperators: [
+                { key: "EQ", label: "equals", valueType: "single" },
+                { key: "GT", label: "greater than", valueType: "single" },
+              ],
+            },
+            {
+              key: "NETWORK_ERRORS",
+              displayName: "Network Errors",
+              dataType: "integer",
+              allowedOperators: [
+                { key: "EQ", label: "equals", valueType: "single" },
+                { key: "GT", label: "greater than", valueType: "single" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  /**
    * Handle Session Replay endpoints
    */
   private handleSessionReplayEndpoints(
     pathname: string,
     method: string,
-    request: MockRequest
+    request: MockRequest,
   ): MockResponse {
     const {
       generateSessionsResponse,

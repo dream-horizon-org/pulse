@@ -12,12 +12,26 @@ interface UseFilterSchemaResult {
   refetch: () => Promise<void>;
 }
 
-export function useFilterSchema(projectId?: string): UseFilterSchemaResult {
+interface UseFilterSchemaOptions {
+  projectId?: string;
+  skip?: boolean;
+}
+
+export function useFilterSchema(
+  projectIdOrOptions?: string | UseFilterSchemaOptions,
+): UseFilterSchemaResult {
+  const options: UseFilterSchemaOptions =
+    typeof projectIdOrOptions === "string"
+      ? { projectId: projectIdOrOptions }
+      : projectIdOrOptions ?? {};
+  const { projectId, skip = false } = options;
+
   const [schema, setSchema] = useState<GetFilterSchemaResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!skip);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchSchema = async () => {
+    if (skip) return;
     try {
       setLoading(true);
       setError(null);
@@ -25,15 +39,19 @@ export function useFilterSchema(projectId?: string): UseFilterSchemaResult {
       setSchema(response);
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to fetch filter schema:', err);
+      console.error("Failed to fetch filter schema:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (skip) {
+      setLoading(false);
+      return;
+    }
     fetchSchema();
-  }, [projectId]);
+  }, [projectId, skip]);
 
   return {
     schema,

@@ -11,8 +11,13 @@ import {
   GetFilterSchemaResponse,
   GetDateRangeConfigResponse,
   GetQuickFiltersResponse,
-} from './types';
-import { makeRequestToServer } from '../../helpers/makeRequestToServer';
+  SessionListingRequest,
+  SessionListingResponse,
+  FilterConfigResponse,
+} from "./types";
+import { makeRequestToServer } from "../../helpers/makeRequestToServer";
+import { getCookies } from "../../helpers/cookies";
+import { COOKIES_KEY } from "../../constants";
 
 export class SessionReplayService {
   private baseURL: string;
@@ -26,44 +31,46 @@ export class SessionReplayService {
    */
   async getSessions(request: GetSessionsRequest): Promise<GetSessionsResponse> {
     const url = new URL(`${this.baseURL}/api/v1/session-replay/sessions`);
-    
-    // Add query parameters
+
     if (request.dateRange) {
-      url.searchParams.append('dateRange', JSON.stringify(request.dateRange));
+      url.searchParams.append("dateRange", JSON.stringify(request.dateRange));
     }
     if (request.environment) {
-      url.searchParams.append('environment', request.environment);
+      url.searchParams.append("environment", request.environment);
     }
     if (request.project) {
-      url.searchParams.append('project', request.project);
+      url.searchParams.append("project", request.project);
     }
     if (request.searchQuery) {
-      url.searchParams.append('searchQuery', request.searchQuery);
+      url.searchParams.append("searchQuery", request.searchQuery);
     }
     if (request.filters) {
-      url.searchParams.append('filters', JSON.stringify(request.filters));
+      url.searchParams.append("filters", JSON.stringify(request.filters));
     }
     if (request.advancedFilters) {
-      url.searchParams.append('advancedFilters', JSON.stringify(request.advancedFilters));
+      url.searchParams.append(
+        "advancedFilters",
+        JSON.stringify(request.advancedFilters),
+      );
     }
     if (request.page) {
-      url.searchParams.append('page', request.page.toString());
+      url.searchParams.append("page", request.page.toString());
     }
     if (request.pageSize) {
-      url.searchParams.append('pageSize', request.pageSize.toString());
+      url.searchParams.append("pageSize", request.pageSize.toString());
     }
     if (request.sortBy) {
-      url.searchParams.append('sortBy', request.sortBy);
+      url.searchParams.append("sortBy", request.sortBy);
     }
     if (request.sortOrder) {
-      url.searchParams.append('sortOrder', request.sortOrder);
+      url.searchParams.append("sortOrder", request.sortOrder);
     }
 
     try {
       const response = await makeRequestToServer({
         url: url.toString(),
         init: {
-          method: 'GET',
+          method: "GET",
         },
       });
 
@@ -75,7 +82,7 @@ export class SessionReplayService {
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error fetching sessions:', error);
+      console.error("Error fetching sessions:", error);
       throw error;
     }
   }
@@ -83,26 +90,30 @@ export class SessionReplayService {
   /**
    * Get detailed information about a specific session
    */
-  async getSessionDetail(request: GetSessionDetailRequest): Promise<GetSessionDetailResponse> {
+  async getSessionDetail(
+    request: GetSessionDetailRequest,
+  ): Promise<GetSessionDetailResponse> {
     const url = `${this.baseURL}/api/v1/session-replay/sessions/${request.sessionId}`;
 
     try {
       const response = await makeRequestToServer({
         url,
         init: {
-          method: 'GET',
+          method: "GET",
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch session detail: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch session detail: ${response.statusText}`,
+        );
       }
 
       const json = await response.json();
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error fetching session detail:', error);
+      console.error("Error fetching session detail:", error);
       throw error;
     }
   }
@@ -110,14 +121,16 @@ export class SessionReplayService {
   /**
    * Bulk tag sessions
    */
-  async bulkTagSessions(request: BulkTagRequest): Promise<{ success: boolean }> {
+  async bulkTagSessions(
+    request: BulkTagRequest,
+  ): Promise<{ success: boolean }> {
     const url = `${this.baseURL}/api/v1/session-replay/sessions/bulk-tag`;
 
     try {
       const response = await makeRequestToServer({
         url,
         init: {
-          method: 'POST',
+          method: "POST",
           body: JSON.stringify(request),
         },
       });
@@ -130,7 +143,7 @@ export class SessionReplayService {
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error tagging sessions:', error);
+      console.error("Error tagging sessions:", error);
       throw error;
     }
   }
@@ -138,14 +151,16 @@ export class SessionReplayService {
   /**
    * Bulk delete sessions
    */
-  async bulkDeleteSessions(request: BulkDeleteRequest): Promise<{ success: boolean }> {
+  async bulkDeleteSessions(
+    request: BulkDeleteRequest,
+  ): Promise<{ success: boolean }> {
     const url = `${this.baseURL}/api/v1/session-replay/sessions/bulk-delete`;
 
     try {
       const response = await makeRequestToServer({
         url,
         init: {
-          method: 'DELETE',
+          method: "DELETE",
           body: JSON.stringify(request),
         },
       });
@@ -158,7 +173,7 @@ export class SessionReplayService {
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error deleting sessions:', error);
+      console.error("Error deleting sessions:", error);
       throw error;
     }
   }
@@ -166,14 +181,16 @@ export class SessionReplayService {
   /**
    * Export sessions
    */
-  async exportSessions(request: ExportSessionsRequest): Promise<ExportSessionsResponse> {
+  async exportSessions(
+    request: ExportSessionsRequest,
+  ): Promise<ExportSessionsResponse> {
     const url = `${this.baseURL}/api/v1/session-replay/sessions/export`;
 
     try {
       const response = await makeRequestToServer({
         url,
         init: {
-          method: 'POST',
+          method: "POST",
           body: JSON.stringify(request),
         },
       });
@@ -186,7 +203,7 @@ export class SessionReplayService {
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error exporting sessions:', error);
+      console.error("Error exporting sessions:", error);
       throw error;
     }
   }
@@ -195,30 +212,34 @@ export class SessionReplayService {
    * Get filter schema configuration
    * Returns platform-specific filters based on project
    */
-  async getFilterSchema(request: GetFilterSchemaRequest = {}): Promise<GetFilterSchemaResponse> {
+  async getFilterSchema(
+    request: GetFilterSchemaRequest = {},
+  ): Promise<GetFilterSchemaResponse> {
     const url = new URL(`${this.baseURL}/api/v1/session-replay/filters/schema`);
-    
+
     if (request.projectId) {
-      url.searchParams.append('projectId', request.projectId);
+      url.searchParams.append("projectId", request.projectId);
     }
 
     try {
       const response = await makeRequestToServer({
         url: url.toString(),
         init: {
-          method: 'GET',
+          method: "GET",
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch filter schema: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch filter schema: ${response.statusText}`,
+        );
       }
 
       const json = await response.json();
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error fetching filter schema:', error);
+      console.error("Error fetching filter schema:", error);
       throw error;
     }
   }
@@ -234,19 +255,21 @@ export class SessionReplayService {
       const response = await makeRequestToServer({
         url,
         init: {
-          method: 'GET',
+          method: "GET",
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch date range config: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch date range config: ${response.statusText}`,
+        );
       }
 
       const json = await response.json();
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error fetching date range config:', error);
+      console.error("Error fetching date range config:", error);
       throw error;
     }
   }
@@ -262,25 +285,102 @@ export class SessionReplayService {
       const response = await makeRequestToServer({
         url,
         init: {
-          method: 'GET',
+          method: "GET",
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch quick filters: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch quick filters: ${response.statusText}`,
+        );
       }
 
       const json = await response.json();
       // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
       return json.data || json;
     } catch (error) {
-      console.error('Error fetching quick filters:', error);
+      console.error("Error fetching quick filters:", error);
+      throw error;
+    }
+  }
+
+  private sessionListingHeaders(): Record<string, string> {
+    const tenantId = getCookies(COOKIES_KEY.TENANT_ID);
+    const headers: Record<string, string> = {};
+    if (tenantId) {
+      headers["X-Tenant-ID"] = tenantId;
+    }
+    return headers;
+  }
+
+  /**
+   * Sessions Listing API – cursor-paginated session list with filters, sort, search.
+   * POST /api/v1/sessions/listing
+   */
+  async postSessionsListing(
+    request: SessionListingRequest,
+  ): Promise<SessionListingResponse> {
+    const url = `${this.baseURL}/api/v1/sessions/listing`;
+
+    try {
+      const response = await makeRequestToServer({
+        url,
+        init: {
+          method: "POST",
+          headers: this.sessionListingHeaders(),
+          body: JSON.stringify(request),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch sessions listing: ${response.statusText}`,
+        );
+      }
+
+      const json = await response.json();
+      // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
+      return json.data || json;
+    } catch (error) {
+      console.error("Error fetching sessions listing:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sessions Filters API – filter config for quick filters and advanced builder.
+   * GET /api/v1/sessions/filters
+   */
+  async getSessionsFilters(): Promise<FilterConfigResponse> {
+    const url = `${this.baseURL}/api/v1/sessions/filters`;
+
+    try {
+      const response = await makeRequestToServer({
+        url,
+        init: {
+          method: "GET",
+          headers: this.sessionListingHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch sessions filters: ${response.statusText}`,
+        );
+      }
+
+      const json = await response.json();
+      // MockServer wraps responses in {data: ..., error: ...}, unwrap for mock mode
+      return json.data || json;
+    } catch (error) {
+      console.error("Error fetching sessions filters:", error);
       throw error;
     }
   }
 }
 
 // Create singleton instance
-const API_BASE_URL = process.env.REACT_APP_PULSE_SERVER_URL || 'http://localhost:8080';
+const API_BASE_URL =
+  process.env.REACT_APP_PULSE_SERVER_URL || "http://localhost:8080";
 
 export const sessionReplayService = new SessionReplayService(API_BASE_URL);

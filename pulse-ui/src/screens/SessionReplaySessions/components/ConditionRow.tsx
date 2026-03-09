@@ -11,15 +11,15 @@ import {
   Text,
   Tooltip,
   Box,
-} from '@mantine/core';
-import { IconTrash } from '@tabler/icons-react';
+} from "@mantine/core";
+import { IconTrash } from "@tabler/icons-react";
 import {
   FilterCondition,
   FilterCategory,
   FilterOperator,
   FilterFieldDefinition,
   OPERATOR_LABELS,
-} from '../../../services/sessionReplay/filterConfig';
+} from "../../../services/sessionReplay/filterConfig";
 
 interface ConditionRowProps {
   condition: FilterCondition;
@@ -31,6 +31,7 @@ interface ConditionRowProps {
   getFieldsByCategory: (category: FilterCategory) => FilterFieldDefinition[];
   getFieldDefinition: (fieldKey: string) => FilterFieldDefinition | null;
   categoryOptions: Array<{ value: string; label: string }>;
+  operatorLabels?: Record<string, string>;
 }
 
 export function ConditionRow({
@@ -43,6 +44,7 @@ export function ConditionRow({
   getFieldsByCategory,
   getFieldDefinition,
   categoryOptions,
+  operatorLabels,
 }: ConditionRowProps) {
   const categoryFields = getFieldsByCategory(condition.category);
   const fieldDef = getFieldDefinition(condition.field);
@@ -50,9 +52,12 @@ export function ConditionRow({
   const renderValueInput = (
     fieldDef: FilterFieldDefinition,
     condition: FilterCondition,
-    onUpdate: (updates: Partial<FilterCondition>) => void
+    onUpdate: (updates: Partial<FilterCondition>) => void,
   ) => {
-    if (condition.operator === 'exists' || condition.operator === 'not_exists') {
+    if (
+      condition.operator === "exists" ||
+      condition.operator === "not_exists"
+    ) {
       return (
         <Text size="sm" c="dimmed" style={{ paddingTop: 8 }}>
           No value needed for this operator
@@ -61,17 +66,17 @@ export function ConditionRow({
     }
 
     switch (fieldDef.type) {
-      case 'string':
+      case "string":
         return (
           <TextInput
             label="Value"
             placeholder="Enter value"
-            value={condition.value ?? ''}
+            value={condition.value ?? ""}
             onChange={(e) => onUpdate({ value: e.target.value })}
           />
         );
 
-      case 'number':
+      case "number":
         return (
           <NumberInput
             label="Value"
@@ -81,7 +86,7 @@ export function ConditionRow({
           />
         );
 
-      case 'boolean':
+      case "boolean":
         return (
           <Group gap="xs" style={{ paddingTop: 8 }}>
             <Text size="sm">Value:</Text>
@@ -95,7 +100,7 @@ export function ConditionRow({
           </Group>
         );
 
-      case 'enum':
+      case "enum":
         return (
           <Select
             label="Value"
@@ -116,7 +121,7 @@ export function ConditionRow({
           <TextInput
             label="Value"
             placeholder="Enter value"
-            value={condition.value?.toString() ?? ''}
+            value={condition.value?.toString() ?? ""}
             onChange={(e) => onUpdate({ value: e.target.value })}
           />
         );
@@ -124,7 +129,7 @@ export function ConditionRow({
   };
 
   return (
-    <Paper p="md" withBorder radius="md" style={{ backgroundColor: 'white' }}>
+    <Paper p="md" withBorder radius="md" style={{ backgroundColor: "white" }}>
       <Stack gap="sm">
         <Group justify="space-between" wrap="nowrap">
           <Badge color="teal" variant="light" size="lg" radius="sm">
@@ -143,7 +148,9 @@ export function ConditionRow({
               label="Category"
               placeholder="Select category"
               value={condition.category}
-              onChange={(value) => value && onCategoryChange(value as FilterCategory)}
+              onChange={(value) =>
+                value && onCategoryChange(value as FilterCategory)
+              }
               data={categoryOptions}
             />
             <Select
@@ -164,11 +171,16 @@ export function ConditionRow({
               label="Operator"
               placeholder="Select operator"
               value={condition.operator}
-              onChange={(value) => value && onUpdate({ operator: value as FilterOperator })}
+              onChange={(value) =>
+                value && onUpdate({ operator: value as FilterOperator })
+              }
               data={
                 fieldDef?.operators.map((op) => ({
                   value: op,
-                  label: OPERATOR_LABELS[op],
+                  label:
+                    operatorLabels?.[op] ??
+                    OPERATOR_LABELS[op as keyof typeof OPERATOR_LABELS] ??
+                    op,
                 })) ?? []
               }
               disabled={!fieldDef}
@@ -179,7 +191,7 @@ export function ConditionRow({
           </Group>
 
           {fieldDef?.description && (
-            <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>
+            <Text size="xs" c="dimmed" style={{ fontStyle: "italic" }}>
               {fieldDef.description}
             </Text>
           )}

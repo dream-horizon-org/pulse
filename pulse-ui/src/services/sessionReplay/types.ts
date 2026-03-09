@@ -1,4 +1,4 @@
-import { FilterGroup } from './filterConfig';
+import { FilterGroup } from "./filterConfig";
 
 // API Request Types
 export interface GetSessionsRequest {
@@ -6,8 +6,8 @@ export interface GetSessionsRequest {
     start: string;
     end: string;
   };
-  environment?: 'production' | 'staging' | 'development' | 'all';
-  project?: 'ios' | 'android' | 'web' | 'all';
+  environment?: "production" | "staging" | "development" | "all";
+  project?: "ios" | "android" | "web" | "all";
   searchQuery?: string;
   filters?: {
     hasErrors?: boolean;
@@ -18,14 +18,21 @@ export interface GetSessionsRequest {
   };
   advancedFilters?: FilterGroup;
   drillDown?: {
-    type: 'conversion_loss' | 'affected_users' | 'sessions_with_issues' | 
-          'interaction' | 'journey' | 'cardinality' | 'error_pattern' | 'friction_hotspot';
+    type:
+      | "conversion_loss"
+      | "affected_users"
+      | "sessions_with_issues"
+      | "interaction"
+      | "journey"
+      | "cardinality"
+      | "error_pattern"
+      | "friction_hotspot";
     value: any;
   };
   page?: number;
   pageSize?: number;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 }
 
 // API Response Types
@@ -44,10 +51,10 @@ export interface SessionResponse {
   os: string;
   journey: string[];
   tags: SessionTagResponse[];
-  environment: 'production' | 'staging' | 'development';
-  project: 'ios' | 'android' | 'web';
+  environment: "production" | "staging" | "development";
+  project: "ios" | "android" | "web";
   metadata?: Record<string, any>;
-  
+
   // Investigation-focused fields (NEW)
   interactionQuality: number; // 0-10 scale
   issueSummary: IssueSummary;
@@ -64,16 +71,16 @@ export interface IssueSummary {
   issueCount: number; // Total count of issues
 }
 
-export type SessionOutcome = 
-  | 'completed'   // User finished their goal
-  | 'incomplete'  // Started but didn't finish
-  | 'drop_off'    // Early exit
-  | 'crashed';    // App/session crashed
+export type SessionOutcome =
+  | "completed" // User finished their goal
+  | "incomplete" // Started but didn't finish
+  | "drop_off" // Early exit
+  | "crashed"; // App/session crashed
 
 export interface SessionTagResponse {
-  type: 'rage' | 'slow' | 'new' | 'js_error' | 'network_fail' | 'dead_click';
+  type: "rage" | "slow" | "new" | "js_error" | "network_fail" | "dead_click";
   count?: number;
-  severity?: 'low' | 'medium' | 'high';
+  severity?: "low" | "medium" | "high";
 }
 
 export interface GetSessionsResponse {
@@ -109,7 +116,7 @@ export interface SegmentationMetrics {
 }
 
 export interface PlatformSegment {
-  platform: 'iOS' | 'Android' | 'Web';
+  platform: "iOS" | "Android" | "Web";
   sessionCount: number;
   errorRate: number;
   topIssue?: string; // Most common error type
@@ -117,7 +124,7 @@ export interface PlatformSegment {
 
 export interface AppVersionSegment {
   version: string; // e.g., "2.5.1"
-  platform: 'iOS' | 'Android' | 'Web';
+  platform: "iOS" | "Android" | "Web";
   sessionCount: number;
   errorRate: number;
   releaseDate?: string; // ISO date
@@ -148,7 +155,7 @@ export interface WebVitalMetric {
   p50: number;
   p75: number;
   p95: number;
-  rating: 'good' | 'needs-improvement' | 'poor';
+  rating: "good" | "needs-improvement" | "poor";
   sessionsGood: number;
   sessionsNeedsImprovement: number;
   sessionsPoor: number;
@@ -187,7 +194,7 @@ export interface HourlyPattern {
 export interface HourlyPerformance {
   hour: number; // 0-23
   avgResponseTime: number; // milliseconds
-  rating: 'excellent' | 'good' | 'fair' | 'poor';
+  rating: "excellent" | "good" | "fair" | "poor";
 }
 
 export interface TrendDataPoint {
@@ -223,7 +230,7 @@ export interface BrowserMetric {
 }
 
 export interface DeviceTypeMetric {
-  deviceType: 'mobile' | 'tablet' | 'desktop';
+  deviceType: "mobile" | "tablet" | "desktop";
   sessionCount: number;
   errorRate: number;
   avgPerformance: number;
@@ -232,35 +239,35 @@ export interface DeviceTypeMetric {
 // Investigation-focused metrics for Session Replay
 export interface SessionReplayMetrics {
   totalSessions: number;
-  
+
   // Critical Interaction Performance (PRIMARY - aligned with Pulse)
   criticalInteractions: CriticalInteractionPerformance[];
   estimatedImpact: BusinessImpact;
-  
+
   // Issue Intelligence (for UX/Design)
   topIssueHotspots: IssueHotspot[]; // Max 3, sorted by severity × hit rate
-  
+
   // Error Patterns (for Tech) - clusters identical errors to avoid watching duplicate sessions
   topErrorPatterns: ErrorPattern[]; // Max 3, sorted by severity × affected sessions
-  
+
   // Journey Analysis (for Product - path analysis)
   topJourneys?: JourneyPath[]; // Top 10 unique paths by frequency
-  
+
   // Segmentation (for Product - cardinality analysis)
   segmentation?: SegmentationMetrics;
-  
+
   // Performance Metrics (for RUM/Tech)
   performance?: PerformanceMetrics;
-  
+
   // Time-based Patterns (for monitoring trends)
   timePatterns?: TimeBasedPatterns;
-  
+
   // Geographic & Browser Distribution
   geographic?: GeographicMetrics;
-  
+
   // Context & Trends
   comparison: ComparisonMetrics;
-  
+
   // Legacy metrics (kept for backward compatibility during migration)
   /** @deprecated Use criticalInteractions instead */
   sessionsWithIssues?: number;
@@ -290,7 +297,7 @@ export interface CriticalInteractionPerformance {
   interactionName: string; // e.g., "tap_pay_button", "api_create_payment"
   displayName: string; // e.g., "Payment Button Tap", "Create Payment API"
   description?: string;
-  
+
   // Performance Metrics (SAME as Pulse's InteractionCard)
   apdexScore: number; // 0-1 scale (Pulse standard)
   errorRate: number; // Percentage of failed interactions (0-100)
@@ -298,45 +305,46 @@ export interface CriticalInteractionPerformance {
   p95Latency?: number; // 95th percentile latency in ms
   p99Latency?: number; // 99th percentile latency in ms
   poorUserPercentage: number; // % of users with "Poor" experience (0-100)
-  
+
   // Health Status (SAME as Pulse's InteractionCard)
-  healthStatus: 'Excellent' | 'Good' | 'Fair' | 'Poor'; // Based on Apdex thresholds
-  
+  healthStatus: "Excellent" | "Good" | "Fair" | "Poor"; // Based on Apdex thresholds
+
   // Attempt/Success breakdown
   totalAttempts: number;
   successfulAttempts: number;
   failedAttempts: number;
   uniqueUsers: number;
-  
+
   // Thresholds (from Pulse's server config)
   lowThreshold: number; // ms
   highThreshold: number; // ms
-  
+
   // Session context
   sessionsWithThisInteraction: number; // How many sessions have this interaction
-  
+
   // Optional business impact (if configured)
   estimatedLoss?: {
-    type: 'revenue' | 'conversion' | 'users';
+    type: "revenue" | "conversion" | "users";
     amount: number;
     unit: string; // "$", "%", "users"
-    period: 'hour' | 'day' | 'week' | 'month';
+    period: "hour" | "day" | "week" | "month";
   };
-  
-  severity: 'critical' | 'high' | 'medium' | 'low';
+
+  severity: "critical" | "high" | "medium" | "low";
 }
 
 export interface BusinessImpact {
   totalRevenueAtRisk: number;
-  revenueAtRiskPeriod: 'day' | 'week' | 'month'; // Time period for revenue estimate
+  revenueAtRiskPeriod: "day" | "week" | "month"; // Time period for revenue estimate
   affectedUsers: number;
   totalUsers: number; // Total users in period for context
   affectedUsersPercentage: number; // Percentage of total users
   conversionImpact: number; // percentage points lost (absolute, not relative)
   conversionBaseline: number; // Historical baseline for comparison
-  supportTicketCorrelation?: { // Optional - only if reliable correlation exists
+  supportTicketCorrelation?: {
+    // Optional - only if reliable correlation exists
     count: number;
-    confidence: 'high' | 'medium' | 'low';
+    confidence: "high" | "medium" | "low";
     totalTickets: number; // Total tickets in period
   };
 }
@@ -344,7 +352,12 @@ export interface BusinessImpact {
 // Issue Hotspots - tells UX where users struggle
 export interface IssueHotspot {
   location: string; // screen/page name
-  issueType: 'rage_click' | 'dead_click' | 'slow_interaction' | 'form_abandon' | 'error';
+  issueType:
+    | "rage_click"
+    | "dead_click"
+    | "slow_interaction"
+    | "form_abandon"
+    | "error";
   affectedSessions: number;
   totalSessionsAtLocation: number; // Total sessions that visited this location
   hitRate: number; // Percentage of sessions at this location that hit the issue
@@ -354,7 +367,7 @@ export interface IssueHotspot {
   struggleTimeRange: { min: number; max: number }; // Show distribution
   specificElement?: string; // e.g., "Submit Payment button"
   elementIdentifier?: string; // data-testid or id for dev debugging
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: "critical" | "high" | "medium" | "low";
 }
 
 // Error Pattern - clusters identical errors across sessions
@@ -362,7 +375,7 @@ export interface IssueHotspot {
 export interface ErrorPattern {
   errorSignature: string; // Unique identifier for this error type
   displayName: string; // Human-readable error (e.g., "POST /api/payment → 504 Gateway Timeout")
-  errorType: 'network' | 'javascript' | 'console' | 'crash'; // What we can detect from session data
+  errorType: "network" | "javascript" | "console" | "crash"; // What we can detect from session data
   count: number; // Total occurrences across all sessions
   affectedSessions: number; // How many sessions have this error
   uniqueUsers: number; // Unique users who hit this error
@@ -373,7 +386,7 @@ export interface ErrorPattern {
     count: number; // Errors on this platform
   }>;
   sampleSessionId: string; // ID of ONE representative session to watch
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: "critical" | "high" | "medium" | "low";
 }
 
 // Comparison & Trends - provides context
@@ -400,7 +413,7 @@ export interface ComparisonMetrics {
     previous: number;
     previousPercent: number;
     change: number; // Change in percentage points
-    trend: 'improving' | 'declining' | 'stable';
+    trend: "improving" | "declining" | "stable";
   };
   topDegradedFlows: Array<{
     flowName: string;
@@ -425,7 +438,7 @@ export interface GetSessionDetailResponse {
 export interface SessionEventResponse {
   id: string;
   timestamp: string;
-  type: 'click' | 'input' | 'navigation' | 'error' | 'network' | 'custom';
+  type: "click" | "input" | "navigation" | "error" | "network" | "custom";
   target?: string;
   value?: any;
   metadata?: Record<string, any>;
@@ -433,7 +446,7 @@ export interface SessionEventResponse {
 
 export interface TimelineEntry {
   timestamp: string;
-  type: 'page_view' | 'interaction' | 'error' | 'performance';
+  type: "page_view" | "interaction" | "error" | "performance";
   description: string;
   metadata?: Record<string, any>;
 }
@@ -450,7 +463,7 @@ export interface BulkDeleteRequest {
 
 export interface ExportSessionsRequest {
   sessionIds: string[];
-  format: 'csv' | 'json';
+  format: "csv" | "json";
 }
 
 export interface ExportSessionsResponse {
@@ -468,7 +481,7 @@ export interface FilterFieldDefinitionAPI {
   key: string;
   label: string;
   category: string;
-  type: 'string' | 'number' | 'boolean' | 'date' | 'enum';
+  type: "string" | "number" | "boolean" | "date" | "enum";
   operators: string[];
   enumValues?: Array<{ value: string; label: string }>;
   description?: string;
@@ -483,7 +496,7 @@ export interface FilterCategoryAPI {
 }
 
 export interface GetFilterSchemaResponse {
-  platform: 'web' | 'ios' | 'android';
+  platform: "web" | "ios" | "android";
   categories: FilterCategoryAPI[];
   operatorLabels: Record<string, string>;
 }
@@ -511,3 +524,112 @@ export interface QuickFilterAPI {
 export interface GetQuickFiltersResponse {
   filters: QuickFilterAPI[];
 }
+
+export type TimeRange = {
+  from: string; // ISO-8601 datetime (inclusive)
+  to: string; // ISO-8601 datetime (exclusive)
+};
+
+export type PageRequest = {
+  limit?: number; // 1..100 (default: 10)
+  cursor?: string; // opaque cursor from previous response
+};
+
+export type FilterValue = string | number | boolean | Array<string | number>;
+
+export type AdvancedFilterGroup = {
+  op: "AND" | "OR";
+  children: SessionListingFilterCondition[];
+};
+
+export type SessionListingFilterCondition = {
+  field: string; // FilterField enum name
+  operator: string; // Operator enum name
+  value?: FilterValue;
+};
+
+export type FiltersRequest = {
+  quick?: string[];
+  advanced?: AdvancedFilterGroup;
+};
+
+export type SortField =
+  | "START_TIME"
+  | "DURATION"
+  | "QUALITY_SCORE"
+  | "NETWORK_ERRORS"
+  | "CRASHES"
+  | "ANRS"
+  | "SLOW_INTERACTIONS"
+  | "SPAN_COUNT";
+
+export type SortDirection = "ASC" | "DESC";
+
+export type SessionListingRequest = {
+  projectId: string;
+  timeRange: TimeRange;
+  page?: PageRequest;
+  filters?: FiltersRequest;
+  query?: string;
+  sortBy?: SortField;
+  sortDirection?: SortDirection;
+};
+
+export type PageResponse = {
+  limit: number;
+  nextCursor?: string | null;
+  hasMore: boolean;
+};
+
+export type SessionItem = {
+  sessionId: string;
+  startTime: string;
+  durationMs: number;
+  user: string | null;
+  qualityScore: number | null;
+  networkErrors: number;
+  interactionErrors: number;
+  crashCount: number;
+  anrCount: number;
+  nonFatal: number;
+  slowInteractionCount: number;
+  frozenFrameCount: number;
+  platform: string;
+  spanCount: number;
+  journey: string[];
+};
+
+export type SessionListingResponse = {
+  sessions: SessionItem[];
+  page: PageResponse;
+};
+
+export type QuickFilterItem = {
+  key: string;
+  displayName: string;
+  description: string;
+};
+
+export type OperatorItem = {
+  key: string;
+  label: string;
+  valueType: "single" | "array" | "range" | "none";
+};
+
+export type FieldItem = {
+  key: string;
+  displayName: string;
+  dataType: "string" | "integer" | "float";
+  allowedOperators: OperatorItem[];
+};
+
+export type CategoryItem = {
+  categoryKey: string;
+  displayName: string;
+  fields: FieldItem[];
+};
+
+export type FilterConfigResponse = {
+  quick: QuickFilterItem[];
+  advanced: CategoryItem[];
+};
