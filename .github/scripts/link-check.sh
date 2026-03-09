@@ -10,13 +10,17 @@ DEPENDENCIES_DOCKERFILE="$SCRIPT_DIR/dependencies.dockerfile"
 
 # Extract lychee version from dependencies.dockerfile
 LYCHEE_VERSION=$(grep "FROM lycheeverse/lychee:" "$DEPENDENCIES_DOCKERFILE" | sed 's/.*FROM lycheeverse\/lychee:\([^ ]*\).*/\1/')
+echo "LYCHEE_VERSION: $LYCHEE_VERSION"
 
 # Build the lychee command with optional GitHub token
 CMD="lycheeverse/lychee:$LYCHEE_VERSION --verbose --config $(basename "$LYCHEE_CONFIG")"
 
 # Add GitHub token if available
 if [[ -n "$GITHUB_TOKEN" ]]; then
+    echo "GitHub token is present"
     CMD="$CMD --github-token $GITHUB_TOKEN"
+else
+    echo "GitHub token is missing"
 fi
 
 # Add the target directory
