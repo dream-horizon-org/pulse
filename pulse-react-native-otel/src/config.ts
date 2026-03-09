@@ -10,9 +10,13 @@ import {
   initializeNetworkInterceptor,
   uninstallNetworkInterceptor,
 } from './network-interceptor/initialization';
-import PulseReactNativeOtel from './NativePulseReactNativeOtel';
+import PulseReactNativeOtel, {
+  PulseDataCollectionConsent,
+} from './NativePulseReactNativeOtel';
 import type { PulseFeatureConfig } from './pulse.interface';
 import { PULSE_FEATURE_NAMES } from './pulse.constants';
+
+export { PulseDataCollectionConsent };
 
 export type NetworkHeaderConfig = {
   requestHeaders?: string[];
@@ -155,6 +159,16 @@ export function shutdown(): void {
   uninstallNavigationIntegration();
   PulseReactNativeOtel.shutdown();
   isShutdown = true;
+}
+
+/**
+ * Updates the data collection consent state.
+ */
+export function setDataCollectionState(
+  state: PulseDataCollectionConsent
+): void {
+  if (!isSupportedPlatform()) return;
+  PulseReactNativeOtel.setDataCollectionState(state);
 }
 
 export function createNavigationIntegrationWithConfig(

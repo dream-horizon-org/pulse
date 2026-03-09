@@ -41,7 +41,7 @@ public class SubmitQueryTest {
   @Test
   void shouldSubmitQuerySuccessfully(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
-      String queryString = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+      String queryString = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
       SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
@@ -79,7 +79,7 @@ public class SubmitQueryTest {
   @Test
   void shouldHandleCompletedQueryWithResults(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
-      String queryString = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+      String queryString = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
       SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
@@ -123,7 +123,7 @@ public class SubmitQueryTest {
   @Test
   void shouldHandleCompletedQueryWithoutResults(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
-      String queryString = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+      String queryString = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
       SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());
@@ -164,7 +164,7 @@ public class SubmitQueryTest {
   @Test
   void shouldHandleFailedQuery(io.vertx.core.Vertx vertx, VertxTestContext testContext) {
     vertx.runOnContext(v -> {
-      String queryString = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+      String queryString = "SELECT * FROM pulse_athena_db.otel_data_42 WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
       SubmitQueryRequestDto request = new SubmitQueryRequestDto(queryString);
 
       Timestamp now = new Timestamp(System.currentTimeMillis());

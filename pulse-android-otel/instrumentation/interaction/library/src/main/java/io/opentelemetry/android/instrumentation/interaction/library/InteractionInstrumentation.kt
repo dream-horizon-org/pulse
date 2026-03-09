@@ -11,7 +11,7 @@ import com.pulse.android.core.events
 import com.pulse.android.core.isErrored
 import com.pulse.android.core.markerEvents
 import com.pulse.android.core.timeSpanInNanos
-import com.pulse.otel.utils.toAttributes
+import com.pulse.utils.toAttributes
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
 import io.opentelemetry.api.common.Attributes

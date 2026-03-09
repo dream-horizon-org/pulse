@@ -1,11 +1,11 @@
 package com.pulse.sampling.core.exporters
 
-import com.pulse.otel.utils.toMap
 import com.pulse.sampling.core.PulseSignalMatcher
 import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import com.pulse.utils.toMap
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter

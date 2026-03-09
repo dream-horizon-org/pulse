@@ -1,6 +1,5 @@
 package com.pulse.sampling.core.exporters
 
-import com.pulse.otel.utils.toAttributes
 import com.pulse.sampling.core.PulseSignalMatcher
 import com.pulse.sampling.core.PulseSignalsAttrMatcher
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeProp
@@ -8,18 +7,11 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils.createFakeSignalMatchCo
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
-import io.opentelemetry.api.logs.Logger
-import io.opentelemetry.api.trace.SpanKind
-import io.opentelemetry.sdk.logs.SdkLoggerProvider
-import io.opentelemetry.sdk.logs.data.LogRecordData
+import com.pulse.utils.createLogRecordData
+import com.pulse.utils.createSpanData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
-import io.opentelemetry.sdk.logs.export.SimpleLogRecordProcessor
-import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.testing.exporter.InMemoryLogRecordExporter
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
-import io.opentelemetry.sdk.testing.trace.TestSpanData
-import io.opentelemetry.sdk.trace.data.SpanData
-import io.opentelemetry.sdk.trace.data.StatusData
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -175,21 +167,6 @@ class PulseSignalSelectExporterTest {
             assertThat(result.isSuccess).isTrue
         }
     }
-
-    private fun createSpanData(
-        name: String = "test-span",
-        attributes: Map<String, Any?> = emptyMap(),
-    ): SpanData =
-        TestSpanData
-            .builder()
-            .setName(name)
-            .setKind(SpanKind.INTERNAL)
-            .setStatus(StatusData.unset())
-            .setHasEnded(true)
-            .setStartEpochNanos(0)
-            .setEndEpochNanos(123)
-            .setAttributes(attributes.toAttributes())
-            .build()
 
     @Nested
     inner class LogExporterTest {
@@ -410,68 +387,5 @@ class PulseSignalSelectExporterTest {
             assertThat(result).isNotNull
             assertThat(result.isSuccess).isTrue
         }
-    }
-
-    private fun createLogRecordData(
-        body: String,
-        attributes: Map<String, Any?>,
-    ): LogRecordData {
-        val logExporter = InMemoryLogRecordExporter.create()
-        val loggerProvider =
-            SdkLoggerProvider
-                .builder()
-                .addLogRecordProcessor(SimpleLogRecordProcessor.create(logExporter))
-                .setResource(Resource.empty())
-                .build()
-
-        val logger: Logger = loggerProvider.loggerBuilder("test").build()
-        val logRecordBuilder = logger.logRecordBuilder()
-
-        attributes.forEach { (key, value) ->
-            when (value) {
-                is String -> {
-                    logRecordBuilder.setAttribute(
-                        io.opentelemetry.api.common.AttributeKey
-                            .stringKey(key),
-                        value,
-                    )
-                }
-                is Long -> {
-                    logRecordBuilder.setAttribute(
-                        io.opentelemetry.api.common.AttributeKey
-                            .longKey(key),
-                        value,
-                    )
-                }
-                is Double -> {
-                    logRecordBuilder.setAttribute(
-                        io.opentelemetry.api.common.AttributeKey
-                            .doubleKey(key),
-                        value,
-                    )
-                }
-                is Boolean -> {
-                    logRecordBuilder.setAttribute(
-                        io.opentelemetry.api.common.AttributeKey
-                            .booleanKey(key),
-                        value,
-                    )
-                }
-                else -> {
-                    logRecordBuilder.setAttribute(
-                        io.opentelemetry.api.common.AttributeKey
-                            .stringKey(key),
-                        value.toString(),
-                    )
-                }
-            }
-        }
-
-        logRecordBuilder.setBody(body)
-        logRecordBuilder.emit()
-
-        val finishedLogs = logExporter.finishedLogRecordItems
-        require(finishedLogs.isNotEmpty()) { "Failed to create log record" }
-        return finishedLogs[0]
     }
 }

@@ -1,0 +1,40 @@
+---
+description: Pull request conventions and template usage
+alwaysApply: true
+---
+
+# PR Workflow
+
+## PR Template
+
+Every PR must follow `.github/pull_request_template.md`:
+
+1. **Summary** — one or two plain-English lines
+2. **Context / Motivation** — why, link to `Closes #ID`
+3. **What Changed** — bullets grouped by: Backend, UI, Android SDK, React Native SDK, Deploy / Infra
+4. **Screenshots / Recordings** — required for UI changes, "N/A" otherwise
+
+## Labels
+
+PRs are auto-labeled by path:
+
+| Label | Paths |
+|-------|-------|
+| `backend` | `backend/server/**` |
+| `ui` | `pulse-ui/**` |
+| `android-sdk` | `pulse-android-otel/**` |
+| `rn-sdk` | `pulse-react-native-otel/**` |
+| `deploy` | `deploy/**` |
+| `docs` | `*.md`, `doc/**` |
+| `ci` | `.github/**` |
+
+## Branch Naming
+
+- Feature: `feat/<short-description>`
+- Fix: `fix/<short-description>`
+- Release: `release/v<major>.<minor>.x`
+
+## CI Checks
+
+- Backend: Maven verify + JaCoCo (35% overall, 80% changed) + Checkstyle
+- UI: TypeScript + ESLint + build (triggered by `ui` label)

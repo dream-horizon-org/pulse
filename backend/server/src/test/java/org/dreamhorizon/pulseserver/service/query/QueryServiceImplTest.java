@@ -57,8 +57,47 @@ public class QueryServiceImplTest {
   }
 
   @Test
+  void shouldRejectSubmitQueryWithNullUserEmail() {
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE date = '2025-12-23' AND hour = '11'";
+
+    var testObserver = queryService.submitQuery(query, null).test();
+
+    testObserver.assertError(IllegalArgumentException.class);
+    testObserver.assertError(error -> error.getMessage().contains("User email"));
+    verify(queryJobDao, never()).createJob(anyString(), anyString(), anyString());
+  }
+
+  @Test
+  void shouldRejectSubmitQueryWithEmptyUserEmail() {
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE date = '2025-12-23' AND hour = '11'";
+
+    var testObserver = queryService.submitQuery(query, "   ").test();
+
+    testObserver.assertError(IllegalArgumentException.class);
+    testObserver.assertError(error -> error.getMessage().contains("User email"));
+    verify(queryJobDao, never()).createJob(anyString(), anyString(), anyString());
+  }
+
+  @Test
+  void shouldHandleSubmitQueryFailure() {
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE date = '2025-12-23' AND hour = '11'";
+    String jobId = "job-123";
+
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
+    when(queryClient.submitQuery(anyString())).thenReturn(Single.error(new RuntimeException("Athena submit failed")));
+    when(queryJobDao.updateJobFailed(eq(jobId), anyString(), isNull()))
+        .thenReturn(Single.just(true));
+
+    var testObserver = queryService.submitQuery(query, "test@example.com").test();
+
+    testObserver.assertError(RuntimeException.class);
+    testObserver.assertError(error -> error.getMessage().contains("Athena submit failed"));
+    verify(queryJobDao).updateJobFailed(eq(jobId), ArgumentMatchers.contains("Failed to submit query"), isNull());
+  }
+
+  @Test
   void shouldRejectQueryWithoutTimestampFilter() {
-    String query = "SELECT * FROM pulse_athena_db.otel_data WHERE column1 = 'value'";
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE column1 = 'value'";
 
     var testObserver = queryService.submitQuery(query, "test@example.com").test();
 
@@ -80,7 +119,7 @@ public class QueryServiceImplTest {
 
   @Test
   void shouldRejectQueryWithoutWhereClause() {
-    String query = "SELECT * FROM pulse_athena_db.otel_data";
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant";
 
     var testObserver = queryService.submitQuery(query, "test@example.com").test();
 
@@ -91,7 +130,7 @@ public class QueryServiceImplTest {
 
   @Test
   void shouldAcceptQueryWithTimestampLiteral() {
-    String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'";
     String jobId = "job-123";
     String queryExecutionId = "exec-123";
 
@@ -129,7 +168,7 @@ public class QueryServiceImplTest {
 
   @Test
   void shouldSubmitQuerySuccessfully() {
-    String query = "SELECT * FROM pulse_athena_db.otel_data WHERE timestamp >= TIMESTAMP '2025-12-23 11:00:00' AND column1 = 'value'";
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE timestamp >= TIMESTAMP '2025-12-23 11:00:00' AND column1 = 'value'";
     String jobId = "job-123";
     String queryExecutionId = "exec-123";
     Long dataScannedBytes = 1000L;
@@ -168,8 +207,62 @@ public class QueryServiceImplTest {
   }
 
   @Test
+  void shouldHandleFailedQueryWithNullStateChangeReasonAndNullDataScanned() {
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE date = '2025-12-23' AND hour = '11'";
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Long initialDataScanned = 500L;
+
+    Timestamp submissionTime = new Timestamp(System.currentTimeMillis());
+    Timestamp completionTime = new Timestamp(System.currentTimeMillis() + 1000);
+    QueryExecutionInfo executionWithNulls = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.FAILED)
+        .stateChangeReason(null)
+        .dataScannedInBytes(null)
+        .submissionDateTime(submissionTime)
+        .completionDateTime(completionTime)
+        .build();
+
+    QueryJob failedJob = QueryJob.builder()
+        .jobId(jobId)
+        .queryString(query)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.FAILED)
+        .errorMessage("Query failed")
+        .createdAt(submissionTime)
+        .build();
+
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
+    when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
+    when(queryClient.getQueryExecution(queryExecutionId))
+        .thenReturn(Single.just(QueryExecutionInfo.builder()
+            .queryExecutionId(queryExecutionId)
+            .status(QueryStatus.RUNNING)
+            .dataScannedInBytes(initialDataScanned)
+            .submissionDateTime(submissionTime)
+            .build()))
+        .thenReturn(Single.just(executionWithNulls));
+    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), ArgumentMatchers.any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.FAILED));
+    when(queryJobDao.updateJobFailed(eq(jobId), eq("Query failed"), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), eq(initialDataScanned), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(failedJob));
+
+    QueryJob result = queryService.submitQuery(query, "test@example.com").blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.FAILED);
+    assertThat(result.getErrorMessage()).isEqualTo("Query failed");
+    verify(queryJobDao).updateJobStatistics(eq(jobId), eq(initialDataScanned), any(), any(), any(), any(Timestamp.class));
+  }
+
+  @Test
   void shouldHandleQueryFailure() {
-    String query = "SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND column1 = 'value'";
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00' AND column1 = 'value'";
     String jobId = "job-123";
     String queryExecutionId = "exec-123";
 
@@ -219,6 +312,62 @@ public class QueryServiceImplTest {
   }
 
   @Test
+  void shouldReturnJobWithNullResultsWhenFetchResultsFailsAfterRetries() {
+    String query = "SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE date = '2025-12-23' AND hour = '11'";
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Long dataScannedBytes = 1000L;
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    String resultLocation = "s3://bucket/path";
+
+    QueryExecutionInfo runningExecution = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.RUNNING)
+        .dataScannedInBytes(dataScannedBytes)
+        .submissionDateTime(now)
+        .build();
+    QueryExecutionInfo completedExecution = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.SUCCEEDED)
+        .resultLocation(resultLocation)
+        .dataScannedInBytes(dataScannedBytes)
+        .completionDateTime(now)
+        .build();
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryString(query)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.createJob(anyString(), anyString(), anyString())).thenReturn(Single.just(jobId));
+    when(queryClient.submitQuery(anyString())).thenReturn(Single.just(queryExecutionId));
+    when(queryClient.getQueryExecution(queryExecutionId))
+        .thenReturn(Single.just(runningExecution))
+        .thenReturn(Single.just(completedExecution))
+        .thenReturn(Single.just(completedExecution));
+    when(queryJobDao.updateJobWithExecutionId(anyString(), anyString(), any(QueryJobStatus.class), ArgumentMatchers.any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryJobDao.updateJobCompleted(eq(jobId), eq(resultLocation), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryClient.getQueryResults(eq(queryExecutionId), any(), isNull()))
+        .thenReturn(Single.error(new RuntimeException("Athena results unavailable")));
+    when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
+
+    QueryJob result = queryService.submitQuery(query, "test@example.com").blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getJobId()).isEqualTo(jobId);
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.COMPLETED);
+    assertThat(result.getResultData()).isNull();
+    assertThat(result.getDataScannedInBytes()).isEqualTo(dataScannedBytes);
+  }
+
+  @Test
   void shouldReturnJobNotFoundError() {
     String jobId = "job-123";
 
@@ -231,13 +380,67 @@ public class QueryServiceImplTest {
   }
 
   @Test
+  void shouldRefreshCompletedJobWithMissingStatistics() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    String resultLocation = "s3://bucket/path";
+
+    QueryJob jobWithMissingStats = QueryJob.builder()
+        .jobId(jobId)
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.COMPLETED)
+        .dataScannedInBytes(null)
+        .executionTimeMillis(null)
+        .createdAt(now)
+        .updatedAt(now)
+        .build();
+
+    QueryJob updatedJob = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.COMPLETED)
+        .resultLocation(resultLocation)
+        .dataScannedInBytes(1000L)
+        .executionTimeMillis(5000L)
+        .createdAt(now)
+        .updatedAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.SUCCEEDED)
+        .resultLocation(resultLocation)
+        .dataScannedInBytes(1000L)
+        .executionTimeMillis(5000L)
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(jobWithMissingStats))
+        .thenReturn(Single.just(updatedJob));
+    when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobCompleted(eq(jobId), eq(resultLocation), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getDataScannedInBytes()).isEqualTo(1000L);
+    verify(queryClient).getQueryExecution(queryExecutionId);
+  }
+
+  @Test
   void shouldReturnJobInFinalState() {
     String jobId = "job-123";
     Timestamp now = new Timestamp(System.currentTimeMillis());
 
     QueryJob job = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .status(QueryJobStatus.COMPLETED)
         .createdAt(now)
         .updatedAt(now)
@@ -252,6 +455,95 @@ public class QueryServiceImplTest {
   }
 
   @Test
+  void shouldReturnJobInFinalStateCancelledWithoutExecutionId() {
+    String jobId = "job-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .status(QueryJobStatus.CANCELLED)
+        .createdAt(now)
+        .updatedAt(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
+
+    QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.CANCELLED);
+    verify(queryClient, never()).getQueryStatus(anyString());
+  }
+
+  @Test
+  void shouldReturnRunningJobWithNoExecutionIdAsIs() {
+    String jobId = "job-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryExecutionId(null)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .updatedAt(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId)).thenReturn(Single.just(job));
+
+    QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.RUNNING);
+    verify(queryClient, never()).getQueryStatus(anyString());
+  }
+
+  @Test
+  void shouldUpdateJobStatusWhenStatusChangesToRunningFromSubmitted() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob jobSubmitted = QueryJob.builder()
+        .jobId(jobId)
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.SUBMITTED)
+        .createdAt(now)
+        .updatedAt(now)
+        .build();
+
+    QueryJob jobRunning = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .updatedAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.QUEUED)
+        .submissionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(jobSubmitted))
+        .thenReturn(Single.just(jobRunning));
+    when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.QUEUED));
+    when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobStatus(eq(jobId), eq(QueryJobStatus.RUNNING), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.RUNNING);
+    verify(queryJobDao).updateJobStatus(eq(jobId), eq(QueryJobStatus.RUNNING), any(Timestamp.class));
+  }
+
+  @Test
   void shouldUpdateJobStatusWhenChanged() {
     String jobId = "job-123";
     String queryExecutionId = "exec-123";
@@ -260,7 +552,7 @@ public class QueryServiceImplTest {
 
     QueryJob job = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.RUNNING)
         .createdAt(now)
@@ -278,7 +570,7 @@ public class QueryServiceImplTest {
 
     QueryJob updatedJob = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.COMPLETED)
         .resultLocation(resultLocation)
@@ -316,7 +608,7 @@ public class QueryServiceImplTest {
 
     QueryJob job = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.COMPLETED)
         .dataScannedInBytes(1000L)
@@ -365,7 +657,7 @@ public class QueryServiceImplTest {
 
     QueryJob job = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .status(QueryJobStatus.COMPLETED)
         .createdAt(now)
         .updatedAt(now)
@@ -388,7 +680,7 @@ public class QueryServiceImplTest {
 
     QueryJob job = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.RUNNING)
         .createdAt(now)
@@ -405,7 +697,7 @@ public class QueryServiceImplTest {
 
     QueryJob completedJob = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(queryExecutionId)
         .status(QueryJobStatus.COMPLETED)
         .resultLocation(resultLocation)
@@ -442,7 +734,7 @@ public class QueryServiceImplTest {
 
     QueryJob job = QueryJob.builder()
         .jobId(jobId)
-        .queryString("SELECT * FROM pulse_athena_db.otel_data WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
+        .queryString("SELECT * FROM pulse_athena_db.otel_data_test_tenant WHERE \"timestamp\" >= TIMESTAMP '2025-12-23 11:00:00'")
         .queryExecutionId(null)
         .status(QueryJobStatus.RUNNING)
         .createdAt(now)
@@ -526,12 +818,77 @@ public class QueryServiceImplTest {
   }
 
   @Test
+  void shouldCombineTablesAndColumnsWithNullOrdinalPositionAndUnknownTable() {
+    String tablesQueryExecutionId = "tables-exec-123";
+    String columnsQueryExecutionId = "columns-exec-123";
+
+    JsonArray tablesResult = new JsonArray();
+    JsonObject table1 = new JsonObject();
+    table1.put("table_schema", "test_database");
+    table1.put("table_name", "table1");
+    table1.put("table_type", "BASE TABLE");
+    tablesResult.add(table1);
+
+    JsonArray columnsResult = new JsonArray();
+    JsonObject colWithNullOrdinal = new JsonObject();
+    colWithNullOrdinal.put("table_schema", "test_database");
+    colWithNullOrdinal.put("table_name", "table1");
+    colWithNullOrdinal.put("column_name", "id");
+    colWithNullOrdinal.put("data_type", "varchar");
+    colWithNullOrdinal.put("is_nullable", "YES");
+    columnsResult.add(colWithNullOrdinal);
+    JsonObject colForUnknownTable = new JsonObject();
+    colForUnknownTable.put("table_schema", "test_database");
+    colForUnknownTable.put("table_name", "unknown_table");
+    colForUnknownTable.put("column_name", "x");
+    colForUnknownTable.put("data_type", "varchar");
+    colForUnknownTable.put("ordinal_position", "1");
+    colForUnknownTable.put("is_nullable", "NO");
+    columnsResult.add(colForUnknownTable);
+
+    QueryResultSet tablesResultSet = QueryResultSet.builder().resultData(tablesResult).build();
+    QueryResultSet columnsResultSet = QueryResultSet.builder().resultData(columnsResult).build();
+
+    when(queryClient.submitQuery(anyString()))
+        .thenReturn(Single.just(tablesQueryExecutionId))
+        .thenReturn(Single.just(columnsQueryExecutionId));
+    when(queryClient.waitForQueryCompletion(tablesQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.waitForQueryCompletion(columnsQueryExecutionId))
+        .thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.getQueryResults(eq(tablesQueryExecutionId), isNull(), isNull()))
+        .thenReturn(Single.just(tablesResultSet));
+    when(queryClient.getQueryResults(eq(columnsQueryExecutionId), isNull(), isNull()))
+        .thenReturn(Single.just(columnsResultSet));
+
+    var result = queryService.getTablesAndColumns().blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getTableName()).isEqualTo("table1");
+    assertThat(result.get(0).getColumns()).hasSize(1);
+    assertThat(result.get(0).getColumns().get(0).getOrdinalPosition()).isNull();
+  }
+
+  @Test
   void shouldHandleErrorWhenDatabaseNotConfigured() {
     when(athenaConfig.getDatabase()).thenReturn(null);
 
     QueryServiceImpl serviceWithNullDb = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
 
     var testObserver = serviceWithNullDb.getTablesAndColumns().test();
+
+    testObserver.assertError(IllegalArgumentException.class);
+    testObserver.assertError(error -> error.getMessage().contains("Database name is not configured"));
+  }
+
+  @Test
+  void shouldHandleErrorWhenDatabaseIsEmptyString() {
+    when(athenaConfig.getDatabase()).thenReturn("   ");
+
+    QueryServiceImpl serviceWithEmptyDb = new QueryServiceImpl(queryClient, queryJobDao, athenaConfig);
+
+    var testObserver = serviceWithEmptyDb.getTablesAndColumns().test();
 
     testObserver.assertError(IllegalArgumentException.class);
     testObserver.assertError(error -> error.getMessage().contains("Database name is not configured"));
@@ -582,6 +939,73 @@ public class QueryServiceImplTest {
 
     testObserver.assertError(RuntimeException.class);
     testObserver.assertError(error -> error.getMessage().contains("Failed to query columns"));
+  }
+
+  @Test
+  void shouldRejectGetQueryHistoryWithNullUserEmail() {
+    var testObserver = queryService.getQueryHistory(null, 20, 0).test();
+
+    testObserver.assertError(IllegalArgumentException.class);
+    testObserver.assertError(error -> error.getMessage().contains("User email"));
+    verify(queryJobDao, never()).getQueryHistory(anyString(), any(), any());
+  }
+
+  @Test
+  void shouldRejectGetQueryHistoryWithEmptyUserEmail() {
+    var testObserver = queryService.getQueryHistory("  ", 20, 0).test();
+
+    testObserver.assertError(IllegalArgumentException.class);
+    testObserver.assertError(error -> error.getMessage().contains("User email"));
+    verify(queryJobDao, never()).getQueryHistory(anyString(), any(), any());
+  }
+
+  @Test
+  void shouldGetQueryHistoryWithCompletedJobsWithMissingStats() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob completedJobMissingStats = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.COMPLETED)
+        .dataScannedInBytes(null)
+        .executionTimeMillis(null)
+        .createdAt(now)
+        .build();
+
+    QueryJob refreshedJob = QueryJob.builder()
+        .jobId("job-1")
+        .queryExecutionId("exec-1")
+        .status(QueryJobStatus.COMPLETED)
+        .dataScannedInBytes(1000L)
+        .executionTimeMillis(5000L)
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId("exec-1")
+        .status(QueryStatus.SUCCEEDED)
+        .resultLocation("s3://bucket/path")
+        .dataScannedInBytes(1000L)
+        .executionTimeMillis(5000L)
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getQueryHistory(userEmail, 20, 0))
+        .thenReturn(Single.just(java.util.Collections.singletonList(completedJobMissingStats)));
+    when(queryClient.getQueryExecution("exec-1")).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobCompleted(eq("job-1"), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq("job-1"), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.getJobById("job-1")).thenReturn(Single.just(refreshedJob));
+
+    var result = queryService.getQueryHistory(userEmail, 20, 0).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getDataScannedInBytes()).isEqualTo(1000L);
+    verify(queryClient).getQueryExecution("exec-1");
   }
 
   @Test
@@ -1043,5 +1467,116 @@ public class QueryServiceImplTest {
 
     assertThat(result).isNotNull();
     assertThat(result.getStatus()).isEqualTo(QueryJobStatus.FAILED);
+  }
+
+  @Test
+  void shouldHandleFetchAndUpdateJobResultsWhenGetExecutionFailsInErrorHandler() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob failedJob = QueryJob.builder()
+        .jobId(jobId)
+        .status(QueryJobStatus.FAILED)
+        .errorMessage("Failed to update result location")
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.SUCCEEDED)
+        .resultLocation("s3://bucket/path")
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(failedJob));
+    when(queryClient.getQueryStatus(queryExecutionId)).thenReturn(Single.just(QueryStatus.SUCCEEDED));
+    when(queryClient.getQueryExecution(queryExecutionId))
+        .thenReturn(Single.just(executionInfo))
+        .thenReturn(Single.error(new RuntimeException("AWS throttled")));
+    when(queryJobDao.updateJobCompleted(eq(jobId), anyString(), any(Timestamp.class)))
+        .thenReturn(Single.error(new RuntimeException("Update failed")));
+    when(queryJobDao.updateJobFailed(eq(jobId), ArgumentMatchers.contains("Failed to update result location"), isNull()))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.getJobStatus(jobId, null, null).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.FAILED);
+    verify(queryJobDao).updateJobFailed(eq(jobId), ArgumentMatchers.contains("Failed to update result location"), isNull());
+  }
+
+  @Test
+  void shouldWaitForJobCompletionWhenQueryFails() {
+    String jobId = "job-123";
+    String queryExecutionId = "exec-123";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+
+    QueryJob job = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.RUNNING)
+        .createdAt(now)
+        .build();
+
+    QueryJob failedJob = QueryJob.builder()
+        .jobId(jobId)
+        .queryExecutionId(queryExecutionId)
+        .status(QueryJobStatus.FAILED)
+        .errorMessage("Query failed")
+        .createdAt(now)
+        .build();
+
+    QueryExecutionInfo executionInfo = QueryExecutionInfo.builder()
+        .queryExecutionId(queryExecutionId)
+        .status(QueryStatus.FAILED)
+        .stateChangeReason("Query failed")
+        .completionDateTime(now)
+        .build();
+
+    when(queryJobDao.getJobById(jobId))
+        .thenReturn(Single.just(job))
+        .thenReturn(Single.just(failedJob));
+    when(queryClient.waitForQueryCompletion(queryExecutionId)).thenReturn(Single.just(QueryStatus.FAILED));
+    when(queryClient.getQueryExecution(queryExecutionId)).thenReturn(Single.just(executionInfo));
+    when(queryJobDao.updateJobFailed(eq(jobId), eq("Query failed"), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+    when(queryJobDao.updateJobStatistics(eq(jobId), any(), any(), any(), any(), any(Timestamp.class)))
+        .thenReturn(Single.just(true));
+
+    QueryJob result = queryService.waitForJobCompletion(jobId).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result.getStatus()).isEqualTo(QueryJobStatus.FAILED);
+    verify(queryClient).waitForQueryCompletion(queryExecutionId);
+  }
+
+  @Test
+  void shouldGetQueryHistoryWithNegativeOffset() {
+    String userEmail = "test@example.com";
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    QueryJob job = QueryJob.builder()
+        .jobId("job-1")
+        .status(QueryJobStatus.COMPLETED)
+        .createdAt(now)
+        .build();
+
+    when(queryJobDao.getQueryHistory(eq(userEmail), eq(20), eq(0)))
+        .thenReturn(Single.just(java.util.Collections.singletonList(job)));
+
+    var result = queryService.getQueryHistory(userEmail, 20, -1).blockingGet();
+
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(1);
+    verify(queryJobDao).getQueryHistory(eq(userEmail), eq(20), eq(0));
   }
 }

@@ -49,7 +49,7 @@ CREATE TABLE symbol_files (
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,
-    framework ENUM('java','js') NOT NULL,
+    framework ENUM('java','js', 'mapping', 'dsym') NOT NULL,
     file_content LONGBLOB NOT NULL,
     bundleid VARCHAR(255),
     PRIMARY KEY (project_id, app_version, app_version_code, platform, framework)
