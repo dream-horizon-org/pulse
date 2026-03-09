@@ -2,7 +2,7 @@ package com.pulse.android.sdk.replay.remote
 
 import android.util.Log
 import com.pulse.android.sdk.replay.internal.ReplayLog
-import com.pulse.otel.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseNetworkingUtils
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request

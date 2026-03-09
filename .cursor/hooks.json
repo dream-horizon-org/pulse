@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/session-init.sh"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/block-secrets-in-commands.sh",
+        "matcher": "echo|export|curl.*-H|git commit|git add|git push"
+      },
+      {
+        "command": ".cursor/hooks/block-destructive.sh",
+        "matcher": "DROP|DELETE|TRUNCATE|docker.*rm|reset-databases|--force|push.*--force|push.*-f"
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": ".cursor/hooks/audit.sh"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": ".cursor/hooks/block-sensitive-reads.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/auto-format.sh"
+      },
+      {
+        "command": ".cursor/hooks/audit.sh"
+      }
+    ],
+    "afterMCPExecution": [
+      {
+        "command": ".cursor/hooks/audit.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/verify-on-stop.sh",
+        "loop_limit": 3
+      }
+    ]
+  }
+}

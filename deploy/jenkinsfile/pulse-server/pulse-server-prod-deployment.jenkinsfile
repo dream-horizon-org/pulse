@@ -1,0 +1,112 @@
+pipeline {
+    agent {
+        node { label 'ec2-pulse-deployment-fleet' }
+    }
+
+    options {
+        ansiColor('xterm')
+    }
+
+    parameters {
+        string(name: 'ARTIFACT_VERSION', description: 'Artifact version to be deployed')
+    }
+
+    environment {
+        TF_IN_AUTOMATION = 'true'
+        TF_VAR_artifact_version = "${params.ARTIFACT_VERSION}"
+        DEPLOYMENT_SLACK_CHANNEL = credentials('DEPLOYMENT_SLACK_CHANNEL')
+    }
+
+    stages {
+        stage('Clear Existing Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: 'https://github.com/dream-horizon-org/pulse.git', credentialsId: 'd11-horizon-bot']]
+                ])
+            }
+        }
+
+        stage('Fetch Secrets') {
+            steps {
+                sh '''
+                    cd deploy/terraform/pulse-server
+                    echo "Fetching variables from AWS Secrets Manager..."
+                    aws secretsmanager get-secret-value \
+                      --region ap-south-1 \
+                      --secret-id prod/pulseserver/terraform \
+                      --query 'SecretString' \
+                      --output text > secrets.auto.tfvars.json
+                '''
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                sh '''
+                    echo "Initializing Terraform..."
+                    cd deploy/terraform/pulse-server
+                    terraform init
+                '''
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh '''
+                    echo "Running Terraform Plan..."
+                    cd deploy/terraform/pulse-server
+                    terraform plan -out=tfplan
+                '''
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                input message: 'Review the Terraform Plan output above. Do you want to apply these changes to AWS?', ok: 'Yes, Deploy!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh '''
+                    echo "Applying Terraform changes..."
+                    cd deploy/terraform/pulse-server
+                    terraform apply -input=false tfplan
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning up workspace..."
+            sh 'rm -f deploy/terraform/pulse-server/tfplan'
+        }
+        success {
+            script {
+                wrap([$class: 'BuildUser']) {
+                    def message = "<!channel> Pulse Alerts Cron version *${ARTIFACT_VERSION}* deployed on production by ${BUILD_USER_EMAIL}\n" +
+                            "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                    def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                    slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'good', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+                }
+            }
+        }
+        failure {
+            script {
+                def message = "<!channel> Pulse Alerts Cron version *${ARTIFACT_VERSION}* deployment failed on production\n" +
+                        "<${env.BUILD_URL}|${env.JOB_NAME} ${env.BUILD_DISPLAY_NAME}>"
+                def channel = "${env.DEPLOYMENT_SLACK_CHANNEL}"
+                slackSend(teamDomain: 'dreamsports.enterprise', channel: channel, color: 'danger', message: message, tokenCredentialId: 'slack-creds', botUser: true)
+            }
+        }
+    }
+}

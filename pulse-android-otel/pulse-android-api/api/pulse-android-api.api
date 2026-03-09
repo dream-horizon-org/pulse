@@ -1,0 +1,104 @@
+public class com/pulse/android/api/otel/PulseBeforeSendData {
+	public fun <init> ()V
+	public fun beforeSend (Lcom/pulse/android/api/otel/models/PulseSignalData;)Lcom/pulse/android/api/otel/models/PulseSignalData;
+	public fun beforeSendLog (Lcom/pulse/android/api/otel/models/PulseLogRecordData;)Lcom/pulse/android/api/otel/models/PulseLogRecordData;
+	public fun beforeSendMetric (Lcom/pulse/android/api/otel/models/PulseMetricData;)Lcom/pulse/android/api/otel/models/PulseMetricData;
+	public fun beforeSendSpan (Lcom/pulse/android/api/otel/models/PulseSpanData;)Lcom/pulse/android/api/otel/models/PulseSpanData;
+}
+
+public final class com/pulse/android/api/otel/PulseDataCollectionConsent : java/lang/Enum {
+	public static final field ALLOWED Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static final field DENIED Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static final field PENDING Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+	public static fun values ()[Lcom/pulse/android/api/otel/PulseDataCollectionConsent;
+}
+
+public final class com/pulse/android/api/otel/models/PulseLogRecordData : com/pulse/android/api/otel/models/PulseSignalData, io/opentelemetry/sdk/logs/data/LogRecordData {
+	public fun <init> (Lio/opentelemetry/sdk/logs/data/LogRecordData;Lio/opentelemetry/sdk/resources/Resource;Ljava/lang/String;Lio/opentelemetry/api/common/Value;Lio/opentelemetry/api/common/Attributes;Lio/opentelemetry/api/logs/Severity;Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAttributes ()Lio/opentelemetry/api/common/Attributes;
+	public fun getBody ()Lio/opentelemetry/sdk/logs/data/Body;
+	public fun getBodyValue ()Lio/opentelemetry/api/common/Value;
+	public fun getEventName ()Ljava/lang/String;
+	public fun getInstrumentationScopeInfo ()Lio/opentelemetry/sdk/common/InstrumentationScopeInfo;
+	public fun getObservedTimestampEpochNanos ()J
+	public fun getResource ()Lio/opentelemetry/sdk/resources/Resource;
+	public fun getSeverity ()Lio/opentelemetry/api/logs/Severity;
+	public fun getSeverityText ()Ljava/lang/String;
+	public fun getSpanContext ()Lio/opentelemetry/api/trace/SpanContext;
+	public fun getTimestampEpochNanos ()J
+	public fun getTotalAttributeCount ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/pulse/android/api/otel/models/PulseLogRecordDataKt {
+	public static final fun copy (Lio/opentelemetry/sdk/logs/data/LogRecordData;Lio/opentelemetry/sdk/resources/Resource;Lio/opentelemetry/api/logs/Severity;Ljava/lang/String;Lio/opentelemetry/api/common/Value;Lio/opentelemetry/api/common/Attributes;Ljava/lang/String;)Lcom/pulse/android/api/otel/models/PulseLogRecordData;
+	public static synthetic fun copy$default (Lio/opentelemetry/sdk/logs/data/LogRecordData;Lio/opentelemetry/sdk/resources/Resource;Lio/opentelemetry/api/logs/Severity;Ljava/lang/String;Lio/opentelemetry/api/common/Value;Lio/opentelemetry/api/common/Attributes;Ljava/lang/String;ILjava/lang/Object;)Lcom/pulse/android/api/otel/models/PulseLogRecordData;
+}
+
+public final class com/pulse/android/api/otel/models/PulseMetricData : com/pulse/android/api/otel/models/PulseSignalData, io/opentelemetry/sdk/metrics/data/MetricData {
+	public fun <init> (Lio/opentelemetry/sdk/metrics/data/MetricData;Lio/opentelemetry/sdk/resources/Resource;Ljava/lang/String;Ljava/lang/String;Lio/opentelemetry/sdk/metrics/data/Data;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAttributes ()Lio/opentelemetry/api/common/Attributes;
+	public fun getData ()Lio/opentelemetry/sdk/metrics/data/Data;
+	public fun getDescription ()Ljava/lang/String;
+	public fun getDoubleGaugeData ()Lio/opentelemetry/sdk/metrics/data/GaugeData;
+	public fun getDoubleSumData ()Lio/opentelemetry/sdk/metrics/data/SumData;
+	public fun getExponentialHistogramData ()Lio/opentelemetry/sdk/metrics/data/ExponentialHistogramData;
+	public fun getHistogramData ()Lio/opentelemetry/sdk/metrics/data/HistogramData;
+	public fun getInstrumentationScopeInfo ()Lio/opentelemetry/sdk/common/InstrumentationScopeInfo;
+	public fun getLongGaugeData ()Lio/opentelemetry/sdk/metrics/data/GaugeData;
+	public fun getLongSumData ()Lio/opentelemetry/sdk/metrics/data/SumData;
+	public fun getName ()Ljava/lang/String;
+	public fun getResource ()Lio/opentelemetry/sdk/resources/Resource;
+	public fun getSummaryData ()Lio/opentelemetry/sdk/metrics/data/SummaryData;
+	public fun getType ()Lio/opentelemetry/sdk/metrics/data/MetricDataType;
+	public fun getUnit ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun isEmpty ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/pulse/android/api/otel/models/PulseMetricDataKt {
+	public static final fun copy (Lio/opentelemetry/sdk/metrics/data/MetricData;Lio/opentelemetry/sdk/resources/Resource;Ljava/lang/String;Ljava/lang/String;Lio/opentelemetry/sdk/metrics/data/Data;)Lcom/pulse/android/api/otel/models/PulseMetricData;
+	public static synthetic fun copy$default (Lio/opentelemetry/sdk/metrics/data/MetricData;Lio/opentelemetry/sdk/resources/Resource;Ljava/lang/String;Ljava/lang/String;Lio/opentelemetry/sdk/metrics/data/Data;ILjava/lang/Object;)Lcom/pulse/android/api/otel/models/PulseMetricData;
+}
+
+public abstract interface class com/pulse/android/api/otel/models/PulseSignalData {
+	public abstract fun getAttributes ()Lio/opentelemetry/api/common/Attributes;
+}
+
+public final class com/pulse/android/api/otel/models/PulseSpanData : com/pulse/android/api/otel/models/PulseSignalData, io/opentelemetry/sdk/trace/data/SpanData {
+	public fun <init> (Lio/opentelemetry/sdk/trace/data/SpanData;Ljava/lang/String;Lio/opentelemetry/api/common/Attributes;Ljava/util/List;Lio/opentelemetry/sdk/resources/Resource;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public fun getAttributes ()Lio/opentelemetry/api/common/Attributes;
+	public fun getEndEpochNanos ()J
+	public fun getEvents ()Ljava/util/List;
+	public fun getInstrumentationLibraryInfo ()Lio/opentelemetry/sdk/common/InstrumentationLibraryInfo;
+	public fun getInstrumentationScopeInfo ()Lio/opentelemetry/sdk/common/InstrumentationScopeInfo;
+	public fun getKind ()Lio/opentelemetry/api/trace/SpanKind;
+	public fun getLinks ()Ljava/util/List;
+	public fun getName ()Ljava/lang/String;
+	public fun getParentSpanContext ()Lio/opentelemetry/api/trace/SpanContext;
+	public fun getParentSpanId ()Ljava/lang/String;
+	public fun getResource ()Lio/opentelemetry/sdk/resources/Resource;
+	public fun getSpanContext ()Lio/opentelemetry/api/trace/SpanContext;
+	public fun getSpanId ()Ljava/lang/String;
+	public fun getStartEpochNanos ()J
+	public fun getStatus ()Lio/opentelemetry/sdk/trace/data/StatusData;
+	public fun getTotalAttributeCount ()I
+	public fun getTotalRecordedEvents ()I
+	public fun getTotalRecordedLinks ()I
+	public fun getTraceId ()Ljava/lang/String;
+	public fun hasEnded ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/pulse/android/api/otel/models/PulseSpanDataKt {
+	public static final fun copy (Lio/opentelemetry/sdk/trace/data/SpanData;Ljava/lang/String;Lio/opentelemetry/api/common/Attributes;Ljava/util/List;Lio/opentelemetry/sdk/resources/Resource;)Lcom/pulse/android/api/otel/models/PulseSpanData;
+	public static synthetic fun copy$default (Lio/opentelemetry/sdk/trace/data/SpanData;Ljava/lang/String;Lio/opentelemetry/api/common/Attributes;Ljava/util/List;Lio/opentelemetry/sdk/resources/Resource;ILjava/lang/Object;)Lcom/pulse/android/api/otel/models/PulseSpanData;
+}
+

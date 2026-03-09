@@ -1,0 +1,60 @@
+---
+description: Monorepo build commands and tool mapping per service
+alwaysApply: true
+---
+
+# Monorepo Commands
+
+## Backend (Java/Vert.x)
+
+```bash
+cd backend/server && mvn clean install        # build + test
+cd backend/server && mvn verify               # tests + checkstyle
+```
+
+## Frontend (React/TypeScript)
+
+```bash
+cd pulse-ui && yarn install && yarn start     # dev server on :3000
+cd pulse-ui && yarn build                     # production build
+cd pulse-ui && yarn lint                      # ESLint
+```
+
+## AI Agent (Python/Google ADK — Docker)
+
+```bash
+cd pulse_ai && cp .env.example .env           # first time — set GOOGLE_API_KEY
+cd pulse_ai && ./setup.sh                     # build + start (Docker, port 8000)
+cd pulse_ai && ./setup.sh logs                # tail logs
+cd pulse_ai && ./setup.sh stop                # stop
+```
+
+## Docker (full stack)
+
+```bash
+cd deploy && ./scripts/quickstart.sh          # build + start all
+cd deploy && ./scripts/build.sh [ui|server|alerting|all]
+cd deploy && ./scripts/start.sh -d [ui|server|alerting]
+cd deploy && ./scripts/stop.sh [-v]
+cd deploy && ./scripts/logs.sh [service]
+```
+
+To discover running services and their actual ports:
+```bash
+docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
+```
+
+## Key Ports
+
+| Service | Port | Health |
+|---------|------|--------|
+| pulse-server | 8080 | `/healthcheck` |
+| pulse-ui | 3000 | `/healthcheck.txt` |
+| pulse-ai (Docker) | 8000 | `curl http://localhost:8000` |
+| alerts-cron | 4000 | `/healthcheck` |
+| ClickHouse | 8123 (HTTP), 9000 (native) | `SELECT 1` |
+| MySQL | 3307 | `mysqladmin ping` |
+| Kafka UI | 8081 | — |
+| OTEL Collector | 4317/4318, 13133 (health) | — |
+
+## Never commit `.env` files. Use `.env.example` as template.

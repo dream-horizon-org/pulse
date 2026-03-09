@@ -17,9 +17,9 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.pulse.otel.utils.PulseOtelUtils
-import com.pulse.otel.utils.PulseSerialisationUtils
-import com.pulse.otel.utils.await
+import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseSerialisationUtils
+import com.pulse.utils.await
 import io.opentelemetry.android.instrumentation.location.models.CachedLocation
 import io.opentelemetry.android.instrumentation.location.models.LocationConstants
 import kotlinx.coroutines.CoroutineDispatcher
