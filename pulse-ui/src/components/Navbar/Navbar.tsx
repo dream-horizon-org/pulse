@@ -338,7 +338,7 @@ export function Navbar({
                       className={classes.menuItem}
                       onClick={() => {
                         if (contextProjectId) {
-                          navigate(`${ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`);
+                          navigate(ROUTES.PROJECT_SETTINGS_ROUTE.basePath.replace(':projectId', contextProjectId));
                         }
                       }}
                       style={{ cursor: 'pointer' }}

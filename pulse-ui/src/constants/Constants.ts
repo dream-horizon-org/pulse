@@ -702,6 +702,7 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/severity`,
     method: API_METHODS.GET,
   },
+  // Legacy Alert Notification Channels (deprecated, use new notification service)
   GET_ALERT_NOTIFICATION_CHANNELS: {
     key: "GET_ALERT_NOTIFICATION_CHANNELS",
     apiPath: `/v1/alert/notificationChannels`,
@@ -725,6 +726,48 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_NOTIFICATION_CHANNEL_BY_ID: {
     key: "GET_NOTIFICATION_CHANNEL_BY_ID",
     apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
+    method: API_METHODS.GET,
+  },
+  // New Notification Service API Routes
+  GET_NOTIFICATION_CHANNELS: {
+    key: "GET_NOTIFICATION_CHANNELS",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.GET,
+  },
+  GET_NOTIFICATION_CHANNEL: {
+    key: "GET_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.GET,
+  },
+  CREATE_NOTIFICATION_CHANNEL_V2: {
+    key: "CREATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL_V2: {
+    key: "UPDATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL_V2: {
+    key: "DELETE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.DELETE,
+  },
+  // Slack OAuth Integration
+  SLACK_INSTALL: {
+    key: "SLACK_INSTALL",
+    apiPath: `/v1/integrations/slack/install`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CALLBACK: {
+    key: "SLACK_CALLBACK",
+    apiPath: `/v1/integrations/slack/callback`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CHANNELS: {
+    key: "SLACK_CHANNELS",
+    apiPath: `/v1/integrations/slack/channels`,
     method: API_METHODS.GET,
   },
   // SDK Configuration API Routes

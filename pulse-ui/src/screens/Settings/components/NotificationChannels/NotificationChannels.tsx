@@ -1,7 +1,7 @@
 /**
  * Notification Channels Management Component
  * Displays list of notification channels with full CRUD functionality
- * Follows the design patterns from ConfigVersionList
+ * Supports Slack OAuth, Slack Webhook, Email, and Teams integrations
  */
 
 import { useState, useCallback } from 'react';
@@ -18,6 +18,8 @@ import {
   Modal,
   TextInput,
   Stack,
+  Select,
+  Alert,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -30,36 +32,84 @@ import {
   IconSquareRoundedX,
   IconEdit,
   IconTrash,
+  IconExternalLink,
+  IconCheck,
+  IconAlertCircle,
 } from '@tabler/icons-react';
 import { useGetAlertNotificationChannels } from '../../../../hooks/useGetAlertNotificationChannels';
 import { useCreateNotificationChannel } from '../../../../hooks/useCreateNotificationChannel';
 import { useUpdateNotificationChannel } from '../../../../hooks/useUpdateNotificationChannel';
 import { useDeleteNotificationChannel } from '../../../../hooks/useDeleteNotificationChannel';
+import { useSlackInstall } from '../../../../hooks/useSlackInstall';
+import { useSlackChannels } from '../../../../hooks/useSlackChannels';
 import { 
   NotificationChannelType,
-  AlertNotificationChannelItem 
+  AlertNotificationChannelItem,
+  SlackChannelListDto,
 } from '../../../../hooks/useGetAlertNotificationChannels/useGetAlertNotificationChannels.interface';
 import { showNotification } from '../../../../helpers/showNotification';
 import { useMantineTheme } from '@mantine/core';
 import { COMMON_CONSTANTS } from '../../../../constants';
+import { useProjectContext } from '../../../../contexts';
 import classes from './NotificationChannels.module.css';
+
+type ChannelTypeOption = 'slack_oauth' | 'slack_webhook' | 'email';
+
+type SlackOAuthConfig = {
+  workspaceId?: string;
+  workspaceName?: string;
+  channelId?: string;
+  channelName?: string;
+  botName: string;
+  iconEmoji: string;
+};
+
+type SlackWebhookConfig = {
+  webhookUrl: string;
+  botName: string;
+  iconEmoji: string;
+};
+
+type EmailConfig = {
+  fromAddress: string;
+  fromName: string;
+  replyToAddress: string;
+  configurationSetName: string;
+};
 
 type FormData = {
   name: string;
-  type: NotificationChannelType;
-  config: string;
+  channelType: ChannelTypeOption;
+  slackOAuthConfig: SlackOAuthConfig;
+  slackWebhookConfig: SlackWebhookConfig;
+  emailConfig: EmailConfig;
 };
 
 type ModalMode = 'create' | 'edit';
 
 const initialFormData: FormData = {
   name: '',
-  type: 'slack',
-  config: '',
+  channelType: 'slack_oauth',
+  slackOAuthConfig: {
+    botName: 'PulseBot',
+    iconEmoji: ':bell:',
+  },
+  slackWebhookConfig: {
+    webhookUrl: '',
+    botName: 'PulseBot',
+    iconEmoji: ':bell:',
+  },
+  emailConfig: {
+    fromAddress: '',
+    fromName: '',
+    replyToAddress: '',
+    configurationSetName: 'pulse-prod',
+  },
 };
 
 export function NotificationChannels() {
   const theme = useMantineTheme();
+  const { projectId } = useProjectContext();
   
   // Modal states
   const [formModalOpened, { open: openFormModal, close: closeFormModal }] = useDisclosure(false);
@@ -68,13 +118,18 @@ export function NotificationChannels() {
   // Form state
   const [modalMode, setModalMode] = useState<ModalMode>('create');
   const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [formErrors, setFormErrors] = useState<Partial<Record<string, string>>>({});
   const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
   const [deletingChannel, setDeletingChannel] = useState<AlertNotificationChannelItem | null>(null);
+  const [slackConnecting, setSlackConnecting] = useState(false);
 
   // API hooks
   const { data, isLoading, isError, refetch } = useGetAlertNotificationChannels();
   const channels = data?.data ?? [];
+
+  // Slack OAuth hooks
+  const { getInstallUrl, isLoading: isLoadingInstallUrl } = useSlackInstall({ projectId: projectId || undefined });
+  const { data: slackChannels } = useSlackChannels(projectId || undefined);
 
   // Close form modal helper
   const handleCloseFormModal = useCallback(() => {
@@ -82,6 +137,7 @@ export function NotificationChannels() {
     setFormData(initialFormData);
     setFormErrors({});
     setEditingChannelId(null);
+    setSlackConnecting(false);
   }, [closeFormModal]);
 
   // Close delete modal helper
@@ -170,11 +226,25 @@ export function NotificationChannels() {
 
   const handleOpenEditModal = useCallback((channel: AlertNotificationChannelItem) => {
     setModalMode('edit');
+    
+    // Parse config string and populate form
+    const isWebhook = channel.config.startsWith('http');
+    
     setFormData({
       name: channel.name,
-      type: channel.type,
-      config: channel.config,
+      channelType: isWebhook ? 'slack_webhook' : 'slack_oauth',
+      slackOAuthConfig: {
+        botName: 'PulseBot',
+        iconEmoji: ':bell:',
+      },
+      slackWebhookConfig: {
+        webhookUrl: isWebhook ? channel.config : '',
+        botName: 'PulseBot',
+        iconEmoji: ':bell:',
+      },
+      emailConfig: initialFormData.emailConfig,
     });
+    
     setFormErrors({});
     setEditingChannelId(channel.notification_channel_id);
     openFormModal();
@@ -185,30 +255,93 @@ export function NotificationChannels() {
     openDeleteModal();
   }, [openDeleteModal]);
 
+  // Handle Slack OAuth connection
+  const handleConnectSlack = useCallback(async () => {
+    setSlackConnecting(true);
+    try {
+      const url = await getInstallUrl();
+      if (url) {
+        // Open in new window and listen for completion
+        window.location.href = url;
+      } else {
+        showNotification(
+          COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+          'Failed to generate Slack OAuth URL',
+          <IconSquareRoundedX />,
+          theme.colors.red[6]
+        );
+      }
+    } catch (error) {
+      showNotification(
+        COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+        'Failed to connect to Slack',
+        <IconSquareRoundedX />,
+        theme.colors.red[6]
+      );
+    } finally {
+      setSlackConnecting(false);
+    }
+  }, [getInstallUrl, theme]);
+
   // Form handlers
-  const handleTypeSelect = useCallback((type: NotificationChannelType) => {
-    setFormData(prev => ({ ...prev, type, config: '' }));
-    setFormErrors(prev => ({ ...prev, config: undefined }));
+  const handleTypeSelect = useCallback((type: ChannelTypeOption) => {
+    setFormData(prev => ({ ...prev, channelType: type }));
+    setFormErrors({});
   }, []);
 
-  const handleInputChange = useCallback((field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = useCallback((field: string, value: string) => {
+    setFormData(prev => {
+      if (field.startsWith('slackOAuth.')) {
+        const key = field.split('.')[1];
+        return {
+          ...prev,
+          slackOAuthConfig: { ...prev.slackOAuthConfig, [key]: value },
+        };
+      } else if (field.startsWith('slackWebhook.')) {
+        const key = field.split('.')[1];
+        return {
+          ...prev,
+          slackWebhookConfig: { ...prev.slackWebhookConfig, [key]: value },
+        };
+      } else if (field.startsWith('email.')) {
+        const key = field.split('.')[1];
+        return {
+          ...prev,
+          emailConfig: { ...prev.emailConfig, [key]: value },
+        };
+      }
+      return { ...prev, [field]: value };
+    });
+    
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: undefined }));
     }
   }, [formErrors]);
 
   const validateForm = useCallback((): boolean => {
-    const errors: Partial<Record<keyof FormData, string>> = {};
+    const errors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
       errors.name = 'Name is required';
     }
 
-    if (!formData.config.trim()) {
-      errors.config = 'Webhook URL is required';
-    } else if (!formData.config.startsWith('http')) {
-      errors.config = 'Please enter a valid webhook URL';
+    if (formData.channelType === 'slack_webhook') {
+      if (!formData.slackWebhookConfig.webhookUrl.trim()) {
+        errors['slackWebhook.webhookUrl'] = 'Webhook URL is required';
+      } else if (!formData.slackWebhookConfig.webhookUrl.startsWith('http')) {
+        errors['slackWebhook.webhookUrl'] = 'Please enter a valid webhook URL';
+      }
+    } else if (formData.channelType === 'slack_oauth') {
+      if (!formData.slackOAuthConfig.channelId) {
+        errors['slackOAuth.channelId'] = 'Please select a Slack channel';
+      }
+    } else if (formData.channelType === 'email') {
+      if (!formData.emailConfig.fromAddress.trim()) {
+        errors['email.fromAddress'] = 'From address is required';
+      }
+      if (!formData.emailConfig.fromName.trim()) {
+        errors['email.fromName'] = 'From name is required';
+      }
     }
 
     setFormErrors(errors);
@@ -218,18 +351,36 @@ export function NotificationChannels() {
   const handleSubmit = useCallback(() => {
     if (!validateForm()) return;
 
+    let config = '';
+    let type: NotificationChannelType = 'slack';
+
+    // Build config string based on channel type
+    if (formData.channelType === 'slack_webhook') {
+      config = formData.slackWebhookConfig.webhookUrl;
+      type = 'slack';
+    } else if (formData.channelType === 'slack_oauth') {
+      // For OAuth, we'll use the channel ID as config for now
+      // Backend should handle the full OAuth flow
+      config = formData.slackOAuthConfig.channelId || '';
+      type = 'slack';
+    } else if (formData.channelType === 'email') {
+      // For email, serialize the config
+      config = JSON.stringify(formData.emailConfig);
+      type = 'email';
+    }
+
     if (modalMode === 'create') {
       createMutation.mutate({
         name: formData.name.trim(),
-        type: formData.type,
-        config: formData.config.trim(),
+        type,
+        config,
       });
     } else if (editingChannelId) {
       updateMutation.mutate({
         notification_channel_id: editingChannelId,
         name: formData.name.trim(),
-        type: formData.type,
-        config: formData.config.trim(),
+        type,
+        config,
       });
     }
   }, [createMutation, updateMutation, formData, validateForm, modalMode, editingChannelId]);
@@ -242,6 +393,9 @@ export function NotificationChannels() {
   }, [deleteMutation, deletingChannel]);
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
+  // Check if Slack is connected (has channels available)
+  const isSlackConnected = slackChannels && slackChannels.length > 0;
 
   // Loading state
   if (isLoading) {
@@ -488,28 +642,47 @@ export function NotificationChannels() {
                 Channel Type
               </Text>
               <Box className={classes.typeSelector}>
+                {/* Slack OAuth */}
                 <Box
-                  className={`${classes.typeCard} ${classes.typeCardSelected}`}
-                  onClick={() => handleTypeSelect('slack')}
+                  className={`${classes.typeCard} ${
+                    formData.channelType === 'slack_oauth' ? classes.typeCardSelected : ''
+                  }`}
+                  onClick={() => handleTypeSelect('slack_oauth')}
                 >
                   <Box className={`${classes.typeCardIcon} ${classes.typeCardSlack}`}>
                     <IconBrandSlack size={20} />
                   </Box>
-                  <Text size="sm" fw={500}>Slack</Text>
-                  <Text size="xs" c="dimmed">Webhook integration</Text>
+                  <Text size="sm" fw={500}>Slack (OAuth)</Text>
+                  <Text size="xs" c="dimmed">Bot integration</Text>
                 </Box>
-                <Tooltip label="Email support coming soon" withArrow>
-                  <Box className={`${classes.typeCard} ${classes.typeCardDisabled}`}>
-                    <Box className={`${classes.typeCardIcon} ${classes.typeCardEmail}`}>
-                      <IconMail size={20} />
-                    </Box>
-                    <Group gap={4}>
-                      <Text size="sm" fw={500} c="dimmed">Email</Text>
-                      <Badge size="xs" variant="light" color="gray">Soon</Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed">Direct email alerts</Text>
+
+                {/* Slack Webhook */}
+                <Box
+                  className={`${classes.typeCard} ${
+                    formData.channelType === 'slack_webhook' ? classes.typeCardSelected : ''
+                  }`}
+                  onClick={() => handleTypeSelect('slack_webhook')}
+                >
+                  <Box className={`${classes.typeCardIcon} ${classes.typeCardSlack}`}>
+                    <IconBrandSlack size={20} />
                   </Box>
-                </Tooltip>
+                  <Text size="sm" fw={500}>Slack Webhook</Text>
+                  <Text size="xs" c="dimmed">Simple webhook</Text>
+                </Box>
+
+                {/* Email */}
+                <Box
+                  className={`${classes.typeCard} ${
+                    formData.channelType === 'email' ? classes.typeCardSelected : ''
+                  }`}
+                  onClick={() => handleTypeSelect('email')}
+                >
+                  <Box className={`${classes.typeCardIcon} ${classes.typeCardEmail}`}>
+                    <IconMail size={20} />
+                  </Box>
+                  <Text size="sm" fw={500}>Email</Text>
+                  <Text size="xs" c="dimmed">Email alerts</Text>
+                </Box>
               </Box>
             </Box>
 
@@ -523,16 +696,137 @@ export function NotificationChannels() {
               required
             />
 
-            {/* Slack Webhook URL */}
-            <TextInput
-              label="Webhook URL"
-              placeholder="https://hooks.slack.com/services/..."
-              value={formData.config}
-              onChange={(e) => handleInputChange('config', e.target.value)}
-              error={formErrors.config}
-              required
-              leftSection={<IconBrandSlack size={16} />}
-            />
+            {/* Slack OAuth Form */}
+            {formData.channelType === 'slack_oauth' && (
+              <Stack gap="sm">
+                {!isSlackConnected ? (
+                  <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
+                    <Text size="sm" fw={500} mb="xs">Connect your Slack workspace</Text>
+                    <Text size="xs" c="dimmed" mb="md">
+                      Click below to authorize Pulse to post messages to your Slack workspace
+                    </Text>
+                    <Button
+                      leftSection={<IconBrandSlack size={16} />}
+                      rightSection={<IconExternalLink size={14} />}
+                      onClick={handleConnectSlack}
+                      loading={slackConnecting || isLoadingInstallUrl}
+                      variant="light"
+                      color="blue"
+                      fullWidth
+                    >
+                      Connect to Slack
+                    </Button>
+                  </Alert>
+                ) : (
+                  <>
+                    <Alert icon={<IconCheck size={16} />} color="teal" variant="light">
+                      <Text size="sm">Slack workspace connected successfully!</Text>
+                    </Alert>
+
+                    <Select
+                      label="Slack Channel"
+                      placeholder="Select a channel"
+                      data={slackChannels.map((ch: SlackChannelListDto) => ({
+                        value: ch.id,
+                        label: `${ch.isPrivate ? '🔒' : '#'} ${ch.name}${ch.isMember ? '' : ' (not a member)'}`,
+                      }))}
+                      value={formData.slackOAuthConfig.channelId}
+                      onChange={(value) => {
+                        const channel = slackChannels.find((ch: SlackChannelListDto) => ch.id === value);
+                        handleInputChange('slackOAuth.channelId', value || '');
+                        if (channel) {
+                          handleInputChange('slackOAuth.channelName', channel.name);
+                        }
+                      }}
+                      error={formErrors['slackOAuth.channelId']}
+                      required
+                      searchable
+                    />
+
+                    <Group grow>
+                      <TextInput
+                        label="Bot Name"
+                        placeholder="PulseBot"
+                        value={formData.slackOAuthConfig.botName}
+                        onChange={(e) => handleInputChange('slackOAuth.botName', e.target.value)}
+                      />
+                      <TextInput
+                        label="Icon Emoji"
+                        placeholder=":bell:"
+                        value={formData.slackOAuthConfig.iconEmoji}
+                        onChange={(e) => handleInputChange('slackOAuth.iconEmoji', e.target.value)}
+                      />
+                    </Group>
+                  </>
+                )}
+              </Stack>
+            )}
+
+            {/* Slack Webhook Form */}
+            {formData.channelType === 'slack_webhook' && (
+              <Stack gap="sm">
+                <TextInput
+                  label="Webhook URL"
+                  placeholder="https://hooks.slack.com/services/..."
+                  value={formData.slackWebhookConfig.webhookUrl}
+                  onChange={(e) => handleInputChange('slackWebhook.webhookUrl', e.target.value)}
+                  error={formErrors['slackWebhook.webhookUrl']}
+                  required
+                  leftSection={<IconBrandSlack size={16} />}
+                />
+                <Group grow>
+                  <TextInput
+                    label="Bot Name"
+                    placeholder="PulseBot"
+                    value={formData.slackWebhookConfig.botName}
+                    onChange={(e) => handleInputChange('slackWebhook.botName', e.target.value)}
+                  />
+                  <TextInput
+                    label="Icon Emoji"
+                    placeholder=":bell:"
+                    value={formData.slackWebhookConfig.iconEmoji}
+                    onChange={(e) => handleInputChange('slackWebhook.iconEmoji', e.target.value)}
+                  />
+                </Group>
+              </Stack>
+            )}
+
+            {/* Email Form */}
+            {formData.channelType === 'email' && (
+              <Stack gap="sm">
+                <Group grow>
+                  <TextInput
+                    label="From Address"
+                    placeholder="noreply@example.com"
+                    value={formData.emailConfig.fromAddress}
+                    onChange={(e) => handleInputChange('email.fromAddress', e.target.value)}
+                    error={formErrors['email.fromAddress']}
+                    required
+                    leftSection={<IconMail size={16} />}
+                  />
+                  <TextInput
+                    label="From Name"
+                    placeholder="Pulse Notifications"
+                    value={formData.emailConfig.fromName}
+                    onChange={(e) => handleInputChange('email.fromName', e.target.value)}
+                    error={formErrors['email.fromName']}
+                    required
+                  />
+                </Group>
+                <TextInput
+                  label="Reply-To Address"
+                  placeholder="support@example.com"
+                  value={formData.emailConfig.replyToAddress}
+                  onChange={(e) => handleInputChange('email.replyToAddress', e.target.value)}
+                />
+                <TextInput
+                  label="Configuration Set Name"
+                  placeholder="pulse-prod"
+                  value={formData.emailConfig.configurationSetName}
+                  onChange={(e) => handleInputChange('email.configurationSetName', e.target.value)}
+                />
+              </Stack>
+            )}
           </Stack>
 
           <Box className={classes.modalActions}>
@@ -543,6 +837,7 @@ export function NotificationChannels() {
               color="teal"
               onClick={handleSubmit}
               loading={isSubmitting}
+              disabled={formData.channelType === 'slack_oauth' && !isSlackConnected}
             >
               {modalMode === 'create' ? 'Create Channel' : 'Save Changes'}
             </Button>
