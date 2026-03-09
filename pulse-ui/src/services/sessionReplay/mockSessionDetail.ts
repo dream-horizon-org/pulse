@@ -41,6 +41,7 @@ export interface SessionIntent {
   actualDuration: number;
 }
 
+
 export interface CriticalInteraction {
   interactionId: number;
   interactionName: string;
