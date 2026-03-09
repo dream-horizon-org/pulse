@@ -58,6 +58,7 @@ export const HEADERS = {
   CRITICAL_INTERACTIONS: "Critical Interactions",
   USER_JOURNEY: "User Journey",
   NETWORK_REQUESTS: "Network Requests",
+  ENGINEERING_ACTIONS: "Engineering Actions",
 } as const;
 
 // Field Labels
@@ -152,6 +153,9 @@ export const MESSAGES = {
 
 // Button Labels
 export const BUTTON_LABELS = {
+  CREATE_JIRA_TICKET: "Create Jira Ticket",
+  LINK_TO_PR: "Link to PR",
+  VIEW_ERROR_GROUP: "View Error Group",
   CREATE_FUNNEL_ANALYSIS: "Create Funnel Analysis",
   FIND_SIMILAR_DROP_OFFS: "Find Similar Drop-offs",
   ADD_TO_WATCH_LIST: "Add to Watch List",
@@ -199,7 +203,8 @@ export const CHART_LABELS = {
 
 // Chart Tooltips
 export const CHART_TOOLTIPS = {
-  WATERFALL_FORMAT: "{method} {name}<br/>Status: {status}<br/>Duration: {duration}ms",
+  WATERFALL_FORMAT:
+    "{method} {name}<br/>Status: {status}<br/>Duration: {duration}ms",
   STATUS_FORMAT: "{b}: {c} ({d}%)",
   DURATION_FORMAT: "{name}<br/>Duration: {value}ms",
 } as const;
@@ -220,8 +225,7 @@ export const DEFAULTS = {
 // Format Strings
 export const FORMAT_STRINGS = {
   QUALITY_SCORE: "{score}/10",
-  CRITICAL_INTERACTION_FORMAT:
-    "{displayName} CII - {status}",
+  CRITICAL_INTERACTION_FORMAT: "{displayName} CII - {status}",
   API_CALL_FORMAT: "{method} {url}",
   NETWORK_PERFORMANCE_FORMAT: "{duration}ms",
   SUCCESSFUL_COUNT: "{success}/{total} Successful",
