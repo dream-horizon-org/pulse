@@ -13,7 +13,6 @@ import org.json.JSONObject
 internal object ReplayEnvelopeBuilder {
 
     private const val ANONYMOUS_USER_ID = "anonymous"
-    private const val LOG_TAG = "PulseSessionReplay"
 
     fun buildEnvelope(
         sessionId: String,
@@ -37,13 +36,10 @@ internal object ReplayEnvelopeBuilder {
 
     /** Returns a string suitable for logging, e.g. "session_id: abc-123" or "session_ids: a, b" for batches. */
     fun getSessionIdsForLog(payload: String): String? = try {
-        val envelopes = if (payload.trimStart().startsWith("[")) JSONArray(payload) else JSONArray().put(JSONObject(payload))
-        val ids = mutableSetOf<String>()
-        for (i in 0 until envelopes.length()) {
-            val envelope = envelopes.optJSONObject(i) ?: continue
-            val props = envelope.optJSONObject("properties") ?: continue
-            props.optString("session_id", "").takeIf { it.isNotEmpty() }?.let { ids.add(it) }
-        }
+        val envelopes = parseEnvelopes(payload)
+        val ids = envelopes.mapNotNull { envelope ->
+            envelope.optJSONObject("properties")?.optString("session_id", "")?.takeIf { it.isNotEmpty() }
+        }.toSet()
         when (ids.size) {
             0 -> null
             1 -> "session_id: ${ids.first()}"
@@ -54,10 +50,9 @@ internal object ReplayEnvelopeBuilder {
     }
 
     fun getEventTypesSummary(payload: String): String? = try {
-        val envelopes = if (payload.trimStart().startsWith("[")) JSONArray(payload) else JSONArray().put(JSONObject(payload))
+        val envelopes = parseEnvelopes(payload)
         val typeCounts = mutableMapOf<String, Int>()
-        for (i in 0 until envelopes.length()) {
-            val envelope = envelopes.optJSONObject(i) ?: continue
+        for (envelope in envelopes) {
             val props = envelope.optJSONObject("properties") ?: continue
             val snapshotData = props.optJSONArray("snapshot_data") ?: continue
             for (j in 0 until snapshotData.length()) {
@@ -83,5 +78,12 @@ internal object ReplayEnvelopeBuilder {
         if (typeCounts.isEmpty()) null else typeCounts.entries.joinToString(", ") { "${it.key}(${it.value})" }
     } catch (_: Throwable) {
         null
+    }
+
+    /** Parses payload as single envelope or array of envelopes; returns list of JSONObject. */
+    private fun parseEnvelopes(payload: String): List<JSONObject> {
+        val trimmed = payload.trimStart()
+        val array = if (trimmed.startsWith("[")) JSONArray(payload) else JSONArray().put(JSONObject(payload))
+        return (0 until array.length()).mapNotNull { index -> array.optJSONObject(index) }
     }
 }

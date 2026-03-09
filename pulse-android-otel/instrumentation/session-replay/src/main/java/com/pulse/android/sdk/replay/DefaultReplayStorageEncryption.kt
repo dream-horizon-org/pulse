@@ -8,13 +8,6 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-private const val TRANSFORMATION = "AES/GCM/NoPadding"
-private const val GCM_IV_LENGTH = 12
-private const val GCM_TAG_LENGTH = 128
-private const val KEY_SIZE = 256
-private const val PREFS_NAME = "pulse_replay_encryption"
-private const val PREF_KEY_SECRET = "replay_key"
-
 /**
  * Default encryption for replay files: AES-256-GCM. Key is generated once and stored in
  * app-private SharedPreferences. Applied by the SDK for all persisted replay files.
@@ -23,6 +16,15 @@ private const val PREF_KEY_SECRET = "replay_key"
 public class DefaultReplayStorageEncryption(context: Context) : ReplayStorageEncryption {
 
     private val key: SecretKey = getOrCreateKey(context)
+
+    private companion object {
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val GCM_IV_LENGTH = 12
+        private const val GCM_TAG_LENGTH = 128
+        private const val KEY_SIZE = 256
+        private const val PREFS_NAME = "pulse_replay_encryption"
+        private const val PREF_KEY_SECRET = "replay_key"
+    }
 
     override fun encrypt(plaintext: ByteArray): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORMATION)

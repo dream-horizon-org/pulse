@@ -102,6 +102,7 @@ public class SessionReplayIntegration(
                         // Touch/mouse events disabled for now
                         // window.touchEventInterceptors += onTouchEventListener
                     }
+                    Unit
                 } else {
                     window.peekDecorView()?.let { decorView ->
                         decorViews[decorView]?.let { status ->
@@ -109,7 +110,6 @@ public class SessionReplayIntegration(
                         }
                     }
                 }
-                Unit
             }
         } catch (e: Throwable) {
             logger("Session Replay OnRootViewsChangedListener failed: $e")
@@ -120,6 +120,7 @@ public class SessionReplayIntegration(
         addView(view, added)
     }
 
+    /** Used when touch/mouse capture is re-enabled (see commented registration in addView). */
     private val onTouchEventListener = TouchEventInterceptor { motionEvent, dispatch ->
         val timestamp = dateProvider.currentTimeMillis()
         try {
@@ -189,7 +190,9 @@ public class SessionReplayIntegration(
                 if (view.isAliveAndAttachedToWindow()) {
                     try {
                         view.viewTreeObserver?.removeOnDrawListener(status.listener)
-                    } catch (_: Throwable) {}
+                    } catch (_: Throwable) {
+                        // Ignore if observer or view is invalid
+                    }
                 }
             }
         }
