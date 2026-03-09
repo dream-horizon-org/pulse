@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Box, Table, Text } from "@mantine/core";
 import {
   IconTable,
@@ -17,17 +17,20 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
 
-  const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((prev) =>
-        prev === "asc" ? "desc" : prev === "desc" ? null : "asc",
-      );
-      if (sortDir === "desc") setSortKey(null);
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  };
+  const handleSort = useCallback(
+    (key: string) => {
+      if (sortKey === key) {
+        setSortDir((prev) =>
+          prev === "asc" ? "desc" : prev === "desc" ? null : "asc",
+        );
+        if (sortDir === "desc") setSortKey(null);
+      } else {
+        setSortKey(key);
+        setSortDir("asc");
+      }
+    },
+    [sortKey, sortDir],
+  );
 
   const sortedRows = useMemo(() => {
     if (!sortKey || !sortDir) return table.rows;

@@ -1,4 +1,4 @@
-import { ChatMessage, ChatSession } from "../../types/chat";
+import { ChatMessage, ChatSession } from "../types/chat";
 
 export const mockSessions: ChatSession[] = [
   {

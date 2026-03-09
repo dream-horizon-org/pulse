@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Alert, Box } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useChatStore } from "../../stores/useChatStore";
@@ -23,9 +24,10 @@ export const AiChat = () => {
   const { handleNewChat, isLoadingSessions } = useAiChatHydration();
   const { handleSend } = useHandleSend();
 
-  const activeMessages = activeSessionId
-    ? (messages[activeSessionId] ?? [])
-    : [];
+  const activeMessages = useMemo(
+    () => (activeSessionId ? (messages[activeSessionId] ?? []) : []),
+    [activeSessionId, messages],
+  );
 
   return (
     <Box className={classes.container}>
