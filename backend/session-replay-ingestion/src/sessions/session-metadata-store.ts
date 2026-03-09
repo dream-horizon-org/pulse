@@ -29,8 +29,9 @@ export class SessionMetadataStore {
 
         const chTimestampFormat = 'yyyy-MM-dd HH:mm:ss.SSS000'
 
-        for (const metadata of blocks) {
-            const event = {
+        const messages = blocks.map((metadata) => ({
+            key: metadata.sessionId,
+            value: JSON.stringify({
                 uuid: randomUUID(),
                 session_id: metadata.sessionId,
                 project_id: metadata.projectId,
@@ -40,15 +41,10 @@ export class SessionMetadataStore {
                 last_timestamp: metadata.endDateTime.toUTC().toFormat(chTimestampFormat),
                 block_url: metadata.blockUrl,
                 snapshot_source: metadata.snapshotSource ?? '',
-            }
+            }),
+        }))
 
-            await this.producer.produce(
-                this.kafkaTopic,
-                metadata.sessionId,
-                JSON.stringify(event)
-            )
-        }
-
+        this.producer.queueMessages(this.kafkaTopic, messages)
         await this.producer.flush()
 
         console.log(`[MetadataStore] Published ${blocks.length} block metadata events to ${this.kafkaTopic}`)

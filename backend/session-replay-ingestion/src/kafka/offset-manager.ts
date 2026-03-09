@@ -6,7 +6,7 @@ interface TopicPartitionOffset {
     offset: number
 }
 
-type CommitOffsetsCallback = (offsets: TopicPartitionOffset[]) => void
+type CommitOffsetsCallback = (offsets: TopicPartitionOffset[]) => void | Promise<void>
 
 /**
  * Tracks the highest processed Kafka offset per partition.
@@ -25,7 +25,6 @@ export class KafkaOffsetManager {
     ) {}
 
     public trackOffset({ partition, offset }: PartitionOffset): void {
-        // Store the *next* offset to process (offset + 1)
         this.partitionOffsets.set(partition, offset + 1)
     }
 
@@ -33,7 +32,7 @@ export class KafkaOffsetManager {
         this.partitionOffsets.delete(partition)
     }
 
-    public commit(): void {
+    public async commit(): Promise<void> {
         const offsets: TopicPartitionOffset[] = []
 
         for (const [partition, offset] of this.partitionOffsets.entries()) {
@@ -42,7 +41,7 @@ export class KafkaOffsetManager {
 
         if (offsets.length > 0) {
             console.log(`[OffsetManager] Committing offsets for ${offsets.length} partitions`)
-            this.commitOffsets(offsets)
+            await this.commitOffsets(offsets)
             this.partitionOffsets.clear()
         }
     }

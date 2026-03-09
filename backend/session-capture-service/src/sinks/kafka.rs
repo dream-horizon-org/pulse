@@ -37,6 +37,19 @@ impl rdkafka::ClientContext for KafkaContext {
         let down_brokers = total_brokers.saturating_sub(up_brokers);
         metrics::gauge!("capture_kafka_any_brokers_down").set(if down_brokers > 0 { 1.0 } else { 0.0 });
 
+        for (topic, topic_stats) in &stats.topics {
+            metrics::gauge!(
+                "capture_kafka_produce_avg_batch_size_bytes",
+                "topic" => topic.clone()
+            )
+            .set(topic_stats.batchsize.avg as f64);
+            metrics::gauge!(
+                "capture_kafka_produce_avg_batch_size_events",
+                "topic" => topic.clone()
+            )
+            .set(topic_stats.batchcnt.avg as f64);
+        }
+
         for (_, broker_stats) in &stats.brokers {
             let id_string = format!("{}", broker_stats.nodeid);
             metrics::gauge!(
@@ -44,6 +57,44 @@ impl rdkafka::ClientContext for KafkaContext {
                 "broker" => id_string.clone()
             )
             .set(if broker_stats.state == "UP" { 1.0 } else { 0.0 });
+
+            if let Some(ref rtt) = broker_stats.rtt {
+                metrics::gauge!(
+                    "capture_kafka_produce_rtt_latency_us",
+                    "quantile" => "p50",
+                    "broker" => id_string.clone()
+                )
+                .set(rtt.p50 as f64);
+                metrics::gauge!(
+                    "capture_kafka_produce_rtt_latency_us",
+                    "quantile" => "p90",
+                    "broker" => id_string.clone()
+                )
+                .set(rtt.p90 as f64);
+                metrics::gauge!(
+                    "capture_kafka_produce_rtt_latency_us",
+                    "quantile" => "p95",
+                    "broker" => id_string.clone()
+                )
+                .set(rtt.p95 as f64);
+                metrics::gauge!(
+                    "capture_kafka_produce_rtt_latency_us",
+                    "quantile" => "p99",
+                    "broker" => id_string.clone()
+                )
+                .set(rtt.p99 as f64);
+            }
+
+            metrics::gauge!(
+                "capture_kafka_broker_requests_pending",
+                "broker" => id_string.clone()
+            )
+            .set(broker_stats.outbuf_cnt as f64);
+            metrics::gauge!(
+                "capture_kafka_broker_responses_awaiting",
+                "broker" => id_string.clone()
+            )
+            .set(broker_stats.waitresp_cnt as f64);
 
             metrics::counter!(
                 "capture_kafka_broker_tx_errors_total",
@@ -72,7 +123,7 @@ pub struct KafkaSink {
 }
 
 impl KafkaSink {
-    pub fn new(config: &KafkaConfig, liveness: HealthHandle) -> anyhow::Result<Self> {
+    pub async fn new(config: &KafkaConfig, liveness: HealthHandle) -> anyhow::Result<Self> {
         tracing::info!("Connecting to Kafka brokers at {}", config.kafka_hosts);
 
         let mut client_config = ClientConfig::new();
@@ -126,16 +177,16 @@ impl KafkaSink {
         let context = KafkaContext { liveness: liveness.clone() };
         let producer: FutureProducer<KafkaContext> = client_config.create_with_context(context)?;
 
-        match producer.client().fetch_metadata(
-            Some("__consumer_offsets"),
-            Timeout::After(Duration::from_secs(10)),
-        ) {
-            Ok(_) => {
-                // Synchronous context — use blocking report
-                liveness.report_healthy_blocking();
-                tracing::info!("Connected to Kafka brokers");
-            }
-            Err(e) => tracing::warn!("Failed to verify Kafka connectivity: {e} (will retry on first produce)"),
+        if producer
+            .client()
+            .fetch_metadata(
+                Some("__consumer_offsets"),
+                Timeout::After(Duration::from_secs(10)),
+            )
+            .is_ok()
+        {
+            liveness.report_healthy().await;
+            tracing::info!("Connected to Kafka brokers");
         }
 
         Ok(Self {

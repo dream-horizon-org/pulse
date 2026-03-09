@@ -122,7 +122,7 @@ export class SessionBatchRecorder {
 
         await this.metadataStore.storeSessionBlocks(allMetadata)
 
-        this.offsetManager.commit()
+        await this.offsetManager.commit()
 
         this.partitionSessions.clear()
         this.partitionSizes.clear()

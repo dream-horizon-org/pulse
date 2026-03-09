@@ -8,7 +8,6 @@ import { KafkaProducer } from './kafka/producer'
 import { ParsedMessageData } from './kafka/types'
 import { S3SessionBatchFileStorage } from './sessions/s3-session-batch-writer'
 import { SessionBatchManager } from './sessions/session-batch-manager'
-import { SessionBatchRecorder } from './sessions/session-batch-recorder'
 import { SessionMetadataStore } from './sessions/session-metadata-store'
 
 /**
@@ -147,6 +146,7 @@ export class SessionReplayConsumer {
 
         // Connect and subscribe
         await this.connectConsumer()
+        this.consumer.setDefaultConsumeTimeout(500)
         this.consumer.subscribe([this.config.kafkaTopic])
 
         console.log(`[Consumer] Subscribed to ${this.config.kafkaTopic}`)
@@ -173,7 +173,9 @@ export class SessionReplayConsumer {
         }
 
         if (this.consumer) {
-            this.consumer.disconnect()
+            await new Promise<void>((resolve) => {
+                this.consumer!.disconnect(() => resolve())
+            })
         }
         if (this.producer) {
             await this.producer.disconnect()
@@ -217,16 +219,22 @@ export class SessionReplayConsumer {
 
         const parsed = await this.parser.parseBatch(rawMessages)
 
-        this.processMessages(parsed)
+        await this.processMessages(parsed)
     }
 
     /**
      * Record parsed messages into the current batch.
+     * Yields the event loop every YIELD_INTERVAL messages to prevent starvation
+     * (allows heartbeats, timers, and I/O callbacks to fire between messages).
      */
-    private processMessages(parsedMessages: ParsedMessageData[]): void {
+    private async processMessages(parsedMessages: ParsedMessageData[]): Promise<void> {
+        const YIELD_INTERVAL = 100
         const batch = this.batchManager!.getCurrentBatch()
-        for (const message of parsedMessages) {
-            batch.record(message)
+        for (let i = 0; i < parsedMessages.length; i++) {
+            batch.record(parsedMessages[i])
+            if (i > 0 && i % YIELD_INTERVAL === 0) {
+                await new Promise<void>((resolve) => setImmediate(resolve))
+            }
         }
     }
 
@@ -244,13 +252,16 @@ export class SessionReplayConsumer {
 
     private connectConsumer(): Promise<void> {
         return new Promise((resolve, reject) => {
+            const onError = (err: any) => {
+                this.consumer!.removeListener('event.error', onError)
+                reject(err)
+            }
             this.consumer!.on('ready', () => {
+                this.consumer!.removeListener('event.error', onError)
                 console.log('[Consumer] Kafka consumer connected')
                 resolve()
             })
-            this.consumer!.on('event.error', (err: any) => {
-                reject(err)
-            })
+            this.consumer!.on('event.error', onError)
             this.consumer!.connect()
         })
     }

@@ -36,6 +36,7 @@ async fn main() {
 
     let sink: Arc<dyn sinks::Event> = Arc::new(
         sinks::kafka::KafkaSink::new(&config.kafka, kafka_health)
+            .await
             .expect("Failed to create Kafka producer"),
     );
 

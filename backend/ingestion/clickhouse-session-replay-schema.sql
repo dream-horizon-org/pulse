@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS otel.session_replay_events
     block_last_timestamps  SimpleAggregateFunction(groupArrayArray, Array(DateTime64(6, 'UTC'))) CODEC(ZSTD(1)),
     snapshot_source        AggregateFunction(argMin, LowCardinality(String), DateTime64(6, 'UTC'))
 ) ENGINE = AggregatingMergeTree()
+PARTITION BY (project_id, toYYYYMMDD(min_first_timestamp))
 ORDER BY (project_id, session_id)
 TTL toDateTime(max_last_timestamp) + INTERVAL 90 DAY
 SETTINGS merge_with_ttl_timeout = 86400;

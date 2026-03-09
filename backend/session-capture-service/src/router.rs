@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::DefaultBodyLimit;
-use axum::http::{Method, StatusCode};
+use axum::http::Method;
 use axum::routing::get;
 use axum::routing::post;
 use axum::Router;
@@ -12,7 +12,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::endpoint;
-use crate::health::HealthRegistry;
+use crate::health::{readiness_handler, HealthRegistry};
 use crate::metrics_middleware::{apply_request_timeout, track_metrics};
 use crate::sinks;
 
@@ -46,10 +46,7 @@ pub fn create_router(
         "/_liveness",
         get(move || ready(liveness.get_status())),
     );
-    router = router.route(
-        "/_readiness",
-        get(readiness_handler),
-    );
+    router = router.route("/_readiness", get(readiness_handler));
     router = router.route(
         "/metrics",
         get(move || ready(metrics_handle.render())),
@@ -62,12 +59,4 @@ pub fn create_router(
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state)
-}
-
-async fn readiness_handler() -> StatusCode {
-    if std::path::Path::new("/tmp/shutdown").exists() {
-        StatusCode::SERVICE_UNAVAILABLE
-    } else {
-        StatusCode::OK
-    }
 }

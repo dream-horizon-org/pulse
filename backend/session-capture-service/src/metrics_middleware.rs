@@ -8,6 +8,14 @@ use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum::routing::Router;
 
+use crate::health::get_shutdown_status;
+
+const METRIC_CAPTURE_ACTIVE_CONNECTIONS: &str = "capture_active_connections";
+const METRIC_HTTP_REQUESTS_TOTAL: &str = "http_requests_total";
+const METRIC_HTTP_REQUESTS_DURATION_SECONDS: &str = "http_requests_duration_seconds";
+const METRIC_CAPTURE_REQUEST_TIMED_OUT: &str = "middleware_request_timed_out_total";
+const METRIC_CAPTURE_TIMEOUT_MIDDLEWARE_PASS: &str = "middleware_pass_total";
+
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
 struct ConnectionGuard;
@@ -17,7 +25,11 @@ impl Drop for ConnectionGuard {
         let connections = ACTIVE_CONNECTIONS
             .fetch_sub(1, Ordering::Relaxed)
             .saturating_sub(1);
-        metrics::gauge!("capture_active_connections").set(connections as f64);
+        metrics::gauge!(
+            METRIC_CAPTURE_ACTIVE_CONNECTIONS,
+            "shutdown_status" => get_shutdown_status().as_str()
+        )
+        .set(connections as f64);
     }
 }
 
@@ -33,7 +45,11 @@ pub async fn track_metrics(req: Request<Body>, next: Next) -> impl IntoResponse 
     let method = req.method().clone();
 
     let connections = ACTIVE_CONNECTIONS.fetch_add(1, Ordering::Relaxed) + 1;
-    metrics::gauge!("capture_active_connections").set(connections as f64);
+    metrics::gauge!(
+        METRIC_CAPTURE_ACTIVE_CONNECTIONS,
+        "shutdown_status" => get_shutdown_status().as_str()
+    )
+    .set(connections as f64);
     let _guard = ConnectionGuard;
 
     let response = next.run(req).await;
@@ -47,8 +63,8 @@ pub async fn track_metrics(req: Request<Body>, next: Next) -> impl IntoResponse 
         ("status", status),
     ];
 
-    metrics::counter!("http_requests_total", &labels).increment(1);
-    metrics::histogram!("http_requests_duration_seconds", &labels).record(latency);
+    metrics::counter!(METRIC_HTTP_REQUESTS_TOTAL, &labels).increment(1);
+    metrics::histogram!(METRIC_HTTP_REQUESTS_DURATION_SECONDS, &labels).record(latency);
 
     response
 }
@@ -91,27 +107,36 @@ where
 
                 match tokio::time::timeout(timeout_duration, next.run(req)).await {
                     Ok(response) => {
+                        let elapsed = start.elapsed();
+                        let threshold_exceeded = elapsed.as_secs() > timeout_secs;
+
                         let mut tags = vec![
                             ("method", method.clone()),
                             ("path", path.clone()),
                             ("status", response.status().as_u16().to_string()),
                         ];
-                        let elapsed = start.elapsed();
-                        if elapsed.as_secs() > timeout_secs {
+                        if threshold_exceeded {
                             tags.push(("threshold", "exceeded".to_string()));
                         } else {
                             tags.push(("threshold", "respected".to_string()));
                         }
-                        metrics::counter!("middleware_pass_total", &tags).increment(1);
+                        metrics::counter!(METRIC_CAPTURE_TIMEOUT_MIDDLEWARE_PASS, &tags).increment(1);
                         response
                     }
                     Err(_) => {
                         let elapsed = start.elapsed();
-                        let tags = vec![
+                        let threshold_exceeded = elapsed.as_secs() > timeout_secs;
+
+                        let mut tags = vec![
                             ("method", method.clone()),
                             ("path", path.clone()),
                         ];
-                        metrics::counter!("middleware_request_timed_out_total", &tags).increment(1);
+                        if threshold_exceeded {
+                            tags.push(("threshold", "exceeded".to_string()));
+                        } else {
+                            tags.push(("threshold", "respected".to_string()));
+                        }
+                        metrics::counter!(METRIC_CAPTURE_REQUEST_TIMED_OUT, &tags).increment(1);
 
                         tracing::warn!(
                             method = method,
