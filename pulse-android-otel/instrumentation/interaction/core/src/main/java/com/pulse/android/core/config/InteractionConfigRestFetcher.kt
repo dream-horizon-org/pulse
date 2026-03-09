@@ -3,7 +3,7 @@ package com.pulse.android.core.config
 import com.pulse.android.remote.InteractionApiService
 import com.pulse.android.remote.InteractionRetrofitClient
 import com.pulse.android.remote.models.InteractionConfig
-import com.pulse.otel.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseNetworkingUtils
 import java.util.concurrent.ConcurrentHashMap
 
 /**

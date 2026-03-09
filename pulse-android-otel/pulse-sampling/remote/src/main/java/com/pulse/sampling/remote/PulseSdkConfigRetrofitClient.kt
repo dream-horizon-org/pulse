@@ -1,8 +1,8 @@
 package com.pulse.sampling.remote
 
-import com.pulse.otel.utils.PulseNetworkingUtils
-import com.pulse.otel.utils.PulseOtelUtils
-import com.pulse.otel.utils.PulseSerialisationUtils
+import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.EventListener

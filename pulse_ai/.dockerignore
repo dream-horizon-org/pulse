@@ -1,0 +1,8 @@
+.env
+.env.example
+.dockerignore
+docker-compose.yml
+setup.sh
+__pycache__/
+*.pyc
+.git

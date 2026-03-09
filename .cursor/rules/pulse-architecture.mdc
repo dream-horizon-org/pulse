@@ -1,0 +1,42 @@
+---
+description: Pulse platform architecture overview — always loaded for system-wide context
+alwaysApply: true
+---
+
+# Pulse Architecture
+
+Pulse is a real-time observability platform for mobile apps, built on OpenTelemetry.
+
+## Monorepo Layout
+
+| Directory | Service | Tech | Port |
+|-----------|---------|------|------|
+| `backend/server/` | REST API | Java 17, Vert.x 4.5, Guice, Maven | 8080 |
+| `backend/pulse-alerts-cron/` | Alert evaluation cron | Java/Vert.x | 4000 |
+| `backend/ingestion/` | OTEL Collector configs + ClickHouse schema | YAML/SQL | — |
+| `pulse-ui/` | Dashboard | React 18, TypeScript, Mantine v7 | 3000 |
+| `pulse_ai/` | AI agent (own Docker Compose) | Python, Google ADK + Gemini | 8000 |
+| `pulse-android-otel/` | Android SDK | Kotlin, OpenTelemetry | — |
+| `pulse-react-native-otel/` | React Native SDK | TypeScript | — |
+| `deploy/` | Docker Compose, scripts, Terraform | — | — |
+
+## Data Flow
+
+```
+Mobile SDKs → OTEL Collector (port 4317/4318)
+  → Kafka → ClickHouse (otel DB)
+Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery
+```
+
+## Databases
+
+- **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs
+- **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`
+
+## Auth
+
+Google OAuth 2.0 → JWT (access 24h, refresh 30d). Tokens in cookies on frontend.
+
+## Cross-Cutting Concerns
+
+Alert metrics span: MySQL schema → backend `ServiceError`/service/DAO → alerts cron → UI form → AI metric registry. Changes usually need updates across multiple services.

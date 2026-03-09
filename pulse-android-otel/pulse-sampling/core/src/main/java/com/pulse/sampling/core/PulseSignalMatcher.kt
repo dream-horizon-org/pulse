@@ -1,9 +1,9 @@
 package com.pulse.sampling.core
 
-import com.pulse.otel.utils.matchesFromRegexCache
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
+import com.pulse.utils.matchesFromRegexCache
 
 public fun interface PulseSignalMatcher {
     public fun matches(

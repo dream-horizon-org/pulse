@@ -1,7 +1,7 @@
 package io.opentelemetry.android.instrumentation.location.processors
 
 import android.content.SharedPreferences
-import com.pulse.otel.utils.PulseSerialisationUtils
+import com.pulse.utils.PulseSerialisationUtils
 import io.opentelemetry.android.instrumentation.location.models.CachedLocation
 import io.opentelemetry.android.instrumentation.location.models.LocationConstants
 import io.opentelemetry.api.common.Attributes

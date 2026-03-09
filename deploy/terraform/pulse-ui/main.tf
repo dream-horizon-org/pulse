@@ -33,13 +33,13 @@ resource "aws_launch_template" "pulse_ui" {
   name = "pulse-ui-lt"
 
   tags = {
-    Name                = "pulse-ui-lt"
-    org_name            = "horizon"
-    environment_name    = "production"
-    component_name      = "pulse-ui"
-    component_type      = "application"
-    service_name        = "pulse"
-    resource_type       = "lt"
+    Name             = "pulse-ui-lt"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-ui"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lt"
   }
 
   image_id               = var.ami_id
@@ -49,26 +49,26 @@ resource "aws_launch_template" "pulse_ui" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name                = "pulse-ui-instance"
-      org_name            = "horizon"
-      environment_name    = "production"
-      component_name      = "pulse-ui"
-      component_type      = "application"
-      service_name        = "pulse"
-      resource_type       = "ec2"
+      Name             = "pulse-ui-instance"
+      org_name         = "horizon"
+      environment_name = "production"
+      component_name   = "pulse-ui"
+      component_type   = "application"
+      service_name     = "pulse"
+      resource_type    = "ec2"
     }
   }
 
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name                = "pulse-ui-volume"
-      org_name            = "horizon"
-      environment_name    = "production"
-      component_name      = "pulse-ui"
-      component_type      = "application"
-      service_name        = "pulse"
-      resource_type       = "ebs"
+      Name             = "pulse-ui-volume"
+      org_name         = "horizon"
+      environment_name = "production"
+      component_name   = "pulse-ui"
+      component_type   = "application"
+      service_name     = "pulse"
+      resource_type    = "ebs"
     }
   }
 
@@ -91,7 +91,7 @@ resource "aws_launch_template" "pulse_ui" {
 }
 
 # -------------------------------------------------------------------
-# NLB + Target Group + Listener
+# ALB + Target Group + Listeners
 # -------------------------------------------------------------------
 resource "aws_lb" "pulse_ui" {
   load_balancer_type         = "application"
@@ -104,13 +104,13 @@ resource "aws_lb" "pulse_ui" {
   drop_invalid_header_fields = true
 
   tags = {
-    Name                = "pulse-ui-lb"
-    org_name            = "horizon"
-    environment_name    = "production"
-    component_name      = "pulse-ui"
-    component_type      = "application"
-    service_name        = "pulse"
-    resource_type       = "lb"
+    Name             = "pulse-ui-lb"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-ui"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "lb"
   }
 }
 
@@ -137,13 +137,13 @@ resource "aws_lb_target_group" "pulse_ui" {
   deregistration_delay = 30
 
   tags = {
-    Name                = "pulse-ui-tg"
-    org_name            = "horizon"
-    environment_name    = "production"
-    component_name      = "pulse-ui"
-    component_type      = "application"
-    service_name        = "pulse"
-    resource_type       = "tg"
+    Name             = "pulse-ui-tg"
+    org_name         = "horizon"
+    environment_name = "production"
+    component_name   = "pulse-ui"
+    component_type   = "application"
+    service_name     = "pulse"
+    resource_type    = "tg"
   }
 }
 
@@ -210,7 +210,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   min_size                  = var.asg_min_size
   max_size                  = var.asg_max_size
   protect_from_scale_in     = true
-  target_group_arns = [aws_lb_target_group.pulse_ui.arn]
+  target_group_arns         = [aws_lb_target_group.pulse_ui.arn]
 
   instance_refresh {
     strategy = "Rolling"
@@ -218,7 +218,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
       # This ensures your app doesn't go down during the refresh.
       # Since your desired capacity is 1, AWS will temporarily spin up a 2nd instance,
       # wait for it to pass ALB health checks, and THEN terminate the old 1st instance.
-      min_healthy_percentage = 100
+      min_healthy_percentage       = 100
       scale_in_protected_instances = "Refresh"
     }
     # This tells Terraform to trigger a refresh if the Launch Template changes
