@@ -105,6 +105,7 @@ export const LABELS = {
   OCCURRENCES: "Occurrences",
   FIRST_SEEN: "First Seen",
   TREND: "Trend",
+  REPRODUCTION_STEPS: "Reproduction Steps",
 } as const;
 
 // Status Labels
@@ -153,6 +154,7 @@ export const MESSAGES = {
 
 // Button Labels
 export const BUTTON_LABELS = {
+  COPY_REPRO_STEPS: "Copy Reproduction Steps",
   CREATE_JIRA_TICKET: "Create Jira Ticket",
   LINK_TO_PR: "Link to PR",
   VIEW_ERROR_GROUP: "View Error Group",
