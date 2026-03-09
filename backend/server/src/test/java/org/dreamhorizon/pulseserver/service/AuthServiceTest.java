@@ -58,12 +58,15 @@ class AuthServiceTest {
   @Mock
   ProjectService projectService;
 
+  @Mock
+  org.dreamhorizon.pulseserver.service.tier.TierService tierService;
+
   AuthService authService;
 
   @BeforeEach
   void setUp() {
     authService = new AuthService(applicationConfig, jwtService, tenantDao, userService,
-        openFgaService, projectService);
+        openFgaService, projectService, tierService);
   }
 
   @Nested

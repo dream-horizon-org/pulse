@@ -325,7 +325,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test");
+        ProjectContext.setProjectId("test-project");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
@@ -359,7 +359,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultConfigUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("default");
+        ProjectContext.setProjectId("test-project");
         // Set tenant context inside Vert.x context
 
         // Given
@@ -393,7 +393,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyBothDefaultUrlsWhenBothNullOrBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        ProjectContext.setProjectId("test");
+        ProjectContext.setProjectId("test-project");
 
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();

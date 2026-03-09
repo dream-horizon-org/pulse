@@ -201,6 +201,7 @@ public class AuthService {
                                                 .email(user.getEmail())
                                                 .name(user.getName())
                                                 .tenantId(tenantId)
+                                                .tenantName(tenant.getName())
                                                 .tenantRole(tenantRole)
                                                 .tier(tierName)
                                                 .needsOnboarding(false)

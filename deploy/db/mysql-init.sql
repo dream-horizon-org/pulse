@@ -521,37 +521,6 @@ CREATE TABLE IF NOT EXISTS athena_job (
     CONSTRAINT fk_athena_job_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
--- DEPRECATED: Use clickhouse_project_credentials instead (per-project isolation)
--- This table is kept for backward compatibility only
-CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id VARCHAR(100) NOT NULL UNIQUE,
-    clickhouse_username VARCHAR(100) NOT NULL,
-    clickhouse_password_encrypted TEXT NOT NULL,
-    encryption_salt VARCHAR(100) NOT NULL,
-    password_digest VARCHAR(100) NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_ch_cred_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    INDEX idx_tenant_active (tenant_id, is_active)
-);
-
-Insert into clickhouse_tenant_credentials(tenant_id, clickhouse_username, clickhouse_password_encrypted, encryption_salt, password_digest,is_active)
-VALUES('default', 'pulse_user', '4DmcqzM5CvhbfldwSodVxV2RKujGtFuk0/ON9qNjp/ZyL8uxdKar31iU', 'ESp44TCMn7nTiBIm6Kfd/g==', 'eGCdIGWj2FVzvDfTmTsxOl2cbpbYPRI5ts9Fk9D3jVA=', 1);
-
-CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(100) NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    performed_by VARCHAR(255) NOT NULL,
-    details JSON,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_credential_audit_project (project_id),
-    CONSTRAINT fk_credential_audit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
-);
-
-
 -- ============================================================================
 -- PROJECT USAGE LIMITS TABLE
 -- Single source of truth for project limits. One active record per project.
@@ -619,14 +588,15 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
 -- Audits changes to ClickHouse project credentials
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
-    clickhouse_project_credential_audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL COMMENT 'Project ID (projectName-{uuid})',
-    clickhouse_username VARCHAR(255) NOT NULL,
-    action ENUM('CREATE', 'ROTATE', 'REVOKE') NOT NULL,
+    action VARCHAR(50) NOT NULL,
     performed_by VARCHAR(255) NOT NULL,
-    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_chaudit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    INDEX idx_chaudit_project (project_id)
+    INDEX idx_chaudit_project (project_id),
+    INDEX idx_chaudit_created (created_at)
 );
 
 -- Notification Service Tables

@@ -39,16 +39,17 @@ public class AthenaQueryJobDaoAdapterTest {
 
     @Test
     void shouldCreateJob() {
+      String projectId = "test-project";
       String queryString = "SELECT * FROM table";
       String userEmail = "test@example.com";
       String jobId = "job-123";
 
-      when(athenaJobDao.createJob(queryString, userEmail)).thenReturn(Single.just(jobId));
+      when(athenaJobDao.createJob(projectId, queryString, userEmail)).thenReturn(Single.just(jobId));
 
-      String result = adapter.createJob("test_tenant", queryString, userEmail).blockingGet();
+      String result = adapter.createJob(projectId, queryString, userEmail).blockingGet();
 
       assertThat(result).isEqualTo(jobId);
-      verify(athenaJobDao).createJob(queryString, userEmail);
+      verify(athenaJobDao).createJob(projectId, queryString, userEmail);
     }
   }
 
