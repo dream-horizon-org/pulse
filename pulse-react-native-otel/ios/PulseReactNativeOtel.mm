@@ -92,6 +92,11 @@ RCT_EXPORT_MODULE()
   return @YES;
 }
 
+- (NSNumber *)doShutdown
+{
+  return @([PulseSDK shutdown]);
+}
+
 - (NSDictionary *)doGetAllFeatures
 {
   return [PulseSDK pulseGetAllFeatures];
@@ -133,6 +138,8 @@ RCT_EXPORT_MODULE()
 - (void)setUserProperty:(NSString *)name value:(NSString *)value { [self doSetUserProperty:name value:value]; }
 
 - (void)triggerAnr { }
+
+- (NSNumber *)shutdown { return [self doShutdown]; }
 
 - (NSNumber *)setCurrentScreenName:(NSString *)screenName { return [self doSetCurrentScreenName:screenName]; }
 
@@ -191,6 +198,9 @@ RCT_EXPORT_METHOD(setUserProperty:(NSString *)name value:(NSString *)value)
 
 RCT_EXPORT_METHOD(triggerAnr)
 { }
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(shutdown)
+{ return [self doShutdown]; }
 
 #endif
 
