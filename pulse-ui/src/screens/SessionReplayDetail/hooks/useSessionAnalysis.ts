@@ -1,15 +1,3 @@
-/**
- * useSessionAnalysis Hook
- * 
- * PRODUCT PURPOSE:
- * Automatically analyze session data and generate persona-specific insights.
- * 
- * SUPPORT sees: "What broke for the user?" → Plain language, actionable
- * PRODUCT sees: "What's the business impact?" → Metrics, patterns, revenue
- * TECH sees: "What's the root cause?" → Code refs, error chains, repro steps
- * 
- * This hook is the "brain" that makes session replay useful for everyone.
- */
 
 import { useMemo } from 'react';
 import { SessionDetailData, DetectedIssue, SessionType } from '../../../services/sessionReplay/mockSessionDetail';
@@ -58,9 +46,7 @@ interface TechSummary {
   };
 }
 
-/**
- * Main Hook
- */
+
 export const useSessionAnalysis = (sessionData: SessionDetailData): SessionAnalysis => {
   // Auto-detect session type (error, abandoned, success, etc.)
   const sessionType = useMemo(() => {
@@ -88,22 +74,6 @@ export const useSessionAnalysis = (sessionData: SessionDetailData): SessionAnaly
   };
 };
 
-// ============================================================================
-// SESSION TYPE DETECTION
-// ============================================================================
-
-/**
- * Detect Session Type
- * 
- * PRODUCT LOGIC:
- * Priority order matters! Check most critical issues first.
- * 
- * 1. Errors → 'error_encountered' (CRITICAL)
- * 2. Abandonment → 'conversion_abandoned' (HIGH)
- * 3. Slowness → 'performance_issue' (MEDIUM)
- * 4. Success → 'conversion_success' (POSITIVE)
- * 5. Default → 'exploration' (NEUTRAL)
- */
 function detectSessionType(data: SessionDetailData): SessionType {
   // 1. CRITICAL: Check for errors first
   const hasExceptions = data.exceptions.rows.length > 0;
@@ -144,17 +114,7 @@ function detectSessionType(data: SessionDetailData): SessionType {
   return 'exploration';
 }
 
-// ============================================================================
-// ISSUE DETECTION
-// ============================================================================
 
-/**
- * Detect Issues
- * 
- * PRODUCT LOGIC:
- * Find specific problems that users/product/tech teams care about.
- * Each issue has BOTH plain-language AND technical descriptions.
- */
 function detectIssues(data: SessionDetailData): DetectedIssue[] {
   const issues: DetectedIssue[] = [];
   
@@ -177,13 +137,7 @@ function detectIssues(data: SessionDetailData): DetectedIssue[] {
   });
 }
 
-/**
- * Detect Timeout Errors
- * 
- * SUPPORT: "Payment timed out"
- * PRODUCT: "45 users hit this today"
- * TECH: "504 Gateway Timeout after 1.2s"
- */
+
 function detectTimeoutErrors(data: SessionDetailData): DetectedIssue[] {
   const issues: DetectedIssue[] = [];
   
@@ -241,13 +195,7 @@ function detectTimeoutErrors(data: SessionDetailData): DetectedIssue[] {
   return issues;
 }
 
-/**
- * Detect Slow Interactions
- * 
- * SUPPORT: "User experienced delay"
- * PRODUCT: "2.4x slower than benchmark"
- * TECH: "Apdex 0.4 (below 0.5 threshold)"
- */
+
 function detectSlowInteractions(data: SessionDetailData): DetectedIssue[] {
   const issues: DetectedIssue[] = [];
   
@@ -275,13 +223,7 @@ function detectSlowInteractions(data: SessionDetailData): DetectedIssue[] {
   return issues;
 }
 
-/**
- * Detect API Failures
- * 
- * SUPPORT: "Server error prevented action"
- * PRODUCT: "Which API is causing drop-offs?"
- * TECH: "POST /api/payment returned 500"
- */
+
 function detectAPIFailures(data: SessionDetailData): DetectedIssue[] {
   const issues: DetectedIssue[] = [];
   
@@ -308,13 +250,7 @@ function detectAPIFailures(data: SessionDetailData): DetectedIssue[] {
   return issues;
 }
 
-/**
- * Detect Client-Side Errors
- * 
- * SUPPORT: "App crashed"
- * PRODUCT: "Which screen has errors?"
- * TECH: "TypeError at PaymentService:45"
- */
+
 function detectClientErrors(data: SessionDetailData): DetectedIssue[] {
   const issues: DetectedIssue[] = [];
   
@@ -338,18 +274,7 @@ function detectClientErrors(data: SessionDetailData): DetectedIssue[] {
   return issues;
 }
 
-// ============================================================================
-// PERSONA SUMMARIES
-// ============================================================================
 
-/**
- * Generate Support Summary
- * 
- * GOAL: Help support rep understand and act fast
- * - What broke?
- * - How many others affected?
- * - What should I do?
- */
 function generateSupportSummary(data: SessionDetailData, issues: DetectedIssue[]): SupportSummary {
   const criticalIssues = issues.filter(i => i.severity === 'critical' || i.severity === 'high');
   
@@ -380,14 +305,7 @@ function generateSupportSummary(data: SessionDetailData, issues: DetectedIssue[]
   };
 }
 
-/**
- * Generate Product Summary
- * 
- * GOAL: Understand business impact and patterns
- * - Did conversion succeed/fail?
- * - How does this compare to benchmark?
- * - Are there patterns?
- */
+
 function generateProductSummary(data: SessionDetailData, sessionType: SessionType): ProductSummary {
   const failedInteractions = data.criticalInteractions.filter(i => i.status === 'failed');
   
@@ -454,14 +372,6 @@ function generateProductSummary(data: SessionDetailData, sessionType: SessionTyp
   };
 }
 
-/**
- * Generate Tech Summary
- * 
- * GOAL: Find root cause and enable fix
- * - What's the error?
- * - Where in code?
- * - How to reproduce?
- */
 function generateTechSummary(data: SessionDetailData, issues: DetectedIssue[]): TechSummary {
   const errors = data.exceptions.rows;
   const slowInteractions = data.performance.interactionMetrics.filter(m => m.apdexScore < 0.5);
@@ -501,9 +411,6 @@ function generateTechSummary(data: SessionDetailData, issues: DetectedIssue[]): 
   };
 }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
 
 function formatDuration(ms: number): string {
   if (ms < 60000) return `${Math.round(ms / 1000)}s`;
@@ -513,9 +420,6 @@ function formatDuration(ms: number): string {
 }
 
 function extractFeatureFromURL(url: string): string {
-  // Extract feature name from URL
-  // /api/payment → Payment
-  // /api/user/profile → User Profile
   const parts = url.split('/').filter(p => p && p !== 'api');
   return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || 'Unknown';
 }
