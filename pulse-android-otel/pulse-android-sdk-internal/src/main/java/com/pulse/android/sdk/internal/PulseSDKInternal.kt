@@ -227,7 +227,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
-            put(PulseAttributes.PROJECT_ID, projectId)
+            put(PulseAttributes.PROJECT_ID, extractProjectID(projectId))
             resource?.invoke(this)
         }
 
@@ -791,6 +791,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         internal object PrefsName {
             internal const val LOCATION_PREF_FILE_NAME = "pulse_location_data"
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
+        }
+
+        internal fun extractProjectID(projectId: String): String {
+            val lastUnderscoreIndex = projectId.lastIndexOf('_')
+            return if (lastUnderscoreIndex > 0) {
+                projectId.substring(0, lastUnderscoreIndex)
+            } else {
+                projectId
+            }
         }
 
         private fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
