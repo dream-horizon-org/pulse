@@ -14,6 +14,8 @@ export * from "./OccurrenceFilters";
 export * from "./OccurrenceTrendChart";
 export * from "./ScreenBreakdownList";
 export * from "./StackTraceSection";
+export * from "./BreadcrumbTimeline";
+
 export * from "./OccurrenceHeader";
 export * from "./AppStateInfo";
 export * from "./DeviceInformation";
