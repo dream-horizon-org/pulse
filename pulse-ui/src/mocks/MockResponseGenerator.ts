@@ -27,6 +27,7 @@ import {
   cancelQueryJob,
   generateAiQueryResponse,
 } from "./responses/realtimeQueryResponses";
+import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -171,6 +172,11 @@ export class MockResponseGenerator {
       method === "GET"
     ) {
       return this.handleDashboardFiltersEndpoint(pathname, method, request);
+    }
+
+    // Breadcrumbs endpoint
+    if (pathname.includes("/v1/breadcrumbs") && method === "POST") {
+      return this.handleBreadcrumbsEndpoint(request);
     }
 
     // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
@@ -2599,6 +2605,44 @@ export class MockResponseGenerator {
   }
 
   /**
+   * Handle POST /v1/breadcrumbs
+   */
+  private handleBreadcrumbsEndpoint(request: MockRequest): MockResponse {
+    let body: { sessionId?: string; errorTimestamp?: string } = {};
+    try {
+      if (request.body) {
+        body = JSON.parse(request.body);
+      }
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid request body",
+          cause: "Could not parse JSON body",
+        },
+      };
+    }
+
+    if (this.config.shouldLog()) {
+      console.log(
+        "[Mock Server] POST /v1/breadcrumbs - sessionId:",
+        body.sessionId,
+        "errorTimestamp:",
+        body.errorTimestamp,
+      );
+    }
+
+    const result = handleBreadcrumbsRequest(body);
+    return {
+      data: result.data,
+      status: result.status,
+      error: result.error,
+    };
+  }
+
+  /**
    * Handle Real-time Querying endpoints
    * - POST /query/metadata/table - Get table metadata (columns, types)
    * - POST /query - Submit a SQL query
@@ -2612,7 +2656,7 @@ export class MockResponseGenerator {
     // Get table metadata (legacy POST endpoint)
     if (pathname.includes("/query/metadata/table") && method === "POST") {
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] Returning table metadata for otel_data");
+        console.log("[Mock Server] Returning table metadata for otel_data_1");
       }
       return {
         data: mockTableMetadata,

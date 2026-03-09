@@ -1,0 +1,54 @@
+---
+description: Docker deployment and infrastructure conventions
+globs: deploy/**
+alwaysApply: false
+---
+
+# Deploy Conventions
+
+## Docker Compose Services
+
+| Service | Image | Port | Depends On |
+|---------|-------|------|------------|
+| mysql | mysql:8.0 | 3307 | — |
+| clickhouse | clickhouse-server:24.8 | 8123, 9000 | — |
+| kafka | apache/kafka:latest | 9094 | — |
+| kafka-ui | provectuslabs/kafka-ui | 8081 | kafka |
+| otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 13133 | kafka |
+| vector | timberio/vector | 8686, 14317, 14318 | — |
+| pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
+| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse |
+| pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server |
+
+**Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
+
+## Network
+
+All services on `pulse-network` (bridge). Internal references use container names (e.g., `mysql`, `kafka:9092`, `clickhouse:8123`).
+
+## Volumes
+
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe.
+
+## Environment Variables
+
+- `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
+- `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
+- `REACT_APP_*` — frontend build-time config
+
+Credentials (defined in docker-compose, overridable via `.env`):
+- MySQL: `MYSQL_USER` / `MYSQL_PASSWORD` (defaults: `pulse_user` / `pulse_password`)
+- ClickHouse: `OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD` (defaults: `pulse_user` / `pulse_password`)
+
+## Scripts
+
+| Script | Options |
+|--------|---------|
+| `build.sh` | `ui`, `server`, `alerting`, `all` |
+| `start.sh` | `-d` for detached; optionally `ui`, `server`, `alerting` |
+| `stop.sh` | `-v` to remove volumes |
+| `logs.sh` | service name (e.g., `pulse-server`, `kafka`) |
+| `quickstart.sh` | builds + starts all |
+| `reset-databases.sh` | drops volumes and reinitializes |
+| `init-clickhouse.sh` | creates ClickHouse tables from schema SQL |

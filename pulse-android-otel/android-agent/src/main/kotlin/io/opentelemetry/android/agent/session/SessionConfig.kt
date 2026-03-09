@@ -12,8 +12,9 @@ import kotlin.time.Duration.Companion.minutes
 
 @Incubating
 class SessionConfig(
-    val backgroundInactivityTimeout: Duration = 15.minutes,
-    val maxLifetime: Duration = 4.hours,
+    val backgroundInactivityTimeout: Duration? = 15.minutes,
+    val maxLifetime: Duration? = 4.hours,
+    val shouldPersist: Boolean = false,
 ) {
     companion object {
         @JvmStatic

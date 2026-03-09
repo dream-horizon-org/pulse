@@ -921,27 +921,26 @@ public class AlertEvaluationService {
     }
 
     if (responseDto.getScopeId() != null && responseDto.getState() != null) {
-      updateScopeState(responseDto.getScopeId(), responseDto.getState())
-          .doOnError(error -> logErrorWhileUpdatingScopeState(error, responseDto))
-          .subscribe();
+      Single.zip(
+              alertsDao.getScopeState(responseDto.getScopeId()),
+              alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId()),
+              (previousState, scopes) -> {
+                String scopeName = scopes.stream()
+                    .filter(scope -> scope.getId().equals(responseDto.getScopeId()))
+                    .map(AlertsDao.AlertScopeDetails::getName)
+                    .findFirst()
+                    .orElse("Unknown Scope");
 
-      alertsDao.getAlertScopesForEvaluation(responseDto.getAlert().getId())
-          .flatMap(scopes -> {
-            String scopeName = scopes.stream()
-                .filter(scope -> scope.getId().equals(responseDto.getScopeId()))
-                .map(AlertsDao.AlertScopeDetails::getName)
-                .findFirst()
-                .orElse("Unknown Scope");
+                Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
 
-            Float metricReading = extractMetricReading(responseDto.getEvaluationResult());
-
-            return alertsDao.getScopeState(responseDto.getScopeId())
-                .map(currentState -> {
-                  createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, currentState);
-                  return true;
-                });
+                createIncidentIfRequired(responseDto.getState(), responseDto, metricReading, scopeName, previousState);
+                return true;
+              })
+          .flatMap(result -> updateScopeState(responseDto.getScopeId(), responseDto.getState()))
+          .doOnError(error -> {
+            logErrorWhileUpdatingScopeState(error, responseDto);
+            log.error("Error in scope state update pipeline: {}", error.getMessage());
           })
-          .doOnError(error -> log.error("Error fetching scope details for incident: {}", error.getMessage()))
           .subscribe();
     }
   }

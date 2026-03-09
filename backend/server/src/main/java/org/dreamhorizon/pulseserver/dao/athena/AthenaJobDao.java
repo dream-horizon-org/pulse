@@ -93,7 +93,7 @@ public class AthenaJobDao {
   }
 
   public Single<AthenaJob> getJobById(String jobId) {
-    return mysqlClient.getReaderPool()
+    return mysqlClient.getWriterPool()
         .preparedQuery(AthenaJobQueries.GET_JOB_BY_ID)
         .rxExecute(Tuple.of(jobId))
         .map(rowSet -> {

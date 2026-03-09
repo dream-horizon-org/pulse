@@ -304,7 +304,7 @@ class InteractionDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
       var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
       when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture()))
@@ -382,7 +382,7 @@ class InteractionDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
       var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
       when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture()))
@@ -411,7 +411,7 @@ class InteractionDaoTest {
       var tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
       RuntimeException expectedError = new RuntimeException("Database connection failed");
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
       when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute(tupleCaptor.capture()))
@@ -501,8 +501,8 @@ class InteractionDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-      when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute())
           .thenReturn(Single.just(rowSet));
@@ -578,8 +578,8 @@ class InteractionDaoTest {
 
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-      when(mysqlClient.getReaderPool().preparedQuery(
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool().preparedQuery(
           GET_INTERACTIONS_BASE_QUERY +
               " AND created_by = 'test@example.com'" +
               " AND name LIKE '%test%'" +
@@ -611,8 +611,8 @@ class InteractionDaoTest {
       PreparedQuery<RowSet<Row>> preparedQuery = Mockito.mock(PreparedQuery.class);
       RuntimeException expectedError = new RuntimeException("Database connection failed");
 
-      when(mysqlClient.getReaderPool()).thenReturn(mySqlPool);
-      when(mysqlClient.getReaderPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mysqlClient.getWriterPool().preparedQuery(GET_INTERACTIONS_BASE_QUERY + " limit 10 offset 0;"))
           .thenReturn(preparedQuery);
       when(preparedQuery.rxExecute())
           .thenReturn(Single.error(expectedError));

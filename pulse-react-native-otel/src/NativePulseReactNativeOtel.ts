@@ -1,5 +1,17 @@
 import { TurboModuleRegistry, type TurboModule } from 'react-native';
 
+/**
+ * Data collection consent state for the Pulse SDK.
+ * - PENDING: Telemetry is buffered in memory until consent is granted or denied.
+ * - ALLOWED: Buffered signals are flushed and subsequent signals are exported normally.
+ * - DENIED: Buffered data is cleared and the SDK is shut down.
+ */
+export enum PulseDataCollectionConsent {
+  PENDING = 'PENDING',
+  ALLOWED = 'ALLOWED',
+  DENIED = 'DENIED',
+}
+
 export interface Spec extends TurboModule {
   /** Check if native SDK is initialized */
   isInitialized(): boolean;
@@ -68,6 +80,14 @@ export interface Spec extends TurboModule {
     custom_events: boolean;
     js_crash: boolean;
   } | null;
+
+  /**
+   * Update the data collection consent state.
+   * - ALLOWED: flushes buffered signals and resumes normal export.
+   * - DENIED: clears buffered data and shuts down the SDK.
+   * - PENDING: no-op once the SDK is initialized.
+   */
+  setDataCollectionState(state: PulseDataCollectionConsent): void;
 
   /** Shut down the Pulse SDK. After this, re-init is not supported. */
   shutdown(): boolean;

@@ -14,7 +14,7 @@ public object PulseSdkConfigFakeUtils {
         beforeInitQueueSize: Int = 100,
         filterMode: PulseSignalFilterMode = PulseSignalFilterMode.WHITELIST,
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
-        attributesToDrop: List<PulseSignalMatchCondition> = emptyList(),
+        attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
         sampling: PulseSamplingConfig =
             PulseSamplingConfig(
@@ -124,6 +124,15 @@ public object PulseSdkConfigFakeUtils {
         PulseAttributesToAddEntry(
             values = values,
             condition = matcher,
+        )
+
+    public fun createFakeAttributesToDropEntry(
+        values: List<String> = emptyList(),
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+    ): PulseAttributesToDropEntry =
+        PulseAttributesToDropEntry(
+            values = values,
+            condition = condition,
         )
 
     public fun createFakeCriticalEventPolicies(

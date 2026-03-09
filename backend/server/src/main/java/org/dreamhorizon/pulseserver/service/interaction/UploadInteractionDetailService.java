@@ -48,7 +48,9 @@ public class UploadInteractionDetailService {
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
     String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailsS3BucketFilePath());
-    String cloudFrontAssetPath = getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath());
+    String cloudFrontAssetPath = String.format("/%s",
+        getTenantAwarePath(tenantId, applicationConfig.getInteractionDetailCloudFrontAssetPath()));
+    log.info("Uploading to S3 at path: {}", s3FilePath);
 
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
@@ -72,7 +74,7 @@ public class UploadInteractionDetailService {
    * Format: tenants/{tenantId}/{basePath}
    */
   private String getTenantAwarePath(String tenantId, String basePath) {
-    return String.format("config/tenants/%s/%s", tenantId, basePath);
+    return String.format("config/projects/%s/%s", tenantId, basePath);
   }
 
   public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {

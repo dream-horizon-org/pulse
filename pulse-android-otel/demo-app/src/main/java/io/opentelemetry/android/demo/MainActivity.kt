@@ -19,7 +19,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.pulse.android.api.otel.PulseDataCollectionConsent
+import com.pulse.android.sdk.PulseSDK
 import io.opentelemetry.android.demo.about.AboutActivity
 import io.opentelemetry.android.demo.fragment.FragmentActivity
 import io.opentelemetry.android.demo.theme.DemoAppTheme
@@ -62,7 +66,7 @@ class MainActivity : ComponentActivity() {
                             Modifier.padding(all = 20.dp),
                             horizontalArrangement = Arrangement.Center,
                         ) {
-                            CenterText(
+                            SelectableText(
                                 fontSize = 40.sp,
                                 text =
                                     buildAnnotatedString {
@@ -93,6 +97,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             },
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         LauncherButton(
                             text = "Go shopping",
@@ -100,12 +105,14 @@ class MainActivity : ComponentActivity() {
                                 OtelDemoApplication.logEvent("Go shopping", mapOf("shopping" to "true"))
                                 context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
                             },
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         LauncherButton(
                             text = "Learn more",
                             onClick = {
                                 context.startActivity(Intent(this@MainActivity, AboutActivity::class.java))
                             },
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         LauncherButton(
@@ -113,6 +120,7 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 viewModel.performSomeWork()
                             },
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -130,7 +138,25 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
                             },
+                            modifier = Modifier.fillMaxWidth(),
                         )
+
+                        Row {
+                            LauncherButton(
+                                text = "Give consent",
+                                onClick = {
+                                    PulseSDK.INSTANCE.setDataCollectionState(PulseDataCollectionConsent.ALLOWED)
+                                },
+                                modifier = Modifier.wrapContentWidth(),
+                            )
+                            LauncherButton(
+                                text = "Deny consent",
+                                onClick = {
+                                    PulseSDK.INSTANCE.setDataCollectionState(PulseDataCollectionConsent.DENIED)
+                                },
+                                modifier = Modifier.wrapContentWidth(),
+                            )
+                        }
 
                         LauncherButton(
                             text = "Open benchmark screen",
@@ -140,6 +166,7 @@ class MainActivity : ComponentActivity() {
                                     context.startActivity(this)
                                 }
                             },
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                     }

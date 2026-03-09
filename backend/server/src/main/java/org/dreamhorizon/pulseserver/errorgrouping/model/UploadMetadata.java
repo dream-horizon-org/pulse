@@ -19,10 +19,11 @@ public class UploadMetadata {
   private String platform;
   private String versionCode;
   private String bundleId;
+  private String projectId;
 
   @Override
   public String toString() {
-    return String.format("UploadMetadata{type=%s, platform=%s, version=%s, versionCode=%s, bundleId=%s}",
-        type, platform, appVersion, versionCode, bundleId);
+    return String.format("UploadMetadata{type=%s, platform=%s, version=%s, versionCode=%s, bundleId=%s, projectId=%s}",
+        type, platform, appVersion, versionCode, bundleId, projectId);
   }
 }

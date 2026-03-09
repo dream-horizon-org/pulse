@@ -57,6 +57,18 @@ if has_compose; then
 
     if [ "$DETACHED" = "true" ]; then
         echo ""
+        print_info "Waiting for databases to initialize..."
+        wait_for_healthy "$CONTAINER_MYSQL" 120
+        wait_for_healthy "$CONTAINER_CLICKHOUSE" 120
+
+        if ! verify_mysql_init; then
+            print_info "Fix the init script and re-run: ./scripts/reset-databases.sh"
+        fi
+        if ! verify_clickhouse_init; then
+            print_info "Check logs: docker logs $CONTAINER_CLICKHOUSE"
+        fi
+
+        echo ""
         print_success "Services started in detached mode"
         echo ""
         print_info "Container status:"
@@ -138,6 +150,11 @@ print_info "Waiting for databases to become healthy..."
 wait_for_healthy "$CONTAINER_MYSQL" 120
 wait_for_healthy "$CONTAINER_CLICKHOUSE" 120
 
+if ! verify_mysql_init; then
+    print_error "MySQL initialization failed. Fix the init script and run: ./reset-databases.sh"
+    exit 1
+fi
+
 # ── Phase 2: ClickHouse init + OTEL Collector ────────────────────────────
 print_section "Phase 2: Initialising ClickHouse tables & OTEL Collector"
 
@@ -157,6 +174,11 @@ docker run --rm \
     /bin/bash /scripts/init-clickhouse.sh
 
 print_success "ClickHouse tables initialised"
+
+if ! verify_clickhouse_init; then
+    print_error "ClickHouse table initialization failed. Check the schema file."
+    exit 1
+fi
 
 remove_container "$CONTAINER_OTEL_COLLECTOR"
 print_info "Starting $CONTAINER_OTEL_COLLECTOR ..."

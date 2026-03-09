@@ -13,11 +13,13 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.pulse.otel.utils.PulseOtelUtils
-import com.pulse.otel.utils.PulseSerialisationUtils
-import com.pulse.otel.utils.await
+import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseSerialisationUtils
+import com.pulse.utils.await
 import io.opentelemetry.android.instrumentation.location.models.CachedLocation
 import io.opentelemetry.android.instrumentation.location.models.LocationConstants
 import kotlinx.coroutines.CoroutineDispatcher
@@ -79,6 +81,13 @@ public class LocationProvider
             }
         }
 
+        private fun isGooglePlayServicesAvailable(context: Context): Boolean? =
+            runCatching {
+                val apiAvailability = GoogleApiAvailability.getInstance()
+                val resultCode = apiAvailability.isGooglePlayServicesAvailable(context)
+                resultCode == ConnectionResult.SUCCESS
+            }.getOrNull()
+
         private suspend fun fetchLocationAsync() {
             if (
                 ContextCompat.checkSelfPermission(
@@ -90,20 +99,26 @@ public class LocationProvider
                     Manifest.permission.ACCESS_COARSE_LOCATION,
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
-                val client = actualFusedLocationClient
-                @Suppress("TooGenericExceptionCaught") // async network call can throw any exception
-                try {
-                    val location = client.lastLocation.await()
-                    if (location != null) {
-                        saveLocationToCache(location)
-                        convertToGeoAttributes(location)
-                    }
-                } catch (e: Throwable) {
-                    currentCoroutineContext().ensureActive()
-                    PulseOtelUtils.logError(TAG, e) {
-                        "fetchLocationAsync lastLocation task failed"
+                val isLocationAvailable = isGooglePlayServicesAvailable(context)
+                PulseOtelUtils.logDebug(TAG) { "location api availability = ${isLocationAvailable ?: "null"}" }
+                if (isLocationAvailable != false) {
+                    val client = actualFusedLocationClient
+                    @Suppress("TooGenericExceptionCaught") // async network call can throw any exception
+                    try {
+                        val location = client.lastLocation.await()
+                        if (location != null) {
+                            saveLocationToCache(location)
+                            convertToGeoAttributes(location)
+                        }
+                    } catch (e: Throwable) {
+                        currentCoroutineContext().ensureActive()
+                        PulseOtelUtils.logError(TAG, e) {
+                            "fetchLocationAsync lastLocation task failed"
+                        }
                     }
                 }
+            } else {
+                PulseOtelUtils.logDebug(TAG) { "permission not available" }
             }
         }
 
