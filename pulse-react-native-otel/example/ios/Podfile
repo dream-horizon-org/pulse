@@ -22,8 +22,10 @@ end
 target 'PulseReactNativeOtelExample' do
   config = use_native_modules!
 
-  # Use prebuilt PulseKit xcframework from the release repo
-  pod 'PulseKit', :path => '<absolute-path-to>/pulse-ios-sdk/build/'
+  # In order to test locally, add path to exact pulse-ios-sdk folder. 
+  # For source code noting else is required.
+  # For pointing any local framework no need to change anything here, follow steps mentioned in PulseIOSExample README.md for change in pulse-ios-sdk folder.
+  pod 'PulseKit', :path => '<absolute-path-to>/pulse-ios-sdk/'
 
   use_react_native!(
     :path => config[:reactNativePath],
