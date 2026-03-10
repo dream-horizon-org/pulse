@@ -80,4 +80,5 @@ export interface GetDataQueryParams {
   requestBody: DataQueryRequestBody;
   enabled?: boolean;
   refetchInterval?: number | false;
+  projectId?: string | null; // Add projectId parameter
 }

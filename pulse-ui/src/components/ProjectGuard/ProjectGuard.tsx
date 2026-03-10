@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useProjectContext, useTenantContext } from '../../contexts';
-import { ROUTES } from '../../constants';
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useProjectContext, useTenantContext } from "../../contexts";
+import { ROUTES } from "../../constants";
 
 interface ProjectGuardProps {
   children: React.ReactNode;
@@ -22,21 +22,26 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     if (!tenantId) {
       return;
     }
-    
+
     const excludedPaths = [
       ROUTES.LOGIN.basePath,
       ROUTES.ONBOARDING.basePath,
       ROUTES.PRICING.basePath,
+      ROUTES.SLACK_CALLBACK.basePath,
     ];
 
     // Check if path is organization-scoped (/:organizationId/...)
-    const isOrganizationPath = /^\/[^/]+\/(projects|members)/.test(location.pathname);
-    
-    // Check if path is onboarding page for a project (should not trigger guard)
-    const isOnboardingPath = /^\/projects\/[^/]+\/onboarding/.test(location.pathname);
+    const isOrganizationPath = /^\/[^/]+\/(projects|members)/.test(
+      location.pathname,
+    );
 
-    const isExcludedPath = excludedPaths.some(path => 
-      location.pathname.startsWith(path)
+    // Check if path is onboarding page for a project (should not trigger guard)
+    const isOnboardingPath = /^\/projects\/[^/]+\/onboarding/.test(
+      location.pathname,
+    );
+
+    const isExcludedPath = excludedPaths.some((path) =>
+      location.pathname.startsWith(path),
     );
 
     // Skip guard for onboarding pages
@@ -52,10 +57,9 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     if (urlProjectId && !isExcludedPath) {
       // Sync URL project ID with context if different
       if (!contextProjectId || contextProjectId !== urlProjectId) {
-        
         // Check if user has access to this project
-        const hasAccess = projects.some(p => p.projectId === urlProjectId);
-        
+        const hasAccess = projects.some((p) => p.projectId === urlProjectId);
+
         if (hasAccess) {
           switchProject(urlProjectId);
         } else if (projects.length > 0 && tenantId) {
@@ -63,13 +67,25 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
         }
         // If projects array is empty, wait for it to load (handled by TenantContext)
       }
-    } else if (!contextProjectId && !isExcludedPath && !urlProjectId && !isOrganizationPath) {
+    } else if (
+      !contextProjectId &&
+      !isExcludedPath &&
+      !urlProjectId &&
+      !isOrganizationPath
+    ) {
       // No project context and not on excluded route, project-scoped route, or organization route
       if (tenantId) {
         navigate(`/${tenantId}/projects`);
       }
     }
-  }, [contextProjectId, location.pathname, navigate, projects, switchProject, tenantId]);
+  }, [
+    contextProjectId,
+    location.pathname,
+    navigate,
+    projects,
+    switchProject,
+    tenantId,
+  ]);
 
   return <>{children}</>;
 }

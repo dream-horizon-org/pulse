@@ -11,11 +11,11 @@ export function Pricing() {
   const currentPlan = tier || TIERS.FREE;
 
   const handleContactUs = () => {
-    window.open('mailto:sales@yourcompany.com?subject=Enterprise Plan Inquiry', '_blank');
+    window.open('mailto:sales@pulse.io?subject=Enterprise Plan Inquiry', '_blank');
   };
 
   const handleContactSupport = () => {
-    window.open('mailto:support@yourcompany.com?subject=Enterprise Support Request', '_blank');
+    window.open('mailto:support@pulse.io?subject=Enterprise Support Request', '_blank');
   };
 
   // If user is already on Enterprise, show different UI

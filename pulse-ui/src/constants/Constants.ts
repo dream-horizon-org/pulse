@@ -59,6 +59,7 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
+import { SlackCallback } from "../screens/SlackCallback";
 
 export const APP_NAME: string = "Pulse";
 
@@ -283,6 +284,12 @@ export const ROUTES: Routes = {
     basePath: "/pricing",
     path: "/pricing",
     element: Pricing,
+  },
+  SLACK_CALLBACK: {
+    key: "SLACK_CALLBACK",
+    basePath: "/integrations/slack/callback",
+    path: "/integrations/slack/callback",
+    element: SlackCallback,
   },
   COMING_SOON: {
     key: "COMING_SOON",

@@ -8,23 +8,33 @@ import {
 } from "./useSlackCallback.interface";
 
 /**
- * Hook to complete Slack OAuth callback
- * Exchanges authorization code for tokens and creates channel
+ * Hook to exchange Slack OAuth code for token via backend
+ * Backend handles token exchange and channel creation
  */
 export const useSlackCallback = (): UseSlackCallbackReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const completeCallback = async ({
-    code,
-    state,
-  }: UseSlackCallbackParams): Promise<SlackOAuthResponseDto | null> => {
+  const exchangeCode = async (
+    params: UseSlackCallbackParams,
+  ): Promise<SlackOAuthResponseDto | null> => {
+    const { code, state, error: oauthError } = params;
+
+    if (oauthError) {
+      setError(new Error(`OAuth error: ${oauthError}`));
+      return null;
+    }
+
+    if (!code || !state) {
+      setError(new Error("Missing code or state parameter"));
+      return null;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       const url = `${API_BASE_URL}${API_ROUTES.SLACK_CALLBACK.apiPath}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-
       const response = await makeRequest<SlackOAuthResponseDto>({
         url,
         init: {
@@ -54,7 +64,7 @@ export const useSlackCallback = (): UseSlackCallbackReturn => {
   };
 
   return {
-    completeCallback,
+    exchangeCode,
     isLoading,
     error,
   };

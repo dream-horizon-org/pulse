@@ -1,34 +1,98 @@
 .container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
   padding: 40px 20px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 48px 40px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  text-align: center;
 }
 
 .iconWrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100px;
-  height: 100px;
-  background: rgba(255, 255, 255, 0.2);
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  animation: scaleIn 0.5s ease-out;
+  margin-bottom: 24px;
 }
 
-@keyframes scaleIn {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
+.iconWrapperSuccess {
+  background: rgba(14, 201, 194, 0.15);
+  color: #0ba09a;
+}
+
+.iconWrapperError {
+  background: rgba(255, 77, 79, 0.15);
+  color: #ff4d4f;
+}
+
+.iconWrapperLoading {
+  background: rgba(14, 201, 194, 0.15);
+  color: #0ba09a;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
   100% {
-    transform: scale(1);
     opacity: 1;
   }
+  50% {
+    opacity: 0.6;
+  }
 }
 
-.successIcon {
-  color: #ffffff;
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: #6b7280;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.workspaceInfo {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.workspaceName {
+  font-weight: 600;
+  color: #0ba09a;
+  font-size: 15px;
+}
+
+.redirectHint {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 32px 24px;
+  }
+
+  .title {
+    font-size: 20px;
+  }
 }
