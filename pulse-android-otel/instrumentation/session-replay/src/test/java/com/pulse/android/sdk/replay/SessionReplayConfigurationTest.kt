@@ -17,7 +17,8 @@ class SessionReplayConfigurationTest {
         config.markConfigured()
         val built = config.getConfigIfConfigured()
         assertThat(built).isNotNull
-        assertThat(built!!.maskAllTextInputs).isTrue()
+        assertThat(built!!.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_ALL)
+        assertThat(built.imagePrivacy).isEqualTo(ImagePrivacy.MASK_ALL)
         assertThat(built.screenshot).isTrue()
         assertThat(built.throttleDelayMs).isEqualTo(1000L)
         assertThat(built.flushIntervalSeconds).isEqualTo(60)

@@ -65,7 +65,7 @@ com.pulse.android.sdk.replay/
 
 | Component | Responsibility |
 |-----------|-----------------|
-| **SessionReplayConfig** | Masking (maskAllTextInputs, maskAllImages), throttleDelayMs, screenshot vs wireframe, drawable converter; flushIntervalSeconds, flushAt, maxBatchSize for persistence. |
+| **SessionReplayConfig** | Masking (textAndInputPrivacy, imagePrivacy, addMaskViewClass/addUnmaskViewClass), throttleDelayMs, screenshot vs wireframe, drawable converter; flushIntervalSeconds, flushAt, maxBatchSize for persistence. |
 | **SessionReplayController** | start/stop/isActive; clears or preserves snapshot state when (re)starting. |
 | **Curtains** | Root view discovery (`Curtains.rootViews`, `onRootViewsChangedListeners`), `window.onDecorViewReady`, `view.phoneWindow`, `window.touchEventInterceptors` (same as PostHog). |
 | **NextDrawListener** | ViewTreeObserver.OnDrawListener that fires once per draw; uses **Throttler** so the actual capture runs at most every `throttleDelayMs`. |
@@ -178,9 +178,11 @@ This matches PostHog Android's behavior: file-per-batch persistence and a dedica
 
 ## Masking
 
-- **Global**: `maskAllTextInputs`, `maskAllImages` in SessionReplayConfig.
-- **Per-view**: View tag or contentDescription containing `pulse-mask` (mask this view) or `pulse-unmask` (do not mask, override global for this view). Compose: semantics modifier `pulseReplayMask(true/false)`.
-- **Screenshot mode**: Mask rects are drawn (e.g. rounded rects) over the bitmap before encoding.
+- **Global config**: `textAndInputPrivacy` (MASK_ALL / MASK_ALL_INPUTS / MASK_SENSITIVE_INPUTS) and `imagePrivacy` (MASK_ALL / MASK_NONE) in SessionReplayConfig. Passwords, emails, and phone input types are always masked regardless of config.
+- **Per-view class**: `config.addMaskViewClass("com.example.Foo")` / `config.addUnmaskViewClass(...)` — hierarchy-aware (includes subclasses).
+- **Per-view instance**: View tag or contentDescription containing `pulse-mask` / `pulse-unmask`, or Kotlin extensions `view.pulseReplayMask()` / `view.pulseReplayUnmask()`. Compose: `Modifier.pulseReplayMask(true/false)`.
+- **Priority**: Instance override > Class registration > Global config. Masked parent forces children masked unless child has explicit unmask.
+- **Screenshot mode**: Mask rects are drawn (rounded black rects) over the bitmap before encoding.
 - **Wireframe mode**: Text/value replaced with "***", images as placeholder; no-capture views excluded from tree.
 
 ---
@@ -222,8 +224,8 @@ PulseSDK.INSTANCE.initialize(
 ```kotlin
 // 1. Create config and emitter
 val config = SessionReplayConfig(
-    maskAllTextInputs = true,
-    maskAllImages = true,
+    textAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
+    imagePrivacy = ImagePrivacy.MASK_ALL,
     screenshot = true,
     throttleDelayMs = 1000L,
 )
