@@ -1453,11 +1453,12 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(20.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(1.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
             }
 
         @Test
@@ -1475,11 +1476,12 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(20.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(1.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
 
                 addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
@@ -1509,7 +1511,7 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(20.seconds)
@@ -1517,6 +1519,7 @@ class InteractionManagerTest {
                 addEventWithNanoTimeFromBoot("event2")
                 advanceTimeBy(1.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
             }
 
         @Test
@@ -1588,7 +1591,7 @@ class InteractionManagerTest {
 
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(18.seconds)
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 addEventWithNanoTimeFromBoot("eventUnknown")
@@ -1596,6 +1599,7 @@ class InteractionManagerTest {
                 assertSingleOngoingInteraction(skipAdvancing = true)
                 advanceTimeBy(5.seconds)
                 assertSingleFinalInteraction(skipAdvancing = true, isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
             }
     }
 
@@ -1632,7 +1636,7 @@ class InteractionManagerTest {
                     )
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
                 val interactionId = assertSingleOngoingInteraction(skipAdvancing = true)
 
@@ -1643,6 +1647,7 @@ class InteractionManagerTest {
                         skipAdvancing = true,
                         isSuccess = false,
                     )
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
                 Assertions.assertThat(interactionId2).isEqualTo(interactionId)
 
                 // terminal state
@@ -1669,13 +1674,14 @@ class InteractionManagerTest {
                     )
                 initMockInteractionManager(interactionConfig)
 
-                addEventWithNanoTimeFromBoot("event1")
+                val time1 = addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
 
                 addEventWithNanoTimeFromBoot("event3")
                 advanceTimeBy(1.seconds)
 
                 val (failedInteractionId, _) = assertSingleFinalInteraction(isSuccess = false)
+                assertFinalInteractionTimeRange(time1, time1 + interactionConfig.thresholdInMs * 1000000)
 
                 addEventWithNanoTimeFromBoot("event1")
                 advanceTimeBy(1.seconds)
@@ -1827,7 +1833,29 @@ class InteractionManagerTest {
             Assertions.assertThat(finalInteractionOngoingStatus.interactionId).isEqualTo(it)
         }
         Assertions.assertThat(listOf(interactionRunningStatus).runningIds).isEmpty()
+        Assertions
+            .assertThat(
+                interaction.getTimeSpanInNanos(interactionRunningStatus),
+            ).isNotNull
         return finalInteractionOngoingStatus.interactionId to interaction
+    }
+
+    private fun assertFinalInteractionTimeRange(
+        startInNs: Long,
+        endInNs: Long,
+    ) {
+        Assertions.assertThat(mockInteractionManager.interactionTrackerStatesState.value).hasSize(1)
+        val finalInteractionOngoingStatus =
+            mockInteractionManager.interactionTrackerStatesState.value.first() as? InteractionRunningStatus.OngoingMatch
+                ?: throwNotOfOngoingType(
+                    mockInteractionManager.interactionTrackerStatesState.value.first(),
+                )
+        val interaction =
+            finalInteractionOngoingStatus.interaction ?: error("Interaction should not be null")
+        Assertions
+            .assertThat(interaction.getTimeSpanInNanos(finalInteractionOngoingStatus.interactionConfig.thresholdInMs))
+            .isNotNull
+            .isEqualTo(startInNs to endInNs)
     }
 
     /**
@@ -1837,11 +1865,13 @@ class InteractionManagerTest {
         eventName: String,
         params: Map<String, Any?> = emptyMap(),
         eventTimeInNano: Long? = null,
-    ) {
+    ): Long {
+        val time = eventTimeInNano ?: System.nanoTime()
         mockInteractionManager.addEvent(
             eventName = eventName,
-            eventTimeInNano = eventTimeInNano ?: System.nanoTime(),
+            eventTimeInNano = time,
             params = params,
         )
+        return time
     }
 }

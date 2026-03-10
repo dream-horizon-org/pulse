@@ -17,5 +17,6 @@ lib/
 *.tfvars.*
 .terraformrc
 terraform.rc
-docs/
 env.json
+
+docs/
