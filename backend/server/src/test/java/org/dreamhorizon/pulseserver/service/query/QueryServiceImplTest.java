@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
@@ -1578,5 +1579,166 @@ public class QueryServiceImplTest {
     assertThat(result).isNotNull();
     assertThat(result).hasSize(1);
     verify(queryJobDao).getQueryHistory(eq(userEmail), eq(20), eq(0));
+  }
+
+  @Nested
+  class AppendProjectId {
+
+    private static final String TABLE = "test_db.events";
+    private static final String PROJECT = "proj_42";
+
+    @Test
+    void shouldInsertProjectIdBeforeOrderBy() {
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v' ORDER BY ts DESC";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "' ORDER BY ts DESC;");
+    }
+
+    @Test
+    void shouldInsertProjectIdBeforeGroupBy() {
+      String query = "SELECT name, COUNT(*) FROM " + TABLE + " WHERE col = 'v' GROUP BY name";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "' GROUP BY name;");
+    }
+
+    @Test
+    void shouldInsertProjectIdBeforeLimit() {
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v' LIMIT 100";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "' LIMIT 100;");
+    }
+
+    @Test
+    void shouldInsertProjectIdBeforeEarliestTrailingClause() {
+      String query = "SELECT name, COUNT(*) FROM " + TABLE
+          + " WHERE col = 'v' GROUP BY name ORDER BY name LIMIT 50";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE
+              + " WHERE col = 'v' AND project_id = '" + PROJECT + "'"
+              + " GROUP BY name ORDER BY name LIMIT 50;");
+    }
+
+    @Test
+    void shouldAppendProjectIdAtEndWhenNoTrailingClauses() {
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v'";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT + "';");
+    }
+
+    @Test
+    void shouldUseWhereWhenNoWhereClauseExists() {
+      String query = "SELECT * FROM " + TABLE;
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE project_id = '" + PROJECT + "';");
+    }
+
+    @Test
+    void shouldUseWhereBeforeOrderByWhenNoWhereClauseExists() {
+      String query = "SELECT * FROM " + TABLE + " ORDER BY ts DESC";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE project_id = '" + PROJECT + "' ORDER BY ts DESC;");
+    }
+
+    @Test
+    void shouldInsertProjectIdBeforeHaving() {
+      String query = "SELECT name, COUNT(*) FROM " + TABLE
+          + " WHERE col = 'v' GROUP BY name HAVING COUNT(*) > 5";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE
+              + " WHERE col = 'v' AND project_id = '" + PROJECT + "'"
+              + " GROUP BY name HAVING COUNT(*) > 5;");
+    }
+
+    @Test
+    void shouldInsertProjectIdBeforeOffset() {
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v' LIMIT 10 OFFSET 20";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT
+              + "' LIMIT 10 OFFSET 20;");
+    }
+
+    @Test
+    void shouldInsertProjectIdBeforeUnion() {
+      String query = "SELECT a FROM " + TABLE + " WHERE col = 'v' UNION SELECT a FROM " + TABLE;
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT a FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT
+              + "' UNION SELECT a FROM " + TABLE + ";");
+    }
+
+    @Test
+    void shouldUseWhereBeforeGroupByWhenNoWhereClauseExists() {
+      String query = "SELECT name, COUNT(*) FROM " + TABLE + " GROUP BY name";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE + " WHERE project_id = '" + PROJECT
+              + "' GROUP BY name;");
+    }
+
+    @Test
+    void shouldHandleTrailingSemicolons() {
+      String query = "SELECT * FROM " + TABLE + " WHERE col = 'v' ORDER BY ts;;;";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " WHERE col = 'v' AND project_id = '" + PROJECT
+              + "' ORDER BY ts;");
+    }
+
+    @Test
+    void shouldHandleCaseInsensitiveClauses() {
+      String query = "SELECT * FROM " + TABLE + " where col = 'v' group by name order by name limit 10";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT * FROM " + TABLE + " where col = 'v' AND project_id = '" + PROJECT
+              + "' group by name order by name limit 10;");
+    }
+
+    @Test
+    void shouldHandleAllTrailingClausesCombined() {
+      String query = "SELECT name, COUNT(*) FROM " + TABLE
+          + " WHERE col = 'v' GROUP BY name HAVING COUNT(*) > 1 ORDER BY name LIMIT 50 OFFSET 10";
+
+      String result = queryService.appendProjectId(query, PROJECT);
+
+      assertThat(result).isEqualTo(
+          "SELECT name, COUNT(*) FROM " + TABLE
+              + " WHERE col = 'v' AND project_id = '" + PROJECT + "'"
+              + " GROUP BY name HAVING COUNT(*) > 1 ORDER BY name LIMIT 50 OFFSET 10;");
+    }
   }
 }
