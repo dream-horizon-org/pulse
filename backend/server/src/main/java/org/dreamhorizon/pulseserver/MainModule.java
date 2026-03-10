@@ -19,6 +19,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
@@ -42,6 +43,7 @@ import org.dreamhorizon.pulseserver.service.notification.provider.EmailNotificat
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
 import org.dreamhorizon.pulseserver.service.notification.provider.SlackNotificationProvider;
+import org.dreamhorizon.pulseserver.service.notification.provider.SlackWebhookNotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.TeamsNotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.queue.DlqHandler;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetryPolicy;

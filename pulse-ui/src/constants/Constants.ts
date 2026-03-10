@@ -47,6 +47,7 @@ import { OnboardingSuccess } from "../screens/OnboardingSuccess";
 import { Pricing } from "../screens/Pricing";
 import { ProjectSettings } from "../screens/ProjectSettings";
 import { SamplingConfig } from "../screens/SamplingConfig";
+import { SlackCallback } from "../screens/SlackCallback";
 import { Settings } from "../screens/Settings";
 import { AlertListingPage } from "../screens/AlertListingPage";
 import { AlertForm } from "../screens/AlertFormWizard";
@@ -129,7 +130,7 @@ export const ROUTES: Routes = {
     path: "/:organizationId/projects/new",
     element: CreateProject,
   },
-  
+
   // Project-scoped routes (nested under /projects/:projectId)
   PROJECT_DASHBOARD: {
     key: "PROJECT_DASHBOARD",
@@ -193,7 +194,8 @@ export const ROUTES: Routes = {
   },
   PROJECT_APP_VITALS_OCCURRENCE_DETAIL: {
     key: "PROJECT_APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    basePath:
+      "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     path: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     element: OccurrenceDetail,
   },
@@ -263,7 +265,7 @@ export const ROUTES: Routes = {
     path: "/projects/:projectId/query-builder",
     element: RealTimeQuery,
   },
-  
+
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -293,6 +295,12 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
     element: ProjectSettings,
+  },
+  SLACK_CALLBACK: {
+    key: "SLACK_CALLBACK",
+    basePath: "/integrations/slack/callback",
+    path: "/integrations/slack/callback",
+    element: SlackCallback,
   },
 };
 
@@ -360,7 +368,7 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
-  
+
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
@@ -757,17 +765,17 @@ export const API_ROUTES: StreamverseRoutes = {
   // Slack OAuth Integration
   SLACK_INSTALL: {
     key: "SLACK_INSTALL",
-    apiPath: `/v1/integrations/slack/install`,
+    apiPath: `/v1/notifications/integrations/slack/install`,
     method: API_METHODS.GET,
   },
   SLACK_CALLBACK: {
     key: "SLACK_CALLBACK",
-    apiPath: `/v1/integrations/slack/callback`,
+    apiPath: `/v1/notifications/integrations/slack/callback`,
     method: API_METHODS.GET,
   },
   SLACK_CHANNELS: {
     key: "SLACK_CHANNELS",
-    apiPath: `/v1/integrations/slack/channels`,
+    apiPath: `/v1/notifications/integrations/slack/channels`,
     method: API_METHODS.GET,
   },
   // SDK Configuration API Routes
@@ -1116,13 +1124,13 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
   FOOTER_MESSAGE: "Have questions? Join our Discord community",
-  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
+  DISCORD_LINK:
+    "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
-  HELP_LINK:
-    "https://pulse.dreamhorizon.org/docs/intro",
+  HELP_LINK: "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -1406,7 +1414,8 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
 };
 
 // Default time filter for the dashboard (Last 24 hours)
-export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER =
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
 export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
