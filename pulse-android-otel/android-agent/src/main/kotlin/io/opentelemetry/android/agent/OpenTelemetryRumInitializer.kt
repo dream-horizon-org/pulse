@@ -9,6 +9,7 @@ import android.app.Application
 import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
+import io.opentelemetry.android.OpenTelemetryRumBuilder
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
@@ -36,6 +37,11 @@ import kotlin.time.Duration.Companion.minutes
 
 @OptIn(Incubating::class)
 object OpenTelemetryRumInitializer {
+    private lateinit var builder: OpenTelemetryRumBuilder
+
+    @Volatile
+    private var isSetupExportersDone = false
+
     /**
      * Opinionated [OpenTelemetryRum] initialization.
      *
@@ -54,6 +60,7 @@ object OpenTelemetryRumInitializer {
     @JvmStatic
     fun initialize(
         application: Application,
+        shouldStartSendingData: Boolean,
         endpointBaseUrl: String,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity =
@@ -112,19 +119,39 @@ object OpenTelemetryRumInitializer {
         resource?.invoke(resourceBuilder)
         val finalResource = resourceBuilder.build()
 
-        return OpenTelemetryRum
-            .builder(application, rumConfig)
-            .apply {
-                setResource(finalResource)
-                setSessionProvider(createSessionProvider(application, sessionConfig))
-                meteredSessionProvider?.let { setMeteredSessionProvider(it) }
-                addSpanExporterCustomizer { spanExporter }
-                addLogRecordExporterCustomizer { logRecordExporter }
-                addMetricExporterCustomizer { metricExporter }
-                if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
-                if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
-                if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
-            }.build()
+        builder =
+            OpenTelemetryRum
+                .builder(application, rumConfig)
+                .apply {
+                    setShouldStartSendingData(shouldStartSendingData)
+                    setResource(finalResource)
+                    setSessionProvider(createSessionProvider(application, sessionConfig))
+                    meteredSessionProvider?.let { setMeteredSessionProvider(it) }
+                    addSpanExporterCustomizer { spanExporter }
+                    addLogRecordExporterCustomizer { logRecordExporter }
+                    addMetricExporterCustomizer { metricExporter }
+                    if (tracerProviderCustomizer != null) addTracerProviderCustomizer(tracerProviderCustomizer)
+                    if (meterProviderCustomizer != null) addMeterProviderCustomizer(meterProviderCustomizer)
+                    if (loggerProviderCustomizer != null) addLoggerProviderCustomizer(loggerProviderCustomizer)
+                }
+
+        if (shouldStartSendingData) {
+            isSetupExportersDone = true
+        }
+        return builder.build()
+    }
+
+    fun setupExporters() {
+        synchronized(OpenTelemetryRumInitializer) {
+            if (::builder.isInitialized && !isSetupExportersDone) {
+                builder.setupExporters()
+                isSetupExportersDone = true
+            }
+        }
+    }
+
+    fun disposeExporters() {
+        builder.disposeExporters()
     }
 
     private fun createSessionProvider(

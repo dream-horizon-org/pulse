@@ -17,6 +17,7 @@ export interface TenantContextType {
   tier: TierType | null;
   projects: ProjectSummary[];
   isLoading: boolean;
+  hasLoadedProjects: boolean;
   
   // Methods
   setTenantInfo: (tenant: TenantInfo) => void;

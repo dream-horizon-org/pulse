@@ -1,9 +1,9 @@
 package com.pulse.sampling.core.providers
 
-import com.pulse.otel.utils.PulseOtelUtils
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.remote.PulseSdkConfigApiService
 import com.pulse.sampling.remote.PulseSdkConfigRetrofitClient
+import com.pulse.utils.PulseOtelUtils
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import okhttp3.Cache

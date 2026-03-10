@@ -147,7 +147,7 @@ export function CollaboratorManagement() {
       <Box className={classes.pageContainer}>
         <Box className={classes.pageHeader}>
           <Box className={classes.titleSection}>
-            <Text className={classes.pageTitle}>Team Members</Text>
+            <Text className={classes.pageTitle}>Manage project access members</Text>
           </Box>
         </Box>
         <Box className={classes.contentTable}>
@@ -172,7 +172,7 @@ export function CollaboratorManagement() {
       <Box className={classes.pageHeader}>
         <Box className={classes.headerGroup}>
           <Box className={classes.titleSection}>
-            <Text className={classes.pageTitle}>Manage Team </Text>
+            <Text className={classes.pageTitle}>Manage project access </Text>
           </Box>
           {canInviteProjectMembers && (
             <Button
@@ -192,7 +192,7 @@ export function CollaboratorManagement() {
         <Box className={classes.tableHeader}>
           <Box className={classes.tableHeaderContent}>
             <IconUsers size={18} color="#0ba09a" />
-            <Text className={classes.tableHeaderTitle}>Team Members</Text>
+            <Text className={classes.tableHeaderTitle}>Project Members</Text>
             <Badge size="sm" variant="light" color="teal" ml="auto">
               {collaborators.length} member{collaborators.length !== 1 ? 's' : ''}
             </Badge>

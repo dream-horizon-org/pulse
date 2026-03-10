@@ -176,7 +176,7 @@ export function OrganizationMembers() {
       <Box className={classes.pageContainer}>
         <Box className={classes.pageHeader}>
           <Box className={classes.titleSection}>
-            <Text className={classes.pageTitle}>Team Members</Text>
+            <Text className={classes.pageTitle}>Manage organization access</Text>
           </Box>
         </Box>
         <Box className={classes.contentTable}>
@@ -201,7 +201,7 @@ export function OrganizationMembers() {
       <Box className={classes.pageHeader}>
         <Box className={classes.headerGroup}>
           <Box className={classes.titleSection}>
-            <Text className={classes.pageTitle}>Team Members</Text>
+            <Text className={classes.pageTitle}>Manage organization access</Text>
           </Box>
           {canInviteTenantMembers && (
             <Button

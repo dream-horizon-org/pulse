@@ -39,10 +39,10 @@ fun SessionId(sessionId: StateFlow<String>) {
                     .padding(vertical = 25.dp),
                 Arrangement.Center,
             ) {
-                CenterText(text = "session.id", fontSize = 18.sp, color = Color.Black)
+                SelectableText(text = "session.id", fontSize = 18.sp, color = Color.Black)
                 //TODO: Fix me -- this selection doesn't work
                 SelectionContainer(modifier = Modifier.padding(top = 15.dp)) {
-                    CenterText(text = sessionId.collectAsState().value, fontSize = 14.sp,
+                    SelectableText(text = sessionId.collectAsState().value, fontSize = 14.sp,
                         selectable = true, color = Color(0xFF425CC7))
                 }
             }

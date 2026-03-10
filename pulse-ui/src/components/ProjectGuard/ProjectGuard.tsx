@@ -18,6 +18,11 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
   const { projects, tenantId } = useTenantContext();
 
   useEffect(() => {
+    // If tenantId is null, user is logged out or logging out - skip all guard logic
+    if (!tenantId) {
+      return;
+    }
+    
     const excludedPaths = [
       ROUTES.LOGIN.basePath,
       ROUTES.ONBOARDING.basePath,
@@ -33,7 +38,6 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     const isExcludedPath = excludedPaths.some(path => 
       location.pathname.startsWith(path)
     );
-
 
     // Skip guard for onboarding pages
     if (isOnboardingPath) {

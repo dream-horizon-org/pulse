@@ -14,6 +14,8 @@ import org.dreamhorizon.pulseserver.dao.athena.AthenaJobDao;
 import org.dreamhorizon.pulseserver.dao.athena.AthenaQueryJobDaoAdapter;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.service.breadcrumb.BreadcrumbService;
+import org.dreamhorizon.pulseserver.service.breadcrumb.BreadcrumbServiceImpl;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
 import org.dreamhorizon.pulseserver.service.query.QueryServiceImpl;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
@@ -43,6 +45,7 @@ public class QueryEngineModule extends AbstractModule {
 
     // QueryService is common for all engines
     bind(QueryService.class).to(QueryServiceImpl.class).in(Singleton.class);
+    bind(BreadcrumbService.class).to(BreadcrumbServiceImpl.class).in(Singleton.class);
   }
 
   private void configureAthena() {

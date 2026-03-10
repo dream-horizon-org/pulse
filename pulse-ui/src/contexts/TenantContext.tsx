@@ -1,25 +1,31 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ProjectSummary } from '../helpers/getUserProjects/getUserProjects.interface';
 import { useUserProjects } from '../hooks';
 import { TenantRole } from '../constants/Roles';
 import { TIERS, TierType } from '../constants/Tiers';
 import { TenantInfo, TenantContextType, StoredTenantData } from './TenantContext.interface';
+import { API_ROUTES } from '../constants';
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'pulse_tenant_context';
 
 export function TenantProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<TenantRole | null>(null);
   const [tier, setTier] = useState<TierType | null>(null);
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [shouldFetchProjects, setShouldFetchProjects] = useState(false);
 
-  // Use React Query hook for fetching projects
+  // Use React Query hook for fetching projects - THIS IS OUR SINGLE SOURCE OF TRUTH
   const { data: projectsData, isLoading, refetch } = useUserProjects(shouldFetchProjects);
-
+  
+  // Derive projects directly from React Query (no local state copying!)
+  const projects = useMemo(() => projectsData?.data?.projects || [], [projectsData?.data?.projects]);
+  const hasLoadedProjects = !!projectsData?.data;
+  
   // Hydrate from sessionStorage on mount
   useEffect(() => {
     const stored = sessionStorage.getItem(STORAGE_KEY);
@@ -33,7 +39,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setTenantName(data.tenantName);
           setUserRole(data.userRole);
           setTier(data.tier);
-          setProjects(data.projects);
+          // No need to set projects - React Query will handle it!
           
           // Enable project fetching and refetch in background for fresh data
           setShouldFetchProjects(true);
@@ -65,11 +71,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [tenantId, tenantName, userRole, tier, projects]);
 
-  // Update projects when React Query data changes
+  // Update tenant info when React Query returns data
   useEffect(() => {
     if (projectsData?.data) {
-      setProjects(projectsData.data.projects);
-      
       // Update tenant information from API response
       if (projectsData.data.tenantName) {
         setTenantName(projectsData.data.tenantName);
@@ -78,31 +82,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         setTenantId(projectsData.data.tenantId);
       }
     }
-  }, [projectsData]);
+  }, [projectsData?.data]);
 
   const refreshProjects = useCallback(async () => {
-    // Get tenantId from state or sessionStorage
-    const currentTenantId = tenantId || (() => {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const data: StoredTenantData = JSON.parse(stored);
-          return data.tenantId;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    })();
-
-    if (!currentTenantId) {
-      return;
-    }
-
-    // Enable fetching and trigger refetch
+    // Enable fetching if not already enabled
     setShouldFetchProjects(true);
-    await refetch();
-  }, [tenantId, refetch]);
+    
+    // Invalidate React Query cache to trigger fresh fetch
+    await queryClient.invalidateQueries({ 
+      queryKey: [API_ROUTES.GET_USER_PROJECTS.key] 
+    });
+  }, [queryClient]);
 
   const setTenantInfo = useCallback((tenant: TenantInfo) => {
     setTenantId(tenant.tenantId);
@@ -118,22 +108,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [refetch]);
 
   const addProject = useCallback((project: ProjectSummary) => {
-    setProjects(prev => {
-      // Check if project already exists
-      const exists = prev.some(p => p.projectId === project.projectId);
-      if (exists) {
-        return prev.map(p => p.projectId === project.projectId ? project : p);
-      }
-      return [...prev, project];
-    });
-  }, []);
+    // After adding project to backend, just refetch to update React Query cache
+    refetch();
+  }, [refetch]);
 
   const clearTenant = useCallback(() => {
     setTenantId(null);
     setTenantName(null);
     setUserRole(null);
     setTier(null);
-    setProjects([]);
+    setShouldFetchProjects(false); // Disable fetching
     sessionStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -144,6 +128,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     tier,
     projects,
     isLoading,
+    hasLoadedProjects,
     setTenantInfo,
     refreshProjects,
     addProject,

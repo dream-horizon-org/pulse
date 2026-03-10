@@ -8,7 +8,8 @@ lib/
 
 .env
 
-.cursor/
+.cursor/.env
+.cursor/hooks/state/
 .terraform/
 *.tfstate
 *.tfstate.*
@@ -16,5 +17,6 @@ lib/
 *.tfvars.*
 .terraformrc
 terraform.rc
+env.json
 
 docs/

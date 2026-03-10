@@ -290,8 +290,8 @@ export const ROUTES: Routes = {
   },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
-    basePath: "/project-settings",
-    path: "/project-settings",
+    basePath: "/settings",
+    path: "/settings",
     element: ProjectSettings,
   },
 };
@@ -940,7 +940,7 @@ export const CRITICAL_INTERACTION_FORM_CONSTANTS: Record<string, string> = {
   INTERACTION_DESCRIPTION:
     "Enter your user interaction name. This will uniquely identify your interaction. Once interaction is created, it cannot be changed.",
   INTERACTION_ERROR_MESSAGE: "Interaction name should be in PascalCase",
-  INTERACTION_DESCRIPTION_ERROR_MESSAGE: "Desciption is required",
+  INTERACTION_DESCRIPTION_ERROR_MESSAGE: "Description is required",
   INTERACTION_LOWER_THRESHOLD: "Lower Threshold (ms)",
   INTERACTION_LOWER_THRESHOLD_DESCRIPTION:
     "Best case scenario for your interaction to be completed",

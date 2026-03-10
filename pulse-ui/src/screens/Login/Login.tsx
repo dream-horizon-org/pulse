@@ -90,7 +90,9 @@ export function Login() {
         });
       }
       
-      navigate(`/${data.tenantId}/projects`);
+      // Use backend's redirectTo if available, otherwise default to projects list
+      const redirectPath = data.redirectTo || `/${data.tenantId}/projects`;
+      navigate(redirectPath);
     }
   };
 

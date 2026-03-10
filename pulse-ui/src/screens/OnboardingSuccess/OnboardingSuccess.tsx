@@ -199,15 +199,25 @@ Pulse.initialize({
         <Stack gap="xl">
           {/* Success Header */}
           <Box className={classes.successHeader}>
-            <Box className={classes.iconWrapper}>
-              <IconRocket size={48} className={classes.successIcon} />
-            </Box>
+
             <Text className={classes.title}>
               🎉 Project "{projectName}" Created Successfully!
             </Text>
-            {/* <Text className={classes.subtitle}>
-              Your analytics platform is ready. Follow the steps below to integrate Pulse into your app.
-            </Text> */}
+            <Text className={classes.subtitle}>
+              Your project is ready! Complete the setup below to start using Pulse.
+            </Text>
+            
+            {/* Primary CTA Button in Header */}
+            <Group justify="center" mt="lg" gap="md">
+              <Button
+                size="lg"
+                className={classes.primaryCtaButton}
+                onClick={handleGoToDashboard}
+                leftSection={<IconRocket size={20} />}
+              >
+                Go to Dashboard
+              </Button>
+            </Group>
           </Box>
 
           {/* API Key Section */}
@@ -246,8 +256,7 @@ Pulse.initialize({
           <Paper className={classes.section} shadow="sm" p="xl" radius="md">
             <Group mb="md">
               <IconCode size={24} style={{ color: '#0ec9c2' }} />
-              <Text fw={600} size="lg">Quick Start</Text>
-            </Group>
+              <Text fw={600} size="lg">Quick Start</Text>            </Group>
             <Text size="sm" c="dimmed" mb="md">
               Choose your platform and copy the initialization code:
             </Text>
@@ -321,17 +330,17 @@ Pulse.initialize({
             </Group>
           </Paper>
 
-          {/* CTA Button */}
-          <Group justify="center" mt="xl">
+          {/* <Group justify="center" mt="xl">
             <Button
               size="lg"
-              className={classes.ctaButton}
+              variant="outline"
+              className={classes.secondaryCtaButton}
               onClick={handleGoToDashboard}
               leftSection={<IconRocket size={20} />}
             >
               Go to Dashboard
             </Button>
-          </Group>
+          </Group> */}
         </Stack>
       </Container>
     </Box>

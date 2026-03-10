@@ -68,6 +68,31 @@ export default function NetworkInterceptorDemo() {
     }
   };
 
+  // Fetch POST request
+  const testFetchGetWithQueryParams = async () => {
+    setLoading('fetch-post-with-query-params');
+    try {
+      console.log(
+        '[Pulse Network] 🌐 Testing fetch() POST request with query params...'
+      );
+      const response = await fetch(
+        'https://jsonplaceholder.typicode.com/comments?postId=123456',
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const data = await response.json();
+      showResult(`Fetch GET with Query Params: data.length = ${data.length}`);
+    } catch (error: any) {
+      showResult(`Fetch GET with Query Params: ${error.message}`, true);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   // XHR GET request
   const testXhrGet = () => {
     setLoading('xhr-get');
@@ -268,6 +293,18 @@ export default function NetworkInterceptorDemo() {
               loading === 'fetch-post' ? 'Loading...' : 'Fetch POST Request'
             }
             onPress={testFetchPost}
+            disabled={loading !== null}
+            color="#2196F3"
+          />
+          <View style={styles.space} />
+
+          <Button
+            title={
+              loading === 'fetch-post-with-query-params'
+                ? 'Loading...'
+                : 'Fetch POST Request with Query Params'
+            }
+            onPress={testFetchGetWithQueryParams}
             disabled={loading !== null}
             color="#2196F3"
           />

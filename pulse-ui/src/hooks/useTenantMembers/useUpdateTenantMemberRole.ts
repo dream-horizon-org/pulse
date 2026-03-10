@@ -24,7 +24,7 @@ export const useUpdateTenantMemberRole = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            role: params.newRole,
+            newRole: params.newRole,
           }),
         },
       }),

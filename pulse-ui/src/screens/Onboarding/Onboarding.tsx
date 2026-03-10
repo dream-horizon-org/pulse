@@ -8,8 +8,12 @@ import {
   TextInput,
   Textarea,
   Button,
+  Paper,
+  Badge,
+  Group,
+  Space,
 } from "@mantine/core";
-import { IconSquareRoundedX, IconBuilding, IconFolder } from "@tabler/icons-react";
+import { IconSquareRoundedX, IconBuilding, IconFolder, IconCheck } from "@tabler/icons-react";
 import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
 import { useCompleteOnboarding } from "../../hooks";
@@ -166,7 +170,7 @@ export function Onboarding() {
           <div className={classes.header}>
             <h1 className={classes.title}>Welcome to Pulse!</h1>
             <Text className={classes.subtitle}>
-              Let's set up your organization and create your first project.
+              Let's get you started in 2 simple steps
             </Text>
             <Text className={classes.userInfo}>
               Signed in as <strong>{userData.email}</strong>
@@ -174,44 +178,101 @@ export function Onboarding() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className={classes.form}>
-            <Stack gap="lg">
-              {/* Organization Name */}
-              <TextInput
-                label="Organization Name"
-                placeholder="e.g., Acme Inc."
-                size="md"
-                required
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                error={errors.org}
-                leftSection={<IconBuilding size={18} />}
-                description="This will be your company or team name"
-              />
+          <form onSubmit={handleSubmit}>
+            <Stack gap="xl">
+              {/* Step 1: Organization */}
+              <Paper className={classes.stepSection} shadow="sm" p="xl" radius="md">
+                <Group gap="sm" mb="md">
+                  <Badge 
+                    size="lg" 
+                    circle 
+                    variant="filled"
+                    style={{ background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)" }}
+                  >
+                    1
+                  </Badge>
+                  <Text fw={600} size="lg" className={classes.stepTitle}>
+                    Create Your Organization
+                  </Text>
+                  {organizationName.trim() && (
+                    <IconCheck size={20} style={{ color: '#0ec9c2' }} />
+                  )}
+                </Group>
+                
+                <Text size="sm" c="dimmed" mb="lg" className={classes.stepDescription}>
+                  Your organization represents your company or team. You can invite members and manage multiple projects within it.
+                </Text>
 
-              {/* Project Name */}
-              <TextInput
-                label="Project Name"
-                placeholder="e.g., Mobile App, Web Dashboard"
-                size="md"
-                required
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                error={errors.project}
-                leftSection={<IconFolder size={18} />}
-                description="The application you want to monitor"
-              />
+                <TextInput
+                  label="Organization Name"
+                  placeholder="e.g., Acme Inc., Marketing Team"
+                  size="md"
+                  required
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  error={errors.org}
+                  leftSection={<IconBuilding size={18} />}
+                  description="This will be your company or team name"
+                />
+              </Paper>
 
-              {/* Project Description (Optional) */}
-              <Textarea
-                label="Project Description (Optional)"
-                placeholder="Brief description of your project..."
-                size="md"
-                value={projectDescription}
-                onChange={(e) => setProjectDescription(e.target.value)}
-                minRows={3}
-                maxRows={5}
-              />
+              {/* Step 2: Project */}
+              <Paper 
+                className={classes.stepSection} 
+                shadow="sm" 
+                p="xl" 
+                radius="md"
+                style={{ 
+                  opacity: organizationName.trim() ? 1 : 0.7,
+                  transition: 'opacity 0.3s ease'
+                }}
+              >
+                <Group gap="sm" mb="md">
+                  <Badge 
+                    size="lg" 
+                    circle 
+                    variant="filled"
+                    style={{ background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)" }}
+                  >
+                    2
+                  </Badge>
+                  <Text fw={600} size="lg" className={classes.stepTitle}>
+                    Create Your First Project
+                  </Text>
+                  {projectName.trim() && (
+                    <IconCheck size={20} style={{ color: '#0ec9c2' }} />
+                  )}
+                </Group>
+                
+                <Text size="sm" c="dimmed" mb="lg" className={classes.stepDescription}>
+                  Projects live inside your organization. Each project tracks a specific application or service.
+                </Text>
+
+                <Stack gap="md">
+                  <TextInput
+                    label="Project Name"
+                    placeholder="e.g., Mobile App, Web Dashboard, API Service"
+                    size="md"
+                    required
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    error={errors.project}
+                    leftSection={<IconFolder size={18} />}
+                    description="What application do you want to monitor?"
+                  />
+
+                  <Textarea
+                    label="Project Description (Optional)"
+                    placeholder="Add a brief description to help your team understand this project..."
+                    size="md"
+                    value={projectDescription}
+                    onChange={(e) => setProjectDescription(e.target.value)}
+                    minRows={3}
+                    maxRows={5}
+                    description="Provide context about what this project does"
+                  />
+                </Stack>
+              </Paper>
 
               {/* Submit Button */}
               <Button
@@ -225,7 +286,7 @@ export function Onboarding() {
                   marginTop: "1rem",
                 }}
               >
-                {isSubmitting ? "Creating..." : "Create Project & Continue"}
+                {isSubmitting ? "Setting up..." : "Complete Setup & Get Started"}
               </Button>
             </Stack>
           </form>

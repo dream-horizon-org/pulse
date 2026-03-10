@@ -11,15 +11,13 @@ import { TIERS } from '../../constants/Tiers';
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
-  const { projects, isLoading, tier, refreshProjects } = useTenantContext();
+  const { projects, hasLoadedProjects, tier, refreshProjects } = useTenantContext();
   const { projectId, setProject } = useProjectContext();
   const { canCreateProjects: hasPermission } = usePermissions();
   const { canCreateProjects, maxProjects, currentProjectCount } = useTierLimits();
   const navigate = useNavigate();
-  const [hasFetched, setHasFetched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Define handleProjectClick before it's used in useEffect
   const handleProjectClick = useCallback(async (selectedProjectId: string) => {
     try {
       // Find the project details from the projects list
@@ -62,37 +60,31 @@ export function OrganizationProjects() {
     }
   }, [projects, setProject, navigate]);
 
-  // FIRST: Always fetch projects when landing on this page
+  // Trigger refresh on mount to ensure fresh data
   useEffect(() => {
-    const fetchProjects = async () => {
-      await refreshProjects();
-      setHasFetched(true);
-    };
-    fetchProjects();
+    refreshProjects();
   }, [refreshProjects]);
 
-  // SECOND: Handle auto-selection after projects are loaded
+  // Handle auto-selection after projects are loaded
   useEffect(() => {
-    // Wait until we've fetched projects at least once
-    if (!hasFetched || isLoading) {
+    if (!hasLoadedProjects) {
       return;
     }
 
     // If user already has a project context set, redirect to that project
-    // This prevents unnecessary showing of project selection when user is already in a project
+    console.log('[OrganizationProjects] projectId:', projectId, projects);
     if (projectId) {
       navigate(`/projects/${projectId}`, { replace: true });
       return;
     }
 
     // Auto-select first project ONLY for free tier users (who can only have 1 project)
-    // Enterprise users should see the project selection page to choose
     if (!projectId && projects.length > 0 && tier === TIERS.FREE) {
       const lastUsedProjectId = sessionStorage.getItem('pulse_last_project_id');
       const projectToSelect = projects.find(p => p.projectId === lastUsedProjectId) || projects[0];
       handleProjectClick(projectToSelect.projectId);
     }
-  }, [projectId, isLoading, projects, navigate, hasFetched, tier, handleProjectClick]);
+  }, [projectId, projects, navigate, hasLoadedProjects, tier, handleProjectClick]);
 
   const handleCreateProject = () => {
     if (!canCreateProjects) {
@@ -108,7 +100,8 @@ export function OrganizationProjects() {
     navigate(`/${organizationId}/projects/new`);
   };
 
-  if (isLoading && !hasFetched) {
+  // Show loader while projects are loading
+  if (!hasLoadedProjects) {
     return (
       <Box className={classes.container}>
         <Container size="xl" className={classes.innerContainer}>

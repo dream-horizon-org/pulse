@@ -1,9 +1,9 @@
 package io.opentelemetry.android.instrumentation.interaction.library
 
 import com.pulse.android.core.Interaction
-import com.pulse.otel.utils.putAttributesFrom
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseInteractionAttributes
+import com.pulse.utils.putAttributesFrom
 import io.opentelemetry.api.common.AttributesBuilder
 
 internal class InteractionDefaultAttributesExtractor : InteractionAttributesExtractor {

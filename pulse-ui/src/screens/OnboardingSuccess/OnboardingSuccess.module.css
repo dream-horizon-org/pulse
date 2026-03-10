@@ -57,6 +57,31 @@
   line-height: 1.6;
 }
 
+.primaryCtaButton {
+  background: #ffffff !important;
+  color: #0ec9c2 !important;
+  border: none;
+  font-weight: 700;
+  font-size: 18px;
+  padding: 14px 56px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.primaryCtaButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+  background: #ffffff !important;
+}
+
+.setupHint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
 .section {
   background: #ffffff;
   border: 1px solid #e9ecef;
@@ -127,6 +152,26 @@
   background: linear-gradient(135deg, #0ba09a 0%, #0ec9c2 100%);
 }
 
+.secondaryCtaButton {
+  color: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 48px;
+  height: auto;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.secondaryCtaButton:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .title {
@@ -135,6 +180,15 @@
 
   .subtitle {
     font-size: 14px;
+  }
+  
+  .primaryCtaButton {
+    font-size: 16px;
+    padding: 12px 40px;
+  }
+  
+  .setupHint {
+    font-size: 13px;
   }
 
   .apiKeyDisplay {

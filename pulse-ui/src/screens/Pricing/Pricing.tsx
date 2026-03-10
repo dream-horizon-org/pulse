@@ -28,8 +28,10 @@ export function Pricing() {
             <ThemeIcon 
               size={100} 
               radius="xl" 
-              variant="gradient" 
-              gradient={{ from: 'teal', to: 'blue', deg: 135 }}
+              style={{
+                background: '#0ec9c2',
+                color: 'white',
+              }}
             >
               <IconCircleCheck size={60} />
             </ThemeIcon>
@@ -48,7 +50,14 @@ export function Pricing() {
             <Card shadow="md" radius="lg" padding="xl" withBorder style={{ width: '100%' }}>
               <Stack gap="md">
                 <Group gap="xs" mb="md">
-                  <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'teal', to: 'blue', deg: 135 }}>
+                  <ThemeIcon 
+                    size="lg" 
+                    radius="md" 
+                    style={{
+                      background: '#0ec9c2',
+                      color: 'white',
+                    }}
+                  >
                     <IconBuilding size={24} />
                   </ThemeIcon>
                   <Title order={3}>Your Enterprise Benefits</Title>
@@ -58,10 +67,12 @@ export function Pricing() {
                   size="md"
                   icon={
                     <ThemeIcon 
-                      variant="gradient" 
-                      gradient={{ from: 'teal', to: 'blue', deg: 135 }}
                       size={22} 
                       radius="xl"
+                      style={{
+                        background: '#0ec9c2',
+                        color: 'white',
+                      }}
                     >
                       <IconCheck size={14} />
                     </ThemeIcon>
@@ -83,19 +94,28 @@ export function Pricing() {
             <Group gap="md" mt="lg">
               <Button 
                 size="lg" 
-                variant="gradient"
-                gradient={{ from: 'teal', to: 'blue', deg: 135 }}
+                radius="xl"
                 leftSection={<IconUsers size={20} />}
                 onClick={() => navigate('/organization/members')}
+                style={{
+                  background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                  border: "none",
+                  fontWeight: 600,
+                }}
               >
                 Manage Team
               </Button>
               <Button 
                 size="lg" 
+                radius="xl"
                 variant="outline"
-                color="teal"
                 leftSection={<IconMail size={20} />}
                 onClick={handleContactSupport}
+                style={{
+                  borderColor: '#0ec9c2',
+                  color: '#0ec9c2',
+                  fontWeight: 600,
+                }}
               >
                 Contact Support
               </Button>
@@ -103,7 +123,7 @@ export function Pricing() {
 
             {/* Footer Note */}
             <Text size="sm" c="dimmed" ta="center" mt="xl">
-              Need to discuss your plan? <Text component="span" c="teal" fw={600} style={{ cursor: 'pointer' }} onClick={handleContactSupport}>Contact our support team</Text> for assistance.
+              Need to discuss your plan? <Text component="span" style={{ color: '#0ec9c2' }} fw={600} onClick={handleContactSupport}>Contact our support team</Text> for assistance.
             </Text>
           </Stack>
         </Container>
@@ -141,13 +161,27 @@ export function Pricing() {
                 <div>
                   <Group justify="space-between" mb="xs">
                     <Group gap="xs">
-                      <ThemeIcon size="lg" radius="md" variant="light" color="teal">
+                      <ThemeIcon 
+                        size="lg" 
+                        radius="md" 
+                        variant="light" 
+                        style={{
+                          background: 'rgba(14, 201, 194, 0.1)',
+                          color: '#0ec9c2',
+                        }}
+                      >
                         <IconRocket size={20} />
                       </ThemeIcon>
                       <Title order={2}>Free</Title>
                     </Group>
                     {currentPlan === TIERS.FREE && (
-                      <Badge color="teal" variant="filled" size="lg">
+                      <Badge 
+                        size="lg"
+                        style={{
+                          background: '#0ec9c2',
+                          color: 'white',
+                        }}
+                      >
                         Current Plan
                       </Badge>
                     )}
@@ -174,7 +208,14 @@ export function Pricing() {
                   spacing="sm"
                   size="sm"
                   icon={
-                    <ThemeIcon color="teal" size={20} radius="xl">
+                    <ThemeIcon 
+                      size={20} 
+                      radius="xl"
+                      style={{
+                        background: '#0ec9c2',
+                        color: 'white',
+                      }}
+                    >
                       <IconCheck size={12} />
                     </ThemeIcon>
                   }
@@ -191,9 +232,20 @@ export function Pricing() {
                 <Button
                   fullWidth
                   size="lg"
-                  variant={currentPlan === TIERS.FREE ? 'filled' : 'outline'}
-                  color="teal"
+                  radius="xl"
                   disabled={currentPlan === TIERS.FREE}
+                  style={currentPlan === TIERS.FREE ? {
+                    background: '#0ec9c2',
+                    color: 'white',
+                    fontWeight: 600,
+                    cursor: 'not-allowed',
+                    opacity: 0.6,
+                  } : {
+                    background: 'transparent',
+                    border: '2px solid #0ec9c2',
+                    color: '#0ec9c2',
+                    fontWeight: 600,
+                  }}
                 >
                   {currentPlan === TIERS.FREE ? 'Current Plan' : 'Get Started'}
                 </Button>
@@ -213,12 +265,25 @@ export function Pricing() {
                 <div>
                   <Group justify="space-between" mb="xs">
                     <Group gap="xs">
-                      <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'teal', to: 'blue', deg: 135 }}>
+                      <ThemeIcon 
+                        size="lg" 
+                        radius="md"
+                        style={{
+                          background: '#0ec9c2',
+                          color: 'white',
+                        }}
+                      >
                         <IconBuilding size={20} />
                       </ThemeIcon>
                       <Title order={2}>Enterprise</Title>
                     </Group>
-                    <Badge variant="gradient" gradient={{ from: 'teal', to: 'blue', deg: 135 }} size="lg">
+                    <Badge 
+                      size="lg"
+                      style={{
+                        background: '#0ec9c2',
+                        color: 'white',
+                      }}
+                    >
                       Popular
                     </Badge>
                   </Group>
@@ -245,10 +310,12 @@ export function Pricing() {
                   size="sm"
                   icon={
                     <ThemeIcon 
-                      variant="gradient" 
-                      gradient={{ from: 'teal', to: 'blue', deg: 135 }}
                       size={20} 
                       radius="xl"
+                      style={{
+                        background: '#0ec9c2',
+                        color: 'white',
+                      }}
                     >
                       <IconCheck size={12} />
                     </ThemeIcon>
@@ -268,10 +335,15 @@ export function Pricing() {
                 <Button
                   fullWidth
                   size="lg"
-                  variant="gradient"
-                  gradient={{ from: 'teal', to: 'blue', deg: 135 }}
+                  radius="xl"
                   leftSection={<IconMail size={18} />}
                   onClick={handleContactUs}
+                  style={{
+                    background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                    border: "none",
+                    fontWeight: 600,
+                    color: 'white',
+                  }}
                 >
                   Contact Sales
                 </Button>
@@ -281,7 +353,7 @@ export function Pricing() {
 
           {/* Footer Note */}
           <Text size="sm" c="dimmed" ta="center" mt="xl">
-            Need help choosing? <Text component="span" c="teal" fw={600} style={{ cursor: 'pointer' }}>Contact our team</Text> for personalized recommendations.
+            Need help choosing? <Text component="span" style={{ color: '#0ec9c2', cursor: 'pointer' }} fw={600}>Contact our team</Text> for personalized recommendations.
           </Text>
         </Stack>
       </Container>
