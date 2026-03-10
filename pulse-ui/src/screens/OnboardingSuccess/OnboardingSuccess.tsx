@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Container,
@@ -14,7 +14,7 @@ import {
   TextInput,
   Select,
   Badge,
-} from '@mantine/core';
+} from "@mantine/core";
 import {
   IconCheck,
   IconCopy,
@@ -24,16 +24,20 @@ import {
   IconKey,
   IconUsers,
   IconCode,
-} from '@tabler/icons-react';
-import { showNotification } from '../../helpers/showNotification';
-import { getProjectApiKey } from '../../helpers/getProjectApiKey';
-import { useProjectContext } from '../../contexts';
-import { ROUTES } from '../../constants';
-import { useInviteProjectMember } from '../../hooks';
-import { ApiResponse } from '../../helpers/makeRequest';
-import { ProjectMember } from '../../types/members';
-import { PROJECT_ROLES, PROJECT_ROLE_LABELS, ProjectRole } from '../../constants/Roles';
-import classes from './OnboardingSuccess.module.css';
+} from "@tabler/icons-react";
+import { showNotification } from "../../helpers/showNotification";
+import { getProjectApiKey } from "../../helpers/getProjectApiKey";
+import { useProjectContext } from "../../contexts";
+import { ROUTES } from "../../constants";
+import { useInviteProjectMember } from "../../hooks";
+import { ApiResponse } from "../../helpers/makeRequest";
+import { ProjectMember } from "../../types/members";
+import {
+  PROJECT_ROLES,
+  PROJECT_ROLE_LABELS,
+  ProjectRole,
+} from "../../constants/Roles";
+import classes from "./OnboardingSuccess.module.css";
 
 export function OnboardingSuccess() {
   const { projectId: urlProjectId } = useParams<{ projectId: string }>();
@@ -41,19 +45,28 @@ export function OnboardingSuccess() {
   const navigate = useNavigate();
   const locationState = location.state || {};
   const projectId = urlProjectId;
-  
-  // Get project info from context
-  const { projectName: contextProjectName, projectId: contextProjectId } = useProjectContext();
 
-  const [projectName, setProjectName] = useState<string | null>(locationState.projectName || contextProjectName || null);
-  const [projectApiKey, setProjectApiKey] = useState<string | null>(locationState.projectApiKey || null);
-  const [loading, setLoading] = useState(!locationState.projectName || !locationState.projectApiKey);
-  
+  // Get project info from context
+  const { projectName: contextProjectName, projectId: contextProjectId } =
+    useProjectContext();
+
+  const [projectName, setProjectName] = useState<string | null>(
+    locationState.projectName || contextProjectName || null,
+  );
+  const [projectApiKey, setProjectApiKey] = useState<string | null>(
+    locationState.projectApiKey || null,
+  );
+  const [loading, setLoading] = useState(
+    !locationState.projectName || !locationState.projectApiKey,
+  );
+
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<ProjectRole>(PROJECT_ROLES.VIEWER);
-  
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<ProjectRole>(
+    PROJECT_ROLES.VIEWER,
+  );
+
   // React Query hook for inviting members
   const inviteMutation = useInviteProjectMember();
   const inviting = inviteMutation.isPending;
@@ -64,14 +77,14 @@ export function OnboardingSuccess() {
       if (!projectId) {
         // Get tenant ID from cookies and redirect to organization projects
         const tenantId = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('tenantId='))
-          ?.split('=')[1];
-        
+          .split("; ")
+          .find((row) => row.startsWith("tenantId="))
+          ?.split("=")[1];
+
         if (tenantId && tenantId !== "undefined") {
           navigate(`/${tenantId}/projects`, { replace: true });
         } else {
-          navigate('/', { replace: true });
+          navigate("/", { replace: true });
         }
         return;
       }
@@ -90,7 +103,10 @@ export function OnboardingSuccess() {
           setProjectName(contextProjectName);
         } else if (!projectName) {
           // If context doesn't have the project name and it's not in state, redirect to project dashboard
-          navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId), { replace: true });
+          navigate(
+            ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
+            { replace: true },
+          );
           return;
         }
 
@@ -98,16 +114,29 @@ export function OnboardingSuccess() {
         const apiKeyResult = await getProjectApiKey(projectId);
         setProjectApiKey(apiKeyResult.key);
       } catch (error) {
-        console.error('[OnboardingSuccess] Error fetching project details:', error);
+        console.error(
+          "[OnboardingSuccess] Error fetching project details:",
+          error,
+        );
         // On error, redirect to project dashboard
-        navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId), { replace: true });
+        navigate(
+          ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
+          { replace: true },
+        );
       } finally {
         setLoading(false);
       }
     };
 
     fetchProjectDetails();
-  }, [projectId, projectName, projectApiKey, navigate, contextProjectName, contextProjectId]);
+  }, [
+    projectId,
+    projectName,
+    projectApiKey,
+    navigate,
+    contextProjectName,
+    contextProjectId,
+  ]);
 
   // Show loading while fetching
   if (loading || !projectId || !projectName || !projectApiKey) {
@@ -118,17 +147,17 @@ export function OnboardingSuccess() {
     navigator.clipboard.writeText(projectApiKey);
     setCopiedKey(true);
     showNotification(
-      'Success',
-      'API key copied to clipboard',
+      "Success",
+      "API key copied to clipboard",
       <IconCheck />,
-      '#0ec9c2'
+      "#0ec9c2",
     );
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
   const handleInviteMember = () => {
     if (!inviteEmail.trim() || !projectId) return;
-    
+
     inviteMutation.mutate(
       {
         projectId,
@@ -138,27 +167,44 @@ export function OnboardingSuccess() {
       {
         onSuccess: (response: ApiResponse<ProjectMember>) => {
           if (response?.data && !response?.error) {
-            showNotification('Success', `Invitation sent to ${inviteEmail}`, <IconUsers />, '#0ec9c2');
-            setInviteEmail('');
+            showNotification(
+              "Success",
+              `Invitation sent to ${inviteEmail}`,
+              <IconUsers />,
+              "#0ec9c2",
+            );
+            setInviteEmail("");
           } else {
-            showNotification('Error', response?.error?.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+            showNotification(
+              "Error",
+              response?.error?.message || "Failed to invite member",
+              <IconUsers />,
+              "#fa5252",
+            );
           }
         },
         onError: (error: any) => {
-          showNotification('Error', error.message || 'Failed to invite member', <IconUsers />, '#fa5252');
+          showNotification(
+            "Error",
+            error.message || "Failed to invite member",
+            <IconUsers />,
+            "#fa5252",
+          );
         },
-      }
+      },
     );
   };
 
   const handleGoToDashboard = () => {
     if (!projectId) return;
-    navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', projectId));
+    navigate(
+      ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
+    );
   };
 
   const maskApiKey = (key: string) => {
-    if (!key) return '';
-    return `${key.substring(0, 8)}${'•'.repeat(24)}${key.substring(key.length - 4)}`;
+    if (!key) return "";
+    return `${key.substring(0, 8)}${"•".repeat(24)}${key.substring(key.length - 4)}`;
   };
 
   const androidCode = `// Initialize Pulse SDK in your Application class
@@ -199,14 +245,25 @@ Pulse.initialize({
         <Stack gap="xl">
           {/* Success Header */}
           <Box className={classes.successHeader}>
-
-            <Text className={classes.title}>
+            <Text
+              className={classes.title}
+              ta="center"
+              c="white"
+              fw={700}
+              size="32px"
+            >
               🎉 Project "{projectName}" Created Successfully!
             </Text>
-            <Text className={classes.subtitle}>
-              Your project is ready! Complete the setup below to start using Pulse.
+            <Text
+              className={classes.subtitle}
+              ta="center"
+              c="white"
+              size="16px"
+            >
+              Your project is ready! Complete the setup below to start using
+              Pulse.
             </Text>
-            
+
             {/* Primary CTA Button in Header */}
             <Group justify="center" mt="lg" gap="md">
               <Button
@@ -223,13 +280,16 @@ Pulse.initialize({
           {/* API Key Section */}
           <Paper className={classes.section} shadow="sm" p="xl" radius="md">
             <Group mb="md">
-              <IconKey size={24} style={{ color: '#0ec9c2' }} />
-              <Text fw={600} size="lg">SDK Initialization</Text>
+              <IconKey size={24} style={{ color: "#0ec9c2" }} />
+              <Text fw={600} size="lg">
+                SDK Initialization
+              </Text>
             </Group>
             <Text size="sm" c="dimmed" mb="md">
-              Use this API key to initialize the Pulse SDK in your application. Keep it secure!
+              Use this API key to initialize the Pulse SDK in your application.
+              Keep it secure!
             </Text>
-            
+
             <Group gap="xs" className={classes.apiKeyGroup}>
               <Code className={classes.apiKeyDisplay}>
                 {showApiKey ? projectApiKey : maskApiKey(projectApiKey)}
@@ -237,7 +297,7 @@ Pulse.initialize({
               <ActionIcon
                 variant="subtle"
                 onClick={() => setShowApiKey(!showApiKey)}
-                title={showApiKey ? 'Hide API key' : 'Show API key'}
+                title={showApiKey ? "Hide API key" : "Show API key"}
               >
                 {showApiKey ? <IconEyeOff size={18} /> : <IconEye size={18} />}
               </ActionIcon>
@@ -255,8 +315,11 @@ Pulse.initialize({
           {/* Quick Start Code Section */}
           <Paper className={classes.section} shadow="sm" p="xl" radius="md">
             <Group mb="md">
-              <IconCode size={24} style={{ color: '#0ec9c2' }} />
-              <Text fw={600} size="lg">Quick Start</Text>            </Group>
+              <IconCode size={24} style={{ color: "#0ec9c2" }} />
+              <Text fw={600} size="lg">
+                Quick Start
+              </Text>{" "}
+            </Group>
             <Text size="sm" c="dimmed" mb="md">
               Choose your platform and copy the initialization code:
             </Text>
@@ -291,9 +354,13 @@ Pulse.initialize({
           {/* Invite Team Section */}
           <Paper className={classes.section} shadow="sm" p="xl" radius="md">
             <Group mb="md">
-              <IconUsers size={24} style={{ color: '#0ec9c2' }} />
-              <Text fw={600} size="lg">Invite Your Team</Text>
-              <Badge variant="light" color="blue" size="sm">Optional</Badge>
+              <IconUsers size={24} style={{ color: "#0ec9c2" }} />
+              <Text fw={600} size="lg">
+                Invite Your Team
+              </Text>
+              <Badge variant="light" color="blue" size="sm">
+                Optional
+              </Badge>
             </Group>
             <Text size="sm" c="dimmed" mb="md">
               Collaborate with your team by inviting members to this project.
@@ -310,11 +377,22 @@ Pulse.initialize({
               <Select
                 label="Role"
                 value={inviteRole}
-                onChange={(value) => setInviteRole((value as ProjectRole) || PROJECT_ROLES.VIEWER)}
+                onChange={(value) =>
+                  setInviteRole((value as ProjectRole) || PROJECT_ROLES.VIEWER)
+                }
                 data={[
-                  { value: PROJECT_ROLES.ADMIN, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN] },
-                  { value: PROJECT_ROLES.EDITOR, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR] },
-                  { value: PROJECT_ROLES.VIEWER, label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER] },
+                  {
+                    value: PROJECT_ROLES.ADMIN,
+                    label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN],
+                  },
+                  {
+                    value: PROJECT_ROLES.EDITOR,
+                    label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR],
+                  },
+                  {
+                    value: PROJECT_ROLES.VIEWER,
+                    label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER],
+                  },
                 ]}
                 style={{ width: 150 }}
               />

@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.resources.notification.models;
 
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,6 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NotificationLogsResponseDto {
-  private List<NotificationLogDto> logs;
+public class SlackChannelListDto {
+  private String id;
+  private String name;
+  private Boolean isPrivate;
+  private Boolean isMember;
 }

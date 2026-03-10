@@ -2,14 +2,12 @@ package org.dreamhorizon.pulseserver.service.notification.provider;
 
 import static org.dreamhorizon.pulseserver.constant.NotificationConstants.*;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Single;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
 import org.dreamhorizon.pulseserver.service.notification.models.*;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
@@ -22,16 +20,13 @@ import software.amazon.awssdk.services.ses.model.*;
 public class EmailNotificationProvider implements NotificationProvider {
 
   private final SesClient sesClient;
-  private final ObjectMapper objectMapper;
   private final TemplateService templateService;
   private final NotificationConfig notificationConfig;
 
   @Inject
   public EmailNotificationProvider(
-      ObjectMapper objectMapper,
       TemplateService templateService,
       NotificationConfig notificationConfig) {
-    this.objectMapper = objectMapper;
     this.templateService = templateService;
     this.notificationConfig = notificationConfig;
 
@@ -57,19 +52,35 @@ public class EmailNotificationProvider implements NotificationProvider {
           long startTime = System.currentTimeMillis();
 
           try {
-            EmailChannelConfig config =
-                objectMapper.readValue(message.getChannelConfig(), EmailChannelConfig.class);
+            if (!(message.getChannelConfig() instanceof EmailChannelConfig config)) {
+              throw ServiceError.INCORRECT_OR_MISSING_HEADER_PARAMETERS.getCustomException("Expected EmailChannelConfig but got:"+ (message.getChannelConfig() != null ? message.getChannelConfig().getClass().getSimpleName() : "null"));
+            }
 
-            EmailContent emailContent = parseEmailContent(template.getBody(), message.getParams());
+            if (!(template.getBody() instanceof EmailTemplateBody emailBody)) {
+              throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                  "Expected EmailTemplateBody but got: "
+                      + (template.getBody() != null ? template.getBody().getClass().getSimpleName() : "null"));
+            }
+
+            String subject = templateService.renderText(
+                emailBody.getSubject() != null ? emailBody.getSubject() : DEFAULT_SUBJECT,
+                message.getParams());
+
+            String html = emailBody.getHtml() != null
+                ? templateService.renderText(emailBody.getHtml(), message.getParams())
+                : null;
+            String text = emailBody.getText() != null
+                ? templateService.renderText(emailBody.getText(), message.getParams())
+                : null;
 
             Body.Builder bodyBuilder = Body.builder();
-            if (emailContent.html != null) {
+            if (html != null) {
               bodyBuilder.html(
-                  Content.builder().data(emailContent.html).charset(DEFAULT_CHARSET).build());
+                  Content.builder().data(html).charset(DEFAULT_CHARSET).build());
             }
-            if (emailContent.text != null) {
+            if (text != null) {
               bodyBuilder.text(
-                  Content.builder().data(emailContent.text).charset(DEFAULT_CHARSET).build());
+                  Content.builder().data(text).charset(DEFAULT_CHARSET).build());
             }
 
             SendEmailRequest.Builder requestBuilder =
@@ -79,7 +90,7 @@ public class EmailNotificationProvider implements NotificationProvider {
                         Message.builder()
                             .subject(
                                 Content.builder()
-                                    .data(emailContent.subject)
+                                    .data(subject)
                                     .charset(DEFAULT_CHARSET)
                                     .build())
                             .body(bodyBuilder.build())
@@ -146,30 +157,4 @@ public class EmailNotificationProvider implements NotificationProvider {
     String errorCode = e.awsErrorDetails().errorCode();
     return Email.PERMANENT_ERROR_CODES.contains(errorCode);
   }
-
-  private EmailContent parseEmailContent(String bodyJson, java.util.Map<String, Object> params) {
-    try {
-      JsonNode body = objectMapper.readTree(bodyJson);
-
-      String subject = body.has(KEY_SUBJECT) ? body.get(KEY_SUBJECT).asText() : DEFAULT_SUBJECT;
-      String html = body.has(KEY_HTML) ? body.get(KEY_HTML).asText() : null;
-      String text = body.has(KEY_TEXT) ? body.get(KEY_TEXT).asText() : null;
-
-      String renderedSubject = templateService.renderText(subject, params);
-      String renderedHtml = html != null ? templateService.renderText(html, params) : null;
-      String renderedText = text != null ? templateService.renderText(text, params) : null;
-
-      if (renderedHtml == null && renderedText == null) {
-        renderedHtml = templateService.renderText(bodyJson, params);
-      }
-
-      return new EmailContent(renderedSubject, renderedHtml, renderedText);
-    } catch (JsonProcessingException e) {
-      log.warn("Failed to parse email template body as JSON, using as plain HTML", e);
-      String rendered = templateService.renderText(bodyJson, params);
-      return new EmailContent(DEFAULT_SUBJECT, rendered, null);
-    }
-  }
-
-  private record EmailContent(String subject, String html, String text) {}
 }

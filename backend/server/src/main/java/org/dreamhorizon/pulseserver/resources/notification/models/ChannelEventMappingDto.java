@@ -5,19 +5,21 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.dreamhorizon.pulseserver.service.notification.models.ChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NotificationChannelDto {
+public class ChannelEventMappingDto {
   private Long id;
   private String projectId;
+  private Long channelId;
   private ChannelType channelType;
-  private String name;
-  private ChannelConfig config;
+  private String channelName;
+  private String eventName;
+  private String recipient;
+  private String recipientName;
   private Boolean isActive;
   private Instant createdAt;
   private Instant updatedAt;

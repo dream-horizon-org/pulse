@@ -10,12 +10,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NotificationChannel {
+public class ChannelEventMapping {
   private Long id;
   private String projectId;
-  private ChannelType channelType;
-  private String name;
-  private ChannelConfig config;
+  private Long channelId;
+  private String eventName;
+  private String recipient;
+  private String recipientName;
   private Boolean isActive;
   private Instant createdAt;
   private Instant updatedAt;

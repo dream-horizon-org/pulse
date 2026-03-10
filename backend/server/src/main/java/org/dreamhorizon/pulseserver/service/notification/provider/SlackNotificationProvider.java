@@ -40,11 +40,9 @@ public class SlackNotificationProvider implements NotificationProvider {
       NotificationMessage message, NotificationTemplate template) {
     long startTime = System.currentTimeMillis();
 
-    SlackChannelConfig config;
-    try {
-      config = objectMapper.readValue(message.getChannelConfig(), SlackChannelConfig.class);
-    } catch (Exception e) {
-      log.error("Failed to parse Slack channel config", e);
+    if (!(message.getChannelConfig() instanceof SlackChannelConfig config)) {
+      log.error("Expected SlackChannelConfig but got: {}",
+          message.getChannelConfig() != null ? message.getChannelConfig().getClass().getSimpleName() : "null");
       return Single.just(
           NotificationResult.builder()
               .success(false)
@@ -63,7 +61,9 @@ public class SlackNotificationProvider implements NotificationProvider {
     }
 
     String channel = message.getRecipient();
-    ObjectNode payload = buildSlackPayload(config, channel, template, message);
+    ObjectNode payload = SlackPayloadBuilder.buildPayload(
+        objectMapper, templateService, template, message, config.getBotName(), config.getIconEmoji());
+    payload.put(Slack.KEY_CHANNEL, channel);
 
     JsonObject jsonPayload;
     try {
@@ -97,90 +97,6 @@ public class SlackNotificationProvider implements NotificationProvider {
                   .latencyMs(latency)
                   .build();
             });
-  }
-
-  private ObjectNode buildSlackPayload(
-      SlackChannelConfig config,
-      String channel,
-      NotificationTemplate template,
-      NotificationMessage message) {
-
-    ObjectNode payload = objectMapper.createObjectNode();
-    payload.put(Slack.KEY_CHANNEL, channel);
-
-    String bodyJson = template.getBody();
-
-    if (isJson(bodyJson)) {
-      try {
-        JsonNode body = objectMapper.readTree(bodyJson);
-
-        String text =
-            body.has(KEY_TEXT)
-                ? templateService.renderText(body.get(KEY_TEXT).asText(), message.getParams())
-                : null;
-
-        if (body.has(KEY_BLOCKS)) {
-          String blocksRendered =
-              templateService.renderJson(
-                  objectMapper.writeValueAsString(body.get(KEY_BLOCKS)), message.getParams());
-          JsonNode blocks = objectMapper.readTree(blocksRendered);
-          payload.set(KEY_BLOCKS, blocks);
-          payload.put(KEY_TEXT, text != null ? text : extractFallbackText(blocks));
-        } else if (body.isArray()) {
-          String blocksRendered = templateService.renderJson(bodyJson, message.getParams());
-          JsonNode blocks = objectMapper.readTree(blocksRendered);
-          payload.set(KEY_BLOCKS, blocks);
-          payload.put(KEY_TEXT, extractFallbackText(blocks));
-        } else if (text != null) {
-          payload.put(KEY_TEXT, text);
-        } else {
-          payload.put(KEY_TEXT, templateService.renderText(bodyJson, message.getParams()));
-        }
-      } catch (Exception e) {
-        log.warn("Failed to parse Slack template body, using as plain text", e);
-        payload.put(KEY_TEXT, templateService.renderText(bodyJson, message.getParams()));
-      }
-    } else {
-      payload.put(KEY_TEXT, templateService.renderText(bodyJson, message.getParams()));
-    }
-
-    if (config.getBotName() != null) {
-      payload.put(Slack.KEY_USERNAME, config.getBotName());
-    }
-    if (config.getIconEmoji() != null) {
-      payload.put(Slack.KEY_ICON_EMOJI, config.getIconEmoji());
-    }
-
-    return payload;
-  }
-
-  private boolean isJson(String content) {
-    if (content == null || content.isEmpty()) {
-      return false;
-    }
-    String trimmed = content.trim();
-    return (trimmed.startsWith("{") && trimmed.endsWith("}"))
-        || (trimmed.startsWith("[") && trimmed.endsWith("]"));
-  }
-
-  private String extractFallbackText(JsonNode blocks) {
-    if (blocks == null || !blocks.isArray()) {
-      return DEFAULT_SUBJECT;
-    }
-
-    StringBuilder text = new StringBuilder();
-    for (JsonNode block : blocks) {
-      if (block.has(KEY_TEXT)) {
-        JsonNode textNode = block.get(KEY_TEXT);
-        if (textNode.isObject() && textNode.has(KEY_TEXT)) {
-          text.append(textNode.get(KEY_TEXT).asText()).append(" ");
-        } else if (textNode.isTextual()) {
-          text.append(textNode.asText()).append(" ");
-        }
-      }
-    }
-
-    return !text.isEmpty() ? text.toString().trim() : DEFAULT_SUBJECT;
   }
 
   private NotificationResult parseSlackResponse(String responseBody, long startTime) {

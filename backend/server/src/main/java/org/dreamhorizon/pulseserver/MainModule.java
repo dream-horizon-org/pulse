@@ -60,22 +60,22 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 @Slf4j
 public class MainModule extends VertxAbstractModule {
 
-  private final Vertx vertx;
-  private ObjectMapper objectMapper;
+    private final Vertx vertx;
+    private ObjectMapper objectMapper;
 
-  public MainModule(Vertx vertx) {
-    super(vertx);
-    this.vertx = vertx;
-  }
+    public MainModule(Vertx vertx) {
+        super(vertx);
+        this.vertx = vertx;
+    }
 
-  @Override
-  protected void bindConfiguration() {
-    bind(Vertx.class).toInstance(this.vertx);
-    bind(io.vertx.rxjava3.core.Vertx.class)
-        .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
-    bind(ObjectMapper.class).toInstance(getObjectMapper());
-    bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
-    bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
+    @Override
+    protected void bindConfiguration() {
+        bind(Vertx.class).toInstance(this.vertx);
+        bind(io.vertx.rxjava3.core.Vertx.class)
+                .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
+        bind(ObjectMapper.class).toInstance(getObjectMapper());
+        bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
+        bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
 
     // === NEW: Multi-tenancy & RBAC Services ===
     // === NEW: Multi-tenancy & RBAC DAOs ===
@@ -83,24 +83,23 @@ public class MainModule extends VertxAbstractModule {
     bind(ProjectDao.class).in(Singleton.class);
     bind(ClickhouseProjectCredentialsDao.class).in(Singleton.class);
 
-    // === NEW: Utilities ===
-    bind(ApiKeyGenerator.class).in(Singleton.class);
+        // === NEW: Utilities ===
+        bind(ApiKeyGenerator.class).in(Singleton.class);
 
-    // === NEW: ClickHouse Project Connection Pool Manager ===
-    bind(ClickhouseProjectConnectionPoolManager.class).toProvider(() -> {
-      ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
-      return new ClickhouseProjectConnectionPoolManager(config);
-    }).in(Singleton.class);
+        // === NEW: ClickHouse Project Connection Pool Manager ===
+        bind(ClickhouseProjectConnectionPoolManager.class).toProvider(() -> {
+            ClickhouseConfig config = SharedDataUtils.get(vertx, ClickhouseConfig.class);
+            return new ClickhouseProjectConnectionPoolManager(config);
+        }).in(Singleton.class);
 
-    bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
-    bind(SourceMapCache.class).in(Singleton.class);
-    bind(ErrorGroupingService.class).in(Singleton.class);
-    bind(Symbolicator.class).in(Singleton.class);
-    bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
-    bind(S3Presigner.class).toProvider(this::loadS3Presigner).in(Singleton.class);
-    bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
-    bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
-    bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+        bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
+        bind(SourceMapCache.class).in(Singleton.class);
+        bind(ErrorGroupingService.class).in(Singleton.class);
+        bind(Symbolicator.class).in(Singleton.class);
+        bind(S3AsyncClient.class).toProvider(this::loadS3Client).in(Singleton.class);
+        bind(S3Presigner.class).toProvider(this::loadS3Presigner).in(Singleton.class);bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
+        bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
+        bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
 
     // OpenFGA Authorization
     bind(OpenFgaConfig.class).toProvider(() -> {
@@ -128,31 +127,33 @@ public class MainModule extends VertxAbstractModule {
     bindNotificationFeature();
   }
 
-  private void bindNotificationFeature() {
-    bind(NotificationChannelDao.class).in(Singleton.class);
-    bind(NotificationTemplateDao.class).in(Singleton.class);
-    bind(NotificationLogDao.class).in(Singleton.class);
-    bind(EmailSuppressionDao.class).in(Singleton.class);
+    private void bindNotificationFeature() {
+        bind(NotificationChannelDao.class).in(Singleton.class);
+        bind(NotificationTemplateDao.class).in(Singleton.class);
+        bind(NotificationLogDao.class).in(Singleton.class);
+        bind(EmailSuppressionDao.class).in(Singleton.class);
+        bind(ChannelEventMappingDao.class).in(Singleton.class);
 
-    bind(TemplateService.class).in(Singleton.class);
-    bind(NotificationService.class).to(NotificationServiceImpl.class).in(Singleton.class);
+        bind(TemplateService.class).in(Singleton.class);
+        bind(NotificationService.class).to(NotificationServiceImpl.class).in(Singleton.class);
 
-    bind(SqsNotificationQueue.class).in(Singleton.class);
-    bind(NotificationRetryPolicy.class).in(Singleton.class);
-    bind(NotificationWorker.class).in(Singleton.class);
-    bind(DlqHandler.class).in(Singleton.class);
+        bind(SqsNotificationQueue.class).in(Singleton.class);
+        bind(NotificationRetryPolicy.class).in(Singleton.class);
+        bind(NotificationWorker.class).in(Singleton.class);
+        bind(DlqHandler.class).in(Singleton.class);
 
-    bind(NotificationProviderFactory.class).in(Singleton.class);
-    Multibinder<NotificationProvider> providerBinder =
-        Multibinder.newSetBinder(binder(), NotificationProvider.class);
-    providerBinder.addBinding().to(EmailNotificationProvider.class).in(Singleton.class);
-    providerBinder.addBinding().to(SlackNotificationProvider.class).in(Singleton.class);
-    providerBinder.addBinding().to(TeamsNotificationProvider.class).in(Singleton.class);
+        bind(NotificationProviderFactory.class).in(Singleton.class);
+        Multibinder<NotificationProvider> providerBinder =
+                Multibinder.newSetBinder(binder(), NotificationProvider.class);
+        providerBinder.addBinding().to(EmailNotificationProvider.class).in(Singleton.class);
+        providerBinder.addBinding().to(SlackNotificationProvider.class).in(Singleton.class);
+        providerBinder.addBinding().to(SlackWebhookNotificationProvider.class).in(Singleton.class);
+        providerBinder.addBinding().to(TeamsNotificationProvider.class).in(Singleton.class);
 
-    bind(SesWebhookHandler.class).in(Singleton.class);
+        bind(SesWebhookHandler.class).in(Singleton.class);
 
-    bind(SlackOAuthService.class).in(Singleton.class);
-  }
+        bind(SlackOAuthService.class).in(Singleton.class);
+    }
 
   protected ObjectMapper getObjectMapper() {
     if (objectMapper == null) {
@@ -182,11 +183,11 @@ public class MainModule extends VertxAbstractModule {
         .build();
   }
 
-  private CloudFrontAsyncClient loadCloudFrontClient() {
-    return CloudFrontAsyncClient.builder()
-        .httpClientBuilder(NettyNioAsyncHttpClient.builder())
-        .region(Region.US_EAST_1) // CloudFront API is always in us-east-1
-        .credentialsProvider(DefaultCredentialsProvider.create())
-        .build();
-  }
+    private CloudFrontAsyncClient loadCloudFrontClient() {
+        return CloudFrontAsyncClient.builder()
+                .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+                .region(Region.US_EAST_1) // CloudFront API is always in us-east-1
+                .credentialsProvider(DefaultCredentialsProvider.create())
+                .build();
+    }
 }

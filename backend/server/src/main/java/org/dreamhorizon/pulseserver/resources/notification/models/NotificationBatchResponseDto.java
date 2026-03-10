@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificationBatchResponseDto {
-  private String batchId;
+  private String idempotencyKey;
   private int totalRecipients;
   private int queued;
   private int failed;

@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.notification.models;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,14 +12,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class SlackChannelConfig extends ChannelConfig {
-  private String accessToken;
-  private String workspaceId;
-  private String botName;
-  private String iconEmoji;
+public class TeamsTemplateBody extends TemplateBody {
 
-  @Override
-  public ChannelType getChannelType() {
-    return ChannelType.SLACK;
-  }
+  private String title;
+
+  private String text;
+
+  private JsonNode body;
+
+  private JsonNode actions;
 }

@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.notification.models;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,14 +12,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class SlackChannelConfig extends ChannelConfig {
-  private String accessToken;
-  private String workspaceId;
-  private String botName;
-  private String iconEmoji;
+public class EmailTemplateBody extends TemplateBody {
 
-  @Override
-  public ChannelType getChannelType() {
-    return ChannelType.SLACK;
-  }
+  @NotBlank(message = "subject is required for email templates")
+  private String subject;
+
+  private String html;
+
+  private String text;
 }

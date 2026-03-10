@@ -1,16 +1,14 @@
 package org.dreamhorizon.pulseserver.service.notification;
 
-import static org.dreamhorizon.pulseserver.constant.NotificationConstants.*;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.sqlclient.Row;
 import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.notification.*;
@@ -30,340 +28,272 @@ public class NotificationServiceImpl implements NotificationService {
   private final NotificationTemplateDao templateDao;
   private final NotificationLogDao logDao;
   private final EmailSuppressionDao suppressionDao;
+  private final ChannelEventMappingDao mappingDao;
   private final NotificationProviderFactory providerFactory;
   private final SqsNotificationQueue notificationQueue;
   private final ObjectMapper objectMapper;
 
+  // ==================== Send (mapping-driven) ====================
+
   @Override
   public Single<NotificationBatchResponseDto> sendNotification(
       String projectId, SendNotificationRequestDto request) {
-    String batchId = UUID.randomUUID().toString();
-    String idempotencyKey =
-        request.getIdempotencyKey() != null
-            ? request.getIdempotencyKey()
-            : UUID.randomUUID().toString();
-
-    return processChannelNotifications(projectId, request, batchId, idempotencyKey);
+    return buildAndSend(projectId, request, resolveIdempotencyKey(request), false);
   }
 
   @Override
   public Single<NotificationBatchResponseDto> sendNotificationAsync(
       String projectId, SendNotificationRequestDto request) {
-    String batchId = UUID.randomUUID().toString();
-    String idempotencyKey =
-        request.getIdempotencyKey() != null
-            ? request.getIdempotencyKey()
-            : UUID.randomUUID().toString();
-
-    return queueChannelNotifications(projectId, request, batchId, idempotencyKey);
+    return buildAndSend(projectId, request, resolveIdempotencyKey(request), true);
   }
 
-  private Single<NotificationBatchResponseDto> queueChannelNotifications(
-      String projectId, SendNotificationRequestDto request, String batchId, String idempotencyKey) {
+  private String resolveIdempotencyKey(SendNotificationRequestDto request) {
+    return request.getIdempotencyKey() != null
+        ? request.getIdempotencyKey()
+        : UUID.randomUUID().toString();
+  }
 
-    return Observable.fromIterable(request.getChannelTypes())
-        .flatMapSingle(
-            channelType ->
-                channelDao
-                    .getActiveChannelByType(projectId, channelType)
-                    .map(channel -> Map.entry(channelType, Optional.of(channel)))
-                    .defaultIfEmpty(Map.entry(channelType, Optional.empty())))
-        .toList()
+  private Single<NotificationBatchResponseDto> buildAndSend(
+      String projectId,
+      SendNotificationRequestDto request,
+      String idempotencyKey,
+      boolean async) {
+
+    if (request.getMappingId() != null) {
+      return buildAndSendByMappingId(projectId, request, idempotencyKey, async);
+    }
+
+    Optional<Single<NotificationBatchResponseDto>> validationError =
+        validateEventBasedRequest(projectId, request);
+    if (validationError.isPresent()) {
+      return validationError.get();
+    }
+
+    return buildAndSendByEvent(projectId, request, idempotencyKey, async);
+  }
+
+  private Optional<Single<NotificationBatchResponseDto>> validateEventBasedRequest(
+      String projectId, SendNotificationRequestDto request) {
+    Map<String, Boolean> rules = new LinkedHashMap<>();
+    rules.put("eventName", request.getEventName() == null || request.getEventName().isBlank());
+    rules.put("projectId (X-Project-Id header)", projectId == null || projectId.isBlank());
+    rules.put(
+        "channelTypes",
+        request.getChannelTypes() == null || request.getChannelTypes().isEmpty());
+
+    List<String> missing =
+        rules.entrySet().stream().filter(Map.Entry::getValue).map(Map.Entry::getKey).toList();
+
+    if (missing.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        Single.error(
+            ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                "When mappingId is not provided, the following are required: "
+                    + String.join(", ", missing))));
+  }
+
+  private Single<NotificationBatchResponseDto> buildAndSendByMappingId(
+      String projectId,
+      SendNotificationRequestDto request,
+      String idempotencyKey,
+      boolean async) {
+
+    return mappingDao
+        .getActiveMappingWithChannelById(request.getMappingId())
+        .switchIfEmpty(
+            Maybe.error(
+                ServiceError.NOT_FOUND.getCustomException(
+                    "Mapping not found or inactive for id: " + request.getMappingId())))
+        .toSingle()
         .flatMap(
-            channelEntries -> {
-              List<NotificationResultDto> results = new ArrayList<>();
-              List<Single<List<NotificationResultDto>>> queueOperations = new ArrayList<>();
+            row -> {
+              String mappingProjectId = row.getString("project_id");
+              if (!mappingProjectId.equals(projectId)) {
+                return Single.error(
+                    ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                        "Mapping does not belong to project: " + projectId));
+              }
 
-              for (var entry : channelEntries) {
-                ChannelType channelType = entry.getKey();
-                Optional<NotificationChannel> channelOpt = entry.getValue();
+              Long channelId = row.getLong("channel_id");
+              ChannelType channelType = ChannelType.valueOf(row.getString("channel_type"));
+              ChannelConfig channelConfig = extractConfig(row);
+              String eventName = row.getString("event_name");
 
-                if (channelOpt.isEmpty()) {
-                  log.debug(
-                      "No active {} channel configured for project {}, skipping",
-                      channelType,
-                      projectId);
+              List<String> dbRecipients = new ArrayList<>();
+              String mappingRecipient = row.getString("recipient");
+              if (mappingRecipient != null && !mappingRecipient.isBlank()) {
+                dbRecipients.add(mappingRecipient);
+              }
+
+              Set<String> allRecipients =
+                  resolveRecipients(request.getRecipients(), channelType, dbRecipients);
+
+              if (allRecipients.isEmpty()) {
+                return Single.error(
+                    ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                        "No recipients found: provide recipients in request or configure them in the mapping"));
+              }
+
+              NotificationChannel channel =
+                  NotificationChannel.builder()
+                      .id(channelId)
+                      .channelType(channelType)
+                      .config(channelConfig)
+                      .build();
+
+              return templateDao
+                  .getTemplateByEventNameAndChannel(eventName, channelType)
+                  .switchIfEmpty(
+                      Maybe.error(
+                          ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                              "No template found for event: "
+                                  + eventName
+                                  + " and channel: "
+                                  + channelType)))
+                  .toSingle()
+                  .flatMap(
+                      template ->
+                          dispatchToRecipients(
+                                  async,
+                                  projectId,
+                                  request,
+                                  channel,
+                                  template,
+                                  idempotencyKey,
+                                  new ArrayList<>(allRecipients))
+                              .map(results -> buildBatchResponse(idempotencyKey, results)));
+            });
+  }
+
+  private Single<NotificationBatchResponseDto> buildAndSendByEvent(
+      String projectId,
+      SendNotificationRequestDto request,
+      String idempotencyKey,
+      boolean async) {
+
+    return mappingDao
+        .getActiveMappingsWithChannelByProjectAndEvent(projectId, request.getEventName())
+        .flatMap(
+            rows -> {
+              if (rows.isEmpty()) {
+                return Single.error(
+                    ServiceError.NOT_FOUND.getCustomException(
+                        "No active channel mappings found for event: "
+                            + request.getEventName()));
+              }
+
+              Map<Long, List<Row>> groupedByChannel =
+                  rows.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              row -> row.getLong("channel_id"),
+                              LinkedHashMap::new,
+                              Collectors.toList()));
+
+              List<Single<List<NotificationResultDto>>> operations = new ArrayList<>();
+
+              for (var entry : groupedByChannel.entrySet()) {
+                Long channelId = entry.getKey();
+                List<Row> channelRows = entry.getValue();
+                Row firstRow = channelRows.get(0);
+
+                ChannelType channelType =
+                    ChannelType.valueOf(firstRow.getString("channel_type"));
+                ChannelConfig channelConfig = extractConfig(firstRow);
+
+                if (!request.getChannelTypes().contains(channelType)) {
                   continue;
                 }
 
-                NotificationChannel channel = channelOpt.get();
+                List<String> dbRecipients =
+                    channelRows.stream()
+                        .map(r -> r.getString("recipient"))
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
 
-                queueOperations.add(
+                Set<String> allRecipients =
+                    resolveRecipients(request.getRecipients(), channelType, dbRecipients);
+
+                if (allRecipients.isEmpty()) {
+                  continue;
+                }
+
+                NotificationChannel channel =
+                    NotificationChannel.builder()
+                        .id(channelId)
+                        .channelType(channelType)
+                        .config(channelConfig)
+                        .build();
+
+                operations.add(
                     templateDao
                         .getTemplateByEventNameAndChannel(
-                            projectId, request.getEventName(), channelType)
+                            request.getEventName(), channelType)
                         .switchIfEmpty(
                             Maybe.error(
-                                ServiceError.NOT_FOUND.getCustomException(
-                                    "No template found for event: "
-                                        + request.getEventName()
-                                        + " and channel: "
-                                        + channelType)))
+                                ServiceError
+                                    .INCORRECT_OR_MISSING_BODY_PARAMETERS
+                                    .getCustomException(
+                                        "No template found for event: "
+                                            + request.getEventName()
+                                            + " and channel: "
+                                            + channelType)))
                         .toSingle()
                         .flatMap(
                             template ->
-                                enqueueRecipients(
+                                dispatchToRecipients(
+                                    async,
                                     projectId,
                                     request,
                                     channel,
                                     template,
-                                    batchId,
                                     idempotencyKey,
-                                    channelType)));
+                                    new ArrayList<>(allRecipients))));
               }
 
-              if (queueOperations.isEmpty()) {
+              if (operations.isEmpty()) {
+                if (hasAnyRecipients(request.getRecipients())) {
+                  return Single.error(
+                      ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                          "No recipients resolved: mappings have no recipients and request recipients "
+                              + "don't match the resolved channel types"));
+                }
                 return Single.just(
-                    NotificationBatchResponseDto.builder()
-                        .batchId(batchId)
-                        .totalRecipients(0)
-                        .queued(0)
-                        .failed(0)
-                        .results(results)
-                        .build());
+                    buildBatchResponse(idempotencyKey, Collections.emptyList()));
               }
 
               return Single.zip(
-                  queueOperations,
+                  operations,
                   resultArrays -> {
+                    List<NotificationResultDto> results = new ArrayList<>();
                     for (Object resultArray : resultArrays) {
                       @SuppressWarnings("unchecked")
-                      List<NotificationResultDto> partialResults =
+                      List<NotificationResultDto> partial =
                           (List<NotificationResultDto>) resultArray;
-                      results.addAll(partialResults);
+                      results.addAll(partial);
                     }
-
-                    int queued =
-                        (int) results.stream().filter(r -> NotificationStatus.QUEUED.equals(r.getStatus())).count();
-                    int failed =
-                        (int) results.stream().filter(r -> NotificationStatus.FAILED.equals(r.getStatus())).count();
-
-                    return NotificationBatchResponseDto.builder()
-                        .batchId(batchId)
-                        .totalRecipients(results.size())
-                        .queued(queued)
-                        .failed(failed)
-                        .results(results)
-                        .build();
+                    return buildBatchResponse(idempotencyKey, results);
                   });
             });
   }
 
-  private Single<List<NotificationResultDto>> enqueueRecipients(
+  // ==================== Dispatch / Send / Enqueue ====================
+
+  private Single<List<NotificationResultDto>> dispatchToRecipients(
+      boolean async,
       String projectId,
       SendNotificationRequestDto request,
       NotificationChannel channel,
       NotificationTemplate template,
-      String batchId,
       String idempotencyKey,
-      ChannelType channelType) {
-
-    List<String> recipients = getRecipientsForChannel(request.getRecipients(), channelType);
-
-    if (recipients.isEmpty()) {
-      return Single.just(Collections.emptyList());
-    }
-
-    String subject = extractSubjectFromBody(template.getBody());
-
-    return Observable.fromIterable(recipients)
-        .flatMapSingle(
-            recipient -> {
-              String recipientKey = idempotencyKey + ":" + channelType + ":" + recipient;
-
-              Single<NotificationResultDto> processingChain =
-                  logDao
-                      .getLogByIdempotency(projectId, recipientKey, channelType, recipient)
-                      .flatMapSingle(
-                          existingLog -> {
-                            log.debug(
-                                "Skipping duplicate notification for recipient: {}, idempotencyKey: {}",
-                                recipient,
-                                recipientKey);
-                            return Single.just(
-                                NotificationResultDto.builder()
-                                    .recipient(recipient)
-                                    .channelType(channelType)
-                                    .status(NotificationStatus.SKIPPED)
-                                    .errorMessage("Duplicate notification (idempotency)")
-                                    .build());
-                          })
-                      .switchIfEmpty(
-                          Single.defer(
-                              () ->
-                                  logDao
-                                      .insertLog(
-                                          NotificationLog.builder()
-                                              .projectId(projectId)
-                                              .batchId(batchId)
-                                              .idempotencyKey(recipientKey)
-                                              .channelType(channelType)
-                                              .channelId(channel.getId())
-                                              .templateId(template.getId())
-                                              .recipient(recipient)
-                                              .subject(subject)
-                                              .status(NotificationStatus.QUEUED)
-                                              .attemptCount(0)
-                                              .build())
-                                      .flatMap(
-                                          logId -> {
-                                            NotificationMessage message =
-                                                NotificationMessage.builder()
-                                                    .logId(logId)
-                                                    .projectId(projectId)
-                                                    .batchId(batchId)
-                                                    .idempotencyKey(recipientKey)
-                                                    .channelType(channelType)
-                                                    .channelId(channel.getId())
-                                                    .channelConfig(channel.getConfig())
-                                                    .templateId(template.getId())
-                                                    .templateBody(template.getBody())
-                                                    .recipient(recipient)
-                                                    .subject(subject)
-                                                    .params(request.getParams())
-                                                    .metadata(request.getMetadata())
-                                                    .build();
-
-                                            return notificationQueue
-                                                .enqueue(message)
-                                                .map(
-                                                    messageId ->
-                                                        NotificationResultDto.builder()
-                                                            .recipient(recipient)
-                                                            .channelType(channelType)
-                                                            .status(NotificationStatus.QUEUED)
-                                                            .externalId(messageId)
-                                                            .build());
-                                          })));
-
-              if (channelType == ChannelType.EMAIL) {
-                return suppressionDao
-                    .isEmailSuppressed(projectId, recipient)
-                    .flatMap(
-                        suppressed -> {
-                          if (suppressed) {
-                            log.info("Skipping suppressed email: {}", recipient);
-                            return Single.just(
-                                NotificationResultDto.builder()
-                                    .recipient(recipient)
-                                    .channelType(channelType)
-                                    .status(NotificationStatus.SKIPPED)
-                                    .errorMessage("Email is suppressed")
-                                    .build());
-                          }
-                          return processingChain;
-                        })
-                    .onErrorReturn(
-                        e ->
-                            NotificationResultDto.builder()
-                                .recipient(recipient)
-                                .channelType(channelType)
-                                .status(NotificationStatus.FAILED)
-                                .errorMessage(e.getMessage())
-                                .build());
-              }
-
-              return processingChain.onErrorReturn(
-                  e ->
-                      NotificationResultDto.builder()
-                          .recipient(recipient)
-                          .channelType(channelType)
-                          .status(NotificationStatus.FAILED)
-                          .errorMessage(e.getMessage())
-                          .build());
-            })
-        .toList();
-  }
-
-  private Single<NotificationBatchResponseDto> processChannelNotifications(
-      String projectId, SendNotificationRequestDto request, String batchId, String idempotencyKey) {
-
-    return Observable.fromIterable(request.getChannelTypes())
-        .flatMapSingle(
-            channelType ->
-                channelDao
-                    .getActiveChannelByType(projectId, channelType)
-                    .map(channel -> Map.entry(channelType, Optional.of(channel)))
-                    .defaultIfEmpty(Map.entry(channelType, Optional.empty())))
-        .toList()
-        .flatMap(
-            channelEntries -> {
-              List<NotificationResultDto> results = new ArrayList<>();
-              List<Single<List<NotificationResultDto>>> sendOperations = new ArrayList<>();
-
-              for (var entry : channelEntries) {
-                ChannelType channelType = entry.getKey();
-                Optional<NotificationChannel> channelOpt = entry.getValue();
-
-                if (channelOpt.isEmpty()) {
-                  log.debug(
-                      "No active {} channel configured for project {}, skipping",
-                      channelType,
-                      projectId);
-                  continue;
-                }
-
-                NotificationChannel channel = channelOpt.get();
-
-                sendOperations.add(
-                    templateDao
-                        .getTemplateByEventNameAndChannel(
-                            projectId, request.getEventName(), channelType)
-                        .switchIfEmpty(
-                            Maybe.error(
-                                ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-                                    "No template found for event: "
-                                        + request.getEventName()
-                                        + " and channel: "
-                                        + channelType)))
-                        .toSingle()
-                        .flatMap(
-                            template ->
-                                sendToRecipients(
-                                    projectId,
-                                    request,
-                                    channel,
-                                    template,
-                                    batchId,
-                                    idempotencyKey,
-                                    channelType)));
-              }
-
-              if (sendOperations.isEmpty()) {
-                return Single.just(
-                    NotificationBatchResponseDto.builder()
-                        .batchId(batchId)
-                        .totalRecipients(0)
-                        .queued(0)
-                        .failed(0)
-                        .results(results)
-                        .build());
-              }
-
-              return Single.zip(
-                  sendOperations,
-                  resultArrays -> {
-                    for (Object resultArray : resultArrays) {
-                      @SuppressWarnings("unchecked")
-                      List<NotificationResultDto> partialResults =
-                          (List<NotificationResultDto>) resultArray;
-                      results.addAll(partialResults);
-                    }
-
-                    int sent =
-                        (int) results.stream().filter(r -> NotificationStatus.SENT.equals(r.getStatus())).count();
-                    int failed =
-                        (int) results.stream().filter(r -> NotificationStatus.FAILED.equals(r.getStatus())).count();
-
-                    return NotificationBatchResponseDto.builder()
-                        .batchId(batchId)
-                        .totalRecipients(results.size())
-                        .queued(sent)
-                        .failed(failed)
-                        .results(results)
-                        .build();
-                  });
-            });
+      List<String> recipients) {
+    return async
+        ? enqueueRecipients(projectId, request, channel, template, idempotencyKey, recipients)
+        : sendToRecipients(projectId, request, channel, template, idempotencyKey, recipients);
   }
 
   private Single<List<NotificationResultDto>> sendToRecipients(
@@ -371,15 +301,10 @@ public class NotificationServiceImpl implements NotificationService {
       SendNotificationRequestDto request,
       NotificationChannel channel,
       NotificationTemplate template,
-      String batchId,
       String idempotencyKey,
-      ChannelType channelType) {
+      List<String> recipients) {
 
-    List<String> recipients = getRecipientsForChannel(request.getRecipients(), channelType);
-
-    if (recipients.isEmpty()) {
-      return Single.just(Collections.emptyList());
-    }
+    ChannelType channelType = channel.getChannelType();
 
     Optional<NotificationProvider> providerOpt = providerFactory.getProvider(channelType);
     if (providerOpt.isEmpty()) {
@@ -393,48 +318,22 @@ public class NotificationServiceImpl implements NotificationService {
     return Observable.fromIterable(recipients)
         .flatMapSingle(
             recipient -> {
-              String recipientKey = idempotencyKey + ":" + channelType + ":" + recipient;
+              String recipientKey =
+                  idempotencyKey + ":" + channelType + ":" + recipient;
 
-              if (channelType == ChannelType.EMAIL) {
-                return suppressionDao
-                    .isEmailSuppressed(projectId, recipient)
-                    .flatMap(
-                        suppressed -> {
-                          if (suppressed) {
-                            log.info("Skipping suppressed email: {}", recipient);
-                            return Single.just(
-                                NotificationResultDto.builder()
-                                    .recipient(recipient)
-                                    .channelType(channelType)
-                                    .status(NotificationStatus.SKIPPED)
-                                    .errorMessage("Email is suppressed")
-                                    .build());
-                          }
-                          return sendSingleNotification(
-                              projectId,
-                              recipient,
-                              recipientKey,
-                              channel,
-                              template,
-                              batchId,
-                              subject,
-                              channelType,
-                              provider,
-                              request.getParams());
-                        });
-              }
+              Single<NotificationResultDto> sendChain =
+                  sendSingleNotification(
+                      projectId,
+                      recipient,
+                      recipientKey,
+                      channel,
+                      template,
+                      subject,
+                      provider,
+                      request.getParams());
 
-              return sendSingleNotification(
-                  projectId,
-                  recipient,
-                  recipientKey,
-                  channel,
-                  template,
-                  batchId,
-                  subject,
-                  channelType,
-                  provider,
-                  request.getParams());
+              return withSuppressionCheck(
+                  projectId, recipient, channelType, sendChain);
             })
         .toList();
   }
@@ -445,16 +344,15 @@ public class NotificationServiceImpl implements NotificationService {
       String idempotencyKey,
       NotificationChannel channel,
       NotificationTemplate template,
-      String batchId,
       String subject,
-      ChannelType channelType,
       NotificationProvider provider,
       Map<String, Object> params) {
+
+    ChannelType channelType = channel.getChannelType();
 
     NotificationMessage message =
         NotificationMessage.builder()
             .projectId(projectId)
-            .batchId(batchId)
             .idempotencyKey(idempotencyKey)
             .channelType(channelType)
             .channelId(channel.getId())
@@ -470,7 +368,6 @@ public class NotificationServiceImpl implements NotificationService {
         .insertLogIfNotExists(
             NotificationLog.builder()
                 .projectId(projectId)
-                .batchId(batchId)
                 .idempotencyKey(idempotencyKey)
                 .channelType(channelType)
                 .channelId(channel.getId())
@@ -484,12 +381,8 @@ public class NotificationServiceImpl implements NotificationService {
             inserted -> {
               if (!inserted) {
                 return Single.just(
-                    NotificationResultDto.builder()
-                        .recipient(recipient)
-                        .channelType(channelType)
-                        .status(NotificationStatus.SKIPPED)
-                        .errorMessage("Duplicate notification (idempotency)")
-                        .build());
+                    skippedResult(
+                        recipient, channelType, "Duplicate notification (idempotency)"));
               }
 
               return logDao
@@ -532,46 +425,111 @@ public class NotificationServiceImpl implements NotificationService {
         .onErrorReturn(
             e -> {
               log.error("Error sending notification to {}", recipient, e);
-              return NotificationResultDto.builder()
-                  .recipient(recipient)
-                  .channelType(channelType)
-                  .status(NotificationStatus.FAILED)
-                  .errorMessage(e.getMessage())
-                  .build();
+              return failedResult(recipient, channelType, e.getMessage());
             });
   }
 
-  private List<String> getRecipientsForChannel(RecipientsDto recipients, ChannelType channelType) {
-    if (recipients == null) {
-      return Collections.emptyList();
-    }
+  private Single<List<NotificationResultDto>> enqueueRecipients(
+      String projectId,
+      SendNotificationRequestDto request,
+      NotificationChannel channel,
+      NotificationTemplate template,
+      String idempotencyKey,
+      List<String> recipients) {
 
-    return switch (channelType) {
-      case EMAIL ->
-          recipients.getEmails() != null ? recipients.getEmails() : Collections.emptyList();
-      case SLACK -> {
-        List<String> slackRecipients = new ArrayList<>();
-        if (recipients.getSlackChannelIds() != null) {
-          slackRecipients.addAll(recipients.getSlackChannelIds());
-        }
-        if (recipients.getSlackUserIds() != null) {
-          slackRecipients.addAll(recipients.getSlackUserIds());
-        }
-        yield slackRecipients;
-      }
-      case TEAMS ->
-          recipients.getTeamsWorkflowUrls() != null
-              ? recipients.getTeamsWorkflowUrls()
-              : Collections.emptyList();
-      default -> Collections.emptyList();
-    };
+    ChannelType channelType = channel.getChannelType();
+    String subject = extractSubjectFromBody(template.getBody());
+
+    return Observable.fromIterable(recipients)
+        .flatMapSingle(
+            recipient -> {
+              String recipientKey =
+                  idempotencyKey + ":" + channelType + ":" + recipient;
+
+              Single<NotificationResultDto> processingChain =
+                  logDao
+                      .getLogByIdempotency(
+                          projectId, recipientKey, channelType, recipient)
+                      .flatMapSingle(
+                          existingLog -> {
+                            log.debug(
+                                "Skipping duplicate notification for recipient: {}",
+                                recipient);
+                            return Single.just(
+                                skippedResult(
+                                    recipient,
+                                    channelType,
+                                    "Duplicate notification (idempotency)"));
+                          })
+                      .switchIfEmpty(
+                          Single.defer(
+                              () ->
+                                  logDao
+                                      .insertLog(
+                                          NotificationLog.builder()
+                                              .projectId(projectId)
+                                              .idempotencyKey(recipientKey)
+                                              .channelType(channelType)
+                                              .channelId(channel.getId())
+                                              .templateId(template.getId())
+                                              .recipient(recipient)
+                                              .subject(subject)
+                                              .status(NotificationStatus.QUEUED)
+                                              .attemptCount(0)
+                                              .build())
+                                      .flatMap(
+                                          logId -> {
+                                            NotificationMessage message =
+                                                NotificationMessage.builder()
+                                                    .logId(logId)
+                                                    .projectId(projectId)
+                                                    .idempotencyKey(recipientKey)
+                                                    .channelType(channelType)
+                                                    .channelId(channel.getId())
+                                                    .channelConfig(channel.getConfig())
+                                                    .templateId(template.getId())
+                                                    .templateBody(template.getBody())
+                                                    .recipient(recipient)
+                                                    .subject(subject)
+                                                    .params(request.getParams())
+                                                    .metadata(request.getMetadata())
+                                                    .build();
+
+                                            return notificationQueue
+                                                .enqueue(message)
+                                                .map(
+                                                    messageId ->
+                                                        NotificationResultDto.builder()
+                                                            .recipient(recipient)
+                                                            .channelType(channelType)
+                                                            .status(
+                                                                NotificationStatus.QUEUED)
+                                                            .externalId(messageId)
+                                                            .build());
+                                          })));
+
+              return withSuppressionCheck(
+                      projectId, recipient, channelType, processingChain)
+                  .onErrorReturn(
+                      e -> failedResult(recipient, channelType, e.getMessage()));
+            })
+        .toList();
   }
 
+  // ==================== Channels ====================
+
   @Override
-  public Single<List<NotificationChannelDto>> getChannels(String projectId) {
-    return channelDao
-        .getChannelsByProject(projectId)
-        .map(channels -> channels.stream().map(this::toChannelDto).toList());
+  public Single<List<NotificationChannelDto>> getChannels(
+      String projectId, ChannelType channelType) {
+    Single<List<NotificationChannel>> query;
+    if (projectId != null && channelType != null) {
+      query = channelDao.getChannelsAccessibleByProjectAndType(projectId, channelType);
+    } else if (projectId != null) {
+      query = channelDao.getChannelsAccessibleByProject(projectId);
+    } else {
+      query = channelDao.getSharedChannels();
+    }
+    return query.map(channels -> channels.stream().map(this::toChannelDto).toList());
   }
 
   @Override
@@ -580,35 +538,79 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationChannelDto> createChannel(
-      String projectId, CreateChannelRequestDto request) {
+  public Single<NotificationChannelDto> createChannel(CreateChannelRequestDto request) {
+    validateChannelProjectId(request.getChannelType(), request.getProjectId());
+
+    String projectId = request.getProjectId();
+
     return channelDao
-        .getActiveChannelByProjectAndType(projectId, request.getChannelType())
+        .getActiveChannelByProjectAndType(
+            projectId != null ? projectId : "", request.getChannelType())
         .isEmpty()
         .flatMap(
             noActiveChannel -> {
               if (!noActiveChannel) {
                 return Single.<NotificationChannelDto>error(
                     ServiceError.DUPLICATE_CHANNEL_TYPE.getCustomException(
-                        "An active " + request.getChannelType() + " channel already exists for this project"));
+                        "An active "
+                            + request.getChannelType()
+                            + " channel already exists"));
               }
-
-              String configJson = serializeBody(request.getConfig());
 
               NotificationChannel channel =
                   NotificationChannel.builder()
                       .projectId(projectId)
                       .channelType(request.getChannelType())
                       .name(request.getName())
-                      .config(configJson)
+                      .config(request.getConfig())
                       .isActive(true)
                       .build();
 
               return channelDao
                   .createChannel(channel)
-                  .flatMap(id -> channelDao.getChannelById(id).toSingle())
-                  .map(this::toChannelDto);
+                  .flatMap(
+                      channelId -> {
+                        Single<NotificationChannelDto> result =
+                            channelDao
+                                .getChannelById(channelId)
+                                .toSingle()
+                                .map(this::toChannelDto);
+
+                        if (request.getEventNames() != null
+                            && !request.getEventNames().isEmpty()
+                            && projectId != null) {
+                          return Observable.fromIterable(request.getEventNames())
+                              .flatMapSingle(
+                                  eventName ->
+                                      mappingDao.createMapping(
+                                          ChannelEventMapping.builder()
+                                              .projectId(projectId)
+                                              .channelId(channelId)
+                                              .eventName(eventName)
+                                              .isActive(true)
+                                              .build()))
+                              .toList()
+                              .flatMap(ids -> result);
+                        }
+
+                        return result;
+                      });
             });
+  }
+
+  private void validateChannelProjectId(ChannelType channelType, String projectId) {
+    boolean projectScoped =
+        channelType == ChannelType.SLACK
+            || channelType == ChannelType.TEAMS;
+
+    if (projectScoped && (projectId == null || projectId.isBlank())) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          channelType + " channels require a projectId");
+    }
+    if (channelType == ChannelType.EMAIL && projectId != null && !projectId.isBlank()) {
+      throw ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+          "EMAIL channels must not have a projectId (they are shared)");
+    }
   }
 
   @Override
@@ -616,19 +618,21 @@ public class NotificationServiceImpl implements NotificationService {
       Long channelId, UpdateChannelRequestDto request) {
     return channelDao
         .getChannelById(channelId)
-        .switchIfEmpty(Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
+        .switchIfEmpty(
+            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
         .toSingle()
         .flatMap(
             existing -> {
-              String configJson =
-                  request.getConfig() != null
-                      ? serializeBody(request.getConfig())
-                      : existing.getConfig();
-
               NotificationChannel updated =
                   NotificationChannel.builder()
-                      .name(request.getName() != null ? request.getName() : existing.getName())
-                      .config(configJson)
+                      .name(
+                          request.getName() != null
+                              ? request.getName()
+                              : existing.getName())
+                      .config(
+                          request.getConfig() != null
+                              ? request.getConfig()
+                              : existing.getConfig())
                       .isActive(
                           request.getIsActive() != null
                               ? request.getIsActive()
@@ -637,7 +641,8 @@ public class NotificationServiceImpl implements NotificationService {
 
               return channelDao
                   .updateChannel(channelId, updated)
-                  .flatMap(count -> channelDao.getChannelById(channelId).toSingle())
+                  .flatMap(
+                      count -> channelDao.getChannelById(channelId).toSingle())
                   .map(this::toChannelDto);
             });
   }
@@ -647,11 +652,16 @@ public class NotificationServiceImpl implements NotificationService {
     return channelDao.deleteChannel(channelId).map(count -> count > 0);
   }
 
+  // ==================== Templates (global) ====================
+
   @Override
-  public Single<List<NotificationTemplateDto>> getTemplates(String projectId) {
-    return templateDao
-        .getTemplatesByProject(projectId)
-        .map(templates -> templates.stream().map(this::toTemplateDto).toList());
+  public Single<List<NotificationTemplateDto>> getTemplates(ChannelType channelType) {
+    Single<List<NotificationTemplate>> query =
+        channelType != null
+            ? templateDao.getTemplatesByChannelType(channelType)
+            : templateDao.getAllTemplates();
+    return query.map(
+        templates -> templates.stream().map(this::toTemplateDto).toList());
   }
 
   @Override
@@ -660,21 +670,17 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationTemplateDto> createTemplate(
-      String projectId, CreateTemplateRequestDto request) {
+  public Single<NotificationTemplateDto> createTemplate(CreateTemplateRequestDto request) {
     return templateDao
-        .getLatestVersion(projectId, request.getEventName(), request.getChannelType())
+        .getLatestVersion(request.getEventName(), request.getChannelType())
         .flatMap(
             latestVersion -> {
-              String bodyJson = serializeBody(request.getBody());
-
               NotificationTemplate template =
                   NotificationTemplate.builder()
-                      .projectId(projectId)
                       .eventName(request.getEventName())
                       .channelType(request.getChannelType())
                       .version(latestVersion + 1)
-                      .body(bodyJson)
+                      .body(request.getBody())
                       .isActive(true)
                       .build();
 
@@ -690,13 +696,11 @@ public class NotificationServiceImpl implements NotificationService {
       Long templateId, UpdateTemplateRequestDto request) {
     return templateDao
         .getTemplateById(templateId)
-        .switchIfEmpty(Maybe.error(ServiceError.NOT_FOUND.getCustomException("Template not found")))
+        .switchIfEmpty(
+            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Template not found")))
         .toSingle()
         .flatMap(
             existing -> {
-              String bodyJson =
-                  request.getBody() != null ? serializeBody(request.getBody()) : existing.getBody();
-
               NotificationTemplate updated =
                   NotificationTemplate.builder()
                       .eventName(
@@ -707,7 +711,10 @@ public class NotificationServiceImpl implements NotificationService {
                           request.getChannelType() != null
                               ? request.getChannelType()
                               : existing.getChannelType())
-                      .body(bodyJson)
+                      .body(
+                          request.getBody() != null
+                              ? request.getBody()
+                              : existing.getBody())
                       .isActive(
                           request.getIsActive() != null
                               ? request.getIsActive()
@@ -716,7 +723,8 @@ public class NotificationServiceImpl implements NotificationService {
 
               return templateDao
                   .updateTemplate(templateId, updated)
-                  .flatMap(count -> templateDao.getTemplateById(templateId).toSingle())
+                  .flatMap(
+                      count -> templateDao.getTemplateById(templateId).toSingle())
                   .map(this::toTemplateDto);
             });
   }
@@ -726,8 +734,117 @@ public class NotificationServiceImpl implements NotificationService {
     return templateDao.deleteTemplate(templateId).map(count -> count > 0);
   }
 
+  // ==================== Mappings ====================
+
   @Override
-  public Single<NotificationLogsResponseDto> getLogs(String projectId, int limit, int offset) {
+  public Single<List<ChannelEventMappingDto>> getMappings(String projectId) {
+    return mappingDao
+        .getMappingsByProject(projectId)
+        .flatMap(
+            mappings ->
+                Observable.fromIterable(mappings)
+                    .flatMapSingle(this::enrichMappingDto)
+                    .toList());
+  }
+
+  @Override
+  public Single<ChannelEventMappingDto> createMapping(
+      String projectId, CreateMappingRequestDto request) {
+    return validateMappingEventName(request.getChannelId(), request.getEventName())
+        .flatMap(
+            ignored -> {
+              ChannelEventMapping mapping =
+                  ChannelEventMapping.builder()
+                      .projectId(projectId)
+                      .channelId(request.getChannelId())
+                      .eventName(request.getEventName())
+                      .recipient(request.getRecipient())
+                      .recipientName(request.getRecipientName())
+                      .isActive(true)
+                      .build();
+
+              return mappingDao
+                  .createMapping(mapping)
+                  .flatMap(id -> mappingDao.getMappingById(id).toSingle())
+                  .flatMap(this::enrichMappingDto);
+            });
+  }
+
+  @Override
+  public Single<List<ChannelEventMappingDto>> createMappingsBatch(
+      String projectId, BatchCreateMappingRequestDto request) {
+    return Observable.fromIterable(request.getMappings())
+        .flatMapSingle(req -> createMapping(projectId, req))
+        .toList();
+  }
+
+  @Override
+  public Single<ChannelEventMappingDto> updateMapping(
+      Long mappingId, UpdateMappingRequestDto request) {
+    return mappingDao
+        .getMappingById(mappingId)
+        .switchIfEmpty(
+            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Mapping not found")))
+        .toSingle()
+        .flatMap(
+            existing -> {
+              ChannelEventMapping updated =
+                  ChannelEventMapping.builder()
+                      .recipient(
+                          request.getRecipient() != null
+                              ? request.getRecipient()
+                              : existing.getRecipient())
+                      .recipientName(
+                          request.getRecipientName() != null
+                              ? request.getRecipientName()
+                              : existing.getRecipientName())
+                      .isActive(
+                          request.getIsActive() != null
+                              ? request.getIsActive()
+                              : existing.getIsActive())
+                      .build();
+
+              return mappingDao
+                  .updateMapping(mappingId, updated)
+                  .flatMap(
+                      count -> mappingDao.getMappingById(mappingId).toSingle())
+                  .flatMap(this::enrichMappingDto);
+            });
+  }
+
+  @Override
+  public Single<Boolean> deleteMapping(Long mappingId) {
+    return mappingDao.deleteMapping(mappingId).map(count -> count > 0);
+  }
+
+  private Single<ChannelEventMappingDto> enrichMappingDto(ChannelEventMapping mapping) {
+    ChannelEventMappingDto.ChannelEventMappingDtoBuilder base =
+        ChannelEventMappingDto.builder()
+            .id(mapping.getId())
+            .projectId(mapping.getProjectId())
+            .channelId(mapping.getChannelId())
+            .eventName(mapping.getEventName())
+            .recipient(mapping.getRecipient())
+            .recipientName(mapping.getRecipientName())
+            .isActive(mapping.getIsActive())
+            .createdAt(mapping.getCreatedAt())
+            .updatedAt(mapping.getUpdatedAt());
+
+    return channelDao
+        .getChannelById(mapping.getChannelId())
+        .map(
+            channel ->
+                base.channelType(channel.getChannelType())
+                    .channelName(channel.getName())
+                    .build())
+        .defaultIfEmpty(base.build());
+  }
+
+  // ==================== Logs ====================
+
+  @Override
+  public Single<NotificationLogsResponseDto> getLogs(
+      String projectId, int limit, int offset) {
     return logDao
         .getLogsByProject(projectId, limit, offset)
         .map(
@@ -738,9 +855,10 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   @Override
-  public Single<NotificationLogsResponseDto> getLogsByBatch(String projectId, String batchId) {
+  public Single<NotificationLogsResponseDto> getLogsByIdempotencyKey(
+      String projectId, String idempotencyKey) {
     return logDao
-        .getLogsByBatch(projectId, batchId)
+        .getLogsByIdempotencyKey(projectId, idempotencyKey)
         .map(
             logs ->
                 NotificationLogsResponseDto.builder()
@@ -748,15 +866,15 @@ public class NotificationServiceImpl implements NotificationService {
                     .build());
   }
 
-  private NotificationChannelDto toChannelDto(NotificationChannel channel) {
-    Object config = parseBodyToObject(channel.getConfig());
+  // ==================== Mappers ====================
 
+  private NotificationChannelDto toChannelDto(NotificationChannel channel) {
     return NotificationChannelDto.builder()
         .id(channel.getId())
         .projectId(channel.getProjectId())
         .channelType(channel.getChannelType())
         .name(channel.getName())
-        .config(config)
+        .config(channel.getConfig())
         .isActive(channel.getIsActive())
         .createdAt(channel.getCreatedAt())
         .updatedAt(channel.getUpdatedAt())
@@ -764,15 +882,12 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   private NotificationTemplateDto toTemplateDto(NotificationTemplate template) {
-    Object bodyObject = parseBodyToObject(template.getBody());
-
     return NotificationTemplateDto.builder()
         .id(template.getId())
-        .projectId(template.getProjectId())
         .eventName(template.getEventName())
         .channelType(template.getChannelType())
         .version(template.getVersion())
-        .body(bodyObject)
+        .body(template.getBody())
         .isActive(template.getIsActive())
         .createdAt(template.getCreatedAt())
         .updatedAt(template.getUpdatedAt())
@@ -782,7 +897,7 @@ public class NotificationServiceImpl implements NotificationService {
   private NotificationLogDto toLogDto(NotificationLog log) {
     return NotificationLogDto.builder()
         .id(log.getId())
-        .batchId(log.getBatchId())
+        .idempotencyKey(log.getIdempotencyKey())
         .channelType(log.getChannelType())
         .recipient(log.getRecipient())
         .subject(log.getSubject())
@@ -796,51 +911,182 @@ public class NotificationServiceImpl implements NotificationService {
         .build();
   }
 
-  private String extractSubjectFromBody(String bodyJson) {
-    if (bodyJson == null || bodyJson.isEmpty()) {
-      return null;
+  // ==================== Helpers ====================
+
+  private NotificationBatchResponseDto buildBatchResponse(
+      String idempotencyKey, List<NotificationResultDto> results) {
+    int queued =
+        (int)
+            results.stream()
+                .filter(
+                    r ->
+                        NotificationStatus.SENT.equals(r.getStatus())
+                            || NotificationStatus.QUEUED.equals(r.getStatus()))
+                .count();
+    int failed =
+        (int)
+            results.stream()
+                .filter(r -> NotificationStatus.FAILED.equals(r.getStatus()))
+                .count();
+
+    return NotificationBatchResponseDto.builder()
+        .idempotencyKey(idempotencyKey)
+        .totalRecipients(results.size())
+        .queued(queued)
+        .failed(failed)
+        .results(results)
+        .build();
+  }
+
+  private Single<NotificationResultDto> withSuppressionCheck(
+      String projectId,
+      String recipient,
+      ChannelType channelType,
+      Single<NotificationResultDto> downstream) {
+    if (channelType != ChannelType.EMAIL) {
+      return downstream;
     }
-    try {
-      JsonNode body = objectMapper.readTree(bodyJson);
-      if (body.has(KEY_SUBJECT)) {
-        return body.get(KEY_SUBJECT).asText();
-      }
-      if (body.has(KEY_TITLE)) {
-        return body.get(KEY_TITLE).asText();
-      }
-      if (body.has(KEY_TEXT)) {
-        return body.get(KEY_TEXT).asText();
-      }
-    } catch (JsonProcessingException e) {
-      log.warn("Failed to parse template body JSON for subject extraction", e);
+    return suppressionDao
+        .isEmailSuppressed(projectId, recipient)
+        .flatMap(
+            suppressed -> {
+              if (suppressed) {
+                log.info("Skipping suppressed email: {}", recipient);
+                return Single.just(
+                    skippedResult(recipient, channelType, "Email is suppressed"));
+              }
+              return downstream;
+            });
+  }
+
+  private NotificationResultDto skippedResult(
+      String recipient, ChannelType channelType, String reason) {
+    return NotificationResultDto.builder()
+        .recipient(recipient)
+        .channelType(channelType)
+        .status(NotificationStatus.SKIPPED)
+        .errorMessage(reason)
+        .build();
+  }
+
+  private NotificationResultDto failedResult(
+      String recipient, ChannelType channelType, String error) {
+    return NotificationResultDto.builder()
+        .recipient(recipient)
+        .channelType(channelType)
+        .status(NotificationStatus.FAILED)
+        .errorMessage(error)
+        .build();
+  }
+
+  private ChannelConfig extractConfig(Row row) {
+    Object configValue = row.getValue("config");
+    if (configValue instanceof io.vertx.core.json.JsonObject jsonObject) {
+      return objectMapper.convertValue(jsonObject.getMap(), ChannelConfig.class);
     }
     return null;
   }
 
-  private String serializeBody(Object body) {
+  private boolean hasAnyRecipients(RecipientsDto recipients) {
+    if (recipients == null) {
+      return false;
+    }
+    return (recipients.getEmails() != null && !recipients.getEmails().isEmpty())
+        || (recipients.getSlackChannelIds() != null
+            && !recipients.getSlackChannelIds().isEmpty())
+        || (recipients.getSlackUserIds() != null
+            && !recipients.getSlackUserIds().isEmpty())
+        || (recipients.getSlackWebhookUrls() != null
+            && !recipients.getSlackWebhookUrls().isEmpty())
+        || (recipients.getTeamsWorkflowUrls() != null
+            && !recipients.getTeamsWorkflowUrls().isEmpty());
+  }
+
+  private Set<String> resolveRecipients(
+      RecipientsDto requestRecipients,
+      ChannelType channelType,
+      List<String> dbRecipients) {
+    List<String> dynamicRecipients =
+        getRecipientsForChannel(requestRecipients, channelType);
+    if (!dynamicRecipients.isEmpty()) {
+      return new LinkedHashSet<>(dynamicRecipients);
+    }
+    return new LinkedHashSet<>(dbRecipients);
+  }
+
+  private List<String> getRecipientsForChannel(
+      RecipientsDto recipients, ChannelType channelType) {
+    if (recipients == null) {
+      return Collections.emptyList();
+    }
+
+    return switch (channelType) {
+      case EMAIL ->
+          recipients.getEmails() != null
+              ? recipients.getEmails()
+              : Collections.emptyList();
+      case SLACK -> {
+        List<String> slackRecipients = new ArrayList<>();
+        if (recipients.getSlackChannelIds() != null) {
+          slackRecipients.addAll(recipients.getSlackChannelIds());
+        }
+        if (recipients.getSlackUserIds() != null) {
+          slackRecipients.addAll(recipients.getSlackUserIds());
+        }
+        yield slackRecipients;
+      }
+      case SLACK_WEBHOOK ->
+          recipients.getSlackWebhookUrls() != null
+              ? recipients.getSlackWebhookUrls()
+              : Collections.emptyList();
+      case TEAMS ->
+          recipients.getTeamsWorkflowUrls() != null
+              ? recipients.getTeamsWorkflowUrls()
+              : Collections.emptyList();
+      default -> Collections.emptyList();
+    };
+  }
+
+  private Single<Boolean> validateMappingEventName(Long channelId, String eventName) {
+    return channelDao
+        .getChannelById(channelId)
+        .switchIfEmpty(
+            Maybe.error(
+                ServiceError.NOT_FOUND.getCustomException(
+                    "Channel not found: " + channelId)))
+        .toSingle()
+        .flatMap(
+            channel ->
+                templateDao
+                    .getTemplateByEventNameAndChannel(
+                        eventName, channel.getChannelType())
+                    .switchIfEmpty(
+                        Maybe.error(
+                            ServiceError
+                                .INCORRECT_OR_MISSING_BODY_PARAMETERS
+                                .getCustomException(
+                                    "No template found for event '"
+                                        + eventName
+                                        + "' and channel type "
+                                        + channel.getChannelType()
+                                        + ". Verify the event name is correct and a template exists.")))
+                    .toSingle()
+                    .map(template -> true));
+  }
+
+  private String extractSubjectFromBody(TemplateBody body) {
     if (body == null) {
       return null;
     }
-    if (body instanceof String s) {
-      return s;
+    if (body instanceof EmailTemplateBody email) {
+      return email.getSubject();
     }
-    try {
-      return objectMapper.writeValueAsString(body);
-    } catch (JsonProcessingException e) {
-      throw ServiceError.INVALID_REQUEST_BODY.getCustomException(
-          "Invalid body format: " + e.getMessage());
+    if (body instanceof TeamsTemplateBody teams) {
+      return teams.getTitle() != null ? teams.getTitle() : teams.getText();
     }
-  }
-
-  private Object parseBodyToObject(String bodyJson) {
-    if (bodyJson == null || bodyJson.isEmpty()) {
-      return null;
+    if (body instanceof SlackTemplateBody slack) {
+      return slack.getText();
     }
-    try {
-      return objectMapper.readValue(bodyJson, Object.class);
-    } catch (JsonProcessingException e) {
-      log.warn("Failed to parse template body JSON", e);
-      return bodyJson;
-    }
+    return null;
   }
 }

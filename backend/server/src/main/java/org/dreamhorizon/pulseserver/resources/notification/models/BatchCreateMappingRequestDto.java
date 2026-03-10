@@ -1,5 +1,7 @@
 package org.dreamhorizon.pulseserver.resources.notification.models;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,10 +12,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RecipientsDto {
-  private List<String> emails;
-  private List<String> slackChannelIds;
-  private List<String> slackUserIds;
-  private List<String> slackWebhookUrls;
-  private List<String> teamsWorkflowUrls;
+public class BatchCreateMappingRequestDto {
+
+  @NotEmpty(message = "mappings list cannot be empty")
+  @Valid
+  private List<CreateMappingRequestDto> mappings;
 }

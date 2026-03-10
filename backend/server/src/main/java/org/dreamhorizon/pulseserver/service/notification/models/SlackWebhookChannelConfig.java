@@ -11,14 +11,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class SlackChannelConfig extends ChannelConfig {
-  private String accessToken;
-  private String workspaceId;
+public class SlackWebhookChannelConfig extends ChannelConfig {
   private String botName;
   private String iconEmoji;
 
   @Override
   public ChannelType getChannelType() {
-    return ChannelType.SLACK;
+    return ChannelType.SLACK_WEBHOOK;
   }
 }

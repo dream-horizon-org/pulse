@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.resources.notification.models;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,6 +16,8 @@ import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 @AllArgsConstructor
 public class CreateChannelRequestDto {
 
+  private String projectId;
+
   @NotNull(message = "channelType is required")
   private ChannelType channelType;
 
@@ -23,4 +26,6 @@ public class CreateChannelRequestDto {
 
   @NotNull(message = "config is required")
   private ChannelConfig config;
+
+  private List<String> eventNames;
 }

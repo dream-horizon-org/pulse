@@ -27,7 +27,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
   }
@@ -42,19 +43,25 @@
 }
 
 .title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #ffffff;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  text-align: center !important;
   margin-bottom: 12px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: block;
+  width: 100%;
 }
 
 .subtitle {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.95);
+  font-size: 16px !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  text-align: center !important;
   max-width: 600px;
-  margin: 0 auto;
+  margin: 16px auto 0 auto !important;
   line-height: 1.6;
+  display: block;
+  width: 100%;
 }
 
 .primaryCtaButton {
@@ -105,7 +112,7 @@
   min-width: 300px;
   padding: 12px 16px;
   font-size: 14px;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 8px;
@@ -127,7 +134,7 @@
 
 .codeContent {
   margin: 0;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 13px;
   line-height: 1.6;
   color: #d4d4d4;
@@ -181,12 +188,12 @@
   .subtitle {
     font-size: 14px;
   }
-  
+
   .primaryCtaButton {
     font-size: 16px;
     padding: 12px 40px;
   }
-  
+
   .setupHint {
     font-size: 13px;
   }
