@@ -6,6 +6,8 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
@@ -204,10 +206,11 @@ public class ProjectService {
         .eventName(PROJECT_CREATED_EVENT)
         .channelTypes(List.of(ChannelType.EMAIL))
         .recipients(recipients)
+            .idempotencyKey(UUID.randomUUID().toString())
         .params(params)
         .build();
 
-    return notificationService.sendNotification(DEFAULT_PROJECT_ID, notificationRequest)
+    return notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, notificationRequest)
         .ignoreElement();
   }
 

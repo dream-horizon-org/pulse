@@ -7,6 +7,8 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -383,6 +385,7 @@ public class ProjectMemberService {
                     .emails(List.of(recipientEmail))
                     .build())
                 .channelTypes(List.of(ChannelType.EMAIL))
+                    .idempotencyKey(UUID.randomUUID().toString())
                 .params(Map.of(
                     "projectName", projectName,
                     "projectId", projectId,
@@ -391,7 +394,7 @@ public class ProjectMemberService {
                 ))
                 .build();
             
-            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
+            notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, request)
                 .doOnError(error -> log.error(
                     "Failed to send collaborator added notification to {}: {}", 
                     recipientEmail, error.getMessage()))
@@ -416,13 +419,14 @@ public class ProjectMemberService {
                     .emails(List.of(recipientEmail))
                     .build())
                 .channelTypes(List.of(ChannelType.EMAIL))
+                    .idempotencyKey(UUID.randomUUID().toString())
                 .params(Map.of(
                     "projectName", projectName,
                     "removedBy", removedByName
                 ))
                 .build();
             
-            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
+            notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, request)
                 .doOnError(error -> log.error(
                     "Failed to send collaborator removed notification to {}: {}", 
                     recipientEmail, error.getMessage()))
@@ -448,6 +452,7 @@ public class ProjectMemberService {
                     .emails(List.of(recipientEmail))
                     .build())
                 .channelTypes(List.of(ChannelType.EMAIL))
+
                 .params(Map.of(
                     "projectName", projectName,
                     "newRole", newRole,
@@ -455,7 +460,7 @@ public class ProjectMemberService {
                 ))
                 .build();
             
-            notificationService.sendNotification(DEFAULT_PROJECT_ID, request)
+            notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, request)
                 .doOnError(error -> log.error(
                     "Failed to send role updated notification to {}: {}", 
                     recipientEmail, error.getMessage()))
