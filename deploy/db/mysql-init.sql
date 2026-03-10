@@ -157,7 +157,19 @@ VALUES (
         "sessionSampleRate": 1,
         "sdks": ["pulse_android_java", "pulse_android_rn", "pulse_ios_swift", "pulse_ios_rn"]
       }
-    ]
+    ],
+    "sessionReplay": {
+      "enabled": false,
+      "maskAllTextInputs": true,
+      "maskAllImages": true,
+      "throttleDelayMs": 1000,
+      "screenshotScale": 1.0,
+      "screenshotQuality": 30,
+      "flushIntervalSeconds": 60,
+      "flushAt": 10,
+      "maxBatchSize": 50,
+      "replayApiBaseUrl": ""
+    }
   }'
 );
 

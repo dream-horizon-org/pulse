@@ -42,6 +42,9 @@ public class PulseConfig {
   @JsonProperty("features")
   private List<FeatureConfig> features;
 
+  @JsonProperty("sessionReplay")
+  private SessionReplayConfig sessionReplay;
+
 
   @Data
   @Builder
@@ -300,5 +303,42 @@ public class PulseConfig {
 
     @JsonProperty("sdks")
     private List<Sdk> sdks;
+  }
+
+  @Data
+  @Builder
+  @AllArgsConstructor
+  @NoArgsConstructor
+  public static class SessionReplayConfig {
+
+    @JsonProperty("enabled")
+    private Boolean enabled;
+
+    @JsonProperty("maskAllTextInputs")
+    private Boolean maskAllTextInputs;
+
+    @JsonProperty("maskAllImages")
+    private Boolean maskAllImages;
+
+    @JsonProperty("throttleDelayMs")
+    private Long throttleDelayMs;
+
+    @JsonProperty("screenshotScale")
+    private Float screenshotScale;
+
+    @JsonProperty("screenshotQuality")
+    private Integer screenshotQuality;
+
+    @JsonProperty("flushIntervalSeconds")
+    private Integer flushIntervalSeconds;
+
+    @JsonProperty("flushAt")
+    private Integer flushAt;
+
+    @JsonProperty("maxBatchSize")
+    private Integer maxBatchSize;
+
+    @JsonProperty("replayApiBaseUrl")
+    private String replayApiBaseUrl;
   }
 }

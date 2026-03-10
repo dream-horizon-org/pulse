@@ -69,6 +69,7 @@ public class ConfigController {
   private void applyConfigDefaults(PulseConfig config) {
     applyInteractionConfigDefaults(config);
     applySignalsConfigDefaults(config);
+    applySessionReplayDefaults(config);
   }
 
   private void applyInteractionConfigDefaults(PulseConfig config) {
@@ -100,6 +101,43 @@ public class ConfigController {
       if (signals.getCustomEventCollectorUrl() == null || signals.getCustomEventCollectorUrl().isBlank()) {
         signals.setCustomEventCollectorUrl(applicationConfig.getCustomEventCollectorUrl());
       }
+    }
+  }
+
+  private void applySessionReplayDefaults(PulseConfig config) {
+    if (config.getSessionReplay() == null) {
+      config.setSessionReplay(new PulseConfig.SessionReplayConfig());
+    }
+    PulseConfig.SessionReplayConfig replay = config.getSessionReplay();
+    if (replay.getEnabled() == null) {
+      replay.setEnabled(false);
+    }
+    if (replay.getMaskAllTextInputs() == null) {
+      replay.setMaskAllTextInputs(true);
+    }
+    if (replay.getMaskAllImages() == null) {
+      replay.setMaskAllImages(true);
+    }
+    if (replay.getThrottleDelayMs() == null) {
+      replay.setThrottleDelayMs(1000L);
+    }
+    if (replay.getScreenshotScale() == null) {
+      replay.setScreenshotScale(1.0f);
+    }
+    if (replay.getScreenshotQuality() == null) {
+      replay.setScreenshotQuality(30);
+    }
+    if (replay.getFlushIntervalSeconds() == null) {
+      replay.setFlushIntervalSeconds(60);
+    }
+    if (replay.getFlushAt() == null) {
+      replay.setFlushAt(10);
+    }
+    if (replay.getMaxBatchSize() == null) {
+      replay.setMaxBatchSize(50);
+    }
+    if (replay.getReplayApiBaseUrl() == null || replay.getReplayApiBaseUrl().isBlank()) {
+      replay.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
     }
   }
 

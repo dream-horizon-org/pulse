@@ -84,7 +84,8 @@ class ApplicationConfigTest {
         "cfPath",
         "webhook",
         "interactionPath",
-        "interactionAsset"
+        "interactionAsset",
+        "replayApiBaseUrl"
     );
     assertNotNull(config);
     assertEquals("cronUrl", config.getCronManagerBaseUrl());

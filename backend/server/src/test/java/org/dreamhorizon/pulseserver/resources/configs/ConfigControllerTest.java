@@ -906,6 +906,163 @@ class ConfigControllerTest {
     }
 
     @Test
+    void shouldApplyAllDefaultsWhenSessionReplayIsNull(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setSessionReplay(null);
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 40L);
+
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(40L, resp.getData().getVersion());
+            PulseConfig.SessionReplayConfig replay = pulseConfig.getSessionReplay();
+            assertNotNull(replay);
+            assertEquals(false, replay.getEnabled());
+            assertEquals(true, replay.getMaskAllTextInputs());
+            assertEquals(true, replay.getMaskAllImages());
+            assertEquals(1000L, (long) replay.getThrottleDelayMs());
+            assertEquals(1.0f, replay.getScreenshotScale());
+            assertEquals(30, (int) replay.getScreenshotQuality());
+            assertEquals(60, (int) replay.getFlushIntervalSeconds());
+            assertEquals(10, (int) replay.getFlushAt());
+            assertEquals(50, (int) replay.getMaxBatchSize());
+            assertEquals("http://default-replay.example.com", replay.getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultsForNullFieldsWhenSomeProvided(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given — only enabled and throttleDelayMs are set, rest are null
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+            .enabled(true)
+            .throttleDelayMs(2000L)
+            .build());
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 44L);
+
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(44L, resp.getData().getVersion());
+            PulseConfig.SessionReplayConfig replay = pulseConfig.getSessionReplay();
+            assertEquals(true, replay.getEnabled());
+            assertEquals(2000L, (long) replay.getThrottleDelayMs());
+            assertEquals(true, replay.getMaskAllTextInputs());
+            assertEquals(true, replay.getMaskAllImages());
+            assertEquals(1.0f, replay.getScreenshotScale());
+            assertEquals(30, (int) replay.getScreenshotQuality());
+            assertEquals(60, (int) replay.getFlushIntervalSeconds());
+            assertEquals(10, (int) replay.getFlushAt());
+            assertEquals(50, (int) replay.getMaxBatchSize());
+            assertEquals("http://default-replay.example.com", replay.getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultReplayApiBaseUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+            .enabled(true)
+            .maskAllTextInputs(true)
+            .maskAllImages(true)
+            .throttleDelayMs(1000L)
+            .screenshotScale(1.0f)
+            .screenshotQuality(30)
+            .flushIntervalSeconds(60)
+            .flushAt(10)
+            .maxBatchSize(50)
+            .replayApiBaseUrl("")
+            .build());
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 41L);
+
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(41L, resp.getData().getVersion());
+            assertEquals("http://default-replay.example.com",
+                pulseConfig.getSessionReplay().getReplayApiBaseUrl());
+            assertEquals(true, pulseConfig.getSessionReplay().getEnabled());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldNotOverrideReplayApiBaseUrlWhenProvided(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+            .enabled(true)
+            .replayApiBaseUrl("http://custom-replay.example.com")
+            .build());
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 42L);
+
+        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(42L, resp.getData().getVersion());
+            assertEquals("http://custom-replay.example.com",
+                pulseConfig.getSessionReplay().getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
     void shouldCreateConfigWithNullNestedObjects(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given - Test with null nested objects to cover null-check branches in mapper

@@ -792,6 +792,101 @@ class PulseConfigModelsTest {
     }
   }
 
+  // SessionReplayConfig Tests
+  @Nested
+  class TestSessionReplayConfig {
+
+    @Test
+    void shouldCreateWithNoArgs() {
+      PulseConfig.SessionReplayConfig config = new PulseConfig.SessionReplayConfig();
+      assertNotNull(config);
+    }
+
+    @Test
+    void shouldCreateWithBuilder() {
+      PulseConfig.SessionReplayConfig config = PulseConfig.SessionReplayConfig.builder()
+          .enabled(true)
+          .maskAllTextInputs(true)
+          .maskAllImages(false)
+          .throttleDelayMs(2000L)
+          .screenshotScale(0.5f)
+          .screenshotQuality(50)
+          .flushIntervalSeconds(30)
+          .flushAt(5)
+          .maxBatchSize(25)
+          .replayApiBaseUrl("http://replay.example.com")
+          .build();
+
+      assertEquals(true, config.getEnabled());
+      assertEquals(true, config.getMaskAllTextInputs());
+      assertEquals(false, config.getMaskAllImages());
+      assertEquals(2000L, config.getThrottleDelayMs());
+      assertEquals(0.5f, config.getScreenshotScale());
+      assertEquals(50, (int) config.getScreenshotQuality());
+      assertEquals(30, (int) config.getFlushIntervalSeconds());
+      assertEquals(5, (int) config.getFlushAt());
+      assertEquals(25, (int) config.getMaxBatchSize());
+      assertEquals("http://replay.example.com", config.getReplayApiBaseUrl());
+    }
+
+    @Test
+    void shouldSetAndGetAllFields() {
+      PulseConfig.SessionReplayConfig config = new PulseConfig.SessionReplayConfig();
+
+      config.setEnabled(true);
+      config.setMaskAllTextInputs(false);
+      config.setMaskAllImages(true);
+      config.setThrottleDelayMs(500L);
+      config.setScreenshotScale(0.75f);
+      config.setScreenshotQuality(80);
+      config.setFlushIntervalSeconds(120);
+      config.setFlushAt(20);
+      config.setMaxBatchSize(100);
+      config.setReplayApiBaseUrl("http://new-replay.example.com");
+
+      assertEquals(true, config.getEnabled());
+      assertEquals(false, config.getMaskAllTextInputs());
+      assertEquals(true, config.getMaskAllImages());
+      assertEquals(500L, config.getThrottleDelayMs());
+      assertEquals(0.75f, config.getScreenshotScale());
+      assertEquals(80, config.getScreenshotQuality());
+      assertEquals(120, config.getFlushIntervalSeconds());
+      assertEquals(20, config.getFlushAt());
+      assertEquals(100, config.getMaxBatchSize());
+      assertEquals("http://new-replay.example.com", config.getReplayApiBaseUrl());
+    }
+
+    @Test
+    void shouldHaveCorrectEqualsAndHashCode() {
+      PulseConfig.SessionReplayConfig config1 = PulseConfig.SessionReplayConfig.builder()
+          .enabled(true)
+          .throttleDelayMs(1000L)
+          .screenshotQuality(30)
+          .replayApiBaseUrl("http://replay.example.com")
+          .build();
+      PulseConfig.SessionReplayConfig config2 = PulseConfig.SessionReplayConfig.builder()
+          .enabled(true)
+          .throttleDelayMs(1000L)
+          .screenshotQuality(30)
+          .replayApiBaseUrl("http://replay.example.com")
+          .build();
+
+      assertEquals(config1, config2);
+      assertEquals(config1.hashCode(), config2.hashCode());
+    }
+
+    @Test
+    void shouldHaveCorrectToString() {
+      PulseConfig.SessionReplayConfig config = PulseConfig.SessionReplayConfig.builder()
+          .replayApiBaseUrl("http://replay.example.com")
+          .build();
+
+      String toString = config.toString();
+      assertNotNull(toString);
+      assertTrue(toString.contains("http://replay.example.com"));
+    }
+  }
+
   // PulseConfig (main class) Tests
   @Nested
   class TestPulseConfig {
@@ -808,6 +903,9 @@ class PulseConfigModelsTest {
       PulseConfig.SignalsConfig signals = PulseConfig.SignalsConfig.builder().build();
       PulseConfig.InteractionConfig interaction = PulseConfig.InteractionConfig.builder().build();
       List<PulseConfig.FeatureConfig> features = new ArrayList<>();
+      PulseConfig.SessionReplayConfig sessionReplay = PulseConfig.SessionReplayConfig.builder()
+          .enabled(true)
+          .build();
 
       PulseConfig pulseConfig = PulseConfig.builder()
           .version(1L)
@@ -816,6 +914,7 @@ class PulseConfigModelsTest {
           .signals(signals)
           .interaction(interaction)
           .features(features)
+          .sessionReplay(sessionReplay)
           .build();
 
       assertEquals(1L, pulseConfig.getVersion());
@@ -824,6 +923,7 @@ class PulseConfigModelsTest {
       assertEquals(signals, pulseConfig.getSignals());
       assertEquals(interaction, pulseConfig.getInteraction());
       assertEquals(features, pulseConfig.getFeatures());
+      assertEquals(sessionReplay, pulseConfig.getSessionReplay());
     }
 
     @Test
@@ -836,6 +936,7 @@ class PulseConfigModelsTest {
       pulseConfig.setSignals(new PulseConfig.SignalsConfig());
       pulseConfig.setInteraction(new PulseConfig.InteractionConfig());
       pulseConfig.setFeatures(new ArrayList<>());
+      pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder().enabled(false).build());
 
       assertEquals(2L, pulseConfig.getVersion());
       assertEquals("Updated Config", pulseConfig.getDescription());
@@ -843,6 +944,7 @@ class PulseConfigModelsTest {
       assertNotNull(pulseConfig.getSignals());
       assertNotNull(pulseConfig.getInteraction());
       assertNotNull(pulseConfig.getFeatures());
+      assertNotNull(pulseConfig.getSessionReplay());
     }
 
     @Test

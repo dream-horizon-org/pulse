@@ -28,5 +28,8 @@ public class ConfigData {
   @JsonProperty("features")
   private List<FeatureConfig> features;
 
+  @JsonProperty("sessionReplay")
+  private SessionReplayConfig sessionReplay;
+
   private String user;
 }
