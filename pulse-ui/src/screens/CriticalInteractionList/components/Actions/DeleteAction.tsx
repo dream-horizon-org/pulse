@@ -19,6 +19,7 @@ import {
 import { getCookies } from "../../../../helpers/cookies";
 import { Loader, Tooltip } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
+import { useProjectContext } from "../../../../contexts";
 
 export function DeleteAction({
   successNotificationColor,
@@ -31,10 +32,11 @@ export function DeleteAction({
 }: ActionProps) {
   const [showLoader, setShowLoader] = useState(false);
   const navigate = useNavigate();
+  const { projectId } = useProjectContext();
 
   const navigateToCriticalInteractionListingPage = () => {
     setTimeout(() => {
-      navigate(`${ROUTES["CRITICAL_INTERACTIONS"].basePath}`);
+      navigate(`/projects/${projectId}/interactions`);
     }, 3000);
   };
 

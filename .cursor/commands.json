@@ -1,0 +1,29 @@
+{
+  "commands": [
+    {
+      "name": "Clear Database",
+      "description": "Reset all databases (MySQL and ClickHouse) by removing volumes and reinitializing",
+      "command": "cd deploy && ./scripts/reset-databases.sh"
+    },
+    {
+      "name": "Clear Database (Force)",
+      "description": "Reset databases without confirmation prompt",
+      "command": "cd deploy && docker-compose down && docker volume rm deploy_mysql-data deploy_clickhouse-data 2>/dev/null || true && docker-compose up -d && echo '✅ Databases cleared and restarted'"
+    },
+    {
+      "name": "View Database Status",
+      "description": "Check MySQL and ClickHouse database status and tables",
+      "command": "echo '=== MySQL Tables ===' && docker exec pulse-mysql mysql -uroot -ppulse_root_password pulse_db -e 'SHOW TABLES;' 2>/dev/null && echo '' && echo '=== ClickHouse Tables ===' && docker exec pulse-clickhouse clickhouse-client --query 'SHOW TABLES FROM otel' 2>/dev/null"
+    },
+    {
+      "name": "Clear MySQL Only",
+      "description": "Reset only MySQL database",
+      "command": "docker-compose -f deploy/docker-compose.yml stop mysql && docker volume rm deploy_mysql-data 2>/dev/null || true && docker-compose -f deploy/docker-compose.yml up -d mysql && echo '✅ MySQL database cleared'"
+    },
+    {
+      "name": "Clear ClickHouse Only",
+      "description": "Reset only ClickHouse database",
+      "command": "docker-compose -f deploy/docker-compose.yml stop clickhouse && docker volume rm deploy_clickhouse-data 2>/dev/null || true && docker-compose -f deploy/docker-compose.yml up -d clickhouse clickhouse-init && echo '✅ ClickHouse database cleared'"
+    }
+  ]
+}

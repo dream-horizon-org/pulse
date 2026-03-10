@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryRequestDto;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
@@ -27,6 +28,7 @@ public class SubmitQuery {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<SubmitQueryResponseDto>> submitQuery(
       @HeaderParam("user-email") String userEmail,
       @Valid SubmitQueryRequestDto request) {

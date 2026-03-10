@@ -14,7 +14,7 @@ import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentialsdao.ClickhouseCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
@@ -28,31 +28,38 @@ import org.dreamhorizon.pulseserver.service.IAnalyticalStoreClient;
 public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUserEventsResponseDto> {
   private final ClickhouseReadClient clickhouseReadClient;
   private final ClickhouseWriteClient clickhouseWriteClient;
-  private final ClickhouseTenantConnectionPoolManager clickhouseTenantConnectionPoolManager;
-  private final ClickhouseCredentialsDao clickhouseCredentialsDao;
+  private final ClickhouseProjectConnectionPoolManager clickhouseProjectConnectionPoolManager;
+  private final ClickhouseProjectCredentialsDao clickhouseProjectCredentialsDao;
   private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
 
   @Override
   public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeQueryOrCreateJob(QueryConfiguration queryConfig) {
     final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
-    String tenantId = queryConfig.getTenantId();
 
-    return clickhouseCredentialsDao
-        .getCredentialsByTenantId(tenantId)
-        .flatMap(
-            credentials -> {
-              var pool =
-                  clickhouseTenantConnectionPoolManager.getPoolForTenant(
-                      tenantId,
-                      credentials.getClickhouseUsername(),
-                      credentials.getClickhousePassword());
+    // Project-based credentials only - tenant-level access is no longer supported
+    String projectId = queryConfig.getProjectId();
 
-              return executeTenantQuery(pool, queryConfig, schemaFields);
-            })
-        .doOnError(
-            error -> log.error("Error executing query for tenant: {}", tenantId, error));
+    if (projectId != null) {
+      log.debug("Executing query using project credentials for project: {}", projectId);
+      return clickhouseProjectCredentialsDao
+          .getCredentialsByProjectId(projectId)
+          .switchIfEmpty(Single.error(new IllegalStateException("No ClickHouse credentials found for project: " + projectId)))
+          .flatMap(
+              credentials -> {
+                var pool =
+                    clickhouseProjectConnectionPoolManager.getPoolForProject(
+                        projectId,
+                        credentials.getClickhouseUsername(),
+                        credentials.getClickhousePasswordEncrypted());
 
+                return executeTenantQuery(pool, queryConfig, schemaFields);
+              })
+          .doOnError(
+              error -> log.error("Error executing query for project: {}", projectId, error));
+    } else {
+      return Single.error(new IllegalArgumentException("Project ID must be provided - tenant-level access is not allowed"));
+    }
   }
 
   private Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeTenantQuery(
@@ -107,30 +114,34 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
 
   @Override
   public <T> Single<QueryResultResponse<T>> executeQueryOrCreateJob(QueryConfiguration queryConfig, Class<T> clazz) {
-    String tenantId = queryConfig.getTenantId();
+    String projectId = queryConfig.getProjectId();
 
-    log.debug("Executing generic query for tenant: {}", tenantId);
+    if (projectId != null) {
+      log.debug("Executing generic query for project: {}", projectId);
 
-    return clickhouseCredentialsDao
-        .getCredentialsByTenantId(tenantId)
-        .flatMap(
-            credentials -> {
-              var pool =
-                  clickhouseTenantConnectionPoolManager.getPoolForTenant(
-                      tenantId,
-                      credentials.getClickhouseUsername(),
-                      credentials.getClickhousePassword());
+      return clickhouseProjectCredentialsDao
+          .getCredentialsByProjectId(projectId)
+          .switchIfEmpty(Single.error(new IllegalStateException("No ClickHouse credentials found for project: " + projectId)))
+          .flatMap(
+              credentials -> {
+                var pool =
+                    clickhouseProjectConnectionPoolManager.getPoolForProject(
+                        projectId,
+                        credentials.getClickhouseUsername(),
+                        credentials.getClickhousePasswordEncrypted());
 
-              log.debug(
-                  "Using tenant pool for {} with user: {}",
-                  tenantId,
-                  credentials.getClickhouseUsername());
+                log.debug(
+                    "Using project pool for {} with user: {}",
+                    projectId,
+                    credentials.getClickhouseUsername());
 
-              return executeTenantGenericQuery(pool, queryConfig, clazz);
-            })
-        .doOnError(
-            error -> log.error("Error executing generic query for tenant: {}", tenantId, error));
-
+                return executeTenantGenericQuery(pool, queryConfig, clazz);
+              })
+          .doOnError(
+              error -> log.error("Error executing generic query for project: {}", projectId, error));
+    } else {
+      return Single.error(new IllegalArgumentException("Project ID must be provided - tenant-level access is not allowed"));
+    }
   }
 
   private <T> Single<QueryResultResponse<T>> executeTenantGenericQuery(

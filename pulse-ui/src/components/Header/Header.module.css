@@ -3,130 +3,79 @@
   justify-content: space-between;
   height: 100%;
   align-items: center;
-  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
-  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.25);
-  border-bottom: 1px solid rgba(14, 201, 194, 0.3);
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #e9ecef;
   position: relative;
-  overflow: hidden;
+  padding: 0 16px;
 }
 
-.headerContainer::before {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.5) 50%,
-    transparent 100%
-  );
-  opacity: 0.6;
-}
-
-.logoContainer {
-  justify-content: flex-start;
-  align-items: center;
+.leftSection {
   display: flex;
-  cursor: pointer;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-
-.logoContainer:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
-}
-
-.logoContainer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.logoContainer:hover::after {
-  opacity: 1;
-}
-
-.appName {
-  color: #ffffff !important;
-  font-size: 24px !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.5px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.logo {
-  width: 32px;
-  height: 32px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  transition: transform 0.3s ease;
-}
-
-.logoContainer:hover .logo {
-  transform: scale(1.05) rotate(5deg);
+  align-items: center;
 }
 
 .cheveronIcon {
-  color: var(--mantine-color-white);
+  color: #495057;
   cursor: pointer;
-  opacity: 0.9;
+  opacity: 0.8;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
   padding: 4px;
   border-radius: 50%;
 }
 
 .cheveronIcon:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.15);
+  background: #f1f3f5;
   transform: scale(1.1);
+  color: #0ba09a;
 }
 
 .cheveronIcon:active {
   transform: scale(0.95);
 }
 
-.userInformation {
-  padding: var(--mantine-spacing-sm);
-  cursor: pointer;
+
+.projectSection {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
 }
 
-.userInformation :global(.mantine-Avatar-root) {
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.projectInfo {
+  padding: 8px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
 }
 
-.userInformation :global(.mantine-Avatar-root):hover {
-  border-color: rgba(255, 255, 255, 0.6);
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+.projectInfo:hover {
+  background: #f1f3f5;
+  border-color: #dee2e6;
 }
 
-.userName {
-  border-bottom: 1px solid rgba(14, 201, 194, 0.2);
-  padding-bottom: var(--mantine-spacing-sm);
-  margin-bottom: var(--mantine-spacing-sm);
+.projectName {
+  color: #212529 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.2px;
 }
 
-.userName :global(.mantine-Text-root) {
-  font-weight: 600;
-  color: var(--mantine-color-dark-7);
-  font-size: 14px;
+.upgradeBadge {
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
 }
+
+.upgradeBadge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(14, 201, 194, 0.25);
+}
+
+.projectDropdown {
+  min-width: 200px;
+  margin-right: var(--mantine-spacing-md);
+}
+
