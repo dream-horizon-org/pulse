@@ -23,4 +23,7 @@ public class IncidentRow {
   private IncidentStatus status;
   private String createdAt;
   private String updatedAt;
+  private String acknowledgedAt;
+  private String recoveredAt;
+  private String closedAt;
 }

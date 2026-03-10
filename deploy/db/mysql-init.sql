@@ -755,6 +755,9 @@ CREATE TABLE IF NOT EXISTS incidents (
     status         ENUM('OPEN','ACKNOWLEDGED','RECOVERED','CLOSED') NOT NULL DEFAULT 'OPEN',
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    acknowledged_at TIMESTAMP NULL,
+    recovered_at    TIMESTAMP NULL,
+    closed_at       TIMESTAMP NULL,
     INDEX idx_incidents_org (org_identifier),
     INDEX idx_incidents_severity (severity)
 );

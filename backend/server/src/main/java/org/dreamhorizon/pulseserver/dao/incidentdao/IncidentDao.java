@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.incidentdao;
 
-import static org.dreamhorizon.pulseserver.dao.incidentdao.IncidentQueries.GET_INCIDENT_BY_ID;
-import static org.dreamhorizon.pulseserver.dao.incidentdao.IncidentQueries.INSERT_INCIDENT;
+import static org.dreamhorizon.pulseserver.dao.incidentdao.IncidentQueries.*;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -56,20 +55,71 @@ public class IncidentDao {
         .doOnError(error -> log.error("Failed to fetch incident: id={}", id, error));
   }
 
+  public Single<IncidentRow> acknowledgeIncident(long id) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(ACKNOWLEDGE_INCIDENT)
+        .rxExecute(Tuple.of(id))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException(
+                "Cannot acknowledge incident " + id + ": not in OPEN state or not found"));
+          }
+          log.info("Acknowledged incident id={}", id);
+          return getIncidentById(id);
+        })
+        .doOnError(error -> log.error("Failed to acknowledge incident: id={}", id, error));
+  }
+
+  public Single<IncidentRow> recoverIncident(long id) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(RECOVER_INCIDENT)
+        .rxExecute(Tuple.of(id))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException(
+                "Cannot recover incident " + id + ": not in ACKNOWLEDGED state or not found"));
+          }
+          log.info("Recovered incident id={}", id);
+          return getIncidentById(id);
+        })
+        .doOnError(error -> log.error("Failed to recover incident: id={}", id, error));
+  }
+
+  public Single<IncidentRow> closeIncident(long id) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    return pool.preparedQuery(CLOSE_INCIDENT)
+        .rxExecute(Tuple.of(id))
+        .flatMap(result -> {
+          if (result.rowCount() == 0) {
+            return Single.error(new RuntimeException(
+                "Cannot close incident " + id + ": not in RECOVERED state or not found"));
+          }
+          log.info("Closed incident id={}", id);
+          return getIncidentById(id);
+        })
+        .doOnError(error -> log.error("Failed to close incident: id={}", id, error));
+  }
+
   private IncidentRow mapRowToIncident(Row row) {
     return IncidentRow.builder()
         .id(row.getLong("id"))
         .title(row.getString("title"))
         .description(row.getString("description"))
         .severity(IncidentSeverity.valueOf(row.getString("severity")))
-            .reporterName(row.getString("reporter_name"))
-            .reporterEmail(row.getString("reporter_email"))
-            .orgIdentifier(row.getString("org_identifier"))
-            .status(IncidentStatus.valueOf(row.getString("status")))
+        .reporterName(row.getString("reporter_name"))
+        .reporterEmail(row.getString("reporter_email"))
+        .orgIdentifier(row.getString("org_identifier"))
+        .status(IncidentStatus.valueOf(row.getString("status")))
         .createdAt(row.getLocalDateTime("created_at") != null
             ? row.getLocalDateTime("created_at").toString() : null)
         .updatedAt(row.getLocalDateTime("updated_at") != null
             ? row.getLocalDateTime("updated_at").toString() : null)
+        .acknowledgedAt(row.getLocalDateTime("acknowledged_at") != null
+            ? row.getLocalDateTime("acknowledged_at").toString() : null)
+        .recoveredAt(row.getLocalDateTime("recovered_at") != null
+            ? row.getLocalDateTime("recovered_at").toString() : null)
+        .closedAt(row.getLocalDateTime("closed_at") != null
+            ? row.getLocalDateTime("closed_at").toString() : null)
         .build();
   }
 }
