@@ -26,6 +26,7 @@ import org.dreamhorizon.pulsealertscron.constant.Constants;
 import org.dreamhorizon.pulsealertscron.guice.GuiceInjector;
 import org.dreamhorizon.pulsealertscron.services.AlertsService;
 import org.dreamhorizon.pulsealertscron.services.CronManager;
+import org.dreamhorizon.pulsealertscron.services.PeriodicSyncService;
 import org.dreamhorizon.pulsealertscron.util.SharedDataUtils;
 
 @Slf4j
@@ -33,6 +34,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private WebClient webClient;
   private ApplicationConfig applicationConfig;
+  private PeriodicSyncService periodicSyncService;
 
   private static final AtomicBoolean alertCronMethodCalled = new AtomicBoolean(false);
 
@@ -84,6 +86,17 @@ public class MainVerticle extends AbstractVerticle {
 
   private void initCrons() {
     this.initAlertsFromDbOnce();
+    this.initPeriodicSync();
+  }
+
+  private void initPeriodicSync() {
+    log.info("Initializing Periodic Sync Service...");
+    try {
+      this.periodicSyncService = new PeriodicSyncService(vertx, webClient, applicationConfig);
+      this.periodicSyncService.start();
+    } catch (Exception e) {
+      log.error("❌ Failed to initialize Periodic Sync Service", e);
+    }
   }
 
   private void initAlertsFromDbOnce() {
@@ -120,6 +133,9 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public Completable rxStop() {
+    if (periodicSyncService != null) {
+      periodicSyncService.stop();
+    }
     if (webClient != null) {
       webClient.close();
     }

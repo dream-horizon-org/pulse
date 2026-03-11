@@ -1,122 +1,114 @@
-<div align="center">
+# Pulse - Observability Platform
 
-# Pulse
-
-**A digital experience platform that helps you understand how users are interacting with your platform in real time**
-
-*Combining behavioral, technical and business insights to drive better user experiences*
-
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)][license]
-[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
-[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-4.4-blue.svg)](https://www.typescriptlang.org/)
-[![Android](https://img.shields.io/badge/Android-21+-green.svg)](https://developer.android.com/)
-
-**[📖 View Full Documentation →][docs-intro]**
-
-</div>
-
----
-
-## 🌟 About
-
-A digital experience platform that helps you understand how users are interacting with your platform in real time; combining behavioral, technical and business insights to drive better user experiences.
-
-### Key Features
-
-- **📊 Real-time Monitoring** - Track user interactions, performance metrics, and system health
-- **🔍 Distributed Tracing** - Follow requests across microservices and distributed systems
-- **📱 Mobile Observability** - Native SDKs for Android and React Native applications
-- **🚨 Alerting** - Flexible alert management with multiple notification channels
-- **📈 Analytics** - Advanced analytics powered by ClickHouse for high-performance queries
-- **🔌 OpenTelemetry Native** - Built on OpenTelemetry standards for vendor-neutral observability
-
----
-
-## 🚀 Quick Start
-
-- **[Setup Guide][docs-setup]** - Get Pulse up and running locally
-- **[Android SDK][docs-android]** - Integrate Pulse into your Android app
-- **[React Native SDK][docs-react-native]** - Integrate Pulse into your React Native app
+Open-source observability platform for mobile and web applications.
 
 ---
 
 ## 📚 Documentation
 
-Complete documentation is available at **[https://pulse.dreamhorizon.org/docs/intro][docs-intro]**.
+**All documentation has been moved to the [`docs/`](docs/) folder.**
 
-### Platform & Setup
-- [Introduction][docs-intro] - Overview of Pulse platform
-- [Setup Guide][docs-setup] - Platform setup instructions
+### 🚀 Quick Start
 
-### Mobile SDKs
-- [Android SDK][docs-android] - Installation, Instrumentation, API Reference
-- [React Native SDK][docs-react-native] - Quick Start, Instrumentation, API Reference
+For the multi-tenancy and RBAC implementation:
 
-### API & Reference
-- [API Documentation](https://pulse.dreamhorizon.org/docs/api-documentation/authentication) - Complete API reference
-- [Performance Metrics](https://pulse.dreamhorizon.org/docs/api-documentation/performance-metrics) - Performance metrics API
-- [Critical Interactions](https://pulse.dreamhorizon.org/docs/api-documentation/interactions) - Interaction tracking API
-- [Filters](https://pulse.dreamhorizon.org/docs/api-documentation/filters) - Query filters and parameters
-- [Concepts](https://pulse.dreamhorizon.org/docs/concepts/interaction-overview) - Core concepts and guides
+1. **[docs/IMPLEMENTATION_COMPLETE.md](docs/IMPLEMENTATION_COMPLETE.md)** - Quick overview
+2. **[docs/SETUP_CHECKLIST.md](docs/SETUP_CHECKLIST.md)** - Step-by-step setup
+3. **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** - Detailed integration
 
-### Development
-- [Backend Server](backend/server/README.md) - Backend architecture and development
-- [Web Dashboard](pulse-ui/README.md) - Frontend UI development guide
-- [Android SDK Development](pulse-android-otel/README.md) - Android SDK development
-- [React Native SDK Development](pulse-react-native-otel/README.md) - React Native SDK development
+### 📖 Full Documentation Index
+
+See **[docs/README.md](docs/README.md)** for the complete documentation index.
 
 ---
 
-## 🛠️ Tech Stack
+## 🎯 Recent Updates
 
-**Backend**: Java 17 • Vert.x • MySQL • ClickHouse  
-**Frontend**: React 18 • TypeScript • Mantine UI  
-**Mobile**: Kotlin • OpenTelemetry • React Native  
-**Data**: OpenTelemetry Collector • OTLP
+### Multi-Tenancy & RBAC Implementation (Feb 2026)
+- ✅ Complete authentication system with Google OAuth
+- ✅ Tenant & project hierarchy
+- ✅ OpenFGA authorization
+- ✅ Per-project ClickHouse data isolation
+- ✅ 7 new REST API endpoints
+- ✅ Comprehensive documentation
 
-For detailed technology information, see the [full documentation][docs-intro].
+**Status:** 100% Complete - Ready for Deployment
 
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide][docs-contribution] for detailed information.
-
-**Quick Steps:**
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes and write tests
-4. Format code and commit
-5. Create a pull request
+**Get Started:** See [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md)
 
 ---
 
-## 📄 License
+## 🏗️ Project Structure
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE][license] file for details.
+```
+pulse/
+├── backend/
+│   ├── server/          # Java/Vert.x backend
+│   └── ingestion/       # Data ingestion services
+├── frontend/            # React frontend (if applicable)
+├── docs/               # 📚 All documentation
+│   ├── README.md       # Documentation index
+│   ├── SETUP_CHECKLIST.md
+│   ├── INTEGRATION_GUIDE.md
+│   └── ...
+└── README.md           # This file
+```
+
+---
+
+## 🚀 Quick Commands
+
+### Backend Server
+```bash
+cd backend/server
+mvn clean install
+mvn exec:java
+```
+
+### Run Migrations
+```bash
+mvn flyway:migrate
+```
+
+### Deploy OpenFGA
+```bash
+docker run -d --name openfga -p 8080:8080 openfga/openfga:latest run
+```
+
+---
+
+## 📋 Prerequisites
+
+- Java 11+
+- Maven 3.6+
+- MySQL 8.0+
+- ClickHouse 22.0+
+- Docker (for OpenFGA)
+
+---
+
+## 🔗 Links
+
+- **Documentation:** [`docs/`](docs/)
+- **Setup Guide:** [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md)
+- **Architecture:** [`docs/ARCHITECTURE_DIAGRAMS.md`](docs/ARCHITECTURE_DIAGRAMS.md)
 
 ---
 
 ## 📞 Support
 
-- **📖 Documentation**: [https://pulse.dreamhorizon.org/docs/intro][docs-intro]
-- **🐛 Issues**: Open a GitHub issue
-- **💬 Discussions**: Use GitHub Discussions
+For integration questions or issues, refer to:
+- [`docs/INTEGRATION_GUIDE.md`](docs/INTEGRATION_GUIDE.md) - Troubleshooting section
+- [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md) - Common issues
 
 ---
 
-<div align="center">
+## ✅ Implementation Status
 
-**Built with ❤️ by the Pulse Team**
+**Multi-Tenancy & RBAC:** ✅ 100% Complete
 
-[Contributing][docs-contribution] • [License][license]
+See [`docs/FINAL_STATUS.md`](docs/FINAL_STATUS.md) for details.
 
-</div>
+---
 
-[docs-intro]: https://pulse.dreamhorizon.org/docs/intro
-[docs-setup]: https://pulse.dreamhorizon.org/docs/setup
-[docs-android]: https://pulse.dreamhorizon.org/docs/sdk/android/overview
-[docs-react-native]: https://pulse.dreamhorizon.org/docs/sdk/react-native/overview
-[docs-contribution]: https://pulse.dreamhorizon.org/docs/contribution
-[license]: LICENSE
+**Ready to start?** Open [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md)

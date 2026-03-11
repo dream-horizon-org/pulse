@@ -47,18 +47,18 @@ HOW BATCHING WORKS
 
 2. Flush (queue → backend)
 
-   A flush takes up to maxBatchSize files from the front of the queue, and for each file:
+   A flush takes up to maxBatchSize files from the front of the queue:
 
-   1. Read and decrypt the file.
-   2. Call realSend(envelopeJson) (e.g. OTLP log export).
-   3. Delete the file.
+   1. Read and decrypt each file (do not delete yet).
+   2. Combine into one payload and call realSend(payload). realSend returns Result<Unit>.
+   3. On success: delete the files. On failure (e.g. API error, no network): re-queue the files at the front of the queue so the next flush or app launch will retry.
 
    Flush runs in two ways:
 
    • Timer: Every flushIntervalSeconds seconds, a background task runs flushIfNeeded().
    • Size: Right after adding a file, if deque.size >= flushAt, flushIfNeeded() is run immediately.
 
-   So batches are sent in order, either periodically or when the queue gets large enough.
+   So batches are sent in order, and failed sends are retried without data loss.
 
 
 3. Send cached events (after app kill)
@@ -67,9 +67,10 @@ HOW BATCHING WORKS
 
    1. List all .replay files in the SDK storage directory (from the previous process).
    2. Sort by file modification time (ascending).
-   3. For each file: read → decrypt → realSend → delete.
+   3. Read and decrypt all files (do not delete yet), combine into one payload, call realSend(payload).
+   4. On success: delete the files. On failure: do not delete; files remain on disk and will be retried on the next app launch.
 
-   So any batches that were written to disk but not yet flushed (e.g. app was killed) are sent on the next run, in order.
+   So any batches that were written to disk but not yet flushed (e.g. app was killed) are sent on the next run, and API/network failures are retried on subsequent launches.
 
 
 4. Shutdown
@@ -87,9 +88,9 @@ FLOW SUMMARY
 
   [Timer every flushIntervalSeconds] → flush()
 
-  [Flush] → take up to maxBatchSize files from queue → for each: read → decrypt → realSend → delete
+  [Flush] → take files from queue → read → realSend(payload) → on success delete, on failure re-queue
 
-  [App restarted] → sendCachedEvents() → list files → sort by mtime → for each: read → decrypt → realSend → delete
+  [App restarted] → sendCachedEvents() → list files → read all → realSend(payload) → on success delete, on failure leave files for next launch
 
 
 -------------------------------------------------------------------------------
@@ -138,7 +139,7 @@ WHAT IS NOT CONFIGURABLE
 
 • Send cached on startup: Always runs once when the SDK initializes session replay; there is no switch to disable it.
 
-• Encryption and storage directory: Always on; fixed by the SDK (not configurable).
+• Encryption: Always on (default or custom); there is no option to disable encryption for persistence.
 
 
 -------------------------------------------------------------------------------

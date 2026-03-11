@@ -10,8 +10,10 @@ package io.opentelemetry.android.demo
 import android.annotation.SuppressLint
 import android.app.Application
 import android.util.Log
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.PulseSDK
-import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.ImagePrivacy
+import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -48,18 +50,14 @@ class OtelDemoApplication : Application() {
             PulseSDK.INSTANCE.initialize(
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
-                projectId = "project-123",
+                dataCollectionState = PulseDataCollectionConsent.ALLOWED,
+                projectId = "default",
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },
                 sessionConfig = SessionConfig(
                     backgroundInactivityTimeout = 2.minutes,
                     maxLifetime = 1.days
-                ),
-                sessionReplayConfig = SessionReplayConfig(
-                    screenshot = true,
-                    throttleDelayMs = 1000L,
-                    screenshotQuality = 30,
                 ),
             ) {
                 interaction {
@@ -71,6 +69,14 @@ class OtelDemoApplication : Application() {
                 }
                 fragment {
                     enabled(true)
+                }
+                sessionReplay {
+                    textAndInputPrivacy = TextAndInputPrivacy.MASK_ALL_INPUTS
+                    imagePrivacy = ImagePrivacy.MASK_ALL
+                    screenshot = true
+                    throttleDelayMs = 1000L
+                    screenshotQuality = 30
+                    replayApiBaseUrl = "http://10.0.2.2:3400"
                 }
             }
             PulseSDK.INSTANCE.getOtelOrThrow()

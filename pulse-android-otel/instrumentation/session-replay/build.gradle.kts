@@ -28,6 +28,9 @@ kotlin {
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 dependencies {
+    api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.session)
+    implementation(projects.pulseUtils)
     implementation(libs.findLibrary("androidx-core").get())
     implementation("com.squareup.curtains:curtains:1.2.5")
     implementation(libs.findLibrary("findbugs-jsr305").get())
@@ -38,4 +41,6 @@ dependencies {
     testImplementation(libs.findBundle("junit").get())
     testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
     testImplementation(libs.findLibrary("robolectric").get())
+    testImplementation(libs.findLibrary("okhttp-mockwebserver").get())
+    testImplementation("org.json:json:20231013")
 }

@@ -13,6 +13,7 @@ import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.VectorDrawable
 import android.os.Build
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -30,24 +31,22 @@ import android.widget.RatingBar
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
+import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
-import com.pulse.android.sdk.replay.internal.util.webpBase64
 import com.pulse.android.sdk.replay.internal.util.isValid
+import com.pulse.android.sdk.replay.internal.util.webpBase64
+import com.pulse.android.sdk.replay.ui.hasPrivacyMaskTag
+import com.pulse.android.sdk.replay.ui.hasPrivacyUnmaskTag
 
 /**
- * View-to-wireframe capture (mirrors PostHog View.toWireframe). View-based only; no Compose wireframes.
+ * View-to-wireframe capture. View-based only; no Compose wireframes.
+ * Masking logic is aligned with [MaskingCollector] (same priority system).
  */
 internal object WireframeCapture {
-
-    private val passwordInputTypes = listOf(
-        android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD,
-        android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
-        android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
-        android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD,
-    )
 
     fun toWireframe(
         view: View,
@@ -258,17 +257,59 @@ internal object WireframeCapture {
         )
     }
 
-    private fun View.isNoCapture(config: SessionReplayConfig): Boolean =
-        config.maskAllTextInputs || (tag as? String)?.lowercase()?.contains(ReplayConstants.MASK_TAG) == true ||
-            contentDescription?.toString()?.lowercase()?.contains(ReplayConstants.MASK_TAG) == true
+    // --- Masking decisions (aligned with MaskingCollector) ---
 
-    private fun TextView.shouldMaskTextView(config: SessionReplayConfig): Boolean =
-        isNoCapture(config) || passwordInputTypes.contains(inputType - 1)
+    private fun View.isExplicitlyUnmasked(): Boolean {
+        if (hasPrivacyUnmaskTag()) return true
+        val tagStr = (tag as? String)?.lowercase()
+        if (tagStr?.contains(ReplayConstants.UNMASK_TAG) == true) return true
+        val cd = contentDescription?.toString()?.lowercase()
+        if (cd?.contains(ReplayConstants.UNMASK_TAG) == true) return true
+        return false
+    }
 
-    private fun Spinner.shouldMaskSpinner(config: SessionReplayConfig): Boolean = isNoCapture(config)
+    private fun View.isExplicitlyMasked(): Boolean {
+        if (hasPrivacyMaskTag()) return true
+        val tagStr = (tag as? String)?.lowercase()
+        if (tagStr?.contains(ReplayConstants.MASK_TAG) == true) return true
+        val cd = contentDescription?.toString()?.lowercase()
+        if (cd?.contains(ReplayConstants.MASK_TAG) == true) return true
+        return false
+    }
 
-    private fun ImageView.shouldMaskImage(config: SessionReplayConfig, dm: android.util.DisplayMetrics): Boolean =
-        isNoCapture(config) && drawable?.shouldMaskDrawable(dm) == true
+    private fun TextView.shouldMaskTextView(config: SessionReplayConfig): Boolean {
+        if (isExplicitlyUnmasked()) return false
+        if (isExplicitlyMasked()) return true
+        if (isPasswordInputType(inputType)) return true
+        if (this is EditText) {
+            return when (config.textAndInputPrivacy) {
+                TextAndInputPrivacy.MASK_ALL -> true
+                TextAndInputPrivacy.MASK_ALL_INPUTS -> true
+                TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> isSensitiveInputType(inputType)
+            }
+        }
+        return when (config.textAndInputPrivacy) {
+            TextAndInputPrivacy.MASK_ALL -> true
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> false
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> isSensitiveInputType(inputType)
+        }
+    }
+
+    private fun Spinner.shouldMaskSpinner(config: SessionReplayConfig): Boolean {
+        if (isExplicitlyUnmasked()) return false
+        if (isExplicitlyMasked()) return true
+        return when (config.textAndInputPrivacy) {
+            TextAndInputPrivacy.MASK_ALL -> true
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> true
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> false
+        }
+    }
+
+    private fun ImageView.shouldMaskImage(config: SessionReplayConfig, dm: android.util.DisplayMetrics): Boolean {
+        if (isExplicitlyUnmasked()) return false
+        if (isExplicitlyMasked()) return true
+        return config.imagePrivacy == ImagePrivacy.MASK_ALL && drawable?.shouldMaskDrawable(dm) == true
+    }
 
     @Suppress("UNUSED_PARAMETER")
     private fun Drawable.shouldMaskDrawable(dm: android.util.DisplayMetrics): Boolean = when (this) {
@@ -276,6 +317,25 @@ internal object WireframeCapture {
         is BitmapDrawable -> bitmap.isValid()
         else -> true
     }
+
+    private fun isPasswordInputType(inputType: Int): Boolean {
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+        val cls = inputType and InputType.TYPE_MASK_CLASS
+        return variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+            (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+    }
+
+    private fun isSensitiveInputType(inputType: Int): Boolean {
+        if (isPasswordInputType(inputType)) return true
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+        val cls = inputType and InputType.TYPE_MASK_CLASS
+        return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+            cls == InputType.TYPE_CLASS_PHONE
+    }
+
+    // --- Drawing helpers ---
 
     private fun Drawable.toRGBColor(): String? = when (this) {
         is ColorDrawable -> color.toRGBColor()
@@ -293,7 +353,7 @@ internal object WireframeCapture {
         cloned: Boolean = false,
     ): String? {
         config.drawableConverter?.convert(this)?.let { return it.webpBase64() }
-        var clonedDrawable = if (cloned) this else copy() ?: return null
+        val clonedDrawable = if (cloned) this else copy() ?: return null
         when (clonedDrawable) {
             is BitmapDrawable -> return clonedDrawable.bitmap.webpBase64()
             is LayerDrawable -> return (0 until clonedDrawable.numberOfLayers).firstOrNull { clonedDrawable.getDrawable(it) != null }?.let { clonedDrawable.getDrawable(it)?.base64(width, height, config, displayMetrics) }

@@ -50,6 +50,7 @@ import { useGetDataQuery } from "../../hooks";
 import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
+import { useProjectContext } from "../../contexts";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -61,6 +62,7 @@ interface InteractionMetrics {
 
 export function CriticalInteractionList() {
   const navigate = useNavigate();
+  const { projectId } = useProjectContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackClick } = useAnalytics("InteractionList");
   const searchFields = Object.fromEntries(searchParams.entries());
@@ -359,7 +361,7 @@ export function CriticalInteractionList() {
   }) => {
     trackClick(`Interaction: ${interaction.name || 'unknown'}`);
     navigate(
-      `${ROUTES["CRITICAL_INTERACTION_DETAILS"].basePath}/${interaction.name || ""}`,
+      `/projects/${projectId}/interaction-details/${interaction.name || ""}`,
     );
   };
 
@@ -489,7 +491,7 @@ export function CriticalInteractionList() {
             </Popover.Dropdown>
           </Popover>
 
-          <Link to={ROUTES["CRITICAL_INTERACTION_FORM"].basePath}>
+          <Link to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(':projectId', projectId || '')}>
             <Button size="sm" variant="light" className={classes.createButton}>
               {
                 CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.CREATE_USER_EXPERIENCE_BUTTON_TEXT

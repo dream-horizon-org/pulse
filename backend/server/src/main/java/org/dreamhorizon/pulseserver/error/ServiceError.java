@@ -32,7 +32,9 @@ public enum ServiceError implements RestError {
   NOT_FOUND("404", "Not Found", 404),
   CRON_SERVICE_ERROR("500", "Cron Service Error", 500),
   DUPLICATE_INTERACTION_NAME_ERROR("500", "Interaction name already present", 500),
-  USER_NOT_FOUND("400", "User not found", 400);
+  INVALID_SLACK_CODE("400", "Invalid Slack code provided", 400),
+  USER_NOT_FOUND("400", "User not found", 400),
+  DUPLICATE_CHANNEL_TYPE("409", "A channel of this type already exists for the project", 409);
 
   private static final Logger log = LoggerFactory.getLogger(ServiceError.class);
   final String errorCode;

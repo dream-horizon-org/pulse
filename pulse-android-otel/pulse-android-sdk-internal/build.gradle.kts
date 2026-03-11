@@ -20,6 +20,8 @@ kotlin {
 }
 
 dependencies {
+    // using api as we are exposing the pulse.api types
+    api(projects.pulseAndroidApi)
     implementation(projects.androidAgent)
     implementation(projects.common)
     implementation(projects.pulseSemconv)
@@ -28,10 +30,12 @@ dependencies {
     implementation(projects.pulseUtils)
     implementation(projects.instrumentation.interaction.interactionLibrary)
     implementation(projects.instrumentation.location.locationProcessors)
+    implementation(projects.instrumentation.sessionReplay)
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.exporter.otlp)
     implementation(libs.opentelemetry.api)
     implementation(libs.opentelemetry.sdk)
     implementation(libs.opentelemetry.semconv.incubating)
     implementation(libs.kotlin.serialisation)
+    testImplementation(testFixtures(projects.pulseUtils))
 }

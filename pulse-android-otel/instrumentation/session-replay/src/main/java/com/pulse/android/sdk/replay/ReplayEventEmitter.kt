@@ -7,7 +7,7 @@ import com.pulse.android.sdk.replay.events.ReplayEvent
  * Implement to buffer, upload, or forward to your pipeline.
  * Called on a background thread; do not block longer than necessary.
  *
- * Payload is emitted with a [sessionId] (UUID) generated when replay starts with resumeCurrent = false.
+ * [sessionId] is typically from the RUM session (e.g. [SessionProvider]); when not set, a single UUID is used per integration instance.
  * Consumers should send the envelope (event + properties.session_id + properties.snapshot_data + properties.snapshot_source) as built by the SDK or build their own.
  */
 public fun interface ReplayEventEmitter {

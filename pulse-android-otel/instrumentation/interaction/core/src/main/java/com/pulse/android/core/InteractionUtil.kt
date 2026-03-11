@@ -1,9 +1,9 @@
 package com.pulse.android.core
 
-import android.util.Log
 import com.pulse.android.remote.models.InteractionAttrsEntry
 import com.pulse.android.remote.models.InteractionConfig
 import com.pulse.android.remote.models.InteractionEvent
+import com.pulse.utils.PulseOtelUtils
 import java.util.Locale
 
 internal object InteractionUtil {
@@ -83,9 +83,8 @@ internal object InteractionUtil {
                                             buildPulseInteraction(
                                                 interactionId = ongoingMatchInteractionId,
                                                 interactionConfig = interactionConfig,
-                                                // making a copy so that any changes to stepWiseTimeInNano doesn't effect the stored value
-                                                events = stepWiseTimeInNano.toList(),
-                                                localMarkers = localMarkers.toList(),
+                                                events = stepWiseTimeInNano,
+                                                localMarkers = localMarkers,
                                                 isSuccessInteraction = true,
                                             ),
                                     ),
@@ -123,9 +122,8 @@ internal object InteractionUtil {
                                     buildPulseInteraction(
                                         interactionId = ongoingMatchInteractionId,
                                         interactionConfig = interactionConfig,
-                                        // making a copy so that any changes to stepWiseTimeInNano doesn't effect the stored value
-                                        events = stepWiseTimeInNano.toList(),
-                                        localMarkers = localMarkers.toList(),
+                                        events = stepWiseTimeInNano,
+                                        localMarkers = localMarkers,
                                         isSuccessInteraction = false,
                                     ),
                             ),
@@ -240,8 +238,9 @@ internal object InteractionUtil {
                 InteractionConstant.NAME to interactionName,
                 InteractionConstant.CONFIG_ID to interactionConfigId,
                 InteractionConstant.LAST_EVENT_TIME_IN_NANO to lastEventTimeInNano,
-                InteractionConstant.LOCAL_EVENTS to events,
-                InteractionConstant.MARKER_EVENTS to localMarkers,
+                // making a copy so that any changes to stepWiseTimeInNano doesn't effect the stored value
+                InteractionConstant.LOCAL_EVENTS to events.toList(),
+                InteractionConstant.MARKER_EVENTS to localMarkers.toList(),
                 InteractionConstant.APDEX_SCORE to upTimeIndex,
                 InteractionConstant.USER_CATEGORY to timeCategory?.categoryName,
                 InteractionConstant.TIME_TO_COMPLETE_IN_NANO to timeDifferenceInNano,
@@ -269,7 +268,7 @@ internal object InteractionUtil {
 }
 
 internal inline fun logDebug(body: () -> String) {
-    Log.d(InteractionConstant.LOG_TAG, body())
+    PulseOtelUtils.logDebug(InteractionConstant.LOG_TAG, body)
 }
 
 /**
@@ -282,17 +281,25 @@ public class Interaction internal constructor(
 )
 
 @Suppress("UNCHECKED_CAST")
-// TODO: Investigate why events list can be empty or have only 1 item, causing IndexOutOfBoundsException
-// Crash logs show: "Index 0 out of bounds for length 0" and "Index 1 out of bounds for length 1"
-// This safety check prevents crash but we need to understand root cause
-public val Interaction.timeSpanInNanos: Pair<Long, Long>?
-    get() {
-        val steps = events
-        if (steps.size < 2) {
-            return null
+internal fun Interaction.getTimeSpanInNanos(timeOutInMs: Long): Pair<Long, Long>? {
+    val steps = events
+    if (steps.isEmpty()) {
+        PulseOtelUtils.logError(
+            tag = InteractionConstant.LOG_TAG,
+            throwable = IllegalStateException("getTimeSpanInNanos: Events size is 0)"),
+        ) {
+            "getTimeSpanInNanos: Events size is 0."
         }
-        return steps[0].timeInNano to steps[1].timeInNano
+        return null
     }
+    if (steps.size == 1) {
+        return steps[0].timeInNano to steps[0].timeInNano + timeOutInMs * 1000000
+    }
+    return steps[0].timeInNano to steps[1].timeInNano
+}
+
+public fun Interaction.getTimeSpanInNanos(interactionStatus: InteractionRunningStatus.OngoingMatch): Pair<Long, Long>? =
+    this.getTimeSpanInNanos(timeOutInMs = interactionStatus.interactionConfig.thresholdInMs)
 
 @Suppress("UNCHECKED_CAST")
 public val Interaction.events: List<InteractionLocalEvent>

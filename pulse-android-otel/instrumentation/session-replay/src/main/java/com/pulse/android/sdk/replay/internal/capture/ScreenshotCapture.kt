@@ -11,7 +11,7 @@ import android.graphics.Bitmap
 import androidx.annotation.RequiresApi
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.Looper
+
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.internal.util.webpBase64
@@ -29,7 +29,9 @@ internal object ScreenshotCapture {
 
     /**
      * Capture screenshot. Runs on background. [getMaskRects] is invoked with the view and a list
-     * to fill with mask rects (in view/screen coordinates); returns false if capture should be discarded.
+     * to fill with mask rects (in window coordinates matching the bitmap); returns false if
+     * capture should be discarded. Mask rects are collected **before** PixelCopy to avoid
+     * timing races with screen changes.
      * @param screenshotScale Scale factor (0.01, 1.0]. e.g. 0.5 = half dimensions. Reduces payload size.
      * @param screenshotQuality WebP lossy quality 0–100. Lower = smaller size.
      */
@@ -61,6 +63,14 @@ internal object ScreenshotCapture {
         val width = view.width.densityValue(displayMetrics.density)
         val height = view.height.densityValue(displayMetrics.density)
 
+        // Reset draw flag, then collect mask rects BEFORE PixelCopy to avoid
+        // timing race: the view hierarchy must be read while it still matches
+        // the screen state that PixelCopy will capture. Collecting inside the
+        // async callback risks reading a stale/changed hierarchy.
+        setOnDrawFlag(false)
+        val maskableWidgets = mutableListOf<android.graphics.Rect>()
+        val masksValid = getMaskRects(view, maskableWidgets)
+
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val latch = CountDownLatch(1)
         var success = true
@@ -68,7 +78,6 @@ internal object ScreenshotCapture {
         val handler = Handler(thread.looper)
 
         try {
-            setOnDrawFlag(false)
             PixelCopy.request(window, bitmap, { copyResult ->
                 try {
                     if (copyResult != PixelCopy.SUCCESS) {
@@ -77,35 +86,28 @@ internal object ScreenshotCapture {
                         success = false
                         return@request
                     }
-                    if (!onDrawFlag()) {
-                        val maskableWidgets = mutableListOf<android.graphics.Rect>()
-                        if (getMaskRects(view, maskableWidgets)) {
-                            if (!bitmap.isValid()) {
-                                bitmap.recycle()
-                                logger("Session Replay Bitmap is invalid")
-                                success = false
-                                return@request
-                            }
-                            val canvas = try {
-                                Canvas(bitmap)
-                            } catch (e: Throwable) {
-                                bitmap.recycle()
-                                logger("Session Replay Canvas creation failed: $e")
-                                success = false
-                                return@request
-                            }
-                            for (rect in maskableWidgets) {
-                                if (onDrawFlag()) {
-                                    bitmap.recycle()
-                                    success = false
-                                    return@request
-                                }
-                                canvas.drawRoundRect(RectF(rect), 10f, 10f, maskPaint)
-                            }
-                        } else {
+                    if (!onDrawFlag() && masksValid) {
+                        if (!bitmap.isValid()) {
                             bitmap.recycle()
+                            logger("Session Replay Bitmap is invalid")
                             success = false
                             return@request
+                        }
+                        val canvas = try {
+                            Canvas(bitmap)
+                        } catch (e: Throwable) {
+                            bitmap.recycle()
+                            logger("Session Replay Canvas creation failed: $e")
+                            success = false
+                            return@request
+                        }
+                        for (rect in maskableWidgets) {
+                            if (onDrawFlag()) {
+                                bitmap.recycle()
+                                success = false
+                                return@request
+                            }
+                            canvas.drawRoundRect(RectF(rect), 10f, 10f, maskPaint)
                         }
                     } else {
                         bitmap.recycle()

@@ -14,6 +14,7 @@ kotlin {
 }
 
 dependencies {
+    api(projects.pulseAndroidApi)
     api(projects.androidAgent)
     api(projects.instrumentation.sessionReplay)
     implementation(projects.pulseAndroidSdkInternal)

@@ -9,7 +9,7 @@ import {
 } from "@tabler/icons-react";
 import { AlertDetailProps } from "./AlertDetail.interface";
 import classes from "./AlertDetail.module.css";
-import { COMMON_CONSTANTS, ROUTES } from "../../constants";
+import { COMMON_CONSTANTS, NAVBAR_ROUTES, ROUTES } from "../../constants";
 import { useState } from "react";
 import { useGetAlertEvaluationHistory } from "../../hooks/useGetAlertEvaluationHistory";
 import { useGetAlertDetails } from "../../hooks/useGetAlertDetails";
@@ -166,7 +166,7 @@ export function AlertDetail(_props: AlertDetailProps) {
     },
   });
 
-  const handleBack = () => navigate(ROUTES.ALERTS.basePath);
+  const handleBack = () => navigate(NAVBAR_ROUTES.ALERTS);
   const handleEdit = () => navigate(`${ROUTES.ALERTS_FORM.basePath}/${alertId}`);
   
   const handleSnooze = (durationMs: number) => {

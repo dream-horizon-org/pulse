@@ -10,31 +10,39 @@ import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.compose.ui.semantics.getAllSemanticsNodes
+import androidx.core.view.isEmpty
+import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.ReplayConstants
-import com.pulse.android.sdk.replay.ui.PulseReplayMaskKey
 import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.TextAndInputPrivacy
+import com.pulse.android.sdk.replay.ui.PulseReplayMaskKey
+import com.pulse.android.sdk.replay.ui.hasPrivacyMaskTag
+import com.pulse.android.sdk.replay.ui.hasPrivacyUnmaskTag
 
 /**
  * Collects rects that should be masked (drawn over) in screenshot mode.
- * Respects [SessionReplayConfig] (maskAllTextInputs, maskAllImages) and per-view tags:
- * - tag or contentDescription containing [MASK_TAG] → mask this view
- * - [UNMASK_TAG] → do not mask (override global for this view)
+ *
+ * Masking priority (highest to lowest):
+ * 1. Per-view instance: tag/extension ([ReplayConstants.MASK_TAG], [ReplayConstants.UNMASK_TAG],
+ *    [pulseReplayMask][com.pulse.android.sdk.replay.ui.pulseReplayMask],
+ *    [pulseReplayUnmask][com.pulse.android.sdk.replay.ui.pulseReplayUnmask])
+ * 2. Per-view class: [SessionReplayConfig.maskViewClasses] / [SessionReplayConfig.unmaskViewClasses]
+ * 3. Global config: [SessionReplayConfig.textAndInputPrivacy], [SessionReplayConfig.imagePrivacy]
+ *
+ * ViewGroup propagation: a force-masked parent masks all children unless a child has an explicit unmask override.
  */
 internal object MaskingCollector {
 
     private val MASK_TAG = ReplayConstants.MASK_TAG
     private val UNMASK_TAG = ReplayConstants.UNMASK_TAG
 
-    private val passwordInputTypes = listOf(
-        InputType.TYPE_TEXT_VARIATION_PASSWORD,
-        InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
-        InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
-        InputType.TYPE_NUMBER_VARIATION_PASSWORD,
-    )
-
     /**
-     * Fill [maskableWidgets] with global visible rects for views that should be masked.
-     * Returns false if traversal was aborted (e.g. screen changed); [onDrawCalled] can be checked by caller.
+     * Fill [maskableWidgets] with window-relative rects for views that should be masked.
+     * Returns false if traversal was aborted (e.g. screen changed).
+     *
+     * All rects added to [maskableWidgets] are in window coordinates (matching the
+     * PixelCopy bitmap). View-based rects are converted from screen coordinates using
+     * [screenToWindowOffset]; Compose rects from `boundsInWindow` are already window-relative.
      */
     fun findMaskableWidgets(
         view: View,
@@ -43,92 +51,229 @@ internal object MaskingCollector {
         visitedViews: MutableSet<Int> = mutableSetOf(),
         onDrawCalled: () -> Boolean,
         logger: (String) -> Unit,
+        parentForcedMask: Boolean = false,
+        screenToWindowOffset: IntArray = computeScreenToWindowOffset(view),
     ): Boolean {
         val viewId = System.identityHashCode(view)
         if (viewId in visitedViews) return true
         visitedViews.add(viewId)
 
-        var walkChildren = false
-
-        when {
-            view.isComposeView(logger) -> {
-                findMaskableComposeWidgets(view, config, maskableWidgets, logger)
-                walkChildren = true
-            }
-            view.isNoCapture(config) -> {
-                view.globalVisibleRectSafe(logger)?.let { maskableWidgets.add(it) }
-            }
-            view is TextView -> {
-                var maskIt = false
-                val viewText = view.text?.toString()
-                if (!viewText.isNullOrEmpty()) maskIt = view.shouldMaskTextView(config)
-                val hint = view.hint?.toString()
-                if (!maskIt && !hint.isNullOrEmpty()) maskIt = view.shouldMaskTextView(config)
-                if (maskIt) {
-                    view.getTextAreaGlobalVisibleRect(logger)?.let { maskableWidgets.add(it) }
-                        ?: view.globalVisibleRectSafe(logger)?.let { maskableWidgets.add(it) }
-                }
-            }
-            view is Spinner -> {
-                if (view.shouldMaskSpinner(config)) {
-                    view.globalVisibleRectSafe(logger)?.let { maskableWidgets.add(it) }
-                }
-            }
-            view is ImageView -> {
-                if (view.shouldMaskImage(config)) {
-                    view.globalVisibleRectSafe(logger)?.let { maskableWidgets.add(it) }
-                }
-            }
-            view is WebView -> {
-                if (view.isAnyInputSensitive(config)) {
-                    view.globalVisibleRectSafe(logger)?.let { maskableWidgets.add(it) }
-                }
-            }
-            view is ViewGroup && view.childCount > 0 -> walkChildren = true
+        if (view.isComposeView(logger)) {
+            findMaskableComposeWidgets(view, config, maskableWidgets, logger)
+            return walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask = false, screenToWindowOffset)
         }
 
-        if (walkChildren && view is ViewGroup && view.childCount > 0) {
-            for (i in 0 until view.childCount) {
-                if (onDrawCalled()) {
-                    logger("Session Replay screenshot discarded due to screen changes")
-                    return false
-                }
-                val child = view.getChildAt(i) ?: continue
-                if (!child.isVisible(logger)) continue
-                if (!findMaskableWidgets(child, config, maskableWidgets, visitedViews, onDrawCalled, logger)) {
-                    return false
-                }
+        val instanceDecision = view.resolveInstanceDecision()
+        val classDecision = view.resolveClassDecision(config)
+
+        val effectiveDecision = if (instanceDecision != MaskDecision.UNDECIDED) instanceDecision else classDecision
+        var forceMaskChildren = parentForcedMask
+
+        when {
+            effectiveDecision == MaskDecision.UNMASK -> {
+                forceMaskChildren = false
+            }
+            effectiveDecision == MaskDecision.MASK -> {
+                view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                forceMaskChildren = true
+            }
+            parentForcedMask -> {
+                view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                forceMaskChildren = true
+            }
+            else -> {
+                applyTypeSpecificMasking(view, config, maskableWidgets, screenToWindowOffset, logger)
+            }
+        }
+
+        return walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, forceMaskChildren, screenToWindowOffset)
+    }
+
+    private fun walkChildren(
+        view: View,
+        config: SessionReplayConfig,
+        maskableWidgets: MutableList<Rect>,
+        visitedViews: MutableSet<Int>,
+        onDrawCalled: () -> Boolean,
+        logger: (String) -> Unit,
+        parentForcedMask: Boolean,
+        screenToWindowOffset: IntArray,
+    ): Boolean {
+        if (view !is ViewGroup || view.isEmpty()) return true
+        for (i in 0 until view.childCount) {
+            if (onDrawCalled()) {
+                logger("Session Replay screenshot discarded due to screen changes")
+                return false
+            }
+            val child = view.getChildAt(i) ?: continue
+            if (!child.isVisible(logger)) continue
+            if (!findMaskableWidgets(child, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask, screenToWindowOffset)) {
+                return false
             }
         }
         return true
     }
 
-    private fun View.isNoCapture(config: SessionReplayConfig): Boolean =
-        (tag as? String)?.lowercase()?.contains(MASK_TAG) == true ||
-            contentDescription?.toString()?.lowercase()?.contains(MASK_TAG) == true
+    // --- Per-view instance decision (priority 1) ---
 
-    private fun View.isTextInputSensitive(config: SessionReplayConfig): Boolean =
-        config.maskAllTextInputs || (tag as? String)?.lowercase()?.contains(MASK_TAG) == true ||
-            contentDescription?.toString()?.lowercase()?.contains(MASK_TAG) == true
+    private fun View.resolveInstanceDecision(): MaskDecision {
+        if (hasPrivacyUnmaskTag()) return MaskDecision.UNMASK
+        if (hasPrivacyMaskTag()) return MaskDecision.MASK
 
-    private fun View.isAnyInputSensitive(config: SessionReplayConfig): Boolean =
-        isTextInputSensitive(config) || config.maskAllImages
+        val tagStr = (tag as? String)?.lowercase()
+        if (tagStr != null) {
+            if (tagStr.contains(UNMASK_TAG)) return MaskDecision.UNMASK
+            if (tagStr.contains(MASK_TAG)) return MaskDecision.MASK
+        }
 
-    private fun TextView.shouldMaskTextView(config: SessionReplayConfig): Boolean =
-        isTextInputSensitive(config) || passwordInputTypes.contains(inputType - 1)
+        val cd = contentDescription?.toString()?.lowercase()
+        if (cd != null) {
+            if (cd.contains(UNMASK_TAG)) return MaskDecision.UNMASK
+            if (cd.contains(MASK_TAG)) return MaskDecision.MASK
+        }
 
-    private fun ImageView.shouldMaskImage(config: SessionReplayConfig): Boolean =
-        isTextInputSensitive(config) && drawable != null
+        return MaskDecision.UNDECIDED
+    }
 
-    private fun Spinner.shouldMaskSpinner(config: SessionReplayConfig): Boolean =
-        isTextInputSensitive(config)
+    // --- Per-view class decision (priority 2) ---
 
-    private fun View.globalVisibleRectSafe(logger: (String) -> Unit): Rect? {
+    private fun View.resolveClassDecision(config: SessionReplayConfig): MaskDecision {
+        if (config.unmaskViewClasses.isNotEmpty() && isInstanceOfRegistered(config.unmaskViewClasses)) {
+            return MaskDecision.UNMASK
+        }
+        if (config.maskViewClasses.isNotEmpty() && isInstanceOfRegistered(config.maskViewClasses)) {
+            return MaskDecision.MASK
+        }
+        return MaskDecision.UNDECIDED
+    }
+
+    private fun View.isInstanceOfRegistered(classNames: Set<String>): Boolean {
+        var clazz: Class<*>? = javaClass
+        while (clazz != null) {
+            if (clazz.name in classNames) return true
+            clazz = clazz.superclass
+        }
+        return false
+    }
+
+    // --- Type-specific masking (priority 3: global config) ---
+
+    private fun applyTypeSpecificMasking(
+        view: View,
+        config: SessionReplayConfig,
+        maskableWidgets: MutableList<Rect>,
+        screenToWindowOffset: IntArray,
+        logger: (String) -> Unit,
+    ) {
+        when (view) {
+            is EditText -> {
+                if (shouldMaskEditText(view, config)) {
+                    view.getTextAreaWindowRect(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                        ?: view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                }
+            }
+            is TextView -> {
+                val hasContent = !view.text.isNullOrEmpty() || !view.hint.isNullOrEmpty()
+                if (hasContent && shouldMaskTextView(view, config)) {
+                    view.getTextAreaWindowRect(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                        ?: view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                }
+            }
+            is Spinner -> {
+                if (shouldMaskSpinner(config)) {
+                    view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                }
+            }
+            is ImageView -> {
+                if (shouldMaskImage(view, config)) {
+                    view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                }
+            }
+            is WebView -> {
+                if (shouldMaskWebView(config)) {
+                    view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
+                }
+            }
+        }
+    }
+
+    private fun shouldMaskEditText(view: EditText, config: SessionReplayConfig): Boolean {
+        if (isPasswordInputType(view.inputType)) return true
+        return when (config.textAndInputPrivacy) {
+            TextAndInputPrivacy.MASK_ALL -> true
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> true
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> isSensitiveInputType(view.inputType)
+        }
+    }
+
+    private fun shouldMaskTextView(view: TextView, config: SessionReplayConfig): Boolean {
+        if (isPasswordInputType(view.inputType)) return true
+        return when (config.textAndInputPrivacy) {
+            TextAndInputPrivacy.MASK_ALL -> true
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> false
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> isSensitiveInputType(view.inputType)
+        }
+    }
+
+    private fun shouldMaskSpinner(config: SessionReplayConfig): Boolean =
+        when (config.textAndInputPrivacy) {
+            TextAndInputPrivacy.MASK_ALL -> true
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> true
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> false
+        }
+
+    private fun shouldMaskImage(view: ImageView, config: SessionReplayConfig): Boolean =
+        config.imagePrivacy == ImagePrivacy.MASK_ALL && view.drawable != null
+
+    private fun shouldMaskWebView(config: SessionReplayConfig): Boolean =
+        config.textAndInputPrivacy != TextAndInputPrivacy.MASK_SENSITIVE_INPUTS ||
+            config.imagePrivacy == ImagePrivacy.MASK_ALL
+
+    // --- Input type classification ---
+
+    private fun isPasswordInputType(inputType: Int): Boolean {
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+        val cls = inputType and InputType.TYPE_MASK_CLASS
+        return variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+            (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+    }
+
+    private fun isSensitiveInputType(inputType: Int): Boolean {
+        if (isPasswordInputType(inputType)) return true
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+        val cls = inputType and InputType.TYPE_MASK_CLASS
+        return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+            cls == InputType.TYPE_CLASS_PHONE
+    }
+
+    // --- Rect helpers ---
+
+    /**
+     * Compute the delta between screen coordinates and window coordinates.
+     * `getGlobalVisibleRect` returns screen coords; subtracting this offset
+     * converts them to window (bitmap) coordinates.
+     */
+    private fun computeScreenToWindowOffset(view: View): IntArray {
+        val screenLoc = IntArray(2)
+        val windowLoc = IntArray(2)
+        view.getLocationOnScreen(screenLoc)
+        view.getLocationInWindow(windowLoc)
+        return intArrayOf(screenLoc[0] - windowLoc[0], screenLoc[1] - windowLoc[1])
+    }
+
+    /**
+     * Returns the visible rect of this view in **window** coordinates
+     * (matching the PixelCopy bitmap's coordinate space).
+     */
+    private fun View.windowVisibleRectSafe(offset: IntArray, logger: (String) -> Unit): Rect? {
         return try {
             if (!isViewStateStableForMatrixOperations(logger)) null
             else {
                 val rect = Rect()
                 getGlobalVisibleRect(rect, null)
+                rect.offset(-offset[0], -offset[1])
                 rect
             }
         } catch (_: Throwable) {
@@ -136,8 +281,8 @@ internal object MaskingCollector {
         }
     }
 
-    private fun TextView.getTextAreaGlobalVisibleRect(logger: (String) -> Unit): Rect? {
-        val fullRect = globalVisibleRectSafe(logger) ?: return null
+    private fun TextView.getTextAreaWindowRect(offset: IntArray, logger: (String) -> Unit): Rect? {
+        val fullRect = windowVisibleRectSafe(offset, logger) ?: return null
         val shouldAdjust = this is EditText || this is android.widget.Button
         if (!shouldAdjust) return fullRect
         val left = fullRect.left + compoundPaddingLeft
@@ -152,6 +297,9 @@ internal object MaskingCollector {
     private fun View.isViewStateStableForMatrixOperations(logger: (String) -> Unit): Boolean =
         ScreenshotCapture.isViewStateStable(this, logger)
 
+    // --- Compose detection ---
+
+    @Suppress("UNUSED_PARAMETER")
     private fun View.isComposeView(logger: (String) -> Unit): Boolean {
         if (!isComposeAvailable) return false
         return javaClass.name.contains("AndroidComposeView")
@@ -161,13 +309,28 @@ internal object MaskingCollector {
         try {
             Class.forName("androidx.compose.ui.platform.AndroidComposeView")
             true
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private val isComposeRoleAvailable: Boolean by lazy {
+        try {
+            Class.forName("androidx.compose.ui.semantics.Role")
+            true
+        } catch (_: Throwable) {
             false
         }
     }
 
     /**
-     * Compose: collect mask rects from semantics. Must be called on main thread.
+     * Compose: collect mask rects from semantics tree.
+     *
+     * Masking priority for Compose:
+     * 1. [pulseReplayMask(true)][com.pulse.android.sdk.replay.ui.pulseReplayMask] -> mask
+     * 2. [pulseReplayMask(false)][com.pulse.android.sdk.replay.ui.pulseReplayMask] -> unmask (skip auto-mask)
+     * 3. Auto-mask text/editable text per [TextAndInputPrivacy]
+     * 4. Auto-mask images per [ImagePrivacy] using [Role.Image] semantics
      */
     private fun findMaskableComposeWidgets(
         view: View,
@@ -184,19 +347,24 @@ internal object MaskingCollector {
             val maskKey = PulseReplayMaskKey
             for (node in semanticsNodes) {
                 val hasMaskModifier = node.config.contains(maskKey)
-                val isNoCapture = hasMaskModifier && node.config[maskKey] == true
+
                 when {
-                    isNoCapture -> maskableWidgets.add(node.boundsInWindow.toAndroidRect())
-                    !hasMaskModifier -> {
+                    hasMaskModifier && node.config[maskKey] == true -> {
+                        maskableWidgets.add(node.boundsInWindow.toAndroidRect())
+                    }
+                    hasMaskModifier -> {
+                        // pulseReplayMask(false) -> explicit unmask, skip all auto-mask rules
+                    }
+                    else -> {
                         val hasText = node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Text)
                         val hasEditableText = node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.EditableText)
                         val hasPassword = node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Password)
-                        val hasImage = node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription)
-                        when {
-                            (hasText || hasEditableText) && (config.maskAllTextInputs || hasPassword) ->
-                                maskableWidgets.add(node.boundsInWindow.toAndroidRect())
-                            hasImage && config.maskAllImages ->
-                                maskableWidgets.add(node.boundsInWindow.toAndroidRect())
+                        val hasImage = resolveComposeHasImage(node)
+
+                        if ((hasText || hasEditableText) && shouldMaskComposeText(config, hasEditableText, hasPassword)) {
+                            maskableWidgets.add(node.boundsInWindow.toAndroidRect())
+                        } else if (hasImage && config.imagePrivacy == ImagePrivacy.MASK_ALL) {
+                            maskableWidgets.add(node.boundsInWindow.toAndroidRect())
                         }
                     }
                 }
@@ -205,6 +373,41 @@ internal object MaskingCollector {
             logger("Session Replay findMaskableComposeWidgets failed: $e")
         }
     }
+
+    private fun shouldMaskComposeText(
+        config: SessionReplayConfig,
+        hasEditableText: Boolean,
+        hasPassword: Boolean,
+    ): Boolean {
+        if (hasPassword) return true
+        return when (config.textAndInputPrivacy) {
+            TextAndInputPrivacy.MASK_ALL -> true
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> hasEditableText
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> hasPassword
+        }
+    }
+
+    /**
+     * Detect images via [Role.Image] semantics (Compose 1.5+).
+     * Falls back to [ContentDescription] heuristic only when Role API is unavailable.
+     */
+    private fun resolveComposeHasImage(node: androidx.compose.ui.semantics.SemanticsNode): Boolean {
+        if (isComposeRoleAvailable) {
+            try {
+                if (node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Role)) {
+                    return node.config[androidx.compose.ui.semantics.SemanticsProperties.Role] ==
+                        androidx.compose.ui.semantics.Role.Image
+                }
+                return false
+            } catch (_: Throwable) {
+                // fall through to heuristic
+            }
+        }
+        return node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription)
+    }
+
+    private enum class MaskDecision { MASK, UNMASK, UNDECIDED }
 }
 
-private fun androidx.compose.ui.geometry.Rect.toAndroidRect(): Rect = Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+private fun androidx.compose.ui.geometry.Rect.toAndroidRect(): Rect =
+    Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())

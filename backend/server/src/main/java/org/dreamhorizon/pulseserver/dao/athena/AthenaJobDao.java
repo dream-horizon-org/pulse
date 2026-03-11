@@ -11,27 +11,31 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJob;
 import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 
+/**
+ * DAO for Athena job operations.
+ * Updated to use project-based isolation while maintaining tenant hierarchy.
+ */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AthenaJobDao {
   private final MysqlClient mysqlClient;
 
   /**
-   * Gets the current tenant ID from the TenantContext.
+   * Gets the current project ID from the ProjectContext.
    */
-  private String getTenantId() {
-    return TenantContext.requireTenantId();
+  private String getProjectId() {
+    return ProjectContext.getProjectId();
   }
 
-  public Single<String> createJob(String tenantId, String queryString, String userEmail) {
+  public Single<String> createJob(String projectId, String queryString, String userEmail) {
     String jobId = UUID.randomUUID().toString();
     return executeUpdate(
         AthenaJobQueries.CREATE_JOB,
-        Tuple.of(jobId, tenantId, queryString, userEmail),
+        Tuple.of(jobId, projectId, queryString, userEmail),
         jobId,
         "Error creating Athena job"
     );
@@ -124,7 +128,7 @@ public class AthenaJobDao {
   public Single<List<AthenaJob>> getQueryHistory(String userEmail, Integer limit, Integer offset) {
     return mysqlClient.getReaderPool()
         .preparedQuery(AthenaJobQueries.GET_QUERY_HISTORY)
-        .rxExecute(Tuple.of(getTenantId(), userEmail, limit, offset))
+        .rxExecute(Tuple.of(getProjectId(), userEmail, limit, offset))
         .map(rowSet -> {
           List<AthenaJob> jobs = new ArrayList<>();
           for (io.vertx.rxjava3.sqlclient.Row row : rowSet) {
@@ -142,7 +146,7 @@ public class AthenaJobDao {
                                                          java.time.LocalDateTime endDate) {
     return mysqlClient.getReaderPool()
         .preparedQuery(AthenaJobQueries.GET_QUERIES_FOR_STATISTICS)
-        .rxExecute(Tuple.of(getTenantId(), userEmail, startDate, endDate))
+        .rxExecute(Tuple.of(getProjectId(), userEmail, startDate, endDate))
         .map(rowSet -> {
           List<AthenaJob> jobs = new ArrayList<>();
           for (io.vertx.rxjava3.sqlclient.Row row : rowSet) {
@@ -159,6 +163,8 @@ public class AthenaJobDao {
   private AthenaJob mapRowToAthenaJob(io.vertx.rxjava3.sqlclient.Row row) {
     return AthenaJob.builder()
         .jobId(row.getString("job_id"))
+        .tenantId(row.getString("tenant_id"))
+        .projectId(row.getString("project_id"))
         .queryString(row.getString("query_string"))
         .userEmail(row.getString("user_email"))
         .queryExecutionId(row.getString("query_execution_id"))
