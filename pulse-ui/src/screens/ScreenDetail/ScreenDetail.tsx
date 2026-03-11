@@ -30,7 +30,7 @@ import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTi
 import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 import {
   DEFAULT_QUICK_TIME_FILTER,
-  ROUTES,
+  NAVBAR_ROUTES,
 } from "../../constants";
 import { useFilterStore } from "../../stores/useFilterStore";
 import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
@@ -91,7 +91,7 @@ export function ScreenDetail(_props: ScreenDetailProps) {
   };
 
   const handleBack = () => {
-    navigate(ROUTES.SCREENS.basePath);
+    navigate(NAVBAR_ROUTES.SCREENS);
   };
 
   // Format time for API calls (convert to ISO string)

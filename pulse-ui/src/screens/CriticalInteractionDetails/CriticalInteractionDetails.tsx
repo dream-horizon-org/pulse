@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Badge, Box, Grid, Tabs, Title, Tooltip, useMantineTheme } from "@mantine/core";
 import {
   CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS,
-  ROUTES,
+  NAVBAR_ROUTES,
 } from "../../constants";
 import { AllInteractionDetails } from "./AllInteractionDetails";
 import { useEffect, useState } from "react";
@@ -118,7 +118,7 @@ export function CiritcalInteractionDetails() {
   }
 
   const handBackToListingPage = () => {
-    navigate(ROUTES.CRITICAL_INTERACTIONS.path);
+    navigate(NAVBAR_ROUTES.CRITICAL_INTERACTIONS);
   };
 
   const handleTabChange = (value: string | null) => {

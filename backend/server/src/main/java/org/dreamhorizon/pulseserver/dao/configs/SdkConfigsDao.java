@@ -11,16 +11,17 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowSet;
+import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.configs.models.SdkConfigData;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 
 
@@ -32,16 +33,16 @@ public class SdkConfigsDao {
   private final ObjectMapperUtil objectMapper;
 
   /**
-   * Gets the current tenant ID from the TenantContext.
+   * Gets the current project ID from the ProjectContext.
    */
-  private String getTenantId() {
-    return TenantContext.requireTenantId();
+  private String getProjectId() {
+    return ProjectContext.getProjectId();
   }
 
-  public Single<PulseConfig> getConfig(String tenantId, long version) {
+  public Single<PulseConfig> getConfig(String projectId, long version) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_CONFIG_BY_VERSION)
-        .rxExecute(Tuple.of(tenantId, version))
+        .rxExecute(Tuple.of(projectId, version))
         .map(rows -> {
           if (rows.size() > 0) {
             Row row = rows.iterator().next();
@@ -62,17 +63,17 @@ public class SdkConfigsDao {
         });
   }
 
-  public Single<PulseConfig> getConfig(String tenantId) {
+  public Single<PulseConfig> getConfig(String projectId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_LATEST_VERSION)
-        .rxExecute(Tuple.of(tenantId))
+        .rxExecute(Tuple.of(projectId))
         .flatMap(rows -> {
           if (rows.size() == 0) {
             log.warn("No active configuration found in database");
             return Single.error(new RuntimeException("No active configuration found. Please create a configuration first."));
           }
           Row row = rows.iterator().next();
-          return getConfig(tenantId, Long.parseLong(row.getValue("version").toString()));
+          return getConfig(projectId, Long.parseLong(row.getValue("version").toString()));
         })
         .onErrorResumeNext(error -> {
           log.error("Error while fetching latest version from db: {}", error.getMessage());
@@ -88,7 +89,7 @@ public class SdkConfigsDao {
     return Single.just(Long.parseLong(rowSet.property(MySQLClient.LAST_INSERTED_ID).toString()));
   }
 
-  public Single<PulseConfig> createConfig(org.dreamhorizon.pulseserver.service.configs.models.ConfigData createConfig) {
+  public Single<PulseConfig> createConfig(String projectId, org.dreamhorizon.pulseserver.service.configs.models.ConfigData createConfig) {
     SdkConfigData sdkConfigData = SdkConfigData.builder()
         .features(createConfig.getFeatures())
         .interaction(createConfig.getInteraction())
@@ -97,10 +98,8 @@ public class SdkConfigsDao {
         .build();
 
     String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
-
-    String tenantId = getTenantId();
     Tuple tuple = Tuple.tuple()
-        .addString(tenantId)
+        .addString(projectId)
         .addString(configDetailRowStr)
         .addBoolean(true)
         .addString(createConfig.getUser())
@@ -111,7 +110,7 @@ public class SdkConfigsDao {
         .rxGetConnection()
         .flatMap(conn -> conn.begin()
             .flatMap(tx -> conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
-                .rxExecute(Tuple.of(tenantId))
+                .rxExecute(Tuple.of(projectId))
                 .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
                 .flatMap(SdkConfigsDao::getLastInsertedId)
                 .map(configId -> {
@@ -140,7 +139,7 @@ public class SdkConfigsDao {
   public Single<AllConfigdetails> getAllConfigDetails() {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_CONFIG_DETAILS)
-        .rxExecute(Tuple.of(getTenantId()))
+        .rxExecute(Tuple.of(getProjectId()))
         .map(rows -> {
           List<AllConfigdetails.Configdetails> configDetails = new ArrayList<>();
           for (Row row : rows) {
@@ -156,5 +155,54 @@ public class SdkConfigsDao {
               .configDetails(configDetails)
               .build();
         });
+  }
+
+  /**
+   * Creates the initial SDK config for a new project.
+   * Used during project creation to include config insertion in the main transaction.
+   * Does NOT deactivate existing configs (assumes none exist for new projects).
+   */
+  public Single<PulseConfig> createInitialConfig(
+      SqlConnection conn,
+      String projectId,
+      org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData) {
+
+    SdkConfigData sdkConfigData = SdkConfigData.builder()
+        .features(configData.getFeatures())
+        .interaction(configData.getInteraction())
+        .sampling(configData.getSampling())
+        .signals(configData.getSignals())
+        .build();
+
+    String configJson = objectMapper.writeValueAsString(sdkConfigData);
+    Tuple tuple = buildConfigTuple(projectId, configJson, configData.getUser(), configData.getDescription());
+
+    return conn.preparedQuery(INSERT_CONFIG)
+        .rxExecute(tuple)
+        .flatMap(SdkConfigsDao::getLastInsertedId)
+        .map(configId -> mapToPulseConfig(configId, configData))
+        .doOnSuccess(config -> log.info("Created initial SDK config for project: {}, version: {}", projectId, config.getVersion()))
+        .doOnError(error -> log.error("Failed to create initial SDK config for project: {}", projectId, error));
+  }
+
+  private Tuple buildConfigTuple(String projectId, String configJson, String createdBy, String description) {
+    return Tuple.tuple()
+        .addString(projectId)
+        .addString(configJson)
+        .addBoolean(true)
+        .addString(createdBy)
+        .addString(description);
+  }
+
+  private PulseConfig mapToPulseConfig(Long configId, org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData) {
+    return PulseConfig.builder()
+        .version(configId)
+        .description(configData.getDescription())
+        .sampling(objectMapper.convertValue(configData.getSampling(), PulseConfig.SamplingConfig.class))
+        .signals(objectMapper.convertValue(configData.getSignals(), PulseConfig.SignalsConfig.class))
+        .interaction(objectMapper.convertValue(configData.getInteraction(), PulseConfig.InteractionConfig.class))
+        .features(objectMapper.convertValue(configData.getFeatures(),
+            objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
+        .build();
   }
 }

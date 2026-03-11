@@ -295,7 +295,7 @@ public class AlertEvaluationService {
     queryRequest.setFilters(filters);
     queryRequest.setGroupBy(groupBy);
     queryRequest.setLimit(1000);
-    queryRequest.setTenantId(alertDetails.getTenantId());
+    queryRequest.setProjectId(alertDetails.getProjectId());
 
     return queryRequest;
   }

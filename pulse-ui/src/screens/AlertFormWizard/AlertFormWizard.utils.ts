@@ -93,8 +93,6 @@ export function transformFormDataToPayload(
  * Transform alert details from API to form data
  */
 export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Partial<AlertFormWizardData> {
-  console.log("[transformAlertDetailsToFormData] Input:", alertDetails);
-
   // Map conditions from API to form format
   const conditions: MetricCondition[] = (alertDetails.alerts || []).map((alert: AlertCondition, index: number) => ({
     id: `cond_${Date.now()}_${index}`,
@@ -110,9 +108,6 @@ export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Pa
     Object.keys(cond.threshold || {}).forEach(scopeName => scopeNamesSet.add(scopeName));
   });
   const selectedScopeNames = Array.from(scopeNamesSet);
-
-  console.log("[transformAlertDetailsToFormData] Conditions:", conditions);
-  console.log("[transformAlertDetailsToFormData] Scope names:", selectedScopeNames);
 
   // Map backend AlertScope enum to frontend (handle various casing)
   // @see backend/server/.../models/AlertScope.java
@@ -132,7 +127,6 @@ export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Pa
   };
 
   const mappedScope = backendToFrontend[alertDetails.scope] || null;
-  console.log("[transformAlertDetailsToFormData] Mapped scope:", alertDetails.scope, "->", mappedScope);
 
   const result: Partial<AlertFormWizardData> = {
     alertId: alertDetails.alert_id,
@@ -166,6 +160,5 @@ export function transformAlertDetailsToFormData(alertDetails: AlertListItem): Pa
     },
   };
 
-  console.log("[transformAlertDetailsToFormData] Result:", result);
   return result;
 }

@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp, FirebaseApp } from "firebase/app";
 import { getAuth, connectAuthEmulator, Auth } from "firebase/auth";
 
+
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain:
@@ -9,8 +10,6 @@ const firebaseConfig = {
       ? `${process.env.REACT_APP_FIREBASE_PROJECT_ID}.firebaseapp.com`
       : undefined),
   projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
 
@@ -19,12 +18,36 @@ let auth: Auth;
 
 export function getFirebaseAuth(): Auth {
   if (!auth) {
-    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    if (process.env.REACT_APP_FIREBASE_AUTH_EMULATOR === "true") {
-      try {
-        connectAuthEmulator(auth, "http://127.0.0.1:9099");
-      } catch {}
+    // Validate required fields before initialization
+    if (!firebaseConfig.apiKey) {
+      const error = new Error("Firebase API Key is missing! Check REACT_APP_FIREBASE_API_KEY environment variable.");
+      console.error("[Firebase] ❌ CRITICAL:", error.message);
+      throw error;
+    }
+    
+    if (!firebaseConfig.projectId) {
+      const error = new Error("Firebase Project ID is missing! Check REACT_APP_FIREBASE_PROJECT_ID environment variable.");
+      console.error("[Firebase] ❌ CRITICAL:", error.message);
+      throw error;
+    }
+    
+    try {
+      app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+      
+      auth = getAuth(app);
+
+      
+      if (process.env.REACT_APP_FIREBASE_AUTH_EMULATOR === "true") {
+        try {
+          const emulatorUrl = process.env.REACT_APP_FIREBASE_AUTH_EMULATOR_URL || "http://127.0.0.1:9099";
+          connectAuthEmulator(auth, emulatorUrl);
+        } catch (e) {
+          console.warn("[Firebase] Could not connect to Auth Emulator:", e);
+        }
+      }
+    } catch (error: any) {
+      console.error("[Firebase] ❌ Failed to initialize Firebase:", error);
+      throw error;
     }
   }
   return auth;
