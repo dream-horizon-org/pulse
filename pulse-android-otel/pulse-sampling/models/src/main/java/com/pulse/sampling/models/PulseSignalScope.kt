@@ -1,7 +1,7 @@
 package com.pulse.sampling.models
 
 import androidx.annotation.Keep
-import com.pulse.otel.utils.PulseFallbackToUnknownEnumSerializer
+import com.pulse.utils.PulseFallbackToUnknownEnumSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

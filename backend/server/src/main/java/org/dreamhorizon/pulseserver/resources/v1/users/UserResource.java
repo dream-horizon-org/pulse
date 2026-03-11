@@ -90,6 +90,8 @@ public class UserResource {
             
             return userProjectsService.getUserProjects(userId, tenantId)
                 .map(result -> UserProjectsResponse.builder()
+                    .tenantId(result.getTenantId())
+                    .tenantName(result.getTenantName())
                     .projects(result.getProjects().stream()
                         .map(p -> UserProjectsResponse.ProjectSummary.builder()
                             .projectId(p.getProjectId())

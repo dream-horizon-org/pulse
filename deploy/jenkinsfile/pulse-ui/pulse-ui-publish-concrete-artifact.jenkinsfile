@@ -3,6 +3,10 @@ pipeline {
         node { label 'pulse-ui-build-ec2-fleet' }
     }
 
+    options {
+        ansiColor('xterm')
+    }
+
     environment {
         ARTIFACT_VERSION = ''
         GITBOT_USERNAME = credentials('github-bot-username')

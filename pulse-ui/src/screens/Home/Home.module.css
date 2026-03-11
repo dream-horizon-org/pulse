@@ -1,5 +1,5 @@
 .homeContainer {
-  padding: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-lg);
   width: 100%;
   box-sizing: border-box;
 }

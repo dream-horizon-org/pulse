@@ -1,6 +1,12 @@
 package org.dreamhorizon.pulseserver.dao.project;
 
-import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.*;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.CHECK_PROJECT_EXISTS;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.DEACTIVATE_PROJECT;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_ACTIVE_PROJECT_COUNT;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECTS_BY_TENANT_ID;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.GET_PROJECT_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.INSERT_PROJECT;
+import static org.dreamhorizon.pulseserver.dao.project.ProjectQueries.UPDATE_PROJECT;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -12,9 +18,6 @@ import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import io.vertx.rxjava3.sqlclient.Tuple;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -25,21 +28,6 @@ import org.dreamhorizon.pulseserver.dao.project.models.Project;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ProjectDao {
   private final MysqlClient mysqlClient;
-
-  public Single<Project> createProject(Project project) {
-    MySQLPool pool = mysqlClient.getWriterPool();
-    return pool.preparedQuery(INSERT_PROJECT)
-        .rxExecute(
-            Tuple.of(
-                project.getProjectId(),
-                project.getTenantId(),
-                project.getName(),
-                project.getDescription(),
-                true,
-                project.getCreatedBy()))
-        .map(result -> mapToCreatedProject(result, project))
-        .doOnError(error -> log.error("Failed to create project for tenant: {}", project.getTenantId(), error));
-  }
 
   public Single<Project> createProject(SqlConnection conn, Project project) {
     return conn.preparedQuery(INSERT_PROJECT)
@@ -82,18 +70,6 @@ public class ProjectDao {
         .doOnError(error -> log.error("Failed to fetch project: {}", projectId, error));
   }
 
-  public Maybe<Project> getProjectById(int id) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_PROJECT_BY_ID)
-        .rxExecute(Tuple.of(id))
-        .flatMapMaybe(rowSet -> {
-          if (rowSet.size() == 0) {
-            return Maybe.empty();
-          }
-          return Maybe.just(mapRowToProject(rowSet.iterator().next()));
-        })
-        .doOnError(error -> log.error("Failed to fetch project by id: {}", id, error));
-  }
 
   public Flowable<Project> getProjectsByTenantId(String tenantId) {
     MySQLPool pool = mysqlClient.getReaderPool();
@@ -104,24 +80,6 @@ public class ProjectDao {
         .doOnError(error -> log.error("Failed to fetch projects for tenant: {}", tenantId, error));
   }
 
-  public Flowable<Project> getAllProjectsByTenantId(String tenantId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_ALL_PROJECTS_BY_TENANT_ID)
-        .rxExecute(Tuple.of(tenantId))
-        .toFlowable()
-        .flatMap(rowSet -> Flowable.fromIterable(rowSet).map(row -> mapRowToProject((Row) row)))
-        .doOnError(error -> log.error("Failed to fetch all projects for tenant: {}", tenantId, error));
-  }
-
-  public Single<List<String>> getProjectIdsByTenantId(String tenantId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(GET_PROJECT_IDS_BY_TENANT_ID)
-        .rxExecute(Tuple.of(tenantId))
-        .map(rowSet -> StreamSupport.stream(rowSet.spliterator(), false)
-            .map(row -> row.getString("project_id"))
-            .collect(Collectors.toList()))
-        .doOnError(error -> log.error("Failed to fetch project IDs for tenant: {}", tenantId, error));
-  }
 
   public Single<Project> updateProject(Project project) {
     MySQLPool pool = mysqlClient.getWriterPool();
@@ -152,34 +110,6 @@ public class ProjectDao {
         .doOnError(error -> log.error("Failed to deactivate project: {}", projectId, error));
   }
 
-  public Completable activateProject(String projectId) {
-    MySQLPool pool = mysqlClient.getWriterPool();
-    return pool.preparedQuery(ACTIVATE_PROJECT)
-        .rxExecute(Tuple.of(projectId))
-        .flatMapCompletable(result -> {
-          if (result.rowCount() == 0) {
-            return Completable.error(new RuntimeException("Project not found: " + projectId));
-          }
-          log.info("Activated project: {}", projectId);
-          return Completable.complete();
-        })
-        .doOnError(error -> log.error("Failed to activate project: {}", projectId, error));
-  }
-
-  public Completable deleteProject(String projectId) {
-    MySQLPool pool = mysqlClient.getWriterPool();
-    return pool.preparedQuery(DELETE_PROJECT)
-        .rxExecute(Tuple.of(projectId))
-        .flatMapCompletable(result -> {
-          if (result.rowCount() == 0) {
-            log.warn("No project found to delete: {}", projectId);
-          } else {
-            log.info("Deleted project: {}", projectId);
-          }
-          return Completable.complete();
-        })
-        .doOnError(error -> log.error("Failed to delete project: {}", projectId, error));
-  }
 
   public Single<Boolean> projectExists(String projectId) {
     MySQLPool pool = mysqlClient.getReaderPool();
@@ -190,28 +120,6 @@ public class ProjectDao {
           return row.getLong("count") > 0;
         })
         .doOnError(error -> log.error("Failed to check project existence: {}", projectId, error));
-  }
-
-  public Single<Boolean> projectExistsForTenant(String projectId, String tenantId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(CHECK_PROJECT_EXISTS_FOR_TENANT)
-        .rxExecute(Tuple.of(projectId, tenantId))
-        .map(rowSet -> {
-          Row row = rowSet.iterator().next();
-          return row.getLong("count") > 0;
-        })
-        .doOnError(error -> log.error("Failed to check project existence for tenant: {} {}", projectId, tenantId, error));
-  }
-
-  public Single<Long> countProjectsByTenantId(String tenantId) {
-    MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(COUNT_PROJECTS_BY_TENANT_ID)
-        .rxExecute(Tuple.of(tenantId))
-        .map(rowSet -> {
-          Row row = rowSet.iterator().next();
-          return row.getLong("count");
-        })
-        .doOnError(error -> log.error("Failed to count projects for tenant: {}", tenantId, error));
   }
 
   private Project mapRowToProject(Row row) {
@@ -229,16 +137,16 @@ public class ProjectDao {
   }
 
   public Single<Integer> getActiveProjectCount(String tenantId) {
-      MySQLPool pool = mysqlClient.getReaderPool();
-      return pool.preparedQuery(GET_ACTIVE_PROJECT_COUNT)
-          .rxExecute(Tuple.of(tenantId))
-          .map(rowSet -> {
-              Row row = rowSet.iterator().next();
-              int count = row.getLong("count").intValue();
-              log.debug("Active project count for tenant {}: {}", tenantId, count);
-              return count;
-          })
-          .doOnError(error -> log.error("Failed to get project count for tenant: {}", tenantId, error));
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_ACTIVE_PROJECT_COUNT)
+        .rxExecute(Tuple.of(tenantId))
+        .map(rowSet -> {
+          Row row = rowSet.iterator().next();
+          int count = row.getLong("count").intValue();
+          log.debug("Active project count for tenant {}: {}", tenantId, count);
+          return count;
+        })
+        .doOnError(error -> log.error("Failed to get project count for tenant: {}", tenantId, error));
   }
 }
 

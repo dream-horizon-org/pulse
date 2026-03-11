@@ -134,6 +134,49 @@
   color: #0ba09a;
 }
 
+.errorTypeBadge {
+  flex-shrink: 0;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+
+.detailsRow {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  padding: 6px var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.tabs {
+  margin-top: 0;
+}
+
+.tabsList {
+  border-bottom: 1px solid rgba(14, 201, 194, 0.15);
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.tab {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-4);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  transition: color 0.2s ease;
+}
+
+.tab[data-active] {
+  color: #0ba09a;
+  border-bottom-color: #0ec9c2;
+}
+
+.tab:hover {
+  color: #0ba09a;
+  background: transparent;
+}
+
 .traceContainer {
   background: #f8f9fa;
   border: 1px solid rgba(14, 201, 194, 0.15);

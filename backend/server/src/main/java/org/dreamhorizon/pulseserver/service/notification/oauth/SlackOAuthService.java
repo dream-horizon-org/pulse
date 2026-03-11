@@ -6,21 +6,25 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig.SlackOAuthConfig;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.resources.notification.models.SlackChannelListDto;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
 import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Singleton
@@ -112,16 +116,9 @@ public class SlackOAuthService {
 
     SlackChannelConfig channelConfig = SlackChannelConfig.builder()
         .accessToken(oauthResult.getAccessToken())
+        .workspaceId(oauthResult.getWorkspaceId())
         .botName("Pulse")
         .build();
-
-    String configJson;
-    try {
-      configJson = objectMapper.writeValueAsString(channelConfig);
-    } catch (Exception e) {
-      return Single.error(
-          ServiceError.INTERNAL_SERVER_ERROR.getCustomException("Failed to serialize channel config"));
-    }
 
     String channelName = oauthResult.getWorkspaceName() != null
         ? "Slack - " + oauthResult.getWorkspaceName()
@@ -132,7 +129,7 @@ public class SlackOAuthService {
         .flatMapSingle(existingChannel -> {
           NotificationChannel updated = NotificationChannel.builder()
               .name(channelName)
-              .config(configJson)
+              .config(channelConfig)
               .isActive(true)
               .build();
           return channelDao
@@ -144,13 +141,76 @@ public class SlackOAuthService {
               .projectId(projectId)
               .channelType(ChannelType.SLACK)
               .name(channelName)
-              .config(configJson)
+              .config(channelConfig)
               .isActive(true)
               .build();
           return channelDao
               .createChannel(newChannel)
               .flatMap(id -> channelDao.getChannelById(id).toSingle());
         }));
+  }
+
+  public Single<List<SlackChannelListDto>> listWorkspaceChannels(String projectId) {
+    return channelDao
+        .getActiveChannelByType(projectId, ChannelType.SLACK)
+        .switchIfEmpty(
+            Maybe.error(
+                ServiceError.NOT_FOUND.getCustomException(
+                    "No active Slack channel found for project")))
+        .toSingle()
+        .flatMap(
+            channel -> {
+              if (!(channel.getConfig() instanceof SlackChannelConfig slackConfig)) {
+                return Single.error(
+                    ServiceError.INTERNAL_SERVER_ERROR.getCustomException(
+                        "Expected SlackChannelConfig but got: " + channel.getConfig().getClass().getSimpleName()));
+              }
+
+              if (slackConfig.getAccessToken() == null) {
+                return Single.error(
+                    ServiceError.INTERNAL_SERVER_ERROR.getCustomException(
+                        "Slack access token not configured"));
+              }
+
+              return webClient
+                  .getAbs("https://slack.com/api/conversations.list")
+                  .putHeader(
+                      "Authorization", "Bearer " + slackConfig.getAccessToken())
+                  .addQueryParam("types", "public_channel")
+                  .addQueryParam("exclude_archived", "true")
+                  .addQueryParam("limit", "200")
+                  .rxSend()
+                  .map(
+                      response -> {
+                        try {
+                          JsonNode json = objectMapper.readTree(response.bodyAsString());
+                          if (!json.has("ok") || !json.get("ok").asBoolean()) {
+                            return Collections.<SlackChannelListDto>emptyList();
+                          }
+                          List<SlackChannelListDto> channels = new ArrayList<>();
+                          JsonNode channelsNode = json.get("channels");
+                          if (channelsNode != null && channelsNode.isArray()) {
+                            for (JsonNode ch : channelsNode) {
+                              channels.add(
+                                  SlackChannelListDto.builder()
+                                      .id(ch.get("id").asText())
+                                      .name(ch.get("name").asText())
+                                      .isPrivate(
+                                          ch.has("is_private")
+                                              && ch.get("is_private").asBoolean())
+                                      .isMember(
+                                          ch.has("is_member")
+                                              && ch.get("is_member").asBoolean())
+                                      .build());
+                            }
+                          }
+                          return channels;
+                        } catch (Exception e) {
+                          log.error("Failed to parse Slack channels response", e);
+                          return Collections.<SlackChannelListDto>emptyList();
+                        }
+                      });
+            });
   }
 
   private String encode(String value) {

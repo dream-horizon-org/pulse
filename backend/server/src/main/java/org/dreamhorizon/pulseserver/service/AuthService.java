@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
-import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
+import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.model.LoginStatus;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthenticateResponseDto;
@@ -201,6 +201,7 @@ public class AuthService {
                                                 .email(user.getEmail())
                                                 .name(user.getName())
                                                 .tenantId(tenantId)
+                                                .tenantName(tenant.getName())
                                                 .tenantRole(tenantRole)
                                                 .tier(tierName)
                                                 .needsOnboarding(false)

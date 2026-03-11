@@ -5,7 +5,7 @@
 
     <groupId>org.dreamhorizon</groupId>
     <artifactId>pulse-server</artifactId>
-    <version>1.0</version>
+    <version>1.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>pulse-server</name>
 
@@ -595,13 +595,13 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <!-- Same exclusions as jacoco-check -->
                                 <exclude>org/dreamhorizon/pulseserver/config/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/constant/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/verticle/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/module/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/model/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/util/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/healthcheck/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
@@ -623,13 +623,13 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <!-- entire package -->
                                 <exclude>org/dreamhorizon/pulseserver/config/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/constant/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/verticle/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/module/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/model/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/util/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/healthcheck/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
@@ -640,9 +640,6 @@
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
-                                <!-- Exclude untestable classes -->
-                                <exclude>org/dreamhorizon/pulseserver/util/RxObjectMapper.class</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/util/Utils.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>

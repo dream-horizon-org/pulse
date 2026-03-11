@@ -58,6 +58,9 @@ public class LoginResponse {
     @JsonProperty("tenantId")
     private String tenantId;
     
+    @JsonProperty("tenantName")
+    private String tenantName;
+    
     @JsonProperty("tenantRole")
     private String tenantRole;
     

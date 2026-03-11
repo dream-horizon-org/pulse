@@ -13,10 +13,11 @@ import org.dreamhorizon.pulseserver.resources.notification.models.*;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v1/projects/{projectId}/notification-templates")
+@Path("/v1/notifications/templates")
 public class NotificationTemplateController {
 
   final NotificationService notificationService;
@@ -24,15 +25,15 @@ public class NotificationTemplateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<List<NotificationTemplateDto>>> getTemplates(
-      @PathParam("projectId") String projectId) {
-    return notificationService.getTemplates(projectId).to(RestResponse.jaxrsRestHandler());
+      @QueryParam("channelType") ChannelType channelType) {
+    return notificationService.getTemplates(channelType).to(RestResponse.jaxrsRestHandler());
   }
 
   @GET
   @Path("/{templateId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationTemplateDto>> getTemplate(
-      @PathParam("projectId") String projectId, @PathParam("templateId") Long templateId) {
+      @PathParam("templateId") Long templateId) {
     return notificationService
         .getTemplate(templateId)
         .toSingle()
@@ -43,9 +44,9 @@ public class NotificationTemplateController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationTemplateDto>> createTemplate(
-      @PathParam("projectId") String projectId, @NotNull @Valid CreateTemplateRequestDto request) {
+      @NotNull @Valid CreateTemplateRequestDto request) {
     return notificationService
-        .createTemplate(projectId, request)
+        .createTemplate(request)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -54,7 +55,6 @@ public class NotificationTemplateController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationTemplateDto>> updateTemplate(
-      @PathParam("projectId") String projectId,
       @PathParam("templateId") Long templateId,
       @NotNull @Valid UpdateTemplateRequestDto request) {
     return notificationService
@@ -66,7 +66,7 @@ public class NotificationTemplateController {
   @Path("/{templateId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Boolean>> deleteTemplate(
-      @PathParam("projectId") String projectId, @PathParam("templateId") Long templateId) {
+      @PathParam("templateId") Long templateId) {
     return notificationService.deleteTemplate(templateId).to(RestResponse.jaxrsRestHandler());
   }
 }

@@ -1,5 +1,5 @@
 import { Container, Title, Grid, Card, Text } from '@mantine/core';
-import { getUserProjects } from '../../helpers/getUserProjects';
+import { useUserProjects } from '../../hooks';
 import { useState, useEffect } from 'react';
 
 export function OrganizationDashboard() {
@@ -9,17 +9,17 @@ export function OrganizationDashboard() {
     totalMembers: 0,
   });
 
+  const { data: projectsData } = useUserProjects();
+
   useEffect(() => {
-    getUserProjects().then(response => {
-      if (response.data) {
-        setStats(prev => ({
-          ...prev,
-          totalProjects: response.data!.projects.length,
-          activeProjects: response.data!.projects.filter(p => p.isActive).length,
-        }));
-      }
-    });
-  }, []);
+    if (projectsData?.data) {
+      setStats(prev => ({
+        ...prev,
+        totalProjects: projectsData.data!.projects.length,
+        activeProjects: projectsData.data!.projects.filter(p => p.isActive).length,
+      }));
+    }
+  }, [projectsData]);
 
   return (
     <Container size="xl">

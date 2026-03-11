@@ -24,6 +24,12 @@ interface IInteractionConfig {
 export interface PulsePluginProps {
   endpointBaseUrl: string;
   projectId: string;
+  /**
+   * Initial data collection consent state.
+   * Defaults to PENDING (buffers all telemetry until setDataCollectionState is called).
+   * Use ALLOWED to skip buffering and export immediately.
+   */
+  dataCollectionState?: 'PENDING' | 'ALLOWED' | 'DENIED';
   endpointHeaders?: Record<string, string>;
   /**
    * Optional custom URL for fetching SDK configuration.

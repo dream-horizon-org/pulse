@@ -17,7 +17,7 @@ import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v1/projects/{projectId}/notifications")
+@Path("/v1/notifications")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class NotificationController {
@@ -27,7 +27,8 @@ public class NotificationController {
   @POST
   @Path("/send")
   public CompletionStage<Response<NotificationBatchResponseDto>> sendNotification(
-      @PathParam("projectId") String projectId, @NotNull @Valid SendNotificationRequestDto request) {
+      @HeaderParam("X-Project-Id") String projectId,
+      @NotNull @Valid SendNotificationRequestDto request) {
 
     log.debug("Sending notification for project {}, event: {}", projectId, request.getEventName());
 
@@ -39,7 +40,8 @@ public class NotificationController {
   @POST
   @Path("/send/async")
   public CompletionStage<Response<NotificationBatchResponseDto>> sendNotificationAsync(
-      @PathParam("projectId") String projectId, @NotNull @Valid SendNotificationRequestDto request) {
+      @HeaderParam("X-Project-Id") String projectId,
+      @NotNull @Valid SendNotificationRequestDto request) {
 
     log.debug(
         "Queueing async notification for project {}, event: {}", projectId, request.getEventName());
@@ -52,7 +54,7 @@ public class NotificationController {
   @GET
   @Path("/logs")
   public CompletionStage<Response<NotificationLogsResponseDto>> getLogs(
-      @PathParam("projectId") String projectId,
+      @HeaderParam("X-Project-Id") String projectId,
       @QueryParam("limit") @DefaultValue("50") int limit,
       @QueryParam("offset") @DefaultValue("0") int offset) {
 
@@ -62,12 +64,13 @@ public class NotificationController {
   }
 
   @GET
-  @Path("/logs/batch/{batchId}")
-  public CompletionStage<Response<NotificationLogsResponseDto>> getLogsByBatch(
-      @PathParam("projectId") String projectId, @PathParam("batchId") String batchId) {
+  @Path("/logs/idempotency/{idempotencyKey}")
+  public CompletionStage<Response<NotificationLogsResponseDto>> getLogsByIdempotencyKey(
+      @HeaderParam("X-Project-Id") String projectId,
+      @PathParam("idempotencyKey") String idempotencyKey) {
 
     return notificationService
-        .getLogsByBatch(projectId, batchId)
+        .getLogsByIdempotencyKey(projectId, idempotencyKey)
         .to(RestResponse.jaxrsRestHandler());
   }
 }

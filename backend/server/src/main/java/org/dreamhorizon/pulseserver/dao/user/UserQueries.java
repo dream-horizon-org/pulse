@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.dao.userdao;
+package org.dreamhorizon.pulseserver.dao.user;
 
 /**
  * SQL queries for User DAO operations.

@@ -61,7 +61,7 @@ const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
     id: 'collaborators',
     path: 'collaborators',
     label: 'Team Members',
-    description: 'Manage project collaborators',
+    description: 'Project Members',
     icon: IconUsers,
   },
   {

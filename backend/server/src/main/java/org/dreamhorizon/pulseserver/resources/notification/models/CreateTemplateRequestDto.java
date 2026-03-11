@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.notification.models;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -7,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.TemplateBody;
 
 @Data
 @Builder
@@ -20,5 +22,5 @@ public class CreateTemplateRequestDto {
   private ChannelType channelType;
 
   @NotNull(message = "body is required")
-  private Object body;
+  private TemplateBody body;
 }

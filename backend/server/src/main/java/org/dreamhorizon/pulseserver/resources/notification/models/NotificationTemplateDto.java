@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.service.notification.models.TemplateBody;
 
 @Data
 @Builder
@@ -13,11 +14,10 @@ import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 @AllArgsConstructor
 public class NotificationTemplateDto {
   private Long id;
-  private String projectId;
   private String eventName;
   private ChannelType channelType;
   private Integer version;
-  private Object body;
+  private TemplateBody body;
   private Boolean isActive;
   private Instant createdAt;
   private Instant updatedAt;

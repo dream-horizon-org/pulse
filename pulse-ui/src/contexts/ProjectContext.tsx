@@ -1,47 +1,19 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTenantContext } from './TenantContext';
-
-interface ProjectInfo {
-  projectId: string;
-  projectName: string;
-  userRole: 'admin' | 'editor' | 'viewer';
-  isActive?: boolean;
-  plan?: 'free' | 'enterprise';  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
-}
-
-interface ProjectContextType {
-  // State
-  projectId: string | null;
-  projectName: string | null;
-  userRole: 'admin' | 'editor' | 'viewer' | null;
-  plan: 'free' | 'enterprise' | null;  // @deprecated - Tier is now tenant-level, use TenantContext.tier instead
-  isActive: boolean;
-  
-  // Methods
-  setProject: (project: ProjectInfo) => void;
-  switchProject: (projectId: string) => Promise<void>;
-  clearProject: () => void;
-}
+import { ProjectRole } from '../constants/Roles';
+import { TIERS, TierType } from '../constants/Tiers';
+import { ProjectInfo, ProjectContextType, StoredProjectData } from './ProjectContext.interface';
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'pulse_project_context';
 
-interface StoredProjectData {
-  projectId: string;
-  projectName: string;
-  userRole: 'admin' | 'editor' | 'viewer';
-  isActive: boolean;
-  plan?: 'free' | 'enterprise';
-  timestamp: number;
-}
-
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'admin' | 'editor' | 'viewer' | null>(null);
-  const [plan, setPlan] = useState<'free' | 'enterprise' | null>(null);
+  const [userRole, setUserRole] = useState<ProjectRole | null>(null);
+  const [plan, setPlan] = useState<TierType | null>(null);
   const [isActive, setIsActive] = useState(false);
   
   const { projects } = useTenantContext();
@@ -60,8 +32,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           setProjectName(data.projectName);
           setUserRole(data.userRole);
           setIsActive(data.isActive);
-          setPlan(data.plan || 'free');
-          console.log('[ProjectContext] Hydrated from sessionStorage:', data.projectId);
+          setPlan(data.plan || TIERS.FREE);
         } else {
           sessionStorage.removeItem(STORAGE_KEY);
         }
@@ -80,7 +51,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         projectName: projectName || '',
         userRole,
         isActive,
-        plan: plan || 'free',
+        plan: plan || TIERS.FREE,
         timestamp: Date.now(),
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -88,27 +59,32 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [projectId, projectName, userRole, isActive, plan]);
 
   const setProject = useCallback((project: ProjectInfo) => {
-    console.log('[ProjectContext] Setting project:', project.projectId);
     setProjectId(project.projectId);
     setProjectName(project.projectName);
     setUserRole(project.userRole);
     setIsActive(project.isActive ?? true);
-    setPlan(project.plan || 'free');
+    setPlan(project.plan || TIERS.FREE);
     
     // Store last used project ID for auto-selection on next login
     sessionStorage.setItem('pulse_last_project_id', project.projectId);
   }, []);
 
   const switchProject = useCallback(async (newProjectId: string) => {
-    console.log('[ProjectContext] Switching to project:', newProjectId);
-    
     // Find project in tenant's project list
     const project = projects.find(p => p.projectId === newProjectId);
     
     if (!project) {
       console.error('[ProjectContext] Project not found:', newProjectId);
-      // Navigate to project selection if project not found
-      navigate('/project-selection');
+      // Navigate to organization projects if project not found
+      const tenantId = sessionStorage.getItem('pulse_tenant_context');
+      if (tenantId) {
+        try {
+          const tenantData = JSON.parse(tenantId);
+          navigate(`/${tenantData.tenantId}/projects`);
+        } catch {
+          navigate('/');
+        }
+      }
       return;
     }
 
@@ -116,9 +92,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setProject({
       projectId: project.projectId,
       projectName: project.name,
-      userRole: project.role as 'admin' | 'editor' | 'viewer',
+      userRole: project.role as ProjectRole,
       isActive: project.isActive,
-      plan: 'free', // TODO: Get from project details API
+      plan: TIERS.FREE, // TODO: Get from project details API
     });
 
     // Navigate to project dashboard
@@ -126,7 +102,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [projects, navigate, setProject]);
 
   const clearProject = useCallback(() => {
-    console.log('[ProjectContext] Clearing project context');
     setProjectId(null);
     setProjectName(null);
     setUserRole(null);

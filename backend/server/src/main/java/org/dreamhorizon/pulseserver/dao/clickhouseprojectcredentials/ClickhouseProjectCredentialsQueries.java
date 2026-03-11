@@ -25,4 +25,18 @@ public class ClickhouseProjectCredentialsQueries {
         "UPDATE clickhouse_project_credentials " +
         "SET clickhouse_password_encrypted = ?, encryption_salt = ?, password_digest = ? " +
         "WHERE project_id = ?";
+
+    // Audit queries
+    public static final String INSERT_AUDIT =
+        "INSERT INTO clickhouse_project_credential_audit (project_id, action, performed_by, details) " +
+        "VALUES (?, ?, ?, ?)";
+
+    public static final String GET_AUDIT_BY_PROJECT =
+        "SELECT id, project_id, action, performed_by, details, created_at " +
+        "FROM clickhouse_project_credential_audit WHERE project_id = ? ORDER BY created_at DESC";
+
+    public static final String GET_RECENT_AUDITS =
+        "SELECT id, project_id, action, performed_by, details, created_at " +
+        "FROM clickhouse_project_credential_audit ORDER BY created_at DESC LIMIT ?";
 }
+
