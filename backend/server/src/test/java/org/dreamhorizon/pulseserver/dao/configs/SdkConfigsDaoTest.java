@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.sqlclient.PropertyKind;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
 import io.vertx.rxjava3.sqlclient.PropertyKind;
@@ -421,6 +422,27 @@ class SdkConfigsDaoTest {
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to fetch latest version"));
+    }
+
+    @Test
+    void shouldPropagateErrorWhenNoActiveConfigExists() {
+      // Given - No active configuration in database
+      RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(0);
+
+      PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
+
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
+
+      // When
+      var testObserver = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage()
+          .contains("No active configuration found. Please create a configuration first."));
     }
 
     @Test
@@ -839,6 +861,45 @@ class SdkConfigsDaoTest {
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Database error"));
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestCreateInitialConfig {
+
+    @Mock
+    SqlConnection sqlConnection;
+
+    @Test
+    void shouldCreateInitialConfigSuccessfully() {
+      ConfigData configData = ConfigData.builder()
+          .description("Initial config for new project")
+          .user("admin")
+          .sampling(SamplingConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .build())
+          .interaction(InteractionConfig.builder().build())
+          .features(List.of())
+          .build();
+
+      long insertedId = 1L;
+      RowSet<Row> insertRowSet = mock(RowSet.class);
+      when(insertRowSet.rowCount()).thenReturn(1);
+      when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
+
+      PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+      when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
+      when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
+
+      PulseConfig result = sdkConfigsDao.createInitialConfig(
+          sqlConnection, "new-project-id", configData).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(insertedId);
+      assertThat(result.getDescription()).isEqualTo("Initial config for new project");
     }
   }
 }

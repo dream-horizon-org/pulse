@@ -12,7 +12,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.dreamhorizon.pulseserver.dao.userdao.UserDao;
+import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.UserProfileDto;
 import org.dreamhorizon.pulseserver.model.User;
 import org.junit.jupiter.api.BeforeEach;

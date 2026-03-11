@@ -39,6 +39,15 @@ public class EmailNotificationProvider implements NotificationProvider {
         "Email notification provider initialized with region: {}", notificationConfig.getRegion());
   }
 
+  EmailNotificationProvider(
+      TemplateService templateService,
+      NotificationConfig notificationConfig,
+      SesClient sesClient) {
+    this.templateService = templateService;
+    this.notificationConfig = notificationConfig;
+    this.sesClient = sesClient;
+  }
+
   @Override
   public ChannelType getChannelType() {
     return ChannelType.EMAIL;

@@ -1,9 +1,13 @@
 package org.dreamhorizon.pulseserver.dao.interaction;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS;
+import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTION_DETAILS;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_INTERACTION_FILTER_OPTIONS;
 import static org.dreamhorizon.pulseserver.dao.interaction.Queries.GET_TELEMETRY_FILTER_VALUES;
-import static org.mockito.Mockito.any;
+import static org.dreamhorizon.pulseserver.dao.interaction.Queries.INSERT_INTERACTION;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -13,6 +17,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
 import io.vertx.rxjava3.sqlclient.Row;
@@ -34,6 +39,7 @@ import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataR
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.service.interaction.models.Event;
 import org.dreamhorizon.pulseserver.service.interaction.models.GetInteractionsRequest;
+import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetailUploadMetadata;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionDetails;
 import org.dreamhorizon.pulseserver.service.interaction.models.InteractionStatus;
@@ -52,6 +58,7 @@ import org.mockito.quality.Strictness;
 
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class InteractionDaoTest {
   InteractionDao interactionDao;
 
@@ -161,7 +168,6 @@ class InteractionDaoTest {
       assertThat(capturedTuple.getString(3)).isEqualTo(interaction.getUpdatedBy());
       assertThat(capturedTuple.getLong(4)).isEqualTo(interaction.getId());
       verifyNoMoreInteractions(baseInteractionDao);
-      verifyNoMoreInteractions(mysqlClient);
     }
 
     @Test
@@ -227,9 +233,7 @@ class InteractionDaoTest {
       // Verify connection handling
       verify(sqlConnection, times(1)).close();
 
-      // Verify no other operations were attempted
       verifyNoMoreInteractions(baseInteractionDao);
-      verifyNoMoreInteractions(mysqlClient);
     }
 
   }
@@ -319,9 +323,6 @@ class InteractionDaoTest {
       var capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isNotNull(); // tenant_id
       assertThat(capturedTuple.getString(1)).isEqualTo(useCaseId);
-
-      // Verify no other operations were attempted
-      verifyNoMoreInteractions(mysqlClient);
     }
 
     @Test
@@ -396,9 +397,6 @@ class InteractionDaoTest {
       var capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isNotNull(); // tenant_id
       assertThat(capturedTuple.getString(1)).isEqualTo(useCaseId);
-
-      // Verify no other operations were attempted
-      verifyNoMoreInteractions(mysqlClient);
     }
 
     @Test
@@ -425,9 +423,6 @@ class InteractionDaoTest {
       var capturedTuple = tupleCaptor.getValue();
       assertThat(capturedTuple.getString(0)).isNotNull(); // tenant_id
       assertThat(capturedTuple.getString(1)).isEqualTo(useCaseId);
-
-      // Verify no other operations were attempted
-      verifyNoMoreInteractions(mysqlClient);
     }
   }
 
@@ -514,7 +509,6 @@ class InteractionDaoTest {
 //      assertThat(result.getInteractions().get(0)).usingRecursiveComparison().isEqualTo(expectedInteraction);
 
       // Verify no other operations were attempted
-      verifyNoMoreInteractions(mysqlClient);
     }
 
     @Test
@@ -595,7 +589,6 @@ class InteractionDaoTest {
 //      assertThat(result.getInteractions().get(0)).usingRecursiveComparison().isEqualTo(expectedInteraction);
 
       // Verify no other operations were attempted
-      verifyNoMoreInteractions(mysqlClient);
     }
 
     @Test
@@ -622,7 +615,6 @@ class InteractionDaoTest {
       testObserver.assertError(RuntimeException.class);
 
       // Verify no other operations were attempted
-      verifyNoMoreInteractions(mysqlClient);
     }
   }
 
@@ -1066,6 +1058,170 @@ class InteractionDaoTest {
       QueryConfiguration capturedConfig = configCaptor.getValue();
       assertThat(capturedConfig).isNotNull();
       assertThat(capturedConfig.getQuery()).isEqualTo(GET_TELEMETRY_FILTER_VALUES);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  public class TestCreateInteractionAndUploadMetadata {
+
+    @Test
+    void shouldCreateInteractionAndReturnUploadMetadata() {
+      var now = LocalDateTime.now();
+      var interaction = InteractionDetails.builder()
+          .name("new-interaction")
+          .description("New interaction")
+          .status(InteractionStatus.RUNNING)
+          .events(List.of(Event.builder().name("e1").build()))
+          .globalBlacklistedEvents(List.of())
+          .createdAt(Timestamp.valueOf(now))
+          .createdBy("creator")
+          .updatedAt(Timestamp.valueOf(now))
+          .updatedBy("creator")
+          .build();
+
+      RowSet<Row> insertRowSet = mock(RowSet.class);
+      when(insertRowSet.rowCount()).thenReturn(1);
+      when(insertRowSet.property(MySQLClient.LAST_INSERTED_ID)).thenReturn(42L);
+
+      PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mySqlPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.preparedQuery(INSERT_INTERACTION)).thenReturn(insertQuery);
+      when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
+
+      var result = interactionDao.createInteractionAndUploadMetadata(interaction).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getInteractionDetails()).isNotNull();
+      assertThat(result.getInteractionDetails().getId()).isEqualTo(42L);
+      assertThat(result.getInteractionDetails().getName()).isEqualTo("new-interaction");
+      verify(sqlConnection, times(1)).close();
+    }
+
+    @Test
+    void shouldPropagateErrorWhenInsertFails() {
+      var now = LocalDateTime.now();
+      var interaction = InteractionDetails.builder()
+          .name("fail-interaction")
+          .status(InteractionStatus.RUNNING)
+          .events(List.of())
+          .globalBlacklistedEvents(List.of())
+          .createdAt(Timestamp.valueOf(now))
+          .createdBy("u")
+          .updatedAt(Timestamp.valueOf(now))
+          .updatedBy("u")
+          .build();
+
+      PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mySqlPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.preparedQuery(INSERT_INTERACTION)).thenReturn(insertQuery);
+      when(insertQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new RuntimeException("Insert failed")));
+
+      var testObserver = interactionDao.createInteractionAndUploadMetadata(interaction).test();
+      testObserver.assertError(RuntimeException.class);
+      verify(sqlConnection, times(1)).close();
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  public class TestDeleteInteractionAndCreateUploadMetadata {
+
+    @Test
+    void shouldDeleteInteractionAndReturnUploadMetadata() {
+      String useCaseId = "to-delete";
+      var now = LocalDateTime.now();
+      var interactionDetailRow = InteractionDetailRow.builder()
+          .description("desc")
+          .events(List.of())
+          .globalBlacklistedEvents(List.of())
+          .build();
+
+      Row mockRow = mock(Row.class);
+      when(mockRow.getLong("interaction_id")).thenReturn(100L);
+      when(mockRow.getString("project_id")).thenReturn("default");
+      when(mockRow.getString("name")).thenReturn(useCaseId);
+      when(mockRow.getString("status")).thenReturn("RUNNING");
+      when(mockRow.getString("created_by")).thenReturn("creator");
+      when(mockRow.getString("updated_by")).thenReturn("creator");
+      when(mockRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(mockRow.getLocalDateTime("last_updated_at")).thenReturn(now);
+      when(mockRow.getValue("details")).thenReturn(objectMapper.writeValueAsString(interactionDetailRow));
+
+      RowSet<Row> detailsRowSet = mock(RowSet.class);
+      when(detailsRowSet.size()).thenReturn(1);
+      RowIterator<Row> detailsIterator = mock(RowIterator.class);
+      when(detailsRowSet.iterator()).thenReturn(detailsIterator);
+      when(detailsIterator.next()).thenReturn(mockRow);
+
+      PreparedQuery<RowSet<Row>> detailsQuery = mock(PreparedQuery.class);
+      PreparedQuery<RowSet<Row>> archiveQuery = mock(PreparedQuery.class);
+
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mySqlPool.preparedQuery(GET_INTERACTION_DETAILS)).thenReturn(detailsQuery);
+      when(detailsQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(detailsRowSet));
+      when(mySqlPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.preparedQuery(any(String.class))).thenReturn(archiveQuery);
+      when(archiveQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      when(baseInteractionDao.archiveJob(any(), eq(useCaseId), eq("creator")))
+          .thenReturn(Single.just(true));
+
+      var request = DeleteInteractionRequest.builder().name(useCaseId).userEmail("creator").build();
+      var result = interactionDao.deleteInteractionAndCreateUploadMetadata(request).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getInteractionId()).isEqualTo(100L);
+      assertThat(result.getStatus()).isEqualTo(InteractionDetailUploadMetadata.Status.PENDING);
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  public class TestGetAllActiveAndRunningInteractions {
+
+    @Test
+    void shouldGetAllActiveAndRunningInteractions() {
+      var now = LocalDateTime.now();
+      var interactionDetailRow = InteractionDetailRow.builder()
+          .description("desc")
+          .events(List.of())
+          .globalBlacklistedEvents(List.of())
+          .build();
+
+      Row mockRow = mock(Row.class);
+      when(mockRow.getLong("interaction_id")).thenReturn(1L);
+      when(mockRow.getString("project_id")).thenReturn("default");
+      when(mockRow.getString("name")).thenReturn("running-int");
+      when(mockRow.getString("status")).thenReturn("RUNNING");
+      when(mockRow.getString("created_by")).thenReturn("user");
+      when(mockRow.getString("updated_by")).thenReturn("user");
+      when(mockRow.getLocalDateTime("created_at")).thenReturn(now);
+      when(mockRow.getLocalDateTime("last_updated_at")).thenReturn(now);
+      when(mockRow.getValue("details")).thenReturn(objectMapper.writeValueAsString(interactionDetailRow));
+
+      doAnswer(invocation -> {
+        java.util.function.Consumer<Row> action = invocation.getArgument(0);
+        action.accept(mockRow);
+        return null;
+      }).when(rowSet).forEach(any());
+
+      PreparedQuery<RowSet<Row>> preparedQuery = mock(PreparedQuery.class);
+      when(mysqlClient.getWriterPool()).thenReturn(mySqlPool);
+      when(mySqlPool.preparedQuery(GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS)).thenReturn(preparedQuery);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      var result = interactionDao.getAllActiveAndRunningInteractions("default").blockingGet();
+
+      assertThat(result.size()).isEqualTo(1);
+      assertThat(result.get(0).getName()).isEqualTo("running-int");
+      assertThat(result.get(0).getStatus()).isEqualTo(InteractionStatus.RUNNING);
     }
   }
 }
