@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.dto.ProjectSummaryDto;
+
+import java.util.List;
 
 @Builder
 @Data
@@ -27,4 +30,17 @@ public class AuthenticateResponseDto {
 
   @JsonProperty("tokenType")
   private String tokenType;
+  
+  // New fields for enhanced auth flow
+  @JsonProperty("userId")
+  private String userId;
+  
+  @JsonProperty("tenantId")
+  private String tenantId;
+  
+  @JsonProperty("needsOnboarding")
+  private Boolean needsOnboarding;
+  
+  @JsonProperty("projects")
+  private List<ProjectSummaryDto> projects;
 }

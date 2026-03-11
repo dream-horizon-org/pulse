@@ -44,7 +44,7 @@ import org.dreamhorizon.pulseserver.service.alert.core.models.GetAllAlertsRespon
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertRequest;
 import org.dreamhorizon.pulseserver.service.alert.core.models.SnoozeAlertResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.models.UpdateAlertRequest;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 
 @Slf4j
 @Data
@@ -96,7 +96,7 @@ public class AlertService {
         alertId,
         createAlertRequestDto.getEvaluationInterval(),
         applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + alertId,
-        TenantContext.requireTenantId()
+        ProjectContext.getProjectId()
     )).map(created -> {
       if (!created) {
         log.error("Error while adding alert to cron manager for alertId: {}", alertId);
@@ -122,7 +122,7 @@ public class AlertService {
         })
         .flatMap(updatedAlertId -> alertCronService.updateAlertCron(new UpdateCronDto(
             alertId,
-            TenantContext.requireTenantId(),
+            ProjectContext.getProjectId(),
             updateAlertRequestDto.getEvaluationInterval(),
             evaluationInterval.get(),
             applicationConfig.getServiceUrl() + ALERT_EVALUATE_AND_TRIGGER_ALERT + "?alertId=" + updatedAlertId

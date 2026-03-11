@@ -23,6 +23,71 @@ services:
       retries: 5
       start_period: 30s
 
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # OpenFGA Database Migration (runs first, creates schema - idempotent)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  openfga-migrate:
+    image: alpine:3.19
+    container_name: pulse-openfga-migrate
+    command: [ "/bin/sh", "/scripts/migrate-openfga.sh" ]
+    environment:
+      - OPENFGA_VERSION=1.5.3
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=pulse_user
+      - MYSQL_PASSWORD=pulse_password
+      - MYSQL_DATABASE=openfga
+    volumes:
+      - ./openfga:/scripts:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - pulse-network
+    restart: "no"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # OpenFGA Authorization Service (uses MySQL for storage)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  openfga:
+    image: openfga/openfga:v1.5.3
+    container_name: pulse-openfga
+    command: run
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=mysql
+      - OPENFGA_DATASTORE_URI=pulse_user:pulse_password@tcp(mysql:3306)/openfga?parseTime=true
+      - OPENFGA_PLAYGROUND_ENABLED=true
+    ports:
+      - "8180:8080"   # HTTP API (using 8180 to avoid conflicts)
+      - "8181:8081"   # gRPC API
+      - "3001:3000"   # Playground UI
+    depends_on:
+      mysql:
+        condition: service_healthy
+      openfga-migrate:
+        condition: service_completed_successfully
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    # Note: No healthcheck - OpenFGA distroless image has no shell/curl
+    # The init script waits for /healthz endpoint directly
+
+  # OpenFGA Initialization (creates store/model after server is ready - idempotent)
+  openfga-init:
+    image: alpine:3.19
+    container_name: pulse-openfga-init
+    command: [ "/bin/sh", "/scripts/init-openfga.sh" ]
+    environment:
+      - OPENFGA_URL=http://openfga:8080
+    volumes:
+      - ./openfga:/scripts:ro
+    depends_on:
+      openfga:
+        condition: service_started  # Init script waits for OpenFGA via curl
+    networks:
+      - pulse-network
+    restart: "no"
+
   # ClickHouse Database (OTEL data only - traces, logs, metrics)
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
@@ -104,6 +169,12 @@ services:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
         REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
+        REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
+        REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
+        REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+        REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
+        REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
+        REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
     container_name: pulse-ui
     ports:
       - "3000:8080"
@@ -122,35 +193,35 @@ services:
       retries: 3
       start_period: 10s
 
-  # Vector Service (Data Collector)
-  vector:
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
-    container_name: vector
-    command: [ ]
-    environment:
-      - VECTOR_LOG=debug
-    volumes:
-      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - vector-data:/var/lib/vector
-    networks:
-      - pulse-network
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    ports:
-      - "8686:8686"
-      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+    # Vector Service (Data Collector)
+    vector:
+      build:
+        context: ../vector
+        dockerfile: Dockerfile
+        args:
+          VECTOR_REPO: https://github.com/parth-modh/vector
+          VECTOR_REF: forked/multi-bucket
+          DEBIAN_VERSION: "12"
+      container_name: vector
+      command: [ ]
+      environment:
+        - VECTOR_LOG=debug
+      volumes:
+        - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+        - vector-data:/var/lib/vector
+      networks:
+        - pulse-network
+      restart: unless-stopped
+      healthcheck:
+        test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+        interval: 10s
+        timeout: 5s
+        retries: 3
+        start_period: 15s
+      ports:
+        - "8686:8686"
+        - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+        - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -191,6 +262,10 @@ services:
       - CLICKHOUSE_PORT=8123
       - ENCRYPTION_MASTER_KEY=${VAULT_ENCRYPTION_MASTER_KEY}
 
+      # Redis Configuration
+      - REDIS_HOST=${REDIS_HOST:-ascend-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+
       # S3 Configuration
       - S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
@@ -216,6 +291,13 @@ services:
       # GCP Configuration (only used when QUERY_ENGINE=gcp)
       - CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID=${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
       # - CONFIG_SERVICE_APPLICATION_GCP_DATASET=${CONFIG_SERVICE_APPLICATION_GCP_DATASET}
+
+      # OpenFGA Authorization Configuration
+      - OPENFGA_API_URL=${OPENFGA_API_URL:-http://openfga:8080}
+      # OpenFGA will auto-fetch storeId/modelId if enabled and not provided
+      - OPENFGA_STORE_ID=${OPENFGA_STORE_ID:-}
+      - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
+      - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
     networks:
       - pulse-network
     depends_on:
@@ -223,6 +305,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+      openfga:
+        condition: service_started  # OpenFGA distroless image has no healthcheck
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
@@ -253,12 +337,22 @@ services:
       # Application Configuration
       - CONFIG_SERVICE_APPLICATION_PULSESERVERURL=${CONFIG_SERVICE_APPLICATION_PULSESERVERURL:-http://pulse-server:8080}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
+      - CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET=${CONFIG_SERVICE_APPLICATION_SERVICEJWTSECRET:-dev_service_jwt_secret}
+      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEHOST=clickhouse
+      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPORT=8123
+      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEDATABASE=otel
+      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEUSERNAME=pulse_user
+      - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
+      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-ascend-redis}
+      - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
     networks:
       - pulse-network
     depends_on:
       mysql:
         condition: service_healthy
       pulse-server:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
