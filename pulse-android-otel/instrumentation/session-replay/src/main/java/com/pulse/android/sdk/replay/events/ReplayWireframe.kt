@@ -6,11 +6,15 @@ package com.pulse.android.sdk.replay.events
  * For wireframe mode: tree of nodes (text, image, input, div, etc.).
  *
  * @param id Stable id (e.g. System.identityHashCode(view))
- * @param x,y,width,height Bounds in density-independent units
- * @param type "screenshot" | "text" | "image" | "rectangle" | "input" | "div" | etc.
+ * @param x x position in density-independent units
+ * @param y y position in density-independent units
+ * @param width Width in density-independent units
+ * @param height Height in density-independent units
+ * @param type Wireframe type — see [WireframeType] constants
  * @param base64 Optional image data (screenshot or drawable)
  * @param childWireframes Children for wireframe mode; null for screenshot or leaf nodes
- * @param parentId Parent wireframe id for incremental updates (transient, not serialized if needed)
+ * @param parentId Parent wireframe id for incremental updates (transient, not serialized)
+ * @param value JSON-compatible primitive only: [String], [Int], or [Float]. No other types.
  */
 public data class ReplayWireframe(
     public val id: Int,

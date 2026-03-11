@@ -1,8 +1,12 @@
 package com.pulse.android.sdk.replay.encoding
 
+import com.pulse.android.sdk.replay.events.ReplayCustomEventData
+import com.pulse.android.sdk.replay.events.ReplayEventData
 import com.pulse.android.sdk.replay.events.ReplayEvent
+import com.pulse.android.sdk.replay.events.ReplayFullSnapshotData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
+import com.pulse.android.sdk.replay.events.ReplayMetaData
 import com.pulse.android.sdk.replay.events.ReplayMousePosition
 import com.pulse.android.sdk.replay.events.ReplayMutatedNode
 import com.pulse.android.sdk.replay.events.ReplayRemovedNode
@@ -15,59 +19,45 @@ import org.json.JSONObject
  * Encodes a batch of [ReplayEvent] to a JSON array string for transport.
  * Event type is encoded as integer (schema/PostHog compatible). Each element has "type", "timestamp", "data".
  */
-public object ReplayEventPayloadEncoder {
+internal object ReplayEventPayloadEncoder {
 
-    /**
-     * Encodes [events] to a JSON array string. Each element has "type" (integer), "timestamp", "data".
-     */
-    @JvmStatic
-    public fun encodeToJson(events: List<ReplayEvent>): String {
+    fun encodeToJson(events: List<ReplayEvent>): String {
         val arr = JSONArray()
         for (e in events) {
             arr.put(
                 JSONObject().apply {
                     put("type", e.type.value)
                     put("timestamp", e.timestamp)
-                    put("data", toJsonValue(e.data))
+                    put("data", encodeEventData(e.data))
                 },
             )
         }
-        return arr.toString() ?: "[]"
+        return arr.toString()
     }
 
-    private fun toJsonValue(value: Any?): Any? {
-        return when (value) {
-            null -> JSONObject.NULL
-            is Map<*, *> -> {
-                val obj = JSONObject()
-                for ((k, v) in value) if (k != null) obj.put(k.toString(), toJsonValue(v))
-                obj
+    private fun encodeEventData(data: ReplayEventData?): Any {
+        if (data == null) return JSONObject.NULL
+        return when (data) {
+            is ReplayMetaData -> JSONObject().apply {
+                put("href", data.href)
+                put("width", data.width)
+                put("height", data.height)
             }
-            is List<*> -> {
-                val arr = JSONArray()
-                for (item in value) arr.put(toJsonValue(item))
-                arr
+            is ReplayFullSnapshotData -> JSONObject().apply {
+                put("wireframes", JSONArray().apply {
+                    data.wireframes.forEach { put(wireframeToJson(it)) }
+                })
+                put("initialOffset", JSONObject().apply {
+                    put("top", data.initialOffsetTop)
+                    put("left", data.initialOffsetLeft)
+                })
             }
-            is ReplayWireframe -> wireframeToJson(value)
-            is ReplayStyle -> {
-                val obj = JSONObject()
-                value.color?.let { obj.put("color", it) }
-                value.backgroundColor?.let { obj.put("backgroundColor", it) }
-                value.backgroundImage?.let { obj.put("backgroundImage", it) }
-                value.borderWidth?.let { obj.put("borderWidth", it) }
-                value.fontSize?.let { obj.put("fontSize", it) }
-                value.fontFamily?.let { obj.put("fontFamily", it) }
-                value.horizontalAlign?.let { obj.put("horizontalAlign", it) }
-                value.verticalAlign?.let { obj.put("verticalAlign", it) }
-                obj
+            is ReplayIncrementalMutationData -> incrementalMutationDataToJson(data)
+            is ReplayIncrementalMouseInteractionData -> mouseInteractionDataToJson(data)
+            is ReplayCustomEventData -> JSONObject().apply {
+                put("tag", data.tag)
+                put("payload", mapToJson(data.payload))
             }
-            is ReplayIncrementalMutationData -> incrementalMutationDataToJson(value)
-            is ReplayMutatedNode -> mutatedNodeToJson(value)
-            is ReplayRemovedNode -> removedNodeToJson(value)
-            is ReplayIncrementalMouseInteractionData -> mouseInteractionDataToJson(value)
-            is ReplayMousePosition -> mousePositionToJson(value)
-            is Number, is Boolean -> value
-            else -> value.toString()
         }
     }
 
@@ -122,21 +112,62 @@ public object ReplayEventPayloadEncoder {
             put("y", w.y)
             put("width", w.width)
             put("height", w.height)
-            put("type", w.type)
-            put("text", w.text)
-            put("base64", w.base64)
-            put("inputType", w.inputType)
-            put("value", toJsonValue(w.value))
-            put("disabled", w.disabled)
-            put("checked", w.checked)
-            put("label", w.label)
-            put("parentId", w.parentId)
-            put("max", w.max)
-            w.style?.let { put("style", toJsonValue(it)) }
+            w.type?.let { put("type", it) }
+            w.text?.let { put("text", it) }
+            w.base64?.let { put("base64", it) }
+            w.inputType?.let { put("inputType", it) }
+            w.value?.let { put("value", it) }
+            w.disabled?.let { put("disabled", it) }
+            w.checked?.let { put("checked", it) }
+            w.label?.let { put("label", it) }
+            w.parentId?.let { put("parentId", it) }
+            w.max?.let { put("max", it) }
+            w.style?.let { put("style", styleToJson(it)) }
             w.childWireframes?.let { list ->
                 put("childWireframes", JSONArray().apply { list.forEach { put(wireframeToJson(it)) } })
             }
             w.options?.let { put("options", JSONArray(it)) }
+        }
+    }
+
+    private fun styleToJson(s: ReplayStyle): JSONObject {
+        return JSONObject().apply {
+            s.color?.let { put("color", it) }
+            s.backgroundColor?.let { put("backgroundColor", it) }
+            s.backgroundImage?.let { put("backgroundImage", it) }
+            s.borderWidth?.let { put("borderWidth", it) }
+            s.borderColor?.let { put("borderColor", it) }
+            s.borderRadius?.let { put("borderRadius", it) }
+            s.fontSize?.let { put("fontSize", it) }
+            s.fontFamily?.let { put("fontFamily", it) }
+            s.horizontalAlign?.let { put("horizontalAlign", it) }
+            s.verticalAlign?.let { put("verticalAlign", it) }
+            s.paddingTop?.let { put("paddingTop", it) }
+            s.paddingBottom?.let { put("paddingBottom", it) }
+            s.paddingLeft?.let { put("paddingLeft", it) }
+            s.paddingRight?.let { put("paddingRight", it) }
+            s.bar?.let { put("bar", it) }
+            s.iconLeft?.let { put("iconLeft", it) }
+            s.iconRight?.let { put("iconRight", it) }
+        }
+    }
+
+    private fun mapToJson(map: Map<String, Any>): JSONObject {
+        return JSONObject().apply {
+            for ((k, v) in map) put(k, toJsonPrimitive(v))
+        }
+    }
+
+    private fun toJsonPrimitive(value: Any): Any {
+        return when (value) {
+            is Number, is Boolean, is String -> value
+            is Map<*, *> -> JSONObject().apply {
+                for ((k, v) in value) if (k != null && v != null) put(k.toString(), toJsonPrimitive(v))
+            }
+            is List<*> -> JSONArray().apply {
+                for (item in value) if (item != null) put(toJsonPrimitive(item))
+            }
+            else -> value.toString()
         }
     }
 }

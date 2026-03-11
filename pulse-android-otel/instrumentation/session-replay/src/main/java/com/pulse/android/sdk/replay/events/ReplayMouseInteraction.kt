@@ -18,7 +18,8 @@ public enum class ReplayMouseInteraction(public val value: Int) {
     ;
 
     public companion object {
-        public fun fromValue(value: Int): ReplayMouseInteraction? =
-            values().firstOrNull { it.value == value }
+        private val valueMap = values().associateBy { it.value }
+
+        public fun fromValue(value: Int): ReplayMouseInteraction? = valueMap[value]
     }
 }

@@ -26,9 +26,11 @@ import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionEven
 import com.pulse.android.sdk.replay.events.ReplayMouseInteraction
 import com.pulse.android.sdk.replay.events.ScreenSizeInfo
 import java.lang.ref.WeakReference
+import java.util.Collections
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
@@ -54,7 +56,8 @@ public class SessionReplayIntegration(
 
     private val mainHandler = mainHandler ?: android.os.Handler(android.os.Looper.getMainLooper())
     private val dateProvider = DefaultDateProvider()
-    private val decorViews = WeakHashMap<View, ViewTreeSnapshotStatus>()
+    private val decorViews: MutableMap<View, ViewTreeSnapshotStatus> =
+        Collections.synchronizedMap(WeakHashMap())
     private val executor = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "PulseReplayThread").apply { isDaemon = true }
     }
@@ -63,10 +66,9 @@ public class SessionReplayIntegration(
     @Volatile
     private var isSessionReplayActive = false
 
-    @Volatile
-    private var isOnDrawnCalled = false
+    private val isOnDrawnCalled = AtomicBoolean(false)
 
-    private fun onDrawCallback() { isOnDrawnCalled = true }
+    private fun onDrawCallback() { isOnDrawnCalled.set(true) }
 
     private fun addView(view: View, added: Boolean) {
         try {
@@ -220,12 +222,12 @@ public class SessionReplayIntegration(
                         v,
                         config,
                         rects,
-                        onDrawCalled = { isOnDrawnCalled },
+                        onDrawCalled = { isOnDrawnCalled.get() },
                         logger = logger,
                     )
                 },
-                onDrawFlag = { isOnDrawnCalled },
-                setOnDrawFlag = { isOnDrawnCalled = it },
+                onDrawFlag = { isOnDrawnCalled.get() },
+                setOnDrawFlag = { isOnDrawnCalled.set(it) },
                 logger = logger,
                 screenshotScale = config.screenshotScale,
                 screenshotQuality = config.screenshotQuality,
@@ -240,14 +242,6 @@ public class SessionReplayIntegration(
         }
 
         val wireframeOrNull = wireframe ?: return
-
-        if (!config.screenshot && wireframeOrNull.style?.backgroundColor == null) {
-            context.theme?.let { theme ->
-                WireframeCapture.themeToRGBColor(theme)?.let {
-                    wireframeOrNull.style?.backgroundColor = it
-                }
-            }
-        }
 
         val screenSize = context.screenSize()
         val screenWidth = screenSize?.width ?: (displayMetrics.widthPixels / displayMetrics.density).toInt()
@@ -299,7 +293,7 @@ public class SessionReplayIntegration(
             logger("Session Replay uninstall failed: $e")
         }
         isSessionReplayActive = false
-        isOnDrawnCalled = false
+        isOnDrawnCalled.set(false)
         clearSnapshotStates()
         decorViews.clear()
     }
@@ -323,7 +317,7 @@ public class SessionReplayIntegration(
 
     override fun stop() {
         isSessionReplayActive = false
-        isOnDrawnCalled = false
+        isOnDrawnCalled.set(false)
     }
 
     override fun isActive(): Boolean = isSessionReplayActive

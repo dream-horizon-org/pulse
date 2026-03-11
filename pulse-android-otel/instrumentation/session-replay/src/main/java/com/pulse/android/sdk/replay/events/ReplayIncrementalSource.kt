@@ -21,7 +21,8 @@ public enum class ReplayIncrementalSource(public val value: Int) {
     ;
 
     public companion object {
-        public fun fromValue(value: Int): ReplayIncrementalSource? =
-            values().firstOrNull { it.value == value }
+        private val valueMap = values().associateBy { it.value }
+
+        public fun fromValue(value: Int): ReplayIncrementalSource? = valueMap[value]
     }
 }

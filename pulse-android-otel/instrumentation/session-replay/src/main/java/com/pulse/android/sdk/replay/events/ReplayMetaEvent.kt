@@ -11,9 +11,5 @@ public class ReplayMetaEvent(
 ) : ReplayEvent(
     type = ReplayEventType.Meta,
     timestamp = timestamp,
-    data = mapOf(
-        "href" to href,
-        "width" to width,
-        "height" to height,
-    ),
+    data = ReplayMetaData(href = href, width = width, height = height),
 )

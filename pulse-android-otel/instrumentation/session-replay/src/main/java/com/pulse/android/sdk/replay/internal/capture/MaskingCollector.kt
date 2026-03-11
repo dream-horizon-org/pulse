@@ -1,7 +1,6 @@
 package com.pulse.android.sdk.replay.internal.capture
 
 import android.graphics.Rect
-import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -229,24 +228,13 @@ internal object MaskingCollector {
         config.textAndInputPrivacy != TextAndInputPrivacy.MASK_SENSITIVE_INPUTS ||
             config.imagePrivacy == ImagePrivacy.MASK_ALL
 
-    // --- Input type classification ---
+    // --- Input type classification (delegated to shared utility) ---
 
-    private fun isPasswordInputType(inputType: Int): Boolean {
-        val variation = inputType and InputType.TYPE_MASK_VARIATION
-        val cls = inputType and InputType.TYPE_MASK_CLASS
-        return variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
-            (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
-    }
+    private fun isPasswordInputType(inputType: Int): Boolean =
+        InputTypeClassifier.isPasswordInputType(inputType)
 
-    private fun isSensitiveInputType(inputType: Int): Boolean {
-        if (isPasswordInputType(inputType)) return true
-        val variation = inputType and InputType.TYPE_MASK_VARIATION
-        val cls = inputType and InputType.TYPE_MASK_CLASS
-        return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
-            cls == InputType.TYPE_CLASS_PHONE
-    }
+    private fun isSensitiveInputType(inputType: Int): Boolean =
+        InputTypeClassifier.isSensitiveInputType(inputType)
 
     // --- Rect helpers ---
 

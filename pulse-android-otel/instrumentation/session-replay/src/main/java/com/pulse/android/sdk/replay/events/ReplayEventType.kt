@@ -15,7 +15,8 @@ public enum class ReplayEventType(public val value: Int) {
     ;
 
     public companion object {
-        public fun fromValue(value: Int): ReplayEventType? =
-            values().firstOrNull { it.value == value }
+        private val valueMap = values().associateBy { it.value }
+
+        public fun fromValue(value: Int): ReplayEventType? = valueMap[value]
     }
 }

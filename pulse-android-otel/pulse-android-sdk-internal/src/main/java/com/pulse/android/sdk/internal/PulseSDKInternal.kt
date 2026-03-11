@@ -523,37 +523,43 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         PulseOtelUtils.logDebug(TAG) { "Session replay enabled by backend (rate=${backendFeature.sessionSampleRate})" }
 
-        val replayConfig = localConfig ?: SessionReplayConfig()
+        val base = localConfig ?: SessionReplayConfig()
 
-        backendFeature.config?.let { jsonObj ->
-            val featureConfig = runCatching {
+        val featureConfig = backendFeature.config?.let { jsonObj ->
+            runCatching {
                 PulseSerialisationUtils.jsonConfigForSerialisation
                     .decodeFromJsonElement(PulseSessionReplayFeatureConfig.serializer(), jsonObj)
             }.onFailure {
                 PulseOtelUtils.logDebug(TAG) { "Failed to parse session_replay feature config: ${it.message}" }
-            }.getOrNull() ?: return@let
-
-            PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config" }
-            featureConfig.textAndInputPrivacy?.let { value ->
-                runCatching { TextAndInputPrivacy.valueOf(value) }
-                    .onSuccess { replayConfig.textAndInputPrivacy = it }
-                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
-            }
-            featureConfig.imagePrivacy?.let { value ->
-                runCatching { ImagePrivacy.valueOf(value) }
-                    .onSuccess { replayConfig.imagePrivacy = it }
-                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
-            }
-            featureConfig.throttleDelayMs?.let { replayConfig.throttleDelayMs = it }
-            featureConfig.screenshotScale?.let { replayConfig.screenshotScale = it }
-            featureConfig.screenshotQuality?.let { replayConfig.screenshotQuality = it }
-            featureConfig.flushIntervalSeconds?.let { replayConfig.flushIntervalSeconds = it }
-            featureConfig.flushAt?.let { replayConfig.flushAt = it }
-            featureConfig.maxBatchSize?.let { replayConfig.maxBatchSize = it }
-            featureConfig.replayApiBaseUrl?.let { replayConfig.replayApiBaseUrl = it }
+            }.getOrNull()
         }
 
-        return replayConfig
+        if (featureConfig == null) return base
+
+        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config" }
+
+        val resolvedTextPrivacy = featureConfig.textAndInputPrivacy?.let { value ->
+            runCatching { TextAndInputPrivacy.valueOf(value) }
+                .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
+                .getOrNull()
+        }
+        val resolvedImagePrivacy = featureConfig.imagePrivacy?.let { value ->
+            runCatching { ImagePrivacy.valueOf(value) }
+                .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
+                .getOrNull()
+        }
+
+        return base.copy(
+            textAndInputPrivacy = resolvedTextPrivacy ?: base.textAndInputPrivacy,
+            imagePrivacy = resolvedImagePrivacy ?: base.imagePrivacy,
+            throttleDelayMs = featureConfig.throttleDelayMs ?: base.throttleDelayMs,
+            screenshotScale = featureConfig.screenshotScale ?: base.screenshotScale,
+            screenshotQuality = featureConfig.screenshotQuality ?: base.screenshotQuality,
+            flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
+            flushAt = featureConfig.flushAt ?: base.flushAt,
+            maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
+            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl,
+        )
     }
 
     private fun createSignalsProcessors(

@@ -5,13 +5,10 @@ package com.pulse.android.sdk.replay.events
  */
 public class ReplayCustomEvent(
     tag: String,
-    payload: Any,
+    payload: Map<String, Any>,
     timestamp: Long,
 ) : ReplayEvent(
     type = ReplayEventType.Custom,
     timestamp = timestamp,
-    data = mapOf(
-        "tag" to tag,
-        "payload" to payload,
-    ),
+    data = ReplayCustomEventData(tag = tag, payload = payload),
 )

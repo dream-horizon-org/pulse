@@ -29,19 +29,20 @@ public class SessionReplayConfiguration {
     internal var configured: Boolean = false
         private set
 
-    /** Called when the user invokes `sessionReplay { }` in the instrumentations block. */
+    /** SDK-internal: called when the user invokes `sessionReplay { }` in the instrumentations block. */
     public fun markConfigured() {
         configured = true
     }
 
-    /** Returns the built [SessionReplayConfig] if [markConfigured] was called; null otherwise. */
+    /** SDK-internal: returns the built [SessionReplayConfig] if [markConfigured] was called; null otherwise. */
     public fun getConfigIfConfigured(): SessionReplayConfig? =
         if (configured) build() else null
 
     private fun build(): SessionReplayConfig {
-        val config = SessionReplayConfig(drawableConverter = drawableConverter)
-        _maskViewClasses.forEach { config.addMaskViewClass(it) }
-        _unmaskViewClasses.forEach { config.addUnmaskViewClass(it) }
-        return config
+        return SessionReplayConfig(
+            drawableConverter = drawableConverter,
+            maskViewClasses = _maskViewClasses.toSet(),
+            unmaskViewClasses = _unmaskViewClasses.toSet(),
+        )
     }
 }

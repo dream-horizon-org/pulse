@@ -19,8 +19,8 @@ class SessionReplayConfigurationTest {
         assertThat(built).isNotNull
         assertThat(built!!.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_ALL)
         assertThat(built.imagePrivacy).isEqualTo(ImagePrivacy.MASK_ALL)
-        assertThat(built.screenshot).isTrue() // hardcoded, always true
-        assertThat(built.throttleDelayMs).isEqualTo(1000L) // SDK default
+        assertThat(built.screenshot).isTrue()
+        assertThat(built.throttleDelayMs).isEqualTo(1000L)
         assertThat(built.drawableConverter).isNull()
         assertThat(built.maskViewClasses).isEmpty()
         assertThat(built.unmaskViewClasses).isEmpty()
@@ -40,5 +40,16 @@ class SessionReplayConfigurationTest {
         assertThat(built!!.drawableConverter).isSameAs(converter)
         assertThat(built.maskViewClasses).containsExactly("com.example.SecretView")
         assertThat(built.unmaskViewClasses).containsExactly("com.example.PublicView")
+    }
+
+    @Test
+    fun `config is immutable - copy produces independent instance`() {
+        val original = SessionReplayConfig(
+            textAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
+            imagePrivacy = ImagePrivacy.MASK_ALL,
+        )
+        val modified = original.copy(textAndInputPrivacy = TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
+        assertThat(original.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_ALL)
+        assertThat(modified.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
     }
 }

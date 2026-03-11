@@ -2,9 +2,8 @@ package com.pulse.android.sdk.replay
 
 import android.graphics.drawable.Drawable
 
-
 /**
- * Internal configuration for Session Replay. Default values here act as SDK-level fallbacks.
+ * Immutable configuration for Session Replay. Built once during SDK init and never mutated.
  *
  * **Backend-controlled params** (set by the `session_replay` feature config from the server):
  * @param textAndInputPrivacy Controls masking of text and input fields.
@@ -20,51 +19,26 @@ import android.graphics.drawable.Drawable
  * **Client-only params** (set via the `sessionReplay { }` DSL in app code):
  * @param drawableConverter Optional: convert custom Drawables to Bitmap for wireframe mode.
  * @param captureLogcat If true, capture logcat as console events.
+ * @param maskViewClasses Fully-qualified class names whose instances (and subclasses) are always masked.
+ * @param unmaskViewClasses Fully-qualified class names whose instances (and subclasses) are never masked by global config.
  */
-public class SessionReplayConfig
-@JvmOverloads
-constructor(
-    public var textAndInputPrivacy: TextAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
-    public var imagePrivacy: ImagePrivacy = ImagePrivacy.MASK_ALL,
-    public var captureLogcat: Boolean = false,
-    public var throttleDelayMs: Long = 1000L,
-    public var drawableConverter: DrawableConverter? = null,
-    public var screenshotScale: Float = 1f,
-    public var screenshotQuality: Int = 30,
-    public var flushIntervalSeconds: Int = 60,
-    public var flushAt: Int = 10,
-    public var maxBatchSize: Int = 50,
-    public var replayApiBaseUrl: String? = null,
+public data class SessionReplayConfig(
+    val textAndInputPrivacy: TextAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
+    val imagePrivacy: ImagePrivacy = ImagePrivacy.MASK_ALL,
+    val captureLogcat: Boolean = false,
+    val throttleDelayMs: Long = 1000L,
+    val drawableConverter: DrawableConverter? = null,
+    val screenshotScale: Float = 1f,
+    val screenshotQuality: Int = 30,
+    val flushIntervalSeconds: Int = 60,
+    val flushAt: Int = 10,
+    val maxBatchSize: Int = 50,
+    val replayApiBaseUrl: String? = null,
+    val maskViewClasses: Set<String> = emptySet(),
+    val unmaskViewClasses: Set<String> = emptySet(),
 ) {
     /** Screenshot capture is always enabled (PixelCopy mode). */
-    public val screenshot: Boolean = true
-
-    private val _maskViewClasses: MutableSet<String> = mutableSetOf()
-    private val _unmaskViewClasses: MutableSet<String> = mutableSetOf()
-
-    /** Fully-qualified class names whose instances (and subclasses) are always masked. */
-    public val maskViewClasses: Set<String> get() = _maskViewClasses
-
-    /** Fully-qualified class names whose instances (and subclasses) are never masked by global config. */
-    public val unmaskViewClasses: Set<String> get() = _unmaskViewClasses
-
-    /**
-     * Register a view class (by fully-qualified name) to always mask in session replay.
-     * Subclasses of this class are also masked. Instance-level overrides still take priority.
-     */
-    public fun addMaskViewClass(className: String): SessionReplayConfig {
-        _maskViewClasses.add(className)
-        return this
-    }
-
-    /**
-     * Register a view class (by fully-qualified name) to never mask by global config.
-     * Subclasses of this class are also unmasked. Instance-level overrides still take priority.
-     */
-    public fun addUnmaskViewClass(className: String): SessionReplayConfig {
-        _unmaskViewClasses.add(className)
-        return this
-    }
+    val screenshot: Boolean = true
 }
 
 /**

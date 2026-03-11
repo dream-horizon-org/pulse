@@ -13,7 +13,6 @@ import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.VectorDrawable
 import android.os.Build
-import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -35,8 +34,10 @@ import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.android.sdk.replay.SessionReplayConfig
 import com.pulse.android.sdk.replay.TextAndInputPrivacy
+import com.pulse.android.sdk.replay.events.InputWireframeType
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
+import com.pulse.android.sdk.replay.events.WireframeType
 import com.pulse.android.sdk.replay.internal.util.isValid
 import com.pulse.android.sdk.replay.internal.util.webpBase64
 import com.pulse.android.sdk.replay.ui.hasPrivacyMaskTag
@@ -65,6 +66,7 @@ internal object WireframeCapture {
         } else null
     }
 
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     private fun View.toWireframeInternal(
         parentId: Int?,
         config: SessionReplayConfig,
@@ -79,23 +81,25 @@ internal object WireframeCapture {
             coordinates[0]
         } else 0
         coordinates[1] = if (ScreenshotCapture.isViewStateStable(this, logger)) coordinates[1] else 0
-        val x = (coordinates[0] / displayMetrics.density).toInt()
-        val y = (coordinates[1] / displayMetrics.density).toInt()
-        val width = (this.width / displayMetrics.density).toInt()
-        val height = (this.height / displayMetrics.density).toInt()
+        val dpX = (coordinates[0] / displayMetrics.density).toInt()
+        val dpY = (coordinates[1] / displayMetrics.density).toInt()
+        val dpWidth = (this.width / displayMetrics.density).toInt()
+        val dpHeight = (this.height / displayMetrics.density).toInt()
+
         var base64: String? = null
         var type: String? = null
-        if (id == android.R.id.statusBarBackground) type = "status_bar"
-        if (id == android.R.id.navigationBarBackground) type = "navigation_bar"
-        val style = ReplayStyle()
-        background?.let { bg ->
-            bg.toRGBColor()?.let { style.backgroundColor = it }
-                ?: run { style.backgroundImage = bg.base64(this.width, this.height, config, displayMetrics) }
-        }
+        if (id == android.R.id.statusBarBackground) type = WireframeType.STATUS_BAR
+        if (id == android.R.id.navigationBarBackground) type = WireframeType.NAVIGATION_BAR
+
+        val bgColor = background?.toRGBColor()
+        val bgImage = if (bgColor == null) background?.base64(this.width, this.height, config, displayMetrics) else null
+        var style = ReplayStyle(backgroundColor = bgColor, backgroundImage = bgImage)
+
         var checked: Boolean? = null
         var text: String? = null
         var inputType: String? = null
         var value: Any? = null
+
         if (this is TextView) {
             val viewText = this.text?.toString()
             if (!viewText.isNullOrEmpty()) {
@@ -105,91 +109,71 @@ internal object WireframeCapture {
             if (text.isNullOrEmpty() && !hint.isNullOrEmpty()) {
                 text = if (!shouldMaskTextView(config)) hint else hint.mask()
             }
-            type = "text"
-            style.color = currentTextColor.toRGBColor()
+            type = WireframeType.TEXT
+
+            val fontFamilyStr = when (typeface) {
+                Typeface.DEFAULT -> "sans-serif"
+                Typeface.DEFAULT_BOLD -> "sans-serif-bold"
+                Typeface.MONOSPACE -> "monospace"
+                Typeface.SERIF -> "serif"
+                else -> null
+            }
+            val fontSizeVal = (textSize / displayMetrics.density).toInt()
+
+            val alignment = resolveAlignment()
+
+            val iconLeft = compoundDrawables.getOrNull(0)?.base64(this.width, this.height, config, displayMetrics)
+            val iconRight = compoundDrawables.getOrNull(2)?.base64(this.width, this.height, config, displayMetrics)
+
+            style = style.copy(
+                color = currentTextColor.toRGBColor(),
+                fontFamily = fontFamilyStr,
+                fontSize = fontSizeVal,
+                horizontalAlign = alignment.first,
+                verticalAlign = alignment.second,
+                paddingTop = if (alignment.second != "center") (totalPaddingTop / displayMetrics.density).toInt() else null,
+                paddingBottom = if (alignment.second != "center") (totalPaddingBottom / displayMetrics.density).toInt() else null,
+                paddingLeft = if (alignment.first != "center") (totalPaddingLeft / displayMetrics.density).toInt() else null,
+                paddingRight = if (alignment.first != "center") (totalPaddingRight / displayMetrics.density).toInt() else null,
+                iconLeft = iconLeft,
+                iconRight = iconRight,
+            )
+
             if (this is Button && this !is CompoundButton) {
-                style.borderWidth = 1
-                style.borderColor = "#000000"
-                type = "input"
-                inputType = "button"
+                style = style.copy(borderWidth = 1, borderColor = "#000000")
+                type = WireframeType.INPUT
+                inputType = InputWireframeType.BUTTON
                 value = text
                 text = null
             }
-            typeface?.let {
-                when (it) {
-                    Typeface.DEFAULT -> style.fontFamily = "sans-serif"
-                    Typeface.DEFAULT_BOLD -> style.fontFamily = "sans-serif-bold"
-                    Typeface.MONOSPACE -> style.fontFamily = "monospace"
-                    Typeface.SERIF -> style.fontFamily = "serif"
-                    else -> {}
-                }
-            }
-            style.fontSize = (textSize / displayMetrics.density).toInt()
-            when (textAlignment) {
-                View.TEXT_ALIGNMENT_CENTER -> { style.verticalAlign = "center"; style.horizontalAlign = "center" }
-                View.TEXT_ALIGNMENT_TEXT_END, View.TEXT_ALIGNMENT_VIEW_END -> { style.verticalAlign = "center"; style.horizontalAlign = "right" }
-                View.TEXT_ALIGNMENT_TEXT_START, View.TEXT_ALIGNMENT_VIEW_START -> { style.verticalAlign = "center"; style.horizontalAlign = "left" }
-                View.TEXT_ALIGNMENT_GRAVITY -> {
-                    style.horizontalAlign = when (gravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
-                        Gravity.START, Gravity.LEFT -> "left"
-                        Gravity.END, Gravity.RIGHT -> "right"
-                        Gravity.CENTER, Gravity.CENTER_HORIZONTAL -> "center"
-                        else -> "left"
-                    }
-                    style.verticalAlign = when (gravity and Gravity.VERTICAL_GRAVITY_MASK) {
-                        Gravity.TOP -> "top"
-                        Gravity.BOTTOM -> "bottom"
-                        Gravity.CENTER_VERTICAL, Gravity.CENTER -> "center"
-                        else -> "center"
-                    }
-                }
-                else -> { style.verticalAlign = "center"; style.horizontalAlign = "left" }
-            }
-            compoundDrawables.forEachIndexed { index, drawable ->
-                drawable?.let {
-                    val b64 = it.base64(this.width, this.height, config, displayMetrics)
-                    when (index) {
-                        0 -> style.iconLeft = b64
-                        2 -> style.iconRight = b64
-                        else -> {}
-                    }
-                }
-            }
-            if (style.verticalAlign != "center") {
-                style.paddingTop = (totalPaddingTop / displayMetrics.density).toInt()
-                style.paddingBottom = (totalPaddingBottom / displayMetrics.density).toInt()
-            }
-            if (style.horizontalAlign != "center") {
-                style.paddingLeft = (totalPaddingLeft / displayMetrics.density).toInt()
-                style.paddingRight = (totalPaddingRight / displayMetrics.density).toInt()
-            }
         }
+
         var label: String? = null
         if (this is CheckBox) {
-            type = "input"
-            inputType = "checkbox"
+            type = WireframeType.INPUT
+            inputType = InputWireframeType.CHECKBOX
             label = text
             text = null
             checked = isChecked
         }
-        if (this is RadioGroup) type = "radio_group"
+        if (this is RadioGroup) type = WireframeType.RADIO_GROUP
         if (this is RadioButton) {
-            type = "input"
-            inputType = "radio"
+            type = WireframeType.INPUT
+            inputType = InputWireframeType.RADIO
             label = text
             text = null
             checked = isChecked
         }
         if (this is EditText) {
-            type = "input"
-            inputType = "text_area"
+            type = WireframeType.INPUT
+            inputType = InputWireframeType.TEXT_AREA
             value = text
             text = null
         }
         var options: List<String>? = null
         if (this is Spinner) {
-            type = "input"
-            inputType = "select"
+            type = WireframeType.INPUT
+            inputType = InputWireframeType.SELECT
             val mask = shouldMaskSpinner(config)
             selectedItem?.let {
                 value = if (!mask) it.toString() else it.toString().mask()
@@ -205,30 +189,37 @@ internal object WireframeCapture {
             }
         }
         if (this is ImageView) {
-            type = "image"
+            type = WireframeType.IMAGE
             if (!shouldMaskImage(config, displayMetrics)) {
                 drawable?.let { base64 = it.base64(width, height, config, displayMetrics) }
             }
         }
         var max: Int? = null
         if (this is ProgressBar) {
-            inputType = "progress"
-            type = "input"
-            style.bar = if (isIndeterminate) "circular" else "horizontal".also { max = this.max; value = progress }
+            inputType = InputWireframeType.PROGRESS
+            type = WireframeType.INPUT
+            if (isIndeterminate) {
+                style = style.copy(bar = "circular")
+            } else {
+                style = style.copy(bar = "horizontal")
+                max = this.max
+                value = progress
+            }
         }
         if (this is RatingBar) {
-            style.bar = "rating"
+            style = style.copy(bar = "rating")
             max = this.max / 2
             value = rating
         }
         if (this is Switch) {
-            type = "input"
-            inputType = "toggle"
+            type = WireframeType.INPUT
+            inputType = InputWireframeType.TOGGLE
             checked = isChecked
             label = text
             text = null
         }
-        if (this is WebView) type = "web_view"
+        if (this is WebView) type = WireframeType.WEB_VIEW
+
         val children = mutableListOf<ReplayWireframe>()
         if (this is ViewGroup && childCount > 0) {
             for (i in 0 until childCount) {
@@ -237,10 +228,10 @@ internal object WireframeCapture {
         }
         return ReplayWireframe(
             id = viewId,
-            x = x,
-            y = y,
-            width = width,
-            height = height,
+            x = dpX,
+            y = dpY,
+            width = dpWidth,
+            height = dpHeight,
             text = text,
             type = type,
             style = style,
@@ -255,6 +246,30 @@ internal object WireframeCapture {
             options = options,
             max = max,
         )
+    }
+
+    private fun TextView.resolveAlignment(): Pair<String, String> {
+        return when (textAlignment) {
+            View.TEXT_ALIGNMENT_CENTER -> "center" to "center"
+            View.TEXT_ALIGNMENT_TEXT_END, View.TEXT_ALIGNMENT_VIEW_END -> "right" to "center"
+            View.TEXT_ALIGNMENT_TEXT_START, View.TEXT_ALIGNMENT_VIEW_START -> "left" to "center"
+            View.TEXT_ALIGNMENT_GRAVITY -> {
+                val h = when (gravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
+                    Gravity.START, Gravity.LEFT -> "left"
+                    Gravity.END, Gravity.RIGHT -> "right"
+                    Gravity.CENTER, Gravity.CENTER_HORIZONTAL -> "center"
+                    else -> "left"
+                }
+                val v = when (gravity and Gravity.VERTICAL_GRAVITY_MASK) {
+                    Gravity.TOP -> "top"
+                    Gravity.BOTTOM -> "bottom"
+                    Gravity.CENTER_VERTICAL, Gravity.CENTER -> "center"
+                    else -> "center"
+                }
+                h to v
+            }
+            else -> "left" to "center"
+        }
     }
 
     // --- Masking decisions (aligned with MaskingCollector) ---
@@ -318,22 +333,11 @@ internal object WireframeCapture {
         else -> true
     }
 
-    private fun isPasswordInputType(inputType: Int): Boolean {
-        val variation = inputType and InputType.TYPE_MASK_VARIATION
-        val cls = inputType and InputType.TYPE_MASK_CLASS
-        return variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
-            (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
-    }
+    private fun isPasswordInputType(inputType: Int): Boolean =
+        InputTypeClassifier.isPasswordInputType(inputType)
 
-    private fun isSensitiveInputType(inputType: Int): Boolean {
-        if (isPasswordInputType(inputType)) return true
-        val variation = inputType and InputType.TYPE_MASK_VARIATION
-        val cls = inputType and InputType.TYPE_MASK_CLASS
-        return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
-            cls == InputType.TYPE_CLASS_PHONE
-    }
+    private fun isSensitiveInputType(inputType: Int): Boolean =
+        InputTypeClassifier.isSensitiveInputType(inputType)
 
     // --- Drawing helpers ---
 
