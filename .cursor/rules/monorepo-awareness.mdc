@@ -33,8 +33,8 @@ cd pulse_ai && ./setup.sh stop                # stop
 
 ```bash
 cd deploy && ./scripts/quickstart.sh          # build + start all
-cd deploy && ./scripts/build.sh [ui|server|alerting|all]
-cd deploy && ./scripts/start.sh -d [ui|server|alerting]
+cd deploy && ./scripts/build.sh [ui|server|cron|all]
+cd deploy && ./scripts/start.sh [-d|--detach] [--build]
 cd deploy && ./scripts/stop.sh [-v]
 cd deploy && ./scripts/logs.sh [service]
 ```

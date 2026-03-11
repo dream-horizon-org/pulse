@@ -11,6 +11,9 @@ import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
+import com.pulse.android.sdk.replay.SessionReplayBootstrap
+import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
 import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
@@ -159,13 +162,13 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         customEventConnectivity: EndpointConnectivity,
         configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         beforeSendData: PulseBeforeSendData? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         ioDispatcher: CoroutineDispatcher,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (dataCollectionState == PulseDataCollectionConsent.DENIED) {
             oldState = PulseDataCollectionConsent.DENIED
@@ -348,12 +351,14 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val metricExporter: MetricExporter =
             beforeSendData?.let { PulseBeforeSendMetricExporter(it, baseMetricExporter) } ?: baseMetricExporter
 
+        var sessionReplayConfig: SessionReplayConfig? = null
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
             if (currentSdkConfig != null) {
                 instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
             }
+            sessionReplayConfig = instrumentationConfig.getSessionReplayConfig()
             pulseSamplingProcessors?.run {
                 val enabledFeatures = getEnabledFeatures()
                 enumValues<PulseFeatureName>().forEach { feature ->
@@ -416,6 +421,17 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 }
             }
         }
+
+        sessionReplayConfig?.let { replayConfig ->
+            SessionReplayRegistry.set(
+                SessionReplayBootstrap(
+                    config = replayConfig,
+                    projectId = projectId,
+                    userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
+                ),
+            )
+        }
+
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -460,6 +476,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
             )
+
+        // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
+        sessionReplay = SessionReplayRegistry.getIntegration()
     }
 
     private fun createSignalsProcessors(
@@ -678,6 +697,10 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
                 return@launch
             }
+            sessionReplay?.flush()
+            sessionReplay?.uninstall()
+            sessionReplay = null
+            SessionReplayRegistry.clearIntegration()
             OpenTelemetryRumInitializer.disposeExporters()
             otelInstance?.shutdown()
             otelInstance = null
@@ -775,6 +798,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
     private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
+    private var sessionReplay: com.pulse.android.sdk.replay.SessionReplayIntegration? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null

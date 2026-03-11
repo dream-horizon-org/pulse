@@ -10,6 +10,7 @@ import { useNavigationTracking, markContentReady } from './navigation';
 
 export type { Span } from './trace';
 export type { PulseConfig } from './config';
+export type { NetworkHeaderConfig } from './config';
 export type { PulseAttributes, PulseAttributeValue } from './pulse.interface';
 export type {
   ReactNavigationIntegration,
