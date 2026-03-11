@@ -314,6 +314,33 @@ CREATE TABLE severity
     description TEXT
 );
 
+-- ============================================================================
+-- NOTIFICATION CHANNELS TABLE
+-- Must be created before alerts table due to foreign key constraint
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS notification_channels (
+    notification_channel_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    config JSON NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
+    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
+);
+
+-- Insert default platform email channel for system notifications (onboarding, etc.)
+INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
+('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
+    'type', 'EMAIL',
+    'fromAddress', 'noreply@pulse-ux.com',
+    'fromName', 'Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE config = config;
+
 
 CREATE TABLE alerts (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -623,31 +650,9 @@ CREATE TABLE IF NOT EXISTS tnc_acceptances (
     CONSTRAINT fk_tnc_acc_version FOREIGN KEY (tnc_version_id) REFERENCES tnc_versions(id)
 
 );
--- Notification Service Tables
-CREATE TABLE IF NOT EXISTS notification_channels (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NULL,
-    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    config JSON NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
-    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
-);
-
--- Insert default platform email channel for system notifications (onboarding, etc.)
-INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
-('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
-    'type', 'EMAIL',
-    'fromAddress', 'noreply@pulse-ux.com',
-    'fromName', 'Pulse Platform'
-))
-ON DUPLICATE KEY UPDATE config = config;
-
-
+-- ============================================================================
+-- NOTIFICATION TEMPLATES TABLE
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS notification_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     event_name VARCHAR(255) NOT NULL,
