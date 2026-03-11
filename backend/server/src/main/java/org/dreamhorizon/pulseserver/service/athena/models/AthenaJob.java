@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AthenaJob {
   private String jobId;
+  private String tenantId; // Parent tenant for organizational hierarchy
+  private String projectId; // Project where query was executed (data isolation)
   private String queryString;
   private String userEmail;
   private String queryExecutionId;

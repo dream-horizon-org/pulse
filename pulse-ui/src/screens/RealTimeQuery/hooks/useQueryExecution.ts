@@ -97,12 +97,6 @@ export function useQueryExecution(
         return;
       }
 
-      console.log("[QueryExecution] Submit response:", { 
-        status: data.status, 
-        jobId: data.jobId,
-        hasResultData: !!data.resultData 
-      });
-
       // Check if query completed immediately (within 3 seconds on backend)
       if (data.status === "COMPLETED" && data.resultData) {
         const processedResult = processResultData(
@@ -131,7 +125,6 @@ export function useQueryExecution(
         onErrorRef.current?.(errorMessage);
       } else {
         // Status is RUNNING or QUEUED - need to poll for results
-        console.log("[QueryExecution] Starting polling for jobId:", data.jobId);
         pollCountRef.current = 0;
         lastProcessedAtRef.current = 0;
         setExecutionState({
@@ -193,13 +186,6 @@ export function useQueryExecution(
     // Increment poll count using ref
     pollCountRef.current += 1;
     const currentPollCount = pollCountRef.current;
-    
-    console.log("[QueryExecution] Poll response:", { 
-      status: data.status, 
-      pollCount: currentPollCount,
-      hasResultData: !!data.resultData,
-      errorMessage: data.errorMessage,
-    });
 
     // Update poll count in state for display purposes
     setExecutionState((prev) => ({
@@ -209,7 +195,6 @@ export function useQueryExecution(
 
     // Check for max poll attempts (timeout)
     if (currentPollCount >= QUERY_POLLING_CONFIG.MAX_POLL_ATTEMPTS) {
-      console.log("[QueryExecution] Max poll attempts reached, timing out");
       setShouldPoll(false);
       const errorMessage = REALTIME_QUERY_TEXTS.QUERY_TIMEOUT;
       setExecutionState((prev) => ({
@@ -224,7 +209,6 @@ export function useQueryExecution(
 
     // Handle different statuses
     if (data.status === "COMPLETED") {
-      console.log("[QueryExecution] Query completed");
       setShouldPoll(false);
       
       if (data.resultData) {
@@ -258,7 +242,6 @@ export function useQueryExecution(
         onSuccessRef.current?.(emptyResult);
       }
     } else if (data.status === "FAILED") {
-      console.log("[QueryExecution] Query failed:", data.errorMessage);
       setShouldPoll(false);
       const errorMessage = data.errorMessage || "Query execution failed";
       setExecutionState((prev) => ({
@@ -269,7 +252,6 @@ export function useQueryExecution(
       }));
       onErrorRef.current?.(errorMessage);
     } else if (data.status === "CANCELLED") {
-      console.log("[QueryExecution] Query was cancelled");
       setShouldPoll(false);
       setExecutionState((prev) => ({
         ...prev,
@@ -277,9 +259,6 @@ export function useQueryExecution(
         errorMessage: "Query was cancelled",
         errorCause: null,
       }));
-    } else {
-      // RUNNING or QUEUED - continue polling
-      console.log("[QueryExecution] Query still running, poll count:", currentPollCount);
     }
   }, [dataUpdatedAt, shouldPoll, executionState.jobId, jobStatusData, jobStatusError]);
 
@@ -302,8 +281,6 @@ export function useQueryExecution(
         .replace(/\r/g, " ")    // Replace old Mac line endings
         .replace(/\s+/g, " ")   // Normalize multiple spaces to single space
         .trim();
-
-      console.log("[QueryExecution] Executing sanitized query:", sanitizedQuery.substring(0, 100) + "...");
 
       // Reset state
       setResult(null);
@@ -330,9 +307,7 @@ export function useQueryExecution(
 
   // Cancel query mutation
   const cancelMutation = useCancelQuery({
-    onSuccess: () => {
-      console.log("[QueryExecution] Query cancelled successfully via API");
-    },
+    onSuccess: () => {},
     onError: (error) => {
       console.error("[QueryExecution] Cancel API error:", error);
       // Still mark as cancelled locally even if API fails
@@ -340,7 +315,6 @@ export function useQueryExecution(
   });
 
   const cancelQuery = useCallback(() => {
-    console.log("[QueryExecution] Query cancelled by user");
     setShouldPoll(false);
     
     // Call the cancel API if we have a job ID
@@ -361,15 +335,9 @@ export function useQueryExecution(
    */
   const loadMore = useCallback(async () => {
     if (!result?.nextToken || !executionState.jobId || isLoadingMore) {
-      console.log("[QueryExecution] Cannot load more:", { 
-        hasNextToken: !!result?.nextToken, 
-        hasJobId: !!executionState.jobId,
-        isLoadingMore 
-      });
       return;
     }
 
-    console.log("[QueryExecution] Loading more results with nextToken");
     setIsLoadingMore(true);
 
     try {
@@ -394,14 +362,8 @@ export function useQueryExecution(
 
       const data = response.data;
       if (!data || !data.resultData) {
-        console.log("[QueryExecution] No more data to load");
         return;
       }
-
-      console.log("[QueryExecution] Loaded more results:", {
-        newRowsCount: data.resultData.length,
-        hasMoreNextToken: !!data.nextToken,
-      });
 
       // Append new rows to existing result
       setResult((prev) => {
