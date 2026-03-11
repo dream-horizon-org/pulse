@@ -1,28 +1,29 @@
-import { Stack } from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
-import { UserJourney } from "./all/UserJourney";
-import { CriticalInteractions } from "./all/CriticalInteractions";
-import { NetworkRequests } from "./all/NetworkRequests";
+import type { FlameChartNode } from "../../SessionTimeline/utils/flameChartTransform";
+import { RawSessionEvents } from "./RawSessionEvents";
+import classes from "../SessionReplayDetail.module.css";
 
 interface AllTabProps {
   sessionData: SessionDetailData;
-  onCriticalInteractionClick?: (t0: number, t1: number) => void;
+  currentTime?: number;
+  scrollToTimestamp?: { t0: number; t1: number } | null;
+  onEventClick?: (item: FlameChartNode) => void;
 }
 
 export function AllTab({
   sessionData,
-  onCriticalInteractionClick,
+  currentTime = 0,
+  scrollToTimestamp = null,
+  onEventClick,
 }: AllTabProps) {
   return (
-    <Stack gap="lg">
-      <UserJourney journey={sessionData.journey} />
-
-      <CriticalInteractions
-        criticalInteractions={sessionData.criticalInteractions}
-        onCriticalInteractionClick={onCriticalInteractionClick}
+    <div data-raw-events-section className={classes.rawEventsContainer}>
+      <RawSessionEvents
+        sessionData={sessionData}
+        currentTime={currentTime}
+        scrollToTimestamp={scrollToTimestamp ?? undefined}
+        onEventClick={onEventClick}
       />
-
-      <NetworkRequests networkRequests={sessionData.networkRequests} />
-    </Stack>
+    </div>
   );
 }

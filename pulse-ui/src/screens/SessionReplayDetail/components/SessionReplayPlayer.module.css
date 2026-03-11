@@ -11,6 +11,12 @@
   border-radius: var(--mantine-radius-md);
 }
 
+/* Compact: no extra min-height, fit to device */
+.playerContainerCompact {
+  min-height: 0;
+  align-self: center;
+}
+
 .imageViewport {
   position: relative;
   width: 100%;

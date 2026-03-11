@@ -1,8 +1,5 @@
 import { Box, Stack, Text, Badge } from "@mantine/core";
-import {
-  IconReload,
-  IconDeviceMobile,
-} from "@tabler/icons-react";
+import { IconReload, IconDeviceMobile } from "@tabler/icons-react";
 import { SessionReplayPlayer } from "./SessionReplayPlayer";
 import type { SessionReplayImage } from "../../../services/sessionReplay/sessionReplayImages";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
@@ -19,6 +16,7 @@ interface PlayerViewportProps {
   playbackSpeed: number;
   sessionData: SessionDetailData;
   selectedSpan: FlameChartNode | null;
+  compact?: boolean;
   onTimeUpdate?: (time: number) => void;
 }
 
@@ -30,11 +28,19 @@ export function PlayerViewport({
   playbackSpeed,
   sessionData,
   selectedSpan,
+  compact,
   onTimeUpdate,
 }: PlayerViewportProps) {
+  const viewportClass = compact
+    ? `${classes.playerViewport} ${classes.playerViewportCompact}`
+    : classes.playerViewport;
+  const placeholderClass = compact
+    ? `${classes.playerPlaceholder} ${classes.playerPlaceholderCompact}`
+    : classes.playerPlaceholder;
+
   if (imagesLoading) {
     return (
-      <Box className={classes.playerViewport}>
+      <Box className={viewportClass}>
         <Stack align="center" gap="md">
           <IconReload size={32} className={classes.loadingSpinner} />
           <Text size="sm" c="dimmed">
@@ -47,13 +53,14 @@ export function PlayerViewport({
 
   if (images.length > 0) {
     return (
-      <Box className={classes.playerViewport}>
+      <Box className={viewportClass}>
         <SessionReplayPlayer
           images={images}
           currentTime={currentTime}
           isPlaying={isPlaying}
           playbackSpeed={playbackSpeed}
           sessionData={sessionData}
+          compact={compact}
           onTimeUpdate={onTimeUpdate}
         />
         {/* Sync Marker Overlay */}
@@ -69,7 +76,7 @@ export function PlayerViewport({
   }
 
   return (
-    <Box className={classes.playerPlaceholder}>
+    <Box className={placeholderClass}>
       <Stack align="center" gap="md">
         <IconDeviceMobile
           size={64}

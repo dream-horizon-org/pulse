@@ -4,6 +4,7 @@ import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 
 import {
   PULSE_IMPORT,
+  PULSE_DATA_COLLECTION_CONSENT_IMPORT,
   ATTRIBUTES_IMPORT,
   buildPulseInitializationCode,
 } from './utils';
@@ -18,6 +19,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
       const {
         endpointBaseUrl,
         projectId,
+        dataCollectionState,
         endpointHeaders,
         configEndpointUrl,
         globalAttributes,
@@ -31,6 +33,15 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
         tag: 'pulse-sdk-import',
         comment: '//',
         anchor: /import\s+com\.facebook\.react\.ReactApplication/,
+        offset: 1,
+      }).contents;
+
+      modConfig.modResults.contents = mergeContents({
+        src: modConfig.modResults.contents,
+        newSrc: PULSE_DATA_COLLECTION_CONSENT_IMPORT,
+        tag: 'pulse-data-collection-consent-import',
+        comment: '//',
+        anchor: /import\s+com\.pulsereactnativeotel\.Pulse/,
         offset: 1,
       }).contents;
 
@@ -48,6 +59,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
       const initCode = buildPulseInitializationCode({
         endpointBaseUrl,
         projectId,
+        dataCollectionState,
         endpointHeaders,
         configEndpointUrl,
         globalAttributes,

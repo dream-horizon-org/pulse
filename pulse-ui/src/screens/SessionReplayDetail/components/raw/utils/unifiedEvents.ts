@@ -3,7 +3,12 @@ import {
   EVENT_TYPES,
   EVENT_DESCRIPTIONS,
   STATUS_LABELS,
+  RAW_EVENT_CATEGORIES,
 } from "../../../constants/strings";
+import { sanitizeUrl, sanitizeDisplayText, sanitizePath } from "./sanitize";
+
+const CAT = RAW_EVENT_CATEGORIES;
+const NA = "—";
 
 export type EventType =
   | "session_start"
@@ -21,6 +26,8 @@ export interface UnifiedEvent {
   type: EventType;
   description: string;
   color: string;
+  /** Display label for chip (e.g. Interaction, Network, Event) */
+  categoryLabel: string;
 }
 
 export function createUnifiedEvents(
@@ -28,105 +35,117 @@ export function createUnifiedEvents(
 ): UnifiedEvent[] {
   const events: UnifiedEvent[] = [];
 
-  // Session start
+  // Session start — Session: Content: —
   events.push({
     timestamp: 0,
     type: EVENT_TYPES.SESSION_START,
-    description: EVENT_DESCRIPTIONS.SESSION_STARTED,
-    color: "#6b7280",
+    description: `${CAT.SESSION.label}: ${EVENT_DESCRIPTIONS.SESSION_STARTED}: ${NA}`,
+    color: CAT.SESSION.color,
+    categoryLabel: CAT.SESSION.label,
   });
 
-  // Add app lifecycle init (if available)
+  // App lifecycle init — Event: Content: —
   if (sessionData.events.length > 0) {
     const firstEvent = sessionData.events[0];
     if (firstEvent.timestamp > 0) {
       events.push({
         timestamp: Math.min(850, firstEvent.timestamp - 100),
         type: EVENT_TYPES.APP_LIFECYCLE,
-        description: EVENT_DESCRIPTIONS.APP_LIFECYCLE_INIT,
-        color: "#3b82f6", // Blue
+        description: `${CAT.EVENT.label}: ${EVENT_DESCRIPTIONS.APP_LIFECYCLE_INIT}: ${NA}`,
+        color: CAT.EVENT.color,
+        categoryLabel: CAT.EVENT.label,
       });
     }
   }
 
-  // Add events
+  // Events from session (click, navigation, api_call, error) — Type: Content: Status
+  type Category = (typeof CAT)[keyof typeof CAT];
   sessionData.events.forEach((event) => {
     let type: EventType = EVENT_TYPES.SESSION_START;
-    let color = "#6b7280";
-    let description = event.description;
+    let category: Category = CAT.SESSION;
+    const descRaw = event.description ?? "";
+    let content = sanitizeDisplayText(descRaw);
+    let status = NA;
 
     if (event.type === "click") {
       type = EVENT_TYPES.INTERACTION_TAP;
-      color = "#ec4899";
-      // Format: "Interaction Tap - Contest"
-      const match = event.description.match(
+      category = CAT.INTERACTION;
+      const match = descRaw.match(
         /(?:Click|Tap|Interaction)\s+(?:on\s+)?(.+)/i,
       );
-      description = match
-        ? `${EVENT_DESCRIPTIONS.INTERACTION_TAP_PREFIX} ${match[1]}`
-        : event.description;
+      content = sanitizeDisplayText(match ? match[1].trim() : descRaw);
     } else if (event.type === "navigation") {
       type = EVENT_TYPES.SCREEN_LOAD;
-      color = "#0ec9c2";
-      // Format: "Screen Load - /HOME"
-      const match = event.description.match(
+      category = CAT.EVENT;
+      const match = descRaw.match(
         /(?:Navigate|Navigation|Screen)\s+(?:to\s+)?(.+)/i,
       );
-      description = match
-        ? `${EVENT_DESCRIPTIONS.SCREEN_LOAD_PREFIX} ${match[1]}`
-        : event.description;
+      const rawContent = match ? match[1].trim() : descRaw;
+      content = sanitizePath(rawContent);
     } else if (event.type === "api_call") {
       type = EVENT_TYPES.API_CALL;
-      color = "#10b981";
-      // Format: "API Call - GET /api/search"
-      const match = event.description.match(/(?:API|Call)\s+(?:to\s+)?(.+)/i);
-      description = match
-        ? `${EVENT_DESCRIPTIONS.API_CALL_PREFIX} ${match[1]}`
-        : event.description;
+      category = CAT.NETWORK;
+      const match = descRaw.match(/(?:API|Call)\s+(?:to\s+)?(.+)/i);
+      const rawContent = match ? match[1].trim() : descRaw;
+      content =
+        rawContent.includes("/") || /^https?:\/\//i.test(rawContent)
+          ? sanitizeUrl(rawContent)
+          : sanitizeDisplayText(rawContent);
     } else if (event.type === "error") {
       type = EVENT_TYPES.NETWORK_PERFORMANCE;
-      color = "#ef4444";
+      category = CAT.ERROR;
+      content = sanitizeDisplayText(descRaw);
+      status = "Error";
     }
 
     events.push({
       timestamp: event.timestamp,
       type,
-      description,
-      color,
+      description: `${category.label}: ${content}: ${status}`,
+      color: category.color,
+      categoryLabel: category.label,
     });
   });
 
-  // Add critical interactions
+  // Critical interactions — Interaction: Name CII: SUCCESS | FAILED
   sessionData.criticalInteractions.forEach((interaction) => {
     if (interaction.timestamp !== undefined) {
       const statusText =
         interaction.status === "success"
           ? STATUS_LABELS.SUCCESS
-          : EVENT_DESCRIPTIONS.CRITICAL_INTERACTION_SUFFIX_STARTED;
+          : STATUS_LABELS.FAILED;
+      const safeName = sanitizeDisplayText(interaction.displayName);
       events.push({
         timestamp: interaction.timestamp,
         type: EVENT_TYPES.CRITICAL_INTERACTION,
-        description: `${EVENT_DESCRIPTIONS.CRITICAL_INTERACTION_PREFIX} ${interaction.displayName} CII - ${statusText}`,
-        color: "#8b5cf6", // Purple for critical interactions
+        description: `${CAT.INTERACTION.label}: ${safeName} CII: ${statusText}`,
+        color: CAT.INTERACTION.color,
+        categoryLabel: CAT.INTERACTION.label,
       });
     }
   });
 
-  // Add network requests
+  // Network requests — Network: METHOD url: STATUS (URL sanitized)
   sessionData.networkRequests.forEach((req) => {
+    const statusStr = String(req.status);
+    const category =
+      req.status >= 200 && req.status < 300 ? CAT.NETWORK : CAT.ERROR;
+    const safeUrl = sanitizeUrl(req.url);
     events.push({
       timestamp: req.timestamp,
       type: EVENT_TYPES.API_CALL,
-      description: `${EVENT_DESCRIPTIONS.API_CALL_PREFIX} ${req.method} ${req.url}`,
-      color: req.status >= 200 && req.status < 300 ? "#10b981" : "#ef4444",
+      description: `${category.label}: ${req.method} ${safeUrl}: ${statusStr}`,
+      color: category.color,
+      categoryLabel: category.label,
     });
 
     if (req.duration > 2000) {
       events.push({
         timestamp: req.timestamp + req.duration,
         type: EVENT_TYPES.NETWORK_PERFORMANCE,
-        description: `${EVENT_DESCRIPTIONS.NETWORK_PERFORMANCE_SLOW}${req.duration}ms`,
-        color: "#8b5cf6",
+        description: `${CAT.PERFORMANCE.label}: Slow request ${req.duration}ms: ${NA}`,
+        color: CAT.PERFORMANCE.color,
+        categoryLabel: CAT.PERFORMANCE.label,
       });
     }
   });

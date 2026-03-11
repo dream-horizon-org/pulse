@@ -243,7 +243,8 @@ function convertSnapshotEventsToImages(
   // Generate images per second (1 image per 1000ms)
   // Round to exact second boundaries (0ms, 1000ms, 2000ms, etc.)
   const frameInterval = 1000; // 1 second per image
-  const roundedStart = Math.floor(relativeStartMs / frameInterval) * frameInterval;
+  const roundedStart =
+    Math.floor(relativeStartMs / frameInterval) * frameInterval;
   const roundedEnd = Math.ceil(relativeEndMs / frameInterval) * frameInterval;
 
   for (

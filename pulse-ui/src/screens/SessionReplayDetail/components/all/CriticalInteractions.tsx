@@ -1,7 +1,11 @@
 import { Box, Text, Group, Badge, Card, Stack } from "@mantine/core";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import type { CriticalInteraction } from "../../../../services/sessionReplay/mockSessionDetail";
-import { HEADERS, STATUS_LABELS, FORMAT_STRINGS } from "../../constants/strings";
+import {
+  HEADERS,
+  STATUS_LABELS,
+  FORMAT_STRINGS,
+} from "../../constants/strings";
 
 interface CriticalInteractionsProps {
   criticalInteractions: CriticalInteraction[];
@@ -58,6 +62,11 @@ export function CriticalInteractions({
               }
             };
 
+            const apdexValue =
+              interaction.apdexScore !== undefined
+                ? interaction.apdexScore.toFixed(2)
+                : "—";
+
             return (
               <Group
                 key={interaction.interactionId}
@@ -78,17 +87,22 @@ export function CriticalInteractions({
                     {interaction.displayName}
                   </Text>
                 </Group>
-                <Badge
-                  size="sm"
-                  color={getStatusColor(interaction.status)}
-                  variant="light"
-                >
-                  {interaction.status === "success"
-                    ? STATUS_LABELS.SUCCESS
-                    : interaction.status === "failed"
-                      ? STATUS_LABELS.FAILED
-                      : STATUS_LABELS.NOT_ATTEMPTED}
-                </Badge>
+                <Group gap="xs" wrap="nowrap">
+                  <Text size="xs" c="dimmed">
+                    Apdex {apdexValue}
+                  </Text>
+                  <Badge
+                    size="sm"
+                    color={getStatusColor(interaction.status)}
+                    variant="light"
+                  >
+                    {interaction.status === "success"
+                      ? STATUS_LABELS.SUCCESS
+                      : interaction.status === "failed"
+                        ? STATUS_LABELS.FAILED
+                        : STATUS_LABELS.NOT_ATTEMPTED}
+                  </Badge>
+                </Group>
               </Group>
             );
           })}

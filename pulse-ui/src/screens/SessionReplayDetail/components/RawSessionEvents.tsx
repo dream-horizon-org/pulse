@@ -7,12 +7,14 @@ import { EventList } from "./raw/EventList";
 
 interface RawSessionEventsProps {
   sessionData: SessionDetailData;
+  currentTime?: number;
   scrollToTimestamp?: { t0: number; t1: number } | null;
   onEventClick?: (node: FlameChartNode) => void;
 }
 
 export function RawSessionEvents({
   sessionData,
+  currentTime = 0,
   scrollToTimestamp,
   onEventClick,
 }: RawSessionEventsProps) {
@@ -24,7 +26,7 @@ export function RawSessionEvents({
     return createUnifiedEvents(sessionData);
   }, [sessionData]);
 
-  // Handle scrolling to timestamp
+  // Handle scrolling to timestamp (e.g. critical interaction click)
   const highlightedTimestamp = useEventScroll({
     unifiedEvents,
     scrollToTimestamp,
@@ -36,6 +38,7 @@ export function RawSessionEvents({
     <EventList
       unifiedEvents={unifiedEvents}
       sessionData={sessionData}
+      currentTime={currentTime}
       scrollToTimestamp={scrollToTimestamp}
       highlightedTimestamp={highlightedTimestamp}
       eventRefs={eventRefs}

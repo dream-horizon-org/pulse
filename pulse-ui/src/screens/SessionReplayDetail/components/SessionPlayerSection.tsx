@@ -15,6 +15,7 @@ interface SessionPlayerSectionProps {
   isPlaying: boolean;
   playbackSpeed: number;
   selectedSpan: FlameChartNode | null;
+  compact?: boolean;
   onTimeUpdate?: (time: number) => void;
   onTimelineChange: (value: number) => void;
   onPlayPause: () => void;
@@ -29,6 +30,7 @@ export function SessionPlayerSection({
   isPlaying,
   playbackSpeed,
   selectedSpan,
+  compact,
   onTimeUpdate,
   onTimelineChange,
   onPlayPause,
@@ -47,6 +49,7 @@ export function SessionPlayerSection({
         playbackSpeed={playbackSpeed}
         sessionData={sessionData}
         selectedSpan={selectedSpan}
+        compact={compact}
         onTimeUpdate={onTimeUpdate}
       />
       <PlayerControls

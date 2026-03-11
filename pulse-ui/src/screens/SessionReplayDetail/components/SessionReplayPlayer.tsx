@@ -17,6 +17,7 @@ interface SessionReplayPlayerProps {
   isPlaying: boolean;
   playbackSpeed: number;
   sessionData: SessionDetailData;
+  compact?: boolean;
   onTimeUpdate?: (time: number) => void;
 }
 
@@ -26,6 +27,7 @@ export function SessionReplayPlayer({
   isPlaying,
   playbackSpeed,
   sessionData,
+  compact,
   onTimeUpdate,
 }: SessionReplayPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,8 +37,10 @@ export function SessionReplayPlayer({
   const viewportSize = 3; // Number of images to render before/after current
 
   // Image selection logic
-  const { currentImage, previousImage, currentImageIndex } =
-    useImageSelection(images, currentTime);
+  const { currentImage, previousImage, currentImageIndex } = useImageSelection(
+    images,
+    currentTime,
+  );
 
   // Update viewport to show images around current position
   const [viewportStart, setViewportStart] = useState(0);
@@ -111,9 +115,13 @@ export function SessionReplayPlayer({
     );
   }
 
+  const containerClass = compact
+    ? `${classes.playerContainer} ${classes.playerContainerCompact}`
+    : classes.playerContainer;
+
   return (
-    <Box className={classes.playerContainer} ref={containerRef}>
-      <DeviceOverview sessionData={sessionData}>
+    <Box className={containerClass} ref={containerRef}>
+      <DeviceOverview sessionData={sessionData} compact={compact}>
         {imageToShow && (
           <ReplayImageView
             imageToShow={imageToShow}

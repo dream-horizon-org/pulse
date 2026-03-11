@@ -9,6 +9,14 @@
   overflow: hidden;
 }
 
+.playerViewportCompact {
+  min-height: 320px;
+  padding: var(--mantine-spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .playerPlaceholder {
   min-height: 500px;
   display: flex;
@@ -16,6 +24,10 @@
   justify-content: center;
   background: var(--mantine-color-gray-0);
   border-radius: var(--mantine-radius-md);
+}
+
+.playerPlaceholderCompact {
+  min-height: 320px;
 }
 
 .loadingSpinner {

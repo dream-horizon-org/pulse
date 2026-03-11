@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Stack } from "@mantine/core";
+import { Box, Stack, Loader, Text, Center } from "@mantine/core";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import {
   FlameChartNode,
@@ -8,12 +8,13 @@ import {
 import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
 import { PersonaType } from "../../contexts/PersonaContext";
 import { SessionHeader } from "./components/SessionHeader";
+import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
-import { RawSessionEventsSection } from "./components/RawSessionEventsSection";
 import { SessionTimelineSection } from "./components/SessionTimelineSection";
 import { getSessionReplayImages } from "../../services/sessionReplay/sessionReplayImages";
 import { DEFAULTS } from "./constants/strings";
+import { useSessionDetail } from "./hooks/useSessionDetail";
 import classes from "./SessionReplayDetail.module.css";
 import { useState, useMemo, useEffect } from "react";
 
@@ -48,13 +49,20 @@ export const SessionReplayDetail: React.FC = () => {
   const [replayImages, setReplayImages] = useState<any[]>([]);
   const [imagesLoading, setImagesLoading] = useState(false);
 
-  const sessionData = useMemo(
-    () =>
-      getMockSessionDetail(
-        sessionId || DEFAULTS.SESSION_ID_UNKNOWN,
-      ),
-    [sessionId],
-  );
+  const {
+    data: apiSessionData,
+    isLoading: sessionLoading,
+    isError: sessionError,
+  } = useSessionDetail({
+    sessionId: sessionId ?? undefined,
+    includeEvents: true,
+    enabled: !!sessionId,
+  });
+
+  const sessionData = useMemo(() => {
+    if (apiSessionData) return apiSessionData;
+    return getMockSessionDetail(sessionId || DEFAULTS.SESSION_ID_UNKNOWN);
+  }, [apiSessionData, sessionId]);
 
   useEffect(() => {
     const loadImages = async () => {
@@ -136,47 +144,68 @@ export const SessionReplayDetail: React.FC = () => {
     setPlaybackSpeed(speed);
   };
 
+  if (sessionLoading && !apiSessionData) {
+    return (
+      <Center className={classes.container} style={{ minHeight: 400 }}>
+        <Stack align="center" gap="md">
+          <Loader color="teal" size="lg" />
+          <Text size="sm" c="dimmed">
+            Loading session...
+          </Text>
+        </Stack>
+      </Center>
+    );
+  }
+
   return (
     <Box className={classes.container}>
       <SessionHeader sessionData={sessionData} onBack={handleBack} />
-      <Stack gap="lg" mb="lg">
-        {activePersona === "all" && (
-          <SessionTabs
-            activeTab={activeTab}
-            sessionData={sessionData}
-            eventsViewMode={eventsViewMode}
-            consoleViewMode={consoleViewMode}
-            networkViewMode={networkViewMode}
-            performanceViewMode={performanceViewMode}
-            onTabChange={setActiveTab}
-            onCriticalInteractionClick={handleCriticalInteractionClick}
-            onEventsViewModeChange={setEventsViewMode}
-            onConsoleViewModeChange={setConsoleViewMode}
-            onNetworkViewModeChange={setNetworkViewMode}
-            onPerformanceViewModeChange={setPerformanceViewMode}
-          />
-        )}
 
-        <SessionPlayerSection
-          sessionData={sessionData}
-          images={replayImages}
-          imagesLoading={imagesLoading}
-          currentTime={currentTime}
-          isPlaying={isPlaying}
-          playbackSpeed={playbackSpeed}
-          selectedSpan={selectedSpan}
-          onTimeUpdate={handleTimeUpdate}
-          onTimelineChange={handleTimelineChange}
-          onPlayPause={handlePlayPause}
-          onSpeedChange={handleSpeedChange}
-        />
+      {activePersona === "all" && (
+        <>
+          <Box className={classes.summarySection}>
+            <SessionSummary sessionData={sessionData} />
+          </Box>
+          <Box className={classes.playerSectionSplit}>
+            <Box className={classes.playerSectionLeft}>
+              <SessionPlayerSection
+                sessionData={sessionData}
+                images={replayImages}
+                imagesLoading={imagesLoading}
+                currentTime={currentTime}
+                isPlaying={isPlaying}
+                playbackSpeed={playbackSpeed}
+                selectedSpan={selectedSpan}
+                compact
+                onTimeUpdate={handleTimeUpdate}
+                onTimelineChange={handleTimelineChange}
+                onPlayPause={handlePlayPause}
+                onSpeedChange={handleSpeedChange}
+              />
+            </Box>
+            <Box className={classes.playerSectionRight}>
+              <SessionTabs
+                activeTab={activeTab}
+                sessionData={sessionData}
+                currentTime={currentTime}
+                scrollToTimestamp={scrollToTimestamp}
+                onEventClick={handleSpanClick}
+                eventsViewMode={eventsViewMode}
+                consoleViewMode={consoleViewMode}
+                networkViewMode={networkViewMode}
+                performanceViewMode={performanceViewMode}
+                onTabChange={setActiveTab}
+                onCriticalInteractionClick={handleCriticalInteractionClick}
+                onEventsViewModeChange={setEventsViewMode}
+                onConsoleViewModeChange={setConsoleViewMode}
+                onNetworkViewModeChange={setNetworkViewMode}
+                onPerformanceViewModeChange={setPerformanceViewMode}
+              />
+            </Box>
+          </Box>
+        </>
+      )}
 
-        <RawSessionEventsSection
-          sessionData={sessionData}
-          scrollToTimestamp={scrollToTimestamp}
-          onEventClick={handleSpanClick}
-        />
-      </Stack>
       <SessionTimelineSection
         flameChartData={flameChartData}
         sessionDuration={sessionDuration}

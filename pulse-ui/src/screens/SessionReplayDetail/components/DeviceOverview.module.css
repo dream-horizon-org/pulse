@@ -18,6 +18,40 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
+.iosDevice.deviceCompact {
+  width: 260px;
+  height: 563px;
+  border-radius: 28px;
+  padding: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.iosDevice.deviceCompact .iosNotch {
+  width: 100px;
+  height: 20px;
+  border-radius: 0 0 14px 14px;
+}
+
+.iosDevice.deviceCompact .iosStatusBar {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
+.iosDevice.deviceCompact .iosHomeIndicator {
+  width: 100px;
+  height: 4px;
+  bottom: 6px;
+}
+
+.iosDevice.deviceCompact .deviceContent {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border-radius: 22px;
+}
+
 .iosNotch {
   position: absolute;
   top: 0;
@@ -93,6 +127,40 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
+.androidDevice.deviceCompact {
+  width: 252px;
+  height: 560px;
+  border-radius: 18px;
+  padding: 3px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.androidDevice.deviceCompact .androidStatusBar {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.androidDevice.deviceCompact .androidNavBar {
+  height: 36px;
+  bottom: 3px;
+  border-radius: 0 0 14px 14px;
+}
+
+.androidDevice.deviceCompact .navButton {
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+
+.androidDevice.deviceCompact .deviceContent {
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border-radius: 15px;
+}
+
 .androidStatusBar {
   position: absolute;
   top: 4px;
@@ -146,6 +214,11 @@
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+}
+
+.webBrowser.deviceCompact {
+  max-width: 252px;
+  max-height: 560px;
 }
 
 .browserChrome {

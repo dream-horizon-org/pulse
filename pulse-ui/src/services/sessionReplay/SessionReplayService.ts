@@ -2,7 +2,7 @@ import {
   GetSessionsRequest,
   GetSessionsResponse,
   GetSessionDetailRequest,
-  GetSessionDetailResponse,
+  SessionDetailApiResponse,
   BulkTagRequest,
   BulkDeleteRequest,
   ExportSessionsRequest,
@@ -87,19 +87,23 @@ export class SessionReplayService {
     }
   }
 
-  /**
-   * Get detailed information about a specific session
-   */
   async getSessionDetail(
     request: GetSessionDetailRequest,
-  ): Promise<GetSessionDetailResponse> {
-    const url = `${this.baseURL}/api/v1/session-replay/sessions/${request.sessionId}`;
+  ): Promise<SessionDetailApiResponse> {
+    const path = `/v1/session-replay/sessions/${encodeURIComponent(request.sessionId)}`;
+    const includeParam = request.include?.length
+      ? request.include.join(",")
+      : undefined;
+    const url = includeParam
+      ? `${this.baseURL}${path}?include=${encodeURIComponent(includeParam)}`
+      : `${this.baseURL}${path}`;
 
     try {
       const response = await makeRequestToServer({
         url,
         init: {
           method: "GET",
+          headers: this.sessionListingHeaders(),
         },
       });
 

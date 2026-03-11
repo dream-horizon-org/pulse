@@ -5,6 +5,7 @@
 // Tab Labels
 export const TABS = {
   ALL: "all",
+  INTERACTION: "interaction",
   EVENTS: "events",
   CONSOLE: "console",
   NETWORK: "network",
@@ -13,6 +14,7 @@ export const TABS = {
 
 export const TAB_LABELS = {
   ALL: "All",
+  INTERACTION: "Interaction",
   EVENTS: "Events",
   CONSOLE: "Console",
   NETWORK: "Network",
@@ -53,9 +55,9 @@ export const HEADERS = {
   RELATED_ISSUES_PRS: "Related Issues & PRs",
   REPRODUCIBILITY: "Reproducibility",
   ENVIRONMENT_INFO: "Environment Info",
-  RAW_SESSION_EVENTS: "Raw Session Events",
+  RAW_SESSION_EVENTS: "",
   NETWORK_REQUESTS_VISUALIZATION: "Network Requests Visualization",
-  CRITICAL_INTERACTIONS: "Critical Interactions",
+  CRITICAL_INTERACTIONS: "Interaction",
   USER_JOURNEY: "User Journey",
   NETWORK_REQUESTS: "Network Requests",
   ENGINEERING_ACTIONS: "Engineering Actions",
@@ -177,6 +179,17 @@ export const EVENT_TYPES = {
   DB_QUERY: "db_query",
   NETWORK_PERFORMANCE: "network_performance",
   CONSOLE_LOG: "console_log",
+} as const;
+
+// Raw Session Events: category display names and dot colors (Type: Content: Status)
+export const RAW_EVENT_CATEGORIES = {
+  INTERACTION: { label: "Interaction", color: "#8b5cf6" },
+  EVENT: { label: "Event", color: "#0ea5e9" },
+  CONSOLE: { label: "Console", color: "#64748b" },
+  NETWORK: { label: "Network", color: "#10b981" },
+  PERFORMANCE: { label: "Performance", color: "#f59e0b" },
+  ERROR: { label: "Error", color: "#ef4444" },
+  SESSION: { label: "Session", color: "#6b7280" },
 } as const;
 
 // Event Descriptions

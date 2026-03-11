@@ -427,12 +427,70 @@ export interface ComparisonMetrics {
 
 export interface GetSessionDetailRequest {
   sessionId: string;
+  /** Optional. Comma-separated: traces, logs, exceptions, events. If omitted, returns core only. */
+  include?: Array<"traces" | "logs" | "exceptions" | "events">;
 }
 
 export interface GetSessionDetailResponse {
   session: SessionResponse;
   events: SessionEventResponse[];
   timeline: TimelineEntry[];
+}
+
+export type SessionDetailInclude = "traces" | "logs" | "exceptions" | "events";
+
+export interface SessionDetailInteraction {
+  id: number;
+  name: string;
+  status: "success" | "failed";
+  timestamp: number;
+  latency: number;
+  apdexScore: number;
+}
+
+export interface SessionDetailNetworkRequest {
+  timestamp: number;
+  method: string;
+  url: string;
+  status: number;
+  duration: number;
+}
+
+export interface SessionDetailEvent {
+  traceId: string;
+  spanId: string;
+  timestamp: number;
+  type: "click" | "navigation" | "api_call" | "error" | "interaction";
+  description: string;
+}
+
+export interface SessionDetailException {
+  traceId: string;
+  spanId: string;
+  timestamp: number;
+  level: "error";
+  title: string;
+  description: string;
+}
+
+export interface SessionDetailApiResponse {
+  sessionId: string;
+  userId: string;
+  isAnonymous: boolean;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  platform: "iOS" | "Android" | "Web";
+  device: string;
+  osVersion: string;
+  appVersion: string;
+  geography: { country: string; city: string };
+  quality: number;
+  journey: string[];
+  interactions: SessionDetailInteraction[];
+  networkRequests: SessionDetailNetworkRequest[];
+  events?: SessionDetailEvent[];
+  exceptions?: SessionDetailException[];
 }
 
 export interface SessionEventResponse {

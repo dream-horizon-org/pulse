@@ -4,20 +4,26 @@ import classes from "./DeviceOverview.module.css";
 
 interface DeviceOverviewProps {
   sessionData: SessionDetailData;
+  compact?: boolean;
   children?: React.ReactNode; // The actual replay content
 }
 
-export function DeviceOverview({ sessionData, children }: DeviceOverviewProps) {
+export function DeviceOverview({
+  sessionData,
+  compact,
+  children,
+}: DeviceOverviewProps) {
   // Determine device type from platform
   const platform = (sessionData.platform || "web").toLowerCase();
   const isIOS = platform === "ios";
   const isAndroid = platform === "android";
   const isWeb = !isIOS && !isAndroid;
+  const deviceClass = compact ? classes.deviceCompact : "";
 
   return (
     <Box className={classes.deviceContainer}>
       {isIOS && (
-        <Box className={classes.iosDevice}>
+        <Box className={`${classes.iosDevice} ${deviceClass}`}>
           {/* iPhone notch */}
           <Box className={classes.iosNotch} />
 
@@ -40,7 +46,7 @@ export function DeviceOverview({ sessionData, children }: DeviceOverviewProps) {
       )}
 
       {isAndroid && (
-        <Box className={classes.androidDevice}>
+        <Box className={`${classes.androidDevice} ${deviceClass}`}>
           {/* Android status bar */}
           <Box className={classes.androidStatusBar}>
             <Box className={classes.statusBarLeft}>9:41</Box>
@@ -63,7 +69,7 @@ export function DeviceOverview({ sessionData, children }: DeviceOverviewProps) {
       )}
 
       {isWeb && (
-        <Box className={classes.webBrowser}>
+        <Box className={`${classes.webBrowser} ${deviceClass}`}>
           {/* Browser chrome */}
           <Box className={classes.browserChrome}>
             <Box className={classes.browserControls}>

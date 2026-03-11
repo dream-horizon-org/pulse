@@ -1,16 +1,19 @@
-/* Container */
+/* Container - main bg white, consistent with tab section */
 .container {
   max-width: 1600px;
   margin: 0 auto;
   padding: var(--mantine-spacing-lg);
+  background: var(--mantine-color-white);
+  min-height: 100vh;
 }
 
-/* Header */
+/* Header - top bar: back + session id (left), user + session time (right) */
 .header {
-  padding: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-radius: var(--mantine-radius-md);
-  border: 1px solid var(--mantine-color-gray-3);
+  border: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 /* Persona Selector - Clean button in header */
@@ -71,26 +74,67 @@
   letter-spacing: 0.5px;
 }
 
+/* Player + Tabs split section - same height for device and raw section */
+.playerSectionSplit {
+  display: flex;
+  gap: var(--mantine-spacing-lg);
+  align-items: stretch;
+  margin-bottom: var(--mantine-spacing-lg);
+  min-height: 420px;
+}
+
+.playerSectionLeft {
+  flex-shrink: 0;
+  width: 320px;
+  min-width: 280px;
+}
+
+.playerSectionRight {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+}
+
+.rightPanelSummary {
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .playerSectionSplit {
+    flex-direction: column;
+    min-height: unset;
+  }
+
+  .playerSectionLeft {
+    width: 100%;
+    min-width: unset;
+  }
+}
+
 /* Player Container */
 .playerContainer {
   padding: 0;
-  border-radius: var(--mantine-spacing-md);
-  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-2);
   background: var(--mantine-color-white);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .playerHeader {
   padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-bottom: 1px solid var(--mantine-color-gray-2);
-  background: var(--mantine-color-gray-0);
+  background: var(--mantine-color-white);
 }
 
 .playerViewport {
   position: relative;
   min-height: 500px;
+  max-width: 100%;
   background: var(--mantine-color-gray-0);
   display: flex;
   align-items: center;
@@ -125,8 +169,14 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .playerControls {
@@ -170,35 +220,65 @@
   flex-direction: column;
 }
 
-/* Raw Events Container */
+/* Raw Events Container - same height as device player (fills tab content) */
 .rawEventsContainer {
   padding: var(--mantine-spacing-md);
-  border-radius: var(--mantine-radius-md);
-  border: 1px solid var(--mantine-color-gray-3);
-  background: var(--mantine-color-white);
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid var(--mantine-color-gray-2);
+  background: var(--mantine-color-gray-0);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
-/* All Tab Container - Above Player */
-.allTabContainer {
-  padding: 0;
-  border-radius: var(--mantine-radius-md);
-  border: 1px solid var(--mantine-color-gray-3);
-  background: var(--mantine-color-white);
-  overflow: hidden;
+.rawEventsContainer > * {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
+/* All Tab Container - right panel tabs card */
+.allTabContainer {
+  padding: 0;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-gray-2);
+  background: var(--mantine-color-white);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  flex: 1;
+  min-height: 0;
+}
+
 .allTabContainer .tabContent {
   padding: var(--mantine-spacing-md);
-  overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Tab panels fill height so raw section matches device player */
+.allTabContainer .tabContent > [role="tabpanel"],
+.allTabContainer .tabContent > div {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .tabContent {
   padding: var(--mantine-spacing-md);
-  overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* Timeline Section */
