@@ -46,6 +46,7 @@ import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
 import { useProjectContext, useTenantContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
 import { performLogout } from "../../helpers/logout";
+import { ConfirmationModal } from "../ConfirmationModal";
 
 export function Navbar({
   toggle,
@@ -499,6 +500,17 @@ export function Navbar({
         </Popover>
       </AppShell.Section>
       <ContactUsModal opened={contactUsOpened} onClose={closeContactUs} />
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        opened={logoutModalOpened}
+        onClose={() => setLogoutModalOpened(false)}
+        onConfirm={onLogoutClick}
+        title="Confirm Logout"
+        message="Are you sure you want to log out? You will need to sign in again to access your account."
+        confirmLabel="Logout"
+        confirmColor="red"
+        severity="warning"
+      />
     </AppShell.Navbar>
   );
 }
