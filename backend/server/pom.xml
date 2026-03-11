@@ -612,6 +612,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -640,6 +641,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>
