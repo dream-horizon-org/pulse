@@ -33,4 +33,6 @@ public class ApplicationConfig {
   public String interactionDetailsS3BucketFilePath;
   public String interactionDetailCloudFrontAssetPath;
   public String replayApiBaseUrl;
+  public String encryptionMasterKey;
+  public String tncS3BucketName;
 }

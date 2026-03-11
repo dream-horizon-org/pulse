@@ -14,11 +14,11 @@ import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.jboss.resteasy.plugins.providers.multipart.InputPart;
 import org.jboss.resteasy.plugins.providers.multipart.MultipartFormDataInput;
 
@@ -38,7 +38,6 @@ public class MappingFileUpload {
   @Path("/file/upload")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   public CompletionStage<Response<Boolean>> uploadFile(MultipartFormDataInput multipartInput) {
-    String tenantId = TenantContext.requireTenantId();
     return Single.defer(() -> {
       Map<String, List<InputPart>> formPartsMap = multipartInput.getFormDataMap();
       try {
@@ -53,7 +52,7 @@ public class MappingFileUpload {
         }
 
         List<InputPart> fileParts = formPartsMap.get(FILE_PART_NAME);
-        return symbolFileService.uploadFiles(tenantId, fileParts, metadataList);
+        return symbolFileService.uploadFiles(ProjectContext.requireProjectId(), fileParts, metadataList);
       } catch (Exception e) {
         log.error("Multi-file upload failed during processing: " + e.getMessage());
         return Single.just(false);

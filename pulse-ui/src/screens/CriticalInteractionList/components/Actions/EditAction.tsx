@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import {
-  ROUTES,
   TOOLTIP_LABLES,
+  ROUTES,
 } from "../../../../constants";
 import { Loader, Tooltip } from "@mantine/core";
 import { IconEdit } from "@tabler/icons-react";
 import { ActionProps } from "./Actions.interface";
+import { useProjectContext } from "../../../../contexts";
 
 export function EditAction({
   iconColor,
@@ -13,10 +14,19 @@ export function EditAction({
   isLoading,
 }: ActionProps) {
   const navigate = useNavigate();
+  const { projectId } = useProjectContext();
 
   const onClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    navigate(`${ROUTES.CRITICAL_INTERACTION_FORM.basePath}/${name}`);
+    
+    if (!projectId) {
+      console.error('[EditAction] Cannot navigate: projectId is null');
+      return;
+    }
+    
+    navigate(ROUTES.PROJECT_CRITICAL_INTERACTION_FORM.basePath
+      .replace(':projectId', projectId)
+      .replace('/*', `/${name}`));
   };
 
   if (isLoading) {

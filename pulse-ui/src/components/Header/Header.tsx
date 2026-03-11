@@ -1,133 +1,176 @@
 import {
   AppShell,
-  Tooltip,
   Group,
   Text,
-  Image,
   Box,
-  Popover,
-  Avatar,
-  Button,
+  Select,
+  Badge,
+  Modal,
   Stack,
+  Loader,
 } from "@mantine/core";
+import { flushSync } from "react-dom";
+import { useState } from "react";
 
 import classes from "./Header.module.css";
 import { HeaderProps } from "./Header.interface";
 import { useNavigate } from "react-router-dom";
 import {
-  COMMON_CONSTANTS,
-  COOKIES_KEY,
-  HEADER_CONSTANTS,
-  ROUTES,
-  TOOLTIP_LABLES,
-} from "../../constants";
-import {
-  IconCircleChevronLeft,
-  IconCircleChevronRight,
-  IconLogout,
-  IconUserScan,
+  IconFolder,
+  IconBuilding,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
-import { useRef } from "react";
-import { googleLogout } from "@react-oauth/google";
-import { getCookies, removeAllCookies } from "../../helpers/cookies";
-import {
-  signOutFirebase,
-  isGcpMultiTenantEnabled,
-} from "../../helpers/gcpAuth";
-import { MULTI_TENANT_CONSTANTS } from "../../constants";
+import { useTenantContext, useProjectContext } from "../../contexts";
+import { TIERS } from "../../constants/Tiers";
+import { ROUTES } from "../../constants";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
-  const userProfilePicture = useRef<string>(
-    Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
-  );
-  const gcpMultiTenantEnabled = isGcpMultiTenantEnabled();
-  const currentTenantId = getCookies(COOKIES_KEY.TENANT_ID);
+  const { projects, tier, tenantName } = useTenantContext();
+  const { projectId, projectName, setProject } = useProjectContext();
+  
+  // Modal state for project switching
+  const [isSwitchingProject, setIsSwitchingProject] = useState(false);
+  const [selectedProjectForSwitch, setSelectedProjectForSwitch] = useState<{
+    projectId: string;
+    name: string;
+    role: string;
+    isActive: boolean;
+  } | null>(null);
 
-  const onClick = () => {
-    navigate("/");
-  };
-
-  const onLogoutClick = async () => {
-    if (gcpMultiTenantEnabled) {
-      await signOutFirebase();
-    } else {
-      googleLogout();
+  const handleProjectSwitch = (newProjectId: string | null) => {
+    if (!newProjectId || newProjectId === projectId) return;
+    
+    // Find the selected project from the projects list
+    const selectedProject = projects.find(p => p.projectId === newProjectId);
+    if (!selectedProject) {
+      console.error('[Header] Project not found in list:', newProjectId);
+      return;
     }
-    removeAllCookies();
-    navigate(ROUTES.LOGIN.basePath);
+    
+    // Store selected project and show modal
+    setSelectedProjectForSwitch(selectedProject);
+    setIsSwitchingProject(true);
+    
+    // Update context and sessionStorage immediately while modal is shown
+    flushSync(() => {
+      // Update React context
+      setProject({
+        projectId: selectedProject.projectId,
+        projectName: selectedProject.name,
+        userRole: selectedProject.role as 'admin' | 'editor' | 'viewer',
+        isActive: selectedProject.isActive,
+      });
+      
+      // CRITICAL: Also update sessionStorage immediately
+      sessionStorage.setItem('pulse_project_context', JSON.stringify({
+        projectId: selectedProject.projectId,
+        projectName: selectedProject.name,
+        userRole: selectedProject.role,
+        isActive: selectedProject.isActive,
+        plan: 'free',
+        timestamp: Date.now()
+      }));
+      
+    // Update last used project ID
+    sessionStorage.setItem('pulse_last_project_id', selectedProject.projectId);
+  });
+  
+  // Auto-navigate after state settles
+  setTimeout(() => {
+    navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', newProjectId));
+    setIsSwitchingProject(false);
+    setSelectedProjectForSwitch(null);
+  }, 300);
+  };
+  
+  const handleCancelSwitch = () => {
+    setIsSwitchingProject(false);
+    setSelectedProjectForSwitch(null);
   };
 
   return (
-    <AppShell.Header>
-      <Box className={classes.headerContainer}>
-        <Group h="100%" px="md" grow>
-          {opened ? (
-            <Tooltip label={TOOLTIP_LABLES.CLOSE_NAVBAR}>
-              <IconCircleChevronLeft
-                onClick={toogle}
-                className={classes.cheveronIcon}
-              />
-            </Tooltip>
-          ) : (
-            <Tooltip label={TOOLTIP_LABLES.OPEN_NAVBAR}>
-              <IconCircleChevronRight
-                onClick={toogle}
-                className={classes.cheveronIcon}
-              />
-            </Tooltip>
-          )}
-          <div className={classes.logoContainer} onClick={onClick}>
-            <Image
-              src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
-              radius="md"
-              className={classes.logo}
-              alt=""
-            />
-            <Text fs="lg" fw="bold" ml="sm" className={classes.appName}>
-              {COMMON_CONSTANTS.APP_NAME}
+    <>
+      {/* Project Switching Modal */}
+      <Modal
+        opened={isSwitchingProject}
+        onClose={handleCancelSwitch}
+        title="Switching Project"
+        centered
+        size="sm"
+        withCloseButton={false}
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+      >
+        <Stack align="center" gap="lg" py="md">
+          <Loader size="lg" color="teal" />
+          <Stack align="center" gap="xs">
+            <Text size="lg" fw={500}>Switching to</Text>
+            <Text size="xl" fw={600} c="teal">
+              {selectedProjectForSwitch?.name}
             </Text>
-          </div>
-        </Group>
-        <Box className={classes.userInformation}>
-          <Popover width={200} position="bottom" withArrow shadow="md">
-            <Popover.Target>
-              <Avatar
-                size={"md"}
-                radius={"md"}
-                src={userProfilePicture.current}
-              />
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack justify="space-between" gap="sm">
-                <Group className={classes.userName}>
-                  <IconUserScan size={22} color="#0ba09a" />
-                  <Text>{getCookies(COOKIES_KEY.USER_NAME)}</Text>
-                </Group>
-                {gcpMultiTenantEnabled &&
-                  currentTenantId &&
-                  currentTenantId !== "undefined" && (
-                    <Text size="xs" c="dimmed">
-                      {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
-                      {getCookies(COOKIES_KEY.TENANT_NAME) || currentTenantId}
-                    </Text>
-                )}
-                <Button
-                  leftSection={<IconLogout size={18} />}
-                  onClick={onLogoutClick}
-                  variant="light"
-                  color="red"
-                  size="sm"
-                  fullWidth
-                >
-                  {HEADER_CONSTANTS.LOGOUT_TEXT}
-                </Button>
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
+          </Stack>
+          <Text size="sm" c="dimmed" ta="center">
+            Setting up project context and loading dashboard...
+          </Text>
+        </Stack>
+      </Modal>
+
+      <AppShell.Header>
+        <Box className={classes.headerContainer}>
+        {/* Organization Name Section */}
+        <Box className={classes.leftSection}>
+          <Group gap="xs">
+            <IconBuilding size={20} style={{ color: '#0ba09a' }} />
+            <Text fw={600} size="md" className={classes.orgName}>
+              {tenantName || 'Organization'}
+            </Text>
+          </Group>
         </Box>
-      </Box>
-    </AppShell.Header>
+        
+        {/* Project Display Section - 64px gap from organization */}
+        <Box className={classes.projectSection} style={{ marginLeft: '64px' }}>
+          {projectId && projects.length <= 1 ? (
+            // Single project display
+            tier === TIERS.FREE ? (
+              // FREE tier: Show project name with upgrade badge
+              <Group gap="xs" className={classes.projectInfo}>
+                <IconFolder size={18} style={{ color: '#0ba09a' }} />
+                <Text className={classes.projectName}>{projectName}</Text>
+                <Badge 
+                  variant="light" 
+                  color="teal"
+                  size="sm"
+                  className={classes.upgradeBadge}
+                  onClick={() => navigate('/pricing')}
+                >
+                  Free · Upgrade
+                </Badge>
+              </Group>
+            ) : (
+              // ENTERPRISE tier: Show project name only (no upgrade badge)
+              <Group gap="xs" className={classes.projectInfo}>
+                <IconFolder size={18} style={{ color: '#0ba09a' }} />
+                <Text className={classes.projectName}>{projectName}</Text>
+              </Group>
+            )
+          ) : projectId && projects.length > 1 ? (
+            // Multiple projects - show selector (same for both tiers)
+            <Select
+              leftSection={<IconFolder size={18} />}
+              placeholder="Select project"
+              data={projects.map(p => ({
+                value: p.projectId,
+                label: p.name,
+              }))}
+              value={projectId}
+              onChange={handleProjectSwitch}
+              className={classes.projectDropdown}
+              comboboxProps={{ withinPortal: true }}
+            />
+          ) : null}
+        </Box>
+        </Box>
+      </AppShell.Header>
+    </>
   );
 }

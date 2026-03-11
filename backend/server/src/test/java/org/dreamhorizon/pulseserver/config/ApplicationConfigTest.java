@@ -37,6 +37,7 @@ class ApplicationConfigTest {
     config.setCloudFrontDistributionId("cfId");
     config.setConfigDetailCloudFrontAssetPath("cfPath");
     config.setWebhookUrl("webhook");
+    config.setTncS3BucketName("tncS3BucketName");
     config.setInteractionDetailsS3BucketFilePath("interactionPath");
     config.setInteractionDetailCloudFrontAssetPath("interactionAsset");
 
@@ -84,8 +85,10 @@ class ApplicationConfigTest {
         "cfPath",
         "webhook",
         "interactionPath",
-        "interactionAsset",
         "replayApiBaseUrl"
+        "interactionAsset",
+        "key",
+        "tncS3Bucket"
     );
     assertNotNull(config);
     assertEquals("cronUrl", config.getCronManagerBaseUrl());

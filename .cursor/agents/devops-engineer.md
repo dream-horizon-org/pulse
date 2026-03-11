@@ -31,6 +31,9 @@ Always use `docker ps` to verify actual running services and ports.
 - `VAULT_SERVICE_*` — secrets (never commit real values)
 - `OTEL_CLICKHOUSE_*` — OTEL to ClickHouse connection
 - `REACT_APP_*` — frontend build-time args
+- `OPENFGA_*` — OpenFGA authorization service (store ID, model ID)
+- `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI)
+- `AWS_*` — AWS credentials for Athena/S3
 
 Template: `deploy/.env.example` → copy to `deploy/.env`
 

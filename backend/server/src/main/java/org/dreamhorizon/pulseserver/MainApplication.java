@@ -15,6 +15,7 @@ import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.module.QueryEngineModule;
 import org.dreamhorizon.pulseserver.module.ConfigModule;
 import org.dreamhorizon.pulseserver.module.InteractionModule;
+import org.dreamhorizon.pulseserver.module.SessionDetailModule;
 import org.dreamhorizon.pulseserver.module.UploadInteractionDetailModule;
 import org.dreamhorizon.pulseserver.module.ValidationModule;
 import org.dreamhorizon.pulseserver.util.MaintenanceUtil;
@@ -65,6 +66,7 @@ public class MainApplication extends Launcher {
         new ValidationModule(),
         new UploadInteractionDetailModule(vertx),
         new InteractionModule(),
+        new SessionDetailModule(),
         new QueryEngineModule()
     };
   }

@@ -1,3 +1,7 @@
+-- Updated ClickHouse Schema for Project-Based Isolation
+-- CRITICAL CHANGE: All tables now use ProjectId instead of TenantId
+-- This enables per-project data segregation with row-level policies
+
 CREATE TABLE IF NOT EXISTS otel.otel_traces
 (
     `Timestamp` DateTime64(9, 'UTC') CODEC(Delta(8), ZSTD(1)),
@@ -27,7 +31,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
     `SessionId` String MATERIALIZED ifNull(SpanAttributes['session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
-    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
     `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
     `GeoState` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.region.iso_code'], ''),
@@ -39,6 +43,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
 
@@ -60,9 +65,10 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
-    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''), // TBD
+    `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
     `OsVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.version'], ''),
     `GeoState` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.region.iso_code'], ''),
@@ -76,6 +82,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, PulseType, EventName, SeverityText, toUnixTimestamp(Timestamp), TraceId)
 SETTINGS index_granularity = 8192;
 
@@ -97,6 +104,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     `TimeUnix` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
     `Value` Float64 CODEC(ZSTD(1)),
     `Flags` UInt32 CODEC(ZSTD(1)),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
@@ -116,6 +124,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
 )
 ENGINE = MergeTree
 PARTITION BY toDate(TimeUnix)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))
 SETTINGS index_granularity = 8192;
 
@@ -159,10 +168,12 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `ScopeAttributes`       Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes`         Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
+-- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 SETTINGS index_granularity = 8192;

@@ -425,7 +425,9 @@ class AlertCronServiceTest {
           "http://webhook.url",
           "interaction/details.json",
           "/interaction/details.json",
-          "replayApiBaseUrl"
+          "replayApiBaseUrl",
+          "encryptionKey",
+          "tnc-bucket"
       );
 
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
@@ -521,7 +523,9 @@ class AlertCronServiceTest {
           "http://webhook.url",
           "interaction/details.json",
           "/interaction/details.json",
-          "replayApiBaseUrl"
+          "key",
+          "tnc-bucket",
+              "replayApiBaseUrl"
       );
       String toString = config.toString();
 
@@ -535,19 +539,22 @@ class AlertCronServiceTest {
           "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json", "replayApiBaseUrl"
+          "interaction-path.json", "/interaction-path.json",
+          "key", "tnc-bucket"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json", "replayApiBaseUrl"
+          "interaction-path.json", "/interaction-path.json",
+          "key", "tnc-bucket"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
-          "interaction-path.json", "/interaction-path.json", "replayApiBaseUrl"
+          "interaction-path.json", "/interaction-path.json",
+          "key", "tnc-bucket"
       );
 
       assertEquals(config1, config2);
