@@ -31,8 +31,10 @@ import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -56,6 +58,7 @@ class ConfigControllerTest {
   ConfigController configController;
 
   final String userEmail = "test@dream11.com";
+  final String projectId = "default-project";
 
   @BeforeEach
   void setup() {
@@ -929,7 +932,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 40L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig("default-project", any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -942,9 +945,8 @@ class ConfigControllerTest {
             assertEquals(40L, resp.getData().getVersion());
             PulseConfig.SessionReplayConfig replay = pulseConfig.getSessionReplay();
             assertNotNull(replay);
-            assertEquals(false, replay.getEnabled());
-            assertEquals(true, replay.getMaskAllTextInputs());
-            assertEquals(true, replay.getMaskAllImages());
+            assertEquals(TextAndInputPrivacy.MASK_ALL, replay.getTextAndInputPrivacy());
+            assertEquals(ImagePrivacy.MASK_ALL, replay.getImagePrivacy());
             assertEquals(1000L, (long) replay.getThrottleDelayMs());
             assertEquals(1.0f, replay.getScreenshotScale());
             assertEquals(30, (int) replay.getScreenshotQuality());
@@ -964,7 +966,7 @@ class ConfigControllerTest {
         // Given — only enabled and throttleDelayMs are set, rest are null
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
-            .enabled(true)
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
             .throttleDelayMs(2000L)
             .build());
 
@@ -972,7 +974,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 44L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(projectId, any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -984,10 +986,9 @@ class ConfigControllerTest {
             assertNull(err);
             assertEquals(44L, resp.getData().getVersion());
             PulseConfig.SessionReplayConfig replay = pulseConfig.getSessionReplay();
-            assertEquals(true, replay.getEnabled());
+            assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, replay.getTextAndInputPrivacy());
             assertEquals(2000L, (long) replay.getThrottleDelayMs());
-            assertEquals(true, replay.getMaskAllTextInputs());
-            assertEquals(true, replay.getMaskAllImages());
+            assertEquals(ImagePrivacy.MASK_ALL, replay.getImagePrivacy());
             assertEquals(1.0f, replay.getScreenshotScale());
             assertEquals(30, (int) replay.getScreenshotQuality());
             assertEquals(60, (int) replay.getFlushIntervalSeconds());
@@ -1006,9 +1007,8 @@ class ConfigControllerTest {
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
-            .enabled(true)
-            .maskAllTextInputs(true)
-            .maskAllImages(true)
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+            .imagePrivacy(ImagePrivacy.MASK_ALL)
             .throttleDelayMs(1000L)
             .screenshotScale(1.0f)
             .screenshotQuality(30)
@@ -1022,7 +1022,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 41L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(projectId, any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =
@@ -1035,7 +1035,7 @@ class ConfigControllerTest {
             assertEquals(41L, resp.getData().getVersion());
             assertEquals("http://default-replay.example.com",
                 pulseConfig.getSessionReplay().getReplayApiBaseUrl());
-            assertEquals(true, pulseConfig.getSessionReplay().getEnabled());
+            assertEquals(TextAndInputPrivacy.MASK_ALL, pulseConfig.getSessionReplay().getTextAndInputPrivacy());
           });
           testContext.completeNow();
         });
@@ -1048,7 +1048,7 @@ class ConfigControllerTest {
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
         pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
-            .enabled(true)
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
             .replayApiBaseUrl("http://custom-replay.example.com")
             .build());
 
@@ -1056,7 +1056,7 @@ class ConfigControllerTest {
 
         PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 42L);
 
-        when(configService.createSdkConfig(any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+        when(configService.createSdkConfig(projectId, any(ConfigData.class))).thenReturn(Single.just(createdConfig));
 
         // When
         CompletionStage<Response<CreateConfigResponse>> result =

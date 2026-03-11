@@ -248,18 +248,17 @@ CREATE TABLE pulse_sdk_configs (
 --     "configUrl": "http://10.0.2.2:8080/v1/interaction-configs/",
 --     "beforeInitQueueSize": 100
 --   },
-     "sessionReplay": {
-           "enabled": false,
-           "maskAllTextInputs": true,
-           "maskAllImages": true,
-           "throttleDelayMs": 1000,
-           "screenshotScale": 1.0,
-           "screenshotQuality": 30,
-           "flushIntervalSeconds": 60,
-           "flushAt": 10,
-           "maxBatchSize": 50,
-           "replayApiBaseUrl": ""
-         },
+--     "sessionReplay": {
+--       "textAndInputPrivacy": "MASK_ALL",
+--       "imagePrivacy": "MASK_ALL",
+--       "throttleDelayMs": 1000,
+--       "screenshotScale": 1.0,
+--       "screenshotQuality": 30,
+--       "flushIntervalSeconds": 60,
+--       "flushAt": 10,
+--       "maxBatchSize": 50,
+--       "replayApiBaseUrl": ""
+--     },
 --   "features": [
 --     {
 --       "featureName": "interaction",
@@ -319,6 +318,30 @@ CREATE TABLE pulse_sdk_configs (
 --   ]
 -- }
 
+-- Notification Service Tables
+CREATE TABLE IF NOT EXISTS notification_channels (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    config JSON NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
+    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
+);
+
+-- Insert default platform email channel for system notifications (onboarding, etc.)
+INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
+('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
+    'type', 'EMAIL',
+    'fromAddress', 'noreply@pulse-ux.com',
+    'fromName', 'Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE config = config;
+
 CREATE TABLE severity
 (
     severity_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -336,7 +359,7 @@ CREATE TABLE alerts (
     dimension_filter TEXT,
     condition_expression VARCHAR(255) NOT NULL,
     severity_id INT NOT NULL,
-    notification_channel_id INT NOT NULL,
+    notification_channel_id BIGINT NOT NULL,
     evaluation_period INT NOT NULL,
     evaluation_interval INT NOT NULL,
     last_snoozed_at TIMESTAMP NULL DEFAULT NULL,
@@ -353,7 +376,7 @@ CREATE TABLE alerts (
 
     CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
-    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels(notification_channel_id)
+    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels(id)
 );
 
 CREATE TABLE alert_scope (
@@ -635,30 +658,6 @@ CREATE TABLE IF NOT EXISTS tnc_acceptances (
     CONSTRAINT fk_tnc_acc_version FOREIGN KEY (tnc_version_id) REFERENCES tnc_versions(id)
 
 );
--- Notification Service Tables
-CREATE TABLE IF NOT EXISTS notification_channels (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NULL,
-    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    config JSON NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
-    INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
-);
-
--- Insert default platform email channel for system notifications (onboarding, etc.)
-INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
-('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
-    'type', 'EMAIL',
-    'fromAddress', 'noreply@pulse-ux.com',
-    'fromName', 'Pulse Platform'
-))
-ON DUPLICATE KEY UPDATE config = config;
-
 
 CREATE TABLE IF NOT EXISTS notification_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

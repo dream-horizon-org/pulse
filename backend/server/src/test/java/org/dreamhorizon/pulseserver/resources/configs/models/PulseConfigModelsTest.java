@@ -9,8 +9,10 @@ import java.util.Arrays;
 import java.util.List;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -805,9 +807,8 @@ class PulseConfigModelsTest {
     @Test
     void shouldCreateWithBuilder() {
       PulseConfig.SessionReplayConfig config = PulseConfig.SessionReplayConfig.builder()
-          .enabled(true)
-          .maskAllTextInputs(true)
-          .maskAllImages(false)
+          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL_INPUTS)
+          .imagePrivacy(ImagePrivacy.MASK_NONE)
           .throttleDelayMs(2000L)
           .screenshotScale(0.5f)
           .screenshotQuality(50)
@@ -817,9 +818,8 @@ class PulseConfigModelsTest {
           .replayApiBaseUrl("http://replay.example.com")
           .build();
 
-      assertEquals(true, config.getEnabled());
-      assertEquals(true, config.getMaskAllTextInputs());
-      assertEquals(false, config.getMaskAllImages());
+      assertEquals(TextAndInputPrivacy.MASK_ALL_INPUTS, config.getTextAndInputPrivacy());
+      assertEquals(ImagePrivacy.MASK_NONE, config.getImagePrivacy());
       assertEquals(2000L, config.getThrottleDelayMs());
       assertEquals(0.5f, config.getScreenshotScale());
       assertEquals(50, (int) config.getScreenshotQuality());
@@ -833,9 +833,8 @@ class PulseConfigModelsTest {
     void shouldSetAndGetAllFields() {
       PulseConfig.SessionReplayConfig config = new PulseConfig.SessionReplayConfig();
 
-      config.setEnabled(true);
-      config.setMaskAllTextInputs(false);
-      config.setMaskAllImages(true);
+      config.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS);
+      config.setImagePrivacy(ImagePrivacy.MASK_ALL);
       config.setThrottleDelayMs(500L);
       config.setScreenshotScale(0.75f);
       config.setScreenshotQuality(80);
@@ -844,9 +843,8 @@ class PulseConfigModelsTest {
       config.setMaxBatchSize(100);
       config.setReplayApiBaseUrl("http://new-replay.example.com");
 
-      assertEquals(true, config.getEnabled());
-      assertEquals(false, config.getMaskAllTextInputs());
-      assertEquals(true, config.getMaskAllImages());
+      assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, config.getTextAndInputPrivacy());
+      assertEquals(ImagePrivacy.MASK_ALL, config.getImagePrivacy());
       assertEquals(500L, config.getThrottleDelayMs());
       assertEquals(0.75f, config.getScreenshotScale());
       assertEquals(80, config.getScreenshotQuality());
@@ -859,13 +857,13 @@ class PulseConfigModelsTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCode() {
       PulseConfig.SessionReplayConfig config1 = PulseConfig.SessionReplayConfig.builder()
-          .enabled(true)
+          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
           .throttleDelayMs(1000L)
           .screenshotQuality(30)
           .replayApiBaseUrl("http://replay.example.com")
           .build();
       PulseConfig.SessionReplayConfig config2 = PulseConfig.SessionReplayConfig.builder()
-          .enabled(true)
+          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
           .throttleDelayMs(1000L)
           .screenshotQuality(30)
           .replayApiBaseUrl("http://replay.example.com")
@@ -904,7 +902,7 @@ class PulseConfigModelsTest {
       PulseConfig.InteractionConfig interaction = PulseConfig.InteractionConfig.builder().build();
       List<PulseConfig.FeatureConfig> features = new ArrayList<>();
       PulseConfig.SessionReplayConfig sessionReplay = PulseConfig.SessionReplayConfig.builder()
-          .enabled(true)
+          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
           .build();
 
       PulseConfig pulseConfig = PulseConfig.builder()
@@ -936,7 +934,8 @@ class PulseConfigModelsTest {
       pulseConfig.setSignals(new PulseConfig.SignalsConfig());
       pulseConfig.setInteraction(new PulseConfig.InteractionConfig());
       pulseConfig.setFeatures(new ArrayList<>());
-      pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder().enabled(false).build());
+      pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+          .imagePrivacy(ImagePrivacy.MASK_NONE).build());
 
       assertEquals(2L, pulseConfig.getVersion());
       assertEquals("Updated Config", pulseConfig.getDescription());

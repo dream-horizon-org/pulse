@@ -24,6 +24,8 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
@@ -110,14 +112,11 @@ public class ConfigController {
       config.setSessionReplay(new PulseConfig.SessionReplayConfig());
     }
     PulseConfig.SessionReplayConfig replay = config.getSessionReplay();
-    if (replay.getEnabled() == null) {
-      replay.setEnabled(false);
+    if (replay.getTextAndInputPrivacy() == null) {
+      replay.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
     }
-    if (replay.getMaskAllTextInputs() == null) {
-      replay.setMaskAllTextInputs(true);
-    }
-    if (replay.getMaskAllImages() == null) {
-      replay.setMaskAllImages(true);
+    if (replay.getImagePrivacy() == null) {
+      replay.setImagePrivacy(ImagePrivacy.MASK_ALL);
     }
     if (replay.getThrottleDelayMs() == null) {
       replay.setThrottleDelayMs(1000L);

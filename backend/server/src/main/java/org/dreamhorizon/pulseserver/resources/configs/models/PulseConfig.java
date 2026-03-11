@@ -9,8 +9,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 
 @Data
@@ -311,14 +313,11 @@ public class PulseConfig {
   @NoArgsConstructor
   public static class SessionReplayConfig {
 
-    @JsonProperty("enabled")
-    private Boolean enabled;
+    @JsonProperty("textAndInputPrivacy")
+    private TextAndInputPrivacy textAndInputPrivacy;
 
-    @JsonProperty("maskAllTextInputs")
-    private Boolean maskAllTextInputs;
-
-    @JsonProperty("maskAllImages")
-    private Boolean maskAllImages;
+    @JsonProperty("imagePrivacy")
+    private ImagePrivacy imagePrivacy;
 
     @JsonProperty("throttleDelayMs")
     private Long throttleDelayMs;

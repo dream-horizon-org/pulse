@@ -12,14 +12,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class SessionReplayConfig {
 
-  @JsonProperty("enabled")
-  private Boolean enabled;
+  @JsonProperty("textAndInputPrivacy")
+  private TextAndInputPrivacy textAndInputPrivacy;
 
-  @JsonProperty("maskAllTextInputs")
-  private Boolean maskAllTextInputs;
-
-  @JsonProperty("maskAllImages")
-  private Boolean maskAllImages;
+  @JsonProperty("imagePrivacy")
+  private ImagePrivacy imagePrivacy;
 
   @JsonProperty("throttleDelayMs")
   private Long throttleDelayMs;
