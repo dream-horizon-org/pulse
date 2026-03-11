@@ -12,8 +12,6 @@ import android.app.Application
 import android.util.Log
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.PulseSDK
-import com.pulse.android.sdk.replay.ImagePrivacy
-import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -71,12 +69,7 @@ class OtelDemoApplication : Application() {
                     enabled(true)
                 }
                 sessionReplay {
-                    textAndInputPrivacy = TextAndInputPrivacy.MASK_ALL_INPUTS
-                    imagePrivacy = ImagePrivacy.MASK_ALL
-                    screenshot = true
-                    throttleDelayMs = 1000L
-                    screenshotQuality = 30
-                    replayApiBaseUrl = "http://10.0.2.2:3400"
+                    // Code-level configs only; all other params come from backend
                 }
             }
             PulseSDK.INSTANCE.getOtelOrThrow()

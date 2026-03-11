@@ -65,16 +65,15 @@ public final class com/pulse/android/sdk/replay/SessionReplayConfig {
 	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;)V
 	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;)V
 	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;Z)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZ)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJ)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;F)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;FI)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;FII)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;FIII)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;FIIII)V
-	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;FIIIILjava/lang/String;)V
-	public synthetic fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZZJLcom/pulse/android/sdk/replay/DrawableConverter;FIIIILjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJ)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;F)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;FI)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;FII)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;FIII)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;FIIII)V
+	public fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;FIIIILjava/lang/String;)V
+	public synthetic fun <init> (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;Lcom/pulse/android/sdk/replay/ImagePrivacy;ZJLcom/pulse/android/sdk/replay/DrawableConverter;FIIIILjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun addMaskViewClass (Ljava/lang/String;)Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun addUnmaskViewClass (Ljava/lang/String;)Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun getCaptureLogcat ()Z
@@ -98,7 +97,6 @@ public final class com/pulse/android/sdk/replay/SessionReplayConfig {
 	public final fun setImagePrivacy (Lcom/pulse/android/sdk/replay/ImagePrivacy;)V
 	public final fun setMaxBatchSize (I)V
 	public final fun setReplayApiBaseUrl (Ljava/lang/String;)V
-	public final fun setScreenshot (Z)V
 	public final fun setScreenshotQuality (I)V
 	public final fun setScreenshotScale (F)V
 	public final fun setTextAndInputPrivacy (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;)V
@@ -109,32 +107,10 @@ public final class com/pulse/android/sdk/replay/SessionReplayConfiguration {
 	public fun <init> ()V
 	public final fun addMaskViewClass (Ljava/lang/String;)V
 	public final fun addUnmaskViewClass (Ljava/lang/String;)V
-	public final fun getCaptureLogcat ()Z
 	public final fun getConfigIfConfigured ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun getDrawableConverter ()Lcom/pulse/android/sdk/replay/DrawableConverter;
-	public final fun getFlushAt ()I
-	public final fun getFlushIntervalSeconds ()I
-	public final fun getImagePrivacy ()Lcom/pulse/android/sdk/replay/ImagePrivacy;
-	public final fun getMaxBatchSize ()I
-	public final fun getReplayApiBaseUrl ()Ljava/lang/String;
-	public final fun getScreenshot ()Z
-	public final fun getScreenshotQuality ()I
-	public final fun getScreenshotScale ()F
-	public final fun getTextAndInputPrivacy ()Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;
-	public final fun getThrottleDelayMs ()J
 	public final fun markConfigured ()V
-	public final fun setCaptureLogcat (Z)V
 	public final fun setDrawableConverter (Lcom/pulse/android/sdk/replay/DrawableConverter;)V
-	public final fun setFlushAt (I)V
-	public final fun setFlushIntervalSeconds (I)V
-	public final fun setImagePrivacy (Lcom/pulse/android/sdk/replay/ImagePrivacy;)V
-	public final fun setMaxBatchSize (I)V
-	public final fun setReplayApiBaseUrl (Ljava/lang/String;)V
-	public final fun setScreenshot (Z)V
-	public final fun setScreenshotQuality (I)V
-	public final fun setScreenshotScale (F)V
-	public final fun setTextAndInputPrivacy (Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;)V
-	public final fun setThrottleDelayMs (J)V
 }
 
 public abstract interface class com/pulse/android/sdk/replay/SessionReplayController {
