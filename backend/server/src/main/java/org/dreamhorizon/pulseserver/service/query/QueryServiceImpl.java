@@ -21,12 +21,12 @@ import org.dreamhorizon.pulseserver.client.query.models.QueryResultSet;
 import org.dreamhorizon.pulseserver.client.query.models.QueryStatus;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.query.QueryJobDao;
 import org.dreamhorizon.pulseserver.service.query.models.ColumnMetadata;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJob;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
 import org.dreamhorizon.pulseserver.service.query.models.TableMetadata;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 
 @Slf4j
@@ -56,15 +56,16 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("User email is required and cannot be null or empty"));
     }
 
-    String tenantId = TenantContext.requireTenantId();
-    String queryWithProjectId = appendProjectId(queryString, tenantId);
+    String projectId = ProjectContext.requireProjectId();
+    // Appending TenantId for now. Will be changed to projectId once those changes are deployed.
+    String queryWithProjectId = appendProjectId(queryString, projectId);
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId, tenantId);
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    return queryJobDao.createJob(tenantId, queryWithProjectId, userEmail.trim())
+    return queryJobDao.createJob(projectId, queryWithProjectId, userEmail.trim())
         .flatMap(jobId -> queryClient.submitQuery(queryWithProjectId)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
@@ -668,7 +669,7 @@ public class QueryServiceImpl implements QueryService {
       return Single.error(new IllegalArgumentException("Database name is not configured"));
     }
 
-    String projectId = TenantContext.requireTenantId();
+    String projectId = ProjectContext.getProjectId();
     String projectTable = "otel_data_" + projectId;
 
     String tablesQuery = String.format(

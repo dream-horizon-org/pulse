@@ -9,7 +9,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.tenantdao.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.TenantLookupResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;

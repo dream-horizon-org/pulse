@@ -23,6 +23,7 @@ public class CronManager {
   final WebClient webClient;
   private static final ConcurrentHashMap<Integer, CopyOnWriteArrayList<CronTask>> cronGroups = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<Integer, Long> timerIds = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Long> customTimerIds = new ConcurrentHashMap<>();
 
   // Retry configuration
   private static final int MAX_RETRY_ATTEMPTS = 3;
@@ -185,6 +186,57 @@ public class CronManager {
 
   private long calculateBackoffDelay(int attempt) {
     return INITIAL_RETRY_DELAY_MS * (long) Math.pow(2, attempt - 1);
+  }
+
+  /**
+   * Adds a custom periodic task that executes at the specified interval.
+   * Useful for non-HTTP periodic tasks like monitoring, cleanup, etc.
+   *
+   * @param taskName Unique identifier for the task
+   * @param intervalSeconds Execution interval in seconds
+   * @param task The task to execute
+   */
+  public void addCustomPeriodicTask(String taskName, Integer intervalSeconds, Runnable task) {
+    if (customTimerIds.containsKey(taskName)) {
+      log.warn("Custom task '{}' already exists. Removing old task first.", taskName);
+      removeCustomTask(taskName);
+    }
+
+    long timerId = vertx.setPeriodic(intervalSeconds * 1000L, id -> {
+      log.debug("Executing custom task: {}", taskName);
+      try {
+        task.run();
+      } catch (Exception e) {
+        log.error("Error executing custom task: {}", taskName, e);
+      }
+    });
+
+    customTimerIds.put(taskName, timerId);
+    log.info("✅ Added custom periodic task: '{}' with interval: {}s", taskName, intervalSeconds);
+  }
+
+  /**
+   * Removes a custom periodic task.
+   *
+   * @param taskName The name of the task to remove
+   */
+  public void removeCustomTask(String taskName) {
+    Long timerId = customTimerIds.remove(taskName);
+    if (timerId != null) {
+      vertx.cancelTimer(timerId);
+      log.info("Removed custom task: '{}'", taskName);
+    } else {
+      log.warn("Custom task '{}' not found", taskName);
+    }
+  }
+
+  /**
+   * Gets the list of all active custom tasks.
+   *
+   * @return List of custom task names
+   */
+  public List<String> getCustomTasks() {
+    return new CopyOnWriteArrayList<>(customTimerIds.keySet());
   }
 }
 

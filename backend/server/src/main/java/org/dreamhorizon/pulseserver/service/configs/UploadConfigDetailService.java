@@ -41,14 +41,14 @@ public class UploadConfigDetailService {
 
   private Single<EmptyResponse> pushToObjectStoreAndInvalidateCache(
       PulseConfig config,
-      String tenantId
+      String projectId
   ) {
     String distributionId = applicationConfig.getCloudFrontDistributionId();
-    String s3FilePath = getTenantAwarePath(tenantId, applicationConfig.getConfigDetailsS3BucketFilePath());
+    String s3FilePath = getProjectAwarePath(projectId, applicationConfig.getConfigDetailsS3BucketFilePath());
     String cloudFrontAssetPath = String.format("/%s",
-        getTenantAwarePath(tenantId, applicationConfig.getConfigDetailCloudFrontAssetPath()));
+        getProjectAwarePath(projectId, applicationConfig.getConfigDetailCloudFrontAssetPath()));
 
-    log.info("Uploading to S3 at path: {}", s3FilePath);
+    log.info("Uploading to S3 at path: {} for project: {}", s3FilePath, projectId);
     Single<EmptyResponse> uploadSingle = s3BucketClient
         .uploadObject(
             applicationConfig.getS3BucketName(),
@@ -57,8 +57,8 @@ public class UploadConfigDetailService {
 
     return uploadSingle
         .flatMap(resp -> {
-          log.info("S3 upload successful for tenant: {}, invalidating CloudFront cache for distribution: {}",
-              tenantId, distributionId);
+          log.info("S3 upload successful for project: {}, invalidating CloudFront cache for distribution: {}",
+              projectId, distributionId);
           return cloudFrontClient
               .invalidateCache(
                   distributionId,
@@ -67,17 +67,17 @@ public class UploadConfigDetailService {
   }
 
   /**
-   * Constructs a tenant-aware path by prefixing the base path with tenant directory.
-   * Format: tenants/{tenantId}/{basePath}
+   * Constructs a pure project-based path.
+   * Format: config/projects/{projectId}/{basePath}
    */
-  private String getTenantAwarePath(String tenantId, String basePath) {
-    return String.format("config/projects/%s/%s", tenantId, basePath);
+  private String getProjectAwarePath(String projectId, String basePath) {
+    return String.format("config/projects/%s/%s", projectId, basePath);
   }
 
-  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String tenant) {
+  public Single<EmptyResponse> pushInteractionDetailsToObjectStore(String projectId) {
     return configService
-        .getActiveSdkConfig(tenant)
-        .flatMap(config -> pushToObjectStoreAndInvalidateCache(config, tenant))
+        .getActiveSdkConfig(projectId)
+        .flatMap(config -> pushToObjectStoreAndInvalidateCache(config, projectId))
         .doOnError(this::handleUploadError)
         .doOnSuccess(res -> this.handleUploadSuccess());
   }

@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringSubstitutor;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.query.UserExperienceCategoriesQuery;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.session.models.GetSessionRequest;
@@ -82,7 +83,8 @@ public class SessionService {
     QueryConfiguration configuration = QueryConfiguration
         .newQuery(formattedQuery)
         .timeoutMs(2000)
-        .tenantId(TenantContext.requireTenantId())
+        .tenantId(TenantContext.getTenantId())
+        .projectId(ProjectContext.getProjectId())
         .build();
     return clickhouseQueryService.executeQueryOrCreateJob(configuration, GetSessionResponse.Session.class)
         .map(result -> {

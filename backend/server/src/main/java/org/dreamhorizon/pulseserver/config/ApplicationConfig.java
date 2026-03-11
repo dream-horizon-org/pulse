@@ -32,4 +32,6 @@ public class ApplicationConfig {
   public String webhookUrl;
   public String interactionDetailsS3BucketFilePath;
   public String interactionDetailCloudFrontAssetPath;
+  public String encryptionMasterKey;
+  public String tncS3BucketName;
 }

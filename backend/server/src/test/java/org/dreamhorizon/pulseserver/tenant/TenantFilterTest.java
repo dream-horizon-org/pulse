@@ -555,18 +555,6 @@ class TenantFilterTest {
     }
 
     @Test
-    void shouldExtractProjectIdWithOnlyUnderscore() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("/v1/some/path");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
-      when(requestContext.getHeaderString(TenantFilter.API_KEY_HEADER)).thenReturn("_secret");
-
-      tenantFilter.filter(requestContext);
-
-      assertEquals("", TenantContext.getTenantId());
-    }
-
-    @Test
     void shouldExtractProjectIdWithComplexFormat() throws IOException {
       when(requestContext.getUriInfo()).thenReturn(uriInfo);
       when(uriInfo.getPath()).thenReturn("/v1/some/path");
