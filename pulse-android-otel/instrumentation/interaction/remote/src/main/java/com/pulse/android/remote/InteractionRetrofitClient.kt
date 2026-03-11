@@ -1,7 +1,7 @@
 package com.pulse.android.remote
 
-import com.pulse.otel.utils.PulseNetworkingUtils
-import com.pulse.otel.utils.PulseSerialisationUtils
+import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseSerialisationUtils
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

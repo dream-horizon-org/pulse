@@ -21,6 +21,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
  * <ol>
  *   <li>JWT token tenantId claim from Authorization header</li>
  *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
+ *   <li>X-API-KEY header (API key for authentication)</li>
  * </ol>
  */
 @Slf4j
@@ -29,6 +30,7 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
   public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String API_KEY_HEADER = "X-API-KEY";
   public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";
@@ -98,7 +100,26 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return tokenTenantId.trim();
     }
 
-    // Priority 2: Explicit X-Tenant-ID header (fallback)
+    // Priority 2: X-API-KEY header - extract project ID from API key
+    String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
+    if (apiKey != null && !apiKey.isBlank()) {
+      try {
+        String projectId = extractProjectIdFromApiKey(apiKey.trim());
+        log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
+        return projectId;
+      } catch (IllegalArgumentException e) {
+        log.error("Invalid API key format: {}. Error: {}", apiKey, e.getMessage());
+        requestContext.abortWith(
+            jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
+                .entity("{\"error\": \"Invalid API key format.\"}")
+                .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
+                .build());
+        return null;
+      }
+    }
+
+    // Priority 3: Explicit X-Tenant-ID header (fallback)
+    //Todo: This will be removed once we have the complete project Onboarding in place
     String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
     if (headerTenantId != null && !headerTenantId.isBlank()) {
       log.debug("Tenant ID resolved from header: {}", headerTenantId);
@@ -112,11 +133,11 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       return projectId.trim();
     }
 
-    log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",
+    log.error("Missing tenant ID (not found in token or X-API-KEY header or X-Tenant-ID header) for path: {}",
         requestContext.getUriInfo().getPath());
     requestContext.abortWith(
         jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-Tenant-ID header)\"}")
+            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-API-KEY header or X-Tenant-ID header)\"}")
             .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
             .build());
     return null;
@@ -160,6 +181,20 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
     }
     return jwtService;
+  }
+
+  private String extractProjectIdFromApiKey(String apiKey) {
+    if (apiKey == null || apiKey.isBlank()) {
+      throw new IllegalArgumentException("API key cannot be null or blank");
+    }
+    
+    int lastUnderscoreIndex = apiKey.lastIndexOf('_');
+    if (lastUnderscoreIndex == -1) {
+      throw new IllegalArgumentException("Invalid API key format.");
+    }
+    
+    // Extract everything before the last underscore
+    return apiKey.substring(0, lastUnderscoreIndex);
   }
 }
 

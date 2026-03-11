@@ -3,7 +3,7 @@
 
 package com.pulse.android.remote
 
-import com.pulse.otel.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseNetworkingUtils
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

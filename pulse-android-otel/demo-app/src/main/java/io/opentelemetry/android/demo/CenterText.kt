@@ -6,6 +6,7 @@
 package io.opentelemetry.android.demo
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +27,7 @@ val gothamFont =
     )
 
 @Composable
-fun CenterText(
+fun SelectableText(
     text: AnnotatedString,
     fontSize: TextUnit = 12.sp,
 ) {
@@ -41,7 +42,7 @@ fun CenterText(
 }
 
 @Composable
-fun CenterText(
+fun SelectableText(
     text: String,
     fontSize: TextUnit = 12.sp,
     selectable: Boolean = false,
@@ -52,7 +53,7 @@ fun CenterText(
         color = color,
         textAlign = TextAlign.Center,
         fontSize = fontSize,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.wrapContentWidth(),
         fontFamily = gothamFont,
         style = TextStyle.Default.copy(textAlign = TextAlign.Center),
     )

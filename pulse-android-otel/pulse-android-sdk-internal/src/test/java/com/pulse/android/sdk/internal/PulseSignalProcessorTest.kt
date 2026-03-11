@@ -2,10 +2,11 @@
 
 package com.pulse.android.sdk.internal
 
-import com.pulse.otel.utils.PulseNetworkingUtils
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
+import com.pulse.utils.PulseNetworkingUtils
 import io.opentelemetry.android.common.RumConstants
+import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.Logger
 import io.opentelemetry.api.trace.Tracer
@@ -20,6 +21,7 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.semconv.HttpAttributes
+import io.opentelemetry.semconv.UrlAttributes
 import io.opentelemetry.semconv.incubating.HttpIncubatingAttributes
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -461,6 +463,46 @@ class PulseSignalProcessorTest {
                 OpenTelemetryAssertions
                     .assertThat(spanExporter.finishedSpanItems[0].attributes)
                     .containsEntry(HttpIncubatingAttributes.HTTP_URL, "https://api.example.com")
+            }
+
+            @Test
+            fun `in network span, all url attributes are normalised`() {
+                val urlWithQuery = "https://api.example.com/users/12345678/profile?token=secret"
+                val urlPath = "/users/12345678/profile"
+                val urlOriginal = "https://api.example.com/users/12345678/profile?token=secret"
+                val httpTarget = "/users/12345678/profile?token=secret"
+                val urlQuery = "?token=secret"
+
+                @Suppress("DEPRECATION")
+                val span =
+                    tracer
+                        .spanBuilder("network-req")
+                        .setAttribute(HttpIncubatingAttributes.HTTP_METHOD, "GET")
+                        .setAttribute(HttpIncubatingAttributes.HTTP_URL, urlWithQuery)
+                        .setAttribute(UrlAttributes.URL_FULL, urlWithQuery)
+                        .setAttribute(UrlAttributes.URL_PATH, urlPath)
+                        .setAttribute(AttributeKey.stringKey("url.original"), urlOriginal)
+                        .setAttribute(HttpIncubatingAttributes.HTTP_TARGET, httpTarget)
+                        .setAttribute(UrlAttributes.URL_QUERY, urlQuery)
+                        .startSpan()
+                span.end()
+
+                assertThat(spanExporter.finishedSpanItems).hasSize(1)
+                val spanData = spanExporter.finishedSpanItems[0]
+                val attributes = spanData.attributes
+
+                fun assertQueryParamRemoved(key: AttributeKey<String>) {
+                    val value = attributes.get(key)
+                    assertThat(value).isNotNull().doesNotContain("?").doesNotContain("token=secret")
+                }
+
+                assertQueryParamRemoved(HttpIncubatingAttributes.HTTP_URL)
+                assertQueryParamRemoved(UrlAttributes.URL_FULL)
+                assertQueryParamRemoved(AttributeKey.stringKey("url.original"))
+                assertQueryParamRemoved(HttpIncubatingAttributes.HTTP_TARGET)
+                assertQueryParamRemoved(UrlAttributes.URL_QUERY)
+
+                assertThat(attributes.get(UrlAttributes.URL_PATH)).doesNotContain("12345678")
             }
         }
 
