@@ -2,7 +2,6 @@ package org.dreamhorizon.pulseserver.dao.sessiondetail.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,5 +28,5 @@ public class SessionCoreRow {
   private long durationMs;
   private String geography;
   private double qualityScore;
-  private List<String> journey;
+  private String journey;
 }

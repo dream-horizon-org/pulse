@@ -1,5 +1,7 @@
 package org.dreamhorizon.pulseserver.service.sessiondetail.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
 
@@ -25,6 +27,9 @@ import org.dreamhorizon.pulseserver.service.sessiondetail.SessionDetailService;
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class SessionDetailServiceImpl implements SessionDetailService {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
 
   private final SessionDetailDao sessionDetailDao;
 
@@ -97,7 +102,7 @@ public class SessionDetailServiceImpl implements SessionDetailService {
         .appVersion(core.getAppVersion())
         .geography(core.getGeography())
         .quality(core.getQualityScore())
-        .journey(core.getJourney())
+        .journey(parseJourney(core.getJourney()))
         .interactions(mapInteractions(interactionRows))
         .networkRequests(mapNetwork(networkRows));
 
@@ -221,6 +226,18 @@ public class SessionDetailServiceImpl implements SessionDetailService {
 
     result.sort(Comparator.comparing(Event::getTimestamp));
     return result;
+  }
+
+  private List<String> parseJourney(String journeyJson) {
+    if (journeyJson == null || journeyJson.isBlank()) {
+      return Collections.emptyList();
+    }
+    try {
+      return MAPPER.readValue(journeyJson, STRING_LIST_TYPE);
+    } catch (Exception e) {
+      log.warn("Failed to parse journey JSON: {}", journeyJson, e);
+      return Collections.emptyList();
+    }
   }
 
   private <T> Single<List<T>> toList(

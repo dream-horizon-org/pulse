@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.resources.sessiondetail.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class SessionDetailResponse {
   // --- Core ---
   private String sessionId;
   private String userId;
+  @JsonProperty("isAnonymous")
   private boolean isAnonymous;
   private String startTime;
   private String endTime;

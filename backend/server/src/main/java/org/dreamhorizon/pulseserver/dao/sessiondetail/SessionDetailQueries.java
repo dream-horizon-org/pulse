@@ -29,21 +29,23 @@ public final class SessionDetailQueries {
           ),
           0
         )                                                 AS qualityScore,
-        arrayDistinct(
-          arrayFilter(
-            x -> x != '',
-            arrayMap(
-              t -> t.2,
-              arraySort(
-                t -> t.1,
-                groupArray((
-                  Timestamp,
-                  coalesce(
-                    nullIf(trimBoth(SpanAttributes['page.url']), ''),
-                    nullIf(trimBoth(SpanAttributes['screen.name']), ''),
-                    SpanName
-                  )
-                ))
+        toJSONString(
+          arrayDistinct(
+            arrayFilter(
+              x -> x != '',
+              arrayMap(
+                t -> t.2,
+                arraySort(
+                  t -> t.1,
+                  groupArray((
+                    Timestamp,
+                    coalesce(
+                      nullIf(trimBoth(SpanAttributes['page.url']), ''),
+                      nullIf(trimBoth(SpanAttributes['screen.name']), ''),
+                      SpanName
+                    )
+                  ))
+                )
               )
             )
           )
