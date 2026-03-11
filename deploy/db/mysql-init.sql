@@ -351,7 +351,7 @@ CREATE TABLE alerts (
     dimension_filter TEXT,
     condition_expression VARCHAR(255) NOT NULL,
     severity_id INT NOT NULL,
-    notification_channel_id INT NOT NULL,
+    notification_channel_id BIGINT NOT NULL,
     evaluation_period INT NOT NULL,
     evaluation_interval INT NOT NULL,
     last_snoozed_at TIMESTAMP NULL DEFAULT NULL,
@@ -717,7 +717,7 @@ CREATE TABLE IF NOT EXISTS channel_event_mapping (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_mapping_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    CONSTRAINT fk_mapping_channel FOREIGN KEY (channel_id) REFERENCES notification_channels(id) ON DELETE CASCADE,
+    CONSTRAINT fk_mapping_channel FOREIGN KEY (channel_id) REFERENCES notification_channels(notification_channel_id) ON DELETE CASCADE,
     UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
     INDEX idx_mapping_project_event (project_id, event_name, is_active)
 );
