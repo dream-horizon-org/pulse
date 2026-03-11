@@ -36,7 +36,8 @@ public class MysqlSymbolFileService extends SymbolFileService {
 
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)
-        .execute(Tuple.wrap(Arrays.asList(metadata.getAppVersion(),
+        .execute(Tuple.wrap(Arrays.asList(
+            metadata.getAppVersion(),
             metadata.getVersionCode(),
             metadata.getPlatform(),
             metadata.getType(),
@@ -45,7 +46,7 @@ public class MysqlSymbolFileService extends SymbolFileService {
             metadata.getProjectId())))
         .map(rows -> true)
         .onErrorResumeNext(err -> {
-          log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());
+          log.error("Exception while uploading mapping file for {}: {}", metadata, err.getMessage());
           return Single.just(false);
         });
   }
@@ -56,16 +57,16 @@ public class MysqlSymbolFileService extends SymbolFileService {
     final String sql = """
         SELECT file_content
         FROM symbol_files
-        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=? AND project_id=?
+        WHERE project_id=? AND app_version=? AND app_version_code=? AND platform=? AND framework=?
         LIMIT 1
         """;
 
     Tuple params = Tuple.of(
+        metadata.getProjectId(),
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),
-        metadata.getType(),
-        metadata.getProjectId()
+        metadata.getType()
     );
 
     return d11MysqlClient.getReaderPool()

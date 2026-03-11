@@ -1,0 +1,61 @@
+.onboardingContainer {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafb 0%, #e8f4f8 50%, #f0f9ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.contentWrapper {
+  max-width: 650px;
+  width: 100%;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.userInfo {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.stepSection {
+  background: white;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.stepSection:hover {
+  border-color: #0ec9c2;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+}
+
+.stepTitle {
+  color: #1a1a1a;
+}
+
+.stepDescription {
+  line-height: 1.6;
+}

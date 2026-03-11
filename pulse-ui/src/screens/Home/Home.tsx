@@ -5,7 +5,6 @@ import {
   IconNetwork,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import { ROUTES } from "../../constants";
 import { HomeProps } from "./Home.interface";
 import classes from "./Home.module.css";
 import dayjs from "dayjs";
@@ -17,36 +16,39 @@ import { QuickAccessLinks, QuickLink } from "./components/QuickAccessLinks";
 import { ScreensHealth } from "./components/ScreensHealth";
 import { TopInteractionsHealth } from "./components/TopInteractionsHealth";
 import { useAnalytics } from "../../hooks/useAnalytics";
+import { useProjectContext } from "../../contexts";
+import { ROUTES } from "../../constants";
 
 dayjs.extend(utc);
 
 export function Home(_props: HomeProps) {
   const navigate = useNavigate();
   const { trackClick } = useAnalytics("Home");
+  const { projectId } = useProjectContext();
 
   const quickLinks: QuickLink[] = [
     {
       title: "Interactions",
       description: "View and manage all configured user interactions",
-      route: ROUTES.CRITICAL_INTERACTIONS.basePath,
+      route: ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId || ''),
       icon: IconListDetails,
     },
     {
       title: "App Vitals",
       description: "View and manage all configured app vitals",
-      route: ROUTES.APP_VITALS.basePath,
+      route: ROUTES.PROJECT_APP_VITALS.basePath.replace(':projectId', projectId || ''),
       icon: IconActivityHeartbeat,
     },
     {
       title: "Screens",
       description: "View and manage all configured screens",
-      route: ROUTES.SCREENS.basePath,
+      route: ROUTES.PROJECT_SCREENS.basePath.replace(':projectId', projectId || ''),
       icon: IconDeviceDesktop,
     },
     {
       title: "Network APIs",
       description: "View and manage all configured network APIs",
-      route: ROUTES.NETWORK_LIST.basePath,
+      route: ROUTES.PROJECT_NETWORK_LIST.basePath.replace(':projectId', projectId || ''),
       icon: IconNetwork,
     }
   ];
@@ -59,7 +61,8 @@ export function Home(_props: HomeProps) {
 
   const handleViewAllInteractions = () => {
     trackClick("ViewAllInteractions");
-    navigate(ROUTES.CRITICAL_INTERACTIONS.basePath);
+    if (!projectId) return;
+    navigate(ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId));
   };
 
   const handleInteractionCardClick = (interaction: {
@@ -67,20 +70,23 @@ export function Home(_props: HomeProps) {
     name: string;
   }) => {
     trackClick(`InteractionCard: ${interaction.name}`);
+    if (!projectId) return;
     navigate(
-      `${ROUTES.CRITICAL_INTERACTION_DETAILS.basePath}/${interaction.name}`,
+      `${ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(':projectId', projectId)}/${interaction.name}`,
     );
   };
 
   const handleViewAllScreens = () => {
     trackClick("ViewAllScreens");
-    navigate(ROUTES.SCREENS.basePath);
+    if (!projectId) return;
+    navigate(ROUTES.PROJECT_SCREENS.basePath.replace(':projectId', projectId));
   };
 
   const handleScreenCardClick = (screenName: string) => {
     trackClick(`ScreenCard: ${screenName}`);
+    if (!projectId) return;
     navigate(
-      `${ROUTES.SCREEN_DETAILS.basePath}/${encodeURIComponent(screenName)}`,
+      `${ROUTES.PROJECT_SCREEN_DETAILS.basePath.replace(':projectId', projectId)}/${encodeURIComponent(screenName)}`,
     );
   };
 
