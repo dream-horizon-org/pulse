@@ -22,7 +22,7 @@ import org.dreamhorizon.pulseserver.service.sessiondetail.SessionDetailService;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v1/session-replay/sessions")
+@Path("/v1/sessions")
 public class SessionDetailController {
 
   private static final Set<String> VALID_INCLUDES = Set.of("events", "exceptions");
