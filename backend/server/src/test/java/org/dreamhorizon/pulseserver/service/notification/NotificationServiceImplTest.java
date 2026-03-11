@@ -14,8 +14,10 @@ import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.util.List;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
+import org.dreamhorizon.pulseserver.resources.notification.models.ChannelEventMappingDto;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
@@ -23,6 +25,7 @@ import org.dreamhorizon.pulseserver.resources.notification.models.CreateChannelR
 import org.dreamhorizon.pulseserver.resources.notification.models.CreateTemplateRequestDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.UpdateChannelRequestDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.UpdateTemplateRequestDto;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelEventMapping;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 import org.dreamhorizon.pulseserver.service.notification.models.EmailChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
@@ -438,6 +441,47 @@ class NotificationServiceImplTest {
       var result = service.deleteTemplate(TEMPLATE_ID).blockingGet();
 
       assertThat(result).isFalse();
+    }
+  }
+
+  @Nested
+  class PlatformMappingOperations {
+
+    @Test
+    void shouldCreateDefaultPlatformMappingsForAllEvents() {
+      NotificationChannel platform = emailChannel();
+      platform.setId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID);
+      platform.setProjectId("default-project");
+
+      NotificationTemplate template = emailTemplate();
+
+      when(channelDao.getChannelById(eq(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)))
+          .thenReturn(Maybe.just(platform));
+      when(templateDao.getTemplateByEventNameAndChannel(any(), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(template));
+
+      long[] idCounter = {1};
+      when(mappingDao.createMapping(any(ChannelEventMapping.class)))
+          .thenAnswer(inv -> Single.just(idCounter[0]++));
+      when(mappingDao.getMappingById(anyLong()))
+          .thenAnswer(inv -> {
+            Long id = inv.getArgument(0);
+            return Maybe.just(ChannelEventMapping.builder()
+                .id(id)
+                .projectId(PROJECT_ID)
+                .channelId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)
+                .eventName("event")
+                .isActive(true)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build());
+          });
+
+      List<ChannelEventMappingDto> result =
+          service.createDefaultPlatformMappings(PROJECT_ID).blockingGet();
+
+      assertThat(result).hasSize(6);
+      verify(mappingDao, org.mockito.Mockito.times(6)).createMapping(any(ChannelEventMapping.class));
     }
   }
 

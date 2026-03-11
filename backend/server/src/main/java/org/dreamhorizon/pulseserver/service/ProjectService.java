@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
@@ -29,9 +30,6 @@ import org.dreamhorizon.pulseserver.util.SecureRandomUtil;
 public class ProjectService {
 
   private static final int PROJECT_ID_RANDOM_LENGTH = 8;
-
-  private static final String DEFAULT_PROJECT_ID = "default-project";
-  private static final String PROJECT_CREATED_EVENT = "project_created";
 
   private final MysqlClient mysqlClient;
   private final ProjectDao projectDao;
@@ -89,7 +87,16 @@ public class ProjectService {
             assignRolesAndLink(result.project, userId, tenantId)
                 .andThen(Single.just(result))
         )
-        // 4. Fire-and-forget: Async tasks (including email notification)
+        // 4. Create default platform channel-event mappings (wait for completion)
+        .flatMap(result ->
+            notificationService.createDefaultPlatformMappings(project.getProjectId())
+                .map(mappings -> result)
+                .onErrorResumeNext(err -> {
+                  log.warn("Failed to create default platform mappings for project: {}", project.getProjectId(), err);
+                  return Single.just(result);
+                })
+        )
+        // 5. Fire-and-forget: Async tasks (including email notification)
         .doOnSuccess(result -> {
           executeAsyncTasks(result, projectId, tenantId, userInfo).subscribe();
         })
@@ -200,15 +207,14 @@ public class ProjectService {
         .emails(List.of(userInfo.getEmail()))
         .build();
 
-    // Build notification request (uses default-project for template lookup)
     SendNotificationRequestDto notificationRequest = SendNotificationRequestDto.builder()
-        .eventName(PROJECT_CREATED_EVENT)
+        .eventName(NotificationConstants.Platform.EVENT_PROJECT_CREATED)
         .channelTypes(List.of(ChannelType.EMAIL))
         .recipients(recipients)
         .params(params)
         .build();
 
-    return notificationService.sendNotification(DEFAULT_PROJECT_ID, notificationRequest)
+    return notificationService.sendNotification(projectId, notificationRequest)
         .ignoreElement();
   }
 

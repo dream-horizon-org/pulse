@@ -1,8 +1,35 @@
 package org.dreamhorizon.pulseserver.constant;
 
+import java.util.List;
 import java.util.Set;
 
 public final class NotificationConstants {
+
+  // Platform-level constants for default channel-event mappings
+  public static final class Platform {
+    private Platform() {}
+
+    public static final Long DEFAULT_CHANNEL_ID = 1L;
+
+    public static final String EVENT_PROJECT_CREATED = "project_created";
+    public static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
+    public static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
+    public static final String EVENT_COLLABORATOR_ROLE_UPDATED = "collaborator_role_updated";
+    public static final String EVENT_CONTACT_US = "contact_us";
+    public static final String EVENT_CONTACT_SUPPORT = "contact_support";
+
+    public record DefaultMapping(String eventName, String recipient) {}
+
+    public static final List<DefaultMapping> DEFAULT_MAPPINGS = List.of(
+        new DefaultMapping(EVENT_PROJECT_CREATED, null),
+        new DefaultMapping(EVENT_COLLABORATOR_ADDED, null),
+        new DefaultMapping(EVENT_COLLABORATOR_REMOVED, null),
+        new DefaultMapping(EVENT_COLLABORATOR_ROLE_UPDATED, null),
+        new DefaultMapping(EVENT_CONTACT_US, "contact@pulse-ux.com"),
+        new DefaultMapping(EVENT_CONTACT_SUPPORT, "support@pulse-ux.com")
+    );
+  }
+
   // Common JSON body keys
   public static final String KEY_SUBJECT = "subject";
   public static final String KEY_TITLE = "title";

@@ -137,6 +137,9 @@ class ProjectServiceTest {
       when(openFgaService.linkProjectToTenant(anyString(), eq("tenant-1")))
           .thenReturn(Completable.complete());
 
+      when(notificationService.createDefaultPlatformMappings(anyString()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
       when(clickhouseProjectService.createClickhouseUserAndPolicies(
               anyString(), anyString(), anyString()))
           .thenReturn(Completable.complete());
@@ -164,6 +167,7 @@ class ProjectServiceTest {
       verify(projectDao).createProject(any(SqlConnection.class), any(Project.class));
       verify(openFgaService).assignProjectRole(eq("user-1"), anyString(), eq("admin"));
       verify(openFgaService).linkProjectToTenant(anyString(), eq("tenant-1"));
+      verify(notificationService).createDefaultPlatformMappings(anyString());
     }
 
     @Test

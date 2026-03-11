@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.resources.notification.models.*;
@@ -735,6 +736,20 @@ public class NotificationServiceImpl implements NotificationService {
   }
 
   // ==================== Mappings ====================
+
+  @Override
+  public Single<List<ChannelEventMappingDto>> createDefaultPlatformMappings(String projectId) {
+    BatchCreateMappingRequestDto batchRequest = BatchCreateMappingRequestDto.builder()
+        .mappings(NotificationConstants.Platform.DEFAULT_MAPPINGS.stream()
+            .map(mapping -> CreateMappingRequestDto.builder()
+                .channelId(NotificationConstants.Platform.DEFAULT_CHANNEL_ID)
+                .eventName(mapping.eventName())
+                .recipient(mapping.recipient())
+                .build())
+            .toList())
+        .build();
+    return createMappingsBatch(projectId, batchRequest);
+  }
 
   @Override
   public Single<List<ChannelEventMappingDto>> getMappings(String projectId) {
