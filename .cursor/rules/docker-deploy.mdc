@@ -38,9 +38,8 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `REACT_APP_*` — frontend build-time config
 - `NOTIFICATION_*` — notification service (SQS queue URLs, retry, worker tuning)
 - `SES_*` — Amazon SES email config
-- `SLACK_*` — Slack OAuth credentials and scopes
+- `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI, UI redirect URL)
 - `OPENFGA_*` — OpenFGA authorization service config
-- `SLACK_*` — Slack OAuth integration config
 - `AWS_*` — AWS credentials for Athena/S3
 
 Credentials (defined in docker-compose, overridable via `.env`):
