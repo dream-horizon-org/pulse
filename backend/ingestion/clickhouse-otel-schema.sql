@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
     `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
-    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
+    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
