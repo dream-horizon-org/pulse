@@ -102,7 +102,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
         || normalizedPath.startsWith(LOGS_INGESTION_PATH)
         || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
-        || normalizedPath.contains(NOTIFICATIONS_PATH_PREFIX)
         || normalizedPath.startsWith(INTEGRATIONS_PATH_PREFIX);
   }
 
@@ -215,12 +214,12 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     if (apiKey == null || apiKey.isBlank()) {
       throw new IllegalArgumentException("API key cannot be null or blank");
     }
-    
+
     int lastUnderscoreIndex = apiKey.lastIndexOf('_');
     if (lastUnderscoreIndex == -1) {
       throw new IllegalArgumentException("Invalid API key format.");
     }
-    
+
     // Extract everything before the last underscore
     return apiKey.substring(0, lastUnderscoreIndex);
   }

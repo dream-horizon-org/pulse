@@ -1,6 +1,6 @@
-package org.dreamhorizon.pulseserver.dao.userdao;
+package org.dreamhorizon.pulseserver.dao.user;
 
-import static org.dreamhorizon.pulseserver.dao.userdao.UserQueries.*;
+import static org.dreamhorizon.pulseserver.dao.user.UserQueries.*;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;

@@ -36,6 +36,9 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
 - `REACT_APP_*` — frontend build-time config
+- `NOTIFICATION_*` — notification service (SQS queue URLs, retry, worker tuning)
+- `SES_*` — Amazon SES email config
+- `SLACK_*` — Slack OAuth credentials and scopes
 - `OPENFGA_*` — OpenFGA authorization service config
 - `SLACK_*` — Slack OAuth integration config
 - `AWS_*` — AWS credentials for Athena/S3

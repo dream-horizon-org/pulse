@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.tenant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -102,11 +103,16 @@ class TenantDaoTest {
   }
 
   private Row createMockTenantRow() {
+    return createMockTenantRow("test_tenant", 1);
+  }
+
+  private Row createMockTenantRow(String tenantId, Integer tierId) {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
-    when(mockRow.getString("tenant_id")).thenReturn("test_tenant");
+    when(mockRow.getString("tenant_id")).thenReturn(tenantId);
     when(mockRow.getString("name")).thenReturn("Updated Name");
     when(mockRow.getString("description")).thenReturn("Test Description");
+    when(mockRow.getInteger("tier_id")).thenReturn(tierId != null ? tierId : 1);
     when(mockRow.getBoolean("is_active")).thenReturn(true);
     when(mockRow.getLocalDateTime("created_at")).thenReturn(now);
     when(mockRow.getLocalDateTime("updated_at")).thenReturn(now);
@@ -143,6 +149,34 @@ class TenantDaoTest {
       Tuple tuple = tupleCaptor.getValue();
       assertEquals("test_tenant", tuple.getString(0));
       assertEquals("Test Tenant", tuple.getString(1));
+      assertEquals(1, tuple.getInteger(5)); // DEFAULT_TIER_ID
+    }
+
+    @Test
+    void shouldCreateTenantWithCustomTierId() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("enterprise_tenant")
+          .name("Enterprise Tenant")
+          .description("Enterprise Description")
+          .gcpTenantId("gcp-ent-456")
+          .domainName("enterprise.example.com")
+          .build();
+      int tierId = 2;
+
+      setupWriterPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(1);
+      ArgumentCaptor<Tuple> tupleCaptor = ArgumentCaptor.forClass(Tuple.class);
+      when(preparedQuery.rxExecute(tupleCaptor.capture())).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.createTenant(tenant, tierId).blockingGet();
+
+      assertNotNull(result);
+      assertEquals("enterprise_tenant", result.getTenantId());
+      assertEquals(tierId, result.getTierId());
+      assertTrue(result.getIsActive());
+
+      Tuple tuple = tupleCaptor.getValue();
+      assertEquals(tierId, tuple.getInteger(5));
     }
 
     @Test
@@ -493,6 +527,170 @@ class TenantDaoTest {
       Exception ex = assertThrows(RuntimeException.class,
           () -> tenantDao.tenantExists("test_tenant").blockingGet());
       assertTrue(ex.getMessage().contains("DB Error"));
+    }
+  }
+
+  @Nested
+  class TestGetTenantByGcpTenantId {
+
+    @Test
+    void shouldGetTenantByGcpTenantIdSuccessfully() {
+      setupReaderPreparedQuery();
+      Row tenantRow = createMockTenantRow("gcp-tenant", 1);
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(tenantRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.getTenantByGcpTenantId("gcp-test-123").blockingGet();
+
+      assertNotNull(result);
+      assertThat(result.getTenantId()).isEqualTo("gcp-tenant");
+      assertThat(result.getGcpTenantId()).isEqualTo("gcp-test-123");
+    }
+
+    @Test
+    void shouldReturnEmptyWhenGcpTenantIdNotFound() {
+      setupReaderPreparedQuery();
+      when(rowSet.size()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.getTenantByGcpTenantId("non-existent-gcp").blockingGet();
+
+      assertThat(result).isNull();
+    }
+  }
+
+  @Nested
+  class TestGetTenantByDomainName {
+
+    @Test
+    void shouldGetTenantByDomainNameSuccessfully() {
+      setupReaderPreparedQuery();
+      Row tenantRow = createMockTenantRow("domain-tenant", 1);
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(tenantRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.getTenantByDomainName("test.example.com").blockingGet();
+
+      assertNotNull(result);
+      assertThat(result.getDomainName()).isEqualTo("test.example.com");
+    }
+
+    @Test
+    void shouldReturnEmptyWhenDomainNameNotFound() {
+      setupReaderPreparedQuery();
+      when(rowSet.size()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.getTenantByDomainName("unknown.com").blockingGet();
+
+      assertThat(result).isNull();
+    }
+  }
+
+  @Nested
+  class TestGetTenantsByTierId {
+
+    @Test
+    void shouldGetTenantsByTierIdSuccessfully() {
+      setupReaderPreparedQuery();
+      Row tenantRow1 = createMockTenantRow("tenant1", 2);
+      Row tenantRow2 = createMockTenantRow("tenant2", 2);
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(tenantRow1, tenantRow2));
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      List<Tenant> result = tenantDao.getTenantsByTierId(2).toList().blockingGet();
+
+      assertThat(result).hasSize(2);
+      assertThat(result.get(0).getTierId()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoTenantsForTier() {
+      setupReaderPreparedQuery();
+      RowIterator<Row> iterator = createMockRowIterator(new ArrayList<>());
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      List<Tenant> result = tenantDao.getTenantsByTierId(99).toList().blockingGet();
+
+      assertThat(result).isEmpty();
+    }
+  }
+
+  @Nested
+  class TestUpdateTenantTier {
+
+    @Test
+    void shouldUpdateTenantTierSuccessfully() {
+      Tenant tenant = Tenant.builder()
+          .tenantId("test_tenant")
+          .name("Test Tenant")
+          .description("Desc")
+          .gcpTenantId("gcp-1")
+          .domainName("domain.com")
+          .tierId(1)
+          .isActive(true)
+          .build();
+
+      setupWriterPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(1);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.updateTenantTier(tenant, 2).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getTierId()).isEqualTo(2);
+      assertThat(result.getTenantId()).isEqualTo("test_tenant");
+    }
+
+    @Test
+    void shouldThrowExceptionWhenTenantNotFoundForTierUpdate() {
+      Tenant tenant = Tenant.builder().tenantId("non_existent").build();
+      setupWriterPreparedQuery();
+      when(rowSet.rowCount()).thenReturn(0);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Exception ex = assertThrows(RuntimeException.class,
+          () -> tenantDao.updateTenantTier(tenant, 2).blockingGet());
+      assertThat(ex.getMessage()).contains("Tenant not found");
+    }
+  }
+
+  @Nested
+  class TestMapRowToTenantWithNullDates {
+
+    @Test
+    void shouldMapRowWithNullCreatedAtAndUpdatedAt() {
+      setupReaderPreparedQuery();
+      Row mockRow = mock(Row.class);
+      when(mockRow.getString("tenant_id")).thenReturn("test");
+      when(mockRow.getString("name")).thenReturn("Name");
+      when(mockRow.getString("description")).thenReturn("Desc");
+      when(mockRow.getInteger("tier_id")).thenReturn(1);
+      when(mockRow.getBoolean("is_active")).thenReturn(true);
+      when(mockRow.getLocalDateTime("created_at")).thenReturn(null);
+      when(mockRow.getLocalDateTime("updated_at")).thenReturn(null);
+      when(mockRow.getString("gcp_tenant_id")).thenReturn("gcp");
+      when(mockRow.getString("domain_name")).thenReturn("domain.com");
+
+      RowIterator<Row> iterator = createMockRowIterator(Arrays.asList(mockRow));
+      when(rowSet.size()).thenReturn(1);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      Tenant result = tenantDao.getTenantById("test").blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getCreatedAt()).isNull();
+      assertThat(result.getUpdatedAt()).isNull();
     }
   }
 }
