@@ -6,7 +6,7 @@ import type {
 import type { Span } from '../index';
 import { Pulse, SpanStatusCode } from '../index';
 import type { PulseAttributes } from '../pulse.interface';
-import { extractHttpAttributes } from './url-helper';
+import { extractHttpAttributes, redactUrl } from './url-helper';
 import { updateAttributesWithGraphQLData } from './graphql-helper';
 import { ATTRIBUTE_KEYS, PULSE_TYPES } from '../pulse.constants';
 import { normalizeHeaderName } from './header-helper';
@@ -19,7 +19,7 @@ export function setNetworkSpanAttributes(
   const method = startContext.method.toUpperCase();
   let attributes: PulseAttributes = {
     [ATTRIBUTE_KEYS.HTTP_METHOD]: method,
-    [ATTRIBUTE_KEYS.HTTP_URL]: startContext.url,
+    [ATTRIBUTE_KEYS.HTTP_URL]: redactUrl(startContext.url),
     [ATTRIBUTE_KEYS.PULSE_TYPE]: `${PULSE_TYPES.NETWORK}.${endContext.status ?? 0}`,
     [ATTRIBUTE_KEYS.HTTP_REQUEST_TYPE]: startContext.type,
     [ATTRIBUTE_KEYS.PLATFORM]: Platform.OS,
@@ -29,6 +29,11 @@ export function setNetworkSpanAttributes(
   // Check here: https://github.com/facebook/react-native/blob/v0.79.0/packages/react-native/Libraries/Blob/URL.js
   const urlAttributes = extractHttpAttributes(startContext.url);
   attributes = { ...attributes, ...urlAttributes };
+
+  // Redact http.target (path + query)
+  if (attributes['http.target']) {
+    attributes['http.target'] = redactUrl(attributes['http.target'] as string);
+  }
 
   if (endContext.status) {
     attributes[ATTRIBUTE_KEYS.HTTP_STATUS_CODE] = endContext.status;
@@ -78,7 +83,7 @@ export function createNetworkSpan(
 
   let baseAttributes: PulseAttributes = {
     [ATTRIBUTE_KEYS.HTTP_METHOD]: method,
-    [ATTRIBUTE_KEYS.HTTP_URL]: startContext.url,
+    [ATTRIBUTE_KEYS.HTTP_URL]: redactUrl(startContext.url),
     [ATTRIBUTE_KEYS.HTTP_REQUEST_TYPE]: interceptorType,
   };
 

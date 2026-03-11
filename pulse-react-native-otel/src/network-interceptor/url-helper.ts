@@ -219,3 +219,32 @@ export function extractHttpAttributes(url: string): {
     return {};
   }
 }
+
+const REDACTED = '[redacted]';
+const URL_REDACTION_PATTERNS: Array<[RegExp, string]> = [
+  [/(?<=\/)([0-9a-fA-F]{64})(?=\/|$)/g, REDACTED], // SHA-256
+  [/(?<=\/)([0-9a-fA-F]{40})(?=\/|$)/g, REDACTED], // SHA-1 / git
+  [
+    /(?<=\/)([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?=\/|$)/g,
+    REDACTED,
+  ], // UUID
+  [/(?<=\/)([0-9a-fA-F]{32})(?=\/|$)/g, REDACTED], // e.g. MD5
+  [/(?<=\/)([0-9a-fA-F]{24})(?=\/|$)/g, REDACTED], // e.g. MongoDB ObjectId
+  [/(?<=\/)([0-9A-HJKMNP-TV-Z]{26})(?=\/|$)/g, REDACTED], // ULID (Crockford base32, Android)
+  [/(?<=\/)(\d{3,})(?=\/|$)/g, REDACTED], // 3+ digit numeric IDs
+  [/(?<=\/)([A-Za-z0-9]{16,})(?=\/|$)/g, REDACTED], // 16+ char alphanumeric tokens
+];
+
+//   Redact sensitive data from URL-containing attribute values.
+
+export function redactUrl(originalUrl: string): string {
+  if (!originalUrl || typeof originalUrl !== 'string') {
+    return originalUrl;
+  }
+  const parts = originalUrl.split('?');
+  let normalized: string = parts[0] ?? originalUrl;
+  for (const [pattern, replacement] of URL_REDACTION_PATTERNS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  return normalized;
+}
