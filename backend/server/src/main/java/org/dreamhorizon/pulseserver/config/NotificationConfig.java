@@ -103,6 +103,7 @@ public class NotificationConfig {
     private String clientId;
     private String clientSecret;
     private String redirectUri;
+    private String uiRedirectUrl;
     private String scopes = "chat:write,chat:write.public,channels:read";
 
     public boolean isEnabled() {

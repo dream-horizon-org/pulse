@@ -6,6 +6,8 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
@@ -211,10 +213,11 @@ public class ProjectService {
         .eventName(NotificationConstants.Platform.EVENT_PROJECT_CREATED)
         .channelTypes(List.of(ChannelType.EMAIL))
         .recipients(recipients)
+            .idempotencyKey(UUID.randomUUID().toString())
         .params(params)
         .build();
 
-    return notificationService.sendNotification(projectId, notificationRequest)
+    return notificationService.sendNotificationAsync(projectId, notificationRequest)
         .ignoreElement();
   }
 

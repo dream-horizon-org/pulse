@@ -39,6 +39,7 @@ public final class NotificationConstants {
   public static final String KEY_BLOCKS = "blocks";
   public static final String KEY_TYPE = "type";
   public static final String KEY_ACTIONS = "actions";
+  public static final String CONTACT_US_EVENT_NAME = "contact.us";
 
   // Default values
   public static final String DEFAULT_SUBJECT = "Notification";
