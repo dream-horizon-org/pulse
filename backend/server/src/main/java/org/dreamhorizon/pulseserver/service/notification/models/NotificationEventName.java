@@ -1,8 +1,10 @@
 package org.dreamhorizon.pulseserver.service.notification.models;
 
 public enum NotificationEventName {
-  NEW_INCIDENT("new_incident");
-  // future events: INCIDENT_RESOLVED, ALERT_TRIGGERED, etc.
+  CREATE_INCIDENT("create_incident"),
+  ACKNOWLEDGE_INCIDENT("acknowledge_incident"),
+  RECOVERED_INCIDENT("recover_incident"),
+  CLOSE_INCIDENT("close_incident");
 
   private final String value;
 
