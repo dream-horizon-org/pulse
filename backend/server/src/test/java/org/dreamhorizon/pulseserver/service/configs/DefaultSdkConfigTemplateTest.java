@@ -4,9 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfigProperties;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -79,7 +83,8 @@ class DefaultSdkConfigTemplateTest {
               Features.screen_session,
               Features.custom_events,
               Features.rn_screen_load,
-              Features.rn_screen_interactive
+              Features.rn_screen_interactive,
+              Features.session_replay
           );
     }
 
@@ -116,6 +121,41 @@ class DefaultSdkConfigTemplateTest {
                 Sdk.pulse_ios_rn
             );
       });
+    }
+
+    @Test
+    void shouldIncludeSessionReplayFeatureWithConfig() {
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      FeatureConfig sessionReplay = config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() == Features.session_replay)
+          .findFirst()
+          .orElse(null);
+      assertThat(sessionReplay).isNotNull();
+      assertThat(sessionReplay.getSessionSampleRate()).isEqualTo(1.0);
+
+      FeatureConfigProperties rawConfig = sessionReplay.getConfig();
+      assertThat(rawConfig).isNotNull();
+      assertThat(rawConfig).isInstanceOf(SessionReplayFeatureConfig.class);
+
+      SessionReplayFeatureConfig replayConfig = (SessionReplayFeatureConfig) rawConfig;
+      assertThat(replayConfig.getTextAndInputPrivacy()).isEqualTo(TextAndInputPrivacy.MASK_ALL);
+      assertThat(replayConfig.getImagePrivacy()).isEqualTo(ImagePrivacy.MASK_ALL);
+      assertThat(replayConfig.getThrottleDelayMs()).isEqualTo(1000L);
+      assertThat(replayConfig.getScreenshotQuality()).isEqualTo(30);
+      assertThat(replayConfig.getFlushIntervalSeconds()).isEqualTo(60);
+      assertThat(replayConfig.getFlushAt()).isEqualTo(10);
+      assertThat(replayConfig.getMaxBatchSize()).isEqualTo(50);
+      assertThat(replayConfig.getReplayApiBaseUrl()).isNotBlank();
+    }
+
+    @Test
+    void shouldNotHaveConfigForNonSessionReplayFeatures() {
+      ConfigData config = DefaultSdkConfigTemplate.createDefaultConfig("creator");
+      config.getFeatures().stream()
+          .filter(f -> f.getFeatureName() != Features.session_replay)
+          .forEach(f -> assertThat(f.getConfig())
+              .as("Feature " + f.getFeatureName() + " should not have config")
+              .isNull());
     }
   }
 }

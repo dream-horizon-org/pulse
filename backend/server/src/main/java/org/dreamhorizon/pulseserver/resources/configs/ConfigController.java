@@ -22,10 +22,7 @@ import org.dreamhorizon.pulseserver.resources.configs.models.RulesAndFeaturesRes
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
-import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
-import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
-import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
-import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
+import org.dreamhorizon.pulseserver.service.configs.models.*;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
@@ -71,7 +68,7 @@ public class ConfigController {
   private void applyConfigDefaults(PulseConfig config) {
     applyInteractionConfigDefaults(config);
     applySignalsConfigDefaults(config);
-    applySessionReplayDefaults(config);
+    applyFeatureConfigDefaults(config);
   }
 
   private void applyInteractionConfigDefaults(PulseConfig config) {
@@ -107,38 +104,50 @@ public class ConfigController {
     }
   }
 
-  private void applySessionReplayDefaults(PulseConfig config) {
-    if (config.getSessionReplay() == null) {
-      config.setSessionReplay(new PulseConfig.SessionReplayConfig());
+  private void applyFeatureConfigDefaults(PulseConfig config) {
+    if (config.getFeatures() == null) {
+      return;
     }
-    PulseConfig.SessionReplayConfig replay = config.getSessionReplay();
-    if (replay.getTextAndInputPrivacy() == null) {
-      replay.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
+    config.getFeatures().forEach(feature -> {
+      if (feature.getFeatureName() == Features.session_replay) {
+        feature.setConfig(applySessionReplayDefaults(feature.getConfig()));
+      }
+    });
+  }
+
+  private SessionReplayFeatureConfig applySessionReplayDefaults(FeatureConfigProperties config) {
+    SessionReplayFeatureConfig sessionReplayConfig = config != null
+        ? (SessionReplayFeatureConfig) config
+        : SessionReplayFeatureConfig.builder().build();
+
+    if (sessionReplayConfig.getTextAndInputPrivacy() == null) {
+        sessionReplayConfig.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
     }
-    if (replay.getImagePrivacy() == null) {
-      replay.setImagePrivacy(ImagePrivacy.MASK_ALL);
+    if (sessionReplayConfig.getImagePrivacy() == null) {
+        sessionReplayConfig.setImagePrivacy(ImagePrivacy.MASK_ALL);
     }
-    if (replay.getThrottleDelayMs() == null) {
-      replay.setThrottleDelayMs(1000L);
+    if (sessionReplayConfig.getThrottleDelayMs() == null) {
+        sessionReplayConfig.setThrottleDelayMs(1000L);
     }
-    if (replay.getScreenshotScale() == null) {
-      replay.setScreenshotScale(1.0f);
+    if (sessionReplayConfig.getScreenshotScale() == null) {
+        sessionReplayConfig.setScreenshotScale(1.0f);
     }
-    if (replay.getScreenshotQuality() == null) {
-      replay.setScreenshotQuality(30);
+    if (sessionReplayConfig.getScreenshotQuality() == null) {
+        sessionReplayConfig.setScreenshotQuality(30);
     }
-    if (replay.getFlushIntervalSeconds() == null) {
-      replay.setFlushIntervalSeconds(60);
+    if (sessionReplayConfig.getFlushIntervalSeconds() == null) {
+        sessionReplayConfig.setFlushIntervalSeconds(60);
     }
-    if (replay.getFlushAt() == null) {
-      replay.setFlushAt(10);
+    if (sessionReplayConfig.getFlushAt() == null) {
+        sessionReplayConfig.setFlushAt(10);
     }
-    if (replay.getMaxBatchSize() == null) {
-      replay.setMaxBatchSize(50);
+    if (sessionReplayConfig.getMaxBatchSize() == null) {
+        sessionReplayConfig.setMaxBatchSize(50);
     }
-    if (replay.getReplayApiBaseUrl() == null || replay.getReplayApiBaseUrl().isBlank()) {
-      replay.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
+    if (sessionReplayConfig.getReplayApiBaseUrl() == null || sessionReplayConfig.getReplayApiBaseUrl().isBlank()) {
+        sessionReplayConfig.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
     }
+    return sessionReplayConfig;
   }
 
   @GET

@@ -12,6 +12,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.Nested;
@@ -792,96 +793,44 @@ class PulseConfigModelsTest {
       assertEquals(0.5, featureConfig.getSessionSampleRate());
       assertEquals(2, featureConfig.getSdks().size());
     }
-  }
-
-  // SessionReplayConfig Tests
-  @Nested
-  class TestSessionReplayConfig {
 
     @Test
-    void shouldCreateWithNoArgs() {
-      PulseConfig.SessionReplayConfig config = new PulseConfig.SessionReplayConfig();
-      assertNotNull(config);
-    }
-
-    @Test
-    void shouldCreateWithBuilder() {
-      PulseConfig.SessionReplayConfig config = PulseConfig.SessionReplayConfig.builder()
-          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL_INPUTS)
-          .imagePrivacy(ImagePrivacy.MASK_NONE)
-          .throttleDelayMs(2000L)
-          .screenshotScale(0.5f)
-          .screenshotQuality(50)
-          .flushIntervalSeconds(30)
-          .flushAt(5)
-          .maxBatchSize(25)
-          .replayApiBaseUrl("http://replay.example.com")
-          .build();
-
-      assertEquals(TextAndInputPrivacy.MASK_ALL_INPUTS, config.getTextAndInputPrivacy());
-      assertEquals(ImagePrivacy.MASK_NONE, config.getImagePrivacy());
-      assertEquals(2000L, config.getThrottleDelayMs());
-      assertEquals(0.5f, config.getScreenshotScale());
-      assertEquals(50, (int) config.getScreenshotQuality());
-      assertEquals(30, (int) config.getFlushIntervalSeconds());
-      assertEquals(5, (int) config.getFlushAt());
-      assertEquals(25, (int) config.getMaxBatchSize());
-      assertEquals("http://replay.example.com", config.getReplayApiBaseUrl());
-    }
-
-    @Test
-    void shouldSetAndGetAllFields() {
-      PulseConfig.SessionReplayConfig config = new PulseConfig.SessionReplayConfig();
-
-      config.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS);
-      config.setImagePrivacy(ImagePrivacy.MASK_ALL);
-      config.setThrottleDelayMs(500L);
-      config.setScreenshotScale(0.75f);
-      config.setScreenshotQuality(80);
-      config.setFlushIntervalSeconds(120);
-      config.setFlushAt(20);
-      config.setMaxBatchSize(100);
-      config.setReplayApiBaseUrl("http://new-replay.example.com");
-
-      assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, config.getTextAndInputPrivacy());
-      assertEquals(ImagePrivacy.MASK_ALL, config.getImagePrivacy());
-      assertEquals(500L, config.getThrottleDelayMs());
-      assertEquals(0.75f, config.getScreenshotScale());
-      assertEquals(80, config.getScreenshotQuality());
-      assertEquals(120, config.getFlushIntervalSeconds());
-      assertEquals(20, config.getFlushAt());
-      assertEquals(100, config.getMaxBatchSize());
-      assertEquals("http://new-replay.example.com", config.getReplayApiBaseUrl());
-    }
-
-    @Test
-    void shouldHaveCorrectEqualsAndHashCode() {
-      PulseConfig.SessionReplayConfig config1 = PulseConfig.SessionReplayConfig.builder()
+    void shouldCreateWithTypedConfig() {
+      SessionReplayFeatureConfig config = SessionReplayFeatureConfig.builder()
           .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+          .imagePrivacy(ImagePrivacy.MASK_ALL)
           .throttleDelayMs(1000L)
+          .screenshotScale(1.0f)
           .screenshotQuality(30)
-          .replayApiBaseUrl("http://replay.example.com")
-          .build();
-      PulseConfig.SessionReplayConfig config2 = PulseConfig.SessionReplayConfig.builder()
-          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
-          .throttleDelayMs(1000L)
-          .screenshotQuality(30)
-          .replayApiBaseUrl("http://replay.example.com")
+          .flushIntervalSeconds(60)
+          .flushAt(10)
+          .maxBatchSize(50)
+          .replayApiBaseUrl("http://localhost")
           .build();
 
-      assertEquals(config1, config2);
-      assertEquals(config1.hashCode(), config2.hashCode());
+      PulseConfig.FeatureConfig featureConfig = PulseConfig.FeatureConfig.builder()
+          .featureName(Features.session_replay)
+          .sessionSampleRate(1.0)
+          .sdks(Arrays.asList(Sdk.pulse_android_java, Sdk.pulse_ios_swift))
+          .config(config)
+          .build();
+
+      assertEquals(Features.session_replay, featureConfig.getFeatureName());
+      assertNotNull(featureConfig.getConfig());
+      SessionReplayFeatureConfig replayConfig = (SessionReplayFeatureConfig) featureConfig.getConfig();
+      assertEquals(TextAndInputPrivacy.MASK_ALL, replayConfig.getTextAndInputPrivacy());
+      assertEquals(1000L, replayConfig.getThrottleDelayMs());
+      assertEquals("http://localhost", replayConfig.getReplayApiBaseUrl());
     }
 
     @Test
-    void shouldHaveCorrectToString() {
-      PulseConfig.SessionReplayConfig config = PulseConfig.SessionReplayConfig.builder()
-          .replayApiBaseUrl("http://replay.example.com")
+    void shouldHandleNullConfig() {
+      PulseConfig.FeatureConfig featureConfig = PulseConfig.FeatureConfig.builder()
+          .featureName(Features.java_crash)
+          .config(null)
           .build();
 
-      String toString = config.toString();
-      assertNotNull(toString);
-      assertTrue(toString.contains("http://replay.example.com"));
+      assertEquals(null, featureConfig.getConfig());
     }
   }
 
@@ -901,9 +850,6 @@ class PulseConfigModelsTest {
       PulseConfig.SignalsConfig signals = PulseConfig.SignalsConfig.builder().build();
       PulseConfig.InteractionConfig interaction = PulseConfig.InteractionConfig.builder().build();
       List<PulseConfig.FeatureConfig> features = new ArrayList<>();
-      PulseConfig.SessionReplayConfig sessionReplay = PulseConfig.SessionReplayConfig.builder()
-          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
-          .build();
 
       PulseConfig pulseConfig = PulseConfig.builder()
           .version(1L)
@@ -912,7 +858,6 @@ class PulseConfigModelsTest {
           .signals(signals)
           .interaction(interaction)
           .features(features)
-          .sessionReplay(sessionReplay)
           .build();
 
       assertEquals(1L, pulseConfig.getVersion());
@@ -921,7 +866,6 @@ class PulseConfigModelsTest {
       assertEquals(signals, pulseConfig.getSignals());
       assertEquals(interaction, pulseConfig.getInteraction());
       assertEquals(features, pulseConfig.getFeatures());
-      assertEquals(sessionReplay, pulseConfig.getSessionReplay());
     }
 
     @Test
@@ -934,8 +878,6 @@ class PulseConfigModelsTest {
       pulseConfig.setSignals(new PulseConfig.SignalsConfig());
       pulseConfig.setInteraction(new PulseConfig.InteractionConfig());
       pulseConfig.setFeatures(new ArrayList<>());
-      pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
-          .imagePrivacy(ImagePrivacy.MASK_NONE).build());
 
       assertEquals(2L, pulseConfig.getVersion());
       assertEquals("Updated Config", pulseConfig.getDescription());
@@ -943,7 +885,6 @@ class PulseConfigModelsTest {
       assertNotNull(pulseConfig.getSignals());
       assertNotNull(pulseConfig.getInteraction());
       assertNotNull(pulseConfig.getFeatures());
-      assertNotNull(pulseConfig.getSessionReplay());
     }
 
     @Test

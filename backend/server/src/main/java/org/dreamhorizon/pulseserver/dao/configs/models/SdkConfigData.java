@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.configs.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +12,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SdkConfigData {
 
   private SamplingConfig sampling;
@@ -20,6 +22,4 @@ public class SdkConfigData {
   private InteractionConfig interaction;
 
   private List<FeatureConfig> features;
-
-  private SessionReplayConfig sessionReplay;
 }

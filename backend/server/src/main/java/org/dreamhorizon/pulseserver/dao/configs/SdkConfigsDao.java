@@ -95,7 +95,6 @@ public class SdkConfigsDao {
         .interaction(createConfig.getInteraction())
         .sampling(createConfig.getSampling())
         .signals(createConfig.getSignals())
-            .sessionReplay(createConfig.getSessionReplay())
         .build();
 
     String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
@@ -123,7 +122,6 @@ public class SdkConfigsDao {
                       .interaction(objectMapper.convertValue(createConfig.getInteraction(), PulseConfig.InteractionConfig.class))
                       .features(objectMapper.convertValue(createConfig.getFeatures(),
                           objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
-                      .sessionReplay(objectMapper.convertValue(createConfig.getSessionReplay(), PulseConfig.SessionReplayConfig.class))
                       .build();
                   return pulseConfig;
                 })
@@ -174,7 +172,6 @@ public class SdkConfigsDao {
         .interaction(configData.getInteraction())
         .sampling(configData.getSampling())
         .signals(configData.getSignals())
-        .sessionReplay(configData.getSessionReplay())
         .build();
 
     String configJson = objectMapper.writeValueAsString(sdkConfigData);
@@ -206,7 +203,6 @@ public class SdkConfigsDao {
         .interaction(objectMapper.convertValue(configData.getInteraction(), PulseConfig.InteractionConfig.class))
         .features(objectMapper.convertValue(configData.getFeatures(),
             objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
-        .sessionReplay(objectMapper.convertValue(configData.getSessionReplay(), PulseConfig.SessionReplayConfig.class))
         .build();
   }
 }

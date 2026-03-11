@@ -1,18 +1,21 @@
 package org.dreamhorizon.pulseserver.resources.configs.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfigProperties;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
-import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
-import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 
 @Data
@@ -43,9 +46,6 @@ public class PulseConfig {
   @NotNull
   @JsonProperty("features")
   private List<FeatureConfig> features;
-
-  @JsonProperty("sessionReplay")
-  private SessionReplayConfig sessionReplay;
 
 
   @Data
@@ -305,39 +305,18 @@ public class PulseConfig {
 
     @JsonProperty("sdks")
     private List<Sdk> sdks;
+
+    @JsonProperty("config")
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
+            property = "featureName",
+            defaultImpl = FeatureConfigProperties.class
+    )
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = SessionReplayFeatureConfig.class, name = "session_replay")
+    })
+    private FeatureConfigProperties config;
   }
 
-  @Data
-  @Builder
-  @AllArgsConstructor
-  @NoArgsConstructor
-  public static class SessionReplayConfig {
-
-    @JsonProperty("textAndInputPrivacy")
-    private TextAndInputPrivacy textAndInputPrivacy;
-
-    @JsonProperty("imagePrivacy")
-    private ImagePrivacy imagePrivacy;
-
-    @JsonProperty("throttleDelayMs")
-    private Long throttleDelayMs;
-
-    @JsonProperty("screenshotScale")
-    private Float screenshotScale;
-
-    @JsonProperty("screenshotQuality")
-    private Integer screenshotQuality;
-
-    @JsonProperty("flushIntervalSeconds")
-    private Integer flushIntervalSeconds;
-
-    @JsonProperty("flushAt")
-    private Integer flushAt;
-
-    @JsonProperty("maxBatchSize")
-    private Integer maxBatchSize;
-
-    @JsonProperty("replayApiBaseUrl")
-    private String replayApiBaseUrl;
-  }
 }

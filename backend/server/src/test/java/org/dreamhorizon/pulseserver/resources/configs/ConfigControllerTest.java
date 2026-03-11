@@ -29,11 +29,13 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfigProperties;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.BeforeEach;
@@ -922,11 +924,18 @@ class ConfigControllerTest {
     }
 
     @Test
-    void shouldApplyAllDefaultsWhenSessionReplayIsNull(Vertx vertx, VertxTestContext testContext) {
+    void shouldApplyAllDefaultsWhenSessionReplayFeatureHasNoConfig(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
         // Given
         PulseConfig pulseConfig = createValidPulseConfig();
-        pulseConfig.setSessionReplay(null);
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(null)
+                .build()
+        ));
 
         when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
 
@@ -943,17 +952,19 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals(40L, resp.getData().getVersion());
-            PulseConfig.SessionReplayConfig replay = pulseConfig.getSessionReplay();
-            assertNotNull(replay);
-            assertEquals(TextAndInputPrivacy.MASK_ALL, replay.getTextAndInputPrivacy());
-            assertEquals(ImagePrivacy.MASK_ALL, replay.getImagePrivacy());
-            assertEquals(1000L, (long) replay.getThrottleDelayMs());
-            assertEquals(1.0f, replay.getScreenshotScale());
-            assertEquals(30, (int) replay.getScreenshotQuality());
-            assertEquals(60, (int) replay.getFlushIntervalSeconds());
-            assertEquals(10, (int) replay.getFlushAt());
-            assertEquals(50, (int) replay.getMaxBatchSize());
-            assertEquals("http://default-replay.example.com", replay.getReplayApiBaseUrl());
+            FeatureConfigProperties rawCfg = pulseConfig.getFeatures().get(0).getConfig();
+            assertNotNull(rawCfg);
+            assertInstanceOf(SessionReplayFeatureConfig.class, rawCfg);
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) rawCfg;
+            assertEquals(TextAndInputPrivacy.MASK_ALL, cfg.getTextAndInputPrivacy());
+            assertEquals(ImagePrivacy.MASK_ALL, cfg.getImagePrivacy());
+            assertEquals(1000L, cfg.getThrottleDelayMs());
+            assertEquals(1.0f, cfg.getScreenshotScale());
+            assertEquals(30, cfg.getScreenshotQuality());
+            assertEquals(60, cfg.getFlushIntervalSeconds());
+            assertEquals(10, cfg.getFlushAt());
+            assertEquals(50, cfg.getMaxBatchSize());
+            assertEquals("http://default-replay.example.com", cfg.getReplayApiBaseUrl());
           });
           testContext.completeNow();
         });
@@ -961,14 +972,22 @@ class ConfigControllerTest {
     }
 
     @Test
-    void shouldApplyDefaultsForNullFieldsWhenSomeProvided(Vertx vertx, VertxTestContext testContext) {
+    void shouldApplyDefaultsForMissingFieldsWhenSomeProvided(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        // Given — only enabled and throttleDelayMs are set, rest are null
-        PulseConfig pulseConfig = createValidPulseConfig();
-        pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+        SessionReplayFeatureConfig partialConfig = SessionReplayFeatureConfig.builder()
             .textAndInputPrivacy(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
             .throttleDelayMs(2000L)
-            .build());
+            .build();
+
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(partialConfig)
+                .build()
+        ));
 
         when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
 
@@ -985,16 +1004,16 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals(44L, resp.getData().getVersion());
-            PulseConfig.SessionReplayConfig replay = pulseConfig.getSessionReplay();
-            assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, replay.getTextAndInputPrivacy());
-            assertEquals(2000L, (long) replay.getThrottleDelayMs());
-            assertEquals(ImagePrivacy.MASK_ALL, replay.getImagePrivacy());
-            assertEquals(1.0f, replay.getScreenshotScale());
-            assertEquals(30, (int) replay.getScreenshotQuality());
-            assertEquals(60, (int) replay.getFlushIntervalSeconds());
-            assertEquals(10, (int) replay.getFlushAt());
-            assertEquals(50, (int) replay.getMaxBatchSize());
-            assertEquals("http://default-replay.example.com", replay.getReplayApiBaseUrl());
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) pulseConfig.getFeatures().get(0).getConfig();
+            assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, cfg.getTextAndInputPrivacy());
+            assertEquals(2000L, cfg.getThrottleDelayMs());
+            assertEquals(ImagePrivacy.MASK_ALL, cfg.getImagePrivacy());
+            assertEquals(1.0f, cfg.getScreenshotScale());
+            assertEquals(30, cfg.getScreenshotQuality());
+            assertEquals(60, cfg.getFlushIntervalSeconds());
+            assertEquals(10, cfg.getFlushAt());
+            assertEquals(50, cfg.getMaxBatchSize());
+            assertEquals("http://default-replay.example.com", cfg.getReplayApiBaseUrl());
           });
           testContext.completeNow();
         });
@@ -1004,9 +1023,7 @@ class ConfigControllerTest {
     @Test
     void shouldApplyDefaultReplayApiBaseUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        // Given
-        PulseConfig pulseConfig = createValidPulseConfig();
-        pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+        SessionReplayFeatureConfig replayConfig = SessionReplayFeatureConfig.builder()
             .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
             .imagePrivacy(ImagePrivacy.MASK_ALL)
             .throttleDelayMs(1000L)
@@ -1016,7 +1033,17 @@ class ConfigControllerTest {
             .flushAt(10)
             .maxBatchSize(50)
             .replayApiBaseUrl("")
-            .build());
+            .build();
+
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(replayConfig)
+                .build()
+        ));
 
         when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
 
@@ -1033,9 +1060,9 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals(41L, resp.getData().getVersion());
-            assertEquals("http://default-replay.example.com",
-                pulseConfig.getSessionReplay().getReplayApiBaseUrl());
-            assertEquals(TextAndInputPrivacy.MASK_ALL, pulseConfig.getSessionReplay().getTextAndInputPrivacy());
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) pulseConfig.getFeatures().get(0).getConfig();
+            assertEquals("http://default-replay.example.com", cfg.getReplayApiBaseUrl());
+            assertEquals(TextAndInputPrivacy.MASK_ALL, cfg.getTextAndInputPrivacy());
           });
           testContext.completeNow();
         });
@@ -1045,12 +1072,20 @@ class ConfigControllerTest {
     @Test
     void shouldNotOverrideReplayApiBaseUrlWhenProvided(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
-        // Given
-        PulseConfig pulseConfig = createValidPulseConfig();
-        pulseConfig.setSessionReplay(PulseConfig.SessionReplayConfig.builder()
+        SessionReplayFeatureConfig replayConfig = SessionReplayFeatureConfig.builder()
             .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
             .replayApiBaseUrl("http://custom-replay.example.com")
-            .build());
+            .build();
+
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(replayConfig)
+                .build()
+        ));
 
         when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
 
@@ -1067,8 +1102,8 @@ class ConfigControllerTest {
           testContext.verify(() -> {
             assertNull(err);
             assertEquals(42L, resp.getData().getVersion());
-            assertEquals("http://custom-replay.example.com",
-                pulseConfig.getSessionReplay().getReplayApiBaseUrl());
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) pulseConfig.getFeatures().get(0).getConfig();
+            assertEquals("http://custom-replay.example.com", cfg.getReplayApiBaseUrl());
           });
           testContext.completeNow();
         });
