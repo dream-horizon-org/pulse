@@ -142,7 +142,7 @@ class ProjectServiceTest {
           .thenReturn(Completable.complete());
       when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(anyString()))
           .thenReturn(Single.just(new org.dreamhorizon.pulseserver.dto.response.EmptyResponse()));
-      when(notificationService.sendNotification(anyString(), any()))
+      when(notificationService.sendNotificationAsync(anyString(), any()))
           .thenReturn(Single.just(
               org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto
                   .builder()
