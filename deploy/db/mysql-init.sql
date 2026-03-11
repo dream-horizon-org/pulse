@@ -706,6 +706,26 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
+-- Insert contact support email template (free-tier user interested in Enterprise)
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('contact_support', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Enterprise Inquiry from {{userEmail}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;"><div style="background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"><h1 style="color: #00BFA5; margin: 0; font-size: 28px;">Enterprise Plan Inquiry</h1></div><div style="background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"><p style="font-size: 16px;">A free-tier user is interested in upgrading to the <strong style="color: #00BFA5;">Enterprise</strong> plan.</p><table style="width: 100%; border-collapse: collapse; margin: 20px 0;"><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; width: 130px;">User Email</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;"><a href="mailto:{{userEmail}}" style="color: #00BFA5; text-decoration: none;">{{userEmail}}</a></td></tr><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee;">Tenant ID</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;">{{tenantId}}</td></tr></table><div style="background: #f8f9fa; border-left: 4px solid #00BFA5; padding: 15px 20px; border-radius: 4px; margin: 20px 0;"><p style="font-size: 14px; font-weight: 600; color: #555; margin: 0 0 8px 0;">Message from User</p><p style="font-size: 14px; color: #333; margin: 0; white-space: pre-wrap;">{{message}}</p></div><p style="font-size: 14px; color: #666;">Please follow up with this user regarding Enterprise pricing and onboarding.</p><hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;"><p style="color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;">-- Pulse Platform Notification</p></div></body></html>',
+    'text', '[Pulse] Enterprise Plan Inquiry\n\nA free-tier user is interested in upgrading to the Enterprise plan.\n\nUser Email: {{userEmail}}\nTenant ID: {{tenantId}}\n\nMessage from User:\n{{message}}\n\nPlease follow up with this user regarding Enterprise pricing and onboarding.\n\n-- Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Insert contact us email template (free-tier user requesting support)
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('contact_us', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Support Request from {{userEmail}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;"><div style="background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"><h1 style="color: #00BFA5; margin: 0; font-size: 28px;">New Support Request</h1></div><div style="background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"><p style="font-size: 16px;">A user has submitted a <strong>support request</strong>.</p><table style="width: 100%; border-collapse: collapse; margin: 20px 0;"><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; width: 130px;">User Email</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;"><a href="mailto:{{userEmail}}" style="color: #00BFA5; text-decoration: none;">{{userEmail}}</a></td></tr><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee;">Tenant ID</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;">{{tenantId}}</td></tr></table><div style="background: #f8f9fa; border-left: 4px solid #00BFA5; padding: 15px 20px; border-radius: 4px; margin: 20px 0;"><p style="font-size: 14px; font-weight: 600; color: #555; margin: 0 0 8px 0;">Message from User</p><p style="font-size: 14px; color: #333; margin: 0; white-space: pre-wrap;">{{message}}</p></div><p style="font-size: 14px; color: #666;">Please respond to this support request at your earliest convenience.</p><hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;"><p style="color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;">-- Pulse Platform Notification</p></div></body></html>',
+    'text', '[Pulse] Support Request\n\nA user has submitted a support request.\n\nUser Email: {{userEmail}}\nTenant ID: {{tenantId}}\n\nMessage from User:\n{{message}}\n\nPlease respond to this support request at your earliest convenience.\n\n-- Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
 CREATE TABLE IF NOT EXISTS channel_event_mapping (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
