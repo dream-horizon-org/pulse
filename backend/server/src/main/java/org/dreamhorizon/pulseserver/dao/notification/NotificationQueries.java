@@ -144,7 +144,7 @@ public final class NotificationQueries {
       """
         SELECT m.*, c.channel_type, c.config, c.name AS channel_name, c.is_active AS channel_active
         FROM channel_event_mapping m
-        JOIN notification_channels c ON m.channel_id = c.id
+        JOIN notification_channels c ON m.channel_id = c.notification_channel_id
         WHERE m.id = ? AND m.is_active = TRUE AND c.is_active = TRUE
         """;
 
@@ -152,7 +152,7 @@ public final class NotificationQueries {
       """
         SELECT m.*, c.channel_type, c.config, c.name AS channel_name, c.is_active AS channel_active
         FROM channel_event_mapping m
-        JOIN notification_channels c ON m.channel_id = c.id
+        JOIN notification_channels c ON m.channel_id = c.notification_channel_id
         WHERE m.project_id = ? AND m.event_name = ? AND m.is_active = TRUE AND c.is_active = TRUE
         ORDER BY c.channel_type, m.id
         """;

@@ -129,7 +129,7 @@ export const ROUTES: Routes = {
     path: "/:organizationId/projects/new",
     element: CreateProject,
   },
-  
+
   // Project-scoped routes (nested under /projects/:projectId)
   PROJECT_DASHBOARD: {
     key: "PROJECT_DASHBOARD",
@@ -193,7 +193,8 @@ export const ROUTES: Routes = {
   },
   PROJECT_APP_VITALS_OCCURRENCE_DETAIL: {
     key: "PROJECT_APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    basePath:
+      "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     path: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     element: OccurrenceDetail,
   },
@@ -263,7 +264,7 @@ export const ROUTES: Routes = {
     path: "/projects/:projectId/query-builder",
     element: RealTimeQuery,
   },
-  
+
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -360,7 +361,7 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
-  
+
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
@@ -727,6 +728,53 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
     method: API_METHODS.GET,
   },
+  // New Notification Service API Routes
+  GET_NOTIFICATION_CHANNELS: {
+    key: "GET_NOTIFICATION_CHANNELS",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.GET,
+  },
+  GET_NOTIFICATION_CHANNEL: {
+    key: "GET_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.GET,
+  },
+  CREATE_NOTIFICATION_CHANNEL_V2: {
+    key: "CREATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL_V2: {
+    key: "UPDATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL_V2: {
+    key: "DELETE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.DELETE,
+  },
+  // Slack OAuth Integration
+  SLACK_INSTALL: {
+    key: "SLACK_INSTALL",
+    apiPath: `/v1/notifications/integrations/slack/install`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CALLBACK: {
+    key: "SLACK_CALLBACK",
+    apiPath: `/v1/notifications/integrations/slack/callback`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CHANNELS: {
+    key: "SLACK_CHANNELS",
+    apiPath: `/v1/notifications/integrations/slack/channels`,
+    method: API_METHODS.GET,
+  },
+  CONTACT_US: {
+    key: "CONTACT_US",
+    apiPath: `/v1/notifications/contact-us`,
+    method: API_METHODS.POST,
+  },
   // SDK Configuration API Routes
   GET_ALL_SDK_CONFIGS: {
     key: "GET_ALL_SDK_CONFIGS",
@@ -1073,13 +1121,13 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
   FOOTER_MESSAGE: "Have questions? Join our Discord community",
-  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
+  DISCORD_LINK:
+    "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
-  HELP_LINK:
-    "https://pulse.dreamhorizon.org/docs/intro",
+  HELP_LINK: "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -1363,7 +1411,8 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
 };
 
 // Default time filter for the dashboard (Last 24 hours)
-export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER =
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
 export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
