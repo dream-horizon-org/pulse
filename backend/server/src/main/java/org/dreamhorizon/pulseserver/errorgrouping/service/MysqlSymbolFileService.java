@@ -36,16 +36,22 @@ public class MysqlSymbolFileService extends SymbolFileService {
 
     return d11MysqlClient.getWriterPool()
         .preparedQuery(sql)
-        .execute(Tuple.wrap(Arrays.asList(metadata.getAppVersion(),
+        .execute(Tuple.wrap(Arrays.asList(
+            metadata.getAppVersion(),
             metadata.getVersionCode(),
             metadata.getPlatform(),
             metadata.getType(),
             toBuffer(fileInputStream),
             metadata.getBundleId(),
             metadata.getProjectId())))
-        .map(rows -> true)
+        .map(rows -> {
+          log.info("Symbol file uploaded successfully: metadata={}", metadata);
+          return true;
+        })
         .onErrorResumeNext(err -> {
-          log.error("Exception while uploading mapping file for {}: {}", metadata.toString(), err.getMessage());
+          log.error("Symbol file upload failed: file={}, projectId={}, appVersion={}, versionCode={}, platform={}, framework={}, error={}",
+              fileName, metadata.getProjectId(), metadata.getAppVersion(), metadata.getVersionCode(),
+              metadata.getPlatform(), metadata.getType(), err.getMessage());
           return Single.just(false);
         });
   }
@@ -56,16 +62,16 @@ public class MysqlSymbolFileService extends SymbolFileService {
     final String sql = """
         SELECT file_content
         FROM symbol_files
-        WHERE app_version=? AND app_version_code=? AND platform=? AND framework=? AND project_id=?
+        WHERE project_id=? AND app_version=? AND app_version_code=? AND platform=? AND framework=?
         LIMIT 1
         """;
 
     Tuple params = Tuple.of(
+        metadata.getProjectId(),
         metadata.getAppVersion(),
         metadata.getVersionCode(),
         metadata.getPlatform(),
-        metadata.getType(),
-        metadata.getProjectId()
+        metadata.getType()
     );
 
     return d11MysqlClient.getReaderPool()
@@ -74,11 +80,12 @@ public class MysqlSymbolFileService extends SymbolFileService {
         .map((RowSet<Row> rows) -> {
           var it = rows.iterator();
           if (!it.hasNext()) {
-            log.warn("No symbol file found in database for: {}", metadata);
+            log.warn("Symbol file not found: projectId={}, appVersion={}, versionCode={}, platform={}, framework={}",
+                metadata.getProjectId(), metadata.getAppVersion(), metadata.getVersionCode(),
+                metadata.getPlatform(), metadata.getType());
             throw new NoSuchElementException("No symbol file found for: " + metadata);
           }
           Row row = it.next();
-          log.info("Successfully fetched symbol file from DATABASE for: {}", metadata);
           return row.getBuffer(0);
         });
   }

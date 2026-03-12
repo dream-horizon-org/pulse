@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.config;
 
-
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.json.JsonObject;
@@ -10,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public final class ConfigUtils {
-
 
   private static ConfigStoreOptions hoconFile(String path, boolean optional) {
     return new ConfigStoreOptions()
@@ -30,7 +28,7 @@ public final class ConfigUtils {
             .addStore(hoconFile("conf/application-default.conf", false))
             .addStore(hoconFile("conf/webclient-default.conf", false))
             .addStore(hoconFile("conf/athena-default.conf", false))
-            .setScanPeriod(5000)
-    );
+            .addStore(hoconFile("conf/notification-default.conf", true))
+            .setScanPeriod(5000));
   }
 }
