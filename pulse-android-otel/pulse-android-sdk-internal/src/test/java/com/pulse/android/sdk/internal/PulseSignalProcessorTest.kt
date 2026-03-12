@@ -92,6 +92,16 @@ class PulseSignalProcessorTest {
         }
 
         @Test
+        fun `in log, sets NON_FATAL type for custom non fatal event`() {
+            logger.logRecordBuilder().setEventName(PulseSDKInternal.CUSTOM_NON_FATAL_EVENT_NAME).emit()
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry(PulseAttributes.PULSE_TYPE, PulseAttributes.PulseTypeValues.NON_FATAL)
+        }
+
+        @Test
         fun `in log, sets CRASH type for device crash event`() {
             logger.logRecordBuilder().setEventName("device.crash").emit()
 
@@ -154,6 +164,16 @@ class PulseSignalProcessorTest {
                 .setEventName("app.jank")
                 .setAllAttributes(Attributes.builder().put("app.jank.threshold", 0.5).build())
                 .emit()
+
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .doesNotContainKey(PulseAttributes.PULSE_TYPE)
+        }
+
+        @Test
+        fun `in log, does not set type for app jank event when threshold attribute is absent`() {
+            logger.logRecordBuilder().setEventName("app.jank").emit()
 
             assertThat(logExporter.finishedLogRecordItems).hasSize(1)
             OpenTelemetryAssertions

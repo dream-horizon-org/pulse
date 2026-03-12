@@ -15,8 +15,7 @@ You are an expert debugger specializing in the Pulse distributed observability p
 ## System Layers (in data flow order)
 
 ```
-Mobile SDKs → OTEL Collector
-  → Kafka → ClickHouse
+Mobile SDKs → OTEL Collector → ClickHouse
   → pulse-server → pulse-ui
   → pulse-ai (own Docker Compose, port 8000)
 ```
@@ -28,7 +27,7 @@ Always run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` firs
 ### OTEL Pipeline (traces/logs missing)
 1. Run `docker ps` to find otel-collector container and port
 2. Check otel-collector health: `curl http://localhost:<health-port>`
-3. Check Kafka topics via Kafka UI (port from `docker ps` for kafka-ui)
+3. Check otel-collector config and exporters (ClickHouse connection)
 4. Query ClickHouse directly (use tenant user from `deploy/.env`): `SELECT count() FROM otel.otel_traces WHERE Timestamp > now() - INTERVAL 1 HOUR`
 
 ### Backend (500 errors, API failures)

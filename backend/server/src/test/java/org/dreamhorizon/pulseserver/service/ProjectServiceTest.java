@@ -96,7 +96,7 @@ class ProjectServiceTest {
               .name("my-project")
               .description("desc")
               .isActive(true)
-              .createdBy("user-1")
+              .createdBy("user@example.com")
               .build();
 
       var credentialsResult =
@@ -123,13 +123,13 @@ class ProjectServiceTest {
       when(clickhouseProjectService.saveCredentials(any(SqlConnection.class), anyString()))
           .thenReturn(Single.just(credentialsResult));
       when(projectApiKeyService.createDefaultApiKey(
-              any(SqlConnection.class), anyString(), eq("user-1")))
+              any(SqlConnection.class), anyString(), eq("user@example.com")))
           .thenReturn(Single.just(apiKeyInfo));
       when(usageLimitService.createInitialLimits(
-              any(SqlConnection.class), anyString(), eq("admin")))
+              any(SqlConnection.class), anyString(), eq("system")))
           .thenReturn(Single.just(usageLimit));
       when(configService.createInitialConfig(
-              any(SqlConnection.class), anyString(), eq("user-1")))
+              any(SqlConnection.class), anyString(), eq("user@example.com")))
           .thenReturn(Single.just(pulseConfig));
 
       when(openFgaService.assignProjectRole(eq("user-1"), anyString(), eq("admin")))
