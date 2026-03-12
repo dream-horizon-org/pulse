@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -18,6 +19,8 @@ import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
 import org.dreamhorizon.pulseserver.resources.notification.models.ChannelEventMappingDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.CreateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.UpdateMappingRequestDto;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
@@ -528,6 +531,348 @@ class NotificationServiceImplTest {
 
       assertThat(result.getLogs()).hasSize(1);
       assertThat(result.getLogs().get(0).getIdempotencyKey()).isEqualTo("key");
+    }
+  }
+
+  @Nested
+  class MappingOperations {
+
+    @Test
+    void shouldGetMappingsEnrichedWithChannelInfo() {
+      ChannelEventMapping mapping = ChannelEventMapping.builder()
+          .id(10L)
+          .projectId(PROJECT_ID)
+          .channelId(CHANNEL_ID)
+          .eventName("alert")
+          .recipient("user@test.com")
+          .isActive(true)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      when(mappingDao.getMappingsByProject(eq(PROJECT_ID)))
+          .thenReturn(Single.just(List.of(mapping)));
+      when(channelDao.getChannelById(eq(CHANNEL_ID)))
+          .thenReturn(Maybe.just(emailChannel()));
+
+      var result = service.getMappings(PROJECT_ID).blockingGet();
+
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).getChannelType()).isEqualTo(ChannelType.EMAIL);
+      assertThat(result.get(0).getChannelName()).isEqualTo("Test Email Channel");
+      assertThat(result.get(0).getRecipient()).isEqualTo("user@test.com");
+    }
+
+    @Test
+    void shouldGetMappingsWithoutChannelWhenChannelNotFound() {
+      ChannelEventMapping mapping = ChannelEventMapping.builder()
+          .id(10L)
+          .projectId(PROJECT_ID)
+          .channelId(999L)
+          .eventName("alert")
+          .isActive(true)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      when(mappingDao.getMappingsByProject(eq(PROJECT_ID)))
+          .thenReturn(Single.just(List.of(mapping)));
+      when(channelDao.getChannelById(eq(999L)))
+          .thenReturn(Maybe.empty());
+
+      var result = service.getMappings(PROJECT_ID).blockingGet();
+
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).getChannelType()).isNull();
+    }
+
+    @Test
+    void shouldCreateMappingSuccessfully() {
+      CreateMappingRequestDto request = CreateMappingRequestDto.builder()
+          .channelId(CHANNEL_ID)
+          .eventName("alert")
+          .recipient("user@test.com")
+          .build();
+
+      when(channelDao.getChannelById(eq(CHANNEL_ID)))
+          .thenReturn(Maybe.just(emailChannel()));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(mappingDao.createMapping(any(ChannelEventMapping.class)))
+          .thenReturn(Single.just(10L));
+      when(mappingDao.getMappingById(eq(10L)))
+          .thenReturn(Maybe.just(ChannelEventMapping.builder()
+              .id(10L)
+              .projectId(PROJECT_ID)
+              .channelId(CHANNEL_ID)
+              .eventName("alert")
+              .recipient("user@test.com")
+              .isActive(true)
+              .createdAt(Instant.now())
+              .updatedAt(Instant.now())
+              .build()));
+
+      var result = service.createMapping(PROJECT_ID, request).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getId()).isEqualTo(10L);
+      assertThat(result.getEventName()).isEqualTo("alert");
+    }
+
+    @Test
+    void shouldThrowWhenCreatingMappingWithNoTemplate() {
+      CreateMappingRequestDto request = CreateMappingRequestDto.builder()
+          .channelId(CHANNEL_ID)
+          .eventName("unknown_event")
+          .build();
+
+      when(channelDao.getChannelById(eq(CHANNEL_ID)))
+          .thenReturn(Maybe.just(emailChannel()));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("unknown_event"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.empty());
+
+      service.createMapping(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("No template found"));
+    }
+
+    @Test
+    void shouldThrowWhenCreatingMappingWithNonExistentChannel() {
+      CreateMappingRequestDto request = CreateMappingRequestDto.builder()
+          .channelId(999L)
+          .eventName("alert")
+          .build();
+
+      when(channelDao.getChannelById(eq(999L)))
+          .thenReturn(Maybe.empty());
+
+      service.createMapping(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("Channel not found"));
+    }
+
+    @Test
+    void shouldUpdateMappingSuccessfully() {
+      UpdateMappingRequestDto request = UpdateMappingRequestDto.builder()
+          .recipient("new@test.com")
+          .isActive(false)
+          .build();
+
+      ChannelEventMapping existing = ChannelEventMapping.builder()
+          .id(10L)
+          .projectId(PROJECT_ID)
+          .channelId(CHANNEL_ID)
+          .eventName("alert")
+          .recipient("old@test.com")
+          .isActive(true)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      ChannelEventMapping updated = ChannelEventMapping.builder()
+          .id(10L)
+          .projectId(PROJECT_ID)
+          .channelId(CHANNEL_ID)
+          .eventName("alert")
+          .recipient("new@test.com")
+          .isActive(false)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      when(mappingDao.getMappingById(eq(10L)))
+          .thenReturn(Maybe.just(existing))
+          .thenReturn(Maybe.just(updated));
+      when(mappingDao.updateMapping(eq(10L), any()))
+          .thenReturn(Single.just(1));
+      when(channelDao.getChannelById(eq(CHANNEL_ID)))
+          .thenReturn(Maybe.just(emailChannel()));
+
+      var result = service.updateMapping(10L, request).blockingGet();
+
+      assertThat(result.getRecipient()).isEqualTo("new@test.com");
+      assertThat(result.getIsActive()).isFalse();
+    }
+
+    @Test
+    void shouldThrowWhenUpdatingNonExistentMapping() {
+      UpdateMappingRequestDto request = UpdateMappingRequestDto.builder()
+          .recipient("x").build();
+      when(mappingDao.getMappingById(eq(999L))).thenReturn(Maybe.empty());
+
+      service.updateMapping(999L, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("Mapping not found"));
+    }
+
+    @Test
+    void shouldDeleteMapping() {
+      when(mappingDao.deleteMapping(eq(10L))).thenReturn(Single.just(1));
+
+      var result = service.deleteMapping(10L).blockingGet();
+
+      assertThat(result).isTrue();
+    }
+
+    @Test
+    void shouldReturnFalseWhenDeleteMappingAffectsNoRows() {
+      when(mappingDao.deleteMapping(eq(10L))).thenReturn(Single.just(0));
+
+      var result = service.deleteMapping(10L).blockingGet();
+
+      assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldPreserveExistingFieldsWhenUpdateMappingHasNulls() {
+      UpdateMappingRequestDto request = UpdateMappingRequestDto.builder()
+          .recipient("new@test.com")
+          .build();
+
+      ChannelEventMapping existing = ChannelEventMapping.builder()
+          .id(10L)
+          .projectId(PROJECT_ID)
+          .channelId(CHANNEL_ID)
+          .eventName("alert")
+          .recipient("old@test.com")
+          .recipientName("Old Name")
+          .isActive(true)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      ChannelEventMapping updated = ChannelEventMapping.builder()
+          .id(10L)
+          .projectId(PROJECT_ID)
+          .channelId(CHANNEL_ID)
+          .eventName("alert")
+          .recipient("new@test.com")
+          .recipientName("Old Name")
+          .isActive(true)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      when(mappingDao.getMappingById(eq(10L)))
+          .thenReturn(Maybe.just(existing))
+          .thenReturn(Maybe.just(updated));
+      when(mappingDao.updateMapping(eq(10L), any()))
+          .thenReturn(Single.just(1));
+      when(channelDao.getChannelById(eq(CHANNEL_ID)))
+          .thenReturn(Maybe.just(emailChannel()));
+
+      var result = service.updateMapping(10L, request).blockingGet();
+
+      assertThat(result.getRecipient()).isEqualTo("new@test.com");
+      assertThat(result.getIsActive()).isTrue();
+    }
+  }
+
+  @Nested
+  class ChannelValidation {
+
+    @Test
+    void shouldThrowWhenSlackChannelMissingProjectId() {
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.SLACK)
+          .name("Slack Channel")
+          .config(SlackChannelConfig.builder().accessToken("token").build())
+          .build();
+
+      assertThatThrownBy(() -> service.createChannel(request).blockingGet())
+          .hasMessageContaining("SLACK channels require a projectId");
+    }
+
+    @Test
+    void shouldThrowWhenTeamsChannelMissingProjectId() {
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.TEAMS)
+          .name("Teams Channel")
+          .config(TeamsChannelConfig.builder().workflowUrl("https://teams.example.com").build())
+          .build();
+
+      assertThatThrownBy(() -> service.createChannel(request).blockingGet())
+          .hasMessageContaining("TEAMS channels require a projectId");
+    }
+
+    @Test
+    void shouldThrowWhenEmailChannelHasProjectId() {
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.EMAIL)
+          .projectId(PROJECT_ID)
+          .name("Email Channel")
+          .config(EmailChannelConfig.builder().fromAddress("a@b.com").build())
+          .build();
+
+      assertThatThrownBy(() -> service.createChannel(request).blockingGet())
+          .hasMessageContaining("EMAIL channels must not have a projectId");
+    }
+
+    @Test
+    void shouldCreateSlackChannelWithProjectId() {
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.SLACK)
+          .projectId(PROJECT_ID)
+          .name("Slack Channel")
+          .config(SlackChannelConfig.builder().accessToken("token").build())
+          .build();
+
+      when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.empty());
+      when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(slackChannel()));
+
+      var result = service.createChannel(request).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getChannelType()).isEqualTo(ChannelType.SLACK);
+    }
+  }
+
+  @Nested
+  class ChannelCreationWithMappings {
+
+    @Test
+    void shouldCreateChannelAndAutoMappingsWhenEventNamesProvided() {
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.SLACK)
+          .projectId(PROJECT_ID)
+          .name("Slack with events")
+          .config(SlackChannelConfig.builder().accessToken("tok").build())
+          .eventNames(List.of("alert", "deploy"))
+          .build();
+
+      when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.empty());
+      when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(slackChannel()));
+      when(mappingDao.createMapping(any(ChannelEventMapping.class)))
+          .thenReturn(Single.just(1L));
+
+      var result = service.createChannel(request).blockingGet();
+
+      assertThat(result).isNotNull();
+      verify(mappingDao, org.mockito.Mockito.times(2)).createMapping(any(ChannelEventMapping.class));
+    }
+
+    @Test
+    void shouldCreateChannelWithoutMappingsWhenNoEventNames() {
+      CreateChannelRequestDto request = CreateChannelRequestDto.builder()
+          .channelType(ChannelType.SLACK)
+          .projectId(PROJECT_ID)
+          .name("Slack no events")
+          .config(SlackChannelConfig.builder().accessToken("tok").build())
+          .build();
+
+      when(channelDao.getActiveChannelByProjectAndType(eq(PROJECT_ID), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.empty());
+      when(channelDao.createChannel(any())).thenReturn(Single.just(CHANNEL_ID));
+      when(channelDao.getChannelById(eq(CHANNEL_ID))).thenReturn(Maybe.just(slackChannel()));
+
+      var result = service.createChannel(request).blockingGet();
+
+      assertThat(result).isNotNull();
+      verify(mappingDao, never()).createMapping(any());
     }
   }
 }

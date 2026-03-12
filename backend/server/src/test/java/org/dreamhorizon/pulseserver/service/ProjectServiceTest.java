@@ -171,6 +171,90 @@ class ProjectServiceTest {
     }
 
     @Test
+    void shouldContinueProjectCreationWhenDefaultMappingsFail() {
+      ReqUserInfo userInfo =
+          ReqUserInfo.builder()
+              .userId("user-1")
+              .email("user@example.com")
+              .name("Test User")
+              .build();
+
+      Project createdProject =
+          Project.builder()
+              .id(1)
+              .projectId("my-project-abc12345")
+              .tenantId("tenant-1")
+              .name("my-project")
+              .description("desc")
+              .isActive(true)
+              .createdBy("user@example.com")
+              .build();
+
+      var credentialsResult =
+          new ClickhouseProjectService.CredentialsResult(
+              "my-project-abc12345", "project_my_project_abc12345", "secret");
+
+      ApiKeyInfo apiKeyInfo =
+          ApiKeyInfo.builder()
+              .projectId("my-project-abc12345")
+              .rawApiKey("raw-api-key-123")
+              .displayName("Default")
+              .build();
+
+      ProjectUsageLimit usageLimit = ProjectUsageLimit.builder().build();
+      PulseConfig pulseConfig = mock(PulseConfig.class);
+
+      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.rxBegin()).thenReturn(Single.just(transaction));
+      when(transaction.rxCommit()).thenReturn(Completable.complete());
+
+      when(projectDao.createProject(any(SqlConnection.class), any(Project.class)))
+          .thenReturn(Single.just(createdProject));
+      when(clickhouseProjectService.saveCredentials(any(SqlConnection.class), anyString()))
+          .thenReturn(Single.just(credentialsResult));
+      when(projectApiKeyService.createDefaultApiKey(
+              any(SqlConnection.class), anyString(), eq("user@example.com")))
+          .thenReturn(Single.just(apiKeyInfo));
+      when(usageLimitService.createInitialLimits(
+              any(SqlConnection.class), anyString(), eq("system")))
+          .thenReturn(Single.just(usageLimit));
+      when(configService.createInitialConfig(
+              any(SqlConnection.class), anyString(), eq("user@example.com")))
+          .thenReturn(Single.just(pulseConfig));
+
+      when(openFgaService.assignProjectRole(eq("user-1"), anyString(), eq("admin")))
+          .thenReturn(Completable.complete());
+      when(openFgaService.linkProjectToTenant(anyString(), eq("tenant-1")))
+          .thenReturn(Completable.complete());
+
+      when(notificationService.createDefaultPlatformMappings(anyString()))
+          .thenReturn(Single.error(new RuntimeException("Mapping creation failed")));
+
+      when(clickhouseProjectService.createClickhouseUserAndPolicies(
+              anyString(), anyString(), anyString()))
+          .thenReturn(Completable.complete());
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(anyString()))
+          .thenReturn(Single.just(new org.dreamhorizon.pulseserver.dto.response.EmptyResponse()));
+      when(notificationService.sendNotificationAsync(anyString(), any()))
+          .thenReturn(Single.just(
+              org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto
+                  .builder()
+                  .idempotencyKey("batch-1")
+                  .build()));
+
+      ProjectCreationResult result =
+          projectService
+              .createProject("tenant-1", "my-project", "desc", userInfo)
+              .blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getProject()).isNotNull();
+      assertThat(result.getProject().getName()).isEqualTo("my-project");
+      verify(notificationService).createDefaultPlatformMappings(anyString());
+    }
+
+    @Test
     void shouldPropagateErrorWhenProjectDaoFails() {
       ReqUserInfo userInfo =
           ReqUserInfo.builder().userId("user-1").email("u@x.com").name("User").build();
