@@ -8,7 +8,6 @@ import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
-import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -27,15 +26,9 @@ internal class PulseSDKAdapter(
 
     override fun initialize(
         application: Application,
-        endpointBaseUrl: String,
         apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
-        spanEndpointConnectivity: EndpointConnectivity,
-        logEndpointConnectivity: EndpointConnectivity,
-        metricEndpointConnectivity: EndpointConnectivity,
-        customEventConnectivity: EndpointConnectivity,
-        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
@@ -45,14 +38,8 @@ internal class PulseSDKAdapter(
     ) {
         delegate.initialize(
             application = application,
-            endpointBaseUrl = endpointBaseUrl,
             apiKey = apiKey,
             endpointHeaders = endpointHeaders,
-            spanEndpointConnectivity = spanEndpointConnectivity,
-            logEndpointConnectivity = logEndpointConnectivity,
-            metricEndpointConnectivity = metricEndpointConnectivity,
-            customEventConnectivity = customEventConnectivity,
-            configEndpointUrl = configEndpointUrl,
             resource = resource,
             sessionConfig = sessionConfig,
             globalAttributes = globalAttributes,

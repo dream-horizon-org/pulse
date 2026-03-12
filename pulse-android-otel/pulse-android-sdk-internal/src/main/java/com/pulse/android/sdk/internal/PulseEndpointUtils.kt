@@ -12,6 +12,13 @@ import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
  * the caller-supplied connectivity objects. This allows server-side control of signal routing.
  */
 internal object PulseEndpointUtils {
+    /**
+     * Default base URL for OTLP endpoints (traces, logs, metrics).
+     * Port 4318 is the standard OTLP HTTP port.
+     * Uses 10.0.2.2 for Android emulator compatibility (maps to host's localhost).
+     */
+    internal const val DEFAULT_OTLP_BASE_URL = "http://10.0.2.2:4318"
+
     internal data class ResolvedEndpoints(
         val span: EndpointConnectivity,
         val log: EndpointConnectivity,

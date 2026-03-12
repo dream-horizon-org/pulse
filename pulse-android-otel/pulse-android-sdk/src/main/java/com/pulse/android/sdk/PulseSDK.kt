@@ -8,8 +8,6 @@ import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.PulseSDKInternal
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
-import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
-import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -30,38 +28,12 @@ public interface PulseSDK {
      */
     public fun initialize(
         application: Application,
-        endpointBaseUrl: String,
         apiKey: String,
         /**
          * Initial data collection consent state. See [com.pulse.android.api.otel.PulseDataCollectionConsent] for different values
          */
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String> = emptyMap(),
-        spanEndpointConnectivity: EndpointConnectivity =
-            HttpEndpointConnectivity.forTraces(
-                endpointBaseUrl,
-                endpointHeaders,
-            ),
-        logEndpointConnectivity: EndpointConnectivity =
-            HttpEndpointConnectivity.forLogs(
-                endpointBaseUrl,
-                endpointHeaders,
-            ),
-        metricEndpointConnectivity: EndpointConnectivity =
-            HttpEndpointConnectivity.forMetrics(
-                endpointBaseUrl,
-                endpointHeaders,
-            ),
-        /**
-         * Endpoint connectivity for custom business events. This will control the endpoint url for [trackEvent]
-         * If not provided, [logEndpointConnectivity] will be used
-         */
-        customEventConnectivity: EndpointConnectivity = logEndpointConnectivity,
-        /**
-         * Optional custom URL for fetching SDK configuration.
-         * If not provided, defaults to: {endpointBaseUrl with port 8080}/v1/configs/active/
-         */
-        configEndpointUrl: String? = null,
         resource: (ResourceBuilder.() -> Unit)? = null,
         sessionConfig: SessionConfig = SessionConfig.withDefaults(),
         globalAttributes: (() -> Attributes)? = null,
