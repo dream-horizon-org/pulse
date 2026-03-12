@@ -193,7 +193,11 @@ services:
       retries: 3
       start_period: 10s
 
+<<<<<<< Updated upstream
     # Vector Service (Data Collector)
+=======
+  # Vector Service (Data Collector)
+>>>>>>> Stashed changes
   vector:
     build:
       context: ../vector
