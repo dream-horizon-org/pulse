@@ -51,7 +51,6 @@ public object PulseAttributes {
         public const val SLOW: String = "app.jank.slow"
         public const val NON_FATAL: String = "non_fatal"
         public const val INTERACTION: String = "interaction"
-        public const val SESSION_REPLAY: String = "session_replay"
         private const val NETWORK: String = "network"
         public const val NETWORK_CHANGE: String = "network.change"
 

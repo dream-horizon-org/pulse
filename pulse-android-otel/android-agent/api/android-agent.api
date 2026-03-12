@@ -66,10 +66,8 @@ public final class io/opentelemetry/android/agent/dsl/instrumentation/Instrument
 	public final fun anrReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun crashReporter (Lkotlin/jvm/functions/Function1;)V
 	public final fun fragment (Lkotlin/jvm/functions/Function1;)V
-	public final fun getSessionReplayConfig ()Lcom/pulse/android/sdk/replay/SessionReplayConfig;
 	public final fun interaction (Lkotlin/jvm/functions/Function1;)V
 	public final fun networkMonitoring (Lkotlin/jvm/functions/Function1;)V
-	public final fun sessionReplay (Lkotlin/jvm/functions/Function1;)V
 	public final fun slowRenderingReporter (Lkotlin/jvm/functions/Function1;)V
 }
 

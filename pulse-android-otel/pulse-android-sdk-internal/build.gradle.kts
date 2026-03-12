@@ -1,7 +1,6 @@
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
-    alias(libs.plugins.kotlinSerialisation)
 }
 
 description = "Pulse SDK internal implementation for mobile observability"
@@ -31,7 +30,6 @@ dependencies {
     implementation(projects.pulseUtils)
     implementation(projects.instrumentation.interaction.interactionLibrary)
     implementation(projects.instrumentation.location.locationProcessors)
-    implementation(projects.instrumentation.sessionReplay)
     implementation(platform(libs.opentelemetry.platform.alpha))
     implementation(libs.opentelemetry.exporter.otlp)
     implementation(libs.opentelemetry.api)

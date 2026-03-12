@@ -68,9 +68,6 @@ class OtelDemoApplication : Application() {
                 fragment {
                     enabled(true)
                 }
-                sessionReplay {
-                    // Code-level configs only; all other params come from backend
-                }
             }
             PulseSDK.INSTANCE.getOtelOrThrow()
         }.onFailure {

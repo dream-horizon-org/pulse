@@ -19,7 +19,6 @@
             android:id="@+id/text_view_about_opentelemetry"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:tag="pulse-mask"
             android:text="OpenTelemetry is: \n \n -- An Observability framework and toolkit designed to create and manage telemetry data such as traces, metrics, and logs.\n -- Vendor- and tool-agnostic, meaning that it can be used with a broad variety of Observability backends, including open source tools like Jaeger and Prometheus, as well as commercial offerings.\n -- Not an observability backend like Jaeger, Prometheus, or other commercial vendors.\n -- Focused on the generation, collection, management, and export of telemetry. A major goal of OpenTelemetry is that you can easily instrument your applications or systems, no matter their language, infrastructure, or runtime environment. The storage and visualization of telemetry is intentionally left to other tools.\n\n You can find all the information on Open Telemetry here: https://opentelemetry.io/"
             android:textSize="16sp"
             android:lineSpacingExtra="4dp"
