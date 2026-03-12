@@ -193,35 +193,35 @@ services:
       retries: 3
       start_period: 10s
 
-    # Vector Service (Data Collector)
-    vector:
-      build:
-        context: ../vector
-        dockerfile: Dockerfile
-        args:
-          VECTOR_REPO: https://github.com/parth-modh/vector
-          VECTOR_REF: forked/multi-bucket
-          DEBIAN_VERSION: "12"
-      container_name: vector
-      command: [ ]
-      environment:
-        - VECTOR_LOG=debug
-      volumes:
-        - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-        - vector-data:/var/lib/vector
-      networks:
-        - pulse-network
-      restart: unless-stopped
-      healthcheck:
-        test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-        interval: 10s
-        timeout: 5s
-        retries: 3
-        start_period: 15s
-      ports:
-        - "8686:8686"
-        - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-        - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+  # Vector Service (Data Collector)
+  vector:
+    build:
+      context: ../vector
+      dockerfile: Dockerfile
+      args:
+        VECTOR_REPO: https://github.com/parth-modh/vector
+        VECTOR_REF: forked/multi-bucket
+        DEBIAN_VERSION: "12"
+    container_name: vector
+    command: [ ]
+    environment:
+      - VECTOR_LOG=debug
+    volumes:
+      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - vector-data:/var/lib/vector
+    networks:
+      - pulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8686:8686"
+      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:

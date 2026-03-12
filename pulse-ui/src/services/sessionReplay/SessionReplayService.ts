@@ -18,6 +18,10 @@ import {
 import { makeRequestToServer } from "../../helpers/makeRequestToServer";
 import { getCookies } from "../../helpers/cookies";
 import { COOKIES_KEY } from "../../constants";
+import {
+  getMockSessionListingResponse,
+  getMockSessionDetailApiResponse,
+} from "../../screens/SessionReplayDetail/mock/sessionReplayMock";
 
 export class SessionReplayService {
   private baseURL: string;
@@ -90,6 +94,9 @@ export class SessionReplayService {
   async getSessionDetail(
     request: GetSessionDetailRequest,
   ): Promise<SessionDetailApiResponse> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return getMockSessionDetailApiResponse(request.sessionId);
+    }
     const path = `/v1/session-replay/sessions/${encodeURIComponent(request.sessionId)}`;
     const includeParam = request.include?.length
       ? request.include.join(",")
@@ -324,6 +331,9 @@ export class SessionReplayService {
   async postSessionsListing(
     request: SessionListingRequest,
   ): Promise<SessionListingResponse> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return getMockSessionListingResponse(request);
+    }
     const url = `${this.baseURL}/api/v1/sessions/listing`;
 
     try {
