@@ -29,10 +29,14 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
+import org.dreamhorizon.pulseserver.service.configs.models.FeatureConfigProperties;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -56,6 +60,7 @@ class ConfigControllerTest {
   ConfigController configController;
 
   final String userEmail = "test@dream11.com";
+  final String projectId = "default-project";
 
   @BeforeEach
   void setup() {
@@ -916,6 +921,193 @@ class ConfigControllerTest {
           .interaction(source.getInteraction())
           .features(source.getFeatures())
           .build();
+    }
+
+    @Test
+    void shouldApplyAllDefaultsWhenSessionReplayFeatureHasNoConfig(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        // Given
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(null)
+                .build()
+        ));
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 40L);
+
+        when(configService.createSdkConfig("default-project", any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(40L, resp.getData().getVersion());
+            FeatureConfigProperties rawCfg = pulseConfig.getFeatures().get(0).getConfig();
+            assertNotNull(rawCfg);
+            assertInstanceOf(SessionReplayFeatureConfig.class, rawCfg);
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) rawCfg;
+            assertEquals(TextAndInputPrivacy.MASK_ALL, cfg.getTextAndInputPrivacy());
+            assertEquals(ImagePrivacy.MASK_ALL, cfg.getImagePrivacy());
+            assertEquals(1000L, cfg.getThrottleDelayMs());
+            assertEquals(1.0f, cfg.getScreenshotScale());
+            assertEquals(30, cfg.getScreenshotQuality());
+            assertEquals(60, cfg.getFlushIntervalSeconds());
+            assertEquals(10, cfg.getFlushAt());
+            assertEquals(50, cfg.getMaxBatchSize());
+            assertEquals("http://default-replay.example.com", cfg.getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultsForMissingFieldsWhenSomeProvided(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        SessionReplayFeatureConfig partialConfig = SessionReplayFeatureConfig.builder()
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
+            .throttleDelayMs(2000L)
+            .build();
+
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(partialConfig)
+                .build()
+        ));
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 44L);
+
+        when(configService.createSdkConfig(projectId, any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(44L, resp.getData().getVersion());
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) pulseConfig.getFeatures().get(0).getConfig();
+            assertEquals(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS, cfg.getTextAndInputPrivacy());
+            assertEquals(2000L, cfg.getThrottleDelayMs());
+            assertEquals(ImagePrivacy.MASK_ALL, cfg.getImagePrivacy());
+            assertEquals(1.0f, cfg.getScreenshotScale());
+            assertEquals(30, cfg.getScreenshotQuality());
+            assertEquals(60, cfg.getFlushIntervalSeconds());
+            assertEquals(10, cfg.getFlushAt());
+            assertEquals(50, cfg.getMaxBatchSize());
+            assertEquals("http://default-replay.example.com", cfg.getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldApplyDefaultReplayApiBaseUrlWhenBlank(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        SessionReplayFeatureConfig replayConfig = SessionReplayFeatureConfig.builder()
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+            .imagePrivacy(ImagePrivacy.MASK_ALL)
+            .throttleDelayMs(1000L)
+            .screenshotScale(1.0f)
+            .screenshotQuality(30)
+            .flushIntervalSeconds(60)
+            .flushAt(10)
+            .maxBatchSize(50)
+            .replayApiBaseUrl("")
+            .build();
+
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(replayConfig)
+                .build()
+        ));
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 41L);
+
+        when(configService.createSdkConfig(projectId, any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(41L, resp.getData().getVersion());
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) pulseConfig.getFeatures().get(0).getConfig();
+            assertEquals("http://default-replay.example.com", cfg.getReplayApiBaseUrl());
+            assertEquals(TextAndInputPrivacy.MASK_ALL, cfg.getTextAndInputPrivacy());
+          });
+          testContext.completeNow();
+        });
+      });
+    }
+
+    @Test
+    void shouldNotOverrideReplayApiBaseUrlWhenProvided(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        SessionReplayFeatureConfig replayConfig = SessionReplayFeatureConfig.builder()
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+            .replayApiBaseUrl("http://custom-replay.example.com")
+            .build();
+
+        PulseConfig pulseConfig = createValidPulseConfig();
+        pulseConfig.setFeatures(List.of(
+            PulseConfig.FeatureConfig.builder()
+                .featureName(Features.session_replay)
+                .sessionSampleRate(1.0)
+                .sdks(List.of())
+                .config(replayConfig)
+                .build()
+        ));
+
+        when(applicationConfig.getReplayApiBaseUrl()).thenReturn("http://default-replay.example.com");
+
+        PulseConfig createdConfig = createPulseConfigWithVersion(pulseConfig, 42L);
+
+        when(configService.createSdkConfig(projectId, any(ConfigData.class))).thenReturn(Single.just(createdConfig));
+
+        // When
+        CompletionStage<Response<CreateConfigResponse>> result =
+            configController.createSdkConfig(userEmail, pulseConfig);
+
+        // Then
+        result.whenComplete((resp, err) -> {
+          testContext.verify(() -> {
+            assertNull(err);
+            assertEquals(42L, resp.getData().getVersion());
+            SessionReplayFeatureConfig cfg = (SessionReplayFeatureConfig) pulseConfig.getFeatures().get(0).getConfig();
+            assertEquals("http://custom-replay.example.com", cfg.getReplayApiBaseUrl());
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test

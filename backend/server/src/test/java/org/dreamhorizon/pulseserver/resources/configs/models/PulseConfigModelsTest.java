@@ -9,8 +9,11 @@ import java.util.Arrays;
 import java.util.List;
 import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
+import org.dreamhorizon.pulseserver.service.configs.models.ImagePrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
+import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
+import org.dreamhorizon.pulseserver.service.configs.models.TextAndInputPrivacy;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -789,6 +792,45 @@ class PulseConfigModelsTest {
       assertEquals(Features.java_anr, featureConfig.getFeatureName());
       assertEquals(0.5, featureConfig.getSessionSampleRate());
       assertEquals(2, featureConfig.getSdks().size());
+    }
+
+    @Test
+    void shouldCreateWithTypedConfig() {
+      SessionReplayFeatureConfig config = SessionReplayFeatureConfig.builder()
+          .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+          .imagePrivacy(ImagePrivacy.MASK_ALL)
+          .throttleDelayMs(1000L)
+          .screenshotScale(1.0f)
+          .screenshotQuality(30)
+          .flushIntervalSeconds(60)
+          .flushAt(10)
+          .maxBatchSize(50)
+          .replayApiBaseUrl("http://localhost")
+          .build();
+
+      PulseConfig.FeatureConfig featureConfig = PulseConfig.FeatureConfig.builder()
+          .featureName(Features.session_replay)
+          .sessionSampleRate(1.0)
+          .sdks(Arrays.asList(Sdk.pulse_android_java, Sdk.pulse_ios_swift))
+          .config(config)
+          .build();
+
+      assertEquals(Features.session_replay, featureConfig.getFeatureName());
+      assertNotNull(featureConfig.getConfig());
+      SessionReplayFeatureConfig replayConfig = (SessionReplayFeatureConfig) featureConfig.getConfig();
+      assertEquals(TextAndInputPrivacy.MASK_ALL, replayConfig.getTextAndInputPrivacy());
+      assertEquals(1000L, replayConfig.getThrottleDelayMs());
+      assertEquals("http://localhost", replayConfig.getReplayApiBaseUrl());
+    }
+
+    @Test
+    void shouldHandleNullConfig() {
+      PulseConfig.FeatureConfig featureConfig = PulseConfig.FeatureConfig.builder()
+          .featureName(Features.java_crash)
+          .config(null)
+          .build();
+
+      assertEquals(null, featureConfig.getConfig());
     }
   }
 

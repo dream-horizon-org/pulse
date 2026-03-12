@@ -74,7 +74,8 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.custom_events, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_load, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
-        
+        features.add(createSessionReplayFeature(1.0, allSdks));
+
         // Create ConfigData
         return ConfigData.builder()
             .description("Default initial configuration")
@@ -91,6 +92,28 @@ public class DefaultSdkConfigTemplate {
             .featureName(name)
             .sessionSampleRate(sampleRate)
             .sdks(sdks)
+            .build();
+    }
+
+    private static FeatureConfig createSessionReplayFeature(Double sampleRate, List<Sdk> sdks) {
+        SessionReplayFeatureConfig config = SessionReplayFeatureConfig.builder()
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+            .imagePrivacy(ImagePrivacy.MASK_ALL)
+            .throttleDelayMs(1000L)
+            .screenshotScale(1.0f)
+            .screenshotQuality(30)
+            .flushIntervalSeconds(60)
+            .flushAt(10)
+            .maxBatchSize(50)
+            .replayApiBaseUrl(
+                System.getenv().getOrDefault("REPLAY_API_BASE_URL", "http://localhost"))
+            .build();
+
+        return FeatureConfig.builder()
+            .featureName(Features.session_replay)
+            .sessionSampleRate(sampleRate)
+            .sdks(sdks)
+            .config(config)
             .build();
     }
 }

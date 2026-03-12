@@ -425,6 +425,7 @@ class AlertCronServiceTest {
           "http://webhook.url",
           "interaction/details.json",
           "/interaction/details.json",
+          "replayApiBaseUrl",
           "encryptionKey",
           "tnc-bucket"
       );
@@ -523,7 +524,8 @@ class AlertCronServiceTest {
           "interaction/details.json",
           "/interaction/details.json",
           "key",
-          "tnc-bucket"
+          "tnc-bucket",
+              "replayApiBaseUrl"
       );
       String toString = config.toString();
 

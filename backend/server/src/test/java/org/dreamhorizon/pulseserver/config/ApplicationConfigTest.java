@@ -85,6 +85,7 @@ class ApplicationConfigTest {
         "cfPath",
         "webhook",
         "interactionPath",
+        "replayApiBaseUrl",
         "interactionAsset",
         "key",
         "tncS3Bucket"
