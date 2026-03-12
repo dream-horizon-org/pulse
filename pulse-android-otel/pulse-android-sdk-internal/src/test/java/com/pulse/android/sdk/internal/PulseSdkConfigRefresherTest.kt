@@ -26,49 +26,10 @@ class PulseSdkConfigRefresherTest {
     @Nested
     inner class ResolveConfigUrl {
         @Test
-        fun `when explicit configEndpointUrl is provided, it is returned as-is`() {
-            val explicit = "https://custom.example.com/my-config/"
+        fun `returns hardcoded config endpoint URL`() {
+            val result = PulseSdkConfigRefresher.resolveConfigUrl()
 
-            val result =
-                PulseSdkConfigRefresher.resolveConfigUrl(
-                    configEndpointUrl = explicit,
-                    endpointBaseUrl = "https://ignored.example.com:4318",
-                )
-
-            assertThat(result).isEqualTo(explicit)
-        }
-
-        @Test
-        fun `when configEndpointUrl is null, derives url from endpointBaseUrl`() {
-            val result =
-                PulseSdkConfigRefresher.resolveConfigUrl(
-                    configEndpointUrl = null,
-                    endpointBaseUrl = "https://collector.example.com:4318",
-                )
-
-            assertThat(result).isEqualTo("https://collector.example.com:8080/v1/configs/active/")
-        }
-
-        @Test
-        fun `when configEndpointUrl is null and baseUrl has no port, appends config path`() {
-            val result =
-                PulseSdkConfigRefresher.resolveConfigUrl(
-                    configEndpointUrl = null,
-                    endpointBaseUrl = "https://collector.example.com",
-                )
-
-            assertThat(result).isEqualTo("https://collector.example.com/v1/configs/active/")
-        }
-
-        @Test
-        fun `when configEndpointUrl is null and baseUrl already has trailing slash, does not double slash`() {
-            val result =
-                PulseSdkConfigRefresher.resolveConfigUrl(
-                    configEndpointUrl = null,
-                    endpointBaseUrl = "https://collector.example.com:4318/",
-                )
-
-            assertThat(result).doesNotContain("//v1")
+            assertThat(result).isEqualTo("http://10.0.2.2:8080/v1/configs/active/")
         }
     }
 

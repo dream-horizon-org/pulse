@@ -67,20 +67,16 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 }
 
 export function buildPulseInitializationCode(options: {
-  endpointBaseUrl: string;
   apiKey: string;
   dataCollectionState?: PulsePluginProps['dataCollectionState'];
   endpointHeaders?: Record<string, string>;
-  configEndpointUrl?: string;
   globalAttributes?: PulsePluginProps['globalAttributes'];
   instrumentation?: PulsePluginProps['instrumentation'];
 }): string {
   const {
-    endpointBaseUrl,
     apiKey,
     dataCollectionState,
     endpointHeaders,
-    configEndpointUrl,
     globalAttributes,
     instrumentation,
   } = options;
@@ -98,10 +94,6 @@ export function buildPulseInitializationCode(options: {
     );
   }
 
-  if (configEndpointUrl) {
-    params.push(`configEndpointUrl = "${configEndpointUrl}"`);
-  }
-
   const attributesLambda = globalAttributes
     ? buildGlobalAttributesLambda(globalAttributes)
     : null;
@@ -114,7 +106,7 @@ export function buildPulseInitializationCode(options: {
   // in their native MainApplication.kt instead of through this plugin.
   params.push('beforeSendData = null');
 
-  let code = `\n    Pulse.initialize(\n      this,\n      "${endpointBaseUrl}",\n      ${params.join(',\n      ')}\n    ) {\n`;
+  let code = `\n    Pulse.initialize(\n      this,\n      ${params.join(',\n      ')}\n    ) {\n`;
 
   if (instrumentation?.interaction !== undefined) {
     if (instrumentation.interaction.url) {

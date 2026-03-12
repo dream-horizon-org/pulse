@@ -24,7 +24,6 @@
       [
         "@dreamhorizonorg/pulse-react-native",
         {
-          "endpointBaseUrl": "http://10.0.2.2:4318",
           "apiKey": "project-123",
           "endpointHeaders": {
             "Header": "Value"
@@ -42,7 +41,6 @@
           },
           "instrumentation": {
             "interaction": {
-              "url": "http://10.0.2.2:8080/v1/interactions/all-active-interactions/",
               "enabled": true
             },
             "activity": true,

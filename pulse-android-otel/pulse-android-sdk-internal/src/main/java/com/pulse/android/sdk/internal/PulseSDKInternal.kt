@@ -26,7 +26,7 @@ import io.opentelemetry.android.AndroidResource
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
-import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
+import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -81,15 +81,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
     public fun initialize(
         application: Application,
-        endpointBaseUrl: String,
         apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
-        spanEndpointConnectivity: EndpointConnectivity,
-        logEndpointConnectivity: EndpointConnectivity,
-        metricEndpointConnectivity: EndpointConnectivity,
-        customEventConnectivity: EndpointConnectivity,
-        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
@@ -112,16 +106,10 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             @Suppress("InjectDispatcher") // we are not exposing this dispatchers to client
             initializeInternal(
                 application = application,
-                endpointBaseUrl = endpointBaseUrl,
                 apiKey = apiKey,
                 dataCollectionState = dataCollectionState,
                 tracerProviderCustomizer = tracerProviderCustomizer,
                 loggerProviderCustomizer = loggerProviderCustomizer,
-                spanEndpointConnectivity = spanEndpointConnectivity,
-                logEndpointConnectivity = logEndpointConnectivity,
-                metricEndpointConnectivity = metricEndpointConnectivity,
-                customEventConnectivity = customEventConnectivity,
-                configEndpointUrl = configEndpointUrl,
                 resource = resource,
                 instrumentations = instrumentations,
                 endpointHeaders = endpointHeaders,
@@ -140,16 +128,10 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
     private fun initializeInternal(
         application: Application,
-        endpointBaseUrl: String,
         apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
-        spanEndpointConnectivity: EndpointConnectivity,
-        logEndpointConnectivity: EndpointConnectivity,
-        metricEndpointConnectivity: EndpointConnectivity,
-        customEventConnectivity: EndpointConnectivity,
-        configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
         instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
@@ -176,7 +158,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val currentSdkConfig =
             PulseSdkConfigRefresher.loadAndRefresh(
                 cacheDir = application.cacheDir,
-                configUrl = PulseSdkConfigRefresher.resolveConfigUrl(configEndpointUrl, endpointBaseUrl),
+                configUrl = PulseSdkConfigRefresher.resolveConfigUrl(),
                 headers = endpointHeadersWithProject,
                 sharedPrefs = sharedPrefs,
                 prefsKey = PrefsName.PULSE_SDK_CONFIG_KEY,
@@ -221,6 +203,27 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             PulseCustomizerUtils.mergeLoggerCustomizers(
                 internal = internalLoggerProviderCustomizer,
                 external = loggerProviderCustomizer,
+            )
+
+        val spanEndpointConnectivity =
+            HttpEndpointConnectivity.forTraces(
+                PulseEndpointUtils.DEFAULT_OTLP_BASE_URL,
+                endpointHeaders,
+            )
+        val logEndpointConnectivity =
+            HttpEndpointConnectivity.forLogs(
+                PulseEndpointUtils.DEFAULT_OTLP_BASE_URL,
+                endpointHeaders,
+            )
+        val metricEndpointConnectivity =
+            HttpEndpointConnectivity.forMetrics(
+                PulseEndpointUtils.DEFAULT_OTLP_BASE_URL,
+                endpointHeaders,
+            )
+        val customEventConnectivity =
+            HttpEndpointConnectivity.forLogs(
+                PulseEndpointUtils.DEFAULT_OTLP_BASE_URL,
+                endpointHeaders,
             )
 
         val resolvedEndpoints =
@@ -311,7 +314,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
-                endpointBaseUrl = endpointBaseUrl,
+                endpointBaseUrl = PulseEndpointUtils.DEFAULT_OTLP_BASE_URL,
                 shouldStartSendingData = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
                 endpointHeaders = endpointHeadersWithProject,
                 // todo make it explicit as to which config should be chosen

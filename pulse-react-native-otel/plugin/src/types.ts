@@ -22,7 +22,6 @@ interface IInteractionConfig {
 }
 
 export interface PulsePluginProps {
-  endpointBaseUrl: string;
   apiKey: string;
   /**
    * Initial data collection consent state.
@@ -31,11 +30,6 @@ export interface PulsePluginProps {
    */
   dataCollectionState?: 'PENDING' | 'ALLOWED' | 'DENIED';
   endpointHeaders?: Record<string, string>;
-  /**
-   * Optional custom URL for fetching SDK configuration.
-   * If not provided, defaults to: {endpointBaseUrl with port 8080}/v1/configs/active/
-   */
-  configEndpointUrl?: string;
   globalAttributes?: PulseAttributes;
   instrumentation?: {
     interaction?: IInteractionConfig;
