@@ -358,7 +358,7 @@ CREATE TABLE alerts (
 
     CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
-    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels_old(notification_channel_id)
+    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels(notification_channel_id)
 );
 
 CREATE TABLE alert_scope (
