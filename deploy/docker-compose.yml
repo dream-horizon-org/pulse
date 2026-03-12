@@ -103,6 +103,7 @@ services:
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ../backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/02-session-summary-mv.sql:ro
     networks:
       - pulse-network
     restart: unless-stopped
@@ -121,6 +122,7 @@ services:
     volumes:
       - ./scripts/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro
       - ../backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro
+      - ../backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}

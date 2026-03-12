@@ -57,4 +57,4 @@ Credentials (defined in docker-compose, overridable via `.env`):
 | `logs.sh` | service name (e.g., `pulse-server`, `otel-collector`) |
 | `quickstart.sh` | builds + starts all |
 | `reset-databases.sh` | drops volumes and reinitializes |
-| `init-clickhouse.sh` | creates ClickHouse tables from schema SQL |
+| `init-clickhouse.sh` | creates ClickHouse tables from schema SQL + session-summary MV |

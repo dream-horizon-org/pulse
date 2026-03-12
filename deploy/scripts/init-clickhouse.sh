@@ -28,5 +28,7 @@ done
 
 echo "Creating ClickHouse tables..."
 clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/clickhouse-otel-schema.sql
+echo "Creating session summary materialized views..."
+clickhouse-client --host="$CH_HOST" --user="$CH_USER" --password="$CH_PASSWORD" --database="$CH_DATABASE" --multiquery < /init/session-summary-mv.sql
 echo "✓ ClickHouse tables created successfully!"
 
