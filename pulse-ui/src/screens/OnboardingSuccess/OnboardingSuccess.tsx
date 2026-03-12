@@ -11,7 +11,6 @@ import {
   ActionIcon,
   Tabs,
   Code,
-  TextInput,
   Select,
   Badge,
 } from "@mantine/core";
@@ -28,10 +27,11 @@ import {
 import { showNotification } from "../../helpers/showNotification";
 import { getProjectApiKey } from "../../helpers/getProjectApiKey";
 import { useProjectContext } from "../../contexts";
+import { InviteCollaboratorsInput } from "../../components";
 import { ROUTES } from "../../constants";
 import { useInviteProjectMember } from "../../hooks";
 import { ApiResponse } from "../../helpers/makeRequest";
-import { ProjectMember } from "../../types/members";
+import { ProjectMember, BulkInviteResult } from "../../types/members";
 import {
   PROJECT_ROLES,
   PROJECT_ROLE_LABELS,
@@ -62,7 +62,7 @@ export function OnboardingSuccess() {
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmails, setInviteEmails] = useState<string[]>([]);
   const [inviteRole, setInviteRole] = useState<ProjectRole>(
     PROJECT_ROLES.VIEWER,
   );
@@ -156,24 +156,43 @@ export function OnboardingSuccess() {
   };
 
   const handleInviteMember = () => {
-    if (!inviteEmail.trim() || !projectId) return;
+    if (inviteEmails.length === 0 || !projectId) return;
 
     inviteMutation.mutate(
       {
         projectId,
-        email: inviteEmail.trim(),
+        emails: inviteEmails,
         role: inviteRole,
       },
       {
-        onSuccess: (response: ApiResponse<ProjectMember>) => {
+        onSuccess: (
+          response: ApiResponse<ProjectMember | BulkInviteResult>,
+        ) => {
           if (response?.data && !response?.error) {
-            showNotification(
-              "Success",
-              `Invitation sent to ${inviteEmail}`,
-              <IconUsers />,
-              "#0ec9c2",
-            );
-            setInviteEmail("");
+            const data = response.data;
+
+            // Check if it's a bulk invite result
+            if ("successCount" in data) {
+              const bulkResult = data as BulkInviteResult;
+              const totalInvites =
+                bulkResult.successCount + bulkResult.failureCount;
+
+              showNotification(
+                "Success",
+                `Sent ${bulkResult.successCount} of ${totalInvites} invitation${totalInvites > 1 ? "s" : ""}`,
+                <IconUsers />,
+                "#0ec9c2",
+              );
+            } else {
+              // Single invite
+              showNotification(
+                "Success",
+                `Invitation sent to ${inviteEmails[0]}`,
+                <IconUsers />,
+                "#0ec9c2",
+              );
+            }
+            setInviteEmails([]);
           } else {
             showNotification(
               "Error",
@@ -366,46 +385,50 @@ Pulse.initialize({
               Collaborate with your team by inviting members to this project.
             </Text>
 
-            <Group align="flex-end">
-              <TextInput
-                placeholder="teammate@example.com"
-                label="Email Address"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.currentTarget.value)}
-                style={{ flex: 1 }}
+            <Stack gap="md">
+              <InviteCollaboratorsInput
+                value={inviteEmails}
+                onChange={setInviteEmails}
+                label="Email Addresses"
+                placeholder="Enter email addresses separated by commas (e.g., john@example.com, jane@example.com)"
+                description="You can invite multiple team members at once"
               />
-              <Select
-                label="Role"
-                value={inviteRole}
-                onChange={(value) =>
-                  setInviteRole((value as ProjectRole) || PROJECT_ROLES.VIEWER)
-                }
-                data={[
-                  {
-                    value: PROJECT_ROLES.ADMIN,
-                    label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN],
-                  },
-                  {
-                    value: PROJECT_ROLES.EDITOR,
-                    label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR],
-                  },
-                  {
-                    value: PROJECT_ROLES.VIEWER,
-                    label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER],
-                  },
-                ]}
-                style={{ width: 150 }}
-              />
-              <Button
-                variant="light"
-                color="teal"
-                onClick={handleInviteMember}
-                disabled={!inviteEmail || inviting}
-                loading={inviting}
-              >
-                Send Invite
-              </Button>
-            </Group>
+              <Group align="flex-end">
+                <Select
+                  label="Role"
+                  value={inviteRole}
+                  onChange={(value) =>
+                    setInviteRole(
+                      (value as ProjectRole) || PROJECT_ROLES.VIEWER,
+                    )
+                  }
+                  data={[
+                    {
+                      value: PROJECT_ROLES.ADMIN,
+                      label: PROJECT_ROLE_LABELS[PROJECT_ROLES.ADMIN],
+                    },
+                    {
+                      value: PROJECT_ROLES.EDITOR,
+                      label: PROJECT_ROLE_LABELS[PROJECT_ROLES.EDITOR],
+                    },
+                    {
+                      value: PROJECT_ROLES.VIEWER,
+                      label: PROJECT_ROLE_LABELS[PROJECT_ROLES.VIEWER],
+                    },
+                  ]}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  variant="light"
+                  color="teal"
+                  onClick={handleInviteMember}
+                  disabled={inviteEmails.length === 0 || inviting}
+                  loading={inviting}
+                >
+                  Send Invitation{inviteEmails.length > 1 ? "s" : ""}
+                </Button>
+              </Group>
+            </Stack>
           </Paper>
 
           {/* <Group justify="center" mt="xl">

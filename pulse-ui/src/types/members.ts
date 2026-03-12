@@ -18,7 +18,7 @@ export interface TenantMemberListResponse {
 
 export interface InviteTenantMemberParams {
   tenantId: string;
-  email: string;
+  emails: string[]; // Email addresses (single or multiple)
   role: TenantRole;
 }
 
@@ -50,7 +50,7 @@ export interface ProjectMemberListResponse {
 
 export interface InviteProjectMemberParams {
   projectId: string;
-  email: string;
+  emails: string[]; // Email addresses (single or multiple)
   role: ProjectRole;
 }
 
@@ -63,4 +63,14 @@ export interface UpdateProjectMemberRoleParams {
   projectId: string;
   userId: string;
   newRole: ProjectRole;
+}
+
+// Bulk invite result
+export interface BulkInviteResult {
+  successCount: number;
+  failureCount: number;
+  skippedCount: number;
+  successEmails: string[];
+  failedEmails: string[];
+  skippedEmails: string[];
 }

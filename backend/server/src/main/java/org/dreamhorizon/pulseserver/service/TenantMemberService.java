@@ -9,10 +9,14 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
 
@@ -56,30 +60,46 @@ public class TenantMemberService {
                 "Invalid tenant role: " + role + ". Must be one of: admin, member"));
         }
         
-        // Fetch all needed data and perform operation
-        return Single.zip(
-                tenantService.getTenant(tenantId)
-                    .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId))),
-                userService.getUserById(addedBy)
-                    .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + addedBy))),
-                (tenant, admin) -> new AddContext(tenant, admin)
-            )
-            // Authorization check
-            .flatMap(ctx -> openFgaService.isTenantAdmin(addedBy, tenantId)
-                .flatMap(isAdmin -> {
-                    if (!isAdmin) {
-                        return Single.error(new IllegalArgumentException(
-                            "Only tenant admins can add members"));
-                    }
-                    return Single.just(ctx);
-                }))
-            // Get or create user being added
+        // 1. FIRST: Check permissions (fail fast before any data operations)
+        return openFgaService.isTenantAdmin(addedBy, tenantId)
+            .flatMap(isAdmin -> {
+                if (!isAdmin) {
+                    return Single.error(new IllegalArgumentException(
+                        "Only tenant admins can add members"));
+                }
+                
+                // 2. THEN: Fetch all needed data
+                return Single.zip(
+                    tenantService.getTenant(tenantId)
+                        .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId))),
+                    userService.getUserById(addedBy)
+                        .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + addedBy))),
+                    (tenant, admin) -> new AddContext(tenant, admin)
+                );
+            })
+            // 3. Get or create user being added
             .flatMap(ctx -> userService.getOrCreateUser(email, email)
                 .map(user -> new AddCompleteContext(ctx.tenant, ctx.admin, user)))
-            // Assign role in OpenFGA
-            .flatMap(ctx -> openFgaService.assignTenantRole(ctx.newUser.getUserId(), tenantId, role)
-                .andThen(Single.just(ctx)))
-            // Send notification email
+            // 4. Assign role in OpenFGA with rollback on failure
+            .flatMap(ctx -> {
+                // Check if user was newly created by checking if they existed before
+                return userService.getUserByEmail(email)
+                    .isEmpty()
+                    .flatMap(wasNewlyCreated -> 
+                        openFgaService.assignTenantRole(ctx.newUser.getUserId(), tenantId, role)
+                            .toSingleDefault(ctx)
+                            .onErrorResumeNext(fgaError -> {
+                                if (wasNewlyCreated) {
+                                    // ROLLBACK: User was just created, log warning about orphaned user
+                                    log.error("OpenFGA role assignment failed for newly created user. " +
+                                        "User {} may be orphaned in database. Error: {}", 
+                                        ctx.newUser.getUserId(), fgaError.getMessage());
+                                }
+                                return Single.error(fgaError);
+                            })
+                    );
+            })
+            // 5. Send notification email (non-critical)
             .doOnSuccess(ctx -> {
                 try {
                     emailService.sendTenantWelcomeEmail(
@@ -97,6 +117,92 @@ public class TenantMemberService {
             .doOnError(error -> 
                 log.error("Failed to add user to tenant: email={}, tenant={}", email, tenantId, error)
             );
+    }
+    
+    /**
+     * Add multiple users to a tenant with the specified role (bulk invite).
+     * This method processes multiple emails, handling failures gracefully.
+     * 
+     * @param tenantId Tenant ID
+     * @param emails List of email addresses to invite
+     * @param role Role to assign (admin, member)
+     * @param addedBy User ID of the person adding these users
+     * @return Single<BulkInviteResult> Results of bulk invite operation
+     */
+    public Single<BulkInviteResult> addUsersToTenant(
+            String tenantId, 
+            List<String> emails, 
+            String role, 
+            String addedBy) {
+        
+        log.info("Bulk adding users to tenant: count={}, tenant={}, role={}, addedBy={}", 
+            emails.size(), tenantId, role, addedBy);
+        
+        // Trim and deduplicate emails
+        Set<String> uniqueEmails = emails.stream()
+            .map(String::trim)
+            .filter(email -> !email.isEmpty())
+            .collect(Collectors.toSet());
+        
+        if (uniqueEmails.isEmpty()) {
+            return Single.just(BulkInviteResult.builder()
+                .successCount(0)
+                .failureCount(0)
+                .skippedCount(0)
+                .successEmails(new ArrayList<>())
+                .failedEmails(new ArrayList<>())
+                .skippedEmails(new ArrayList<>())
+                .build());
+        }
+        
+        List<String> successEmails = new ArrayList<>();
+        List<String> failedEmails = new ArrayList<>();
+        List<String> skippedEmails = new ArrayList<>();
+        
+        // Process each email sequentially
+        List<Completable> inviteOperations = new ArrayList<>();
+        
+        for (String email : uniqueEmails) {
+            Completable operation = addUserToTenant(tenantId, email, role, addedBy)
+                .doOnSuccess(user -> {
+                    synchronized (successEmails) {
+                        successEmails.add(email);
+                    }
+                })
+                .ignoreElement() // Convert Single to Completable
+                .onErrorComplete(error -> {
+                    // Log and record error, then complete successfully to continue with other emails
+                    log.warn("Failed to add user to tenant: email={}, error={}", email, error.getMessage());
+                    synchronized (failedEmails) {
+                        failedEmails.add(email + " (" + error.getMessage() + ")");
+                    }
+                    return true; // Complete successfully to continue processing
+                });
+            
+            inviteOperations.add(operation);
+        }
+        
+        // Execute all operations and collect results
+        return Completable.merge(inviteOperations)
+            .andThen(Single.fromCallable(() -> 
+                BulkInviteResult.builder()
+                    .successCount(successEmails.size())
+                    .failureCount(failedEmails.size())
+                    .skippedCount(uniqueEmails.size() - (successEmails.size() + failedEmails.size()))
+                    .successEmails(successEmails)
+                    .failedEmails(failedEmails)
+                    .skippedEmails(skippedEmails)
+                    .build()
+            ))
+            .doOnSuccess(bulkResult -> {
+                if (bulkResult.getSkippedCount() > 0) {
+                    log.warn("Some emails were skipped: count={}", bulkResult.getSkippedCount());
+                }
+                log.info("Bulk invite completed: success={}, failed={}, skipped={}", 
+                    bulkResult.getSuccessCount(), 
+                    bulkResult.getFailureCount(), 
+                    bulkResult.getSkippedCount());
+            });
     }
     
     /**

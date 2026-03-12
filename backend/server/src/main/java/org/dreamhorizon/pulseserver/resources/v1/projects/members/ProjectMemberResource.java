@@ -8,11 +8,13 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberRequest;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberListResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.UpdateMemberRoleRequest;
@@ -46,29 +48,54 @@ public class ProjectMemberResource {
     private final OpenFgaService openFgaService;
     
     /**
-     * Add a member to a project.
-     * Authorization and business logic handled in ProjectMemberService.
+     * Add member(s) to a project.
+     * Accepts a list of emails for both single and bulk invites.
      * 
      * @param authorization JWT token
      * @param projectId Project ID
-     * @param request Member details (email, role)
-     * @return Added member information
+     * @param request Member details (emails list, role)
+     * @return Added member information or bulk invite results
      */
     @POST
     @RequiresPermission("can_edit")
-    public CompletionStage<Response<MemberResponse>> addMember(
+    public CompletionStage<Response<Object>> addMember(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId,
             AddMemberRequest request) {
         
         String userId = extractUserId(authorization);
         
+        if (request.getEmails() == null || request.getEmails().isEmpty()) {
+            return CompletableFuture.completedFuture(
+                Response.errorResponse(
+                    org.dreamhorizon.pulseserver.rest.Error.of("VALIDATION_ERROR", "Emails list is required"),
+                    400
+                ));
+        }
+        
+        // Check if bulk invite (multiple emails) or single
+        if (request.getEmails().size() > 1) {
+            log.info("Bulk adding members to project: count={}, project={}, role={}, addedBy={}", 
+                request.getEmails().size(), projectId, request.getRole(), userId);
+            
+            return projectMemberService.addMembersToProject(
+                    projectId,
+                    request.getEmails(),
+                    request.getRole(),
+                    userId
+                )
+                .map(result -> (Object) result)
+                .to(RestResponse.jaxrsRestHandler());
+        }
+        
+        // Single invite
+        String email = request.getEmails().get(0);
         log.info("Adding member to project: email={}, project={}, role={}, addedBy={}", 
-            request.getEmail(), projectId, request.getRole(), userId);
+            email, projectId, request.getRole(), userId);
         
         return projectMemberService.addMemberToProject(
                 projectId,
-                request.getEmail(),
+                email,
                 request.getRole(),
                 userId
             )
@@ -81,6 +108,7 @@ public class ProjectMemberResource {
                     .status(user.getStatus())
                     .lastLoginAt(user.getLastLoginAt())
                     .build()))
+            .map(response -> (Object) response)
             .to(RestResponse.jaxrsRestHandler());
     }
     
