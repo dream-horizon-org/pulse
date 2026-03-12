@@ -2,8 +2,7 @@ package org.dreamhorizon.pulseserver.resources.configs.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -15,7 +14,6 @@ import org.dreamhorizon.pulseserver.service.configs.models.Features;
 import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
 import org.dreamhorizon.pulseserver.service.configs.models.Scope;
 import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
-import org.dreamhorizon.pulseserver.service.configs.models.SessionReplayFeatureConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.rules;
 
 @Data
@@ -295,6 +293,7 @@ public class PulseConfig {
   @AllArgsConstructor
   @NoArgsConstructor
   @NotNull
+  @JsonDeserialize(using = PulseConfigFeatureConfigDeserializer.class)
   public static class FeatureConfig {
 
     @JsonProperty("featureName")
@@ -307,15 +306,6 @@ public class PulseConfig {
     private List<Sdk> sdks;
 
     @JsonProperty("config")
-    @JsonTypeInfo(
-            use = JsonTypeInfo.Id.NAME,
-            include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
-            property = "featureName",
-            defaultImpl = FeatureConfigProperties.class
-    )
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = SessionReplayFeatureConfig.class, name = "session_replay")
-    })
     private FeatureConfigProperties config;
   }
 

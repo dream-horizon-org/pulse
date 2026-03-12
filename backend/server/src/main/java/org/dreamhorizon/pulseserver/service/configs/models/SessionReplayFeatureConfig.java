@@ -18,6 +18,8 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SessionReplayFeatureConfig extends FeatureConfigProperties {
+    @JsonProperty("maxBatchSize")
+    private Integer maxBatchSize;
 
     // Privacy / PII
     @JsonProperty("textAndInputPrivacy")
