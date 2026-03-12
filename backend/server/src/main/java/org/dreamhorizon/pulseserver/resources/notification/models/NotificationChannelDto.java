@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
 @Data
@@ -16,7 +17,7 @@ public class NotificationChannelDto {
   private String projectId;
   private ChannelType channelType;
   private String name;
-  private Object config;
+  private ChannelConfig config;
   private Boolean isActive;
   private Instant createdAt;
   private Instant updatedAt;

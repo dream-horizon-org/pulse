@@ -15,10 +15,11 @@ import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
+import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-@Path("/v1/projects/{projectId}/notification-channels")
+@Path("/v1/notifications/channels")
 public class NotificationChannelController {
 
   final NotificationService notificationService;
@@ -26,15 +27,18 @@ public class NotificationChannelController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<List<NotificationChannelDto>>> getChannels(
-      @PathParam("projectId") String projectId) {
-    return notificationService.getChannels(projectId).to(RestResponse.jaxrsRestHandler());
+      @HeaderParam("X-Project-Id") String projectId,
+      @QueryParam("channelType") ChannelType channelType) {
+    return notificationService
+        .getChannels(projectId, channelType)
+        .to(RestResponse.jaxrsRestHandler());
   }
 
   @GET
   @Path("/{channelId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> getChannel(
-      @PathParam("projectId") String projectId, @PathParam("channelId") Long channelId) {
+      @PathParam("channelId") Long channelId) {
     return notificationService
         .getChannel(channelId)
         .switchIfEmpty(Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
@@ -46,9 +50,9 @@ public class NotificationChannelController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> createChannel(
-      @PathParam("projectId") String projectId, @NotNull @Valid CreateChannelRequestDto request) {
+      @NotNull @Valid CreateChannelRequestDto request) {
     return notificationService
-        .createChannel(projectId, request)
+        .createChannel(request)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -57,7 +61,6 @@ public class NotificationChannelController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<NotificationChannelDto>> updateChannel(
-      @PathParam("projectId") String projectId,
       @PathParam("channelId") Long channelId,
       @NotNull @Valid UpdateChannelRequestDto request) {
     return notificationService
@@ -69,7 +72,7 @@ public class NotificationChannelController {
   @Path("/{channelId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<Boolean>> deleteChannel(
-      @PathParam("projectId") String projectId, @PathParam("channelId") Long channelId) {
+      @PathParam("channelId") Long channelId) {
     return notificationService.deleteChannel(channelId).to(RestResponse.jaxrsRestHandler());
   }
 }

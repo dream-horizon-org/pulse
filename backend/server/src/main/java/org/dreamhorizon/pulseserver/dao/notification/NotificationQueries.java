@@ -7,68 +7,95 @@ public final class NotificationQueries {
   // Channel queries
   public static final String GET_CHANNEL_BY_ID =
       """
-        SELECT * FROM project_notification_channels
+        SELECT * FROM notification_channels
         WHERE id = ?
         """;
 
   public static final String GET_CHANNELS_BY_PROJECT =
       """
-        SELECT * FROM project_notification_channels
+        SELECT * FROM notification_channels
         WHERE project_id = ?
+        ORDER BY created_at DESC
+        """;
+
+  public static final String GET_CHANNELS_ACCESSIBLE_BY_PROJECT =
+      """
+        SELECT * FROM notification_channels
+        WHERE (project_id = ? OR project_id IS NULL) AND is_active = TRUE
+        ORDER BY created_at DESC
+        """;
+
+  public static final String GET_CHANNELS_ACCESSIBLE_BY_PROJECT_AND_TYPE =
+      """
+        SELECT * FROM notification_channels
+        WHERE (project_id = ? OR project_id IS NULL) AND channel_type = ? AND is_active = TRUE
+        ORDER BY created_at DESC
+        """;
+
+  public static final String GET_SHARED_CHANNELS =
+      """
+        SELECT * FROM notification_channels
+        WHERE project_id IS NULL AND is_active = TRUE
         ORDER BY created_at DESC
         """;
 
   public static final String GET_ACTIVE_CHANNELS_BY_TYPE =
       """
-        SELECT * FROM project_notification_channels
+        SELECT * FROM notification_channels
         WHERE project_id = ? AND channel_type = ? AND is_active = TRUE
         ORDER BY created_at ASC LIMIT 1
         """;
 
   public static final String GET_ACTIVE_CHANNEL_BY_PROJECT_AND_TYPE =
       """
-        SELECT * FROM project_notification_channels
+        SELECT * FROM notification_channels
         WHERE project_id = ? AND channel_type = ? AND is_active = TRUE
         LIMIT 1
         """;
 
   public static final String INSERT_CHANNEL =
       """
-        INSERT INTO project_notification_channels
+        INSERT INTO notification_channels
         (project_id, channel_type, name, config, is_active)
         VALUES (?, ?, ?, ?, ?)
         """;
 
   public static final String UPDATE_CHANNEL =
       """
-        UPDATE project_notification_channels
+        UPDATE notification_channels
         SET name = ?, config = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """;
 
   public static final String DELETE_CHANNEL =
       """
-        DELETE FROM project_notification_channels WHERE id = ?
+        DELETE FROM notification_channels WHERE id = ?
         """;
 
-  // Template queries
+  // Template queries (global -- no project_id)
   public static final String GET_TEMPLATE_BY_ID =
       """
-        SELECT * FROM project_notification_templates
+        SELECT * FROM notification_templates
         WHERE id = ?
         """;
 
-  public static final String GET_TEMPLATES_BY_PROJECT =
+  public static final String GET_ALL_TEMPLATES =
       """
-        SELECT * FROM project_notification_templates
-        WHERE project_id = ?
+        SELECT * FROM notification_templates
+        ORDER BY event_name, version DESC
+        """;
+
+  public static final String GET_TEMPLATES_BY_CHANNEL_TYPE =
+      """
+        SELECT * FROM notification_templates
+        WHERE channel_type = ?
         ORDER BY event_name, version DESC
         """;
 
   public static final String GET_TEMPLATE_BY_EVENT_NAME_AND_CHANNEL =
       """
-        SELECT * FROM project_notification_templates
-        WHERE project_id = ? AND event_name = ? AND (channel_type = ? OR channel_type IS NULL)
+        SELECT * FROM notification_templates
+        WHERE event_name = ? AND (channel_type = ? OR channel_type IS NULL)
         AND is_active = TRUE
         ORDER BY channel_type DESC, version DESC
         LIMIT 1
@@ -76,27 +103,77 @@ public final class NotificationQueries {
 
   public static final String GET_LATEST_TEMPLATE_VERSION =
       """
-        SELECT MAX(version) FROM project_notification_templates
-        WHERE project_id = ? AND event_name = ? AND (channel_type = ? OR (? IS NULL AND channel_type IS NULL))
+        SELECT MAX(version) FROM notification_templates
+        WHERE event_name = ? AND (channel_type = ? OR (? IS NULL AND channel_type IS NULL))
         """;
 
   public static final String INSERT_TEMPLATE =
       """
-        INSERT INTO project_notification_templates
-        (project_id, event_name, channel_type, version, body, is_active)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO notification_templates
+        (event_name, channel_type, version, body, is_active)
+        VALUES (?, ?, ?, ?, ?)
         """;
 
   public static final String UPDATE_TEMPLATE =
       """
-        UPDATE project_notification_templates
+        UPDATE notification_templates
         SET event_name = ?, channel_type = ?, body = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """;
 
   public static final String DELETE_TEMPLATE =
       """
-        DELETE FROM project_notification_templates WHERE id = ?
+        DELETE FROM notification_templates WHERE id = ?
+        """;
+
+  // Channel event mapping queries
+  public static final String GET_MAPPING_BY_ID =
+      """
+        SELECT * FROM channel_event_mapping
+        WHERE id = ?
+        """;
+
+  public static final String GET_MAPPINGS_BY_PROJECT =
+      """
+        SELECT * FROM channel_event_mapping
+        WHERE project_id = ?
+        ORDER BY created_at DESC
+        """;
+
+  public static final String GET_ACTIVE_MAPPING_WITH_CHANNEL_BY_ID =
+      """
+        SELECT m.*, c.channel_type, c.config, c.name AS channel_name, c.is_active AS channel_active
+        FROM channel_event_mapping m
+        JOIN notification_channels c ON m.channel_id = c.id
+        WHERE m.id = ? AND m.is_active = TRUE AND c.is_active = TRUE
+        """;
+
+  public static final String GET_ACTIVE_MAPPINGS_BY_PROJECT_AND_EVENT =
+      """
+        SELECT m.*, c.channel_type, c.config, c.name AS channel_name, c.is_active AS channel_active
+        FROM channel_event_mapping m
+        JOIN notification_channels c ON m.channel_id = c.id
+        WHERE m.project_id = ? AND m.event_name = ? AND m.is_active = TRUE AND c.is_active = TRUE
+        ORDER BY c.channel_type, m.id
+        """;
+
+  public static final String INSERT_MAPPING =
+      """
+        INSERT INTO channel_event_mapping
+        (project_id, channel_id, event_name, recipient, recipient_name, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """;
+
+  public static final String UPDATE_MAPPING =
+      """
+        UPDATE channel_event_mapping
+        SET recipient = ?, recipient_name = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """;
+
+  public static final String DELETE_MAPPING =
+      """
+        DELETE FROM channel_event_mapping WHERE id = ?
         """;
 
   // Log queries
@@ -108,10 +185,10 @@ public final class NotificationQueries {
         LIMIT ? OFFSET ?
         """;
 
-  public static final String GET_LOGS_BY_BATCH =
+  public static final String GET_LOGS_BY_IDEMPOTENCY_KEY =
       """
         SELECT * FROM notification_logs
-        WHERE project_id = ? AND batch_id = ?
+        WHERE project_id = ? AND idempotency_key LIKE CONCAT(?, ':%')
         ORDER BY created_at DESC
         """;
 
@@ -125,17 +202,17 @@ public final class NotificationQueries {
   public static final String INSERT_LOG =
       """
         INSERT INTO notification_logs
-        (project_id, batch_id, idempotency_key, channel_type, channel_id, template_id,
+        (project_id, idempotency_key, channel_type, channel_id, template_id,
          recipient, subject, status, attempt_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
 
   public static final String INSERT_LOG_IF_NOT_EXISTS =
       """
         INSERT IGNORE INTO notification_logs
-        (project_id, batch_id, idempotency_key, channel_type, channel_id, template_id,
+        (project_id, idempotency_key, channel_type, channel_id, template_id,
          recipient, subject, status, attempt_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """;
 
   public static final String UPDATE_LOG_STATUS =

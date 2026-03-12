@@ -12,11 +12,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NotificationTemplate {
   private Long id;
-  private String projectId;
   private String eventName;
   private ChannelType channelType;
   private Integer version;
-  private String body;
+  private TemplateBody body;
   private Boolean isActive;
   private Instant createdAt;
   private Instant updatedAt;

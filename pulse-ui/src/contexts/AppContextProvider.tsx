@@ -36,7 +36,6 @@ function LogoutListener({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleLogout = () => {
-      console.log('[AppContextProvider] Handling logout event - clearing contexts');
       clearProject();
       clearTenant();
     };

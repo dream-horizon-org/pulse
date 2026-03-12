@@ -1,20 +1,55 @@
+/* Main Container */
 .container {
   min-height: calc(100vh - 60px);
-  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
-  padding: 40px 20px;
+  background: #f0f9ff;
+  padding: 60px 20px;
+  position: relative;
+  overflow: hidden;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Background decorative elements */
+.container::before {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(14, 201, 194, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  top: -150px;
+  left: 10%;
+  pointer-events: none;
+  filter: blur(80px);
+  animation: float 15s ease-in-out infinite;
+}
+
+.container::after {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(11, 160, 154, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  bottom: -100px;
+  right: 10%;
+  pointer-events: none;
+  filter: blur(80px);
+  animation: float 18s ease-in-out infinite reverse;
 }
 
 .header {
-  margin-bottom: 40px;
+  margin-bottom: 48px;
+  position: relative;
+  z-index: 2;
+  animation: fadeInUp 0.8s ease-out;
 }
 
 .title {
-  font-size: 42px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 48px;
+  font-weight: 900;
+  color: #0ec9c2;
+  letter-spacing: -1.5px;
+  font-family: "Roboto", sans-serif;
 }
 
 .pricingGrid {
@@ -24,57 +59,135 @@
   justify-content: center;
   width: 100%;
   max-width: 900px;
+  position: relative;
+  z-index: 2;
+  animation: fadeInUp 0.8s ease-out 0.2s backwards;
 }
 
 .pricingCard {
   background: white;
-  transition: all 0.3s ease;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 12px 48px rgba(14, 201, 194, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+  border: 2px solid rgba(14, 201, 194, 0.2);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
 
+.pricingCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: #0ec9c2;
+}
+
 .pricingCard:hover {
   transform: translateY(-8px);
-  box-shadow: 0 12px 40px rgba(14, 201, 194, 0.15) !important;
+  box-shadow: 0 16px 64px rgba(14, 201, 194, 0.18), 0 6px 20px rgba(0, 0, 0, 0.08);
+  border-color: rgba(14, 201, 194, 0.35);
 }
 
 .currentPlan {
   border: 2px solid #0ec9c2;
+  box-shadow: 0 16px 56px rgba(14, 201, 194, 0.15), 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .currentPlan::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  background: #0ec9c2;
+  height: 5px;
 }
 
 .enterpriseCard {
-  border: 2px solid #0ec9c2;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid rgba(14, 201, 194, 0.3);
+  background: white;
+  box-shadow: 0 20px 64px rgba(14, 201, 194, 0.15), 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .enterpriseCard::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #0ec9c2 0%, #339af0 100%);
+  background: #0ec9c2;
+  height: 5px;
+}
+
+.enterpriseCard:hover {
+  transform: translateY(-12px);
+  box-shadow: 0 24px 80px rgba(14, 201, 194, 0.2), 0 10px 28px rgba(0, 0, 0, 0.1);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(30px, -30px) rotate(5deg);
+  }
+  66% {
+    transform: translate(-20px, 20px) rotate(-5deg);
+  }
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+  .container {
+    padding: 50px 20px;
+  }
+
   .title {
-    font-size: 32px;
+    font-size: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 40px 16px;
+  }
+
+  .title {
+    font-size: 36px;
+    letter-spacing: -1px;
+  }
+
+  .header {
+    margin-bottom: 40px;
   }
 
   .pricingGrid {
     grid-template-columns: 1fr;
     max-width: 400px;
+  }
+
+  .pricingCard {
+    padding: 32px 28px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 32px 16px;
+  }
+
+  .title {
+    font-size: 32px;
+    letter-spacing: -0.5px;
+  }
+
+  .pricingCard {
+    padding: 28px 24px;
   }
 }

@@ -12,5 +12,4 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NotificationLogsResponseDto {
   private List<NotificationLogDto> logs;
-  private String batchId;
 }

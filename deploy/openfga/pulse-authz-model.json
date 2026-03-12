@@ -5,6 +5,22 @@
       "type": "user"
     },
     {
+      "type": "system",
+      "relations": {
+        "superadmin": {
+          "this": {}
+        },
+        "can_upload_tnc": {
+          "computedUserset": {"relation": "superadmin"}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "superadmin": {"directly_related_user_types": [{"type": "user"}]}
+        }
+      }
+    },
+    {
       "type": "tenant",
       "relations": {
         "admin": {
@@ -32,6 +48,9 @@
         },
         "can_view_tenant": {
           "computedUserset": {"relation": "belongs_to"}
+        },
+        "can_accept_tnc": {
+          "computedUserset": {"relation": "admin"}
         }
       },
       "metadata": {

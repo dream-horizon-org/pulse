@@ -37,10 +37,11 @@ public class NotificationLogDao {
             });
   }
 
-  public Single<List<NotificationLog>> getLogsByBatch(String projectId, String batchId) {
+  public Single<List<NotificationLog>> getLogsByIdempotencyKey(
+      String projectId, String idempotencyKey) {
     MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(NotificationQueries.GET_LOGS_BY_BATCH)
-        .rxExecute(Tuple.of(projectId, batchId))
+    return pool.preparedQuery(NotificationQueries.GET_LOGS_BY_IDEMPOTENCY_KEY)
+        .rxExecute(Tuple.of(projectId, idempotencyKey))
         .map(
             rows -> {
               List<NotificationLog> result = new ArrayList<>();
@@ -69,7 +70,6 @@ public class NotificationLogDao {
     Tuple tuple =
         Tuple.tuple()
             .addString(log.getProjectId())
-            .addString(log.getBatchId())
             .addString(log.getIdempotencyKey())
             .addString(log.getChannelType().name())
             .addLong(log.getChannelId())
@@ -88,7 +88,6 @@ public class NotificationLogDao {
     Tuple tuple =
         Tuple.tuple()
             .addString(log.getProjectId())
-            .addString(log.getBatchId())
             .addString(log.getIdempotencyKey())
             .addString(log.getChannelType().name())
             .addLong(log.getChannelId())
@@ -140,7 +139,6 @@ public class NotificationLogDao {
     return NotificationLog.builder()
         .id(row.getLong("id"))
         .projectId(row.getString("project_id"))
-        .batchId(row.getString("batch_id"))
         .idempotencyKey(row.getString("idempotency_key"))
         .channelType(ChannelType.valueOf(row.getString("channel_type")))
         .channelId(row.getLong("channel_id"))

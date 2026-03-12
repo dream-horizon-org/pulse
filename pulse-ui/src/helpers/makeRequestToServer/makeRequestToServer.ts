@@ -35,33 +35,25 @@ function buildAuthHeaders(): Record<string, string> {
   }
 
   // Add project-id header for project-scoped requests
-  // Priority: 1) URL params, 2) sessionStorage, 3) cookies (legacy)
-  let projectId = getCookies(COOKIES_KEY.PROJECT_ID);
+  // Priority: 1) React Context (sessionStorage) - single source of truth
+  // NOTE: Never extract projectId from URL to avoid parsing issues
+  let projectId: string | undefined;
   
-  // Fallback 1: Extract projectId from URL (/projects/:projectId/...)
-  if (!projectId || projectId === "undefined") {
-    const pathMatch = window.location.pathname.match(/\/projects\/([^\/]+)/);
-    if (pathMatch && pathMatch[1]) {
-      projectId = pathMatch[1];
-    }
-  }
-  
-  // Fallback 2: Try sessionStorage (ProjectContext)
-  if (!projectId || projectId === "undefined") {
-    try {
-      const stored = sessionStorage.getItem('pulse_project_context');
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (data.projectId) {
-          projectId = data.projectId;
-        }
+  // Try sessionStorage (ProjectContext - single source of truth)
+  try {
+    const stored = sessionStorage.getItem('pulse_project_context');
+    if (stored) {
+      const data = JSON.parse(stored);
+      if (data.projectId && data.projectId !== "undefined") {
+        projectId = data.projectId;
       }
-    } catch (error) {
-      // Silently ignore parsing errors
     }
+  } catch (error) {
+    // Silently ignore parsing errors
   }
   
-  if (projectId && projectId !== "undefined") {
+  // Only set header if we have a valid projectId from context
+  if (projectId) {
     headers["X-Project-ID"] = projectId;
   }
 

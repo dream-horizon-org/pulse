@@ -8,16 +8,24 @@ import {
   TextInput,
   Textarea,
   Button,
+  Paper,
+  Badge,
+  Group,
+  Space,
 } from "@mantine/core";
-import { IconSquareRoundedX, IconBuilding, IconFolder } from "@tabler/icons-react";
+import { IconSquareRoundedX, IconBuilding, IconFolder, IconCheck } from "@tabler/icons-react";
 import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
-import { completeOnboarding } from "../../helpers/onboarding";
+import { useCompleteOnboarding } from "../../hooks";
+import { PROJECT_ROLES } from "../../constants/Roles";
+import { TIERS } from "../../constants/Tiers";
 import { setCookiesAfterAuthentication } from "../../helpers/setCookiesAfterAuthentication";
 import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useMantineTheme } from "@mantine/core";
 import { useTenantContext, useProjectContext } from "../../contexts";
+import { useGetTncStatus } from "../../hooks/useGetTncStatus";
+import { TncAcceptance } from "../TncAcceptance";
 
 interface OnboardingUserData {
   userId: string;
@@ -36,8 +44,10 @@ export function Onboarding() {
   const [organizationName, setOrganizationName] = useState("");
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ org?: string; project?: string }>({});
+
+  const onboardingMutation = useCompleteOnboarding();
+  const isSubmitting = onboardingMutation.isPending;
 
   useEffect(() => {
     // Load user data from sessionStorage
@@ -72,80 +82,80 @@ export function Onboarding() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm() || !userData?.firebaseToken) return;
     
-    setIsSubmitting(true);
-    
-    const { data, error } = await completeOnboarding(
+    onboardingMutation.mutate(
       {
-        organizationName: organizationName.trim(),
-        projectName: projectName.trim(),
-        projectDescription: projectDescription.trim() || undefined,
+        request: {
+          organizationName: organizationName.trim(),
+          projectName: projectName.trim(),
+          projectDescription: projectDescription.trim() || undefined,
+        },
+        firebaseToken: userData.firebaseToken,
       },
-      userData.firebaseToken
-    );
-    
-    if (data) {
-      console.log('[Onboarding] Onboarding successful, setting contexts');
-      
-      // Set cookies with auth tokens only
-      await setCookiesAfterAuthentication(data);
-      
-      // Set tenant context
-      setTenantInfo({
-        tenantId: data.tenantId,
-        tenantName: data.tenantName,
-        userRole: 'admin', // User who completes onboarding is always admin
-        tier: data.tier || 'free',
-      });
-      
-      // Set project context
-      if (data.projectId && data.projectName) {
-        setProject({
-          projectId: data.projectId,
-          projectName: data.projectName,
-          userRole: 'admin', // Owner's first project = admin
-          isActive: true,
-          plan: 'free',
-        });
-        
-        // Add project to tenant's projects list
-        addProject({
-          projectId: data.projectId,
-          name: data.projectName,
-          description: projectDescription.trim() || '',
-          isActive: true,
-          role: 'admin',
-        });
+      {
+        onSuccess: async (response) => {
+          if (response?.data) {
+            const data = response.data;
+            
+            // Set cookies with auth tokens only
+            await setCookiesAfterAuthentication(data);
+            
+            // Set tenant context
+            setTenantInfo({
+              tenantId: data.tenantId,
+              tenantName: data.tenantName,
+              userRole: 'admin',
+              tier: data.tier || 'free',
+            });
+            
+            // Set project context
+            if (data.projectId && data.projectName) {
+              setProject({
+                projectId: data.projectId,
+                projectName: data.projectName,
+                userRole: PROJECT_ROLES.ADMIN,
+                isActive: true,
+                plan: TIERS.FREE,
+              });
+              
+              // Add project to tenant's projects list
+              addProject({
+                projectId: data.projectId,
+                name: data.projectName,
+                description: projectDescription.trim() || '',
+                isActive: true,
+                role: PROJECT_ROLES.ADMIN,
+              });
+            }
+            
+            // Clear sessionStorage
+            sessionStorage.removeItem('onboarding_user');
+            sessionStorage.removeItem('firebase_token');
+            
+            // Navigate to project-scoped onboarding success page
+            navigate(ROUTES.PROJECT_ONBOARDING_SUCCESS.basePath.replace(':projectId', data.projectId), {
+              state: {
+                projectId: data.projectId,
+                projectName: data.projectName,
+                projectApiKey: data.projectApiKey,
+              }
+            });
+          }
+        },
+        onError: (error) => {
+          showNotification(
+            COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
+            error instanceof Error ? error.message : 'Onboarding failed. Please try again.',
+            <IconSquareRoundedX />,
+            theme.colors.red[6]
+          );
+        },
       }
-      
-      // Clear sessionStorage
-      sessionStorage.removeItem('onboarding_user');
-      sessionStorage.removeItem('firebase_token');
-      
-      // Navigate to project-scoped onboarding success page
-      navigate(`/projects/${data.projectId}/onboarding`, {
-        state: {
-          projectId: data.projectId,
-          projectName: data.projectName,
-          projectApiKey: data.projectApiKey,
-        }
-      });
-    }
-    
-    if (error) {
-      showNotification(
-        COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
-        error.message,
-        <IconSquareRoundedX />,
-        theme.colors.red[6]
-      );
-    }
-    
-    setIsSubmitting(false);
+    );
   };
 
   if (!userData) {
@@ -160,7 +170,7 @@ export function Onboarding() {
           <div className={classes.header}>
             <h1 className={classes.title}>Welcome to Pulse!</h1>
             <Text className={classes.subtitle}>
-              Let's set up your organization and create your first project.
+              Let's get you started in 2 simple steps
             </Text>
             <Text className={classes.userInfo}>
               Signed in as <strong>{userData.email}</strong>
@@ -168,44 +178,101 @@ export function Onboarding() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className={classes.form}>
-            <Stack gap="lg">
-              {/* Organization Name */}
-              <TextInput
-                label="Organization Name"
-                placeholder="e.g., Acme Inc."
-                size="md"
-                required
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                error={errors.org}
-                leftSection={<IconBuilding size={18} />}
-                description="This will be your company or team name"
-              />
+          <form onSubmit={handleSubmit}>
+            <Stack gap="xl">
+              {/* Step 1: Organization */}
+              <Paper className={classes.stepSection} shadow="sm" p="xl" radius="md">
+                <Group gap="sm" mb="md">
+                  <Badge 
+                    size="lg" 
+                    circle 
+                    variant="filled"
+                    style={{ background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)" }}
+                  >
+                    1
+                  </Badge>
+                  <Text fw={600} size="lg" className={classes.stepTitle}>
+                    Create Your Organization
+                  </Text>
+                  {organizationName.trim() && (
+                    <IconCheck size={20} style={{ color: '#0ec9c2' }} />
+                  )}
+                </Group>
+                
+                <Text size="sm" c="dimmed" mb="lg" className={classes.stepDescription}>
+                  Your organization represents your company or team. You can invite members and manage multiple projects within it.
+                </Text>
 
-              {/* Project Name */}
-              <TextInput
-                label="Project Name"
-                placeholder="e.g., Mobile App, Web Dashboard"
-                size="md"
-                required
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                error={errors.project}
-                leftSection={<IconFolder size={18} />}
-                description="The application you want to monitor"
-              />
+                <TextInput
+                  label="Organization Name"
+                  placeholder="e.g., Acme Inc., Marketing Team"
+                  size="md"
+                  required
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  error={errors.org}
+                  leftSection={<IconBuilding size={18} />}
+                  description="This will be your company or team name"
+                />
+              </Paper>
 
-              {/* Project Description (Optional) */}
-              <Textarea
-                label="Project Description (Optional)"
-                placeholder="Brief description of your project..."
-                size="md"
-                value={projectDescription}
-                onChange={(e) => setProjectDescription(e.target.value)}
-                minRows={3}
-                maxRows={5}
-              />
+              {/* Step 2: Project */}
+              <Paper 
+                className={classes.stepSection} 
+                shadow="sm" 
+                p="xl" 
+                radius="md"
+                style={{ 
+                  opacity: organizationName.trim() ? 1 : 0.7,
+                  transition: 'opacity 0.3s ease'
+                }}
+              >
+                <Group gap="sm" mb="md">
+                  <Badge 
+                    size="lg" 
+                    circle 
+                    variant="filled"
+                    style={{ background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)" }}
+                  >
+                    2
+                  </Badge>
+                  <Text fw={600} size="lg" className={classes.stepTitle}>
+                    Create Your First Project
+                  </Text>
+                  {projectName.trim() && (
+                    <IconCheck size={20} style={{ color: '#0ec9c2' }} />
+                  )}
+                </Group>
+                
+                <Text size="sm" c="dimmed" mb="lg" className={classes.stepDescription}>
+                  Projects live inside your organization. Each project tracks a specific application or service.
+                </Text>
+
+                <Stack gap="md">
+                  <TextInput
+                    label="Project Name"
+                    placeholder="e.g., Mobile App, Web Dashboard, API Service"
+                    size="md"
+                    required
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    error={errors.project}
+                    leftSection={<IconFolder size={18} />}
+                    description="What application do you want to monitor?"
+                  />
+
+                  <Textarea
+                    label="Project Description (Optional)"
+                    placeholder="Add a brief description to help your team understand this project..."
+                    size="md"
+                    value={projectDescription}
+                    onChange={(e) => setProjectDescription(e.target.value)}
+                    minRows={3}
+                    maxRows={5}
+                    description="Provide context about what this project does"
+                  />
+                </Stack>
+              </Paper>
 
               {/* Submit Button */}
               <Button
@@ -219,7 +286,7 @@ export function Onboarding() {
                   marginTop: "1rem",
                 }}
               >
-                {isSubmitting ? "Creating..." : "Create Project & Continue"}
+                {isSubmitting ? "Setting up..." : "Complete Setup & Get Started"}
               </Button>
             </Stack>
           </form>

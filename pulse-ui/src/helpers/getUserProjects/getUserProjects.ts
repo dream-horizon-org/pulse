@@ -1,18 +1,6 @@
 import { makeRequest, ApiResponse } from '../makeRequest';
 import { API_BASE_URL } from '../../constants';
-
-export interface ProjectSummary {
-  projectId: string;
-  name: string;
-  description?: string;
-  isActive: boolean;
-  role: string;
-}
-
-export interface UserProjectsResponse {
-  projects: ProjectSummary[];
-  redirectTo?: string;
-}
+import { UserProjectsResponse } from './getUserProjects.interface';
 
 export const getUserProjects = async (): Promise<ApiResponse<UserProjectsResponse>> => {
   return makeRequest<UserProjectsResponse>({

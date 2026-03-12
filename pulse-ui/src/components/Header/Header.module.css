@@ -1,11 +1,11 @@
 .headerContainer {
   display: flex;
-  justify-content: space-between;
+  justify-content: start;
   height: 100%;
   align-items: center;
-  background: #ffffff;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
   position: relative;
   padding: 0 16px;
 }
@@ -39,8 +39,6 @@
 .projectSection {
   display: flex;
   align-items: center;
-  flex: 1;
-  justify-content: center;
 }
 
 .projectInfo {

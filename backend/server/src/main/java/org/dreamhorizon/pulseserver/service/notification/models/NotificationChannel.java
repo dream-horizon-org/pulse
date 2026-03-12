@@ -15,7 +15,7 @@ public class NotificationChannel {
   private String projectId;
   private ChannelType channelType;
   private String name;
-  private String config;
+  private ChannelConfig config;
   private Boolean isActive;
   private Instant createdAt;
   private Instant updatedAt;

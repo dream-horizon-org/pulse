@@ -1,5 +1,7 @@
 package org.dreamhorizon.pulseserver.dao.notification;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Maybe;
@@ -14,9 +16,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
-import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
+import org.dreamhorizon.pulseserver.service.notification.models.*;
 
 @Slf4j
 @Singleton
@@ -24,6 +24,7 @@ import org.dreamhorizon.pulseserver.tenant.TenantContext;
 public class NotificationTemplateDao {
 
   private final MysqlClient mysqlClient;
+  private final ObjectMapper objectMapper;
 
   public Maybe<NotificationTemplate> getTemplateById(Long templateId) {
     MySQLPool pool = mysqlClient.getReaderPool();
@@ -39,10 +40,22 @@ public class NotificationTemplateDao {
             });
   }
 
-  public Single<List<NotificationTemplate>> getTemplatesByProject(String projectId) {
+  public Single<List<NotificationTemplate>> getAllTemplates() {
     MySQLPool pool = mysqlClient.getReaderPool();
-    return pool.preparedQuery(NotificationQueries.GET_TEMPLATES_BY_PROJECT)
-        .rxExecute(Tuple.of(projectId))
+    return pool.preparedQuery(NotificationQueries.GET_ALL_TEMPLATES)
+        .rxExecute()
+        .map(
+            rows -> {
+              List<NotificationTemplate> result = new ArrayList<>();
+              rows.forEach(row -> result.add(mapRowToTemplate(row)));
+              return result;
+            });
+  }
+
+  public Single<List<NotificationTemplate>> getTemplatesByChannelType(ChannelType channelType) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(NotificationQueries.GET_TEMPLATES_BY_CHANNEL_TYPE)
+        .rxExecute(Tuple.of(channelType.name()))
         .map(
             rows -> {
               List<NotificationTemplate> result = new ArrayList<>();
@@ -52,10 +65,10 @@ public class NotificationTemplateDao {
   }
 
   public Maybe<NotificationTemplate> getTemplateByEventNameAndChannel(
-      String projectId, String eventName, ChannelType channelType) {
+      String eventName, ChannelType channelType) {
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_TEMPLATE_BY_EVENT_NAME_AND_CHANNEL)
-        .rxExecute(Tuple.of(projectId, eventName, channelType != null ? channelType.name() : null))
+        .rxExecute(Tuple.of(eventName, channelType != null ? channelType.name() : null))
         .flatMapMaybe(
             rows -> {
               var iterator = rows.iterator();
@@ -66,12 +79,11 @@ public class NotificationTemplateDao {
             });
   }
 
-  public Single<Integer> getLatestVersion(
-      String projectId, String eventName, ChannelType channelType) {
+  public Single<Integer> getLatestVersion(String eventName, ChannelType channelType) {
     String channelTypeStr = channelType != null ? channelType.name() : null;
     MySQLPool pool = mysqlClient.getReaderPool();
     return pool.preparedQuery(NotificationQueries.GET_LATEST_TEMPLATE_VERSION)
-        .rxExecute(Tuple.of(projectId, eventName, channelTypeStr, channelTypeStr))
+        .rxExecute(Tuple.of(eventName, channelTypeStr, channelTypeStr))
         .map(
             rows -> {
               var iterator = rows.iterator();
@@ -88,11 +100,10 @@ public class NotificationTemplateDao {
     return pool.preparedQuery(NotificationQueries.INSERT_TEMPLATE)
         .rxExecute(
             Tuple.of(
-                template.getProjectId(),
                 template.getEventName(),
                 template.getChannelType() != null ? template.getChannelType().name() : null,
                 template.getVersion(),
-                template.getBody(),
+                serializeBody(template.getBody()),
                 template.getIsActive() != null ? template.getIsActive() : true))
         .map(rows -> rows.property(MySQLClient.LAST_INSERTED_ID));
   }
@@ -104,7 +115,7 @@ public class NotificationTemplateDao {
             Tuple.of(
                 template.getEventName(),
                 template.getChannelType() != null ? template.getChannelType().name() : null,
-                template.getBody(),
+                serializeBody(template.getBody()),
                 template.getIsActive(),
                 templateId))
         .map(rows -> rows.rowCount());
@@ -121,14 +132,14 @@ public class NotificationTemplateDao {
     String channelTypeStr = row.getString("channel_type");
     Object bodyValue = row.getValue("body");
     String bodyStr = bodyValue != null ? bodyValue.toString() : null;
+    ChannelType channelType = channelTypeStr != null ? ChannelType.valueOf(channelTypeStr) : null;
 
     return NotificationTemplate.builder()
         .id(row.getLong("id"))
-        .projectId(row.getString("project_id"))
         .eventName(row.getString("event_name"))
-        .channelType(channelTypeStr != null ? ChannelType.valueOf(channelTypeStr) : null)
+        .channelType(channelType)
         .version(row.getInteger("version"))
-        .body(bodyStr)
+        .body(deserializeBody(bodyStr, channelType))
         .isActive(row.getBoolean("is_active"))
         .createdAt(
             row.getLocalDateTime("created_at") != null
@@ -139,5 +150,28 @@ public class NotificationTemplateDao {
                 ? row.getLocalDateTime("updated_at").toInstant(ZoneOffset.UTC)
                 : null)
         .build();
+  }
+
+  private String serializeBody(TemplateBody body) {
+    if (body == null) {
+      return null;
+    }
+    try {
+      return objectMapper.writeValueAsString(body);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("Failed to serialize template body", e);
+    }
+  }
+
+  private TemplateBody deserializeBody(String bodyJson, ChannelType channelType) {
+    if (bodyJson == null) {
+      return null;
+    }
+    try {
+      return objectMapper.readValue(bodyJson, TemplateBody.class);
+    } catch (JsonProcessingException e) {
+      log.debug("Body missing type discriminator, falling back to channel-based deserialization");
+    }
+    return null;
   }
 }

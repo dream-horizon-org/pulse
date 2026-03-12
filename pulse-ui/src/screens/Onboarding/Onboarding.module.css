@@ -9,7 +9,7 @@
 }
 
 .contentWrapper {
-  max-width: 600px;
+  max-width: 650px;
   width: 100%;
 }
 
@@ -33,6 +33,7 @@
   font-size: 1.1rem;
   color: #666;
   margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
 .userInfo {
@@ -40,9 +41,21 @@
   color: #888;
 }
 
-.form {
+.stepSection {
   background: white;
-  padding: 2.5rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.stepSection:hover {
+  border-color: #0ec9c2;
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.1);
+}
+
+.stepTitle {
+  color: #1a1a1a;
+}
+
+.stepDescription {
+  line-height: 1.6;
 }

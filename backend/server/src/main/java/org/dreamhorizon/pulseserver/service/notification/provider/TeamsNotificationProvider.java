@@ -43,10 +43,9 @@ public class TeamsNotificationProvider implements NotificationProvider {
       NotificationMessage message, NotificationTemplate template) {
     long startTime = System.currentTimeMillis();
 
-    try {
-      objectMapper.readValue(message.getChannelConfig(), TeamsChannelConfig.class);
-    } catch (Exception e) {
-      log.error("Failed to parse Teams channel config", e);
+    if (!(message.getChannelConfig() instanceof TeamsChannelConfig)) {
+      log.error("Expected TeamsChannelConfig but got: {}",
+          message.getChannelConfig() != null ? message.getChannelConfig().getClass().getSimpleName() : "null");
       return Single.just(
           NotificationResult.builder()
               .success(false)
@@ -102,27 +101,41 @@ public class TeamsNotificationProvider implements NotificationProvider {
   }
 
   private ObjectNode buildTeamsPayload(NotificationTemplate template, NotificationMessage message) {
-
-    String bodyJson = template.getBody();
-
-    if (isJson(bodyJson)) {
-      try {
-        JsonNode bodyNode = objectMapper.readTree(bodyJson);
-
-        if (bodyNode.has(KEY_BODY) || bodyNode.has(KEY_TYPE)) {
-          String renderedBody = templateService.renderJson(bodyJson, message.getParams());
-          JsonNode content = objectMapper.readTree(renderedBody);
-          return wrapInAdaptiveCard(content);
-        } else {
-          return createSimpleCard(bodyNode, message);
-        }
-      } catch (Exception e) {
-        log.warn("Failed to parse Teams template body, creating simple text card", e);
-        return createTextCard(templateService.renderText(bodyJson, message.getParams()));
-      }
-    } else {
-      return createTextCard(templateService.renderText(bodyJson, message.getParams()));
+    if (!(template.getBody() instanceof TeamsTemplateBody teamsBody)) {
+      return createTextCard(DEFAULT_SUBJECT);
     }
+
+    boolean hasAdaptiveCardContent = teamsBody.getBody() != null;
+
+    if (hasAdaptiveCardContent) {
+      try {
+        ObjectNode cardContent = objectMapper.createObjectNode();
+
+        String renderedBody = templateService.renderJson(
+            objectMapper.writeValueAsString(teamsBody.getBody()), message.getParams());
+        JsonNode bodyElements = objectMapper.readTree(renderedBody);
+        cardContent.set(KEY_BODY, bodyElements.isArray() ? bodyElements : objectMapper.createArrayNode().add(bodyElements));
+
+        if (teamsBody.getActions() != null) {
+          String renderedActions = templateService.renderJson(
+              objectMapper.writeValueAsString(teamsBody.getActions()), message.getParams());
+          cardContent.set(KEY_ACTIONS, objectMapper.readTree(renderedActions));
+        }
+
+        return wrapInAdaptiveCard(cardContent);
+      } catch (Exception e) {
+        log.warn("Failed to render Teams adaptive card, falling back to simple card", e);
+      }
+    }
+
+    String title = teamsBody.getTitle() != null
+        ? templateService.renderText(teamsBody.getTitle(), message.getParams())
+        : DEFAULT_SUBJECT;
+    String text = teamsBody.getText() != null
+        ? templateService.renderText(teamsBody.getText(), message.getParams())
+        : "";
+
+    return createSimpleCard(title, text);
   }
 
   private ObjectNode wrapInAdaptiveCard(JsonNode content) {
@@ -134,48 +147,26 @@ public class TeamsNotificationProvider implements NotificationProvider {
     ObjectNode attachment = objectMapper.createObjectNode();
     attachment.put(Teams.KEY_CONTENT_TYPE, Teams.CONTENT_TYPE_ADAPTIVE_CARD);
 
-    if (content.has(KEY_TYPE) && Teams.TYPE_ADAPTIVE_CARD.equals(content.get(KEY_TYPE).asText())) {
-      attachment.set(Teams.KEY_CONTENT, content);
-    } else {
-      ObjectNode card = objectMapper.createObjectNode();
-      card.put(KEY_TYPE, Teams.TYPE_ADAPTIVE_CARD);
-      card.put(Teams.KEY_SCHEMA, Teams.ADAPTIVE_CARD_SCHEMA);
-      card.put(Teams.KEY_VERSION, Teams.ADAPTIVE_CARD_VERSION);
+    ObjectNode card = objectMapper.createObjectNode();
+    card.put(KEY_TYPE, Teams.TYPE_ADAPTIVE_CARD);
+    card.put(Teams.KEY_SCHEMA, Teams.ADAPTIVE_CARD_SCHEMA);
+    card.put(Teams.KEY_VERSION, Teams.ADAPTIVE_CARD_VERSION);
 
-      if (content.has(KEY_BODY)) {
-        card.set(KEY_BODY, content.get(KEY_BODY));
-      } else if (content.isArray()) {
-        card.set(KEY_BODY, content);
-      } else {
-        ArrayNode body = objectMapper.createArrayNode();
-        body.add(content);
-        card.set(KEY_BODY, body);
-      }
-
-      if (content.has(KEY_ACTIONS)) {
-        card.set(KEY_ACTIONS, content.get(KEY_ACTIONS));
-      }
-
-      attachment.set(Teams.KEY_CONTENT, card);
+    if (content.has(KEY_BODY)) {
+      card.set(KEY_BODY, content.get(KEY_BODY));
+    }
+    if (content.has(KEY_ACTIONS)) {
+      card.set(KEY_ACTIONS, content.get(KEY_ACTIONS));
     }
 
+    attachment.set(Teams.KEY_CONTENT, card);
     attachments.add(attachment);
     wrapper.set(Teams.KEY_ATTACHMENTS, attachments);
 
     return wrapper;
   }
 
-  private ObjectNode createSimpleCard(JsonNode bodyNode, NotificationMessage message) {
-
-    String title =
-        bodyNode.has(KEY_TITLE)
-            ? templateService.renderText(bodyNode.get(KEY_TITLE).asText(), message.getParams())
-            : DEFAULT_SUBJECT;
-    String text =
-        bodyNode.has(KEY_TEXT)
-            ? templateService.renderText(bodyNode.get(KEY_TEXT).asText(), message.getParams())
-            : "";
-
+  private ObjectNode createSimpleCard(String title, String text) {
     ObjectNode wrapper = objectMapper.createObjectNode();
     wrapper.put(KEY_TYPE, Teams.TYPE_MESSAGE);
 
@@ -198,7 +189,7 @@ public class TeamsNotificationProvider implements NotificationProvider {
     titleBlock.put(Teams.KEY_WRAP, true);
     body.add(titleBlock);
 
-    if (!text.isEmpty()) {
+    if (text != null && !text.isEmpty()) {
       ObjectNode textBlock = objectMapper.createObjectNode();
       textBlock.put(KEY_TYPE, Teams.TYPE_TEXT_BLOCK);
       textBlock.put(KEY_TEXT, text);
@@ -215,40 +206,7 @@ public class TeamsNotificationProvider implements NotificationProvider {
   }
 
   private ObjectNode createTextCard(String text) {
-    ObjectNode wrapper = objectMapper.createObjectNode();
-    wrapper.put(KEY_TYPE, Teams.TYPE_MESSAGE);
-
-    ArrayNode attachments = objectMapper.createArrayNode();
-    ObjectNode attachment = objectMapper.createObjectNode();
-    attachment.put(Teams.KEY_CONTENT_TYPE, Teams.CONTENT_TYPE_ADAPTIVE_CARD);
-
-    ObjectNode card = objectMapper.createObjectNode();
-    card.put(KEY_TYPE, Teams.TYPE_ADAPTIVE_CARD);
-    card.put(Teams.KEY_SCHEMA, Teams.ADAPTIVE_CARD_SCHEMA);
-    card.put(Teams.KEY_VERSION, Teams.ADAPTIVE_CARD_VERSION);
-
-    ArrayNode body = objectMapper.createArrayNode();
-    ObjectNode textBlock = objectMapper.createObjectNode();
-    textBlock.put(KEY_TYPE, Teams.TYPE_TEXT_BLOCK);
-    textBlock.put(KEY_TEXT, text);
-    textBlock.put(Teams.KEY_WRAP, true);
-    body.add(textBlock);
-
-    card.set(KEY_BODY, body);
-    attachment.set(Teams.KEY_CONTENT, card);
-    attachments.add(attachment);
-    wrapper.set(Teams.KEY_ATTACHMENTS, attachments);
-
-    return wrapper;
-  }
-
-  private boolean isJson(String content) {
-    if (content == null || content.isEmpty()) {
-      return false;
-    }
-    String trimmed = content.trim();
-    return (trimmed.startsWith("{") && trimmed.endsWith("}"))
-        || (trimmed.startsWith("[") && trimmed.endsWith("]"));
+    return createSimpleCard(DEFAULT_SUBJECT, text);
   }
 
   private NotificationResult parseTeamsResponse(
