@@ -8,6 +8,9 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.Vertx;
+import io.vertx.junit5.VertxExtension;
+import io.vertx.junit5.VertxTestContext;
 import java.util.Base64;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
@@ -30,7 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, VertxExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 class NotificationControllerTest {
 
@@ -65,145 +68,210 @@ class NotificationControllerTest {
   class ContactUs {
 
     @Test
-    void shouldReturnErrorForInvalidContactType() throws Exception {
-      String auth = "Bearer " + buildJwt(USER_EMAIL);
+    void shouldReturnErrorForInvalidContactType(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String auth = "Bearer " + buildJwt(USER_EMAIL);
 
-      CompletionStage<Response<String>> result =
-          controller.contactUs(auth, "invalid", null);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, "invalid", null);
 
-      Response<String> response = result.toCompletableFuture().get();
-      assertThat(response.getError()).isNotNull();
-      assertThat(response.getError().getCode()).isEqualTo("INVALID_TYPE");
-      assertThat(response.getError().getMessage())
-          .contains("Invalid contact type");
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            assertThat(err).isNull();
+            assertThat(response.getError()).isNotNull();
+            assertThat(response.getError().getCode()).isEqualTo("INVALID_TYPE");
+            assertThat(response.getError().getMessage())
+                .contains("Invalid contact type");
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test
-    void shouldReturnErrorForNullContactType() throws Exception {
-      String auth = "Bearer " + buildJwt(USER_EMAIL);
+    void shouldReturnErrorForNullContactType(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String auth = "Bearer " + buildJwt(USER_EMAIL);
 
-      CompletionStage<Response<String>> result =
-          controller.contactUs(auth, null, null);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, null, null);
 
-      Response<String> response = result.toCompletableFuture().get();
-      assertThat(response.getError()).isNotNull();
-      assertThat(response.getError().getCode()).isEqualTo("INVALID_TYPE");
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            assertThat(err).isNull();
+            assertThat(response.getError()).isNotNull();
+            assertThat(response.getError().getCode()).isEqualTo("INVALID_TYPE");
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test
-    void shouldSubmitSalesContactRequest() throws Exception {
-      String token = buildJwt(USER_EMAIL);
-      String auth = "Bearer " + token;
+    void shouldSubmitSalesContactRequest(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String token = buildJwt(USER_EMAIL);
+        String auth = "Bearer " + token;
 
-      Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Acme Corp").build();
-      when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
-      when(notificationService.sendNotificationAsync(eq("default-project"), any()))
-          .thenReturn(Single.just(
-              NotificationBatchResponseDto.builder()
-                  .idempotencyKey("key-1")
-                  .build()));
+        Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Acme Corp").build();
+        when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
+        when(notificationService.sendNotificationAsync(eq("default-project"), any()))
+            .thenReturn(Single.just(
+                NotificationBatchResponseDto.builder()
+                    .idempotencyKey("key-1")
+                    .build()));
 
-      ContactRequestDto request = ContactRequestDto.builder()
-          .message("I want to know more about pricing")
-          .build();
+        ContactRequestDto request = ContactRequestDto.builder()
+            .message("I want to know more about pricing")
+            .build();
 
-      controller.contactUs(auth, "sales", request);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, "sales", request);
 
-      ArgumentCaptor<SendNotificationRequestDto> captor =
-          ArgumentCaptor.forClass(SendNotificationRequestDto.class);
-      verify(notificationService).sendNotificationAsync(eq("default-project"), captor.capture());
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            ArgumentCaptor<SendNotificationRequestDto> captor =
+                ArgumentCaptor.forClass(SendNotificationRequestDto.class);
+            verify(notificationService)
+                .sendNotificationAsync(eq("default-project"), captor.capture());
 
-      SendNotificationRequestDto sent = captor.getValue();
-      assertThat(sent.getEventName())
-          .isEqualTo(NotificationConstants.CONTACT_US_EVENT_NAME);
-      assertThat(sent.getParams()).containsEntry("userEmail", USER_EMAIL);
-      assertThat(sent.getParams()).containsEntry("tenantName", "Acme Corp");
-      assertThat(sent.getParams()).containsEntry("message", "I want to know more about pricing");
+            SendNotificationRequestDto sent = captor.getValue();
+            assertThat(sent.getEventName())
+                .isEqualTo(NotificationConstants.CONTACT_US_EVENT_NAME);
+            assertThat(sent.getParams()).containsEntry("userEmail", USER_EMAIL);
+            assertThat(sent.getParams()).containsEntry("tenantName", "Acme Corp");
+            assertThat(sent.getParams())
+                .containsEntry("message", "I want to know more about pricing");
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test
-    void shouldSubmitSupportContactRequest() throws Exception {
-      String token = buildJwt(USER_EMAIL);
-      String auth = "Bearer " + token;
+    void shouldSubmitSupportContactRequest(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String token = buildJwt(USER_EMAIL);
+        String auth = "Bearer " + token;
 
-      Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Acme Corp").build();
-      when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
-      when(notificationService.sendNotificationAsync(eq("default-project"), any()))
-          .thenReturn(Single.just(
-              NotificationBatchResponseDto.builder()
-                  .idempotencyKey("key-2")
-                  .build()));
+        Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Acme Corp").build();
+        when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
+        when(notificationService.sendNotificationAsync(eq("default-project"), any()))
+            .thenReturn(Single.just(
+                NotificationBatchResponseDto.builder()
+                    .idempotencyKey("key-2")
+                    .build()));
 
-      ContactRequestDto request = ContactRequestDto.builder()
-          .message("I need help with SDK integration")
-          .build();
+        ContactRequestDto request = ContactRequestDto.builder()
+            .message("I need help with SDK integration")
+            .build();
 
-      controller.contactUs(auth, "support", request);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, "support", request);
 
-      ArgumentCaptor<SendNotificationRequestDto> captor =
-          ArgumentCaptor.forClass(SendNotificationRequestDto.class);
-      verify(notificationService).sendNotificationAsync(eq("default-project"), captor.capture());
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            ArgumentCaptor<SendNotificationRequestDto> captor =
+                ArgumentCaptor.forClass(SendNotificationRequestDto.class);
+            verify(notificationService)
+                .sendNotificationAsync(eq("default-project"), captor.capture());
 
-      SendNotificationRequestDto sent = captor.getValue();
-      assertThat(sent.getEventName())
-          .isEqualTo(NotificationConstants.CONTACT_SUPPORT_EVENT_NAME);
-      assertThat(sent.getParams()).containsEntry("userEmail", USER_EMAIL);
-      assertThat(sent.getParams())
-          .containsEntry("message", "I need help with SDK integration");
+            SendNotificationRequestDto sent = captor.getValue();
+            assertThat(sent.getEventName())
+                .isEqualTo(NotificationConstants.CONTACT_SUPPORT_EVENT_NAME);
+            assertThat(sent.getParams()).containsEntry("userEmail", USER_EMAIL);
+            assertThat(sent.getParams())
+                .containsEntry("message", "I need help with SDK integration");
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test
-    void shouldHandleCaseInsensitiveEventType() throws Exception {
-      String auth = "Bearer " + buildJwt(USER_EMAIL);
+    void shouldHandleCaseInsensitiveEventType(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String auth = "Bearer " + buildJwt(USER_EMAIL);
 
-      Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Corp").build();
-      when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
-      when(notificationService.sendNotificationAsync(any(), any()))
-          .thenReturn(Single.just(
-              NotificationBatchResponseDto.builder().idempotencyKey("k").build()));
+        Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Corp").build();
+        when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
+        when(notificationService.sendNotificationAsync(any(), any()))
+            .thenReturn(Single.just(
+                NotificationBatchResponseDto.builder().idempotencyKey("k").build()));
 
-      controller.contactUs(auth, "Sales", null);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, "Sales", null);
 
-      ArgumentCaptor<SendNotificationRequestDto> captor =
-          ArgumentCaptor.forClass(SendNotificationRequestDto.class);
-      verify(notificationService).sendNotificationAsync(any(), captor.capture());
-      assertThat(captor.getValue().getEventName())
-          .isEqualTo(NotificationConstants.CONTACT_US_EVENT_NAME);
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            ArgumentCaptor<SendNotificationRequestDto> captor =
+                ArgumentCaptor.forClass(SendNotificationRequestDto.class);
+            verify(notificationService).sendNotificationAsync(any(), captor.capture());
+            assertThat(captor.getValue().getEventName())
+                .isEqualTo(NotificationConstants.CONTACT_US_EVENT_NAME);
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test
-    void shouldUseTenantIdAsFallbackWhenTenantNotFound() throws Exception {
-      String auth = "Bearer " + buildJwt(USER_EMAIL);
+    void shouldUseTenantIdAsFallbackWhenTenantNotFound(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String auth = "Bearer " + buildJwt(USER_EMAIL);
 
-      when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.empty());
-      when(notificationService.sendNotificationAsync(any(), any()))
-          .thenReturn(Single.just(
-              NotificationBatchResponseDto.builder().idempotencyKey("k").build()));
+        when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.empty());
+        when(notificationService.sendNotificationAsync(any(), any()))
+            .thenReturn(Single.just(
+                NotificationBatchResponseDto.builder().idempotencyKey("k").build()));
 
-      controller.contactUs(auth, "sales", null);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, "sales", null);
 
-      ArgumentCaptor<SendNotificationRequestDto> captor =
-          ArgumentCaptor.forClass(SendNotificationRequestDto.class);
-      verify(notificationService).sendNotificationAsync(any(), captor.capture());
-      assertThat(captor.getValue().getParams()).containsEntry("tenantName", TENANT_ID);
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            ArgumentCaptor<SendNotificationRequestDto> captor =
+                ArgumentCaptor.forClass(SendNotificationRequestDto.class);
+            verify(notificationService).sendNotificationAsync(any(), captor.capture());
+            assertThat(captor.getValue().getParams())
+                .containsEntry("tenantName", TENANT_ID);
+          });
+          testContext.completeNow();
+        });
+      });
     }
 
     @Test
-    void shouldHandleNullRequestBody() throws Exception {
-      String auth = "Bearer " + buildJwt(USER_EMAIL);
+    void shouldHandleNullRequestBody(Vertx vertx, VertxTestContext testContext) {
+      vertx.runOnContext(v -> {
+        TenantContext.setTenantId(TENANT_ID);
+        String auth = "Bearer " + buildJwt(USER_EMAIL);
 
-      Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Corp").build();
-      when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
-      when(notificationService.sendNotificationAsync(any(), any()))
-          .thenReturn(Single.just(
-              NotificationBatchResponseDto.builder().idempotencyKey("k").build()));
+        Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Corp").build();
+        when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
+        when(notificationService.sendNotificationAsync(any(), any()))
+            .thenReturn(Single.just(
+                NotificationBatchResponseDto.builder().idempotencyKey("k").build()));
 
-      controller.contactUs(auth, "support", null);
+        CompletionStage<Response<String>> result =
+            controller.contactUs(auth, "support", null);
 
-      ArgumentCaptor<SendNotificationRequestDto> captor =
-          ArgumentCaptor.forClass(SendNotificationRequestDto.class);
-      verify(notificationService).sendNotificationAsync(any(), captor.capture());
-      assertThat(captor.getValue().getParams().get("message")).isNull();
+        result.whenComplete((response, err) -> {
+          testContext.verify(() -> {
+            ArgumentCaptor<SendNotificationRequestDto> captor =
+                ArgumentCaptor.forClass(SendNotificationRequestDto.class);
+            verify(notificationService).sendNotificationAsync(any(), captor.capture());
+            assertThat(captor.getValue().getParams().get("message")).isNull();
+          });
+          testContext.completeNow();
+        });
+      });
     }
   }
 }
