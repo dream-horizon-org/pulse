@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.StringSubstitutor;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.InteractionRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.NetworkRequestRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
@@ -59,11 +60,12 @@ public class SessionDetailDao {
   ) {
     Map<String, Object> params = Map.of("session_id", sessionId);
     String query = new StringSubstitutor(params).replace(queryTemplate);
+    String projectId = ProjectContext.requireProjectId();
 
     QueryConfiguration config = QueryConfiguration
         .newQuery(query)
         .timeoutMs(DEFAULT_TIMEOUT_MS)
-        .tenantId(TenantContext.requireTenantId())
+        .projectId(projectId)
         .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(config, clazz);
