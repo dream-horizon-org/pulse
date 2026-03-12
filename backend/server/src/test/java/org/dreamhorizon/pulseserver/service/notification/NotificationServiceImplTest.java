@@ -897,7 +897,7 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn(recipient);
       when(mappingRow.getValue("config")).thenReturn(
-          new JsonObject().put("fromAddress", "noreply@test.com"));
+          new JsonObject().put("type", "EMAIL").put("fromAddress", "noreply@test.com"));
     }
 
     @Test
@@ -1038,6 +1038,8 @@ class NotificationServiceImplTest {
       when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
           .thenReturn(Optional.of(emailProvider));
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("suppressed@test.com")))
+          .thenReturn(Single.just(true));
+      when(logDao.insertLogIfNotExists(any()))
           .thenReturn(Single.just(true));
 
       SendNotificationRequestDto request = SendNotificationRequestDto.builder()
@@ -1219,7 +1221,7 @@ class NotificationServiceImplTest {
       when(eventRow.getString("channel_type")).thenReturn(channelType);
       when(eventRow.getString("recipient")).thenReturn(recipient);
       when(eventRow.getValue("config")).thenReturn(
-          new JsonObject().put("fromAddress", "noreply@test.com"));
+          new JsonObject().put("type", "EMAIL").put("fromAddress", "noreply@test.com"));
     }
 
     @Test
@@ -1408,7 +1410,7 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn(recipient);
       when(mappingRow.getValue("config")).thenReturn(
-          new JsonObject().put("fromAddress", "noreply@test.com"));
+          new JsonObject().put("type", "EMAIL").put("fromAddress", "noreply@test.com"));
     }
 
     @Test
@@ -1501,6 +1503,9 @@ class NotificationServiceImplTest {
           .thenReturn(Maybe.just(emailTemplate()));
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("suppressed@test.com")))
           .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("suppressed@test.com")))
+          .thenReturn(Maybe.empty());
 
       SendNotificationRequestDto request = SendNotificationRequestDto.builder()
           .mappingId(10L)
@@ -1527,7 +1532,7 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn("C123");
       when(mappingRow.getValue("config")).thenReturn(
-          new JsonObject().put("accessToken", "xoxb-tok"));
+          new JsonObject().put("type", "SLACK").put("accessToken", "xoxb-tok"));
 
       when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
           .thenReturn(Maybe.just(mappingRow));
@@ -1571,7 +1576,7 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn(null);
       when(mappingRow.getValue("config")).thenReturn(
-          new JsonObject().put("accessToken", "xoxb-tok"));
+          new JsonObject().put("type", "SLACK").put("accessToken", "xoxb-tok"));
 
       NotificationProvider slackProvider = org.mockito.Mockito.mock(NotificationProvider.class);
 
@@ -1612,7 +1617,7 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn(null);
       when(mappingRow.getValue("config")).thenReturn(
-          new JsonObject().put("workflowUrl", "https://teams.example.com"));
+          new JsonObject().put("type", "TEAMS").put("workflowUrl", "https://teams.example.com"));
 
       NotificationProvider teamsProvider = org.mockito.Mockito.mock(NotificationProvider.class);
 
@@ -1663,7 +1668,8 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("channel_type")).thenReturn("SLACK_WEBHOOK");
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn(null);
-      when(mappingRow.getValue("config")).thenReturn(new JsonObject());
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("type", "SLACK_WEBHOOK"));
 
       NotificationProvider webhookProvider = org.mockito.Mockito.mock(NotificationProvider.class);
 
@@ -1704,7 +1710,7 @@ class NotificationServiceImplTest {
       when(mappingRow.getString("event_name")).thenReturn("alert");
       when(mappingRow.getString("recipient")).thenReturn(null);
       when(mappingRow.getValue("config")).thenReturn(
-          new JsonObject().put("fromAddress", "x@y.com"));
+          new JsonObject().put("type", "EMAIL").put("fromAddress", "x@y.com"));
 
       when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
           .thenReturn(Maybe.just(mappingRow));

@@ -941,7 +941,10 @@ public class NotificationServiceImpl implements NotificationService {
     int failed =
         (int)
             results.stream()
-                .filter(r -> NotificationStatus.FAILED.equals(r.getStatus()))
+                .filter(
+                    r ->
+                        NotificationStatus.FAILED.equals(r.getStatus())
+                            || NotificationStatus.PERMANENT_FAILURE.equals(r.getStatus()))
                 .count();
 
     return NotificationBatchResponseDto.builder()
