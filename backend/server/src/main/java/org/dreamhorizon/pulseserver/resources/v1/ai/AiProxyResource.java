@@ -56,13 +56,20 @@ public class AiProxyResource {
 
   @Inject
   public AiProxyResource(JwtService jwtService) {
+    this(jwtService,
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(CONNECT_TIMEOUT)
+            .build(),
+        System.getenv().getOrDefault(AI_SERVICE_URL_ENV, DEFAULT_AI_SERVICE_URL),
+        System.getenv().getOrDefault(AI_SERVICE_KEY_ENV, ""));
+  }
+
+  AiProxyResource(JwtService jwtService, HttpClient httpClient, String aiServiceUrl, String serviceKey) {
     this.jwtService = jwtService;
-    this.httpClient = HttpClient.newBuilder()
-        .version(HttpClient.Version.HTTP_1_1)
-        .connectTimeout(CONNECT_TIMEOUT)
-        .build();
-    this.aiServiceUrl = System.getenv().getOrDefault(AI_SERVICE_URL_ENV, DEFAULT_AI_SERVICE_URL);
-    this.serviceKey = System.getenv().getOrDefault(AI_SERVICE_KEY_ENV, "");
+    this.httpClient = httpClient;
+    this.aiServiceUrl = aiServiceUrl;
+    this.serviceKey = serviceKey != null ? serviceKey : "";
     log.info("AI proxy resource initialized → {}", aiServiceUrl);
   }
 
