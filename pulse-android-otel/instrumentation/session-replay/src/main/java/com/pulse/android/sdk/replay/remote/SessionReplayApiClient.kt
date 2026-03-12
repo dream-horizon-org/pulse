@@ -29,7 +29,8 @@ public class SessionReplayApiClient(
         get() = PulseNetworkingUtils.okHttpClient
 
     private val uploadUrl: String by lazy {
-        PulseNetworkingUtils.endWithSlash(baseUrl) + SNAPSHOT_PATH
+        val normalized = PulseNetworkingUtils.endWithSlash(baseUrl)
+        if (normalized.endsWith(SNAPSHOT_PATH)) normalized else normalized + SNAPSHOT_PATH
     }
 
     /**
