@@ -23,8 +23,7 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 ## Data Flow
 
 ```
-Mobile SDKs → OTEL Collector (port 4317/4318)
-  → Kafka → ClickHouse (otel DB)
+Mobile SDKs → OTEL Collector (port 4317/4318) → ClickHouse (otel DB)
 Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery
 ```
 

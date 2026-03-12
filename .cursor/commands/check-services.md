@@ -7,7 +7,7 @@ Run health checks on all Docker services and report status:
 
 1. **MySQL**: `docker exec pulse-mysql mysqladmin ping -h localhost` (uses Docker container's internal auth)
 2. **ClickHouse**: `docker exec pulse-clickhouse clickhouse-client -u <OTEL_CLICKHOUSE_USER from .env> --password <OTEL_CLICKHOUSE_PASSWORD from .env> --query "SELECT 1"`
-3. **Kafka**: Check via Kafka UI at the port shown by `docker ps` for kafka-ui
+3. **OpenFGA**: `curl http://localhost:8180/healthz` (verify port from `docker ps` for pulse-openfga)
 4. **OTEL Collector**: `curl http://localhost:<port>/` (default 13133 — verify from `docker ps`)
 5. **pulse-server**: `curl http://localhost:<port>/healthcheck` (default 8080 — verify from `docker ps`)
 6. **pulse-ui**: `curl http://localhost:<port>/healthcheck.txt` (default 3000 — verify from `docker ps`)

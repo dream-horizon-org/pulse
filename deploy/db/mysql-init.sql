@@ -248,17 +248,6 @@ CREATE TABLE pulse_sdk_configs (
 --     "configUrl": "http://10.0.2.2:8080/v1/interaction-configs/",
 --     "beforeInitQueueSize": 100
 --   },
---     "sessionReplay": {
---       "textAndInputPrivacy": "MASK_ALL",
---       "imagePrivacy": "MASK_ALL",
---       "throttleDelayMs": 1000,
---       "screenshotScale": 1.0,
---       "screenshotQuality": 30,
---       "flushIntervalSeconds": 60,
---       "flushAt": 10,
---       "maxBatchSize": 50,
---       "replayApiBaseUrl": ""
---     },
 --   "features": [
 --     {
 --       "featureName": "interaction",
@@ -349,6 +338,17 @@ CREATE TABLE severity
     description TEXT
 );
 
+CREATE TABLE notification_channels_old
+(
+    notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    type ENUM('slack', 'email') NOT NULL,
+    config VARCHAR(500) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    INDEX idx_notification_channels_project (project_id),
+    CONSTRAINT fk_notification_channels_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+);
 
 CREATE TABLE alerts (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -376,7 +376,7 @@ CREATE TABLE alerts (
 
     CONSTRAINT fk_alerts_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     CONSTRAINT fk_alert_severity FOREIGN KEY (severity_id) REFERENCES severity(severity_id),
-    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels(id)
+    CONSTRAINT fk_alert_notification_channel FOREIGN KEY (notification_channel_id) REFERENCES notification_channels_old(notification_channel_id)
 );
 
 CREATE TABLE alert_scope (
