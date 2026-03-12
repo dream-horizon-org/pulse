@@ -293,7 +293,6 @@ public class PulseConfig {
   @AllArgsConstructor
   @NoArgsConstructor
   @NotNull
-  @JsonDeserialize(using = PulseConfigFeatureConfigDeserializer.class)
   public static class FeatureConfig {
 
     @JsonProperty("featureName")
