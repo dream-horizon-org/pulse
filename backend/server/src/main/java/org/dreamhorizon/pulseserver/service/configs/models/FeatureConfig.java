@@ -1,6 +1,8 @@
 package org.dreamhorizon.pulseserver.service.configs.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -22,4 +24,16 @@ public class FeatureConfig {
 
   @JsonProperty("sdks")
   private List<Sdk> sdks;
+
+    @JsonProperty("config")
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
+            property = "featureName",
+            defaultImpl = FeatureConfigProperties.class
+    )
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = SessionReplayFeatureConfig.class, name = "session_replay")
+    })
+    private FeatureConfigProperties config;
 }
