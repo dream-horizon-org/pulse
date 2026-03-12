@@ -34,6 +34,7 @@ public class ApplicationConfig {
   public String interactionDetailCloudFrontAssetPath;
   public String encryptionMasterKey;
   public String tncS3BucketName;
+  public String replayApiBaseUrl;
   public String sessionReplayS3Bucket;
   public String sessionReplayS3Endpoint;
   public String sessionReplayS3Region;

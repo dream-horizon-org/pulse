@@ -1,17 +1,15 @@
 package org.dreamhorizon.pulseserver.resources.configs.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.dreamhorizon.pulseserver.service.configs.models.Features;
-import org.dreamhorizon.pulseserver.service.configs.models.FilterMode;
-import org.dreamhorizon.pulseserver.service.configs.models.Scope;
-import org.dreamhorizon.pulseserver.service.configs.models.Sdk;
-import org.dreamhorizon.pulseserver.service.configs.models.rules;
+import org.dreamhorizon.pulseserver.service.configs.models.*;
 
 @Data
 @Builder
@@ -300,5 +298,17 @@ public class PulseConfig {
 
     @JsonProperty("sdks")
     private List<Sdk> sdks;
+
+      @JsonProperty("config")
+      @JsonTypeInfo(
+              use = JsonTypeInfo.Id.NAME,
+              include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
+              property = "featureName",
+              defaultImpl = FeatureConfigProperties.class
+      )
+      @JsonSubTypes({
+              @JsonSubTypes.Type(value = SessionReplayFeatureConfig.class, name = "session_replay")
+      })
+      private FeatureConfigProperties config;
   }
 }
