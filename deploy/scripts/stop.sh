@@ -59,24 +59,8 @@ while [[ $# -gt 0 ]]; do
             SERVICES+=("$CONTAINER_OTEL_COLLECTOR")
             shift
             ;;
-        kafka)
-            SERVICES+=("$CONTAINER_KAFKA")
-            shift
-            ;;
-        minio)
-            SERVICES+=("$CONTAINER_MINIO")
-            shift
-            ;;
-        capture|session-capture)
-            SERVICES+=("$CONTAINER_SESSION_CAPTURE")
-            shift
-            ;;
-        ingestion|session-ingestion)
-            SERVICES+=("$CONTAINER_SESSION_INGESTION")
-            shift
-            ;;
         -h|--help)
-            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|kafka|minio|capture|ingestion]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel]"
             exit 0
             ;;
         *)
@@ -116,14 +100,9 @@ if [ ${#SERVICES[@]} -eq 0 ]; then
         "$CONTAINER_ALERTS_CRON"
         "$CONTAINER_UI"
         "$CONTAINER_SERVER"
-        "$CONTAINER_SESSION_INGESTION"
-        "$CONTAINER_SESSION_CAPTURE"
-        "$CONTAINER_MINIO_INIT"
-        "$CONTAINER_MINIO"
         "$CONTAINER_OTEL_COLLECTOR"
         "$CONTAINER_CLICKHOUSE_INIT"
         "$CONTAINER_CLICKHOUSE"
-        "$CONTAINER_KAFKA"
         "$CONTAINER_MYSQL"
     )
 fi
@@ -148,7 +127,7 @@ print_success "Containers stopped"
 if [ "$REMOVE_VOLUMES" = "true" ]; then
     echo ""
     print_info "Removing data volumes..."
-    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE" "$VOLUME_KAFKA" "$VOLUME_MINIO"; do
+    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
         if docker volume inspect "$vol" > /dev/null 2>&1; then
             docker volume rm "$vol" > /dev/null
             print_success "Removed volume $vol"

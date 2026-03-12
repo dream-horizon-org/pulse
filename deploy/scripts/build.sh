@@ -2,16 +2,15 @@
 
 # ============================================================================
 # Pulse Observability - Build Script
-# Builds Docker images for all Pulse services.
+# Builds Docker images for pulse-ui, pulse-server, and pulse-alerts-cron.
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./build.sh [--no-cache] [ui|server|cron|capture|ingestion|all]
+#   ./build.sh [--no-cache] [ui|server|cron|all]
 #
 # Examples:
 #   ./build.sh              # Build all images
 #   ./build.sh ui           # Build pulse-ui only
-#   ./build.sh capture      # Build session capture service only
 #   ./build.sh --no-cache   # Build all without cache
 # ============================================================================
 
@@ -92,25 +91,17 @@ while [[ $# -gt 0 ]]; do
             SERVICES+=("cron")
             shift
             ;;
-        capture|session-capture|pulse-session-capture)
-            SERVICES+=("capture")
-            shift
-            ;;
-        ingestion|session-ingestion|pulse-session-replay-ingestion)
-            SERVICES+=("ingestion")
-            shift
-            ;;
         all)
             SERVICES=()
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|all]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-cache] [ui|server|cron|capture|ingestion|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|all]"
             exit 1
             ;;
     esac
@@ -118,7 +109,7 @@ done
 
 # Default: build everything
 if [ ${#SERVICES[@]} -eq 0 ]; then
-    SERVICES=("ui" "server" "cron" "capture" "ingestion")
+    SERVICES=("ui" "server" "cron")
 fi
 
 # ── Compose path (simple) ────────────────────────────────────────────────
@@ -129,11 +120,9 @@ if has_compose; then
     COMPOSE_SERVICES=""
     for svc in "${SERVICES[@]}"; do
         case $svc in
-            ui)        COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ui" ;;
-            server)    COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-server" ;;
-            cron)      COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-alerts-cron" ;;
-            capture)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-capture" ;;
-            ingestion) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-session-replay-ingestion" ;;
+            ui)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ui" ;;
+            server) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-server" ;;
+            cron)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-alerts-cron" ;;
         esac
     done
 
@@ -192,26 +181,6 @@ build_cron() {
     print_success "pulse-alerts-cron image built -> $IMAGE_ALERTS_CRON"
 }
 
-build_capture() {
-    print_info "Building pulse-session-capture image..."
-    docker build \
-        $NO_CACHE \
-        -t "$IMAGE_SESSION_CAPTURE" \
-        -f "$ROOT_DIR/backend/session-capture-service/Dockerfile" \
-        "$ROOT_DIR/backend/session-capture-service"
-    print_success "pulse-session-capture image built -> $IMAGE_SESSION_CAPTURE"
-}
-
-build_ingestion() {
-    print_info "Building pulse-session-replay-ingestion image..."
-    docker build \
-        $NO_CACHE \
-        -t "$IMAGE_SESSION_INGESTION" \
-        -f "$ROOT_DIR/backend/session-replay-ingestion/Dockerfile" \
-        "$ROOT_DIR/backend/session-replay-ingestion"
-    print_success "pulse-session-replay-ingestion image built -> $IMAGE_SESSION_INGESTION"
-}
-
 # When building multiple images, run them in parallel with per-service log files
 BUILD_LOG_DIR=$(mktemp -d)
 PIDS=()
@@ -222,19 +191,15 @@ for svc in "${SERVICES[@]}"; do
     if [ ${#SERVICES[@]} -gt 1 ]; then
         local_log="${BUILD_LOG_DIR}/${svc}.log"
         case $svc in
-            ui)        build_ui        > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ui")        ;;
-            server)    build_server    > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("server")    ;;
-            cron)      build_cron      > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("cron")      ;;
-            capture)   build_capture   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("capture")   ;;
-            ingestion) build_ingestion > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ingestion") ;;
+            ui)     build_ui     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ui")     ;;
+            server) build_server > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("server") ;;
+            cron)   build_cron   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("cron")   ;;
         esac
     else
         case $svc in
-            ui)        build_ui        || FAILED=1 ;;
-            server)    build_server    || FAILED=1 ;;
-            cron)      build_cron      || FAILED=1 ;;
-            capture)   build_capture   || FAILED=1 ;;
-            ingestion) build_ingestion || FAILED=1 ;;
+            ui)     build_ui     || FAILED=1 ;;
+            server) build_server || FAILED=1 ;;
+            cron)   build_cron   || FAILED=1 ;;
         esac
     fi
 done
