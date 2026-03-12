@@ -5,7 +5,6 @@ package com.pulse.android.sdk.internal
 
 import android.app.Application
 import android.content.Context
-import androidx.core.content.edit
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
@@ -13,19 +12,14 @@ import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
-import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
-import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseProp
-import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
-import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseOtelUtils
-import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
@@ -33,7 +27,6 @@ import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
-import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -66,7 +59,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
@@ -178,43 +170,19 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 Context.MODE_PRIVATE,
             )
 
-        val currentSdkConfig =
-            sharedPrefs.getString(PrefsName.PULSE_SDK_CONFIG_KEY, null)?.let {
-                PulseSerialisationUtils.jsonConfigForSerialisation.decodeFromString<PulseSdkConfig>(it)
-            }
-
-        PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
-
         val projectIdHeader = createProjectIdHeader(projectId)
         val endpointHeadersWithProject = endpointHeaders + projectIdHeader
 
-        launch(ioDispatcher) {
-            val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
-            apiCache.mkdirs()
-            val newConfig =
-                PulseSdkConfigRestProvider(
-                    cacheDir = apiCache,
-                    okHttpClient = PulseNetworkingUtils.okHttpClient,
-                    headers = endpointHeadersWithProject,
-                ) {
-                    configEndpointUrl
-                        ?: "${PulseNetworkingUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
-                }.provide()
-            val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
-            PulseOtelUtils.logDebug(TAG) {
-                "newConfigVersion = ${newConfig?.version ?: "newConfig is null"}, " +
-                    "oldConfigVersion = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}, " +
-                    "shouldUpdate = $isDifferentVersion"
-            }
-            if (isDifferentVersion) {
-                sharedPrefs.edit(commit = true) {
-                    putString(
-                        PrefsName.PULSE_SDK_CONFIG_KEY,
-                        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(newConfig),
-                    )
-                }
-            }
-        }
+        val currentSdkConfig =
+            PulseSdkConfigRefresher.loadAndRefresh(
+                cacheDir = application.cacheDir,
+                configUrl = PulseSdkConfigRefresher.resolveConfigUrl(configEndpointUrl, endpointBaseUrl),
+                headers = endpointHeadersWithProject,
+                sharedPrefs = sharedPrefs,
+                prefsKey = PrefsName.PULSE_SDK_CONFIG_KEY,
+                scope = this,
+                ioDispatcher = ioDispatcher,
+            )
 
         val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
         resourceBuilder.put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
@@ -245,49 +213,29 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val meteringSessionHeader = createMeteringSessionHeader(meteredSessionManager.getSessionId())
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
-            if (tracerProviderCustomizer != null) {
-                BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
-                    val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, app)
-                    tracerProviderCustomizer.apply(builderWithInternal, app)
-                }
-            } else {
-                internalTracerProviderCustomizer
-            }
-
+            PulseCustomizerUtils.mergeTracerCustomizers(
+                internal = internalTracerProviderCustomizer,
+                external = tracerProviderCustomizer,
+            )
         val mergedLoggerProviderCustomizer =
-            if (loggerProviderCustomizer != null) {
-                BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
-                    val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, app)
-                    loggerProviderCustomizer.apply(builderWithInternal, app)
-                }
-            } else {
-                internalLoggerProviderCustomizer
-            }
+            PulseCustomizerUtils.mergeLoggerCustomizers(
+                internal = internalLoggerProviderCustomizer,
+                external = loggerProviderCustomizer,
+            )
 
-        val finalSpanEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.spanCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: spanEndpointConnectivity
-        val finalLogEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.logsCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: logEndpointConnectivity
-        val finalMetricEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.metricCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: metricEndpointConnectivity
-        val finalCustomEventEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.customEventCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: customEventConnectivity
+        val resolvedEndpoints =
+            PulseEndpointUtils.resolve(
+                sdkConfig = currentSdkConfig,
+                headers = endpointHeadersWithProject,
+                fallbackSpan = spanEndpointConnectivity,
+                fallbackLog = logEndpointConnectivity,
+                fallbackMetric = metricEndpointConnectivity,
+                fallbackCustomEvent = customEventConnectivity,
+            )
+        val finalSpanEndpointConnectivity = resolvedEndpoints.span
+        val finalLogEndpointConnectivity = resolvedEndpoints.log
+        val finalMetricEndpointConnectivity = resolvedEndpoints.metric
+        val finalCustomEventEndpointConnectivity = resolvedEndpoints.customEvent
 
         val otlpSpanExporter: SpanExporter =
             OtlpHttpSpanExporter
@@ -351,69 +299,13 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
-            if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
+            currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
+                instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
             pulseSamplingProcessors?.run {
-                val enabledFeatures = getEnabledFeatures()
-                enumValues<PulseFeatureName>().forEach { feature ->
-                    if (feature !in enabledFeatures) {
-                        PulseOtelUtils.logDebug(TAG) { "Disabling feature = $feature" }
-                        when (feature) {
-                            PulseFeatureName.JAVA_CRASH -> {
-                                config.suppressInstrumentation("crash")
-                            }
-
-                            PulseFeatureName.JS_CRASH -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.NETWORK_CHANGE -> {
-                                config.disableNetworkAttributes()
-                            }
-
-                            PulseFeatureName.JAVA_ANR -> {
-                                config.suppressInstrumentation("anr")
-                            }
-
-                            PulseFeatureName.INTERACTION -> {
-                                config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                            }
-
-                            PulseFeatureName.CPP_CRASH -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.CPP_ANR -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.NETWORK_INSTRUMENTATION -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.SCREEN_SESSION -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.CUSTOM_EVENTS -> {
-                                isCustomEventEnabled = false
-                            }
-
-                            PulseFeatureName.RN_SCREEN_LOAD -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.RN_SCREEN_INTERACTIVE -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.UNKNOWN -> {
-                                // no-op
-                            }
-                        }
-                    }
-                }
+                PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
+                val flagResult = PulseFeatureFlagUtils.apply(config, this)
+                isCustomEventEnabled = flagResult.isCustomEventEnabled
             }
         }
         otelInstance =
@@ -796,7 +688,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         internal fun extractProjectID(projectId: String): String {
             val lastUnderscoreIndex = projectId.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {
-                projectId.substring(0, lastUnderscoreIndex)
+                projectId.take(lastUnderscoreIndex)
             } else {
                 projectId
             }
