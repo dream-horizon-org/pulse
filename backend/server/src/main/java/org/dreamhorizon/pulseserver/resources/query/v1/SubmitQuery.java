@@ -11,10 +11,10 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryRequestDto;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
 import org.dreamhorizon.pulseserver.service.query.models.QueryJobStatus;
@@ -28,7 +28,7 @@ public class SubmitQuery {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<SubmitQueryResponseDto>> submitQuery(
       @HeaderParam("user-email") String userEmail,
       @Valid SubmitQueryRequestDto request) {
@@ -53,7 +53,8 @@ public class SubmitQuery {
               return SubmitQueryResponseDto.builder()
                   .jobId(job.getJobId())
                   .status("COMPLETED")
-                  .message("Query completed within 3 seconds but results are not available yet. Use GET /query/job/{jobId} to fetch results.")
+                  .message(
+                      "Query completed within 3 seconds but results are not available yet. Use GET /query/job/{jobId} to fetch results.")
                   .queryExecutionId(job.getQueryExecutionId())
                   .resultLocation(job.getResultLocation())
                   .resultData(null)
