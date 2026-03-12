@@ -4,9 +4,11 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
@@ -39,45 +41,45 @@ public class IncidentService {
     String projectId = ProjectContext.requireProjectId();
 
     IncidentRow row = IncidentRow.builder()
-        .title(request.getTitle())
-        .description(request.getDescription())
-        .severity(request.getSeverity())
-        .reporterName(request.getReporterName())
-        .reporterEmail(request.getReporterEmail())
-        .orgIdentifier(request.getOrgIdentifier())
-        .status(IncidentStatus.OPEN)
-        .build();
+      .title(request.getTitle())
+      .description(request.getDescription())
+      .severity(request.getSeverity())
+      .reporterName(request.getReporterName())
+      .reporterEmail(request.getReporterEmail())
+      .orgIdentifier(request.getOrgIdentifier())
+      .status(IncidentStatus.OPEN)
+      .build();
 
     return incidentDao.insertIncident(row)
-        .flatMap(saved -> {
-          Map<String, Object> params = buildIncidentParams(saved);
-          String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
+      .flatMap(saved -> {
+        Map<String, Object> params = buildIncidentParams(saved);
+        String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
-          SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.SLACK))
-              .eventName(NotificationEventName.CREATE_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .slackChannelIds(List.of(slackChannel))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.SLACK))
+          .eventName(NotificationEventName.CREATE_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .slackChannelIds(List.of(slackChannel))
+            .build())
+          .params(params)
+          .build();
 
-          SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.EMAIL))
-              .eventName(NotificationEventName.CREATE_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .emails(List.of(saved.getReporterEmail()))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .eventName(NotificationEventName.CREATE_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .emails(List.of(saved.getReporterEmail()))
+            .build())
+          .params(params)
+          .build();
 
-          return notificationService.sendNotification(projectId, slackRequest)
-              .flatMap(slackResponse ->
-                  notificationService.sendNotificationAsync(projectId, emailRequest))
-              .map(emailResponse -> toResponseDto(saved));
-        })
-        .doOnSuccess(res -> log.info("Incident created successfully: id={}", res.getId()))
-        .doOnError(error -> log.error("Failed to create incident: title={}", request.getTitle(), error));
+        return notificationService.sendNotification(projectId, slackRequest)
+          .flatMap(slackResponse ->
+            notificationService.sendNotificationAsync(projectId, emailRequest))
+          .map(emailResponse -> toResponseDto(saved));
+      })
+      .doOnSuccess(res -> log.info("Incident created successfully: id={}", res.getId()))
+      .doOnError(error -> log.error("Failed to create incident: title={}", request.getTitle(), error));
   }
 
   // ===================== Acknowledge =====================
@@ -86,35 +88,35 @@ public class IncidentService {
     log.info("Acknowledging incident id={}", incidentId);
 
     return incidentDao.acknowledgeIncident(incidentId)
-        .flatMapCompletable(incident -> {
-          Map<String, Object> params = buildIncidentParams(incident);
-          String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
+      .flatMapCompletable(incident -> {
+        Map<String, Object> params = buildIncidentParams(incident);
+        String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
-          SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.SLACK))
-              .eventName(NotificationEventName.ACKNOWLEDGE_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .slackChannelIds(List.of(slackChannel))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.SLACK))
+          .eventName(NotificationEventName.ACKNOWLEDGE_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .slackChannelIds(List.of(slackChannel))
+            .build())
+          .params(params)
+          .build();
 
-          SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.EMAIL))
-              .eventName(NotificationEventName.ACKNOWLEDGE_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .emails(List.of(incident.getReporterEmail()))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .eventName(NotificationEventName.ACKNOWLEDGE_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .emails(List.of(incident.getReporterEmail()))
+            .build())
+          .params(params)
+          .build();
 
-          return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
-              .flatMap(slackRes ->
-                  notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
-              .ignoreElement();
-        })
-        .doOnComplete(() -> log.info("Incident {} acknowledged successfully", incidentId))
-        .doOnError(error -> log.error("Error acknowledging incident {}", incidentId, error));
+        return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
+          .flatMap(slackRes ->
+            notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
+          .ignoreElement();
+      })
+      .doOnComplete(() -> log.info("Incident {} acknowledged successfully", incidentId))
+      .doOnError(error -> log.error("Error acknowledging incident {}", incidentId, error));
   }
 
   // ===================== Recover =====================
@@ -123,35 +125,35 @@ public class IncidentService {
     log.info("Recovering incident id={}", incidentId);
 
     return incidentDao.recoverIncident(incidentId)
-        .flatMapCompletable(incident -> {
-          Map<String, Object> params = buildIncidentParams(incident);
-          String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
+      .flatMapCompletable(incident -> {
+        Map<String, Object> params = buildIncidentParams(incident);
+        String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
-          SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.SLACK))
-              .eventName(NotificationEventName.RECOVERED_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .slackChannelIds(List.of(slackChannel))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.SLACK))
+          .eventName(NotificationEventName.RECOVERED_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .slackChannelIds(List.of(slackChannel))
+            .build())
+          .params(params)
+          .build();
 
-          SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.EMAIL))
-              .eventName(NotificationEventName.RECOVERED_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .emails(List.of(incident.getReporterEmail()))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .eventName(NotificationEventName.RECOVERED_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .emails(List.of(incident.getReporterEmail()))
+            .build())
+          .params(params)
+          .build();
 
-          return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
-              .flatMap(slackRes ->
-                  notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
-              .ignoreElement();
-        })
-        .doOnComplete(() -> log.info("Incident {} recovered successfully", incidentId))
-        .doOnError(error -> log.error("Error recovering incident {}", incidentId, error));
+        return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
+          .flatMap(slackRes ->
+            notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
+          .ignoreElement();
+      })
+      .doOnComplete(() -> log.info("Incident {} recovered successfully", incidentId))
+      .doOnError(error -> log.error("Error recovering incident {}", incidentId, error));
   }
 
   // ===================== Close =====================
@@ -160,35 +162,35 @@ public class IncidentService {
     log.info("Closing incident id={}", incidentId);
 
     return incidentDao.closeIncident(incidentId)
-        .flatMapCompletable(incident -> {
-          Map<String, Object> params = buildIncidentParams(incident);
-          String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
+      .flatMapCompletable(incident -> {
+        Map<String, Object> params = buildIncidentParams(incident);
+        String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
-          SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.SLACK))
-              .eventName(NotificationEventName.CLOSE_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .slackChannelIds(List.of(slackChannel))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.SLACK))
+          .eventName(NotificationEventName.CLOSE_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .slackChannelIds(List.of(slackChannel))
+            .build())
+          .params(params)
+          .build();
 
-          SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
-              .channelTypes(List.of(ChannelType.EMAIL))
-              .eventName(NotificationEventName.CLOSE_INCIDENT.getValue())
-              .recipients(RecipientsDto.builder()
-                  .emails(List.of(incident.getReporterEmail()))
-                  .build())
-              .params(params)
-              .build();
+        SendNotificationRequestDto emailRequest = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .eventName(NotificationEventName.CLOSE_INCIDENT.getValue())
+          .recipients(RecipientsDto.builder()
+            .emails(List.of(incident.getReporterEmail()))
+            .build())
+          .params(params)
+          .build();
 
-          return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
-              .flatMap(slackRes ->
-                  notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
-              .ignoreElement();
-        })
-        .doOnComplete(() -> log.info("Incident {} closed successfully", incidentId))
-        .doOnError(error -> log.error("Error closing incident {}", incidentId, error));
+        return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
+          .flatMap(slackRes ->
+            notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
+          .ignoreElement();
+      })
+      .doOnComplete(() -> log.info("Incident {} closed successfully", incidentId))
+      .doOnError(error -> log.error("Error closing incident {}", incidentId, error));
   }
 
   // ===================== Helpers =====================
@@ -208,9 +210,9 @@ public class IncidentService {
 
   private CreateIncidentResponseDto toResponseDto(IncidentRow row) {
     return CreateIncidentResponseDto.builder()
-        .id(row.getId())
-        .status(row.getStatus())
-        .createdAt(row.getCreatedAt())
-        .build();
+      .id(row.getId())
+      .status(row.getStatus())
+      .createdAt(row.getCreatedAt())
+      .build();
   }
 }
