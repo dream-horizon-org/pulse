@@ -44,7 +44,7 @@ public class IncidentService {
         .severity(request.getSeverity())
         .reporterName(request.getReporterName())
         .reporterEmail(request.getReporterEmail())
-        .orgIdentifier(request.getOrgIdentifier())
+        .orgIdentifier(projectId)
         .status(IncidentStatus.OPEN)
         .build();
 
@@ -71,9 +71,9 @@ public class IncidentService {
               .params(params)
               .build();
 
-          return notificationService.sendNotification(projectId, slackRequest)
+          return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
               .flatMap(slackResponse ->
-                  notificationService.sendNotificationAsync(projectId, emailRequest))
+                  notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
               .map(emailResponse -> toResponseDto(saved));
         })
         .doOnSuccess(res -> log.info("Incident created successfully: id={}", res.getId()))
@@ -82,12 +82,17 @@ public class IncidentService {
 
   // ===================== Acknowledge =====================
 
-  public Completable acknowledgeIncident(long incidentId) {
+  public Completable acknowledgeIncident(long incidentId, String actionBy) {
     log.info("Acknowledging incident id={}", incidentId);
 
-    return incidentDao.acknowledgeIncident(incidentId)
+    return incidentDao.getIncidentById(incidentId)
         .flatMapCompletable(incident -> {
+          if (incident.getStatus() != IncidentStatus.OPEN) {
+            return Completable.error(new RuntimeException(
+                "Cannot acknowledge incident " + incidentId + ": not in OPEN state"));
+          }
           Map<String, Object> params = buildIncidentParams(incident);
+          params.put("actionBy", actionBy);
           String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
           SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
@@ -111,6 +116,7 @@ public class IncidentService {
           return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
               .flatMap(slackRes ->
                   notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
+              .flatMap(emailRes -> incidentDao.acknowledgeIncident(incidentId))
               .ignoreElement();
         })
         .doOnComplete(() -> log.info("Incident {} acknowledged successfully", incidentId))
@@ -119,12 +125,17 @@ public class IncidentService {
 
   // ===================== Recover =====================
 
-  public Completable recoverIncident(long incidentId) {
+  public Completable recoverIncident(long incidentId, String actionBy) {
     log.info("Recovering incident id={}", incidentId);
 
-    return incidentDao.recoverIncident(incidentId)
+    return incidentDao.getIncidentById(incidentId)
         .flatMapCompletable(incident -> {
+          if (incident.getStatus() != IncidentStatus.ACKNOWLEDGED) {
+            return Completable.error(new RuntimeException(
+                "Cannot recover incident " + incidentId + ": not in ACKNOWLEDGED state"));
+          }
           Map<String, Object> params = buildIncidentParams(incident);
+          params.put("actionBy", actionBy);
           String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
           SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
@@ -148,6 +159,7 @@ public class IncidentService {
           return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
               .flatMap(slackRes ->
                   notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
+              .flatMap(emailRes -> incidentDao.recoverIncident(incidentId))
               .ignoreElement();
         })
         .doOnComplete(() -> log.info("Incident {} recovered successfully", incidentId))
@@ -156,12 +168,17 @@ public class IncidentService {
 
   // ===================== Close =====================
 
-  public Completable closeIncident(long incidentId) {
+  public Completable closeIncident(long incidentId, String actionBy) {
     log.info("Closing incident id={}", incidentId);
 
-    return incidentDao.closeIncident(incidentId)
+    return incidentDao.getIncidentById(incidentId)
         .flatMapCompletable(incident -> {
+          if (incident.getStatus() != IncidentStatus.RECOVERED) {
+            return Completable.error(new RuntimeException(
+                "Cannot close incident " + incidentId + ": not in RECOVERED state"));
+          }
           Map<String, Object> params = buildIncidentParams(incident);
+          params.put("actionBy", actionBy);
           String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
           SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
@@ -185,6 +202,7 @@ public class IncidentService {
           return notificationService.sendNotification(DEFAULT_PROJECT_ID, slackRequest)
               .flatMap(slackRes ->
                   notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, emailRequest))
+              .flatMap(emailRes -> incidentDao.closeIncident(incidentId))
               .ignoreElement();
         })
         .doOnComplete(() -> log.info("Incident {} closed successfully", incidentId))

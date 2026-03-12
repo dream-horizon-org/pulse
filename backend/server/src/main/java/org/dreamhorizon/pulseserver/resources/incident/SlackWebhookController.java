@@ -39,21 +39,23 @@ public class SlackWebhookController {
       SlackActionPayload.Action action = payload.getActions().get(0);
       String actionId = action.getActionId();
       long incidentId = Long.parseLong(action.getValue());
-      String userName = payload.getUser() != null ? payload.getUser().getUsername() : "unknown";
+      String userName = payload.getUser() != null
+          ? "<@" + payload.getUser().getId() + ">"
+          : "unknown";
 
       log.info("Processing Slack action '{}' for incident {} by user {}", actionId, incidentId, userName);
 
       // Fire-and-forget: subscribe and return 200 immediately (Slack requires < 3s response)
       switch (actionId) {
-        case "ack" -> incidentService.acknowledgeIncident(incidentId)
+        case "ack" -> incidentService.acknowledgeIncident(incidentId, userName)
             .subscribe(
                 () -> log.info("Acknowledge completed for incident {}", incidentId),
                 error -> log.error("Error acknowledging incident {}", incidentId, error));
-        case "recover" -> incidentService.recoverIncident(incidentId)
+        case "recover" -> incidentService.recoverIncident(incidentId, userName)
             .subscribe(
                 () -> log.info("Recover completed for incident {}", incidentId),
                 error -> log.error("Error recovering incident {}", incidentId, error));
-        case "close" -> incidentService.closeIncident(incidentId)
+        case "close" -> incidentService.closeIncident(incidentId, userName)
             .subscribe(
                 () -> log.info("Close completed for incident {}", incidentId),
                 error -> log.error("Error closing incident {}", incidentId, error));
