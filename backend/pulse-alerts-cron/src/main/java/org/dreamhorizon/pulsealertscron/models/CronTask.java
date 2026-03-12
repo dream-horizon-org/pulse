@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 public class CronTask {
   private Integer id;
   private String url;
-  private String tenantId;
+  private String projectId;
 }
 

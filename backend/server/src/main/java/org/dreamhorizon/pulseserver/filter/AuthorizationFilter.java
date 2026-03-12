@@ -41,6 +41,8 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
   private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
   private static final String CONFIG_PATH = "v1/configs";
+  private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String SYMBOL_UPLOAD_PREFIX = "v1/symbolicate/file/upload";
 
   @Context
   private ResourceInfo resourceInfo;
@@ -52,21 +54,19 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   public void filter(ContainerRequestContext requestContext) throws IOException {
     String path = requestContext.getUriInfo().getPath();
 
-    // Skip authorization for excluded paths
     if (isExcludedPath(path)) {
       log.debug("Skipping authorization for excluded path: {}", path);
       return;
     }
 
-    // Check if project context is set (required for project-scoped resources)
-    String projectId = ProjectContext.getProjectId();
-    if (projectId == null || projectId.isBlank()) {
-      // No project context - this might be a tenant-level resource
-      log.debug("No project context for path: {}", path);
+    RequiresPermission permission = getRequiresPermission();
+    if (permission == null) {
+      log.debug("No @RequiresPermission annotation for path: {}, skipping authorization", path);
       return;
     }
 
-    // Extract user ID from JWT token
+    String projectId = ProjectContext.requireProjectId();
+
     String userId = extractUserIdFromToken(requestContext);
     if (userId == null) {
       log.warn("Authorization check failed: missing user ID in token for path: {}", path);
@@ -74,11 +74,10 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       return;
     }
 
-    String action = resolveAction(requestContext.getMethod());
+    String action = permission.value();
 
     log.debug("Checking permission: userId={}, action={}, projectId={}", userId, action, projectId);
 
-    // Perform permission check
     try {
       Boolean hasPermission = getOpenFgaService().checkPermission(userId, action, "project", projectId)
           .blockingGet();
@@ -115,41 +114,31 @@ public class AuthorizationFilter implements ContainerRequestFilter {
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)
         || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
         || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
-        || normalizedPath.startsWith(CONFIG_PATH);
+        || normalizedPath.startsWith(CONFIG_PATH)
+        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+        || normalizedPath.startsWith(SYMBOL_UPLOAD_PREFIX);
   }
 
   /**
-   * Resolve the required OpenFGA permission for the current request.
-   * Checks for a {@link RequiresPermission} annotation on the resource method
-   * (or its class) first; falls back to HTTP-method-based inference.
+   * Returns the {@link RequiresPermission} annotation from the resource method
+   * or its class, or {@code null} if neither is annotated.
    */
-  private String resolveAction(String httpMethod) {
-    if (resourceInfo != null) {
-      Method resourceMethod = resourceInfo.getResourceMethod();
-      if (resourceMethod != null) {
-        RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
-        if (methodAnnotation != null) {
-          return methodAnnotation.value();
-        }
-      }
-      Class<?> resourceClass = resourceInfo.getResourceClass();
-      if (resourceClass != null) {
-        RequiresPermission classAnnotation = resourceClass.getAnnotation(RequiresPermission.class);
-        if (classAnnotation != null) {
-          return classAnnotation.value();
-        }
+  private RequiresPermission getRequiresPermission() {
+    if (resourceInfo == null) {
+      return null;
+    }
+    Method resourceMethod = resourceInfo.getResourceMethod();
+    if (resourceMethod != null) {
+      RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
+      if (methodAnnotation != null) {
+        return methodAnnotation;
       }
     }
-    return mapHttpMethodToAction(httpMethod);
-  }
-
-  private String mapHttpMethodToAction(String method) {
-    return switch (method.toUpperCase()) {
-      case "GET", "HEAD" -> "can_view";
-      case "POST", "PUT", "PATCH" -> "can_edit";
-      case "DELETE" -> "can_delete_project";
-      default -> "can_view";
-    };
+    Class<?> resourceClass = resourceInfo.getResourceClass();
+    if (resourceClass != null) {
+      return resourceClass.getAnnotation(RequiresPermission.class);
+    }
+    return null;
   }
 
   /**
