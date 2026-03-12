@@ -71,11 +71,14 @@ internal object PulseEndpointUtils {
         headers: Map<String, String>,
         fallbackHeaders: Map<String, String>,
     ): HttpEndpointConnectivity =
-        if (url != null) {
+        if (url != null && isValidUrl(url)) {
             HttpEndpointConnectivity(url = url, headers = headers)
         } else {
             HttpEndpointConnectivity(url = fallbackUrl, headers = fallbackHeaders + headers)
         }
+
+    private fun isValidUrl(url: String): Boolean =
+        url.startsWith("http://") || url.startsWith("https://")
 
     private const val TAG = "PulseEndpointUtils"
 }

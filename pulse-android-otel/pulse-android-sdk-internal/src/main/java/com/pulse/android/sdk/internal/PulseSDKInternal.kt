@@ -325,7 +325,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             SessionReplayRegistry.set(
                 SessionReplayBootstrap(
                     config = replayConfig,
-                    projectId = projectId,
+                    projectId = apiKey,
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
                 ),
             )
@@ -449,7 +449,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
             flushAt = featureConfig.flushAt ?: base.flushAt,
             maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
-            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl,
+            replayApiBaseUrl = (featureConfig.replayApiBaseUrl?.takeIf { it.isNotBlank() } ?: base.replayApiBaseUrl)
+                ?.replace("://localhost", "://10.0.2.2"),
         )
     }
 
