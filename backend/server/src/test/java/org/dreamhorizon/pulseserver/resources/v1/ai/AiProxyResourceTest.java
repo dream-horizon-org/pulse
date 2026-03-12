@@ -18,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -55,7 +56,8 @@ class AiProxyResourceTest {
 
   private void setupUriInfo(String path, String queryString) {
     String uri = "http://localhost:8080/v1/ai/" + path;
-    if (queryString != null && !queryString.isEmpty()) {
+    boolean hasQuery = queryString != null && !queryString.isEmpty();
+    if (hasQuery) {
       uri += "?" + queryString;
     }
     when(uriInfo.getRequestUri()).thenReturn(URI.create(uri));
@@ -65,9 +67,9 @@ class AiProxyResourceTest {
     setupUriInfo(path, null);
   }
 
+  @SuppressWarnings("unchecked")
   private HttpResponse<InputStream> createMockResponse(
       int statusCode, String contentType, String body) {
-    @SuppressWarnings("unchecked")
     HttpResponse<InputStream> response = (HttpResponse<InputStream>) org.mockito.Mockito.mock(
         HttpResponse.class);
     HttpHeaders headers = org.mockito.Mockito.mock(HttpHeaders.class);
@@ -79,8 +81,16 @@ class AiProxyResourceTest {
     return response;
   }
 
+  private void setupSuccessfulProxy(String path, int statusCode, String contentType, String body) {
+    setupUriInfo(path);
+    when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
+    HttpResponse<InputStream> mockResponse = createMockResponse(statusCode, contentType, body);
+    when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+  }
+
   private jakarta.ws.rs.core.Response awaitResponse(
-      java.util.concurrent.CompletionStage<jakarta.ws.rs.core.Response> stage) {
+      CompletionStage<jakarta.ws.rs.core.Response> stage) {
     try {
       return stage.toCompletableFuture().get(5, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -93,8 +103,6 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenMissingAuthHeader() {
-      setupUriInfo("chat");
-
       assertThatThrownBy(() -> resource.proxyGet("chat", null, uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
@@ -103,8 +111,6 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenInvalidFormat() {
-      setupUriInfo("chat");
-
       assertThatThrownBy(() -> resource.proxyGet("chat", "Basic abc123", uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
@@ -113,8 +119,6 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenEmptyToken() {
-      setupUriInfo("chat");
-
       assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer ", uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
@@ -123,8 +127,6 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenTokenIsWhitespaceOnly() {
-      setupUriInfo("chat");
-
       assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer   ", uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
@@ -133,7 +135,6 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenInvalidOrExpiredToken() {
-      setupUriInfo("chat");
       when(jwtService.verifyToken("bad-token"))
           .thenThrow(new RuntimeException("Token expired"));
 
@@ -149,12 +150,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldProxyGetRequest() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{\"message\":\"hello\"}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{\"message\":\"hello\"}");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyGet("chat", VALID_TOKEN, uriInfo));
@@ -170,14 +166,10 @@ class AiProxyResourceTest {
 
     @Test
     void shouldProxyPostRequestWithBody() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{\"reply\":\"ok\"}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{\"reply\":\"ok\"}");
 
-      InputStream body = new ByteArrayInputStream("{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
+      InputStream body = new ByteArrayInputStream(
+          "{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, body));
 
@@ -190,12 +182,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldProxyPostRequestWithoutBody() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, null));
@@ -209,14 +196,10 @@ class AiProxyResourceTest {
 
     @Test
     void shouldProxyPutRequestWithBody() {
-      setupUriInfo("chat/123");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{\"updated\":true}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat/123", 200, "application/json", "{\"updated\":true}");
 
-      InputStream body = new ByteArrayInputStream("{\"data\":\"value\"}".getBytes(StandardCharsets.UTF_8));
+      InputStream body = new ByteArrayInputStream(
+          "{\"data\":\"value\"}".getBytes(StandardCharsets.UTF_8));
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyPut("chat/123", VALID_TOKEN, uriInfo, body));
 
@@ -229,12 +212,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldProxyPutRequestWithoutBody() {
-      setupUriInfo("chat/123");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat/123", 200, "application/json", "{}");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyPut("chat/123", VALID_TOKEN, uriInfo, null));
@@ -248,12 +226,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldProxyDeleteRequest() {
-      setupUriInfo("chat/123");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          204, "application/json", "");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat/123", 204, "application/json", "");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyDelete("chat/123", VALID_TOKEN, uriInfo));
@@ -271,12 +244,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldConstructUrlWithPath() {
-      setupUriInfo("chat/messages");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat/messages", 200, "application/json", "{}");
 
       awaitResponse(resource.proxyGet("chat/messages", VALID_TOKEN, uriInfo));
 
@@ -307,12 +275,7 @@ class AiProxyResourceTest {
     @Test
     void shouldIncludeServiceKeyHeaderWhenConfigured() {
       resource = new AiProxyResource(jwtService, httpClient, AI_SERVICE_URL, "secret-service-key");
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
@@ -324,12 +287,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldNotIncludeServiceKeyHeaderWhenEmpty() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
@@ -344,13 +302,8 @@ class AiProxyResourceTest {
 
     @Test
     void shouldReturnBufferedJsonResponse() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
       String jsonBody = "{\"message\":\"hello world\"}";
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", jsonBody);
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", jsonBody);
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyGet("chat", VALID_TOKEN, uriInfo));
@@ -363,12 +316,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldReturnStreamingResponseForSseContentType() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "text/event-stream", "data: {\"chunk\":1}\n\n");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "text/event-stream", "data: {\"chunk\":1}\n\n");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyGet("chat", VALID_TOKEN, uriInfo));
@@ -380,12 +328,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldPropagateStatusCodeFromUpstream() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          404, "application/json", "{\"error\":\"not found\"}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 404, "application/json", "{\"error\":\"not found\"}");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyGet("chat", VALID_TOKEN, uriInfo));
@@ -433,12 +376,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldHandleNullBodyInPost() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       jakarta.ws.rs.core.Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, null));
@@ -448,12 +386,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldHandleEmptyBodyInPost() {
-      setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       InputStream emptyBody = new ByteArrayInputStream(new byte[0]);
       jakarta.ws.rs.core.Response response = awaitResponse(
