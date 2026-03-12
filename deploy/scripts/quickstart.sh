@@ -143,10 +143,16 @@ fi
 print_success "OTEL collector configuration found"
 
 if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-otel-schema.sql" ]; then
-    print_error "ClickHouse schema not found"
+    print_error "ClickHouse OTEL schema not found"
     exit 1
 fi
-print_success "ClickHouse schema found"
+print_success "ClickHouse OTEL schema found"
+
+if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-session-replay-schema.sql" ]; then
+    print_error "ClickHouse session replay schema not found"
+    exit 1
+fi
+print_success "ClickHouse session replay schema found"
 
 load_env
 
@@ -225,6 +231,11 @@ else
     print_warning "ClickHouse connection failed"
 fi
 
+print_info "Testing session replay pipeline..."
+if ! verify_session_replay; then
+    print_warning "Session replay pipeline may still be starting"
+fi
+
 echo ""
 print_info "Verifying database initialization..."
 INIT_OK=true
@@ -258,8 +269,11 @@ echo -e "${CYAN}Access Points:${NC}"
 echo -e "  ${BLUE}Frontend (UI):${NC}      http://localhost:3000"
 echo -e "  ${BLUE}Backend API:${NC}        http://localhost:8080"
 echo -e "  ${BLUE}Health Check:${NC}       http://localhost:8080/healthcheck"
+echo -e "  ${BLUE}Session Capture:${NC}    http://localhost:3400/s/ (POST)"
 echo -e "  ${BLUE}MySQL:${NC}              localhost:3307"
 echo -e "  ${BLUE}ClickHouse:${NC}         localhost:8123 (HTTP), localhost:9000 (Native)"
+echo -e "  ${BLUE}Kafka:${NC}              localhost:9092"
+echo -e "  ${BLUE}MinIO Console:${NC}      http://localhost:9101"
 echo -e "  ${BLUE}OTEL Collector:${NC}     localhost:4317 (gRPC), localhost:4318 (HTTP)"
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
@@ -268,6 +282,9 @@ echo -e "  ${BLUE}View server logs:${NC}   docker logs -f pulse-server"
 echo -e "  ${BLUE}Check status:${NC}       docker ps --filter network=pulse-network"
 echo -e "  ${BLUE}Stop services:${NC}      ./deploy/scripts/stop.sh"
 echo -e "  ${BLUE}Reset databases:${NC}    ./deploy/scripts/reset-databases.sh"
+echo ""
+echo -e "${CYAN}Test Session Replay Pipeline:${NC}"
+echo -e "  ${BLUE}curl -X POST http://localhost:3400/s/ -H 'Content-Type: application/json' -d '{\"event\":\"\$snapshot\",\"project_id\":\"test-proj\",\"user_id\":\"test-user\",\"properties\":{\"session_id\":\"test-session-001\",\"snapshot_source\":\"mobile\",\"snapshot_data\":[{\"type\":2,\"data\":{\"tag\":\"div\"},\"timestamp\":'$(date +%s)000'}]}}'${NC}"
 echo ""
 echo -e "${CYAN}Next Steps:${NC}"
 echo -e "  1. Open http://localhost:3000 in your browser"

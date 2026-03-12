@@ -8,8 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dto.response.EmptyResponse;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
@@ -29,6 +32,17 @@ public class S3BucketClient implements IS3BucketClient {
           return Single.fromFuture(future);
         })
         .map(res -> EmptyResponse.emptyResponse);
+  }
+
+  @Override
+  public Single<byte[]> getObjectRange(String bucketName, String objectKey, long startByte, long endByte) {
+    String range = String.format("bytes=%d-%d", startByte, endByte);
+    CompletableFuture<ResponseBytes<GetObjectResponse>> future = client.getObject(
+        builder -> builder.bucket(bucketName).key(objectKey).range(range),
+        AsyncResponseTransformer.toBytes());
+
+    return Single.fromFuture(future)
+        .map(ResponseBytes::asByteArray);
   }
 
 }
