@@ -38,6 +38,7 @@ import { AlertFilters } from "./components/AlertFilters";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { useGetAllScopeMetrics } from "../../hooks/useGetAlertMetrics";
+import { useProjectContext } from "../../contexts";
 
 const LIMIT = 12;
 
@@ -61,6 +62,7 @@ export function AlertListingPage({
 }: AlertListingPageProps) {
   const [rows, setRows] = useState<Array<AlertListItem>>([]);
   const navigate = useNavigate();
+  const { projectId } = useProjectContext();
   const [filterOpened, { open: filterOpen, close: filterClose }] = useDisclosure(false);
   const [searchStr, setSearchStr] = useState<string>("");
   const [errors, setErrors] = useState<DefaultErrorResponse | null | undefined>();
@@ -271,7 +273,11 @@ export function AlertListingPage({
     if (isInteractionDetailsFlow) {
       onCreateAlert?.();
     } else {
-      navigate(ROUTES["ALERTS_FORM"].basePath);
+      if (!projectId) {
+        console.error('[AlertListingPage] Cannot navigate: projectId is null');
+        return;
+      }
+      navigate(ROUTES.PROJECT_ALERTS_FORM.basePath.replace(':projectId', projectId));
     }
   };
 

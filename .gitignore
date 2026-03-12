@@ -18,3 +18,5 @@ lib/
 .terraformrc
 terraform.rc
 env.json
+
+docs/

@@ -192,6 +192,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-redis-client</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
             <version>${guice.version}</version>
@@ -265,6 +271,32 @@
             <artifactId>assertj-core</artifactId>
             <version>3.24.2</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- ClickHouse R2DBC Client for reactive database access -->
+        <dependency>
+            <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-r2dbc</artifactId>
+            <version>0.6.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-pool</artifactId>
+            <version>1.0.1.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-spi</artifactId>
+            <version>1.0.0.RELEASE</version>
+        </dependency>
+
+        <!-- Reactor adapter for RxJava3 -->
+        <dependency>
+            <groupId>io.projectreactor.addons</groupId>
+            <artifactId>reactor-adapter</artifactId>
+            <version>3.5.1</version>
         </dependency>
 
     </dependencies>
@@ -368,6 +400,84 @@
                         <version>1.18.30</version>
                     </dependency>
                 </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <configuration>
+                    <includes>
+                        <include>org/dreamhorizon/pulsealertscron/**</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>jacoco-initialize</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-site</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>org/dreamhorizon/pulsealertscron/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/models/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/util/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/config/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/constant/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/error/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/rest/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/verticle/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/module/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/guice/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/MainApplication.class</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/package-info.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>jacoco-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>org/dreamhorizon/pulsealertscron/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/models/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/util/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/config/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/constant/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/error/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/rest/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/verticle/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/module/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/guice/**</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/MainApplication.class</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/MainModule.class</exclude>
+                                <exclude>org/dreamhorizon/pulsealertscron/package-info.class</exclude>
+                            </excludes>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.50</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

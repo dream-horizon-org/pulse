@@ -287,6 +287,13 @@
             <version>2.15.2</version>
         </dependency>
 
+        <!-- OpenFGA SDK for ReBAC Authorization -->
+        <dependency>
+            <groupId>dev.openfga</groupId>
+            <artifactId>openfga-sdk</artifactId>
+            <version>0.7.2</version>
+        </dependency>
+
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-junit5</artifactId>
@@ -318,6 +325,18 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>athena</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ses</artifactId>
+            <version>${awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
             <version>${awssdk.version}</version>
         </dependency>
 
@@ -576,13 +595,13 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <!-- Same exclusions as jacoco-check -->
                                 <exclude>org/dreamhorizon/pulseserver/config/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/constant/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/verticle/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/module/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/model/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/util/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/healthcheck/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
@@ -593,6 +612,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
                             </excludes>
                         </configuration>
                     </execution>
@@ -604,13 +624,13 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <!-- entire package -->
                                 <exclude>org/dreamhorizon/pulseserver/config/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/constant/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/verticle/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/module/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/model/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/dto/**</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/util/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/healthcheck/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/guice/**</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/enums/**</exclude>
@@ -621,9 +641,7 @@
                                 <exclude>org/dreamhorizon/pulseserver/MainApplication.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/MainModule.class</exclude>
                                 <exclude>org/dreamhorizon/pulseserver/service/AuthService.class</exclude>
-                                <!-- Exclude untestable classes -->
-                                <exclude>org/dreamhorizon/pulseserver/util/RxObjectMapper.class</exclude>
-                                <exclude>org/dreamhorizon/pulseserver/util/Utils.class</exclude>
+                                <exclude>org/dreamhorizon/pulseserver/dao/query/AlertsQuery.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>

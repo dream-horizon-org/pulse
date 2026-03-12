@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.sqlclient.PropertyKind;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
 import io.vertx.rxjava3.sqlclient.PropertyKind;
@@ -22,6 +23,7 @@ import io.vertx.rxjava3.sqlclient.Transaction;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.util.List;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
@@ -35,6 +37,7 @@ import org.dreamhorizon.pulseserver.service.configs.models.SignalsConfig;
 import org.dreamhorizon.pulseserver.tenant.Tenant;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -82,6 +85,13 @@ class SdkConfigsDaoTest {
     TenantContext.setTenant(Tenant.builder()
         .tenantId("test")
         .build());
+    ProjectContext.setProjectId("test-project");
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
+    ProjectContext.clear();
   }
 
   @Nested
@@ -116,7 +126,7 @@ class SdkConfigsDaoTest {
       when(preparedQuery.rxExecute(tupleCaptor.capture())).thenReturn(Single.just(rowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId(), version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -124,7 +134,7 @@ class SdkConfigsDaoTest {
       assertThat(result.getDescription()).isEqualTo(description);
 
       Tuple capturedTuple = tupleCaptor.getValue();
-      // First parameter is tenantId (String), second is version (Long)
+      // First parameter is projectId (String), second is version (Long)
       assertThat(capturedTuple.getString(0)).isNotNull();
       assertThat(capturedTuple.getLong(1)).isEqualTo(version);
 
@@ -157,7 +167,7 @@ class SdkConfigsDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId(), version).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -181,7 +191,7 @@ class SdkConfigsDaoTest {
 
       // When & Then
       RuntimeException exception = assertThrows(RuntimeException.class,
-          () -> sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).blockingGet());
+          () -> sdkConfigsDao.getConfig(ProjectContext.requireProjectId(), version).blockingGet());
       assertThat(exception.getMessage()).isEqualTo("No config found for version: " + version);
     }
 
@@ -198,7 +208,7 @@ class SdkConfigsDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = sdkConfigsDao.getConfig(TenantContext.requireTenantId(), version).test();
+      var testObserver = sdkConfigsDao.getConfig(ProjectContext.requireProjectId(), version).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -251,7 +261,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -297,7 +307,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -342,7 +352,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -387,7 +397,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      PulseConfig result = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).blockingGet();
+      PulseConfig result = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -407,11 +417,32 @@ class SdkConfigsDaoTest {
       when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(dbError));
 
       // When
-      var testObserver = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).test();
+      var testObserver = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Failed to fetch latest version"));
+    }
+
+    @Test
+    void shouldPropagateErrorWhenNoActiveConfigExists() {
+      // Given - No active configuration in database
+      RowSet<Row> versionRowSet = mock(RowSet.class);
+      when(versionRowSet.size()).thenReturn(0);
+
+      PreparedQuery<RowSet<Row>> latestVersionQuery = mock(PreparedQuery.class);
+
+      when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.preparedQuery(Queries.GET_LATEST_VERSION)).thenReturn(latestVersionQuery);
+      when(latestVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(versionRowSet));
+
+      // When
+      var testObserver = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).test();
+
+      // Then
+      testObserver.assertError(RuntimeException.class);
+      testObserver.assertError(e -> e.getMessage()
+          .contains("No active configuration found. Please create a configuration first."));
     }
 
     @Test
@@ -442,7 +473,7 @@ class SdkConfigsDaoTest {
       when(configByVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(configRowSet));
 
       // When
-      var testObserver = sdkConfigsDao.getConfig(TenantContext.requireTenantId()).test();
+      var testObserver = sdkConfigsDao.getConfig(ProjectContext.requireProjectId()).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -516,7 +547,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      PulseConfig result = sdkConfigsDao.createConfig(configData).blockingGet();
+      PulseConfig result = sdkConfigsDao.createConfig("test", configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -556,7 +587,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -597,7 +628,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -632,7 +663,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -678,7 +709,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxRollback()).thenReturn(Completable.complete());
 
       // When
-      var testObserver = sdkConfigsDao.createConfig(configData).test();
+      var testObserver = sdkConfigsDao.createConfig("test", configData).test();
 
       // Then
       testObserver.assertError(RuntimeException.class);
@@ -720,7 +751,7 @@ class SdkConfigsDaoTest {
       when(transaction.rxCommit()).thenReturn(Completable.complete());
 
       // When
-      PulseConfig result = sdkConfigsDao.createConfig(configData).blockingGet();
+      PulseConfig result = sdkConfigsDao.createConfig("test", configData).blockingGet();
 
       // Then
       assertThat(result).isNotNull();
@@ -830,6 +861,45 @@ class SdkConfigsDaoTest {
       // Then
       testObserver.assertError(RuntimeException.class);
       testObserver.assertError(e -> e.getMessage().equals("Database error"));
+    }
+  }
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @MockitoSettings(strictness = Strictness.LENIENT)
+  class TestCreateInitialConfig {
+
+    @Mock
+    SqlConnection sqlConnection;
+
+    @Test
+    void shouldCreateInitialConfigSuccessfully() {
+      ConfigData configData = ConfigData.builder()
+          .description("Initial config for new project")
+          .user("admin")
+          .sampling(SamplingConfig.builder().build())
+          .signals(SignalsConfig.builder()
+              .filters(FilterConfig.builder().mode(FilterMode.blacklist).values(List.of()).build())
+              .build())
+          .interaction(InteractionConfig.builder().build())
+          .features(List.of())
+          .build();
+
+      long insertedId = 1L;
+      RowSet<Row> insertRowSet = mock(RowSet.class);
+      when(insertRowSet.rowCount()).thenReturn(1);
+      when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
+
+      PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+      when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
+      when(insertQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(insertRowSet));
+
+      PulseConfig result = sdkConfigsDao.createInitialConfig(
+          sqlConnection, "new-project-id", configData).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getVersion()).isEqualTo(insertedId);
+      assertThat(result.getDescription()).isEqualTo("Initial config for new project");
     }
   }
 }
