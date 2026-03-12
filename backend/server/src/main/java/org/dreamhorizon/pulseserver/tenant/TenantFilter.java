@@ -49,7 +49,6 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String LOGS_INGESTION_PATH = "v1/logs";
   private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
-  private static final String NOTIFICATIONS_PATH_PREFIX = "notification";
   private static final String INTEGRATIONS_PATH_PREFIX = "v1/integrations";
 
   private JwtService jwtService;
@@ -67,23 +66,22 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   public void filter(ContainerRequestContext requestContext) throws IOException {
     String path = requestContext.getUriInfo().getPath();
 
-    // Skip tenant resolution for excluded paths
+    // Skip tenant/project resolution for excluded paths
     if (isExcludedPath(path)) {
       log.debug("Skipping tenant resolution for excluded path: {}", path);
       return;
     }
 
-    String tenantId = resolveTenantId(requestContext);
-    if (tenantId != null && !tenantId.isBlank()) {
-      TenantContext.setTenantId(tenantId.trim());
-      log.debug("Request tenant context set to: {} for path: {}", tenantId, path);
-    }
-
-    // Extract project ID from X-Project-ID header if present
-    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
+    String projectId = resolveProjectId(requestContext);
     if (projectId != null && !projectId.isBlank()) {
       ProjectContext.setProjectId(projectId.trim());
-      log.debug("Request project context set to: {} for path: {}", projectId, path);
+      log.debug("Request Project context set to: {} for path: {}", projectId, path);
+    }
+
+    String tenantId = extractTenantIdFromToken(requestContext);
+    if (tenantId != null && !tenantId.isBlank()) {
+      log.debug("Tenant ID resolved from JWT token: {}", tenantId);
+      TenantContext.setTenantId(tenantId);
     }
   }
 
@@ -119,54 +117,20 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
    * @param requestContext the request context
    * @return the resolved tenant ID, or default if header not present
    */
-  private String resolveTenantId(ContainerRequestContext requestContext) {
-    // Priority 1: Extract tenantId from JWT token in Authorization header
-    String tokenTenantId = extractTenantIdFromToken(requestContext);
-    if (tokenTenantId != null && !tokenTenantId.isBlank()) {
-      log.debug("Tenant ID resolved from JWT token: {}", tokenTenantId);
-      return tokenTenantId.trim();
+  private String resolveProjectId(ContainerRequestContext requestContext) {
+    String headerProjectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (headerProjectId != null && !headerProjectId.isBlank()) {
+      log.debug("Project ID resolved from header: {}", headerProjectId);
+      return headerProjectId.trim();
     }
 
-    // Priority 2: X-API-KEY header - extract project ID from API key
     String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
     if (apiKey != null && !apiKey.isBlank()) {
-      try {
-        String projectId = extractProjectIdFromApiKey(apiKey.trim());
-        log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
-        return projectId;
-      } catch (IllegalArgumentException e) {
-        log.error("Invalid API key format: {}. Error: {}", apiKey, e.getMessage());
-        requestContext.abortWith(
-            jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-                .entity("{\"error\": \"Invalid API key format.\"}")
-                .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-                .build());
-        return null;
-      }
+      String projectId = extractProjectIdFromApiKey(apiKey.trim());
+      log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
+      return projectId;
     }
 
-    // Priority 3: Explicit X-Tenant-ID header (fallback)
-    //Todo: This will be removed once we have the complete project Onboarding in place
-    String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
-    if (headerTenantId != null && !headerTenantId.isBlank()) {
-      log.debug("Tenant ID resolved from header: {}", headerTenantId);
-      return headerTenantId.trim();
-    }
-
-    //This a Temporary fix for supporting the projectId.
-    //TODO: This will be replaced once we have the complete project Onboarding in place
-    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
-    if (projectId != null && !projectId.isBlank()) {
-      return projectId.trim();
-    }
-
-    log.error("Missing tenant ID (not found in token or X-API-KEY header or X-Tenant-ID header) for path: {}",
-        requestContext.getUriInfo().getPath());
-    requestContext.abortWith(
-        jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-API-KEY header or X-Tenant-ID header)\"}")
-            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-            .build());
     return null;
   }
 
@@ -195,8 +159,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       }
 
       Claims claims = service.verifyToken(token);
-      String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
-      return tenantId;
+      return claims.get(CLAIM_TENANT_ID, String.class);
     } catch (Exception e) {
       log.debug("Failed to extract tenantId from token: {}", e.getMessage());
       return null;
@@ -211,17 +174,13 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   }
 
   private String extractProjectIdFromApiKey(String apiKey) {
-    if (apiKey == null || apiKey.isBlank()) {
-      throw new IllegalArgumentException("API key cannot be null or blank");
-    }
-
     int lastUnderscoreIndex = apiKey.lastIndexOf('_');
     if (lastUnderscoreIndex == -1) {
-      throw new IllegalArgumentException("Invalid API key format.");
+      // No underscore found, return original string
+      return apiKey;
     }
 
     // Extract everything before the last underscore
     return apiKey.substring(0, lastUnderscoreIndex);
   }
 }
-

@@ -553,6 +553,7 @@ style:
     forbiddenPatterns: 'org.json.*'
   ForbiddenMethodCall:
     active: true
+    excludes: *testFolders
     methods:
       - value: 'kotlin.io.print'
         reason: 'Use custom logger'
