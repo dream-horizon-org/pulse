@@ -14,6 +14,7 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.resources.configs.models.AllConfigdetails;
 import org.dreamhorizon.pulseserver.resources.configs.models.GetScopeAndSdksResponse;
 import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
@@ -23,7 +24,6 @@ import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
 import org.dreamhorizon.pulseserver.service.configs.models.ConfigData;
 import org.dreamhorizon.pulseserver.service.configs.models.CreateConfigResponse;
-import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.CompletableFutureUtils;
 
 
@@ -39,7 +39,7 @@ public class ConfigController {
   @Path("/{version}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<PulseConfig>> getSdkConfig(@PathParam("version") Integer version) {
-    return configService.getSdkConfig(TenantContext.requireTenantId(), version)
+    return configService.getSdkConfig(ProjectContext.getProjectId(), version)
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -47,9 +47,9 @@ public class ConfigController {
   @Path("/active")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<PulseConfig> getActiveSdkConfig() {
-    String tenantId = TenantContext.requireTenantId();
-    log.info("Fetching active SDK config for tenant: {}", tenantId);
-    return configService.getActiveSdkConfig(tenantId)
+    String projectId = ProjectContext.getProjectId();
+    log.info("Fetching active SDK config for project: {}", projectId);
+    return configService.getActiveSdkConfig(projectId)
         .to(CompletableFutureUtils::fromSingle);
   }
 
@@ -61,7 +61,7 @@ public class ConfigController {
   ) {
     applyConfigDefaults(config);
     ConfigData createConfigServiceRequest = mapper.toServiceCreateConfigRequest(config, user);
-    return configService.createSdkConfig(createConfigServiceRequest)
+    return configService.createSdkConfig(ProjectContext.getProjectId(), createConfigServiceRequest)
         .map(resp -> CreateConfigResponse.builder().version(resp.getVersion()).build())
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -78,8 +78,9 @@ public class ConfigController {
         interaction.setCollectorUrl(applicationConfig.getOtelCollectorUrl());
       }
       if (interaction.getConfigUrl() == null || interaction.getConfigUrl().isBlank()) {
-        String tenantId = TenantContext.requireTenantId();
-        String configUrl = applicationConfig.getInteractionConfigUrl() + "/" + tenantId + "/config/interaction.json";
+        String projectId = ProjectContext.getProjectId();
+        String configUrl = String.format("%s/projects/%s/interaction.json", 
+            applicationConfig.getInteractionConfigUrl(), projectId);
         interaction.setConfigUrl(configUrl);
       }
     }

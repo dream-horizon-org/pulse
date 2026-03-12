@@ -1,0 +1,1 @@
+export { TncAcceptance } from './TncAcceptance';

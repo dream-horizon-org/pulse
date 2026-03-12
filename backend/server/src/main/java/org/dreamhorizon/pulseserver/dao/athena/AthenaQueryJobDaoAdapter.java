@@ -16,8 +16,9 @@ public class AthenaQueryJobDaoAdapter implements QueryJobDao {
   private final AthenaJobDao athenaJobDao;
 
   @Override
-  public Single<String> createJob(String tenantId, String queryString, String userEmail) {
-    return athenaJobDao.createJob(tenantId, queryString, userEmail);
+  public Single<String> createJob(String projectId, String queryString, String userEmail) {
+    // AthenaJobDao.createJob() gets tenantId and projectId from context internally
+    return athenaJobDao.createJob(projectId, queryString, userEmail);
   }
 
   @Override

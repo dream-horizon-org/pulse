@@ -11,17 +11,25 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.ext.Provider;
 import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
 
 /**
- * JAX-RS filter that extracts tenant information from the request and sets it in the TenantContext.
+ * JAX-RS filter that extracts tenant and project information from the request.
+ * Sets TenantContext and ProjectContext for the request scope.
  *
  * <p>Tenant resolution order:</p>
  * <ol>
  *   <li>JWT token tenantId claim from Authorization header</li>
  *   <li>X-Tenant-ID header (explicit override, useful for admin operations)</li>
+ *   <li>X-API-KEY header (API key for authentication)</li>
  * </ol>
+ *
+ * <p>Project resolution:</p>
+ * <ul>
+ *   <li>X-Project-ID header (required for project-scoped resources)</li>
+ * </ul>
  */
 @Slf4j
 @Provider
@@ -29,13 +37,19 @@ import org.dreamhorizon.pulseserver.service.JwtService;
 public class TenantFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
   public static final String TENANT_HEADER = "X-Tenant-ID";
+  public static final String API_KEY_HEADER = "X-API-KEY";
   public static final String PROJECT_HEADER = "X-Project-ID";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";
+  private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
+  private static final String INVITE_ACCEPT_PATH_PREFIX = "v1/invites/accept";
+  private static final String INTERNAL_PATH_PREFIX = "internal/";
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String CLAIM_TENANT_ID = "tenantId";
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String LOGS_INGESTION_PATH = "v1/logs";
+  private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
+  private static final String INTEGRATIONS_PATH_PREFIX = "v1/integrations";
 
   private JwtService jwtService;
 
@@ -52,16 +66,23 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
   public void filter(ContainerRequestContext requestContext) throws IOException {
     String path = requestContext.getUriInfo().getPath();
 
-    // Skip tenant resolution for excluded paths
+    // Skip tenant/project resolution for excluded paths
     if (isExcludedPath(path)) {
       log.debug("Skipping tenant resolution for excluded path: {}", path);
       return;
     }
 
-    String tenantId = resolveTenantId(requestContext);
-    TenantContext.setTenantId(tenantId);
-    log.debug("Request tenant context set to: {} for path: {}",
-        tenantId, path);
+    String projectId = resolveProjectId(requestContext);
+    if (projectId != null && !projectId.isBlank()) {
+      ProjectContext.setProjectId(projectId.trim());
+      log.debug("Request Project context set to: {} for path: {}", projectId, path);
+    }
+
+    String tenantId = extractTenantIdFromToken(requestContext);
+    if (tenantId != null && !tenantId.isBlank()) {
+      log.debug("Tenant ID resolved from JWT token: {}", tenantId);
+      TenantContext.setTenantId(tenantId);
+    }
   }
 
   private boolean isExcludedPath(String path) {
@@ -73,15 +94,21 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     return normalizedPath.equals(HEALTHCHECK_PATH)
         || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
         || normalizedPath.startsWith(AUTH_PATH_PREFIX)
+        || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
+        || normalizedPath.startsWith(INVITE_ACCEPT_PATH_PREFIX)  // Users accepting invites don't have tenant yet
+        || normalizedPath.startsWith(INTERNAL_PATH_PREFIX)  // Internal service-to-service endpoints
         || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
-        || normalizedPath.startsWith(LOGS_INGESTION_PATH);
+        || normalizedPath.startsWith(LOGS_INGESTION_PATH)
+        || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
+        || normalizedPath.startsWith(INTEGRATIONS_PATH_PREFIX);
   }
 
   @Override
   public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)
       throws IOException {
-    // Clear tenant context after request processing
+    // Clear both tenant and project context after request processing
     TenantContext.clear();
+    ProjectContext.clear();
   }
 
   /**
@@ -90,35 +117,20 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
    * @param requestContext the request context
    * @return the resolved tenant ID, or default if header not present
    */
-  private String resolveTenantId(ContainerRequestContext requestContext) {
-    // Priority 1: Extract tenantId from JWT token in Authorization header
-    String tokenTenantId = extractTenantIdFromToken(requestContext);
-    if (tokenTenantId != null && !tokenTenantId.isBlank()) {
-      log.debug("Tenant ID resolved from JWT token: {}", tokenTenantId);
-      return tokenTenantId.trim();
+  private String resolveProjectId(ContainerRequestContext requestContext) {
+    String headerProjectId = requestContext.getHeaderString(PROJECT_HEADER);
+    if (headerProjectId != null && !headerProjectId.isBlank()) {
+      log.debug("Project ID resolved from header: {}", headerProjectId);
+      return headerProjectId.trim();
     }
 
-    // Priority 2: Explicit X-Tenant-ID header (fallback)
-    String headerTenantId = requestContext.getHeaderString(TENANT_HEADER);
-    if (headerTenantId != null && !headerTenantId.isBlank()) {
-      log.debug("Tenant ID resolved from header: {}", headerTenantId);
-      return headerTenantId.trim();
+    String apiKey = requestContext.getHeaderString(API_KEY_HEADER);
+    if (apiKey != null && !apiKey.isBlank()) {
+      String projectId = extractProjectIdFromApiKey(apiKey.trim());
+      log.debug("Project ID extracted from API key header: {} (from: {})", projectId, apiKey);
+      return projectId;
     }
 
-    //This a Temporary fix for supporting the projectId.
-    //TODO: This will be replaced once we have the complete project Onboarding in place
-    String projectId = requestContext.getHeaderString(PROJECT_HEADER);
-    if (projectId != null && !projectId.isBlank()) {
-      return projectId.trim();
-    }
-
-    log.error("Missing tenant ID (not found in token or X-Tenant-ID header) for path: {}",
-        requestContext.getUriInfo().getPath());
-    requestContext.abortWith(
-        jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
-            .entity("{\"error\": \"Tenant ID is required (via Authorization token or X-Tenant-ID header)\"}")
-            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON)
-            .build());
     return null;
   }
 
@@ -147,8 +159,7 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
       }
 
       Claims claims = service.verifyToken(token);
-      String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
-      return tenantId;
+      return claims.get(CLAIM_TENANT_ID, String.class);
     } catch (Exception e) {
       log.debug("Failed to extract tenantId from token: {}", e.getMessage());
       return null;
@@ -161,5 +172,15 @@ public class TenantFilter implements ContainerRequestFilter, ContainerResponseFi
     }
     return jwtService;
   }
-}
 
+  private String extractProjectIdFromApiKey(String apiKey) {
+    int lastUnderscoreIndex = apiKey.lastIndexOf('_');
+    if (lastUnderscoreIndex == -1) {
+      // No underscore found, return original string
+      return apiKey;
+    }
+
+    // Extract everything before the last underscore
+    return apiKey.substring(0, lastUnderscoreIndex);
+  }
+}
