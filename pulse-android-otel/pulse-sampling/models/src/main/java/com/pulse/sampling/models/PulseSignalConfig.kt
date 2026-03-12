@@ -8,31 +8,31 @@ import kotlinx.serialization.Serializable
 @Keep
 @Serializable
 public class PulseSignalConfig internal constructor(
-    @SerialName("scheduleDurationMs")
-    public val scheduleDurationMs: Long,
     @SerialName("logsCollectorUrl")
-    public val logsCollectorUrl: String,
+    public val logsCollectorUrl: String? = null,
     @SerialName("metricCollectorUrl")
-    public val metricCollectorUrl: String,
+    public val metricCollectorUrl: String? = null,
     @SerialName("spanCollectorUrl")
-    public val spanCollectorUrl: String,
+    public val spanCollectorUrl: String? = null,
     @SerialName("customEventCollectorUrl")
-    public val customEventCollectorUrl: String,
+    public val customEventCollectorUrl: String? = logsCollectorUrl,
+    @SerialName("scheduleDurationMs")
+    public val scheduleDurationMs: Long = 5000L,
     @SerialName("attributesToDrop")
-    public val attributesToDrop: List<PulseAttributesToDropEntry>,
+    public val attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
     @SerialName("attributesToAdd")
-    public val attributesToAdd: List<PulseAttributesToAddEntry>,
+    public val attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
     @SerialName("filters")
-    public val filters: PulseSignalFilter,
+    public val filters: PulseSignalFilter = PulseSignalFilter(),
 )
 
 @Keep
 @Serializable
 public class PulseSignalFilter internal constructor(
     @SerialName("mode")
-    public val mode: PulseSignalFilterMode,
+    public val mode: PulseSignalFilterMode = PulseSignalFilterMode.BLACKLIST,
     @SerialName("values")
-    public val values: List<PulseSignalMatchCondition>,
+    public val values: List<PulseSignalMatchCondition> = emptyList(),
 )
 
 @Keep
@@ -86,20 +86,20 @@ public enum class PulseAttributeType {
 @Serializable
 public class PulseAttributeValue internal constructor(
     @SerialName("name")
-    public val name: String,
+    public val name: String = "",
     @SerialName("value")
-    public val value: String,
+    public val value: String = "",
     @SerialName("type")
-    public val type: PulseAttributeType,
+    public val type: PulseAttributeType = PulseAttributeType.STRING,
 )
 
 @Keep
 @Serializable
 public class PulseAttributesToAddEntry internal constructor(
     @SerialName("values")
-    public val values: List<PulseAttributeValue>,
+    public val values: List<PulseAttributeValue> = emptyList(),
     @SerialName("condition")
-    public val condition: PulseSignalMatchCondition,
+    public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
 )
 
 @Keep
@@ -109,10 +109,10 @@ public class PulseAttributesToDropEntry internal constructor(
      * List of regex entries which will dropped from the signal
      */
     @SerialName("values")
-    public val values: List<String>,
+    public val values: List<String> = emptyList(),
     /**
      * Condition which should be matched for [values] to be dropped
      */
     @SerialName("condition")
-    public val condition: PulseSignalMatchCondition,
+    public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
 )

@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.query.models.QueryHistoryResponseDto;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
@@ -27,6 +28,7 @@ public class GetQueryHistory {
   @GET
   @Path("/history")
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<QueryHistoryResponseDto>> getQueryHistory(
       @HeaderParam("user-email") String userEmail,
       @QueryParam("limit") Integer limit,
