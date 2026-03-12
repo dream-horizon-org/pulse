@@ -14,9 +14,6 @@ import lombok.experimental.SuperBuilder;
 @Data
 @SuperBuilder
 @NoArgsConstructor
-@AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class FeatureConfigProperties {
-  @JsonProperty("maxBatchSize")
-  private Integer maxBatchSize;
 }
