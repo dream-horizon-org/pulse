@@ -16,6 +16,7 @@ public object PulseSdkConfigFakeUtils {
         signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
+        features: List<PulseFeatureConfig> = emptyList(),
         sampling: PulseSamplingConfig =
             PulseSamplingConfig(
                 default =
@@ -35,7 +36,7 @@ public object PulseSdkConfigFakeUtils {
                     logsCollectorUrl = collectorUrl + "v1/logs",
                     spanCollectorUrl = collectorUrl + "v1/spans",
                     metricCollectorUrl = collectorUrl + "v1/metrics",
-                    customEventCollectorUrl = "v1/custom-event",
+                    customEventCollectorUrl = collectorUrl + "v1/custom-events",
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
                     filters =
@@ -50,7 +51,7 @@ public object PulseSdkConfigFakeUtils {
                     configUrl = configUrl,
                     beforeInitQueueSize = beforeInitQueueSize,
                 ),
-            features = emptyList(),
+            features = features,
         )
 
     public fun createFakeSamplingConfig(
@@ -133,6 +134,17 @@ public object PulseSdkConfigFakeUtils {
         PulseAttributesToDropEntry(
             values = values,
             condition = condition,
+        )
+
+    public fun createFakeFeatureConfig(
+        featureName: PulseFeatureName,
+        sessionSampleRate: SamplingRate = 1.0f,
+        sdks: Collection<PulseSdkName> = listOf(PulseSdkName.ANDROID_JAVA),
+    ): PulseFeatureConfig =
+        PulseFeatureConfig(
+            featureName = featureName,
+            sessionSampleRate = sessionSampleRate,
+            sdks = sdks,
         )
 
     public fun createFakeCriticalEventPolicies(
