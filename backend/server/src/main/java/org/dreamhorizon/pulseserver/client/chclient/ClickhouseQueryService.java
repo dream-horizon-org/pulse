@@ -14,7 +14,6 @@ import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.dao.clickhousecredentials.ClickhouseCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
@@ -37,10 +36,10 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
   @Override
   public Single<GetQueryDataResponseDto<GetRawUserEventsResponseDto>> executeQueryOrCreateJob(QueryConfiguration queryConfig) {
     final List<GetRawUserEventsResponseDto.Field> schemaFields = new ArrayList<>();
-    
+
     // Project-based credentials only - tenant-level access is no longer supported
     String projectId = queryConfig.getProjectId();
-    
+
     if (projectId != null) {
       log.debug("Executing query using project credentials for project: {}", projectId);
       return clickhouseProjectCredentialsDao

@@ -105,7 +105,7 @@ public class NotificationConfig {
   @NoArgsConstructor
   @AllArgsConstructor
   public static class IncidentConfig {
-    private String defaultSlackChannelId = "#pulse-alerts";
+    private String defaultSlackChannelId = "#test-pulse-incident";
   }
 
   @Data

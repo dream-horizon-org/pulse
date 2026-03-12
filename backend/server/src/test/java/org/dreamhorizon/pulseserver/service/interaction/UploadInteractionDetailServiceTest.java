@@ -108,14 +108,14 @@ class UploadInteractionDetailServiceTest {
 
     @Test
     void shouldUploadInteractionDetailsAndInvalidateCacheSuccessfully() {
-      ProjectContext.setProjectId("test-tenant");
+      ProjectContext.setProjectId(TEST_PROJECT_ID);
       // Given
       List<InteractionDetails> interactions = List.of(
           createTestInteractionDetails("Interaction1"),
           createTestInteractionDetails("Interaction2")
       );
 
-      when(interactionDao.getAllActiveAndRunningInteractions(ProjectContext.getProjectId()))
+      when(interactionDao.getAllActiveAndRunningInteractions(TEST_PROJECT_ID))
           .thenReturn(Single.just(interactions));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_PROJECT_FILE_PATH), any()))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
@@ -123,7 +123,7 @@ class UploadInteractionDetailServiceTest {
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
 
       // When
-      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(ProjectContext.getProjectId())
+      EmptyResponse result = uploadInteractionDetailService.pushInteractionDetailsToObjectStore(TEST_PROJECT_ID)
           .blockingGet();
 
       // Then

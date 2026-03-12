@@ -30,8 +30,6 @@ export const performLogout = async (): Promise<void> => {
 
   // Clear all sessionStorage (includes context data)
   sessionStorage.clear();
-  
-  console.log('[Logout] Completed logout cleanup');
 };
 
 /**
@@ -42,5 +40,4 @@ export const clearContextStorage = (): void => {
   sessionStorage.removeItem('pulse_project_context');
   sessionStorage.removeItem('pulse_tenant_context');
   sessionStorage.removeItem('pulse_last_project_id');
-  console.log('[Logout] Cleared context storage');
 };

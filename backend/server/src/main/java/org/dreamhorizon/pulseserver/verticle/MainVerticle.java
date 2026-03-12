@@ -19,7 +19,7 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.client.chclient.ClickhouseTenantConnectionPoolManager;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
@@ -230,12 +230,14 @@ public class MainVerticle extends AbstractVerticle {
     stopNotificationWorker();
     
     try {
-      ClickhouseTenantConnectionPoolManager poolManager =
-          SharedDataUtils.get(vertx.getDelegate(), ClickhouseTenantConnectionPoolManager.class);
-      poolManager.closeAllPools();
-      log.info("Closed all tenant connection pools");
+      ClickhouseProjectConnectionPoolManager poolManager =
+          SharedDataUtils.get(vertx.getDelegate(), ClickhouseProjectConnectionPoolManager.class);
+      if (poolManager != null) {
+        poolManager.closeAllPools();
+        log.info("Closed all project connection pools");
+      }
     } catch (Exception e) {
-      log.warn("Error closing tenant pools", e);
+      log.warn("Error closing project pools", e);
     }
 
     this.webClient.close();

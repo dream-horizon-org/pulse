@@ -44,7 +44,6 @@ import { UserEngagement } from "../screens/UserEngagement";
 import { ComingSoon } from "../screens/ComingSoon";
 import { Onboarding } from "../screens/Onboarding";
 import { OnboardingSuccess } from "../screens/OnboardingSuccess";
-import { ProjectSelection } from "../screens/ProjectSelection";
 import { Pricing } from "../screens/Pricing";
 import { ProjectSettings } from "../screens/ProjectSettings";
 import { SamplingConfig } from "../screens/SamplingConfig";
@@ -59,7 +58,6 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
-import { LegacyRedirect } from "../components/LegacyRedirect";
 
 export const APP_NAME: string = "Pulse";
 
@@ -115,20 +113,20 @@ export const ROUTES: Routes = {
   },
   ORGANIZATION_MEMBERS: {
     key: "ORGANIZATION_MEMBERS",
-    basePath: "/organization/members",
-    path: "/organization/members/*",
+    basePath: "/:organizationId/members",
+    path: "/:organizationId/members/*",
     element: OrganizationMembers,
   },
   ORGANIZATION_PROJECTS: {
     key: "ORGANIZATION_PROJECTS",
-    basePath: "/organization/projects",
-    path: "/organization/projects",
+    basePath: "/:organizationId/projects",
+    path: "/:organizationId/projects",
     element: OrganizationProjects,
   },
   CREATE_PROJECT: {
     key: "CREATE_PROJECT",
-    basePath: "/organization/projects/new",
-    path: "/organization/projects/new",
+    basePath: "/:organizationId/projects/new",
+    path: "/:organizationId/projects/new",
     element: CreateProject,
   },
   
@@ -266,43 +264,6 @@ export const ROUTES: Routes = {
     element: RealTimeQuery,
   },
   
-  // Legacy flat routes (kept for backward compatibility)
-  HOME: {
-    key: "HOME",
-    basePath: "/",
-    path: "/",
-    element: LegacyRedirect,
-  },
-  USER_ENGAGEMENT: {
-    key: "USER_ENGAGEMENT",
-    basePath: "/user-engagement",
-    path: "/user-engagement",
-    element: LegacyRedirect,
-  },
-  CRITICAL_INTERACTIONS: {
-    key: "CRITICAL_INTERACTIONS",
-    basePath: "/interactions",
-    path: "/interactions",
-    element: LegacyRedirect,
-  },
-  CRITICAL_INTERACTION_FORM: {
-    key: "CRITICAL_INTERACTION_FORM",
-    basePath: "/critical-interaction-form",
-    path: "/critical-interaction-form/*",
-    element: LegacyRedirect,
-  },
-  ALL_INTERACTION_DETAILS: {
-    key: "ALL_INTERACTION_DETAILS",
-    basePath: "/user-experience",
-    path: "/user-experience",
-    element: LegacyRedirect,
-  },
-  CRITICAL_INTERACTION_DETAILS: {
-    key: "CRITICAL_INTERACTION_DETAILS",
-    basePath: "/interaction-details",
-    path: "/interaction-details/*",
-    element: LegacyRedirect,
-  },
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -321,115 +282,32 @@ export const ROUTES: Routes = {
     path: "/pricing",
     element: Pricing,
   },
-  PROJECT_SELECTION: {
-    key: "PROJECT_SELECTION",
-    basePath: "/project-selection",
-    path: "/project-selection",
-    element: ProjectSelection,
-  },
-  UNIVERSAL_QUERYING: {
-    key: "UNIVERSAL_QUERYING",
-    basePath: "/universal-querying",
-    path: "/universal-querying",
-    element: LegacyRedirect,
-  },
-  APP_VITALS: {
-    key: "APP_VITALS",
-    basePath: "/app-vitals",
-    path: "/app-vitals",
-    element: LegacyRedirect,
-  },
-  APP_VITALS_ISSUE_DETAIL: {
-    key: "APP_VITALS_ISSUE_DETAIL",
-    basePath: "/app-vitals/:groupId",
-    path: "/app-vitals/:groupId",
-    element: LegacyRedirect,
-  },
-  APP_VITALS_OCCURRENCE_DETAIL: {
-    key: "APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    path: "/app-vitals/:issueId/occurrence/:occurrenceId",
-    element: LegacyRedirect,
-  },
-  SESSION_TIMELINE: {
-    key: "SESSION_TIMELINE",
-    basePath: "/session/:id",
-    path: "/session/:id",
-    element: LegacyRedirect,
-  },
-  SCREENS: {
-    key: "SCREENS",
-    basePath: "/screens",
-    path: "/screens",
-    element: LegacyRedirect,
-  },
-  SCREEN_DETAILS: {
-    key: "SCREEN_DETAILS",
-    basePath: "/screens",
-    path: "/screens/:screenName",
-    element: LegacyRedirect,
-  },
-  NETWORK_LIST: {
-    key: "NETWORK_LIST",
-    basePath: "/network-apis",
-    path: "/network-apis",
-    element: LegacyRedirect,
-  },
-  NETWORK_DETAIL: {
-    key: "NETWORK_DETAIL",
-    basePath: "/network-apis",
-    path: "/network-apis/:apiId",
-    element: LegacyRedirect,
-  },
   COMING_SOON: {
     key: "COMING_SOON",
     basePath: "/coming-soon",
     path: "/coming-soon",
     element: ComingSoon,
   },
-  SDK_CONFIG: {
-    key: "SDK_CONFIG",
-    basePath: "/sdk-config",
-    path: "/sdk-config",
-    element: LegacyRedirect,
-  },
-  SETTINGS: {
-    key: "SETTINGS",
-    basePath: "/settings",
-    path: "/settings/*",
-    element: LegacyRedirect,
-  },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
-    basePath: "/project-settings",
-    path: "/project-settings",
+    basePath: "/settings",
+    path: "/settings",
     element: ProjectSettings,
   },
-  ALERTS: {
-    key: "ALERTS",
-    basePath: "/alerts",
-    path: "/alerts",
-    element: LegacyRedirect,
-  },
-  ALERT_DETAIL: {
-    key: "ALERT_DETAIL",
-    basePath: "/alerts",
-    path: "/alerts/:alertId",
-    element: LegacyRedirect,
-  },
-  ALERTS_FORM: {
-    key: "ALERTS_FORM",
-    basePath: "/configure-alert",
-    path: "/configure-alert/*",
-    element: LegacyRedirect,
-  },
-  QUERY_BUILDER: {
-    key: "QUERY_BUILDER",
-    basePath: "/query-builder",
-    path: "/query-builder",
-    element: LegacyRedirect,
-  },
 };
+
+// Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
+// The Navbar component (onItemClick) automatically prepends /projects/:projectId to these paths
+export const NAVBAR_ROUTES = {
+  HOME: "/",
+  USER_ENGAGEMENT: "/user-engagement",
+  CRITICAL_INTERACTIONS: "/interactions",
+  APP_VITALS: "/app-vitals",
+  SCREENS: "/screens",
+  NETWORK_LIST: "/network-apis",
+  QUERY_BUILDER: "/query-builder",
+  ALERTS: "/alerts",
+} as const;
 
 // Settings sub-routes (handled internally by Settings component)
 // Use these paths for programmatic navigation
@@ -443,58 +321,58 @@ export const NAVBAR_ITEMS: NavbarItems = [
   {
     tabName: "Home",
     icon: IconHome,
-    routeTo: ROUTES.HOME.basePath,
-    path: ROUTES.HOME.path,
+    routeTo: NAVBAR_ROUTES.HOME,
+    path: NAVBAR_ROUTES.HOME,
     iconSize: 25,
   },
   {
     tabName: "User Engagement",
     icon: IconUsers,
-    routeTo: ROUTES.USER_ENGAGEMENT.basePath,
-    path: ROUTES.USER_ENGAGEMENT.path,
+    routeTo: NAVBAR_ROUTES.USER_ENGAGEMENT,
+    path: NAVBAR_ROUTES.USER_ENGAGEMENT,
     iconSize: 25,
   },
   {
     tabName: "Interactions",
     icon: IconListDetails,
-    routeTo: ROUTES.CRITICAL_INTERACTIONS.basePath,
-    path: ROUTES.CRITICAL_INTERACTIONS.path,
+    routeTo: NAVBAR_ROUTES.CRITICAL_INTERACTIONS,
+    path: NAVBAR_ROUTES.CRITICAL_INTERACTIONS,
     iconSize: 25,
   },
   {
     tabName: "App Vitals",
     icon: IconActivityHeartbeat,
-    routeTo: ROUTES.APP_VITALS.basePath,
-    path: ROUTES.APP_VITALS.path,
+    routeTo: NAVBAR_ROUTES.APP_VITALS,
+    path: NAVBAR_ROUTES.APP_VITALS,
     iconSize: 25,
   },
   {
     tabName: "Screens",
     icon: IconDeviceDesktop,
-    routeTo: ROUTES.SCREENS.basePath,
-    path: ROUTES.SCREENS.path,
+    routeTo: NAVBAR_ROUTES.SCREENS,
+    path: NAVBAR_ROUTES.SCREENS,
     iconSize: 25,
   },
   {
     tabName: "Network APIs",
     icon: IconNetwork,
-    routeTo: ROUTES.NETWORK_LIST.basePath,
-    path: ROUTES.NETWORK_LIST.path,
+    routeTo: NAVBAR_ROUTES.NETWORK_LIST,
+    path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
   
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
-    routeTo: ROUTES.QUERY_BUILDER.basePath,
-    path: ROUTES.QUERY_BUILDER.path,
+    routeTo: NAVBAR_ROUTES.QUERY_BUILDER,
+    path: NAVBAR_ROUTES.QUERY_BUILDER,
     iconSize: 25,
   },
   {
     tabName: "Alerts",
     icon: IconBell,
-    routeTo: ROUTES.ALERTS.basePath,
-    path: ROUTES.ALERTS.path,
+    routeTo: NAVBAR_ROUTES.ALERTS,
+    path: NAVBAR_ROUTES.ALERTS,
     iconSize: 25,
   },
 ];
@@ -890,6 +768,107 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/query/ai`,
     method: API_METHODS.POST,
   },
+  GET_TNC_STATUS: {
+    key: "GET_TNC_STATUS",
+    apiPath: `/v1/tnc/status`,
+    method: API_METHODS.GET,
+  },
+  GET_TNC_DOCUMENTS: {
+    key: "GET_TNC_DOCUMENTS",
+    apiPath: `/v1/tnc/documents`,
+    method: API_METHODS.GET,
+  },
+  ACCEPT_TNC: {
+    key: "ACCEPT_TNC",
+    apiPath: `/v1/tnc/accept`,
+    method: API_METHODS.POST,
+  },
+  GET_TNC_HISTORY: {
+    key: "GET_TNC_HISTORY",
+    apiPath: `/v1/tnc/history`,
+    method: API_METHODS.GET,
+  },
+  // User API Routes
+  GET_USER_PROJECTS: {
+    key: "GET_USER_PROJECTS",
+    apiPath: `/v1/users/me/projects`,
+    method: API_METHODS.GET,
+  },
+  // Auth API Routes
+  LOGIN: {
+    key: "LOGIN",
+    apiPath: `/v1/auth/login`,
+    method: API_METHODS.POST,
+  },
+  COMPLETE_ONBOARDING: {
+    key: "COMPLETE_ONBOARDING",
+    apiPath: `/v1/onboarding/complete`,
+    method: API_METHODS.POST,
+  },
+  // Tenant Member Management API Routes
+  GET_TENANT_MEMBERS: {
+    key: "GET_TENANT_MEMBERS",
+    apiPath: `/v1/tenants/:tenantId/members`,
+    method: API_METHODS.GET,
+  },
+  INVITE_TENANT_MEMBER: {
+    key: "INVITE_TENANT_MEMBER",
+    apiPath: `/v1/tenants/:tenantId/members`,
+    method: API_METHODS.POST,
+  },
+  REMOVE_TENANT_MEMBER: {
+    key: "REMOVE_TENANT_MEMBER",
+    apiPath: `/v1/tenants/:tenantId/members/:userId`,
+    method: API_METHODS.DELETE,
+  },
+  UPDATE_TENANT_MEMBER_ROLE: {
+    key: "UPDATE_TENANT_MEMBER_ROLE",
+    apiPath: `/v1/tenants/:tenantId/members/:userId`,
+    method: API_METHODS.PATCH,
+  },
+  // Project Member Management API Routes
+  GET_PROJECT_MEMBERS: {
+    key: "GET_PROJECT_MEMBERS",
+    apiPath: `/v1/projects/:projectId/members`,
+    method: API_METHODS.GET,
+  },
+  INVITE_PROJECT_MEMBER: {
+    key: "INVITE_PROJECT_MEMBER",
+    apiPath: `/v1/projects/:projectId/members`,
+    method: API_METHODS.POST,
+  },
+  REMOVE_PROJECT_MEMBER: {
+    key: "REMOVE_PROJECT_MEMBER",
+    apiPath: `/v1/projects/:projectId/members/:userId`,
+    method: API_METHODS.DELETE,
+  },
+  UPDATE_PROJECT_MEMBER_ROLE: {
+    key: "UPDATE_PROJECT_MEMBER_ROLE",
+    apiPath: `/v1/projects/:projectId/members/:userId`,
+    method: API_METHODS.PATCH,
+  },
+  // Project Creation API Route
+  CREATE_PROJECT: {
+    key: "CREATE_PROJECT",
+    apiPath: `/v1/projects`,
+    method: API_METHODS.POST,
+  },
+  // Project API Key Management API Routes
+  GET_PROJECT_API_KEYS: {
+    key: "GET_PROJECT_API_KEYS",
+    apiPath: `/v1/projects/:projectId/api-keys`,
+    method: API_METHODS.GET,
+  },
+  CREATE_PROJECT_API_KEY: {
+    key: "CREATE_PROJECT_API_KEY",
+    apiPath: `/v1/projects/:projectId/api-keys`,
+    method: API_METHODS.POST,
+  },
+  REVOKE_PROJECT_API_KEY: {
+    key: "REVOKE_PROJECT_API_KEY",
+    apiPath: `/v1/projects/:projectId/api-keys/:apiKeyId`,
+    method: API_METHODS.DELETE,
+  },
 };
 
 export const TOOLTIP_LABLES: Record<string, string> = {
@@ -918,7 +897,7 @@ export const CRITICAL_INTERACTION_FORM_CONSTANTS: Record<string, string> = {
   INTERACTION_DESCRIPTION:
     "Enter your user interaction name. This will uniquely identify your interaction. Once interaction is created, it cannot be changed.",
   INTERACTION_ERROR_MESSAGE: "Interaction name should be in PascalCase",
-  INTERACTION_DESCRIPTION_ERROR_MESSAGE: "Desciption is required",
+  INTERACTION_DESCRIPTION_ERROR_MESSAGE: "Description is required",
   INTERACTION_LOWER_THRESHOLD: "Lower Threshold (ms)",
   INTERACTION_LOWER_THRESHOLD_DESCRIPTION:
     "Best case scenario for your interaction to be completed",
@@ -1013,7 +992,9 @@ export const COOKIES_KEY: Record<string, string> = {
   TOKEN_TYPE: "tokenType",
   EXPIRES_IN: "expiresIn",
   TENANT_ID: "tenantId", // Keep for initial hydration only
-  // REMOVED: PROJECT_ID, PROJECT_NAME, TENANT_NAME - Now handled by React Context
+  TENANT_NAME: "tenantName", // Store tenant name for initial hydration
+  TIER: "tier", // Store tier for initial hydration
+  // REMOVED: PROJECT_ID, PROJECT_NAME - Now handled by React Context
 };
 
 export const LAYOUT_PAGE_CONSTANTS: Record<string, string> = {

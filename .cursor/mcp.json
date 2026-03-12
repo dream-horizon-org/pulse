@@ -1,0 +1,41 @@
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "github": {
+      "command": "bash",
+      "args": [".cursor/scripts/github-mcp.sh"]
+    },
+    "mcp-atlassian": {
+      "command": "bash",
+      "args": [".cursor/scripts/atlassian-mcp.sh"]
+    },
+    "selenium": {
+      "command": "npx",
+      "args": ["-y", "@angiejones/mcp-selenium"]
+    },
+    "deepwiki": {
+      "url": "https://mcp.deepwiki.com/mcp",
+      "name": "DeepWiki"
+    },
+    "pdf-reader-mcp": {
+      "command": "npx",
+      "args": ["@sylphlab/pdf-reader-mcp"],
+      "name": "PDF Reader"
+    },
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server", "--extension-port", "9300"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    }
+  }
+}

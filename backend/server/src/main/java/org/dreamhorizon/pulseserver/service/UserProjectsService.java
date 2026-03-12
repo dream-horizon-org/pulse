@@ -23,6 +23,7 @@ public class UserProjectsService {
     
     private final OpenFgaService openFgaService;
     private final ProjectDao projectDao;
+    private final org.dreamhorizon.pulseserver.dao.tenant.TenantDao tenantDao;
     
     /**
      * Get all projects accessible to a user within a tenant.
@@ -38,36 +39,43 @@ public class UserProjectsService {
         log.info("Fetching projects for user: userId={}, tenantId={}", userId, tenantId);
         log.warn("TEMPORARY: Returning ALL projects in tenant (OpenFGA not integrated)");
         
-        // TEMPORARY FIX: Return all projects in the tenant
-        // Once OpenFGA is integrated, uncomment the OpenFGA code below and remove this section
-        return projectDao.getProjectsByTenantId(tenantId)
-            .map(project -> ProjectSummary.builder()
-                .projectId(project.getProjectId())
-                .name(project.getName())
-                .description(project.getDescription())
-                .isActive(project.getIsActive())
-                .role("admin") // Default role until OpenFGA is integrated
-                .build())
-            .toList()
-            .map(projectList -> {
-                // Calculate redirect hint
-                String redirectTo;
-                if (projectList.isEmpty()) {
-                    redirectTo = null;
-                    log.info("No projects found in tenant");
-                } else if (projectList.size() == 1) {
-                    redirectTo = "/projects/" + projectList.get(0).getProjectId();
-                    log.info("Single project, redirecting to: {}", redirectTo);
-                } else {
-                    redirectTo = "/project-selection";
-                    log.info("Multiple projects ({}), redirecting to selection page", projectList.size());
-                }
-                
-                return UserProjectsResult.builder()
-                    .projects(projectList)
-                    .redirectTo(redirectTo)
-                    .build();
-            })
+        // Fetch tenant information first
+        return tenantDao.getTenantById(tenantId)
+            .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+            .flatMap(tenant -> 
+                // TEMPORARY FIX: Return all projects in the tenant
+                // Once OpenFGA is integrated, uncomment the OpenFGA code below and remove this section
+                projectDao.getProjectsByTenantId(tenantId)
+                    .map(project -> ProjectSummary.builder()
+                        .projectId(project.getProjectId())
+                        .name(project.getName())
+                        .description(project.getDescription())
+                        .isActive(project.getIsActive())
+                        .role("admin") // Default role until OpenFGA is integrated
+                        .build())
+                    .toList()
+                    .map(projectList -> {
+                        // Calculate redirect hint
+                        String redirectTo;
+                        if (projectList.isEmpty()) {
+                            redirectTo = null;
+                            log.info("No projects found in tenant");
+                        } else if (projectList.size() == 1) {
+                            redirectTo = "/projects/" + projectList.get(0).getProjectId();
+                            log.info("Single project, redirecting to: {}", redirectTo);
+                        } else {
+                            redirectTo = "/project-selection";
+                            log.info("Multiple projects ({}), redirecting to selection page", projectList.size());
+                        }
+                        
+                        return UserProjectsResult.builder()
+                            .tenantId(tenantId)
+                            .tenantName(tenant.getName())
+                            .projects(projectList)
+                            .redirectTo(redirectTo)
+                            .build();
+                    })
+            )
             .doOnError(error -> 
                 log.error("Failed to fetch projects: userId={}, tenantId={}", userId, tenantId, error)
             );
@@ -150,6 +158,8 @@ public class UserProjectsService {
     @lombok.NoArgsConstructor
     @lombok.AllArgsConstructor
     public static class UserProjectsResult {
+        private String tenantId;
+        private String tenantName;
         private List<ProjectSummary> projects;
         private String redirectTo;
     }

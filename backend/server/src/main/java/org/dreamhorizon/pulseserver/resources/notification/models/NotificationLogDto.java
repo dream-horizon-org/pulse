@@ -13,7 +13,7 @@ import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 @AllArgsConstructor
 public class NotificationLogDto {
   private Long id;
-  private String batchId;
+  private String idempotencyKey;
   private ChannelType channelType;
   private String recipient;
   private String subject;

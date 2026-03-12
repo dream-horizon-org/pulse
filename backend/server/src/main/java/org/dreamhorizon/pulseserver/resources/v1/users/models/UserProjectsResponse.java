@@ -14,6 +14,12 @@ import java.util.List;
 @AllArgsConstructor
 public class UserProjectsResponse {
     
+    @JsonProperty("tenantId")
+    private String tenantId;
+    
+    @JsonProperty("tenantName")
+    private String tenantName;
+    
     @JsonProperty("projects")
     private List<ProjectSummary> projects;
     

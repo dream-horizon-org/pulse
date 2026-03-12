@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode(callSuper = true)
 public class SlackChannelConfig extends ChannelConfig {
   private String accessToken;
-  private String defaultChannelId;
+  private String workspaceId;
   private String botName;
   private String iconEmoji;
 

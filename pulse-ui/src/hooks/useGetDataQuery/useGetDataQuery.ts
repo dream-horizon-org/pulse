@@ -10,12 +10,29 @@ import utc from "dayjs/plugin/utc";
 
 dayjs.extend(utc);
 
+// Helper to get projectId from sessionStorage (same source as makeRequestToServer)
+const getProjectIdFromStorage = (): string | null => {
+  try {
+    const stored = sessionStorage.getItem('pulse_project_context');
+    if (stored) {
+      const data = JSON.parse(stored);
+      return data.projectId || null;
+    }
+  } catch (error) {
+    // Silently ignore parsing errors
+  }
+  return null;
+};
+
 export const useGetDataQuery = ({
   requestBody,
   enabled = true,
   refetchInterval = false,
 }: GetDataQueryParams) => {
   const dataQuery = API_ROUTES.DATA_QUERY;
+  
+  // Read projectId from sessionStorage (single source of truth)
+  const projectId = getProjectIdFromStorage();
 
   // Format times to ISO string
   // If the time is already in ISO format (contains 'T' or 'Z'), parse it directly
@@ -43,6 +60,7 @@ export const useGetDataQuery = ({
   return useQuery({
     queryKey: [
       dataQuery.key,
+      projectId, // Include projectId to invalidate cache when project changes
       requestBody.dataType,
       requestBody.timeRange.start,
       requestBody.timeRange.end,
@@ -61,7 +79,7 @@ export const useGetDataQuery = ({
     },
     refetchOnWindowFocus: false,
     refetchInterval,
-    enabled: enabled,
+    enabled: enabled && !!projectId, // Only enable if projectId exists
     staleTime: 10000,
     placeholderData: undefined,
   });

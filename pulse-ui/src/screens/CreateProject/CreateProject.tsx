@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -12,34 +13,24 @@ import {
   Group,
 } from '@mantine/core';
 import { IconFolder, IconArrowLeft } from '@tabler/icons-react';
-import { useTenantContext } from '../../contexts';
+import { useTenantContext, useProjectContext } from '../../contexts';
 import { showNotification } from '../../helpers/showNotification';
-import { API_BASE_URL } from '../../constants';
-import { makeRequest } from '../../helpers/makeRequest';
-
-interface CreateProjectRequest {
-  name: string;
-  description?: string;
-}
-
-interface ProjectResponse {
-  projectId: string;
-  name: string;
-  description: string;
-  tenantId: string;
-  apiKey: string;
-  createdAt: string;
-  createdBy: string;
-}
+import { ROUTES } from '../../constants';
+import { useCreateProject } from '../../hooks';
+import { PROJECT_ROLES } from '../../constants/Roles';
+import { TIERS } from '../../constants/Tiers';
 
 export function CreateProject() {
   const navigate = useNavigate();
   const { tenantId, addProject } = useTenantContext();
+  const { setProject } = useProjectContext();
   
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string }>({});
+  
+  const createProjectMutation = useCreateProject();
+  const isSubmitting = createProjectMutation.isPending;
 
   const validateForm = (): boolean => {
     const newErrors: { name?: string } = {};
@@ -54,76 +45,88 @@ export function CreateProject() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm() || !tenantId) return;
     
-    setIsSubmitting(true);
-    
-    try {
-      const response = await makeRequest<ProjectResponse>({
-        url: `${API_BASE_URL}/v1/projects`,
-        init: {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: projectName.trim(),
-            description: projectDescription.trim() || undefined,
-          } as CreateProjectRequest),
-        },
-      });
-      
-      if (response.data) {
-        // Add project to tenant context
-        addProject({
-          projectId: response.data.projectId,
-          name: response.data.name,
-          description: response.data.description,
-          isActive: true,
-          role: 'admin',
-        });
-        
-        showNotification(
-          'Success',
-          'Project created successfully!',
-          <IconFolder />,
-          '#0ec9c2'
-        );
-        
-        // Navigate to project onboarding
-        navigate(`/projects/${response.data.projectId}/onboarding`, {
-          state: {
-            projectId: response.data.projectId,
-            projectName: response.data.name,
-            projectApiKey: response.data.apiKey,
+    createProjectMutation.mutate(
+      {
+        name: projectName.trim(),
+        description: projectDescription.trim() || undefined,
+      },
+      {
+        onSuccess: (response) => {
+          if (response?.data) {
+            const projectData = response.data;
+
+            // Force immediate state update using flushSync to prevent race conditions
+            // This ensures the project is in both TenantContext and ProjectContext before navigation
+            flushSync(() => {
+              // Update TenantContext (adds to projects list)
+              addProject({
+                projectId: projectData.projectId,
+                name: projectData.name,
+                description: projectData.description,
+                isActive: true,
+                role: PROJECT_ROLES.ADMIN,
+              });
+              
+              // Update ProjectContext (sets as active project)
+              setProject({
+                projectId: projectData.projectId,
+                projectName: projectData.name,
+                userRole: PROJECT_ROLES.ADMIN,
+                isActive: true,
+              });
+              
+              // CRITICAL: Also update sessionStorage immediately to prevent race conditions
+              sessionStorage.setItem('pulse_project_context', JSON.stringify({
+                projectId: projectData.projectId,
+                projectName: projectData.name,
+                userRole: PROJECT_ROLES.ADMIN,
+                isActive: true,
+                plan: TIERS.FREE,
+                timestamp: Date.now()
+              }));
+              
+              // Update last used project ID
+              sessionStorage.setItem('pulse_last_project_id', projectData.projectId);
+            });
+            
+            showNotification(
+              'Success',
+              'Project created successfully!',
+              <IconFolder />,
+              '#0ec9c2'
+            );
+            
+            // Navigate to project onboarding
+            navigate(`/projects/${projectData.projectId}/onboarding`, {
+              state: {
+                projectId: projectData.projectId,
+                projectName: projectData.name,
+                projectApiKey: projectData.apiKey,
+              }
+            });
           }
-        });
-      } else {
-        showNotification(
-          'Error',
-          response.error?.message || 'Failed to create project',
-          <IconFolder />,
-          '#fa5252'
-        );
+        },
+        onError: (error) => {
+          showNotification(
+            'Error',
+            error instanceof Error ? error.message : 'Failed to create project',
+            <IconFolder />,
+            '#fa5252'
+          );
+        },
       }
-    } catch (error: any) {
-      console.error('[CreateProject] Error:', error);
-      showNotification(
-        'Error',
-        error.message || 'Failed to create project',
-        <IconFolder />,
-        '#fa5252'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   const handleBack = () => {
-    navigate('/organization/projects');
+    if (tenantId) {
+      navigate(ROUTES.ORGANIZATION_PROJECTS.basePath.replace(':organizationId', tenantId));
+    }
   };
 
   return (

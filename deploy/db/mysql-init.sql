@@ -193,7 +193,7 @@ CREATE TABLE symbol_files (
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,
-    framework ENUM('java','js') NOT NULL,
+    framework ENUM('java','js', 'mapping', 'dsym') NOT NULL,
     file_content LONGBLOB NOT NULL,
     bundleid VARCHAR(255),
     PRIMARY KEY (project_id, app_version, app_version_code, platform, framework),
@@ -312,18 +312,6 @@ CREATE TABLE severity
     severity_id INT PRIMARY KEY AUTO_INCREMENT,
     name        INT NOT NULL,
     description TEXT
-);
-
-CREATE TABLE notification_channels
-(
-    notification_channel_id INT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(64) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    type ENUM('slack', 'email') NOT NULL,
-    config VARCHAR(500) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL,
-    INDEX idx_notification_channels_project (project_id),
-    CONSTRAINT fk_notification_channels_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
 
@@ -521,37 +509,6 @@ CREATE TABLE IF NOT EXISTS athena_job (
     CONSTRAINT fk_athena_job_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
--- DEPRECATED: Use clickhouse_project_credentials instead (per-project isolation)
--- This table is kept for backward compatibility only
-CREATE TABLE IF NOT EXISTS clickhouse_tenant_credentials (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id VARCHAR(100) NOT NULL UNIQUE,
-    clickhouse_username VARCHAR(100) NOT NULL,
-    clickhouse_password_encrypted TEXT NOT NULL,
-    encryption_salt VARCHAR(100) NOT NULL,
-    password_digest VARCHAR(100) NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_ch_cred_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    INDEX idx_tenant_active (tenant_id, is_active)
-);
-
-Insert into clickhouse_tenant_credentials(tenant_id, clickhouse_username, clickhouse_password_encrypted, encryption_salt, password_digest,is_active)
-VALUES('default', 'pulse_user', '4DmcqzM5CvhbfldwSodVxV2RKujGtFuk0/ON9qNjp/ZyL8uxdKar31iU', 'ESp44TCMn7nTiBIm6Kfd/g==', 'eGCdIGWj2FVzvDfTmTsxOl2cbpbYPRI5ts9Fk9D3jVA=', 1);
-
-CREATE TABLE IF NOT EXISTS clickhouse_credential_audit (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    project_id VARCHAR(100) NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    performed_by VARCHAR(255) NOT NULL,
-    details JSON,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_credential_audit_project (project_id),
-    CONSTRAINT fk_credential_audit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
-);
-
-
 -- ============================================================================
 -- PROJECT USAGE LIMITS TABLE
 -- Single source of truth for project limits. One active record per project.
@@ -619,33 +576,70 @@ CREATE TABLE IF NOT EXISTS clickhouse_project_credentials (
 -- Audits changes to ClickHouse project credentials
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clickhouse_project_credential_audit (
-    clickhouse_project_credential_audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL COMMENT 'Project ID (projectName-{uuid})',
-    clickhouse_username VARCHAR(255) NOT NULL,
-    action ENUM('CREATE', 'ROTATE', 'REVOKE') NOT NULL,
+    action VARCHAR(50) NOT NULL,
     performed_by VARCHAR(255) NOT NULL,
-    performed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_chaudit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    INDEX idx_chaudit_project (project_id)
+    INDEX idx_chaudit_project (project_id),
+    INDEX idx_chaudit_created (created_at)
 );
 
+-- ============================================================================
+-- TERMS & CONDITIONS VERSIONING
+-- Stores published TnC document versions with S3 URLs
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tnc_versions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    version VARCHAR(20) NOT NULL UNIQUE,
+    tos_s3_url VARCHAR(1024) NOT NULL,
+    aup_s3_url VARCHAR(1024) NOT NULL,
+    privacy_policy_s3_url VARCHAR(1024) NOT NULL,
+    summary TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    published_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tnc_active (is_active)
+);
+
+-- ============================================================================
+-- TERMS & CONDITIONS ACCEPTANCE TRACKING
+-- Tracks per-tenant acceptance of TnC versions (org-level, not project-level)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS tnc_acceptances (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    tenant_id VARCHAR(64) NOT NULL,
+    tnc_version_id BIGINT NOT NULL,
+    accepted_by_email VARCHAR(255) NOT NULL,
+    accepted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    UNIQUE KEY uk_tenant_version (tenant_id, tnc_version_id),
+    INDEX idx_tnc_tenant (tenant_id),
+    CONSTRAINT fk_tnc_acc_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
+    CONSTRAINT fk_tnc_acc_version FOREIGN KEY (tnc_version_id) REFERENCES tnc_versions(id)
+
+);
 -- Notification Service Tables
-CREATE TABLE IF NOT EXISTS project_notification_channels (
+CREATE TABLE IF NOT EXISTS notification_channels (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NOT NULL,
-    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
+    project_id VARCHAR(64) NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
     name VARCHAR(255) NOT NULL,
     config JSON NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_notification_channel_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_project_channel_name (project_id, name),
+    UNIQUE KEY unique_project_channel_type (project_id, channel_type),
     INDEX idx_channel_project_type_active (project_id, channel_type, is_active)
 );
 
 -- Insert default platform email channel for system notifications (onboarding, etc.)
-INSERT INTO project_notification_channels (project_id, channel_type, name, config) VALUES
+INSERT INTO notification_channels (project_id, channel_type, name, config) VALUES
 ('default-project', 'EMAIL', 'Platform Email Channel', JSON_OBJECT(
     'type', 'EMAIL',
     'fromAddress', 'noreply@pulse-ux.com',
@@ -653,24 +647,24 @@ INSERT INTO project_notification_channels (project_id, channel_type, name, confi
 ))
 ON DUPLICATE KEY UPDATE config = config;
 
-CREATE TABLE IF NOT EXISTS project_notification_templates (
+
+CREATE TABLE IF NOT EXISTS notification_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id VARCHAR(64) NOT NULL,
     event_name VARCHAR(255) NOT NULL,
-    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NULL,
     version INT NOT NULL DEFAULT 1,
     body JSON NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_notification_template_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    UNIQUE KEY unique_template_version (project_id, event_name, channel_type, version),
-    INDEX idx_template_event (project_id, event_name, is_active)
+    UNIQUE KEY unique_template_version (event_name, channel_type),
+    INDEX idx_template_event (event_name, is_active)
 );
 
 -- Insert project creation onboarding email template
-INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
-('default-project', 'project_created', 'EMAIL', 1, JSON_OBJECT(
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('project_created', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
     'subject', '[Pulse] Welcome - {{projectName}} is ready!',
     'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Welcome to Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi <strong>{{createdBy}}</strong>,</p><p style=\"font-size: 16px;\">Great news! Your project <strong style=\"color: #00BFA5;\">{{projectName}}</strong> has been successfully created.</p><p style=\"font-size: 16px; margin-top: 25px;\"><strong>Your API Key</strong></p><p style=\"font-size: 14px; color: #666;\">Use this key to integrate the Pulse SDK into your application:</p><div style=\"background: #1a1a2e; color: #00BFA5; padding: 15px 20px; border-radius: 8px; font-family: \'Courier New\', monospace; font-size: 14px; word-break: break-all; margin: 15px 0; border-left: 4px solid #00BFA5;\">{{apiKey}}</div><p style=\"color: #888; font-size: 12px; margin-top: 5px;\">Keep this key secure. Do not share it publicly or commit it to version control.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help integrating? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">SDK documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
     'text', '[Pulse] Welcome - {{projectName}} is ready!\n\nHi {{createdBy}},\n\nGreat news! Your project {{projectName}} has been successfully created.\n\nYour API Key:\n{{apiKey}}\n\nUse this key to integrate the Pulse SDK into your application.\n\nKeep this key secure. Do not share it publicly or commit it to version control.\n\nGo to Dashboard: https://pulse-ux.com\n\nNeed help integrating? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
@@ -678,8 +672,9 @@ INSERT INTO project_notification_templates (project_id, event_name, channel_type
 ON DUPLICATE KEY UPDATE body = body;
 
 -- Insert collaborator added email template
-INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
-('default-project', 'collaborator_added', 'EMAIL', 1, JSON_OBJECT(
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('collaborator_added', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
     'subject', '[Pulse] You''ve been added to {{projectName}}',
     'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">You have been added to a new project in Pulse!</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{addedBy}}</strong> has added you to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project with <strong>{{role}}</strong> access.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com/projects/{{projectId}}\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #888; font-size: 13px; text-align: center;\">Need help getting started? Check out our <a href=\"https://docs.pulse-ux.com\" style=\"color: #00BFA5; text-decoration: none;\">documentation</a>.</p><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
     'text', '[Pulse] You''ve been added to {{projectName}}\n\nHi,\n\n{{addedBy}} has added you to {{projectName}} project with {{role}} access.\n\nGo to Dashboard: https://pulse-ux.com/projects/{{projectId}}\n\nNeed help getting started? Visit https://docs.pulse-ux.com\n\n-- The Pulse Team'
@@ -687,8 +682,9 @@ INSERT INTO project_notification_templates (project_id, event_name, channel_type
 ON DUPLICATE KEY UPDATE body = body;
 
 -- Insert collaborator removed email template
-INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
-('default-project', 'collaborator_removed', 'EMAIL', 1, JSON_OBJECT(
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('collaborator_removed', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
     'subject', '[Pulse] Your access to {{projectName}} has been revoked',
     'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Your access for a project in Pulse has been revoked.</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{removedBy}}</strong> has revoked your access to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project.</p><p style=\"font-size: 14px; color: #666; margin-top: 20px;\">If you believe this was a mistake, please contact your project administrator.</p><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
     'text', '[Pulse] Your access to {{projectName}} has been revoked\n\nHi,\n\n{{removedBy}} has revoked your access to {{projectName}} project.\n\nIf you believe this was a mistake, please contact your project administrator.\n\n-- The Pulse Team'
@@ -696,20 +692,36 @@ INSERT INTO project_notification_templates (project_id, event_name, channel_type
 ON DUPLICATE KEY UPDATE body = body;
 
 -- Insert collaborator role updated email template
-INSERT INTO project_notification_templates (project_id, event_name, channel_type, version, body) VALUES
-('default-project', 'collaborator_role_updated', 'EMAIL', 1, JSON_OBJECT(
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('collaborator_role_updated', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
     'subject', '[Pulse] Your role in {{projectName}} has been updated',
     'html', '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;\"><div style=\"background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;\"><h1 style=\"color: #00BFA5; margin: 0; font-size: 28px;\">Your access for a project in Pulse has been updated.</h1></div><div style=\"background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><p style=\"font-size: 16px;\">Hi,</p><p style=\"font-size: 16px;\"><strong style=\"color: #00BFA5;\">{{updatedBy}}</strong> has updated your access to <strong style=\"color: #00BFA5;\">{{projectName}}</strong> project to <strong>{{newRole}}</strong>.</p><div style=\"text-align: center; margin: 30px 0;\"><a href=\"https://pulse-ux.com\" style=\"display: inline-block; background: #00BFA5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;\">Go to Dashboard</a></div><hr style=\"border: none; border-top: 1px solid #eee; margin: 25px 0;\"><p style=\"color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;\">-- The Pulse Team</p></div></body></html>',
     'text', '[Pulse] Your role in {{projectName}} has been updated\n\nHi,\n\n{{updatedBy}} has updated your access to {{projectName}} project to {{newRole}}.\n\nGo to Dashboard: https://pulse-ux.com\n\n-- The Pulse Team'
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
+CREATE TABLE IF NOT EXISTS channel_event_mapping (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NOT NULL,
+    channel_id BIGINT NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    recipient VARCHAR(512) NULL,
+    recipient_name VARCHAR(255) NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_mapping_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+    CONSTRAINT fk_mapping_channel FOREIGN KEY (channel_id) REFERENCES notification_channels(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
+    INDEX idx_mapping_project_event (project_id, event_name, is_active)
+);
+
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
-    batch_id VARCHAR(64) NOT NULL,
     idempotency_key VARCHAR(255) NOT NULL,
-    channel_type ENUM('SLACK', 'EMAIL', 'TEAMS') NOT NULL,
+    channel_type ENUM('SLACK', 'SLACK_WEBHOOK', 'EMAIL', 'TEAMS') NOT NULL,
     channel_id BIGINT NOT NULL,
     template_id BIGINT NOT NULL,
     recipient VARCHAR(512) NOT NULL,
@@ -725,7 +737,6 @@ CREATE TABLE IF NOT EXISTS notification_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sent_at TIMESTAMP NULL,
     CONSTRAINT fk_notification_log_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
-    INDEX idx_log_batch (batch_id),
     INDEX idx_log_project_status (project_id, status),
     UNIQUE INDEX idx_log_idempotency (project_id, idempotency_key(128), channel_type, recipient(128)),
     INDEX idx_log_external_id (external_id)

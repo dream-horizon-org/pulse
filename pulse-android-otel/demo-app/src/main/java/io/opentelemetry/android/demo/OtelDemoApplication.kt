@@ -10,6 +10,7 @@ package io.opentelemetry.android.demo
 import android.annotation.SuppressLint
 import android.app.Application
 import android.util.Log
+import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.PulseSDK
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
@@ -47,7 +48,8 @@ class OtelDemoApplication : Application() {
             PulseSDK.INSTANCE.initialize(
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
-                projectId = "project-123",
+                dataCollectionState = PulseDataCollectionConsent.ALLOWED,
+                projectId = "default",
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },

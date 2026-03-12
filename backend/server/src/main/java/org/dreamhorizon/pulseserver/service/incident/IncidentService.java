@@ -50,8 +50,8 @@ public class IncidentService {
 
     return incidentDao.insertIncident(row)
         .flatMap(saved -> {
-          String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
           Map<String, Object> params = buildIncidentParams(saved);
+          String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
           SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
               .channelTypes(List.of(ChannelType.SLACK))
@@ -90,7 +90,6 @@ public class IncidentService {
           Map<String, Object> params = buildIncidentParams(incident);
           String slackChannel = notificationConfig.getIncidentConfig().getDefaultSlackChannelId();
 
-          // Send new Slack message (sync) then email (async)
           SendNotificationRequestDto slackRequest = SendNotificationRequestDto.builder()
               .channelTypes(List.of(ChannelType.SLACK))
               .eventName(NotificationEventName.ACKNOWLEDGE_INCIDENT.getValue())

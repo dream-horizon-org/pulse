@@ -15,20 +15,34 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId: contextProjectId, switchProject } = useProjectContext();
-  const { projects } = useTenantContext();
+  const { projects, tenantId } = useTenantContext();
 
   useEffect(() => {
+    // If tenantId is null, user is logged out or logging out - skip all guard logic
+    if (!tenantId) {
+      return;
+    }
+    
     const excludedPaths = [
       ROUTES.LOGIN.basePath,
       ROUTES.ONBOARDING.basePath,
       ROUTES.PRICING.basePath,
-      ROUTES.PROJECT_SELECTION.basePath,
-      '/organization',
     ];
+
+    // Check if path is organization-scoped (/:organizationId/...)
+    const isOrganizationPath = /^\/[^/]+\/(projects|members)/.test(location.pathname);
+    
+    // Check if path is onboarding page for a project (should not trigger guard)
+    const isOnboardingPath = /^\/projects\/[^/]+\/onboarding/.test(location.pathname);
 
     const isExcludedPath = excludedPaths.some(path => 
       location.pathname.startsWith(path)
     );
+
+    // Skip guard for onboarding pages
+    if (isOnboardingPath) {
+      return;
+    }
 
     // Extract project ID from URL if on project-scoped route
     const projectIdMatch = location.pathname.match(/^\/projects\/([^/]+)/);
@@ -38,25 +52,24 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     if (urlProjectId && !isExcludedPath) {
       // Sync URL project ID with context if different
       if (!contextProjectId || contextProjectId !== urlProjectId) {
-        console.log(`[ProjectGuard] Syncing project context from URL: ${urlProjectId}`);
         
         // Check if user has access to this project
         const hasAccess = projects.some(p => p.projectId === urlProjectId);
+        
         if (hasAccess) {
           switchProject(urlProjectId);
-        } else if (projects.length > 0) {
-          // Project not found or no access - redirect to project selection
-          console.log('[ProjectGuard] No access to project, redirecting to project selection');
-          navigate(ROUTES.PROJECT_SELECTION.basePath);
+        } else if (projects.length > 0 && tenantId) {
+          navigate(`/${tenantId}/projects`);
         }
         // If projects array is empty, wait for it to load (handled by TenantContext)
       }
-    } else if (!contextProjectId && !isExcludedPath && !urlProjectId) {
-      // No project context and not on excluded route or project-scoped route
-      console.log('[ProjectGuard] No project context, redirecting to project selection');
-      navigate(ROUTES.PROJECT_SELECTION.basePath);
+    } else if (!contextProjectId && !isExcludedPath && !urlProjectId && !isOrganizationPath) {
+      // No project context and not on excluded route, project-scoped route, or organization route
+      if (tenantId) {
+        navigate(`/${tenantId}/projects`);
+      }
     }
-  }, [contextProjectId, location.pathname, navigate, projects, switchProject]);
+  }, [contextProjectId, location.pathname, navigate, projects, switchProject, tenantId]);
 
   return <>{children}</>;
 }

@@ -1,0 +1,47 @@
+---
+description: Java testing conventions for backend unit tests
+globs: backend/**/src/test/**/*.java
+alwaysApply: false
+---
+
+# Java Testing Conventions
+
+## Framework
+
+JUnit 5 + Mockito + AssertJ
+
+## Class Setup
+
+```java
+@ExtendWith(MockitoExtension.class)
+class MyServiceImplTest {
+    @Mock private MyDao myDao;
+    @InjectMocks private MyServiceImpl service;
+}
+```
+
+## Method Naming
+
+Use `should*` pattern: `shouldThrowExceptionIfInteractionAlreadyPresent`, `shouldReturnEmptyListWhenNoResults`
+
+## Grouping
+
+Use `@Nested` classes for logical groups:
+
+```java
+@Nested
+class CreateInteraction {
+    @Test void shouldCreateSuccessfully() { ... }
+    @Test void shouldRejectDuplicateName() { ... }
+}
+```
+
+## Assertions
+
+- Prefer AssertJ: `assertThat(result).usingRecursiveComparison().isEqualTo(expected)`
+- For RxJava: use `.test()` to get `TestObserver`, then `assertValue()`, `assertError()`
+
+## Coverage
+
+- JaCoCo enforced: **35% overall**, **80% on changed files**
+- Focus tests on service and DAO layers

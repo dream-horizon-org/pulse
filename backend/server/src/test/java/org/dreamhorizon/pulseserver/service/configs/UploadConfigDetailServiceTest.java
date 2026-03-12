@@ -220,7 +220,7 @@ class UploadConfigDetailServiceTest {
           .version(5L)
           .build();
 
-      when(configService.getActiveSdkConfig(TenantContext.requireTenantId())).thenReturn(Single.just(minimalConfig));
+      when(configService.getActiveSdkConfig(TEST_PROJECT_ID)).thenReturn(Single.just(minimalConfig));
       when(s3BucketClient.uploadObject(eq(TEST_BUCKET_NAME), eq(TEST_PROJECT_FILE_PATH), eq(minimalConfig)))
           .thenReturn(Single.just(EmptyResponse.emptyResponse));
       when(cloudFrontClient.invalidateCache(eq(TEST_DISTRIBUTION_ID), eq(TEST_PROJECT_ASSET_PATH)))

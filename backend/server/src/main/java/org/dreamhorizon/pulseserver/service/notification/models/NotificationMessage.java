@@ -13,13 +13,12 @@ import lombok.NoArgsConstructor;
 public class NotificationMessage {
   private Long logId;
   private String projectId;
-  private String batchId;
   private String idempotencyKey;
   private ChannelType channelType;
   private Long channelId;
-  private String channelConfig;
+  private ChannelConfig channelConfig;
   private Long templateId;
-  private String templateBody;
+  private TemplateBody templateBody;
   private String recipient;
   private String subject;
   private Map<String, Object> params;
