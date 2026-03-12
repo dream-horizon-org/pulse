@@ -303,8 +303,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
-            if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
+            currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
+                instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
             sessionReplayConfig = instrumentationConfig.getSessionReplayConfig()
             pulseSamplingProcessors?.run {
@@ -712,7 +712,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         internal fun extractProjectID(projectId: String): String {
             val lastUnderscoreIndex = projectId.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {
-                projectId.substring(0, lastUnderscoreIndex)
+                projectId.take(lastUnderscoreIndex)
             } else {
                 projectId
             }
