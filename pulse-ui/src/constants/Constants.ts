@@ -306,8 +306,8 @@ export const ROUTES: Routes = {
     ? {
         AI_CHAT: {
           key: "AI_CHAT",
-          basePath: "/ai-chat",
-          path: "/ai-chat",
+          basePath: "/projects/:projectId/ai-chat",
+          path: "/projects/:projectId/ai-chat",
           element: AiChat,
         },
       }

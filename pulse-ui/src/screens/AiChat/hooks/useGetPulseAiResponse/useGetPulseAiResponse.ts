@@ -1,7 +1,8 @@
 // TODO: Replace raw fetch with makeRequest helper once AI backend is behind the shared API gateway (SSE streaming may need a custom adapter)
 import { useCallback, useRef } from "react";
-import { AI_BASE_URL, COOKIES_KEY } from "../../../../constants";
+import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
+import { buildAuthHeaders } from "../../../../helpers/makeRequestToServer";
 import {
   StreamingCallbacks,
   UseGetPulseAiResponseReturn,
@@ -31,9 +32,11 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
         streaming: true,
       });
 
-      fetch(`${AI_BASE_URL}${AI_API_PATHS.RUN_SSE}`, {
+      const authHeaders = buildAuthHeaders();
+
+      fetch(`${API_BASE_URL}${AI_API_PATHS.RUN_SSE}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body,
         signal: controller.signal,
       })
