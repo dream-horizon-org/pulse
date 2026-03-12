@@ -787,3 +787,138 @@ CREATE TABLE IF NOT EXISTS incidents (
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
+
+-- create_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('create_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '🚨 New Incident INC-{{incidentId}} — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🚨 Incident INC-{{incidentId}} Reported', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\n{{status}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Email:*\n{{reporterEmail}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
+        JSON_OBJECT('type', 'divider'),
+        JSON_OBJECT('type', 'actions', 'elements', JSON_ARRAY(
+            JSON_OBJECT('type', 'button', 'text', JSON_OBJECT('type', 'plain_text', 'text', '✅ Acknowledge', 'emoji', true), 'style', 'primary', 'action_id', 'ack', 'value', '{{incidentId}}')
+        ))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- acknowledge_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('acknowledge_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '👀 Incident INC-{{incidentId}} Acknowledged — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '👀 Incident INC-{{incidentId}} Acknowledged', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nACKNOWLEDGED'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Acknowledged by:*\n@Sengar'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
+        JSON_OBJECT('type', 'divider'),
+        JSON_OBJECT('type', 'actions', 'elements', JSON_ARRAY(
+            JSON_OBJECT('type', 'button', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🔧 Recover', 'emoji', true), 'style', 'primary', 'action_id', 'recover', 'value', '{{incidentId}}')
+        ))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- recovered_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('recovered_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '✅ Incident INC-{{incidentId}} Recovered — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '✅ Incident INC-{{incidentId}} Recovered', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nRECOVERED'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Recovered by:*\n@Sengar'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', '*Description:*\n{{description}}')),
+        JSON_OBJECT('type', 'divider'),
+        JSON_OBJECT('type', 'actions', 'elements', JSON_ARRAY(
+            JSON_OBJECT('type', 'button', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🔒 Close Incident', 'emoji', true), 'action_id', 'close', 'value', '{{incidentId}}')
+        ))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- close_incident SLACK
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('close_incident', 'SLACK', 1, JSON_OBJECT(
+    'type', 'SLACK',
+    'text', '🔒 Incident INC-{{incidentId}} Closed — {{title}}',
+    'blocks', JSON_ARRAY(
+        JSON_OBJECT('type', 'header', 'text', JSON_OBJECT('type', 'plain_text', 'text', '🔒 Incident INC-{{incidentId}} Closed', 'emoji', true)),
+        JSON_OBJECT('type', 'section', 'fields', JSON_ARRAY(
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Title:*\n{{title}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Severity:*\n{{severity}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Status:*\nCLOSED'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Org:*\n{{orgIdentifier}}'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Closed by:*\n@Sengar'),
+            JSON_OBJECT('type', 'mrkdwn', 'text', '*Reporter:*\n{{reporterName}}')
+        )),
+        JSON_OBJECT('type', 'section', 'text', JSON_OBJECT('type', 'mrkdwn', 'text', 'This incident has been resolved and closed. No further action required.'))
+    )
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+
+-- ==================== EMAIL TEMPLATES ====================
+
+-- create_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('create_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Reported - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#d32f2f;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Reported</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been logged and our team has been notified.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Severity</td><td style="padding:8px;border-bottom:1px solid #eee;">{{severity}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">OPEN</td></tr></table><p style="color:#666;">You will receive updates as the incident progresses.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Reported\n\nHi {{reporterName}},\n\nYour incident has been logged.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nSeverity: {{severity}}\nStatus: OPEN\n\nYou will receive updates as the incident progresses.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- acknowledge_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('acknowledge_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Acknowledged - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#f9a825;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Acknowledged</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been acknowledged and our on-call engineer is investigating.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Severity</td><td style="padding:8px;border-bottom:1px solid #eee;">{{severity}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">ACKNOWLEDGED</td></tr></table><p style="color:#666;">You will receive updates as the incident progresses.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Acknowledged\n\nHi {{reporterName}},\n\nYour incident has been acknowledged and our on-call engineer is investigating.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nSeverity: {{severity}}\nStatus: ACKNOWLEDGED\n\nYou will receive updates as the incident progresses.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- recovered_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('recovered_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Recovered - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#2e7d32;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Recovered</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been recovered. The issue has been resolved and services are back to normal.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Severity</td><td style="padding:8px;border-bottom:1px solid #eee;">{{severity}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">RECOVERED</td></tr></table><p style="color:#666;">A closure update will follow once the incident is formally closed.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Recovered\n\nHi {{reporterName}},\n\nYour incident has been recovered. The issue has been resolved and services are back to normal.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nSeverity: {{severity}}\nStatus: RECOVERED\n\nA closure update will follow once the incident is formally closed.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
+
+-- close_incident EMAIL
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('close_incident', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Incident INC-{{incidentId}} Closed - {{title}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;background-color:#f5f5f5;"><div style="background:#424242;padding:30px;border-radius:10px 10px 0 0;text-align:center;"><h1 style="color:#fff;margin:0;font-size:24px;">Incident Closed</h1></div><div style="background:#fff;padding:30px;border-radius:0 0 10px 10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);"><p>Hi <strong>{{reporterName}}</strong>,</p><p>Your incident has been formally closed. No further action is required.</p><table style="width:100%;border-collapse:collapse;margin:20px 0;"><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Incident ID</td><td style="padding:8px;border-bottom:1px solid #eee;">INC-{{incidentId}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Title</td><td style="padding:8px;border-bottom:1px solid #eee;">{{title}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Severity</td><td style="padding:8px;border-bottom:1px solid #eee;">{{severity}}</td></tr><tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Status</td><td style="padding:8px;border-bottom:1px solid #eee;">CLOSED</td></tr></table><p style="color:#666;">Thank you for your patience. If you experience further issues, please raise a new incident.</p><hr style="border:none;border-top:1px solid #eee;margin:20px 0;"><p style="font-size:12px;color:#999;text-align:center;">Pulse Incident Management</p></div></body></html>',
+    'text', '[Pulse] Incident INC-{{incidentId}} Closed\n\nHi {{reporterName}},\n\nYour incident has been formally closed. No further action is required.\n\nIncident ID: INC-{{incidentId}}\nTitle: {{title}}\nSeverity: {{severity}}\nStatus: CLOSED\n\nThank you for your patience. If you experience further issues, please raise a new incident.\n\n-- Pulse Incident Management'
+))
+ON DUPLICATE KEY UPDATE body = VALUES(body);
