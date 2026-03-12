@@ -66,8 +66,9 @@ public class ProjectService {
   }
 
   public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, ReqUserInfo userInfo) {
-    String createdBy = userInfo.getUserId();
-    log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, createdBy);
+    String userEmail = userInfo.getEmail();
+    String userId = userInfo.getUserId();
+    log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, userEmail);
 
     // 1. Pre-transaction: Generate projectId
     String projectId = generateProjectId(name);
@@ -78,14 +79,14 @@ public class ProjectService {
         .name(name)
         .description(description)
         .isActive(true)
-        .createdBy(createdBy)
+        .createdBy(userEmail)
         .build();
 
-    // 2. Execute transaction with service methods
-    return executeTransaction(project, createdBy)
-        // 3. Blocking: OpenFGA operations
+    // 2. Execute transaction with service methods (email for audit trail)
+    return executeTransaction(project, userEmail)
+        // 3. Blocking: OpenFGA operations (userId for role assignment)
         .flatMap(result ->
-            assignRolesAndLink(result.project, createdBy, tenantId)
+            assignRolesAndLink(result.project, userId, tenantId)
                 .andThen(Single.just(result))
         )
         // 4. Fire-and-forget: Async tasks (including email notification)
@@ -104,7 +105,7 @@ public class ProjectService {
         );
   }
 
-  private Single<TransactionResult> executeTransaction(Project project, String createdBy) {
+  private Single<TransactionResult> executeTransaction(Project project, String userEmail) {
     return mysqlClient.getWriterPool().rxGetConnection()
         .flatMap(conn -> conn.rxBegin()
             .flatMap(tx -> {
@@ -116,15 +117,15 @@ public class ProjectService {
                           .map(chCreds -> new TransactionResult(createdProject, chCreds, null))
                   )
                   .flatMap(result ->
-                      projectApiKeyService.createDefaultApiKey(conn, project.getProjectId(), createdBy)
+                      projectApiKeyService.createDefaultApiKey(conn, project.getProjectId(), userEmail)
                           .map(apiKeyInfo -> new TransactionResult(result.project, result.chCredentials, apiKeyInfo.getRawApiKey()))
                   )
                   .flatMap(result ->
-                      usageLimitService.createInitialLimits(conn, project.getProjectId(), "admin")
+                      usageLimitService.createInitialLimits(conn, project.getProjectId(), "system")
                           .map(limit -> result)
                   )
                   .flatMap(result ->
-                      configService.createInitialConfig(conn, project.getProjectId(), createdBy)
+                      configService.createInitialConfig(conn, project.getProjectId(), userEmail)
                           .map(sdkConfig -> result)
                   )
                   .flatMap(result ->
@@ -142,9 +143,9 @@ public class ProjectService {
         );
   }
 
-  private Completable assignRolesAndLink(Project project, String createdBy, String tenantId) {
+  private Completable assignRolesAndLink(Project project, String userId, String tenantId) {
     log.debug("Assigning roles and linking project: {} to tenant: {}", project.getProjectId(), tenantId);
-    return openFgaService.assignProjectRole(createdBy, project.getProjectId(), "admin")
+    return openFgaService.assignProjectRole(userId, project.getProjectId(), "admin")
         .andThen(openFgaService.linkProjectToTenant(project.getProjectId(), tenantId))
         .doOnComplete(() -> log.debug("OpenFGA operations completed for project: {}", project.getProjectId()))
         .doOnError(err -> log.error("OpenFGA operations failed for project: {}", project.getProjectId(), err));
