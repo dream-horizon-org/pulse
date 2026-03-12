@@ -13,6 +13,7 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.query.models.QueryStatisticsResponseDto;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.query.QueryStatisticsService;
@@ -28,6 +29,7 @@ public class GetQueryStatistics {
   @GET
   @Path("/stats")
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<QueryStatisticsResponseDto>> getQueryStatistics(
       @HeaderParam("user-email") String userEmail,
       @QueryParam("startDate") String startDateStr,

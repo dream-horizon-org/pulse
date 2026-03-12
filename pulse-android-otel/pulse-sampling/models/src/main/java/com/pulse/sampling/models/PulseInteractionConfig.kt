@@ -8,9 +8,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 public class PulseInteractionConfig internal constructor(
     @SerialName("collectorUrl")
-    public val collectorUrl: String,
+    public val collectorUrl: String? = null,
     @SerialName("configUrl")
-    public val configUrl: String,
+    public val configUrl: String? = null,
     @SerialName("beforeInitQueueSize")
-    public val beforeInitQueueSize: Int,
+    public val beforeInitQueueSize: Int = 5000,
 )
