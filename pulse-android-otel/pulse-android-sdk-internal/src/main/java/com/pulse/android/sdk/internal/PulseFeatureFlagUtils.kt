@@ -42,6 +42,7 @@ internal object PulseFeatureFlagUtils {
                     PulseFeatureName.SCREEN_SESSION,
                     PulseFeatureName.RN_SCREEN_LOAD,
                     PulseFeatureName.RN_SCREEN_INTERACTIVE,
+                    PulseFeatureName.SESSION_REPLAY,
                     PulseFeatureName.UNKNOWN,
                     -> Unit
                 }

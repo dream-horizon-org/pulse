@@ -25,6 +25,7 @@ dependencies {
     api(projects.instrumentation.slowrendering)
     api(projects.instrumentation.startup)
     api(projects.instrumentation.sessions)
+    api(projects.instrumentation.sessionReplay)
 
     // todo move this to pulse SDK
     api(projects.instrumentation.interaction.interactionLibrary)
