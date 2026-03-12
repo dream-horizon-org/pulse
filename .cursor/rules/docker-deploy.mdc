@@ -17,7 +17,7 @@ alwaysApply: false
 | clickhouse | clickhouse-server:24.8 | 8123, 9000 | — |
 | clickhouse-init | clickhouse-server:24.8 | — | clickhouse |
 | otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
-| vector | Build `../vector/` | 8686, 14317, 14318 | — |
+| ~~vector~~ | ~~Build `../vector/`~~ | ~~8686, 14317, 14318~~ | — | *(commented out in docker-compose)* |
 | pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
 | pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga |
 | pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse |
@@ -30,7 +30,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data`, `vector-data` — persistent. Use `./scripts/reset-databases.sh` to wipe.
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` volume exists but Vector service is currently disabled.)
 
 ## Environment Variables
 
