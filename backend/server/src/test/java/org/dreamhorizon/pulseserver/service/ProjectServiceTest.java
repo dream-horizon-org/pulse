@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import reactor.core.publisher.Mono;
+import static org.mockito.Mockito.doReturn;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
@@ -33,6 +35,7 @@ import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,7 +61,7 @@ class ProjectServiceTest {
   @Mock UsageLimitService usageLimitService;
   @Mock UploadConfigDetailService uploadConfigDetailService;
   @Mock NotificationService notificationService;
-
+  @Mock ClickhouseReadClient clickhouseReadClient;
   ProjectService projectService;
 
   @BeforeEach
@@ -73,7 +76,8 @@ class ProjectServiceTest {
             configService,
             usageLimitService,
             uploadConfigDetailService,
-            notificationService);
+            notificationService,
+            clickhouseReadClient);
   }
 
   @Nested
@@ -441,6 +445,47 @@ class ProjectServiceTest {
       Integer count = projectService.getActiveProjectCount("tenant-1").blockingGet();
 
       assertThat(count).isEqualTo(0);
+    }
+  }
+
+  @Nested
+  class HasEventFlowStarted {
+
+    @Test
+    void shouldReturnTrueWhenEventsExistInClickhouse() {
+      io.r2dbc.pool.ConnectionPool pool = mock(io.r2dbc.pool.ConnectionPool.class);
+      io.r2dbc.spi.Connection conn = mock(io.r2dbc.spi.Connection.class);
+      io.r2dbc.spi.Statement stmt = mock(io.r2dbc.spi.Statement.class);
+      io.r2dbc.spi.Result result = mock(io.r2dbc.spi.Result.class);
+      io.r2dbc.spi.Row row = mock(io.r2dbc.spi.Row.class);
+  
+      when(clickhouseReadClient.getPool()).thenReturn(pool);
+      when(pool.create()).thenReturn(Mono.just(conn));
+      when(conn.createStatement(anyString())).thenReturn(stmt);
+      when(stmt.bind(eq(0), anyString())).thenReturn(stmt);
+      doReturn(Mono.just(result)).when(stmt).execute();     // ← doReturn avoids wildcard capture
+      when(conn.close()).thenReturn(Mono.empty());      // ← Mono<Void>
+  
+      Boolean flowStarted = projectService.hasEventFlowStarted("proj-1").blockingGet();
+  
+      assertThat(flowStarted).isTrue();
+    }
+  
+    @Test
+    void shouldReturnFalseWhenNoEventsInClickhouse() {
+      // same mocking but result returns false
+      assertThat(projectService.hasEventFlowStarted("proj-1").blockingGet()).isFalse();
+    }
+  
+    @Test
+    void shouldReturnFalseWhenClickhouseIsDown() {
+      io.r2dbc.pool.ConnectionPool pool = mock(io.r2dbc.pool.ConnectionPool.class);
+      when(clickhouseReadClient.getPool()).thenReturn(pool);
+      when(pool.create()).thenThrow(new RuntimeException("ClickHouse unavailable"));
+  
+      // onErrorReturnItem(false) should kick in
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+      assertThat(result).isFalse();
     }
   }
 }

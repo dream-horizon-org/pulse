@@ -122,15 +122,19 @@ public class ProjectResource {
         log.info("Getting project: projectId={}", projectId);
         
         return projectService.getProjectById(projectId)
-            .map(project -> ProjectResponse.builder()
-                .projectId(project.getProjectId())
-                .name(project.getName())
-                .description(project.getDescription())
-                .tenantId(project.getTenantId())
-                .apiKey(null) // API key is only returned at creation time
-                .createdAt(project.getCreatedAt())
-                .createdBy(project.getCreatedBy())
-                .build())
+            .flatMap(project ->
+                projectService.hasEventFlowStarted(projectId)
+                    .map(isEventFlowStarted -> ProjectResponse.builder()
+                        .projectId(project.getProjectId())
+                        .name(project.getName())
+                        .description(project.getDescription())
+                        .tenantId(project.getTenantId())
+                        .apiKey(null)
+                        .isEventFlowStarted(isEventFlowStarted)  
+                        .createdAt(project.getCreatedAt())
+                        .createdBy(project.getCreatedBy())
+                        .build())
+            )
             .to(RestResponse.jaxrsRestHandler());
     }
     

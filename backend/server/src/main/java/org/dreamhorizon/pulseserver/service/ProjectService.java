@@ -7,6 +7,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
@@ -42,6 +43,7 @@ public class ProjectService {
   private final UsageLimitService usageLimitService;
   private final UploadConfigDetailService uploadConfigDetailService;
   private final NotificationService notificationService;
+  private final ClickhouseReadClient clickhouseReadClient;
 
   @Inject
   public ProjectService(
@@ -53,7 +55,8 @@ public class ProjectService {
       ConfigService configService,
       UsageLimitService usageLimitService,
       UploadConfigDetailService uploadConfigDetailService,
-      NotificationService notificationService) {
+      NotificationService notificationService,
+      ClickhouseReadClient clickhouseReadClient) {
     this.mysqlClient = mysqlClient;
     this.projectDao = projectDao;
     this.openFgaService = openFgaService;
@@ -63,6 +66,7 @@ public class ProjectService {
     this.usageLimitService = usageLimitService;
     this.uploadConfigDetailService = uploadConfigDetailService;
     this.notificationService = notificationService;
+    this.clickhouseReadClient = clickhouseReadClient;
   }
 
   public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, ReqUserInfo userInfo) {
@@ -334,5 +338,24 @@ public class ProjectService {
 
   public Single<Integer> getActiveProjectCount(String tenantId) {
     return projectDao.getActiveProjectCount(tenantId);
+  }
+
+  public Single<Boolean> hasEventFlowStarted(String projectId) {
+    String query = """
+        SELECT sum(event_count) > 0 AS has_events
+        FROM otel.project_monthly_usage
+        WHERE project_id = ?
+          AND month = toStartOfMonth(now())
+        """;
+  
+        return Single.fromPublisher(clickhouseReadClient.getPool().create())
+        .flatMap(conn -> {
+          Single<Boolean> results = Single.fromPublisher(conn.createStatement(query).bind(0, projectId).execute())  
+              .flatMap(result -> Single.fromPublisher(result.map((row, md) ->
+                  Boolean.TRUE.equals(row.get("has_events", Boolean.class))
+              )));
+          return results.doFinally(() -> Single.fromPublisher(conn.close()).subscribe());
+        })
+        .onErrorReturnItem(false);
   }
 }
