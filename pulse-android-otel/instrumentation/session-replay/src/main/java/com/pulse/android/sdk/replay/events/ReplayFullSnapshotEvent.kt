@@ -11,11 +11,9 @@ public class ReplayFullSnapshotEvent(
 ) : ReplayEvent(
     type = ReplayEventType.FullSnapshot,
     timestamp = timestamp,
-    data = mapOf(
-        "wireframes" to wireframes,
-        "initialOffset" to mapOf(
-            "top" to initialOffsetTop,
-            "left" to initialOffsetLeft,
-        ),
+    data = ReplayFullSnapshotData(
+        wireframes = wireframes,
+        initialOffsetTop = initialOffsetTop,
+        initialOffsetLeft = initialOffsetLeft,
     ),
 )

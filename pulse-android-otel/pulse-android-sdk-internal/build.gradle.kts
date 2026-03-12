@@ -1,6 +1,7 @@
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
+    alias(libs.plugins.kotlinSerialisation)
 }
 
 description = "Pulse SDK internal implementation for mobile observability"

@@ -12,7 +12,7 @@ class SessionReplayConfigurationTest {
     }
 
     @Test
-    fun `getConfigIfConfigured returns config with default values after markConfigured`() {
+    fun `getConfigIfConfigured returns config with SDK defaults after markConfigured`() {
         val config = SessionReplayConfiguration()
         config.markConfigured()
         val built = config.getConfigIfConfigured()
@@ -21,26 +21,35 @@ class SessionReplayConfigurationTest {
         assertThat(built.imagePrivacy).isEqualTo(ImagePrivacy.MASK_ALL)
         assertThat(built.screenshot).isTrue()
         assertThat(built.throttleDelayMs).isEqualTo(1000L)
-        assertThat(built.flushIntervalSeconds).isEqualTo(60)
-        assertThat(built.flushAt).isEqualTo(10)
-        assertThat(built.maxBatchSize).isEqualTo(50)
-        assertThat(built.replayApiBaseUrl).isNull()
+        assertThat(built.drawableConverter).isNull()
+        assertThat(built.maskViewClasses).isEmpty()
+        assertThat(built.unmaskViewClasses).isEmpty()
     }
 
     @Test
-    fun `getConfigIfConfigured returns config with custom values when set before markConfigured`() {
+    fun `getConfigIfConfigured applies code-level configs from DSL`() {
+        val converter = DrawableConverter { null }
         val config = SessionReplayConfiguration().apply {
-            screenshot = false
-            throttleDelayMs = 2000L
-            replayApiBaseUrl = "https://api.example.com"
-            flushAt = 5
+            drawableConverter = converter
+            addMaskViewClass("com.example.SecretView")
+            addUnmaskViewClass("com.example.PublicView")
         }
         config.markConfigured()
         val built = config.getConfigIfConfigured()
         assertThat(built).isNotNull
-        assertThat(built!!.screenshot).isFalse()
-        assertThat(built.throttleDelayMs).isEqualTo(2000L)
-        assertThat(built.replayApiBaseUrl).isEqualTo("https://api.example.com")
-        assertThat(built.flushAt).isEqualTo(5)
+        assertThat(built!!.drawableConverter).isSameAs(converter)
+        assertThat(built.maskViewClasses).containsExactly("com.example.SecretView")
+        assertThat(built.unmaskViewClasses).containsExactly("com.example.PublicView")
+    }
+
+    @Test
+    fun `config is immutable - copy produces independent instance`() {
+        val original = SessionReplayConfig(
+            textAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
+            imagePrivacy = ImagePrivacy.MASK_ALL,
+        )
+        val modified = original.copy(textAndInputPrivacy = TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
+        assertThat(original.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_ALL)
+        assertThat(modified.textAndInputPrivacy).isEqualTo(TextAndInputPrivacy.MASK_SENSITIVE_INPUTS)
     }
 }

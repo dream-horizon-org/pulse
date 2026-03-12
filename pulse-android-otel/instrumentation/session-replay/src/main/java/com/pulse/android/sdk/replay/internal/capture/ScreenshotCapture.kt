@@ -14,6 +14,7 @@ import android.os.HandlerThread
 
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
+import com.pulse.android.sdk.replay.events.WireframeType
 import com.pulse.android.sdk.replay.internal.util.webpBase64
 import com.pulse.android.sdk.replay.internal.util.isValid
 import java.util.concurrent.CountDownLatch
@@ -26,6 +27,11 @@ import java.util.concurrent.TimeUnit
 internal object ScreenshotCapture {
 
     private val maskPaint = Paint().apply { color = android.graphics.Color.BLACK }
+
+    private val pixelCopyThread: HandlerThread by lazy {
+        HandlerThread("PulseReplayScreenshot").apply { start() }
+    }
+    private val pixelCopyHandler: Handler by lazy { Handler(pixelCopyThread.looper) }
 
     /**
      * Capture screenshot. Runs on background. [getMaskRects] is invoked with the view and a list
@@ -74,8 +80,6 @@ internal object ScreenshotCapture {
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val latch = CountDownLatch(1)
         var success = true
-        val thread = HandlerThread("PulseReplayScreenshot").apply { start() }
-        val handler = Handler(thread.looper)
 
         try {
             PixelCopy.request(window, bitmap, { copyResult ->
@@ -120,10 +124,9 @@ internal object ScreenshotCapture {
                     setOnDrawFlag(false)
                     latch.countDown()
                 }
-            }, handler)
+            }, pixelCopyHandler)
         } catch (e: Throwable) {
             bitmap.recycle()
-            thread.quitSafely()
             success = false
             latch.countDown()
         }
@@ -147,14 +150,13 @@ internal object ScreenshotCapture {
             toEncode.recycle()
             if (toEncode === bitmap) bitmapRecycled = true
             setOnDrawFlag(false)
-            thread.quitSafely()
             return ReplayWireframe(
                 id = viewId,
                 x = x,
                 y = y,
                 width = width,
                 height = height,
-                type = "screenshot",
+                type = WireframeType.SCREENSHOT,
                 base64 = base64,
                 style = ReplayStyle(),
             )

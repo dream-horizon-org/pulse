@@ -1,10 +1,10 @@
 package com.pulse.android.sdk.replay
 
 import android.util.Log
-import com.pulse.android.sdk.replay.events.ReplayCustomEvent
+import com.pulse.android.sdk.replay.events.ReplayCustomEventData
 import com.pulse.android.sdk.replay.events.ReplayEvent
-import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionEvent
-import com.pulse.android.sdk.replay.events.ReplayIncrementalSnapshotEvent
+import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
+import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
 import com.pulse.android.sdk.replay.internal.ReplayLog
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -70,10 +70,10 @@ public class PersistingReplayEmitter(
                 logger("Replay batch persisted: ${file.name} (queue size: ${deque.size}) session_id: $sessionId")
                 val eventTypesSummary = events
                     .groupBy { e ->
-                        when (e) {
-                            is ReplayIncrementalMouseInteractionEvent -> "Touch"
-                            is ReplayIncrementalSnapshotEvent -> "ViewMutation"
-                            is ReplayCustomEvent -> "Custom(${(e.data as? Map<*, *>)?.get("tag")?.toString() ?: "?"})"
+                        when (val d = e.data) {
+                            is ReplayIncrementalMouseInteractionData -> "Touch"
+                            is ReplayIncrementalMutationData -> "ViewMutation"
+                            is ReplayCustomEventData -> "Custom(${d.tag})"
                             else -> e.type.name
                         }
                     }

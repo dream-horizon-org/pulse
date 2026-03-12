@@ -10,14 +10,20 @@ import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
+import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.SessionReplayBootstrap
 import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.SessionReplayInstrumentation
 import com.pulse.android.sdk.replay.SessionReplayRegistry
+import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
+import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseProp
+import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
@@ -306,7 +312,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
                 instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
-            sessionReplayConfig = instrumentationConfig.getSessionReplayConfig()
+            val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
+            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig)
             pulseSamplingProcessors?.run {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
                 val flagResult = PulseFeatureFlagUtils.apply(config, this)
@@ -371,6 +378,79 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
         sessionReplay = SessionReplayRegistry.getIntegration()
+    }
+
+    /**
+     * Resolves session replay config. Backend is the sole gatekeeper:
+     * - No backend config fetched → disabled
+     * - Backend config exists but `session_replay` absent from features → disabled
+     * - `session_replay` present with `sessionSampleRate <= 0` → disabled
+     * - `session_replay` present with `sessionSampleRate > 0` → enabled, merging local DSL defaults + backend overrides
+     *
+     * The local DSL (`instrumentations { sessionReplay { ... } }`) only provides code-level
+     * integrations (drawableConverter, mask/unmask view classes). All other config is backend-controlled.
+     */
+    private fun resolveSessionReplayConfig(
+        sdkConfig: PulseSdkConfig?,
+        localConfig: SessionReplayConfig?,
+    ): SessionReplayConfig? {
+        if (sdkConfig == null) {
+            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
+            return null
+        }
+
+        val backendFeature = sdkConfig.features
+            .firstOrNull { it.featureName == PulseFeatureName.SESSION_REPLAY }
+
+        if (backendFeature == null) {
+            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: feature absent from backend config" }
+            return null
+        }
+
+        if (backendFeature.sessionSampleRate <= 0F) {
+            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: sessionSampleRate=${backendFeature.sessionSampleRate}" }
+            return null
+        }
+
+        PulseOtelUtils.logDebug(TAG) { "Session replay enabled by backend (rate=${backendFeature.sessionSampleRate})" }
+
+        val base = localConfig ?: SessionReplayConfig()
+
+        val featureConfig = backendFeature.config?.let { jsonObj ->
+            runCatching {
+                PulseSerialisationUtils.jsonConfigForSerialisation
+                    .decodeFromJsonElement(PulseSessionReplayFeatureConfig.serializer(), jsonObj)
+            }.onFailure {
+                PulseOtelUtils.logDebug(TAG) { "Failed to parse session_replay feature config: ${it.message}" }
+            }.getOrNull()
+        }
+
+        if (featureConfig == null) return base
+
+        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config" }
+
+        val resolvedTextPrivacy = featureConfig.textAndInputPrivacy?.let { value ->
+            runCatching { TextAndInputPrivacy.valueOf(value) }
+                .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
+                .getOrNull()
+        }
+        val resolvedImagePrivacy = featureConfig.imagePrivacy?.let { value ->
+            runCatching { ImagePrivacy.valueOf(value) }
+                .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
+                .getOrNull()
+        }
+
+        return base.copy(
+            textAndInputPrivacy = resolvedTextPrivacy ?: base.textAndInputPrivacy,
+            imagePrivacy = resolvedImagePrivacy ?: base.imagePrivacy,
+            throttleDelayMs = featureConfig.throttleDelayMs ?: base.throttleDelayMs,
+            screenshotScale = featureConfig.screenshotScale ?: base.screenshotScale,
+            screenshotQuality = featureConfig.screenshotQuality ?: base.screenshotQuality,
+            flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
+            flushAt = featureConfig.flushAt ?: base.flushAt,
+            maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
+            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl,
+        )
     }
 
     private fun createSignalsProcessors(
