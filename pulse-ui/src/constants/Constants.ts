@@ -13,6 +13,7 @@ import {
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
+  IconVideo,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -58,6 +59,10 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
+import { SessionReplay } from "../screens/SessionReplay";
+import { SessionReplayInsights } from "../screens/SessionReplayInsights";
+import { SessionReplaySessions } from "../screens/SessionReplaySessions";
+import { SessionReplayDetail } from "../screens/SessionReplayDetail";
 
 export const APP_NAME: string = "Pulse";
 
@@ -129,7 +134,7 @@ export const ROUTES: Routes = {
     path: "/:organizationId/projects/new",
     element: CreateProject,
   },
-  
+
   // Project-scoped routes (nested under /projects/:projectId)
   PROJECT_DASHBOARD: {
     key: "PROJECT_DASHBOARD",
@@ -185,6 +190,7 @@ export const ROUTES: Routes = {
     path: "/projects/:projectId/app-vitals",
     element: AppVitals,
   },
+
   PROJECT_APP_VITALS_ISSUE_DETAIL: {
     key: "PROJECT_APP_VITALS_ISSUE_DETAIL",
     basePath: "/projects/:projectId/app-vitals/:groupId",
@@ -193,7 +199,8 @@ export const ROUTES: Routes = {
   },
   PROJECT_APP_VITALS_OCCURRENCE_DETAIL: {
     key: "PROJECT_APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    basePath:
+      "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     path: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     element: OccurrenceDetail,
   },
@@ -263,7 +270,31 @@ export const ROUTES: Routes = {
     path: "/projects/:projectId/query-builder",
     element: RealTimeQuery,
   },
-  
+  // PROJECT_SESSION_REPLAY_INSIGHTS: {
+  //   key: "PROJECT_SESSION_REPLAY_INSIGHTS",
+  //   basePath: "/projects/:projectId/session-replay/insights",
+  //   path: "/projects/:projectId/session-replay/insights",
+  //   element: SessionReplayInsights,
+  // },
+  PROJECT_SESSION_REPLAY_SESSIONS: {
+    key: "PROJECT_SESSION_REPLAY_SESSIONS",
+    basePath: "/projects/:projectId/session-replay/sessions",
+    path: "/projects/:projectId/session-replay/sessions",
+    element: SessionReplaySessions,
+  },
+  PROJECT_SESSION_REPLAY_DETAIL: {
+    key: "PROJECT_SESSION_REPLAY_DETAIL",
+    basePath: "/projects/:projectId/session-replay",
+    path: "/projects/:projectId/session-replay/:sessionId",
+    element: SessionReplayDetail,
+  },
+  PROJECT_SESSION_REPLAY: {
+    key: "PROJECT_SESSION_REPLAY",
+    basePath: "/projects/:projectId/session-replay",
+    path: "/projects/:projectId/session-replay",
+    element: SessionReplay,
+  },
+
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -288,6 +319,30 @@ export const ROUTES: Routes = {
     path: "/coming-soon",
     element: ComingSoon,
   },
+  SESSION_REPLAY: {
+    key: "SESSION_REPLAY",
+    basePath: "/session-replay",
+    path: "/session-replay",
+    element: SessionReplay,
+  },
+  SESSION_REPLAY_INSIGHTS: {
+    key: "SESSION_REPLAY_INSIGHTS",
+    basePath: "/session-replay/insights",
+    path: "/session-replay/insights",
+    element: SessionReplayInsights,
+  },
+  SESSION_REPLAY_SESSIONS: {
+    key: "SESSION_REPLAY_SESSIONS",
+    basePath: "/session-replay/sessions",
+    path: "/session-replay/sessions",
+    element: SessionReplaySessions,
+  },
+  SESSION_REPLAY_DETAIL: {
+    key: "SESSION_REPLAY_DETAIL",
+    basePath: "/session-replay",
+    path: "/session-replay/:sessionId",
+    element: SessionReplayDetail,
+  },
   PROJECT_SETTINGS: {
     key: "PROJECT_SETTINGS",
     basePath: "/settings",
@@ -305,6 +360,7 @@ export const NAVBAR_ROUTES = {
   APP_VITALS: "/app-vitals",
   SCREENS: "/screens",
   NETWORK_LIST: "/network-apis",
+  SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
 } as const;
@@ -360,7 +416,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
-  
+  {
+    tabName: "Session Replay",
+    icon: IconVideo,
+    routeTo: NAVBAR_ROUTES.SESSION_REPLAY,
+    path: NAVBAR_ROUTES.SESSION_REPLAY,
+    iconSize: 25,
+  },
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
@@ -1073,13 +1135,13 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
   FOOTER_MESSAGE: "Have questions? Join our Discord community",
-  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
+  DISCORD_LINK:
+    "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
-  HELP_LINK:
-    "https://pulse.dreamhorizon.org/docs/intro",
+  HELP_LINK: "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -1363,7 +1425,8 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
 };
 
 // Default time filter for the dashboard (Last 24 hours)
-export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER =
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
 export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {
