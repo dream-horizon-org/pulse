@@ -115,7 +115,7 @@ public class MainVerticle extends AbstractVerticle {
         .getAlerts()
         .map(alerts -> {
           alerts.forEach(alert -> cronManager.addCronTask(alert.getAlertId(), alert.getUrl(),
-              alert.getEvaluationInterval(), alert.getTenantId()));
+              alert.getEvaluationInterval(), alert.getProjectId()));
           return alerts;
         })
         .onErrorResumeNext(e -> {

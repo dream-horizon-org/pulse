@@ -11,24 +11,26 @@ alwaysApply: false
 | Service | Image | Port | Depends On |
 |---------|-------|------|------------|
 | mysql | mysql:8.0 | 3307 | — |
+| openfga-migrate | alpine:3.19 | — | mysql |
+| openfga | openfga/openfga:v1.5.3 | 8180, 8181, 3001 | mysql, openfga-migrate |
+| openfga-init | alpine:3.19 | — | openfga |
 | clickhouse | clickhouse-server:24.8 | 8123, 9000 | — |
-| kafka | apache/kafka:latest | 9094 | — |
-| kafka-ui | provectuslabs/kafka-ui | 8081 | kafka |
-| otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 13133 | kafka |
-| vector | timberio/vector | 8686, 14317, 14318 | — |
+| clickhouse-init | clickhouse-server:24.8 | — | clickhouse |
+| otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
+| ~~vector~~ | ~~Build `../vector/`~~ | ~~8686, 14317, 14318~~ | — | *(commented out in docker-compose)* |
 | pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
-| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse |
-| pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server |
+| pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga |
+| pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse |
 
 **Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
 
 ## Network
 
-All services on `pulse-network` (bridge). Internal references use container names (e.g., `mysql`, `kafka:9092`, `clickhouse:8123`).
+All services on `pulse-network` (bridge). Internal references use container names (e.g., `mysql`, `clickhouse:8123`, `openfga:8080`).
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe.
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` volume exists but Vector service is currently disabled.)
 
 ## Environment Variables
 
@@ -49,10 +51,10 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 | Script | Options |
 |--------|---------|
-| `build.sh` | `ui`, `server`, `alerting`, `all` |
-| `start.sh` | `-d` for detached; optionally `ui`, `server`, `alerting` |
+| `build.sh` | `[--no-cache] [ui|server|cron|all]` |
+| `start.sh` | `[-d|--detach] [--build]` |
 | `stop.sh` | `-v` to remove volumes |
-| `logs.sh` | service name (e.g., `pulse-server`, `kafka`) |
+| `logs.sh` | service name (e.g., `pulse-server`, `otel-collector`) |
 | `quickstart.sh` | builds + starts all |
 | `reset-databases.sh` | drops volumes and reinitializes |
 | `init-clickhouse.sh` | creates ClickHouse tables from schema SQL |
