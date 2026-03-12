@@ -5,8 +5,11 @@ import {
   FlameChartNode,
   transformToFlameChart,
 } from "../SessionTimeline/utils/flameChartTransform";
-import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
-import { PersonaType } from "../../contexts/PersonaContext";
+import {
+  getMockSessionDetail,
+  PersonaType,
+} from "../../services/sessionReplay/mockSessionDetail";
+
 import { SessionHeader } from "./components/SessionHeader";
 import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
@@ -15,6 +18,7 @@ import { SessionTimelineSection } from "./components/SessionTimelineSection";
 import { getSessionReplayImages } from "../../services/sessionReplay/sessionReplayImages";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
+import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
 import { useState, useMemo, useEffect } from "react";
 
@@ -46,8 +50,8 @@ export const SessionReplayDetail: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [replayImages, setReplayImages] = useState<any[]>([]);
-  const [imagesLoading, setImagesLoading] = useState(false);
+  const useSnapshotApi =
+    process.env.REACT_APP_USE_MOCK_SESSION_REPLAY !== "true";
 
   const {
     data: apiSessionData,
@@ -64,27 +68,46 @@ export const SessionReplayDetail: React.FC = () => {
     return getMockSessionDetail(sessionId || DEFAULTS.SESSION_ID_UNKNOWN);
   }, [apiSessionData, sessionId]);
 
+  const snapshotSessionStart =
+    sessionData.startTime ?? new Date().toISOString();
+
+  const {
+    images: snapshotImages,
+    loading: snapshotLoading,
+    error: snapshotError,
+  } = useSessionReplaySnapshots({
+    sessionId: sessionId ?? undefined,
+    sessionStartTime: snapshotSessionStart,
+    currentTime,
+    enabled: useSnapshotApi && !!sessionId,
+  });
+
+  const [mockImages, setMockImages] = useState<any[]>([]);
+  const [mockImagesLoading, setMockImagesLoading] = useState(false);
+
   useEffect(() => {
-    const loadImages = async () => {
-      if (!sessionId) return;
+    if (!useSnapshotApi && sessionId) {
+      const loadImages = async () => {
+        setMockImagesLoading(true);
+        try {
+          const images = await getSessionReplayImages(
+            sessionId,
+            new Date(sessionData.startTime),
+            10,
+          );
+          setMockImages(images);
+        } catch (error) {
+          console.error("Failed to load session replay images:", error);
+        } finally {
+          setMockImagesLoading(false);
+        }
+      };
+      loadImages();
+    }
+  }, [useSnapshotApi, sessionId, sessionData.startTime]);
 
-      setImagesLoading(true);
-      try {
-        const images = await getSessionReplayImages(
-          sessionId,
-          new Date(sessionData.startTime),
-          10, // 10 fps
-        );
-        setReplayImages(images);
-      } catch (error) {
-        console.error("Failed to load session replay images:", error);
-      } finally {
-        setImagesLoading(false);
-      }
-    };
-
-    loadImages();
-  }, [sessionId, sessionData.startTime]);
+  const replayImages = useSnapshotApi ? snapshotImages : mockImages;
+  const imagesLoading = useSnapshotApi ? snapshotLoading : mockImagesLoading;
 
   const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
     useMemo(() => {

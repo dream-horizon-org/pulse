@@ -5,12 +5,13 @@ import type {
   TimeRange,
   AdvancedFilterGroup,
 } from "../../../services/sessionReplay/types";
-import type { SessionReplayFilterState } from "../../../contexts/SessionReplayFilterContext";
+
 import type { SortField, SortDirection } from "../../../services/sessionReplay";
 import {
   DEFAULT_DATE_PRESET,
   SEARCH_DEBOUNCE_MS,
 } from "../constants/sessionList.constants";
+import { SessionReplayFilterState } from "../../../contexts/SessionReplayFilterContext";
 
 const DEFAULT_PROJECT_ID = process.env.REACT_APP_PROJECT_ID ?? "default";
 
