@@ -28,32 +28,54 @@ internal object PulseEndpointUtils {
         fallbackCustomEvent: EndpointConnectivity,
     ): ResolvedEndpoints {
         val resolved =
-            if (sdkConfig != null) {
-                ResolvedEndpoints(
-                    span = HttpEndpointConnectivity(url = sdkConfig.signals.spanCollectorUrl, headers = headers),
-                    log = HttpEndpointConnectivity(url = sdkConfig.signals.logsCollectorUrl, headers = headers),
-                    metric = HttpEndpointConnectivity(url = sdkConfig.signals.metricCollectorUrl, headers = headers),
-                    customEvent = HttpEndpointConnectivity(url = sdkConfig.signals.customEventCollectorUrl, headers = headers),
-                )
-            } else {
-                ResolvedEndpoints(
-                    span = HttpEndpointConnectivity(url = fallbackSpan.getUrl(), headers = fallbackSpan.getHeaders() + headers),
-                    log = HttpEndpointConnectivity(url = fallbackLog.getUrl(), headers = fallbackLog.getHeaders() + headers),
-                    metric = HttpEndpointConnectivity(url = fallbackMetric.getUrl(), headers = fallbackMetric.getHeaders() + headers),
-                    customEvent =
-                        HttpEndpointConnectivity(
-                            url = fallbackCustomEvent.getUrl(),
-                            headers =
-                                fallbackCustomEvent.getHeaders() + headers,
-                        ),
-                )
-            }
+            ResolvedEndpoints(
+                span =
+                    createEndpointConnectivity(
+                        sdkConfig?.run { signals.spanCollectorUrl },
+                        fallbackSpan.getUrl(),
+                        headers,
+                        fallbackSpan.getHeaders(),
+                    ),
+                log =
+                    createEndpointConnectivity(
+                        sdkConfig?.run { signals.logsCollectorUrl },
+                        fallbackLog.getUrl(),
+                        headers,
+                        fallbackLog.getHeaders(),
+                    ),
+                metric =
+                    createEndpointConnectivity(
+                        sdkConfig?.run { signals.metricCollectorUrl },
+                        fallbackMetric.getUrl(),
+                        headers,
+                        fallbackMetric.getHeaders(),
+                    ),
+                customEvent =
+                    createEndpointConnectivity(
+                        sdkConfig?.run { signals.customEventCollectorUrl },
+                        fallbackCustomEvent.getUrl(),
+                        headers,
+                        fallbackCustomEvent.getHeaders(),
+                    ),
+            )
         PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = ${resolved.span.getUrl()}" }
         PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = ${resolved.log.getUrl()}" }
         PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = ${resolved.metric.getUrl()}" }
         PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = ${resolved.customEvent.getUrl()}" }
         return resolved
     }
+
+    private fun createEndpointConnectivity(
+        url: String?,
+        fallbackUrl: String,
+        headers: Map<String, String>,
+        fallbackHeaders: Map<String, String>,
+    ): HttpEndpointConnectivity =
+        if (url != null) {
+            HttpEndpointConnectivity(url = url, headers = headers)
+        } else {
+            HttpEndpointConnectivity(url = fallbackUrl, headers = fallbackHeaders + headers)
+        }
 
     private const val TAG = "PulseEndpointUtils"
 }
