@@ -451,40 +451,95 @@ class ProjectServiceTest {
   @Nested
   class HasEventFlowStarted {
 
-    @Test
-    void shouldReturnTrueWhenEventsExistInClickhouse() {
-      io.r2dbc.pool.ConnectionPool pool = mock(io.r2dbc.pool.ConnectionPool.class);
-      io.r2dbc.spi.Connection conn = mock(io.r2dbc.spi.Connection.class);
-      io.r2dbc.spi.Statement stmt = mock(io.r2dbc.spi.Statement.class);
-      io.r2dbc.spi.Result result = mock(io.r2dbc.spi.Result.class);
-      io.r2dbc.spi.Row row = mock(io.r2dbc.spi.Row.class);
-  
+    private io.r2dbc.pool.ConnectionPool pool;
+    private io.r2dbc.spi.Connection conn;
+    private io.r2dbc.spi.Statement stmt;
+    private io.r2dbc.spi.Result result;
+    private io.r2dbc.spi.Row row;
+    private io.r2dbc.spi.RowMetadata metadata;
+
+    @BeforeEach
+    void setUpMocks() {
+      pool = mock(io.r2dbc.pool.ConnectionPool.class);
+      conn = mock(io.r2dbc.spi.Connection.class);
+      stmt = mock(io.r2dbc.spi.Statement.class);
+      result = mock(io.r2dbc.spi.Result.class);
+      row = mock(io.r2dbc.spi.Row.class);
+      metadata = mock(io.r2dbc.spi.RowMetadata.class);
+    }
+
+    private void mockClickhouseResult(Integer hasEventsValue) {
       when(clickhouseReadClient.getPool()).thenReturn(pool);
       when(pool.create()).thenReturn(Mono.just(conn));
       when(conn.createStatement(anyString())).thenReturn(stmt);
-      when(stmt.bind(eq(0), anyString())).thenReturn(stmt);
-      doReturn(Mono.just(result)).when(stmt).execute();     // ← doReturn avoids wildcard capture
-      when(conn.close()).thenReturn(Mono.empty());      // ← Mono<Void>
-  
-      Boolean flowStarted = projectService.hasEventFlowStarted("proj-1").blockingGet();
-  
-      assertThat(flowStarted).isTrue();
+      when(stmt.bind(eq("projectId"), anyString())).thenReturn(stmt);
+      
+      doReturn(reactor.core.publisher.Flux.just(result)).when(stmt).execute();
+
+      when(result.map(org.mockito.ArgumentMatchers.<java.util.function.BiFunction<io.r2dbc.spi.Row, io.r2dbc.spi.RowMetadata, Boolean>>any()))
+          .thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            java.util.function.BiFunction<io.r2dbc.spi.Row, io.r2dbc.spi.RowMetadata, Boolean> mapper = 
+                invocation.getArgument(0);
+            return reactor.core.publisher.Flux.just(mapper.apply(row, metadata));
+          });
+
+      when(row.get(eq("has_events"), eq(Integer.class))).thenReturn(hasEventsValue);
+      when(conn.close()).thenReturn(Mono.empty());
     }
-  
+
+    private void mockEmptyQueryResult() {
+      when(clickhouseReadClient.getPool()).thenReturn(pool);
+      when(pool.create()).thenReturn(Mono.just(conn));
+      when(conn.createStatement(anyString())).thenReturn(stmt);
+      when(stmt.bind(eq("projectId"), anyString())).thenReturn(stmt);
+      
+      doReturn(reactor.core.publisher.Flux.just(result)).when(stmt).execute();
+
+      when(result.map(org.mockito.ArgumentMatchers.<java.util.function.BiFunction<io.r2dbc.spi.Row, io.r2dbc.spi.RowMetadata, Boolean>>any()))
+          .thenReturn(reactor.core.publisher.Flux.empty());
+
+      when(conn.close()).thenReturn(Mono.empty());
+    }
+
+    @Test
+    void shouldReturnTrueWhenEventsExistInClickhouse() {
+      mockClickhouseResult(1);
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isTrue();
+      verify(conn).createStatement(anyString());
+      verify(stmt).bind(eq("projectId"), eq("proj-1"));
+      verify(stmt).execute();
+    }
+
     @Test
     void shouldReturnFalseWhenNoEventsInClickhouse() {
-      // same mocking but result returns false
-      assertThat(projectService.hasEventFlowStarted("proj-1").blockingGet()).isFalse();
+      mockClickhouseResult(0);
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isFalse();
+      verify(stmt).execute();
     }
-  
+
+    @Test
+    void shouldReturnFalseWhenQueryReturnsEmpty() {
+      mockEmptyQueryResult();
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isFalse();
+    }
+
     @Test
     void shouldReturnFalseWhenClickhouseIsDown() {
-      io.r2dbc.pool.ConnectionPool pool = mock(io.r2dbc.pool.ConnectionPool.class);
       when(clickhouseReadClient.getPool()).thenReturn(pool);
-      when(pool.create()).thenThrow(new RuntimeException("ClickHouse unavailable"));
-  
-      // onErrorReturnItem(false) should kick in
+      when(pool.create()).thenReturn(Mono.error(new RuntimeException("ClickHouse unavailable")));
+
       Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
       assertThat(result).isFalse();
     }
   }

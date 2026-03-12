@@ -345,18 +345,30 @@ public class ProjectService {
     String query = """
         SELECT sum(event_count) > 0 AS has_events
         FROM otel.project_monthly_usage
-        WHERE project_id = ?
+        WHERE project_id = :projectId
           AND month = toStartOfMonth(now())
         """;
   
-        return Single.fromPublisher(clickhouseReadClient.getPool().create())
+    return Single.fromPublisher(clickhouseReadClient.getPool().create())
         .flatMap(conn -> {
-          Single<Boolean> results = Single.fromPublisher(conn.createStatement(query).bind(0, projectId).execute())  
-              .flatMap(result -> Single.fromPublisher(result.map((row, md) ->
-                  Boolean.TRUE.equals(row.get("has_events", Boolean.class))
-              )));
-          return results.doFinally(() -> Single.fromPublisher(conn.close()).subscribe());
+          Single<Boolean> results = Single.fromPublisher(
+              conn.createStatement(query).bind("projectId", projectId).execute())
+              .flatMap(result -> Single.fromPublisher(result.map((row, md) -> {
+                  Object value = row.get("has_events");
+                  
+                  if (value instanceof Number) {
+                    return ((Number) value).intValue() > 0;
+                  }
+                  return Boolean.TRUE.equals(value);
+              })));
+          return results.doFinally(() -> 
+              Single.fromPublisher(conn.close())
+                  .onErrorComplete()
+                  .subscribe()
+          );
         })
+        .doOnError(error -> log.error("Error checking event flow for project {}: {}", 
+            projectId, error.getMessage()))
         .onErrorReturnItem(false);
   }
 }
