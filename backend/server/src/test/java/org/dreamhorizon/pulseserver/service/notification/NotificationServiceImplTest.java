@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,13 +14,18 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.json.JsonObject;
+import io.vertx.rxjava3.sqlclient.Row;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
 import org.dreamhorizon.pulseserver.resources.notification.models.ChannelEventMappingDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.CreateMappingRequestDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
+import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.UpdateMappingRequestDto;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
 import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
@@ -34,12 +40,14 @@ import org.dreamhorizon.pulseserver.service.notification.models.EmailChannelConf
 import org.dreamhorizon.pulseserver.service.notification.models.EmailTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationChannel;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationLog;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationResult;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationStatus;
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
 import org.dreamhorizon.pulseserver.service.notification.models.SlackChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.SlackTemplateBody;
 import org.dreamhorizon.pulseserver.service.notification.models.TeamsChannelConfig;
 import org.dreamhorizon.pulseserver.service.notification.models.TeamsTemplateBody;
+import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
 import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
 import org.junit.jupiter.api.BeforeEach;
@@ -873,6 +881,842 @@ class NotificationServiceImplTest {
 
       assertThat(result).isNotNull();
       verify(mappingDao, never()).createMapping(any());
+    }
+  }
+
+  @Nested
+  class SendNotificationByMappingId {
+
+    @Mock Row mappingRow;
+    @Mock NotificationProvider emailProvider;
+
+    private void stubMappingRow(String projectId, String channelType, String recipient) {
+      when(mappingRow.getString("project_id")).thenReturn(projectId);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn(channelType);
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn(recipient);
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("fromAddress", "noreply@test.com"));
+    }
+
+    @Test
+    void shouldSendByMappingIdSynchronously() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(emailProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true)
+              .externalId("ext-1")
+              .latencyMs(100)
+              .build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getTotalRecipients()).isEqualTo(1);
+      assertThat(result.getQueued()).isEqualTo(1);
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.SENT);
+    }
+
+    @Test
+    void shouldErrorWhenMappingNotFound() {
+      when(mappingDao.getActiveMappingWithChannelById(eq(999L)))
+          .thenReturn(Maybe.empty());
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(999L)
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("Mapping not found"));
+    }
+
+    @Test
+    void shouldErrorWhenMappingBelongsToDifferentProject() {
+      stubMappingRow("other-project", "EMAIL", "user@test.com");
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("does not belong to project"));
+    }
+
+    @Test
+    void shouldErrorWhenNoRecipientsResolved() {
+      stubMappingRow(PROJECT_ID, "EMAIL", null);
+      when(mappingRow.getString("recipient")).thenReturn(null);
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("No recipients found"));
+    }
+
+    @Test
+    void shouldErrorWhenNoTemplateFoundForMapping() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.empty());
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("No template found"));
+    }
+
+    @Test
+    void shouldSkipDuplicateNotification() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(false));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .idempotencyKey("dup-key")
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.SKIPPED);
+      assertThat(result.getResults().get(0).getErrorMessage()).contains("idempotency");
+    }
+
+    @Test
+    void shouldSkipSuppressedEmail() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "suppressed@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("suppressed@test.com")))
+          .thenReturn(Single.just(true));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.SKIPPED);
+      assertThat(result.getResults().get(0).getErrorMessage()).contains("suppressed");
+    }
+
+    @Test
+    void shouldHandleProviderFailure() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(emailProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(false)
+              .permanentFailure(true)
+              .errorMessage("Invalid email")
+              .errorCode("InvalidAddress")
+              .latencyMs(50)
+              .build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getFailed()).isEqualTo(1);
+      assertThat(result.getResults().get(0).getStatus())
+          .isEqualTo(NotificationStatus.PERMANENT_FAILURE);
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoProviderRegistered() {
+      stubMappingRow(PROJECT_ID, "SLACK", "C123");
+      when(mappingRow.getString("channel_type")).thenReturn("SLACK");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.just(slackTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.SLACK)))
+          .thenReturn(Optional.empty());
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isZero();
+    }
+
+    @Test
+    void shouldUseRequestRecipientsOverDbRecipients() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "db@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("request@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("request@test.com")))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(emailProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true).externalId("e1").latencyMs(10).build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .recipients(RecipientsDto.builder()
+              .emails(List.of("request@test.com"))
+              .build())
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isEqualTo(1);
+      assertThat(result.getResults().get(0).getRecipient()).isEqualTo("request@test.com");
+    }
+
+    @Test
+    void shouldHandleSendException() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.error(new RuntimeException("DB error")));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.FAILED);
+      assertThat(result.getResults().get(0).getErrorMessage()).contains("DB error");
+    }
+
+    @Test
+    void shouldHandleNonPermanentProviderFailure() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(emailProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(false)
+              .permanentFailure(false)
+              .errorMessage("Temporary failure")
+              .latencyMs(20)
+              .build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.FAILED);
+    }
+  }
+
+  @Nested
+  class SendNotificationByEvent {
+
+    @Mock Row eventRow;
+    @Mock NotificationProvider emailProvider;
+
+    private void stubEventRow(Long channelId, String channelType, String recipient) {
+      when(eventRow.getLong("channel_id")).thenReturn(channelId);
+      when(eventRow.getString("channel_type")).thenReturn(channelType);
+      when(eventRow.getString("recipient")).thenReturn(recipient);
+      when(eventRow.getValue("config")).thenReturn(
+          new JsonObject().put("fromAddress", "noreply@test.com"));
+    }
+
+    @Test
+    void shouldSendByEventNameSynchronously() {
+      stubEventRow(CHANNEL_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingsWithChannelByProjectAndEvent(
+          eq(PROJECT_ID), eq("alert")))
+          .thenReturn(Single.just(List.of(eventRow)));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.EMAIL)))
+          .thenReturn(Optional.of(emailProvider));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(emailProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true).externalId("ext-2").latencyMs(80).build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("alert")
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isEqualTo(1);
+      assertThat(result.getQueued()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldErrorWhenNoMappingsFoundForEvent() {
+      when(mappingDao.getActiveMappingsWithChannelByProjectAndEvent(
+          eq(PROJECT_ID), eq("unknown")))
+          .thenReturn(Single.just(List.of()));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("unknown")
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("No active channel mappings"));
+    }
+
+    @Test
+    void shouldSkipChannelTypesNotInRequest() {
+      stubEventRow(CHANNEL_ID, "SLACK", "C123");
+
+      when(mappingDao.getActiveMappingsWithChannelByProjectAndEvent(
+          eq(PROJECT_ID), eq("alert")))
+          .thenReturn(Single.just(List.of(eventRow)));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("alert")
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isZero();
+    }
+
+    @Test
+    void shouldReturnEmptyBatchWhenNoRecipientsAndNoneInRequest() {
+      stubEventRow(CHANNEL_ID, "EMAIL", null);
+
+      when(mappingDao.getActiveMappingsWithChannelByProjectAndEvent(
+          eq(PROJECT_ID), eq("alert")))
+          .thenReturn(Single.just(List.of(eventRow)));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("alert")
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isZero();
+    }
+
+    @Test
+    void shouldErrorWhenRecipientsProvidedButDontMatchChannelTypes() {
+      stubEventRow(CHANNEL_ID, "SLACK", null);
+
+      when(mappingDao.getActiveMappingsWithChannelByProjectAndEvent(
+          eq(PROJECT_ID), eq("alert")))
+          .thenReturn(Single.just(List.of(eventRow)));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("alert")
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .recipients(RecipientsDto.builder()
+              .emails(List.of("user@test.com"))
+              .build())
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("don't match the resolved channel types"));
+    }
+  }
+
+  @Nested
+  class SendNotificationValidation {
+
+    @Test
+    void shouldErrorWhenEventNameMissing() {
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("eventName"));
+    }
+
+    @Test
+    void shouldErrorWhenProjectIdMissing() {
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("alert")
+          .channelTypes(List.of(ChannelType.EMAIL))
+          .build();
+
+      service.sendNotification(null, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("projectId"));
+    }
+
+    @Test
+    void shouldErrorWhenChannelTypesMissing() {
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .eventName("alert")
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("channelTypes"));
+    }
+
+    @Test
+    void shouldErrorWhenAllFieldsMissing() {
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder().build();
+
+      service.sendNotification(null, request)
+          .test()
+          .assertError(e ->
+              e.getMessage().contains("eventName")
+              && e.getMessage().contains("projectId")
+              && e.getMessage().contains("channelTypes"));
+    }
+
+    @Test
+    void shouldUseProvidedIdempotencyKey() {
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.empty());
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .idempotencyKey("my-custom-key")
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("Mapping not found"));
+    }
+  }
+
+  @Nested
+  class AsyncSendNotification {
+
+    @Mock Row mappingRow;
+
+    private void stubMappingRow(String projectId, String channelType, String recipient) {
+      when(mappingRow.getString("project_id")).thenReturn(projectId);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn(channelType);
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn(recipient);
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("fromAddress", "noreply@test.com"));
+    }
+
+    @Test
+    void shouldEnqueueByMappingIdAsynchronously() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.empty());
+      when(logDao.insertLog(any()))
+          .thenReturn(Single.just(LOG_ID));
+      when(notificationQueue.enqueue(any()))
+          .thenReturn(Single.just("sqs-msg-id"));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotificationAsync(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isEqualTo(1);
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.QUEUED);
+      assertThat(result.getResults().get(0).getExternalId()).isEqualTo("sqs-msg-id");
+    }
+
+    @Test
+    void shouldSkipDuplicateInAsyncMode() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.just(notificationLog()));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotificationAsync(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.SKIPPED);
+    }
+
+    @Test
+    void shouldHandleEnqueueError() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "user@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
+          .thenReturn(Single.just(false));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
+          eq("user@test.com")))
+          .thenReturn(Maybe.empty());
+      when(logDao.insertLog(any()))
+          .thenReturn(Single.just(LOG_ID));
+      when(notificationQueue.enqueue(any()))
+          .thenReturn(Single.error(new RuntimeException("SQS unavailable")));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotificationAsync(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.FAILED);
+      assertThat(result.getResults().get(0).getErrorMessage()).contains("SQS unavailable");
+    }
+
+    @Test
+    void shouldSkipSuppressedEmailInAsyncMode() {
+      stubMappingRow(PROJECT_ID, "EMAIL", "suppressed@test.com");
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.EMAIL)))
+          .thenReturn(Maybe.just(emailTemplate()));
+      when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("suppressed@test.com")))
+          .thenReturn(Single.just(true));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotificationAsync(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getResults().get(0).getStatus()).isEqualTo(NotificationStatus.SKIPPED);
+      assertThat(result.getResults().get(0).getErrorMessage()).contains("suppressed");
+    }
+  }
+
+  @Nested
+  class SuppressionBypass {
+
+    @Mock Row mappingRow;
+    @Mock NotificationProvider slackProvider;
+
+    @Test
+    void shouldBypassSuppressionCheckForNonEmailChannels() {
+      when(mappingRow.getString("project_id")).thenReturn(PROJECT_ID);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn("SLACK");
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn("C123");
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("accessToken", "xoxb-tok"));
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.just(slackTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.SLACK)))
+          .thenReturn(Optional.of(slackProvider));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.SLACK),
+          eq("C123")))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(slackProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true).externalId("ts-1").latencyMs(50).build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getQueued()).isEqualTo(1);
+      verify(suppressionDao, never()).isEmailSuppressed(any(), any());
+    }
+  }
+
+  @Nested
+  class RecipientResolution {
+
+    @Mock Row mappingRow;
+    @Mock NotificationProvider emailProvider;
+
+    @Test
+    void shouldResolveSlackRecipientsFromChannelAndUserIds() {
+      when(mappingRow.getString("project_id")).thenReturn(PROJECT_ID);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn("SLACK");
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn(null);
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("accessToken", "xoxb-tok"));
+
+      NotificationProvider slackProvider = org.mockito.Mockito.mock(NotificationProvider.class);
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.SLACK)))
+          .thenReturn(Maybe.just(slackTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.SLACK)))
+          .thenReturn(Optional.of(slackProvider));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.SLACK), any()))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(slackProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true).externalId("ts-1").latencyMs(10).build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .recipients(RecipientsDto.builder()
+              .slackChannelIds(List.of("C123"))
+              .slackUserIds(List.of("U456"))
+              .build())
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldResolveTeamsRecipients() {
+      when(mappingRow.getString("project_id")).thenReturn(PROJECT_ID);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn("TEAMS");
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn(null);
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("workflowUrl", "https://teams.example.com"));
+
+      NotificationProvider teamsProvider = org.mockito.Mockito.mock(NotificationProvider.class);
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+
+      NotificationTemplate teamsTemplate = NotificationTemplate.builder()
+          .id(TEMPLATE_ID)
+          .eventName("alert")
+          .channelType(ChannelType.TEAMS)
+          .version(1)
+          .body(TeamsTemplateBody.builder().title("Alert").text("Hello").build())
+          .isActive(true)
+          .createdAt(Instant.now())
+          .updatedAt(Instant.now())
+          .build();
+
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.TEAMS)))
+          .thenReturn(Maybe.just(teamsTemplate));
+      when(providerFactory.getProvider(eq(ChannelType.TEAMS)))
+          .thenReturn(Optional.of(teamsProvider));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.TEAMS), any()))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(teamsProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true).latencyMs(10).build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .recipients(RecipientsDto.builder()
+              .teamsWorkflowUrls(List.of("https://teams.example.com/hook"))
+              .build())
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldResolveSlackWebhookRecipients() {
+      when(mappingRow.getString("project_id")).thenReturn(PROJECT_ID);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn("SLACK_WEBHOOK");
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn(null);
+      when(mappingRow.getValue("config")).thenReturn(new JsonObject());
+
+      NotificationProvider webhookProvider = org.mockito.Mockito.mock(NotificationProvider.class);
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+      when(templateDao.getTemplateByEventNameAndChannel(eq("alert"), eq(ChannelType.SLACK_WEBHOOK)))
+          .thenReturn(Maybe.just(slackTemplate()));
+      when(providerFactory.getProvider(eq(ChannelType.SLACK_WEBHOOK)))
+          .thenReturn(Optional.of(webhookProvider));
+      when(logDao.insertLogIfNotExists(any()))
+          .thenReturn(Single.just(true));
+      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(),
+          eq(ChannelType.SLACK_WEBHOOK), any()))
+          .thenReturn(Maybe.just(notificationLog()));
+      when(webhookProvider.send(any(), any()))
+          .thenReturn(Single.just(NotificationResult.builder()
+              .success(true).latencyMs(10).build()));
+      when(logDao.updateLogStatus(anyLong(), any(), anyInt(), any(), any(), any(), any(), anyInt()))
+          .thenReturn(Single.just(1));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .recipients(RecipientsDto.builder()
+              .slackWebhookUrls(List.of("https://hooks.slack.com/xxx"))
+              .build())
+          .build();
+
+      var result = service.sendNotification(PROJECT_ID, request).blockingGet();
+
+      assertThat(result.getTotalRecipients()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReturnEmptyListForNullRecipients() {
+      when(mappingRow.getString("project_id")).thenReturn(PROJECT_ID);
+      when(mappingRow.getLong("channel_id")).thenReturn(CHANNEL_ID);
+      when(mappingRow.getString("channel_type")).thenReturn("EMAIL");
+      when(mappingRow.getString("event_name")).thenReturn("alert");
+      when(mappingRow.getString("recipient")).thenReturn(null);
+      when(mappingRow.getValue("config")).thenReturn(
+          new JsonObject().put("fromAddress", "x@y.com"));
+
+      when(mappingDao.getActiveMappingWithChannelById(eq(10L)))
+          .thenReturn(Maybe.just(mappingRow));
+
+      SendNotificationRequestDto request = SendNotificationRequestDto.builder()
+          .mappingId(10L)
+          .recipients(null)
+          .build();
+
+      service.sendNotification(PROJECT_ID, request)
+          .test()
+          .assertError(e -> e.getMessage().contains("No recipients found"));
     }
   }
 }
