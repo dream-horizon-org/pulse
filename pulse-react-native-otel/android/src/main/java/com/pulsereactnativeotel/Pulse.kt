@@ -29,7 +29,7 @@ public object Pulse {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String> = emptyMap(),
         spanEndpointConnectivity: EndpointConnectivity = HttpEndpointConnectivity.forTraces(endpointBaseUrl, endpointHeaders),
@@ -61,7 +61,7 @@ public object Pulse {
         sdkInternal.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
-            projectId = projectId,
+            apiKey = apiKey,
             dataCollectionState = dataCollectionState,
             endpointHeaders = endpointHeaders,
             spanEndpointConnectivity = spanEndpointConnectivity,

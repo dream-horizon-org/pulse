@@ -28,7 +28,7 @@ internal class PulseSDKAdapter(
     override fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
@@ -46,7 +46,7 @@ internal class PulseSDKAdapter(
         delegate.initialize(
             application = application,
             endpointBaseUrl = endpointBaseUrl,
-            projectId = projectId,
+            apiKey = apiKey,
             endpointHeaders = endpointHeaders,
             spanEndpointConnectivity = spanEndpointConnectivity,
             logEndpointConnectivity = logEndpointConnectivity,
