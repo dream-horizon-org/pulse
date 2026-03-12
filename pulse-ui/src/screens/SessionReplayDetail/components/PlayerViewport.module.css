@@ -1,0 +1,51 @@
+.playerViewport {
+  position: relative;
+  min-height: 500px;
+  background: var(--mantine-color-gray-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  overflow: hidden;
+}
+
+.playerViewportCompact {
+  min-height: 320px;
+  padding: var(--mantine-spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playerPlaceholder {
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mantine-color-gray-0);
+  border-radius: var(--mantine-radius-md);
+}
+
+.playerPlaceholderCompact {
+  min-height: 320px;
+}
+
+.loadingSpinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.syncMarker {
+  position: absolute;
+  top: var(--mantine-spacing-sm);
+  right: var(--mantine-spacing-sm);
+  z-index: 10;
+}
