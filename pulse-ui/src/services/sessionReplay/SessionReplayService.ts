@@ -15,6 +15,10 @@ import {
   SessionListingResponse,
   FilterConfigResponse,
 } from "./types";
+import type {
+  SnapshotsSourceResponse,
+  SnapshotsDataResponse,
+} from "./sessionReplaySnapshotTypes";
 import { makeRequestToServer } from "../../helpers/makeRequestToServer";
 import { getCookies } from "../../helpers/cookies";
 import { COOKIES_KEY } from "../../constants";
@@ -219,6 +223,62 @@ export class SessionReplayService {
     }
   }
 
+  async getSnapshotsSource(
+    sessionId: string,
+  ): Promise<SnapshotsSourceResponse["data"]> {
+    const url = `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-source`;
+
+    const response = await makeRequestToServer({
+      url,
+      init: {
+        method: "GET",
+        headers: this.sessionListingHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch snapshots source: ${response.statusText}`,
+      );
+    }
+
+    const json: SnapshotsSourceResponse = await response.json();
+    if (json.error) {
+      throw new Error(json.error);
+    }
+    return json.data;
+  }
+
+  async getSnapshotsData(
+    sessionId: string,
+    startBlobKey: string,
+    endBlobKey: string,
+  ): Promise<SnapshotsDataResponse["data"]> {
+    const url = new URL(
+      `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-data`,
+    );
+    url.searchParams.set("start_blob_key", startBlobKey);
+    url.searchParams.set("end_blob_key", endBlobKey);
+
+    const response = await makeRequestToServer({
+      url: url.toString(),
+      init: {
+        method: "GET",
+        headers: this.sessionListingHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch snapshots data: ${response.statusText}`);
+    }
+
+    const json: SnapshotsDataResponse = await response.json();
+    if (json.error) {
+      throw new Error(json.error);
+    }
+    return json.data;
+  }
+
   /**
    * Get filter schema configuration
    * Returns platform-specific filters based on project
@@ -363,7 +423,7 @@ export class SessionReplayService {
 
   /**
    * Sessions Filters API – filter config for quick filters and advanced builder.
-   * GET /api/v1/sessions/filters
+   * GET /api/v1/sessions/filters (if available on backend)
    */
   async getSessionsFilters(): Promise<FilterConfigResponse> {
     const url = `${this.baseURL}/api/v1/sessions/filters`;
