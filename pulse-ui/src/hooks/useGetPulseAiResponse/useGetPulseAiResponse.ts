@@ -1,5 +1,5 @@
 import { useMutation, UseMutationResult } from "@tanstack/react-query";
-import { API_BASE_URL, API_ROUTES } from "../../constants";
+import { API_BASE_URL, API_ROUTES, ROUTES } from "../../constants";
 import { ApiResponse } from "../../helpers/makeRequest";
 import {
   GetPulseAiResponseRequestBody,
@@ -7,8 +7,10 @@ import {
   OnSettled,
   PulseAiResponseData,
 } from "./useGetPulseAiResponse.interface";
-import { getCookies } from "../../helpers/cookies";
+import { getCookies, removeAllCookies } from "../../helpers/cookies";
 import { COOKIES_KEY } from "../../constants";
+import { getAndSetAccessTokenFromRefreshToken } from "../../helpers/getAccessTokenFromRefreshToken";
+import { dispatchLogoutEvent } from "../../helpers/logout";
 
 // Custom streaming request handler for SSE
 const makeStreamingRequest = async (
@@ -79,20 +81,57 @@ const makeStreamingRequest = async (
       // Create fetch request for SSE
       const controller = new AbortController();
 
-      fetch(url, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-          "content-type": "application/json",
-          origin: window.location.origin,
-          referer: window.location.href,
-          "user-agent": navigator.userAgent,
-          "user-email": userEmail || "",
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      })
+      const doFetch = (token: string) =>
+        fetch(url, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${token}`,
+            "content-type": "application/json",
+            origin: window.location.origin,
+            referer: window.location.href,
+            "user-agent": navigator.userAgent,
+            "user-email": userEmail || "",
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+
+      doFetch(accessToken)
         .then(async (response) => {
+          if (response.status === 401) {
+            const isTokenUpdated = await getAndSetAccessTokenFromRefreshToken();
+            if (!isTokenUpdated) {
+              removeAllCookies();
+              sessionStorage.clear();
+              dispatchLogoutEvent();
+              window.location.href = ROUTES.LOGIN.basePath;
+              resolve({
+                data: null,
+                error: {
+                  code: "401",
+                  message: "Authentication failed. Redirecting to login page",
+                  cause: "Token expired",
+                },
+                status: 401,
+              });
+              return;
+            }
+            const newToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
+            if (!newToken) {
+              resolve({
+                data: null,
+                error: {
+                  code: "401",
+                  message: "No access token after refresh",
+                  cause: "Authentication failed",
+                },
+                status: 401,
+              });
+              return;
+            }
+            response = await doFetch(newToken);
+          }
+
           if (!response.ok) {
             resolve({
               data: null,
