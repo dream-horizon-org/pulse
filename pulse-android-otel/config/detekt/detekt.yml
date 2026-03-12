@@ -688,6 +688,7 @@ style:
     active: true
   UnnecessaryInnerClass:
     active: true
+    ignoreAnnotated: [ 'Nested' ]
   UnnecessaryLet:
     active: true
   UnnecessaryParentheses:
