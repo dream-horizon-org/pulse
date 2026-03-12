@@ -5,6 +5,7 @@ import io.reactivex.rxjava3.core.Single;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.session.CursorCodec;
 import org.dreamhorizon.pulseserver.dao.session.FilterField;
 import org.dreamhorizon.pulseserver.dao.session.FilterMode;
@@ -55,12 +56,12 @@ public class SessionListingService {
     public Single<SessionListingResponse> getSessionListing(SessionListingRequest request) {
         validateRequest(request);
 
-        String tenantId = TenantContext.requireTenantId();
+        String projectId = ProjectContext.requireProjectId();
         int pageSize = resolvePageSize(request.getPage());
 
         log.info("Session listing: projectId={}, timeRange=[{} .. {}], pageSize={}, sort={}:{}, "
                         + "quickFilters={}, advancedFilters={}, search={}",
-                tenantId,
+                projectId,
                 request.getTimeRange().getFrom(), request.getTimeRange().getTo(),
                 pageSize,
                 request.getSortBy(), request.getSortDirection(),
@@ -74,7 +75,7 @@ public class SessionListingService {
         SortField activeSortField = resolveSortField(request.getSortBy());
 
         SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
-                .projectId(tenantId)
+                .projectId(projectId)
                 .timeRange(request.getTimeRange().getFrom(), request.getTimeRange().getTo())
                 .limit(pageSize + 1);
 
@@ -86,7 +87,7 @@ public class SessionListingService {
         String listingSql = builder.buildListingQuery();
         log.debug("Session listing SQL: {}", listingSql);
 
-        return executeListingQuery(listingSql, tenantId)
+        return executeListingQuery(listingSql, projectId)
                 .flatMap(rows -> {
                     boolean hasMore = rows.size() > pageSize;
                     List<SessionRow> pageRows = hasMore ? rows.subList(0, pageSize) : rows;
@@ -111,8 +112,8 @@ public class SessionListingService {
                     log.debug("Impacted screens SQL: {}", impactedScreensSql);
 
                     return Single.zip(
-                            executeJourneyQuery(journeySql, tenantId),
-                            executeImpactedScreensQuery(impactedScreensSql, tenantId),
+                            executeJourneyQuery(journeySql, projectId),
+                            executeImpactedScreensQuery(impactedScreensSql, projectId),
                             (journeyRows, screenRows) -> buildResponse(
                                     pageRows, journeyRows, screenRows,
                                     hasMore, pageSize, activeSortField)
@@ -122,7 +123,7 @@ public class SessionListingService {
                     if (error instanceof jakarta.ws.rs.WebApplicationException) {
                         return Single.error(error);
                     }
-                    log.error("Session listing query failed for projectId={}", tenantId, error);
+                    log.error("Session listing query failed for projectId={}", projectId, error);
                     return Single.error(
                             ServiceError.DATABASE_ERROR.getCustomException(
                                     "Session listing query failed", error.getMessage()));
@@ -245,6 +246,7 @@ public class SessionListingService {
         QueryConfiguration config = QueryConfiguration.newQuery(sql)
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
+                .projectId(tenantId)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, SessionRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
@@ -254,6 +256,7 @@ public class SessionListingService {
         QueryConfiguration config = QueryConfiguration.newQuery(sql)
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
+                .projectId(tenantId)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, JourneyRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
@@ -263,6 +266,7 @@ public class SessionListingService {
         QueryConfiguration config = QueryConfiguration.newQuery(sql)
                 .timeoutMs(TIMEOUT_MS)
                 .tenantId(tenantId)
+                .projectId(tenantId)
                 .build();
         return clickhouseQueryService.executeQueryOrCreateJob(config, ImpactedScreensRow.class)
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
