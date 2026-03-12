@@ -15,8 +15,8 @@ public class UpdateCronDto {
   private Integer id;
 
   @NotNull
-  @JsonProperty(value = "projectId")
-  private String projectId;
+  @JsonProperty(value = "tenantId")
+  private String tenantId;
 
   @NotNull
   @JsonProperty(value = "url")

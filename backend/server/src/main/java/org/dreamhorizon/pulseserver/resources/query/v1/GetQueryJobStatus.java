@@ -12,7 +12,6 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.query.models.GetJobStatusResponseDto;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
@@ -26,7 +25,6 @@ public class GetQueryJobStatus {
   @GET
   @Path("/job/{jobId}")
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
   public CompletionStage<Response<GetJobStatusResponseDto>> getJobStatus(
       @PathParam("jobId") String jobId,
       @QueryParam("maxResults") @DefaultValue("1000") Integer maxResults,

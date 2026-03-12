@@ -24,5 +24,4 @@ kotlin {
 dependencies {
     implementation(libs.kotlin.serialisation)
     implementation(projects.pulseUtils)
-    testImplementation(libs.bundles.junit)
 }

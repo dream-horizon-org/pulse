@@ -299,8 +299,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
-            currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
-                instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
+            if (currentSdkConfig != null) {
+                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
             }
             pulseSamplingProcessors?.run {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
@@ -688,7 +688,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         internal fun extractProjectID(projectId: String): String {
             val lastUnderscoreIndex = projectId.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {
-                projectId.take(lastUnderscoreIndex)
+                projectId.substring(0, lastUnderscoreIndex)
             } else {
                 projectId
             }

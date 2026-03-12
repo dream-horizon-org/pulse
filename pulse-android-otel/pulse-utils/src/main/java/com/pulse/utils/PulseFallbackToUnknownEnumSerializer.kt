@@ -23,7 +23,6 @@ public object PulseSerialisationUtils {
             isLenient = !isStrict
             allowSpecialFloatingPointValues = true
             useAlternativeNames = true
-            coerceInputValues = !isStrict
         }
 }
 

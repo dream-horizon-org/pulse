@@ -18,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.JsFrame;
-import org.dreamhorizon.pulseserver.errorgrouping.model.SymbolFileType;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 
@@ -70,7 +69,7 @@ public class Symbolicator {
    */
   @SneakyThrows
   public Single<List<String>> symbolicateJsInPlace(List<Frame> jsFrames, EventMeta eventMeta) {
-    String cacheKey = eventMeta.getPlatform() + ":" + eventMeta.getAppVersion() + ":" + SymbolFileType.JS;
+    String cacheKey = eventMeta.getPlatform() + ":" + eventMeta.getAppVersion() + ":JS";
 
     // OPTIMIZATION: Fast path - check if we already know source map doesn't exist
     if (Boolean.FALSE.equals(sourceMapExists.getIfPresent(cacheKey))) {
@@ -83,7 +82,7 @@ public class Symbolicator {
             .platform(eventMeta.getPlatform())
             .bundleId(eventMeta.getBundleId())
             .projectId(eventMeta.getProjectId())
-            .type(SymbolFileType.JS)
+            .type("JS")
             .build())
         .map(sourcemap -> {
           List<String> out = new ArrayList<>(jsFrames.size());
@@ -91,14 +90,10 @@ public class Symbolicator {
             out.add(symbolicateNames((JsFrame) f, sourcemap));
           }
           sourceMapExists.put(cacheKey, true);  // Cache success
-          log.info("JS deobfuscation successful: cacheKey={}", cacheKey);
           return out;
         })
         .onErrorReturn(error -> {
-          sourceMapExists.put(cacheKey, false);
-          log.warn("JS deobfuscation failed: projectId={}, appVersion={}, versionCode={}, platform={}, frames={}, error={}",
-              eventMeta.getProjectId(), eventMeta.getAppVersion(), eventMeta.getAppVersionCode(),
-              eventMeta.getPlatform(), jsFrames.size(), error.getMessage());
+          sourceMapExists.put(cacheKey, false);  // Cache failure
           return jsFrames.stream().map(Frame::getToken).toList();
         });
   }
@@ -107,7 +102,7 @@ public class Symbolicator {
    * Java retrace: plug either Retrace API or CLI. Here we leave tokens if mapping not wired.
    */
   public Single<List<String>> retrace(List<Frame> javaFrames, EventMeta eventMeta) {
-    String cacheKey = eventMeta.getPlatform() + ":" + eventMeta.getAppVersion() + ":" + SymbolFileType.MAPPING;
+    String cacheKey = eventMeta.getPlatform() + ":" + eventMeta.getAppVersion() + ":JAVA";
 
     // OPTIMIZATION: Fast path - check if we already know ProGuard map doesn't exist
     if (Boolean.FALSE.equals(sourceMapExists.getIfPresent(cacheKey))) {
@@ -121,7 +116,7 @@ public class Symbolicator {
             .appVersion(eventMeta.getAppVersion())
             .platform(eventMeta.getPlatform())
             .projectId(eventMeta.getProjectId())
-            .type(SymbolFileType.MAPPING)
+            .type("JAVA")
             .build())
         .map(proguardMapProducer -> {
           Retrace.run(
@@ -135,14 +130,10 @@ public class Symbolicator {
                   .setRetracedStackTraceConsumer(out::addAll)
                   .build());
           sourceMapExists.put(cacheKey, true);  // Cache success
-          log.info("Java deobfuscation successful: cacheKey={}", cacheKey);
           return out;
         })
         .onErrorReturn(error -> {
           sourceMapExists.put(cacheKey, false);  // Cache failure
-          log.warn("Java deobfuscation failed: projectId={}, appVersion={}, versionCode={}, platform={}, frames={}, error={}",
-              eventMeta.getProjectId(), eventMeta.getAppVersion(), eventMeta.getAppVersionCode(),
-              eventMeta.getPlatform(), javaFrames.size(), error.getMessage());
           return javaFrames.stream().map(Frame::getToken).toList();
         });
   }

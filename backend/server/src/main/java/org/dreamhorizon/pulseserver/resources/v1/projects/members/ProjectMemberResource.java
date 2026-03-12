@@ -55,7 +55,6 @@ public class ProjectMemberResource {
      * @return Added member information
      */
     @POST
-    @RequiresPermission("can_edit")
     public CompletionStage<Response<MemberResponse>> addMember(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId,
@@ -93,7 +92,6 @@ public class ProjectMemberResource {
      * @return List of project members
      */
     @GET
-    @RequiresPermission("can_view")
     public CompletionStage<Response<MemberListResponse>> listMembers(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
@@ -122,7 +120,6 @@ public class ProjectMemberResource {
      */
     @DELETE
     @Path("/{userId}")
-    @RequiresPermission("can_edit")
     public CompletionStage<Response<Object>> removeMember(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId,
@@ -151,7 +148,6 @@ public class ProjectMemberResource {
      */
     @PATCH
     @Path("/{userId}")
-    @RequiresPermission("can_edit")
     public CompletionStage<Response<Object>> updateMemberRole(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId,

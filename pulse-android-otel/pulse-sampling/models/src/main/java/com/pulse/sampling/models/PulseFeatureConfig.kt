@@ -8,9 +8,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 public class PulseFeatureConfig internal constructor(
     @SerialName("featureName")
-    public val featureName: PulseFeatureName = PulseFeatureName.UNKNOWN,
+    public val featureName: PulseFeatureName,
     @SerialName("sessionSampleRate")
-    public val sessionSampleRate: SamplingRate = 1.0f,
+    public val sessionSampleRate: SamplingRate,
     @SerialName("sdks")
-    public val sdks: Collection<PulseSdkName> = emptyList(),
+    public val sdks: Collection<PulseSdkName>,
 )

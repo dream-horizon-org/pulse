@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.alert.AlertMapper;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertDetailsResponseDto;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
@@ -29,7 +28,6 @@ public class GetAlertDetails {
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
   public CompletionStage<Response<AlertDetailsResponseDto>> getAlertDetails(@NotNull @PathParam("id") Integer alertId) {
     return alertsService
         .getAlertDetails(alertId)

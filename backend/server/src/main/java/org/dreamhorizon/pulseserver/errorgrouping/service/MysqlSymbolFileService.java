@@ -44,14 +44,9 @@ public class MysqlSymbolFileService extends SymbolFileService {
             toBuffer(fileInputStream),
             metadata.getBundleId(),
             metadata.getProjectId())))
-        .map(rows -> {
-          log.info("Symbol file uploaded successfully: metadata={}", metadata);
-          return true;
-        })
+        .map(rows -> true)
         .onErrorResumeNext(err -> {
-          log.error("Symbol file upload failed: file={}, projectId={}, appVersion={}, versionCode={}, platform={}, framework={}, error={}",
-              fileName, metadata.getProjectId(), metadata.getAppVersion(), metadata.getVersionCode(),
-              metadata.getPlatform(), metadata.getType(), err.getMessage());
+          log.error("Exception while uploading mapping file for {}: {}", metadata, err.getMessage());
           return Single.just(false);
         });
   }
@@ -80,12 +75,11 @@ public class MysqlSymbolFileService extends SymbolFileService {
         .map((RowSet<Row> rows) -> {
           var it = rows.iterator();
           if (!it.hasNext()) {
-            log.warn("Symbol file not found: projectId={}, appVersion={}, versionCode={}, platform={}, framework={}",
-                metadata.getProjectId(), metadata.getAppVersion(), metadata.getVersionCode(),
-                metadata.getPlatform(), metadata.getType());
+            log.warn("No symbol file found in database for: {}", metadata);
             throw new NoSuchElementException("No symbol file found for: " + metadata);
           }
           Row row = it.next();
+          log.info("Successfully fetched symbol file from DATABASE for: {}", metadata);
           return row.getBuffer(0);
         });
   }

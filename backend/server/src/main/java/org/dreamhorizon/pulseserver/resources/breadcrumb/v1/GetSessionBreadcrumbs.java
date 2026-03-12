@@ -13,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.breadcrumb.models.BreadcrumbRequestDto;
 import org.dreamhorizon.pulseserver.resources.query.models.SubmitQueryResponseDto;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.breadcrumb.BreadcrumbService;
@@ -27,7 +26,6 @@ public class GetSessionBreadcrumbs {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
   public CompletionStage<Response<SubmitQueryResponseDto>> getSessionBreadcrumbs(
       @HeaderParam("user-email") String userEmail,
       @Valid BreadcrumbRequestDto request) {

@@ -13,7 +13,6 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.alert.models.ScopeEvaluationHistoryDto;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
@@ -27,7 +26,6 @@ public class GetAlertEvaluationHistory {
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_view")
   public CompletionStage<Response<List<ScopeEvaluationHistoryDto>>> getAlertEvaluationHistory(@NotNull @PathParam("id") Integer alertId) {
     return alertsService
         .getAlertEvaluationHistoryByScope(alertId)

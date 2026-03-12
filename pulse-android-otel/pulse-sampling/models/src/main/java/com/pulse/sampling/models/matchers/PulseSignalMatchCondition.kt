@@ -11,13 +11,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 public class PulseSignalMatchCondition(
     @SerialName("name")
-    public val name: String = "",
+    public val name: String,
     @SerialName("props")
-    public val props: Collection<PulseProp> = emptyList(),
+    public val props: Collection<PulseProp>,
     @SerialName("scopes")
-    public val scopes: Collection<PulseSignalScope> = emptyList(),
+    public val scopes: Collection<PulseSignalScope>,
     @SerialName("sdks")
-    public val sdks: Collection<PulseSdkName> = emptyList(),
+    public val sdks: Collection<PulseSdkName>,
 ) {
     public companion object {
         public val allMatchLogCondition: PulseSignalMatchCondition =

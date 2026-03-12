@@ -9,7 +9,6 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.query.models.CancelQueryResponseDto;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
@@ -25,7 +24,6 @@ public class CancelQuery {
   @DELETE
   @Path("/job/{jobId}")
   @Produces(MediaType.APPLICATION_JSON)
-  @RequiresPermission("can_edit")
   public CompletionStage<Response<CancelQueryResponseDto>> cancelQuery(@PathParam("jobId") String jobId) {
     return queryService.cancelQuery(jobId)
         .map(this::mapToResponse)

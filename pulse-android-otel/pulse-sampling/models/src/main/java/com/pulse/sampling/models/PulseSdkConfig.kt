@@ -8,15 +8,19 @@ import kotlinx.serialization.Serializable
 @Serializable
 public class PulseSdkConfig internal constructor(
     @SerialName("version")
-    public val version: Int = Int.MIN_VALUE,
+    public val version: Int,
     @SerialName("description")
-    public val description: String = "",
+    public val description: String,
     @SerialName("sampling")
-    public val sampling: PulseSamplingConfig = PulseSamplingConfig(),
+    public val sampling: PulseSamplingConfig,
     @SerialName("signals")
-    public val signals: PulseSignalConfig = PulseSignalConfig(),
+    public val signals: PulseSignalConfig,
     @SerialName("interaction")
-    public val interaction: PulseInteractionConfig = PulseInteractionConfig(),
+    public val interaction: PulseInteractionConfig,
     @SerialName("features")
-    public val features: List<PulseFeatureConfig> = emptyList(),
-)
+    public val features: List<PulseFeatureConfig>,
+) {
+    public companion object {
+        public const val CURRENT_SUPPORTED_CONFIG_VERSION: Int = 1
+    }
+}
