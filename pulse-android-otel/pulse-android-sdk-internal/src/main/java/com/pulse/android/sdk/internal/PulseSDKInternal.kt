@@ -688,7 +688,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         internal fun extractProjectID(apiKey: String): String {
             val lastUnderscoreIndex = apiKey.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {
-                apiKey.substring(0, lastUnderscoreIndex)
+                apiKey.take(lastUnderscoreIndex)
             } else {
                 apiKey
             }
