@@ -1,317 +1,154 @@
-import { useEffect, useState } from "react";
-import {
-  Box,
-  Group,
-  Text,
-  Select,
-  Button,
-  Loader,
-  NumberInput,
-} from "@mantine/core";
-import { IconChartFunnel, IconPlayerPlay } from "@tabler/icons-react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Box, SegmentedControl, Select, Text } from "@mantine/core";
+import { IconChartFunnel, IconRoute } from "@tabler/icons-react";
 import classes from "./FunnelAnalysis.module.css";
-import { FunnelStepBuilder } from "./components/FunnelStepBuilder";
-import { FunnelChart } from "./components/FunnelChart";
-import { FunnelTable } from "./components/FunnelTable";
-import { FunnelSessionDrawer } from "./components/FunnelSessionDrawer";
 import {
-  useGetFunnelData,
-  useGetFunnelHealth,
-  FunnelStep,
-} from "../../hooks/useGetFunnelData";
-import DateTimeRangePicker from "../CriticalInteractionDetails/components/DateTimeRangePicker/DateTimeRangePicker";
-import { StartEndDateTimeType } from "../CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
-import { useFilterStore } from "../../stores/useFilterStore";
-import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
-import {
-  DEFAULT_QUICK_TIME_FILTER,
-  DEFAULT_QUICK_TIME_FILTER_INDEX,
-} from "../../constants";
+  GlobalFilterBar,
+  ActiveFilter,
+} from "./components/GlobalFilterBar";
+import { FunnelBuilder, BuilderStep } from "./components/FunnelBuilder";
+import { FunnelVisualization } from "./components/FunnelVisualization";
+import { FunnelDataTable } from "./components/FunnelDataTable";
+import { JourneyExplorer } from "./components/JourneyExplorer";
+import { MOCK_FUNNEL_DATA, DATE_RANGE_OPTIONS } from "./mockData";
 
-const MODE_OPTIONS = [
-  { value: "UNIQUE_USERS", label: "Unique Users" },
-  { value: "SESSIONS", label: "Sessions" },
-];
-
-const INITIAL_STEPS: FunnelStep[] = [
-  { eventName: "", dataType: "TRACES" },
-  { eventName: "", dataType: "TRACES" },
+const INITIAL_STEPS: BuilderStep[] = [
+  { id: "s-1", eventName: "Screen_View: Home" },
+  { id: "s-2", eventName: "Screen_View: Product Detail" },
+  { id: "s-3", eventName: "Tap: Add to Cart" },
+  { id: "s-4", eventName: "Tap: Checkout" },
+  { id: "s-5", eventName: "Tap: Place Order" },
 ];
 
 export function FunnelAnalysis() {
-  const [searchParams] = useSearchParams();
-  const [steps, setSteps] = useState<FunnelStep[]>(INITIAL_STEPS);
-  const [mode, setMode] = useState<"UNIQUE_USERS" | "SESSIONS">("UNIQUE_USERS");
-  const [windowSeconds, setWindowSeconds] = useState<number>(86400);
-  const [shouldFetch, setShouldFetch] = useState(false);
+  const [activeModule, setActiveModule] = useState<"funnels" | "journeys">(
+    "funnels"
+  );
+  const [dateRange, setDateRange] = useState("7d");
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
-  // Drawer state for session drill-down
-  const [drawerOpened, setDrawerOpened] = useState(false);
-  const [drawerStepLevel, setDrawerStepLevel] = useState(1);
-  const [drawerIssueType, setDrawerIssueType] = useState("ALL");
-
-  const {
-    startTime: storeStartTime,
-    endTime: storeEndTime,
-    handleTimeFilterChange: storeHandleTimeFilterChange,
-    initializeFromUrlParams,
-    quickTimeRangeString,
-    quickTimeRangeFilterIndex,
-    selectedTimeFilter,
-  } = useFilterStore();
-
-  const getDefaultTimeRange = () => {
-    return getStartAndEndDateTimeString(DEFAULT_QUICK_TIME_FILTER, 2);
-  };
-
-  useEffect(() => {
-    initializeFromUrlParams(searchParams);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const startTime = storeStartTime || getDefaultTimeRange().startDate;
-  const endTime = storeEndTime || getDefaultTimeRange().endDate;
-
-  const handleTimeFilterChange = (value: StartEndDateTimeType) => {
-    storeHandleTimeFilterChange(value);
-  };
-
-  const hasValidSteps =
-    steps.length >= 2 && steps.every((s) => s.eventName.trim() !== "");
-
-  const requestBody = {
-    steps,
-    timeRange: { start: startTime, end: endTime },
-    mode,
-    windowSeconds,
-  };
-
-  // Funnel analysis query
-  const { data, isLoading, isError, error } = useGetFunnelData({
-    requestBody,
-    enabled: shouldFetch && hasValidSteps,
-  });
-
-  // Funnel health query (crash/ANR/non-fatal per step)
-  const { data: healthData, isLoading: isHealthLoading } = useGetFunnelHealth({
-    requestBody,
-    enabled: shouldFetch && hasValidSteps,
-  });
-
-  const funnelResult = data?.data;
-  const healthResult = healthData?.data;
+  // Funnel state
+  const [steps, setSteps] = useState<BuilderStep[]>(INITIAL_STEPS);
+  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
+    "ordered"
+  );
+  const [conversionWindow, setConversionWindow] = useState("86400");
+  const [showResults, setShowResults] = useState(true);
 
   const handleAnalyze = () => {
-    if (hasValidSteps) {
-      setShouldFetch(true);
-    }
-  };
-
-  useEffect(() => {
-    setShouldFetch(false);
-  }, [steps, mode, windowSeconds, startTime, endTime]);
-
-  const handleStepIssueClick = (stepLevel: number, issueType: string) => {
-    setDrawerStepLevel(stepLevel);
-    setDrawerIssueType(issueType);
-    setDrawerOpened(true);
+    setShowResults(true);
   };
 
   return (
-    <Box className={classes.pageContainer}>
-      <Box className={classes.pageHeader}>
-        <Box className={classes.titleSection}>
-          <Text className={classes.pageTitle}>Funnel Analysis</Text>
-        </Box>
-      </Box>
-
-      <Box className={classes.controlsSection}>
-        <Group justify="space-between" align="flex-end" wrap="wrap" gap="sm">
-          <Group gap="md" align="flex-end" wrap="wrap">
-            <DateTimeRangePicker
-              handleTimefilterChange={handleTimeFilterChange}
-              selectedQuickTimeFilterIndex={
-                quickTimeRangeFilterIndex !== null
-                  ? quickTimeRangeFilterIndex
-                  : DEFAULT_QUICK_TIME_FILTER_INDEX
-              }
-              defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
-              defaultQuickTimeFilterString={
-                quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER
-              }
-              defaultEndTime={selectedTimeFilter?.endDate || endTime}
-              defaultStartTime={selectedTimeFilter?.startDate || startTime}
-            />
-
-            <Select
-              label="Count by"
-              data={MODE_OPTIONS}
-              value={mode}
-              onChange={(value) =>
-                setMode(
-                  (value as "UNIQUE_USERS" | "SESSIONS") || "UNIQUE_USERS"
-                )
-              }
-              size="sm"
-              style={{ width: 160 }}
-              allowDeselect={false}
-            />
-
-            <NumberInput
-              label="Window (seconds)"
-              value={windowSeconds}
-              onChange={(value) =>
-                setWindowSeconds(typeof value === "number" ? value : 86400)
-              }
-              min={60}
-              max={604800}
-              step={3600}
-              size="sm"
-              style={{ width: 160 }}
-            />
-          </Group>
-
-          <Button
-            variant="filled"
-            color="teal"
+    <Box className={classes.shell}>
+      {/* ===== Top Navigation Bar ===== */}
+      <Box className={classes.topBar}>
+        <Box className={classes.topBarLeft}>
+          <SegmentedControl
+            value={activeModule}
+            onChange={(val) =>
+              setActiveModule(val as "funnels" | "journeys")
+            }
+            data={[
+              {
+                label: (
+                  <Box
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <IconChartFunnel size={15} />
+                    <span>Funnels</span>
+                  </Box>
+                ),
+                value: "funnels",
+              },
+              {
+                label: (
+                  <Box
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <IconRoute size={15} />
+                    <span>Journeys</span>
+                  </Box>
+                ),
+                value: "journeys",
+              },
+            ]}
             size="sm"
-            leftSection={<IconPlayerPlay size={16} />}
-            onClick={handleAnalyze}
-            disabled={!hasValidSteps}
-          >
-            Analyze Funnel
-          </Button>
-        </Group>
+            color="teal"
+          />
+          <Text className={classes.moduleTitle}>
+            {activeModule === "funnels"
+              ? "Funnel Analysis"
+              : "Journey Explorer"}
+          </Text>
+        </Box>
+
+        <Box className={classes.topBarRight}>
+          <Select
+            data={DATE_RANGE_OPTIONS}
+            value={dateRange}
+            onChange={(val) => setDateRange(val || "7d")}
+            size="xs"
+            style={{ width: 160 }}
+            allowDeselect={false}
+          />
+        </Box>
       </Box>
 
-      <FunnelStepBuilder steps={steps} onStepsChange={setSteps} />
+      {/* ===== Filter Bar ===== */}
+      <GlobalFilterBar filters={filters} onFiltersChange={setFilters} />
 
-      {(isLoading || isHealthLoading) && shouldFetch && (
-        <Box className={classes.loader}>
-          <Loader color="teal" size="lg" />
-          <Text size="sm" c="dimmed" mt="md">
-            Analyzing funnel...
-          </Text>
-        </Box>
-      )}
+      {/* ===== Module Content ===== */}
+      {activeModule === "funnels" ? (
+        <Box className={classes.funnelLayout}>
+          {/* Left Sidebar: The Builder */}
+          <Box className={classes.sidebar}>
+            <FunnelBuilder
+              steps={steps}
+              onStepsChange={setSteps}
+              funnelMode={funnelMode}
+              onFunnelModeChange={setFunnelMode}
+              conversionWindow={conversionWindow}
+              onConversionWindowChange={setConversionWindow}
+              onAnalyze={handleAnalyze}
+            />
+          </Box>
 
-      {isError && (
-        <Box className={classes.emptyState}>
-          <Text size="sm" c="red" fw={500}>
-            Failed to load funnel data
-          </Text>
-          <Text size="xs" c="dimmed" mt="xs">
-            {error instanceof Error ? error.message : "Unknown error"}
-          </Text>
-        </Box>
-      )}
-
-      {!isLoading && !isError && funnelResult && funnelResult.steps && (
-        <>
-          <Box className={classes.summaryCards}>
-            <Box className={classes.summaryCard}>
-              <Text className={classes.summaryValue}>
-                {funnelResult.totalEnteredUsers.toLocaleString()}
-              </Text>
-              <Text className={classes.summaryLabel}>
-                Total {mode === "UNIQUE_USERS" ? "Users" : "Sessions"} Entered
-              </Text>
-            </Box>
-            <Box className={classes.summaryCard}>
-              <Text className={classes.summaryValue}>
-                {funnelResult.overallConversionRate}%
-              </Text>
-              <Text className={classes.summaryLabel}>Overall Conversion</Text>
-            </Box>
-            <Box className={classes.summaryCard}>
-              <Text className={classes.summaryValue}>
-                {funnelResult.steps.length > 0
-                  ? funnelResult.steps[
-                      funnelResult.steps.length - 1
-                    ].count.toLocaleString()
-                  : 0}
-              </Text>
-              <Text className={classes.summaryLabel}>Completed Funnel</Text>
-            </Box>
-
-            {/* Health summary cards */}
-            {healthResult && (
+          {/* Right Canvas: The Visualization */}
+          <Box className={classes.mainCanvas}>
+            {showResults ? (
               <>
-                <Box className={classes.summaryCard}>
-                  <Text className={classes.summaryValue} c="red">
-                    {healthResult.totalCrashUsers.toLocaleString()}
-                  </Text>
-                  <Text className={classes.summaryLabel}>Crash Users</Text>
-                </Box>
-                <Box className={classes.summaryCard}>
-                  <Text className={classes.summaryValue} c="orange">
-                    {healthResult.totalAnrUsers.toLocaleString()}
-                  </Text>
-                  <Text className={classes.summaryLabel}>ANR Users</Text>
-                </Box>
-                <Box className={classes.summaryCard}>
-                  <Text className={classes.summaryValue} c="yellow.8">
-                    {healthResult.totalNonFatalUsers.toLocaleString()}
-                  </Text>
-                  <Text className={classes.summaryLabel}>Non-Fatal Users</Text>
-                </Box>
+                <FunnelVisualization data={MOCK_FUNNEL_DATA} />
+                <FunnelDataTable steps={MOCK_FUNNEL_DATA.steps} />
               </>
+            ) : (
+              <Box className={classes.emptyState}>
+                <Box className={classes.emptyStateIcon}>
+                  <IconChartFunnel size={28} color="#0ba09a" />
+                </Box>
+                <Text size="lg" fw={700} c="dark.6" mt="xs">
+                  Build Your Funnel
+                </Text>
+                <Text size="sm" c="dimmed" mt={4} maw={380}>
+                  Select events for each step in the builder, set your
+                  conversion window, and click "Analyze Funnel" to see
+                  results.
+                </Text>
+              </Box>
             )}
           </Box>
-
-          <Box className={classes.resultsSection}>
-            <Box className={classes.chartContainer}>
-              <Text size="sm" fw={600} mb="md" c="dark.6">
-                Funnel Visualization
-              </Text>
-              <FunnelChart steps={funnelResult.steps} />
-            </Box>
-
-            <Box className={classes.tableContainer}>
-              <Text size="sm" fw={600} mb="md" c="dark.6">
-                Step Breakdown
-                {healthResult && (
-                  <Text span size="xs" c="dimmed" ml="xs">
-                    (click issue badges to view affected sessions)
-                  </Text>
-                )}
-              </Text>
-              <FunnelTable
-                steps={funnelResult.steps}
-                healthData={healthResult?.steps}
-                onStepClick={handleStepIssueClick}
-              />
-            </Box>
-          </Box>
-        </>
-      )}
-
-      {!isLoading && !isError && !funnelResult && !shouldFetch && (
-        <Box className={classes.emptyState}>
-          <IconChartFunnel size={48} color="#94a3b8" />
-          <Text size="lg" fw={600} c="dark.4" mt="md">
-            Build Your Funnel
-          </Text>
-          <Text size="sm" c="dimmed" mt="xs" maw={400}>
-            Add event names for each step, select a time range, and click
-            "Analyze Funnel" to see conversion metrics with crash/ANR
-            correlation.
-          </Text>
         </Box>
+      ) : (
+        <JourneyExplorer />
       )}
-
-      {/* Session drill-down drawer */}
-      <FunnelSessionDrawer
-        opened={drawerOpened}
-        onClose={() => setDrawerOpened(false)}
-        stepLevel={drawerStepLevel}
-        issueType={drawerIssueType}
-        steps={steps}
-        timeRange={{ start: startTime, end: endTime }}
-        mode={mode}
-        windowSeconds={windowSeconds}
-      />
     </Box>
   );
 }
