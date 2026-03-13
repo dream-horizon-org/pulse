@@ -386,7 +386,7 @@ export class SessionReplayService {
 
   /**
    * Sessions Listing API – cursor-paginated session list with filters, sort, search.
-   * POST /api/v1/sessions/listing
+   * POST /v1/sessions/listing
    */
   async postSessionsListing(
     request: SessionListingRequest,
@@ -394,7 +394,7 @@ export class SessionReplayService {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
       return getMockSessionListingResponse(request);
     }
-    const url = `${this.baseURL}/api/v1/sessions/listing`;
+    const url = `${this.baseURL}/v1/sessions/listing`;
 
     try {
       const response = await makeRequestToServer({
@@ -423,10 +423,10 @@ export class SessionReplayService {
 
   /**
    * Sessions Filters API – filter config for quick filters and advanced builder.
-   * GET /api/v1/sessions/filters (if available on backend)
+   * GET /v1/sessions/filters
    */
   async getSessionsFilters(): Promise<FilterConfigResponse> {
-    const url = `${this.baseURL}/api/v1/sessions/filters`;
+    const url = `${this.baseURL}/v1/sessions/filters`;
 
     try {
       const response = await makeRequestToServer({

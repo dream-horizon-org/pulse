@@ -104,7 +104,7 @@ function getMockSessionItems(): SessionItem[] {
 }
 
 /**
- * Returns mock session listing response (same contract as POST /api/v1/sessions/listing).
+ * Returns mock session listing response (same contract as POST /v1/sessions/listing).
  */
 export function getMockSessionListingResponse(
   request: SessionListingRequest,
