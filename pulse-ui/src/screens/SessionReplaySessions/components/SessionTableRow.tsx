@@ -7,8 +7,9 @@ import {
   formatDuration,
   getQualityColor,
   getPlatformColor,
-  formatJourneyPreview,
-  formatJourneyTooltip,
+  getIssueBadgeColor,
+  formatImpactedScreensPreview,
+  formatImpactedScreensTooltip,
 } from "../utils/sessionListUtils";
 import classes from "../SessionReplaySessions.module.css";
 
@@ -23,14 +24,7 @@ export function SessionTableRow({
   onWatch,
   onOpenInNewTab,
 }: SessionTableRowProps) {
-  const hasIssues =
-    session.networkErrors > 0 ||
-    session.interactionErrors > 0 ||
-    session.crashCount > 0 ||
-    session.anrCount > 0 ||
-    session.nonFatal > 0 ||
-    session.slowInteractionCount > 0 ||
-    session.frozenFrameCount > 0;
+  const hasIssues = session.issues.length > 0;
   const quality = session.qualityScore ?? 0;
 
   return (
@@ -42,14 +36,12 @@ export function SessionTableRow({
         <Text size="sm">{formatDuration(session.durationMs)}</Text>
       </Table.Td>
       <Table.Td>
-        <Text size="sm">{session.user ?? SESSION_LIST_LABELS.anonymousUser}</Text>
+        <Text size="sm">
+          {session.user ?? SESSION_LIST_LABELS.anonymousUser}
+        </Text>
       </Table.Td>
       <Table.Td>
-        <Text
-          size="sm"
-          fw={600}
-          c={getQualityColor(quality)}
-        >
+        <Text size="sm" fw={600} c={getQualityColor(quality)}>
           {session.qualityScore != null
             ? session.qualityScore.toFixed(2)
             : SESSION_LIST_LABELS.noQuality}
@@ -62,29 +54,18 @@ export function SessionTableRow({
           </Badge>
         ) : (
           <Group gap={4} style={{ flexWrap: "wrap" }}>
-            {session.crashCount > 0 && (
-              <Badge color="red" variant="filled" size="sm">
-                {SESSION_LIST_LABELS.crashed}
+            {session.issues.map((issue) => (
+              <Badge
+                key={issue.type}
+                color={getIssueBadgeColor(issue.type)}
+                variant={issue.type === "CRASH" ? "filled" : "light"}
+                size="sm"
+              >
+                {issue.count > 1
+                  ? `${issue.label} (${issue.count})`
+                  : issue.label}
               </Badge>
-            )}
-            {session.interactionErrors > 0 && (
-              <Badge color="red" variant="light" size="sm">
-                {SESSION_LIST_LABELS.failed}
-              </Badge>
-            )}
-            {(session.networkErrors > 0 || session.nonFatal > 0) && (
-              <Badge color="orange" variant="light" size="sm">
-                {session.networkErrors + session.nonFatal}{" "}
-                {session.networkErrors + session.nonFatal > 1
-                  ? SESSION_LIST_LABELS.errors
-                  : SESSION_LIST_LABELS.error}
-              </Badge>
-            )}
-            {session.slowInteractionCount > 0 && (
-              <Badge color="yellow" variant="light" size="sm">
-                {SESSION_LIST_LABELS.slow}
-              </Badge>
-            )}
+            ))}
           </Group>
         )}
       </Table.Td>
@@ -98,9 +79,9 @@ export function SessionTableRow({
         </Badge>
       </Table.Td>
       <Table.Td>
-        <Tooltip label={formatJourneyTooltip(session.journey)}>
+        <Tooltip label={formatImpactedScreensTooltip(session.impactedScreens)}>
           <Text size="xs" c="dimmed" className={classes.journey}>
-            {formatJourneyPreview(session.journey)}
+            {formatImpactedScreensPreview(session.impactedScreens)}
           </Text>
         </Tooltip>
       </Table.Td>

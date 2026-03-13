@@ -642,22 +642,29 @@ export type PageResponse = {
   hasMore: boolean;
 };
 
+export type IssueItem = {
+  type: string;
+  label: string;
+  count: number;
+};
+
+export type ImpactedScreens = {
+  crashes?: string[];
+  anrs?: string[];
+  nonFatals?: string[];
+};
+
 export type SessionItem = {
   sessionId: string;
   startTime: string;
   durationMs: number;
   user: string | null;
   qualityScore: number | null;
-  networkErrors: number;
-  interactionErrors: number;
-  crashCount: number;
-  anrCount: number;
-  nonFatal: number;
-  slowInteractionCount: number;
-  frozenFrameCount: number;
+  issues: IssueItem[];
   platform: string;
   spanCount: number;
   journey: string[];
+  impactedScreens: ImpactedScreens | null;
 };
 
 export type SessionListingResponse = {

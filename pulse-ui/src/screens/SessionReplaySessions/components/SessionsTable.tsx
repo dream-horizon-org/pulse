@@ -101,7 +101,7 @@ export function SessionsTable({
           </Table.Th>
           <Table.Th>{TABLE_COLUMN_LABELS.issues}</Table.Th>
           <Table.Th>{TABLE_COLUMN_LABELS.platform}</Table.Th>
-          <Table.Th>{TABLE_COLUMN_LABELS.journey}</Table.Th>
+          <Table.Th>{TABLE_COLUMN_LABELS.impactedScreens}</Table.Th>
           <Table.Th style={{ width: ACTIONS_COLUMN_WIDTH }}>
             {TABLE_COLUMN_LABELS.actions}
           </Table.Th>
