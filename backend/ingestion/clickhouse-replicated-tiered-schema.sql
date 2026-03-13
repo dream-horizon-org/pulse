@@ -210,14 +210,14 @@ FROM otel.otel_traces_local
 GROUP BY project_id, month, source;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stacktraces_sessions_mv
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stack_traces_events_mv
 ON CLUSTER `pulse-clickhouse`
 TO otel.project_monthly_usage
 AS SELECT
     ProjectId AS project_id,
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
-    0 AS event_count,
+    count() AS event_count,
     uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
 FROM otel.stack_trace_events_local
 GROUP BY project_id, month, source;
