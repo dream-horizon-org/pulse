@@ -1,4 +1,5 @@
 export interface SnapshotsSourceBlob {
+  source?: string;
   blobKey: string;
   startTimestamp: string;
   endTimestamp: string;
@@ -6,6 +7,7 @@ export interface SnapshotsSourceBlob {
 
 export interface SnapshotsSourceResponse {
   data: {
+    sessionId?: string;
     snapshotSource: string;
     sources: SnapshotsSourceBlob[];
   };

@@ -76,6 +76,7 @@ export const SessionReplayDetail: React.FC = () => {
     images: snapshotImages,
     loading: snapshotLoading,
     error: snapshotError,
+    snapshotDurationMs,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
     sessionStartTime: snapshotSessionStart,
@@ -85,6 +86,9 @@ export const SessionReplayDetail: React.FC = () => {
 
   const replayImages = snapshotImages;
   const imagesLoading = snapshotLoading;
+
+  const effectiveDuration =
+    snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
 
   const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
     useMemo(() => {
@@ -132,11 +136,11 @@ export const SessionReplayDetail: React.FC = () => {
   };
 
   const handleTimeUpdate = (time: number) => {
-    if (time <= sessionData.duration) {
+    if (time <= effectiveDuration) {
       setCurrentTime(time);
     } else {
       setIsPlaying(false);
-      setCurrentTime(sessionData.duration);
+      setCurrentTime(effectiveDuration);
     }
   };
 
@@ -177,6 +181,7 @@ export const SessionReplayDetail: React.FC = () => {
                 playbackSpeed={playbackSpeed}
                 selectedSpan={selectedSpan}
                 compact
+                duration={effectiveDuration}
                 onTimeUpdate={handleTimeUpdate}
                 onTimelineChange={handleTimelineChange}
                 onPlayPause={handlePlayPause}

@@ -228,14 +228,21 @@ export class SessionReplayService {
     sessionId: string,
   ): Promise<SnapshotsSourceResponse["data"]> {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      const baseTs = 1773404248354;
       return {
-        snapshotSource: "mock",
+        sessionId: sessionId,
+        snapshotSource: "android",
         sources: [
           {
+            source: "blob",
             blobKey: "0",
-            startTimestamp: new Date(baseTs).toISOString(),
-            endTimestamp: new Date(baseTs + 10000).toISOString(),
+            startTimestamp: "2026-03-13 12:17:28.354000",
+            endTimestamp: "2026-03-13 12:17:36.197000",
+          },
+          {
+            source: "blob",
+            blobKey: "1",
+            startTimestamp: "2026-03-13 12:17:37.197000",
+            endTimestamp: "2026-03-13 12:17:46.219000",
           },
         ],
       };
@@ -270,7 +277,7 @@ export class SessionReplayService {
     endBlobKey: string,
   ): Promise<SnapshotsDataResponse["data"]> {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
-      return getMockSnapshotsData();
+      return getMockSnapshotsData(startBlobKey);
     }
 
     const url = new URL(

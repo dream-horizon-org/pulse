@@ -18,6 +18,11 @@ import type { SessionReplayImage } from "./sessionReplayImages";
 
 const MAX_BLOBS_PER_REQUEST = 20;
 
+function parseTimestamp(ts: string): number {
+  const normalized = ts.includes("T") ? ts : ts.replace(" ", "T") + "Z";
+  return new Date(normalized).getTime();
+}
+
 /** Type 4 = image frame with href in data */
 const IMAGE_FRAME_TYPE = 4;
 /** Type 3 = incremental snapshot with updates[].wireframe (may have base64) */
@@ -131,12 +136,12 @@ function findBlobIndexForTime(
 ): number {
   const absoluteMs = sessionStartMs + currentTimeMs;
   for (let i = 0; i < sources.length; i++) {
-    const start = new Date(sources[i].startTimestamp).getTime();
-    const end = new Date(sources[i].endTimestamp).getTime();
+    const start = parseTimestamp(sources[i].startTimestamp);
+    const end = parseTimestamp(sources[i].endTimestamp);
     if (absoluteMs >= start && absoluteMs <= end) return i;
   }
   if (sources.length === 0) return -1;
-  if (absoluteMs < new Date(sources[0].startTimestamp).getTime()) return 0;
+  if (absoluteMs < parseTimestamp(sources[0].startTimestamp)) return 0;
   return sources.length - 1;
 }
 
@@ -156,6 +161,34 @@ function getBlobRangeToLoad(
     startIndex + MAX_BLOBS_PER_REQUEST - 1,
   );
   return { startIndex, endIndex };
+}
+
+/**
+ * Compute total snapshot duration (ms) from the manifest:
+ * last blob endTimestamp − first blob startTimestamp.
+ */
+export function computeSnapshotDurationMs(
+  sources: SnapshotsSourceBlob[],
+): number {
+  if (sources.length === 0) return 0;
+  const first = parseTimestamp(sources[0].startTimestamp);
+  const last = parseTimestamp(sources[sources.length - 1].endTimestamp);
+  return Math.max(0, last - first);
+}
+
+/**
+ * Fetch the snapshot source manifest for a session.
+ * Returns the sources array and computed total duration in ms.
+ */
+export async function fetchSnapshotManifest(
+  sessionId: string,
+): Promise<{ sources: SnapshotsSourceBlob[]; durationMs: number }> {
+  const manifest = await sessionReplayService.getSnapshotsSource(sessionId);
+  const sources = manifest.sources ?? [];
+  return {
+    sources,
+    durationMs: computeSnapshotDurationMs(sources),
+  };
 }
 
 export interface LoadSnapshotsOptions {
