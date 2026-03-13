@@ -298,6 +298,9 @@ services:
       - OPENFGA_STORE_ID=${OPENFGA_STORE_ID:-}
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
+
+      # Incident Configuration
+      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${#test-incident-channel:-}
     networks:
       - pulse-network
     depends_on:
