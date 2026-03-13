@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriInfo;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -89,8 +91,7 @@ class AiProxyResourceTest {
         .thenReturn(CompletableFuture.completedFuture(mockResponse));
   }
 
-  private jakarta.ws.rs.core.Response awaitResponse(
-      CompletionStage<jakarta.ws.rs.core.Response> stage) {
+  private Response awaitResponse(CompletionStage<Response> stage) {
     try {
       return stage.toCompletableFuture().get(5, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -152,8 +153,7 @@ class AiProxyResourceTest {
     void shouldProxyGetRequest() {
       setupSuccessfulProxy("chat", 200, "application/json", "{\"message\":\"hello\"}");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
-          resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("application/json");
@@ -170,7 +170,7 @@ class AiProxyResourceTest {
 
       InputStream body = new ByteArrayInputStream(
           "{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -184,7 +184,7 @@ class AiProxyResourceTest {
     void shouldProxyPostRequestWithoutBody() {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -200,7 +200,7 @@ class AiProxyResourceTest {
 
       InputStream body = new ByteArrayInputStream(
           "{\"data\":\"value\"}".getBytes(StandardCharsets.UTF_8));
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyPut("chat/123", VALID_TOKEN, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -214,7 +214,7 @@ class AiProxyResourceTest {
     void shouldProxyPutRequestWithoutBody() {
       setupSuccessfulProxy("chat/123", 200, "application/json", "{}");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyPut("chat/123", VALID_TOKEN, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -228,7 +228,7 @@ class AiProxyResourceTest {
     void shouldProxyDeleteRequest() {
       setupSuccessfulProxy("chat/123", 204, "application/json", "");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyDelete("chat/123", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(204);
@@ -305,8 +305,7 @@ class AiProxyResourceTest {
       String jsonBody = "{\"message\":\"hello world\"}";
       setupSuccessfulProxy("chat", 200, "application/json", jsonBody);
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
-          resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("application/json");
@@ -318,20 +317,18 @@ class AiProxyResourceTest {
     void shouldReturnStreamingResponseForSseContentType() {
       setupSuccessfulProxy("chat", 200, "text/event-stream", "data: {\"chunk\":1}\n\n");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
-          resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("text/event-stream");
-      assertThat(response.getEntity()).isInstanceOf(jakarta.ws.rs.core.StreamingOutput.class);
+      assertThat(response.getEntity()).isInstanceOf(StreamingOutput.class);
     }
 
     @Test
     void shouldPropagateStatusCodeFromUpstream() {
       setupSuccessfulProxy("chat", 404, "application/json", "{\"error\":\"not found\"}");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
-          resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(404);
     }
@@ -348,8 +345,7 @@ class AiProxyResourceTest {
           .thenReturn(CompletableFuture.failedFuture(
               new RuntimeException("Connection refused")));
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
-          resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(502);
       assertThat(response.getEntity().toString()).contains("AI service unavailable");
@@ -364,8 +360,7 @@ class AiProxyResourceTest {
       when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
           .thenReturn(future);
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
-          resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(502);
     }
@@ -378,7 +373,7 @@ class AiProxyResourceTest {
     void shouldHandleNullBodyInPost() {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -389,7 +384,7 @@ class AiProxyResourceTest {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       InputStream emptyBody = new ByteArrayInputStream(new byte[0]);
-      jakarta.ws.rs.core.Response response = awaitResponse(
+      Response response = awaitResponse(
           resource.proxyPost("chat", VALID_TOKEN, uriInfo, emptyBody));
 
       assertThat(response.getStatus()).isEqualTo(200);
