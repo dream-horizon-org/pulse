@@ -87,7 +87,9 @@ class ApplicationConfigTest {
         "interactionPath",
         "interactionAsset",
         "key",
-        "tncS3Bucket"
+        "tncS3Bucket",
+        "http://ai:8000",
+        "ai-key"
     );
     assertNotNull(config);
     assertEquals("cronUrl", config.getCronManagerBaseUrl());

@@ -34,4 +34,6 @@ public class ApplicationConfig {
   public String interactionDetailCloudFrontAssetPath;
   public String encryptionMasterKey;
   public String tncS3BucketName;
+  public String aiServiceUrl;
+  public String aiServiceKey;
 }

@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletionStage;
 import com.dream11.rest.annotation.Timeout;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.service.JwtService;
 
 /**
@@ -42,8 +43,6 @@ public class AiProxyResource {
   private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
-  private static final String AI_SERVICE_URL_ENV = "AI_SERVICE_URL";
-  private static final String AI_SERVICE_KEY_ENV = "AI_SERVICE_KEY";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
   private static final int STREAM_BUFFER_SIZE = 1024;
@@ -55,14 +54,14 @@ public class AiProxyResource {
   private final String serviceKey;
 
   @Inject
-  public AiProxyResource(JwtService jwtService) {
+  public AiProxyResource(JwtService jwtService, ApplicationConfig applicationConfig) {
     this(jwtService,
         HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(CONNECT_TIMEOUT)
             .build(),
-        System.getenv().getOrDefault(AI_SERVICE_URL_ENV, DEFAULT_AI_SERVICE_URL),
-        System.getenv().getOrDefault(AI_SERVICE_KEY_ENV, ""));
+        resolveConfigValue(applicationConfig.getAiServiceUrl(), DEFAULT_AI_SERVICE_URL),
+        resolveConfigValue(applicationConfig.getAiServiceKey(), ""));
   }
 
   AiProxyResource(JwtService jwtService, HttpClient httpClient, String aiServiceUrl, String serviceKey) {
@@ -71,6 +70,11 @@ public class AiProxyResource {
     this.aiServiceUrl = aiServiceUrl;
     this.serviceKey = serviceKey != null ? serviceKey : "";
     log.info("AI proxy resource initialized → {}", aiServiceUrl);
+  }
+
+  private static String resolveConfigValue(String value, String defaultValue) {
+    boolean isBlank = value == null || value.isBlank();
+    return isBlank ? defaultValue : value;
   }
 
   @GET
