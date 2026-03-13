@@ -22,4 +22,9 @@ public class IncidentQueries {
   public static final String CLOSE_INCIDENT =
       "UPDATE incidents SET status = 'CLOSED', closed_at = CURRENT_TIMESTAMP "
           + "WHERE id = ? AND status = 'RECOVERED'";
+
+  public static final String GET_INCIDENTS_BY_PROJECT =
+      "SELECT id, title, description, severity, reporter_name, reporter_email, org_identifier, status, "
+          + "created_at, updated_at, acknowledged_at, recovered_at, closed_at "
+          + "FROM incidents WHERE org_identifier = ? ORDER BY created_at DESC";
 }

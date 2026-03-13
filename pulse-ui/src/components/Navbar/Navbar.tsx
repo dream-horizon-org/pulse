@@ -37,8 +37,6 @@ import {
   IconSettings,
   IconUserCircle,
 } from "@tabler/icons-react";
-import { useDisclosure } from "@mantine/hooks";
-import { ContactUsModal } from "../ContactUsModal/ContactUsModal";
 import Cookies from "js-cookie";
 import { useRef, useState } from "react";
 import { getCookies } from "../../helpers/cookies";
@@ -60,8 +58,6 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const [contactUsOpened, { open: openContactUs, close: closeContactUs }] =
-    useDisclosure(false);
   const [popoverOpened, setPopoverOpened] = useState(false);
   const { projectId: contextProjectId, clearProject } = useProjectContext();
   const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
@@ -444,7 +440,7 @@ export function Navbar({
                 className={classes.menuItem}
                 onClick={() => {
                   setPopoverOpened(false);
-                  openContactUs();
+                  navigate(ROUTES.SUPPORT_QUERIES.basePath);
                 }}
                 style={{ cursor: "pointer" }}
               >
@@ -499,7 +495,6 @@ export function Navbar({
           </Popover.Dropdown>
         </Popover>
       </AppShell.Section>
-      <ContactUsModal opened={contactUsOpened} onClose={closeContactUs} />
       {/* Logout Confirmation Modal */}
       <ConfirmationModal
         opened={logoutModalOpened}

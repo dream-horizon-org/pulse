@@ -9,6 +9,8 @@ import io.vertx.rxjava3.mysqlclient.MySQLClient;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -40,6 +42,19 @@ public class IncidentDao {
           return getIncidentById(generatedId);
         })
         .doOnError(error -> log.error("Failed to insert incident: title={}", incident.getTitle(), error));
+  }
+
+  public Single<List<IncidentRow>> getIncidentsByProject(String projectId) {
+    MySQLPool pool = mysqlClient.getReaderPool();
+    return pool.preparedQuery(GET_INCIDENTS_BY_PROJECT)
+        .rxExecute(Tuple.of(projectId))
+        .map(rowSet -> {
+          List<IncidentRow> incidents = new ArrayList<>();
+          rowSet.forEach(row -> incidents.add(mapRowToIncident(row)));
+          return incidents;
+        })
+        .doOnError(error ->
+            log.error("Failed to fetch incidents for project={}", projectId, error));
   }
 
   public Single<IncidentRow> getIncidentById(long id) {

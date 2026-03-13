@@ -58,6 +58,7 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
+import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
 
@@ -293,6 +294,12 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
     element: ProjectSettings,
+  },
+  SUPPORT_QUERIES: {
+    key: "SUPPORT_QUERIES",
+    basePath: "/support-queries",
+    path: "/support-queries",
+    element: SupportQueries,
   },
 };
 

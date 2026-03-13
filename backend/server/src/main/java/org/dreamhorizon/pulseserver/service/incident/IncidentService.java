@@ -15,6 +15,7 @@ import org.dreamhorizon.pulseserver.dao.incidentdao.IncidentDao;
 import org.dreamhorizon.pulseserver.dao.incidentdao.models.IncidentRow;
 import org.dreamhorizon.pulseserver.resources.incident.models.CreateIncidentRequestDto;
 import org.dreamhorizon.pulseserver.resources.incident.models.CreateIncidentResponseDto;
+import org.dreamhorizon.pulseserver.resources.incident.models.IncidentResponseDto;
 import org.dreamhorizon.pulseserver.resources.incident.models.enums.IncidentStatus;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
@@ -32,6 +33,18 @@ public class IncidentService {
   private final IncidentDao incidentDao;
   private final NotificationService notificationService;
   private final NotificationConfig notificationConfig;
+
+  // ===================== List =====================
+
+  public Single<List<IncidentResponseDto>> getIncidents() {
+    String projectId = ProjectContext.requireProjectId();
+    return incidentDao.getIncidentsByProject(projectId)
+        .map(rows -> rows.stream()
+            .map(this::toIncidentResponseDto)
+            .toList())
+        .doOnSuccess(list -> log.info("Fetched {} incidents for project={}", list.size(), projectId))
+        .doOnError(error -> log.error("Failed to fetch incidents for project={}", projectId, error));
+  }
 
   // ===================== Create =====================
 
@@ -229,6 +242,20 @@ public class IncidentService {
         .id(row.getId())
         .status(row.getStatus())
         .createdAt(row.getCreatedAt())
+        .build();
+  }
+
+  private IncidentResponseDto toIncidentResponseDto(IncidentRow row) {
+    return IncidentResponseDto.builder()
+        .id(row.getId())
+        .title(row.getTitle())
+        .description(row.getDescription())
+        .severity(row.getSeverity())
+        .status(row.getStatus())
+        .reporterName(row.getReporterName())
+        .reporterEmail(row.getReporterEmail())
+        .createdAt(row.getCreatedAt())
+        .updatedAt(row.getUpdatedAt())
         .build();
   }
 }
