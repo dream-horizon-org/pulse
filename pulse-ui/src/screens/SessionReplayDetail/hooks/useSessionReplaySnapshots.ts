@@ -9,6 +9,7 @@ import type { SessionReplayImage } from "../../../services/sessionReplay/session
 import {
   loadInitialSnapshots,
   loadSnapshotsForTime,
+  fetchSnapshotManifest,
 } from "../../../services/sessionReplay/sessionReplaySnapshotLoader";
 
 const SEEK_DEBOUNCE_MS = 300;
@@ -26,6 +27,8 @@ export interface UseSessionReplaySnapshotsResult {
   images: SessionReplayImage[];
   loading: boolean;
   error: Error | null;
+
+  snapshotDurationMs: number;
 }
 
 export function useSessionReplaySnapshots({
@@ -37,11 +40,12 @@ export function useSessionReplaySnapshots({
   const [images, setImages] = useState<SessionReplayImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [snapshotDurationMs, setSnapshotDurationMs] = useState(0);
   const loadedRangesRef = useRef<Set<string>>(new Set());
   const sessionStartMs = useRef(0);
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoadTimeRef = useRef(0);
-  const SEEK_THRESHOLD_MS = 2000; // Only load new range when time jumps by > 2s (user seek)
+  const SEEK_THRESHOLD_MS = 2000;
 
   const effectiveEnabled = Boolean(enabled && sessionId);
 
@@ -76,6 +80,17 @@ export function useSessionReplaySnapshots({
     },
     [sessionId, effectiveEnabled],
   );
+
+  useEffect(() => {
+    if (!sessionId || !effectiveEnabled) return;
+    let cancelled = false;
+    fetchSnapshotManifest(sessionId).then((result) => {
+      if (!cancelled) setSnapshotDurationMs(result.durationMs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, effectiveEnabled]);
 
   // Initial load
   useEffect(() => {
@@ -130,5 +145,5 @@ export function useSessionReplaySnapshots({
     };
   }, [sessionId, currentTime, effectiveEnabled, loadForTime]);
 
-  return { images, loading, error };
+  return { images, loading, error, snapshotDurationMs };
 }
