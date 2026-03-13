@@ -31,7 +31,7 @@ public interface PulseSDK {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         /**
          * Initial data collection consent state. See [com.pulse.android.api.otel.PulseDataCollectionConsent] for different values
          */
