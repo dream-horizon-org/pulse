@@ -138,6 +138,7 @@ fall back to pure Docker CLI when Compose is not available.
 | `reset-databases.sh` | Wipe database data and restart from scratch |
 | `common.sh` | Shared library (not run directly) |
 | `init-clickhouse.sh` | ClickHouse table initialiser (runs inside a container, not run directly) |
+| `sync-default-tenant-ch-credentials.py` | One-time: sync default tenant’s ClickHouse password in MySQL to match `.env` (fixes AI Root Cause auth errors) |
 
 ---
 
@@ -335,6 +336,27 @@ Runs inside a ClickHouse container as a one-shot job. Waits for ClickHouse to
 accept connections, then applies `backend/ingestion/clickhouse-otel-schema.sql`
 to create the OTEL tables. Called automatically by `start.sh` and
 `docker-compose.yml`; you should never need to run it manually.
+
+---
+
+### Fix default tenant ClickHouse credentials
+
+If AI Root Cause Analysis fails with "Failed to execute tenant query" or ClickHouse
+"Authentication failed", the password stored in MySQL for the `default` tenant
+likely does not match the ClickHouse container password (from `OTEL_CLICKHOUSE_PASSWORD`).
+
+Run this **after** the stack is up (MySQL and `.env` available):
+
+```bash
+cd deploy
+# Load .env and run script (requires: pip install pymysql cryptography)
+export $(grep -v '^#' .env | xargs)
+python3 scripts/sync-default-tenant-ch-credentials.py
+```
+
+From host, MySQL is usually on port 3307. If you use defaults in `.env`
+(`MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3307`, etc.), the script reads them.
+Then restart or refresh the backend so it picks up the updated credentials.
 
 ## 📊 Monitoring & Observability
 

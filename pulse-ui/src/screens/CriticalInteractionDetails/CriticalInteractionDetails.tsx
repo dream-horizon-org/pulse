@@ -24,6 +24,7 @@ import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
+import { RootCause } from "./components/RootCause";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
 
 export function CiritcalInteractionDetails() {
@@ -58,7 +59,7 @@ export function CiritcalInteractionDetails() {
     },
   });
 
-  const VALID_TABS = ["overview", "analysis", "sessions"];
+  const VALID_TABS = ["overview", "analysis", "root-cause", "sessions"];
   const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")
     : "overview";
@@ -223,6 +224,7 @@ export function CiritcalInteractionDetails() {
         <Tabs.List>
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="analysis">Analysis</Tabs.Tab>
+          <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
           <Tabs.Tab value="sessions">Interactions</Tabs.Tab>
         </Tabs.List>
 
@@ -268,6 +270,14 @@ export function CiritcalInteractionDetails() {
               endTime={endTime}
             />
           ) : null}
+        </Tabs.Panel>
+        <Tabs.Panel value="root-cause">
+          <RootCause
+            interactionName={interactionName}
+            date={
+              endTime ? new Date(endTime).toISOString().slice(0, 10) : undefined
+            }
+          />
         </Tabs.Panel>
         <Tabs.Panel value="sessions">
           {!startTime || !endTime ? (

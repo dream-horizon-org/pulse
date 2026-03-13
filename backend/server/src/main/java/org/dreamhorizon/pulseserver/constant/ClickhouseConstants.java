@@ -10,8 +10,9 @@ public class ClickhouseConstants {
   public final String CH_ANR_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.anr'))";
   public final String CH_CRASH_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.crash'))";
   public final String CH_FROZEN_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))";
+  public final String CH_SLOW_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.slow_frame_count']))";
   public final String CH_ANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count']))";
-  public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count ']))";
+  public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))";
   public final String CH_DURATION_P99_SELECT_CLAUSE = "quantileTDigestIf(0.99)(Duration / 1e6, StatusCode != 'Error')";
   public final String CH_DURATION_P95_SELECT_CLAUSE = "quantileTDigestIf(0.95)(Duration / 1e6, StatusCode != 'Error')";
   public final String CH_DURATION_P50_SELECT_CLAUSE = "quantileTDigestIf(0.50)(Duration / 1e6, StatusCode != 'Error')";
@@ -24,6 +25,9 @@ public class ClickhouseConstants {
   public final String GOOD_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Good')";
   public final String AVERAGE_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Average')";
   public final String POOR_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
+  /** Distinct count of spans that are Error OR Poor (union, no double-count). */
+  public final String PROBLEMATIC_SPAN_COUNT =
+      "uniqExactIf(SpanId, StatusCode = 'Error' OR ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
 
   // Network metrics for interactions flow (uses Events.Name)
   public final String NET_0 = "sum(arrayCount(x -> x = 'network.0', Events.Name))";
@@ -45,6 +49,8 @@ public class ClickhouseConstants {
   public final String ANR_RATE = "if(count() = 0, NULL, (countIf(has(Events.Name, 'device.anr'))/count()) * 100)";
   public final String FROZEN_FRAME_RATE =
       "if((sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))) = 0, NULL, (sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100)";
+  public final String SLOW_FRAME_RATE =
+      "if((sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))) = 0, NULL, (sum(toFloat64OrZero(SpanAttributes['app.interaction.slow_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100)";
   public final String ERROR_RATE = "if(count() = 0, NULL, (countIf(StatusCode = 'Error')/count()) * 100)";
   public final String POOR_USER_RATE =
       "if(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '') = 0, NULL, (countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100)";

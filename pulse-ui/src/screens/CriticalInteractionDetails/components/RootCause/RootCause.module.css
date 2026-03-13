@@ -1,0 +1,83 @@
+.container {
+  padding-top: var(--mantine-spacing-md);
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-lg);
+  color: var(--mantine-color-dark-5);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.segmentCard {
+  background: #ffffff;
+  border: 1px solid rgba(14, 201, 194, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: var(--mantine-spacing-lg);
+  box-shadow: 0 4px 12px rgba(14, 201, 194, 0.08);
+}
+
+.segmentCard::before {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #0ec9c2 0%, #0ba09a 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.segmentLabel {
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  font-weight: 600;
+  font-size: var(--mantine-font-size-md);
+  color: var(--mantine-color-dark-7);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.1);
+}
+
+.tableWrapper :global(.mantine-Table-root) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tableWrapper :global(.mantine-Table-thead) {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 201, 194, 0.03),
+    rgba(14, 201, 194, 0.06)
+  );
+}
+
+.tableWrapper :global(.mantine-Table-th) {
+  padding: 12px 16px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--mantine-color-dark-6) !important;
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
+  border-bottom: 2px solid rgba(14, 201, 194, 0.15) !important;
+  background: transparent;
+  text-align: left !important;
+}
+
+.tableWrapper :global(.mantine-Table-td) {
+  padding: 12px 16px;
+  font-size: var(--mantine-font-size-sm);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.08);
+}
+
+.deltaPositive {
+  color: var(--mantine-color-red-7);
+  font-weight: 500;
+}
+
+.deltaNegative {
+  color: var(--mantine-color-teal-7);
+  font-weight: 500;
+}
+
+.deltaNeutral {
+  color: var(--mantine-color-dark-5);
+}

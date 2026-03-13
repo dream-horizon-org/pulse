@@ -28,6 +28,7 @@ import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
@@ -101,6 +102,12 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), openfgaConfig);
           log.info("OpenFGA config initialized - enabled: {}, apiUrl: {}, storeId: {}",
               openfgaConfig.isEnabled(), openfgaConfig.getApiUrl(), openfgaConfig.getStoreId());
+
+          JsonObject rootCauseJson = config.getJsonObject("rootCause", new JsonObject());
+          RootCauseConfig rootCauseConfig = rootCauseJson.isEmpty()
+              ? new RootCauseConfig()
+              : rootCauseJson.mapTo(RootCauseConfig.class);
+          SharedDataUtils.put(vertx.getDelegate(), rootCauseConfig);
 
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);

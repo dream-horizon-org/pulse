@@ -6,6 +6,7 @@ import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 public class ConfigModule extends AbstractModule {
@@ -25,5 +26,7 @@ public class ConfigModule extends AbstractModule {
     bind(AthenaConfig.class).toProvider(() -> SharedDataUtils.get(vertx, AthenaConfig.class));
     bind(NotificationConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, NotificationConfig.class));
+    bind(RootCauseConfig.class)
+        .toProvider(() -> SharedDataUtils.get(vertx, RootCauseConfig.class));
   }
 }

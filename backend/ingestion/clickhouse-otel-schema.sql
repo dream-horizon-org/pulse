@@ -177,3 +177,22 @@ PARTITION BY toYYYYMMDD(Timestamp)
 -- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 SETTINGS index_granularity = 8192;
+
+-- Root Cause Analysis cache: one row per (tenant_id, project_id, interaction_name, date).
+-- Written on first request (read-through); subsequent requests within TTL are served from cache.
+-- ReplacingMergeTree(cached_at) keeps the latest row per key when merging.
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache
+(
+    `tenant_id` String CODEC(ZSTD(1)),
+    `project_id` String CODEC(ZSTD(1)),
+    `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
+    `date` Date CODEC(ZSTD(1)),
+    `mode` LowCardinality(String) CODEC(ZSTD(1)),
+    `baseline` String CODEC(ZSTD(1)),
+    `segments` String CODEC(ZSTD(1)),
+    `cached_at` DateTime64(3, 'UTC') CODEC(Delta(8), ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(cached_at)
+PARTITION BY toYYYYMM(date)
+ORDER BY (tenant_id, project_id, interaction_name, date)
+SETTINGS index_granularity = 8192;

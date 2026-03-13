@@ -34,9 +34,13 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.UpdateInteracti
 import org.dreamhorizon.pulseserver.resources.interaction.validators.CreateInteractionValidations;
 import org.dreamhorizon.pulseserver.resources.interaction.validators.UpdateInteractionValidations;
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
+import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
@@ -48,6 +52,7 @@ public class InteractionController {
   private static final RestInteractionMapper mapper = RestInteractionMapper.INSTANCE;
 
   private final InteractionService interactionService;
+  private final RootCauseService rootCauseService;
   private final Validator validator;
 
   private static WebApplicationException getWebApplicationException(Set<ConstraintViolation<RestInteractionDetail>> violations) {
@@ -180,6 +185,27 @@ public class InteractionController {
   @RequiresPermission("can_view")
   public CompletionStage<Response<TelemetryFilterOptionsResponse>> getTelemetryFilterOptions() {
     return interactionService.getTelemetryFilterOptions()
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @GET
+  @Path("/{name}/root-cause")
+  @Consumes(MediaType.WILDCARD)
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<RootCauseResult>> getRootCause(
+      @PathParam("name") String name,
+      @jakarta.ws.rs.QueryParam("date") String date
+  ) {
+    String projectId = ProjectContext.getProjectId();
+    if (projectId == null || projectId.isBlank()) {
+      return CompletableFuture.failedFuture(new IllegalStateException("Project context is required"));
+    }
+    String tenantId = TenantContext.getTenantId();
+    if (tenantId == null || tenantId.isBlank()) {
+      tenantId = projectId;
+    }
+    return rootCauseService.getRootCause(tenantId, projectId, name, date)
         .to(RestResponse.jaxrsRestHandler());
   }
 }
