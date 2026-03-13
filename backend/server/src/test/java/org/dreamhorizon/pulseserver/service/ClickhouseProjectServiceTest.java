@@ -1,14 +1,24 @@
 package org.dreamhorizon.pulseserver.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.r2dbc.pool.ConnectionPool;
+import io.r2dbc.spi.Connection;
+import io.r2dbc.spi.Result;
+import io.r2dbc.spi.Statement;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.json.JsonObject;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,6 +35,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.junit.jupiter.MockitoExtension;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
+import org.reactivestreams.Publisher;
+import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -276,6 +288,233 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertError(RuntimeException.class)
           .assertError(e -> e.getMessage().contains("DB error"));
+    }
+  }
+
+  @Nested
+  class CreateClickhouseUserAndPolicies {
+
+    @Test
+    void shouldCallPoolManagerForAdminPoolAndClusterClause() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn("");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      Completable result = service.createClickhouseUserAndPolicies("proj-123", "project_123", "password");
+      result.test().assertComplete();
+
+      verify(poolManager).getAdminPool();
+      verify(poolManager).getOnClusterClause();
+    }
+
+    @Test
+    void shouldIncludeOnClusterClauseWhenConfigured() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn(" ON CLUSTER 'pulse-clickhouse'");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      Completable result = service.createClickhouseUserAndPolicies("proj-123", "project_123", "password");
+      result.test().assertComplete();
+
+      verify(poolManager).getOnClusterClause();
+    }
+
+    @Test
+    void shouldCreateUserAndPoliciesForAllTables() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn("");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+
+      service.createClickhouseUserAndPolicies("proj-123", "project_123", "password")
+          .test()
+          .assertComplete();
+
+      // 1 CREATE USER + 4 CREATE ROW POLICY + 1 GRANT = 6 SQL statements
+      verify(mockConnection, times(6)).createStatement(anyString());
+    }
+  }
+
+  @Nested
+  class RemoveProjectClickhouseUser {
+
+    @Test
+    void shouldDropPoliciesAndUserWithClusterClause() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn(" ON CLUSTER 'pulse-clickhouse'");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+      when(credentialsDao.deactivateCredentials("proj-123")).thenReturn(Completable.complete());
+      doNothing().when(poolManager).closePoolForProject("proj-123");
+      when(credentialsDao.insertAuditLog(eq("proj-123"), eq(ProjectAuditAction.CREDENTIALS_REMOVED), 
+          eq("admin"), any(JsonObject.class))).thenReturn(Completable.complete());
+
+      service.removeProjectClickhouseUser("proj-123", "admin")
+          .test()
+          .assertComplete();
+
+      verify(poolManager).getOnClusterClause();
+      verify(credentialsDao).deactivateCredentials("proj-123");
+      verify(poolManager).closePoolForProject("proj-123");
+    }
+
+    @Test
+    void shouldDropAllPoliciesAndUser() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn("");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+      when(credentialsDao.deactivateCredentials("proj-456")).thenReturn(Completable.complete());
+      doNothing().when(poolManager).closePoolForProject("proj-456");
+      when(credentialsDao.insertAuditLog(eq("proj-456"), eq(ProjectAuditAction.CREDENTIALS_REMOVED), 
+          eq("user1"), any(JsonObject.class))).thenReturn(Completable.complete());
+
+      service.removeProjectClickhouseUser("proj-456", "user1")
+          .test()
+          .assertComplete();
+
+      // 4 DROP ROW POLICY + 1 DROP USER = 5 SQL statements
+      verify(mockConnection, times(5)).createStatement(anyString());
+    }
+  }
+
+  @Nested
+  class RotateProjectClickhousePassword {
+
+    @Test
+    void shouldAlterUserPasswordWithClusterClause() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+      ClickhouseProjectCredentials savedCreds = ClickhouseProjectCredentials.builder()
+          .projectId("proj-789")
+          .clickhouseUsername("project_789")
+          .build();
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn(" ON CLUSTER 'test-cluster'");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+      when(credentialsDao.saveCredentials(eq("proj-789"), anyString(), anyString()))
+          .thenReturn(Single.just(savedCreds));
+      doNothing().when(poolManager).closePoolForProject("proj-789");
+      when(credentialsDao.insertAuditLog(eq("proj-789"), eq(ProjectAuditAction.CREDENTIALS_ROTATED), 
+          eq("admin"), any(JsonObject.class))).thenReturn(Completable.complete());
+
+      service.rotateProjectClickhousePassword("proj-789", "admin")
+          .test()
+          .assertComplete();
+
+      verify(poolManager).getOnClusterClause();
+      verify(poolManager).closePoolForProject("proj-789");
+    }
+
+    @Test
+    void shouldSaveNewCredentialsAndClosePool() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+      ClickhouseProjectCredentials savedCreds = ClickhouseProjectCredentials.builder()
+          .projectId("proj-rotate")
+          .clickhouseUsername("project_rotate")
+          .build();
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn("");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+      when(credentialsDao.saveCredentials(eq("proj-rotate"), anyString(), anyString()))
+          .thenReturn(Single.just(savedCreds));
+      doNothing().when(poolManager).closePoolForProject("proj-rotate");
+      when(credentialsDao.insertAuditLog(eq("proj-rotate"), eq(ProjectAuditAction.CREDENTIALS_ROTATED), 
+          eq("rotator"), any(JsonObject.class))).thenReturn(Completable.complete());
+
+      service.rotateProjectClickhousePassword("proj-rotate", "rotator")
+          .test()
+          .assertComplete();
+
+      verify(credentialsDao).saveCredentials(eq("proj-rotate"), anyString(), anyString());
+      verify(poolManager).closePoolForProject("proj-rotate");
+      verify(credentialsDao).insertAuditLog(eq("proj-rotate"), eq(ProjectAuditAction.CREDENTIALS_ROTATED), 
+          eq("rotator"), any(JsonObject.class));
+    }
+  }
+
+  @Nested
+  class SetupProjectClickhouseUser {
+
+    @Test
+    void shouldCreateUserAndSaveCredentialsWithAuditLog() {
+      ConnectionPool mockPool = mock(ConnectionPool.class);
+      Connection mockConnection = mock(Connection.class);
+      Statement mockStatement = mock(Statement.class);
+      Result mockResult = mock(Result.class);
+      ClickhouseProjectCredentials savedCreds = ClickhouseProjectCredentials.builder()
+          .projectId("proj-setup")
+          .clickhouseUsername("project_setup")
+          .build();
+
+      when(poolManager.getAdminPool()).thenReturn(mockPool);
+      when(poolManager.getOnClusterClause()).thenReturn("");
+      when(mockPool.create()).thenReturn(Mono.just(mockConnection));
+      when(mockConnection.createStatement(anyString())).thenReturn(mockStatement);
+      when(mockStatement.execute()).thenReturn(Mono.just(mockResult));
+      when(mockConnection.close()).thenReturn(Mono.empty());
+      when(credentialsDao.saveCredentials(eq("proj-setup"), anyString(), anyString()))
+          .thenReturn(Single.just(savedCreds));
+      when(credentialsDao.insertAuditLog(eq("proj-setup"), eq(ProjectAuditAction.CREDENTIALS_SETUP), 
+          eq("setupUser"), any(JsonObject.class))).thenReturn(Completable.complete());
+
+      service.setupProjectClickhouseUser("proj-setup", "setupUser")
+          .test()
+          .assertComplete();
+
+      verify(credentialsDao).saveCredentials(eq("proj-setup"), anyString(), anyString());
+      verify(credentialsDao).insertAuditLog(eq("proj-setup"), eq(ProjectAuditAction.CREDENTIALS_SETUP), 
+          eq("setupUser"), any(JsonObject.class));
     }
   }
 }

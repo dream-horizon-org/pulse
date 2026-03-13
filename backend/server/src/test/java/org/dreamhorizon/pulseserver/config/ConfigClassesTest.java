@@ -169,6 +169,7 @@ class ConfigClassesTest {
       config.setMaxsize(20);
       config.setHost("clickhouse.example.com");
       config.setPort(8123);
+      config.setClusterName("pulse-clickhouse");
 
       assertThat(config.getR2dbcUrl()).isEqualTo("r2dbc:clickhouse://localhost:8123/default");
       assertThat(config.getUsername()).isEqualTo("user");
@@ -177,6 +178,7 @@ class ConfigClassesTest {
       assertThat(config.getMaxsize()).isEqualTo(20);
       assertThat(config.getHost()).isEqualTo("clickhouse.example.com");
       assertThat(config.getPort()).isEqualTo(8123);
+      assertThat(config.getClusterName()).isEqualTo("pulse-clickhouse");
     }
 
     @Test
@@ -186,6 +188,26 @@ class ConfigClassesTest {
 
       assertThat(config.getR2dbcUrl()).isEqualTo("r2dbc:url");
       assertThat(config.getPort()).isEqualTo(9000);
+      assertThat(config.getClusterName()).isNull();
+    }
+
+    @Test
+    void shouldSupportAllArgsConstructorWithClusterName() {
+      ClickhouseConfig config = new ClickhouseConfig(
+          "r2dbc:url", "u", "p", 1, 10, "host", 9000, "my-cluster");
+
+      assertThat(config.getClusterName()).isEqualTo("my-cluster");
+    }
+
+    @Test
+    void shouldSupportClusterNameSetterGetter() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      assertThat(config.getClusterName()).isNull();
+
+      config.setClusterName("test-cluster");
+      assertThat(config.getClusterName()).isEqualTo("test-cluster");
+
+      config.setClusterName(null);
       assertThat(config.getClusterName()).isNull();
     }
   }
