@@ -9,9 +9,9 @@ import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
-import { 
-  mockNotificationChannels, 
-  mockAlertSeverities, 
+import {
+  mockNotificationChannels,
+  mockAlertSeverities,
   mockAlertScopes,
   mockAlertMetrics,
   mockAlertFilters,
@@ -153,6 +153,26 @@ export class MockResponseGenerator {
       return this.handleAuthEndpoints(pathname, method, request);
     }
 
+    // v1 User endpoints (projects, etc.) - before generic /user/ handler
+    if (pathname.includes("/v1/users/")) {
+      return this.handleV1UserEndpoints(pathname, method, request);
+    }
+
+    // Onboarding endpoints
+    if (pathname.includes("/v1/onboarding/")) {
+      return this.handleOnboardingEndpoints(pathname, method, request);
+    }
+
+    // Project endpoints (POST /v1/projects, GET /v1/projects/:projectId)
+    if (pathname.includes("/v1/projects")) {
+      return this.handleProjectEndpoints(pathname, method, request);
+    }
+
+    // Tenant endpoints (GET /v1/tenants/:tenantId, members)
+    if (pathname.includes("/v1/tenants")) {
+      return this.handleTenantEndpoints(pathname, method, request);
+    }
+
     // User endpoints - removed to avoid conflict with activity tracking endpoints
     // if (pathname.includes('/user')) {
     //   return this.handleUserEndpoints(pathname, method, request);
@@ -168,7 +188,8 @@ export class MockResponseGenerator {
 
     // Dashboard filters endpoint (MUST come before /v1/interactions to avoid being caught by job endpoints)
     if (
-      (pathname.includes("/telemetry-filters") || pathname.includes("/filter-options")) &&
+      (pathname.includes("/telemetry-filters") ||
+        pathname.includes("/filter-options")) &&
       method === "GET"
     ) {
       return this.handleDashboardFiltersEndpoint(pathname, method, request);
@@ -310,6 +331,11 @@ export class MockResponseGenerator {
       return this.handleSdkConfigEndpoints(pathname, method, request);
     }
 
+    // TNC endpoints
+    if (pathname.includes("/v1/tnc/")) {
+      return this.handleTncEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
@@ -415,6 +441,81 @@ export class MockResponseGenerator {
   }
 
   /**
+   * Handle TNC (Terms & Conditions) endpoints
+   * Returns accepted: true so mock users skip the TNC screen entirely
+   */
+  private handleTncEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/tnc/status - Return accepted so users bypass TNC screen
+    if (pathname.includes("/tnc/status") && method === "GET") {
+      return {
+        data: {
+          accepted: true,
+          version: "v1.0",
+          versionId: 1,
+          documents: {
+            tos: "https://example.com/tos",
+            aup: "https://example.com/aup",
+            privacy_policy: "https://example.com/privacy",
+          },
+          acceptedBy: "mock-user",
+          acceptedAt: "2024-01-01T00:00:00Z",
+        },
+        status: 200,
+      };
+    }
+
+    // POST /v1/tnc/accept - For testing the accept flow
+    if (pathname.includes("/tnc/accept") && method === "POST") {
+      return {
+        data: {
+          success: true,
+          status: "accepted",
+          tenantId: "mock-tenant",
+          version: "v1.0",
+          acceptedBy: "mock-user",
+          acceptedAt: new Date().toISOString(),
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/tnc/documents
+    if (pathname.includes("/tnc/documents") && method === "GET") {
+      return {
+        data: {
+          documents: [],
+          version: "v1.0",
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/tnc/history
+    if (pathname.includes("/tnc/history") && method === "GET") {
+      return {
+        data: {
+          history: [],
+        },
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "TNC endpoint not found",
+        cause: `Unknown path: ${pathname}`,
+      },
+    };
+  }
+
+  /**
    * Handle SDK Configuration V1 endpoints (/v1/configs/*)
    * New API format matching backend PulseConfig schema
    */
@@ -429,12 +530,12 @@ export class MockResponseGenerator {
         data: {
           rules: [
             "os_version",
-            "app_version", 
+            "app_version",
             "country",
             "platform",
             "state",
             "device",
-            "network"
+            "network",
           ],
           features: [
             "interaction",
@@ -447,7 +548,7 @@ export class MockResponseGenerator {
             "custom_events",
             "rn_screen_load",
             "rn_screen_interactive",
-          ]
+          ],
         },
         status: 200,
       };
@@ -458,7 +559,7 @@ export class MockResponseGenerator {
       return {
         data: {
           scope: ["logs", "traces", "metrics", "baggage"],
-          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"]
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
         },
         status: 200,
       };
@@ -475,7 +576,8 @@ export class MockResponseGenerator {
         status: 404,
         error: {
           code: "NOT_FOUND",
-          message: "No active configuration found. Please create a configuration first.",
+          message:
+            "No active configuration found. Please create a configuration first.",
           cause: "No active config exists",
         },
       };
@@ -548,7 +650,77 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    // Handle authentication endpoint
+    // Handle POST /v1/auth/login (Firebase ID token)
+    if (pathname.includes("/auth/login") && method === "POST") {
+      let requestBody: { firebaseIdToken?: string } = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+
+      const firebaseIdToken = requestBody.firebaseIdToken ?? "";
+      const isDevToken = firebaseIdToken === "dev-id-token";
+
+      const accessToken = this.createMockJWTToken({
+        userId: isDevToken ? "user-mock-dev" : "user-mock-new",
+        email: isDevToken ? "dev@example.com" : "newuser@example.com",
+        tenantId: isDevToken ? "tenant-mock-1" : null,
+        tenantRole: isDevToken ? "admin" : null,
+      });
+      const refreshToken = this.createMockJWTToken({
+        userId: isDevToken ? "user-mock-dev" : "user-mock-new",
+        email: isDevToken ? "dev@example.com" : "newuser@example.com",
+        type: "refresh",
+      });
+
+      if (isDevToken) {
+        this.dataStore.setCurrentTenant(this.dataStore.getDefaultMockTenant());
+        return {
+          data: {
+            status: "existing_user",
+            accessToken,
+            refreshToken,
+            userId: "user-mock-dev",
+            email: "dev@example.com",
+            name: "Dev User",
+            tenantId: "tenant-mock-1",
+            tenantName: "Acme Corp",
+            tenantRole: "admin",
+            tier: "enterprise",
+            needsOnboarding: false,
+            tokenType: "Bearer",
+            expiresIn: 86400,
+          },
+          status: 200,
+        };
+      }
+
+      // New user - no tenant, needs onboarding
+      this.dataStore.setCurrentTenant(null);
+      return {
+        data: {
+          status: "new_user",
+          accessToken,
+          refreshToken,
+          userId: "user-mock-new",
+          email: "newuser@example.com",
+          name: "New User",
+          tenantId: null,
+          tenantName: null,
+          tenantRole: null,
+          tier: null,
+          needsOnboarding: true,
+          tokenType: "Bearer",
+          expiresIn: 86400,
+        },
+        status: 200,
+      };
+    }
+
+    // Handle authentication endpoint (legacy)
     if (pathname.includes("/authenticate") && method === "POST") {
       // Parse request body to check for dummy login token
       let requestBody: any = {};
@@ -574,8 +746,15 @@ export class MockResponseGenerator {
 
       return {
         data: {
-          accessToken: "mock_access_token_" + Date.now(),
-          refreshToken: "mock_refresh_token_" + Date.now(),
+          accessToken: this.createMockJWTToken({
+            userId: isDummyLogin ? "user-mock-dev" : "user-mock",
+            email: isDummyLogin ? "dev@example.com" : "mock@example.com",
+          }),
+          refreshToken: this.createMockJWTToken({
+            userId: isDummyLogin ? "user-mock-dev" : "user-mock",
+            email: isDummyLogin ? "dev@example.com" : "mock@example.com",
+            type: "refresh",
+          }),
           idToken: mockIdToken,
           code: "mock_code_" + Date.now(),
           tokenType: "Bearer",
@@ -597,8 +776,15 @@ export class MockResponseGenerator {
 
       return {
         data: {
-          accessToken: "mock_refreshed_token_" + Date.now(),
-          refreshToken: "mock_refresh_token_" + Date.now(),
+          accessToken: this.createMockJWTToken({
+            userId: "user-mock-refreshed",
+            email: "mock@example.com",
+          }),
+          refreshToken: this.createMockJWTToken({
+            userId: "user-mock-refreshed",
+            email: "mock@example.com",
+            type: "refresh",
+          }),
           idToken: mockIdToken,
           tokenType: "Bearer",
           expiresIn: 3600,
@@ -607,21 +793,47 @@ export class MockResponseGenerator {
       };
     }
 
+    // Handle GET /v1/auth/tenant/lookup - Lookup tenant by domain (Host header)
+    if (pathname.includes("/auth/tenant/lookup") && method === "GET") {
+      const tenant = this.dataStore.getTenant("tenant-mock-1");
+      if (!tenant) {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: "Tenant not found",
+            cause: "No tenant found for the given domain",
+          },
+        };
+      }
+      return {
+        data: {
+          gcpTenantId: "gcp-" + tenant.tenantId,
+          tenantId: tenant.tenantId,
+          tenantName: tenant.name,
+        },
+        status: 200,
+      };
+    }
+
     // Handle token verify endpoint
     if (pathname.includes("/token/verify") && method === "GET") {
       // Check if authorization header is present
-      const authHeader = request.headers?.["authorization"] || 
-                        request.headers?.["Authorization"] || "";
-      
+      const authHeader =
+        request.headers?.["authorization"] ||
+        request.headers?.["Authorization"] ||
+        "";
+
       // Extract token from "Bearer <token>" format
       const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      
+
       // Validate token - consider it valid if it's a mock token or starts with "mock_"
-      const isValid = token.length > 0 && (
-        token.startsWith("mock_") || 
-        token.startsWith("Bearer mock_") ||
-        token.includes("access_token")
-      );
+      const isValid =
+        token.length > 0 &&
+        (token.startsWith("mock_") ||
+          token.startsWith("Bearer mock_") ||
+          token.includes("access_token"));
 
       return {
         data: {
@@ -632,6 +844,1258 @@ export class MockResponseGenerator {
     }
 
     return this.generateErrorResponse();
+  }
+
+  private handleV1UserEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // GET /v1/users/me/projects
+    if (pathname.includes("/users/me/projects") && method === "GET") {
+      const tenant =
+        this.dataStore.getCurrentTenant() ??
+        this.dataStore.getDefaultMockTenant();
+      const firstActiveProject = tenant.projects.find((p) => p.isActive);
+      const redirectTo = firstActiveProject
+        ? `/projects/${firstActiveProject.projectId}`
+        : `/${tenant.tenantId}/projects`;
+
+      return {
+        data: {
+          tenantId: tenant.tenantId,
+          tenantName: tenant.tenantName,
+          projects: tenant.projects,
+          redirectTo,
+        },
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "User endpoint not found",
+        cause: "Invalid path or method",
+      },
+    };
+  }
+
+  private handleOnboardingEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // POST /v1/onboarding/complete
+    if (pathname.includes("/onboarding/complete") && method === "POST") {
+      let requestBody: {
+        organizationName?: string;
+        projectName?: string;
+        projectDescription?: string;
+      } = {};
+      try {
+        if (request.body) {
+          requestBody = JSON.parse(request.body);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+
+      const organizationName =
+        requestBody.organizationName ?? "My Organization";
+      const projectName = requestBody.projectName ?? "My Project";
+      const projectDescription =
+        requestBody.projectDescription ?? "Project created via onboarding";
+
+      const tenantId = "tenant-" + Math.random().toString(36).slice(2, 11);
+      const projectId = "proj-" + Math.random().toString(36).slice(2, 11);
+      const projectApiKey =
+        "pk_mock_" + Math.random().toString(36).slice(2, 18);
+
+      const accessToken = this.createMockJWTToken({
+        userId: "user-mock-onboarded",
+        email: "dev@example.com",
+        tenantId,
+        tenantRole: "admin",
+      });
+      const refreshToken = this.createMockJWTToken({
+        userId: "user-mock-onboarded",
+        email: "dev@example.com",
+        type: "refresh",
+      });
+
+      const newTenant = {
+        tenantId,
+        tenantName: organizationName,
+        projects: [
+          {
+            projectId,
+            name: projectName,
+            description: projectDescription,
+            isActive: true,
+            role: "admin" as const,
+          },
+        ],
+      };
+      this.dataStore.setCurrentTenant(newTenant);
+      this.dataStore.ensureTenantExists(tenantId, organizationName);
+
+      return {
+        data: {
+          userId: "user-mock-onboarded",
+          email: "dev@example.com",
+          name: "Dev User",
+          tenantId,
+          tenantName: organizationName,
+          tier: "free",
+          projectId,
+          projectName,
+          projectApiKey,
+          accessToken,
+          refreshToken,
+          tokenType: "Bearer",
+          expiresIn: 86400,
+          redirectTo: `/projects/${projectId}/onboarding-success`,
+        },
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Onboarding endpoint not found",
+        cause: "Invalid path or method",
+      },
+    };
+  }
+
+  /**
+   * Handle project operations (POST /v1/projects, GET /v1/projects/:projectId)
+   * and project member endpoints (GET/POST /v1/projects/:projectId/members)
+   */
+  private handleProjectEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const pathParts = pathname.split("/").filter((p) => p);
+
+    // POST /v1/projects - Create new project
+    if (
+      pathParts.length === 2 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "projects" &&
+      method === "POST"
+    ) {
+      return this.handleCreateProject(request);
+    }
+
+    // DELETE/PATCH /v1/projects/:projectId/members/:userId
+    if (
+      pathParts.length === 5 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "projects" &&
+      pathParts[3] === "members"
+    ) {
+      const projectId = pathParts[2];
+      const userId = pathParts[4];
+      if (method === "DELETE")
+        return this.handleRemoveProjectMember(projectId, userId);
+      if (method === "PATCH")
+        return this.handleUpdateProjectMemberRole(projectId, userId, request);
+    }
+
+    // GET/POST /v1/projects/:projectId/members
+    if (pathParts.length === 4 && pathParts[3] === "members") {
+      const projectId = pathParts[2];
+      if (method === "GET") return this.handleListProjectMembers(projectId);
+      if (method === "POST")
+        return this.handleInviteProjectMembers(projectId, request);
+    }
+
+    // DELETE /v1/projects/:projectId/api-keys/:apiKeyId
+    if (
+      pathParts.length === 5 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "projects" &&
+      pathParts[3] === "api-keys"
+    ) {
+      const projectId = pathParts[2];
+      const apiKeyId = pathParts[4];
+      if (method === "DELETE")
+        return this.handleRevokeProjectApiKey(projectId, apiKeyId, request);
+    }
+
+    // GET/POST /v1/projects/:projectId/api-keys
+    if (pathParts.length === 4 && pathParts[3] === "api-keys") {
+      const projectId = pathParts[2];
+      if (method === "GET") return this.handleListProjectApiKeys(projectId);
+      if (method === "POST")
+        return this.handleCreateProjectApiKey(projectId, request);
+    }
+
+    // GET/PUT /v1/projects/:projectId/settings
+    if (pathParts.length === 4 && pathParts[3] === "settings") {
+      const projectId = pathParts[2];
+      if (method === "GET") return this.handleGetProjectSettings(projectId);
+      if (method === "PUT")
+        return this.handleUpdateProjectSettings(projectId, request);
+    }
+
+    // GET/PUT /v1/projects/:projectId - Get/Update project details
+    if (
+      pathParts.length === 3 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "projects"
+    ) {
+      const projectId = pathParts[2];
+      if (method === "GET") return this.handleGetProject(projectId);
+      if (method === "PUT") return this.handleUpdateProject(projectId, request);
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Project endpoint not found",
+        cause: "Invalid path or method",
+      },
+    };
+  }
+
+  private handleCreateProject(request: MockRequest): MockResponse {
+    let body: { name?: string; description?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+
+    const name = body.name?.trim();
+    if (!name || name.length < 3) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Project name is required",
+          cause: "Name must be at least 3 characters",
+        },
+      };
+    }
+
+    const tenant =
+      this.dataStore.getCurrentTenant() ??
+      this.dataStore.getDefaultMockTenant();
+    const createdBy = "dev@example.com"; // Mock user from context
+
+    const project = this.dataStore.createProject(
+      tenant.tenantId,
+      name,
+      body.description ?? "",
+      createdBy,
+    );
+
+    return {
+      data: {
+        projectId: project.projectId,
+        name: project.name,
+        description: project.description,
+        tenantId: project.tenantId,
+        apiKey: project.apiKey,
+        createdAt: project.createdAt,
+        createdBy: project.createdBy,
+      },
+      status: 201,
+    };
+  }
+
+  private handleGetProject(projectId: string): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+
+    return {
+      data: {
+        projectId: project.projectId,
+        name: project.name,
+        description: project.description,
+        tenantId: project.tenantId,
+        isActive: project.isActive,
+        createdAt: project.createdAt,
+        createdBy: project.createdBy,
+      },
+      status: 200,
+    };
+  }
+
+  private handleListProjectMembers(projectId: string): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+
+    const members = this.dataStore.getProjectMembers(projectId);
+    return {
+      data: {
+        members,
+        totalCount: members.length,
+      },
+      status: 200,
+    };
+  }
+
+  private handleInviteProjectMembers(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+
+    const validRoles = ["admin", "editor", "viewer"];
+    let body: { email?: string; emails?: string[]; role?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+
+    const role = (body.role ?? "viewer").toLowerCase();
+    if (!validRoles.includes(role)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_ROLE",
+          message: "Invalid role",
+          cause: `Role must be one of: ${validRoles.join(", ")}`,
+        },
+      };
+    }
+
+    const emails: string[] = [];
+    if (body.email) emails.push(body.email.trim());
+    if (body.emails)
+      emails.push(...body.emails.map((e) => String(e).trim()).filter(Boolean));
+
+    if (emails.length === 0) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Email or emails is required",
+          cause: "Provide email or emails array",
+        },
+      };
+    }
+
+    const uniqueEmails = Array.from(new Set(emails));
+    const successEmails: string[] = [];
+    const failedEmails: string[] = [];
+    const skippedEmails: string[] = [];
+    const addedMembers: Array<{
+      userId: string;
+      email: string;
+      name: string;
+      role: string;
+      status: string;
+      lastLoginAt: string | null;
+    }> = [];
+
+    for (const email of uniqueEmails) {
+      if (!email || !email.includes("@")) {
+        failedEmails.push(email);
+        continue;
+      }
+      if (this.dataStore.hasProjectMember(projectId, email)) {
+        skippedEmails.push(email);
+        continue;
+      }
+      const member = this.dataStore.addProjectMember(
+        projectId,
+        email,
+        role as "admin" | "editor" | "viewer",
+      );
+      successEmails.push(email);
+      addedMembers.push(member);
+    }
+
+    if (uniqueEmails.length === 1 && successEmails.length === 1) {
+      return {
+        data: addedMembers[0],
+        status: 201,
+      };
+    }
+
+    return {
+      data: {
+        successCount: successEmails.length,
+        failureCount: failedEmails.length,
+        skippedCount: skippedEmails.length,
+        successEmails,
+        failedEmails,
+        skippedEmails,
+      },
+      status: 201,
+    };
+  }
+
+  private handleRemoveProjectMember(
+    projectId: string,
+    userId: string,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const members = this.dataStore.getProjectMembers(projectId);
+    const member = members.find((m) => m.userId === userId);
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this project`,
+        },
+      };
+    }
+    const admins = members.filter((m) => m.role === "admin");
+    if (admins.length === 1 && member.role === "admin") {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot remove last admin",
+          cause: "At least one admin must remain in the project",
+        },
+      };
+    }
+    this.dataStore.removeProjectMember(projectId, userId);
+    return { data: {}, status: 200 };
+  }
+
+  private handleUpdateProjectMemberRole(
+    projectId: string,
+    userId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: { newRole?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const newRole = (body.newRole ?? "").toLowerCase();
+    const validRoles = ["admin", "editor", "viewer"];
+    if (!newRole || !validRoles.includes(newRole)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid role",
+          cause: `newRole must be one of: ${validRoles.join(", ")}`,
+        },
+      };
+    }
+    const members = this.dataStore.getProjectMembers(projectId);
+    const targetMember = members.find((m) => m.userId === userId);
+    if (!targetMember) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this project`,
+        },
+      };
+    }
+    if (targetMember.role === "admin" && newRole !== "admin") {
+      const admins = members.filter((m) => m.role === "admin");
+      if (admins.length === 1) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot demote last admin",
+            cause: "At least one admin must remain in the project",
+          },
+        };
+      }
+    }
+    const member = this.dataStore.updateProjectMemberRole(
+      projectId,
+      userId,
+      newRole,
+    );
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this project`,
+        },
+      };
+    }
+    return { data: member, status: 200 };
+  }
+
+  private handleUpdateProject(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: { name?: string; description?: string; isActive?: boolean } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const name = body.name?.trim();
+    if (name !== undefined && name.length > 0 && name.length < 3) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Project name must be at least 3 characters",
+          cause: "Name too short",
+        },
+      };
+    }
+    const updates: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+    } = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+    if (body.isActive !== undefined) updates.isActive = body.isActive;
+    const updated = this.dataStore.updateProject(projectId, updates);
+    if (!updated) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    return {
+      data: {
+        projectId: updated.projectId,
+        name: updated.name,
+        description: updated.description,
+        tenantId: updated.tenantId,
+        isActive: updated.isActive,
+        createdAt: updated.createdAt,
+        createdBy: updated.createdBy,
+      },
+      status: 200,
+    };
+  }
+
+  private handleListProjectApiKeys(projectId: string): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const keys = this.dataStore.getProjectApiKeys(projectId);
+    const apiKeys = keys.map((k) => ({
+      ...k,
+      apiKey: k.apiKey.length > 4 ? "pk_****" + k.apiKey.slice(-4) : "pk_****",
+    }));
+    return {
+      data: { apiKeys, count: apiKeys.length },
+      status: 200,
+    };
+  }
+
+  private handleCreateProjectApiKey(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: { displayName?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const displayName = body.displayName?.trim();
+    if (!displayName || displayName.length < 2) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Display name is required",
+          cause: "Display name must be at least 2 characters",
+        },
+      };
+    }
+    const created = this.dataStore.addProjectApiKey(
+      projectId,
+      displayName,
+      "dev@example.com",
+    );
+    return {
+      data: {
+        apiKeyId: created.apiKeyId,
+        projectId: created.projectId,
+        displayName: created.displayName,
+        apiKey: created.rawKey,
+        expiresAt: created.expiresAt,
+        createdAt: created.createdAt,
+      },
+      status: 201,
+    };
+  }
+
+  private handleRevokeProjectApiKey(
+    projectId: string,
+    apiKeyIdStr: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const apiKeyId = parseInt(apiKeyIdStr, 10);
+    if (isNaN(apiKeyId)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid API key ID",
+          cause: "apiKeyId must be a number",
+        },
+      };
+    }
+    const revoked = this.dataStore.revokeProjectApiKey(
+      projectId,
+      apiKeyId,
+      "dev@example.com",
+    );
+    if (!revoked) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "API key not found",
+          cause: `API key ${apiKeyId} does not exist or is already revoked`,
+        },
+      };
+    }
+    return { data: {}, status: 200 };
+  }
+
+  private handleGetProjectSettings(projectId: string): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    const settings = this.dataStore.getProjectSettings(projectId);
+    return { data: settings, status: 200 };
+  }
+
+  private handleUpdateProjectSettings(
+    projectId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const project = this.dataStore.getProject(projectId);
+    if (!project) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Project not found",
+          cause: `Project ${projectId} does not exist`,
+        },
+      };
+    }
+    let body: Record<string, unknown> = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const settings = this.dataStore.updateProjectSettings(projectId, body);
+    return { data: settings, status: 200 };
+  }
+
+  /**
+   * Handle tenant operations (GET /v1/tenants/:tenantId)
+   * and tenant member endpoints (GET/POST /v1/tenants/:tenantId/members)
+   */
+  private handleTenantEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const pathParts = pathname.split("/").filter((p) => p);
+
+    // DELETE/PATCH /v1/tenants/:tenantId/members/:userId
+    if (
+      pathParts.length === 5 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "tenants" &&
+      pathParts[3] === "members"
+    ) {
+      const tenantId = pathParts[2];
+      const userId = pathParts[4];
+      if (method === "DELETE")
+        return this.handleRemoveTenantMember(tenantId, userId);
+      if (method === "PATCH")
+        return this.handleUpdateTenantMemberRole(tenantId, userId, request);
+    }
+
+    // GET/POST /v1/tenants/:tenantId/members
+    if (pathParts.length === 4 && pathParts[3] === "members") {
+      const tenantId = pathParts[2];
+      if (method === "GET") return this.handleListTenantMembers(tenantId);
+      if (method === "POST")
+        return this.handleInviteTenantMembers(tenantId, request);
+    }
+
+    // GET /v1/tenants/:tenantId, PUT /v1/tenants/:tenantId, etc.
+    if (
+      pathParts.length === 3 &&
+      pathParts[0] === "v1" &&
+      pathParts[1] === "tenants"
+    ) {
+      const tenantId = pathParts[2];
+      if (method === "GET") return this.handleGetTenant(tenantId);
+      if (method === "PUT") return this.handleUpdateTenant(tenantId, request);
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Tenant endpoint not found",
+        cause: "Invalid path or method",
+      },
+    };
+  }
+
+  private handleGetTenant(tenantId: string): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+
+    return {
+      data: {
+        tenantId: tenant.tenantId,
+        name: tenant.name,
+        description: tenant.description,
+        tier: tenant.tier,
+        isActive: tenant.isActive,
+        createdAt: tenant.createdAt,
+      },
+      status: 200,
+    };
+  }
+
+  private handleListTenantMembers(tenantId: string): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+
+    const members = this.dataStore.getTenantMembers(tenantId);
+    return {
+      data: {
+        members,
+        totalCount: members.length,
+      },
+      status: 200,
+    };
+  }
+
+  private handleInviteTenantMembers(
+    tenantId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+
+    const validRoles = ["admin", "member"];
+    let body: { email?: string; emails?: string[]; role?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+
+    const role = (body.role ?? "member").toLowerCase();
+    if (!validRoles.includes(role)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_ROLE",
+          message: "Invalid role",
+          cause: `Role must be one of: ${validRoles.join(", ")}`,
+        },
+      };
+    }
+
+    const emails: string[] = [];
+    if (body.email) emails.push(body.email.trim());
+    if (body.emails)
+      emails.push(...body.emails.map((e) => String(e).trim()).filter(Boolean));
+
+    if (emails.length === 0) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Email or emails is required",
+          cause: "Provide email or emails array",
+        },
+      };
+    }
+
+    const uniqueEmails = Array.from(new Set(emails));
+    const successEmails: string[] = [];
+    const failedEmails: string[] = [];
+    const skippedEmails: string[] = [];
+    const addedMembers: Array<{
+      userId: string;
+      email: string;
+      name: string;
+      role: string;
+      status: string;
+      lastLoginAt: string | null;
+    }> = [];
+
+    for (const email of uniqueEmails) {
+      if (!email || !email.includes("@")) {
+        failedEmails.push(email);
+        continue;
+      }
+      if (this.dataStore.hasTenantMember(tenantId, email)) {
+        skippedEmails.push(email);
+        continue;
+      }
+      const member = this.dataStore.addTenantMember(
+        tenantId,
+        email,
+        role as "admin" | "member",
+      );
+      successEmails.push(email);
+      addedMembers.push(member);
+    }
+
+    if (uniqueEmails.length === 1 && successEmails.length === 1) {
+      return {
+        data: addedMembers[0],
+        status: 201,
+      };
+    }
+
+    return {
+      data: {
+        successCount: successEmails.length,
+        failureCount: failedEmails.length,
+        skippedCount: skippedEmails.length,
+        successEmails,
+        failedEmails,
+        skippedEmails,
+      },
+      status: 201,
+    };
+  }
+
+  private handleRemoveTenantMember(
+    tenantId: string,
+    userId: string,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    const members = this.dataStore.getTenantMembers(tenantId);
+    const member = members.find((m) => m.userId === userId);
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this tenant`,
+        },
+      };
+    }
+    const admins = members.filter((m) => m.role === "admin");
+    if (admins.length === 1 && member.role === "admin") {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Cannot remove last admin",
+          cause: "At least one admin must remain in the tenant",
+        },
+      };
+    }
+    this.dataStore.removeTenantMember(tenantId, userId);
+    return { data: {}, status: 200 };
+  }
+
+  private handleUpdateTenantMemberRole(
+    tenantId: string,
+    userId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    let body: { newRole?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const newRole = (body.newRole ?? "").toLowerCase();
+    const validRoles = ["admin", "member"];
+    if (!newRole || !validRoles.includes(newRole)) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid role",
+          cause: `newRole must be one of: ${validRoles.join(", ")}`,
+        },
+      };
+    }
+    const members = this.dataStore.getTenantMembers(tenantId);
+    const targetMember = members.find((m) => m.userId === userId);
+    if (!targetMember) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this tenant`,
+        },
+      };
+    }
+    if (targetMember.role === "admin" && newRole === "member") {
+      const admins = members.filter((m) => m.role === "admin");
+      if (admins.length === 1) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot demote last admin",
+            cause: "At least one admin must remain in the tenant",
+          },
+        };
+      }
+    }
+    const member = this.dataStore.updateTenantMemberRole(
+      tenantId,
+      userId,
+      newRole,
+    );
+    if (!member) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Member not found",
+          cause: `User ${userId} is not a member of this tenant`,
+        },
+      };
+    }
+    return { data: member, status: 200 };
+  }
+
+  private handleUpdateTenant(
+    tenantId: string,
+    request: MockRequest,
+  ): MockResponse {
+    const tenant = this.dataStore.getTenant(tenantId);
+    if (!tenant) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    let body: { name?: string; description?: string } = {};
+    try {
+      body = request.body ? JSON.parse(request.body) : {};
+    } catch {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_REQUEST",
+          message: "Invalid JSON body",
+          cause: "Request body must be valid JSON",
+        },
+      };
+    }
+    const updates: { name?: string; description?: string } = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+    const updated = this.dataStore.updateTenant(tenantId, updates);
+    if (!updated) {
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Tenant not found",
+          cause: `Tenant ${tenantId} does not exist`,
+        },
+      };
+    }
+    return {
+      data: {
+        tenantId: updated.tenantId,
+        name: updated.name,
+        description: updated.description,
+        tier: updated.tier,
+        isActive: updated.isActive,
+        createdAt: updated.createdAt,
+      },
+      status: 200,
+    };
   }
 
   private handleUserEndpoints(
@@ -687,18 +2151,12 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    if (
-      pathname.includes("/telemetry-filters") &&
-      method === "GET"
-    ) {
+    if (pathname.includes("/telemetry-filters") && method === "GET") {
       return mockJobResponses.getDashboardFilters;
     }
 
     // Handle interaction filter options endpoint (/v1/interactions/filter-options)
-    if (
-      pathname.includes("/filter-options") &&
-      method === "GET"
-    ) {
+    if (pathname.includes("/filter-options") && method === "GET") {
       // Get unique users from actual job data
       const jobs = this.dataStore.getJobs();
       const uniqueUsers = Array.from(
@@ -715,11 +2173,10 @@ export class MockResponseGenerator {
       return {
         data: {
           statuses: statuses,
-          createdBy: uniqueUsers.length > 0 ? uniqueUsers : [
-            "user1@example.com",
-            "user2@example.com",
-            "user3@example.com",
-          ],
+          createdBy:
+            uniqueUsers.length > 0
+              ? uniqueUsers
+              : ["user1@example.com", "user2@example.com", "user3@example.com"],
         },
         status: 200,
       };
@@ -770,20 +2227,24 @@ export class MockResponseGenerator {
           console.log(
             `[Mock Server] Found interaction: ${job.interactionName}`,
           );
-          
+
           // Transform eventSequence to match interface (eventName -> name, propName -> name in props)
-          const transformedEvents = (job.eventSequence || []).map((event: any) => ({
-            name: event.eventName || event.name,
-            props: (event.props || []).map((prop: any) => ({
-              name: prop.propName || prop.name,
-              value: prop.propValue || prop.value,
-              operator: prop.operator,
-            })),
-            isBlacklisted: event.isBlacklisted,
-          }));
+          const transformedEvents = (job.eventSequence || []).map(
+            (event: any) => ({
+              name: event.eventName || event.name,
+              props: (event.props || []).map((prop: any) => ({
+                name: prop.propName || prop.name,
+                value: prop.propValue || prop.value,
+                operator: prop.operator,
+              })),
+              isBlacklisted: event.isBlacklisted,
+            }),
+          );
 
           // Transform globalBlacklistedEvents similarly
-          const transformedGlobalBlacklistedEvents = (job.globalBlacklistedEvents || []).map((event: any) => ({
+          const transformedGlobalBlacklistedEvents = (
+            job.globalBlacklistedEvents || []
+          ).map((event: any) => ({
             name: event.eventName || event.name,
             props: (event.props || []).map((prop: any) => ({
               name: prop.propName || prop.name,
@@ -846,16 +2307,16 @@ export class MockResponseGenerator {
         // Apply userEmail filter (filter by createdBy)
         if (userEmailFilter) {
           jobs = jobs.filter(
-            (job) => job.createdBy?.toLowerCase() === userEmailFilter.toLowerCase(),
+            (job) =>
+              job.createdBy?.toLowerCase() === userEmailFilter.toLowerCase(),
           );
         }
 
         // Apply interactionName filter (search)
         if (interactionNameFilter) {
           const searchLower = interactionNameFilter.toLowerCase();
-          jobs = jobs.filter(
-            (job) =>
-              job.interactionName?.toLowerCase().includes(searchLower),
+          jobs = jobs.filter((job) =>
+            job.interactionName?.toLowerCase().includes(searchLower),
           );
         }
 
@@ -902,7 +2363,7 @@ export class MockResponseGenerator {
         method === "POST"
       ) {
         const requestBody = JSON.parse(request.body || "{}");
-        
+
         // Check if interaction with same name already exists
         const existingJob = this.dataStore.findJobByName(requestBody.name);
         if (existingJob) {
@@ -936,7 +2397,9 @@ export class MockResponseGenerator {
             })),
             isBlacklisted: event.isBlacklisted,
           })),
-          globalBlacklistedEvents: (requestBody.globalBlacklistedEvents || []).map((event: any) => ({
+          globalBlacklistedEvents: (
+            requestBody.globalBlacklistedEvents || []
+          ).map((event: any) => ({
             eventName: event.name,
             props: (event.props || []).map((prop: any) => ({
               propName: prop.name,
@@ -1017,15 +2480,16 @@ export class MockResponseGenerator {
         }
 
         if (jobDetails.globalBlacklistedEvents) {
-          updates.globalBlacklistedEvents = jobDetails.globalBlacklistedEvents.map((event: any) => ({
-            eventName: event.name,
-            props: (event.props || []).map((prop: any) => ({
-              propName: prop.name,
-              propValue: prop.value,
-              operator: prop.operator,
-            })),
-            isBlacklisted: event.isBlacklisted,
-          }));
+          updates.globalBlacklistedEvents =
+            jobDetails.globalBlacklistedEvents.map((event: any) => ({
+              eventName: event.name,
+              props: (event.props || []).map((prop: any) => ({
+                propName: prop.name,
+                propValue: prop.value,
+                operator: prop.operator,
+              })),
+              isBlacklisted: event.isBlacklisted,
+            }));
         }
 
         this.dataStore.updateJobByName(interactionName, updates);
@@ -1225,7 +2689,8 @@ export class MockResponseGenerator {
       return {
         data: {
           users: uniqueUsers.length > 0 ? uniqueUsers : ["mock@example.com"],
-          statuses: uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
+          statuses:
+            uniqueStatuses.length > 0 ? uniqueStatuses : ["RUNNING", "STOPPED"],
         },
         status: 200,
       };
@@ -1240,8 +2705,11 @@ export class MockResponseGenerator {
       }
 
       // Find the job by useCaseId (interaction name)
-      const job = this.dataStore.findJobByName(useCaseId) ||
-        this.dataStore.getJobs().find((j) => j.name === useCaseId || j.useCaseName === useCaseId);
+      const job =
+        this.dataStore.findJobByName(useCaseId) ||
+        this.dataStore
+          .getJobs()
+          .find((j) => j.name === useCaseId || j.useCaseName === useCaseId);
 
       if (job) {
         // Update the job status
@@ -1351,26 +2819,41 @@ export class MockResponseGenerator {
     // GET /v1/alert/notificationChannels/:id - Returns a single notification channel by ID
     // @see backend GetAlertNotificationChannelById.java
     // NOTE: This must come BEFORE the general GET to avoid being caught by the more general route
-    const channelByIdMatch = pathname.match(/\/alert\/notificationChannels\/(\d+)$/);
+    const channelByIdMatch = pathname.match(
+      /\/alert\/notificationChannels\/(\d+)$/,
+    );
     if (channelByIdMatch && method === "GET") {
       const channelId = parseInt(channelByIdMatch[1]);
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:", channelId);
+        console.log(
+          "[Mock Server] GET_NOTIFICATION_CHANNEL_BY_ID - ID:",
+          channelId,
+        );
       }
       const channel = mockNotificationChannels.find(
-        (c) => c.notification_channel_id === channelId
+        (c) => c.notification_channel_id === channelId,
       );
       if (channel) {
         return { data: channel, status: 200 };
       }
-      return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Notification channel not found", cause: "" } };
+      return {
+        data: null,
+        status: 404,
+        error: {
+          code: "NOT_FOUND",
+          message: "Notification channel not found",
+          cause: "",
+        },
+      };
     }
 
     // GET /v1/alert/notificationChannels - Returns notification channels
     // @see backend AlertNotificationChannelResponseDto.java
     if (pathname.includes("/alert/notificationChannels") && method === "GET") {
       // Filter to only return active channels for the list endpoint
-      const activeChannels = mockNotificationChannels.filter((c) => c.is_active);
+      const activeChannels = mockNotificationChannels.filter(
+        (c) => c.is_active,
+      );
       return { data: activeChannels, status: 200 };
     }
 
@@ -1400,11 +2883,16 @@ export class MockResponseGenerator {
         const channelId = parseInt(channelIdMatch[1]);
         const body = JSON.parse(request.body || "{}");
         if (this.config.shouldLog()) {
-          console.log("[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:", channelId, "Body:", body);
+          console.log(
+            "[Mock Server] UPDATE_NOTIFICATION_CHANNEL - ID:",
+            channelId,
+            "Body:",
+            body,
+          );
         }
         // Update in mock channels (in memory only)
         const channelIndex = mockNotificationChannels.findIndex(
-          (c) => c.notification_channel_id === channelId
+          (c) => c.notification_channel_id === channelId,
         );
         if (channelIndex !== -1) {
           mockNotificationChannels[channelIndex] = {
@@ -1415,27 +2903,41 @@ export class MockResponseGenerator {
           };
           return { data: true, status: 200 };
         }
-        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+        return {
+          data: null,
+          status: 404,
+          error: { code: "NOT_FOUND", message: "Channel not found", cause: "" },
+        };
       }
     }
 
     // DELETE /v1/alert/notificationChannels/:id - Delete notification channel
-    if (pathname.includes("/alert/notificationChannels/") && method === "DELETE") {
+    if (
+      pathname.includes("/alert/notificationChannels/") &&
+      method === "DELETE"
+    ) {
       const channelIdMatch = pathname.match(/\/notificationChannels\/(\d+)/);
       if (channelIdMatch) {
         const channelId = parseInt(channelIdMatch[1]);
         if (this.config.shouldLog()) {
-          console.log("[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:", channelId);
+          console.log(
+            "[Mock Server] DELETE_NOTIFICATION_CHANNEL - ID:",
+            channelId,
+          );
         }
         // Remove from mock channels (in memory only)
         const channelIndex = mockNotificationChannels.findIndex(
-          (c) => c.notification_channel_id === channelId
+          (c) => c.notification_channel_id === channelId,
         );
         if (channelIndex !== -1) {
           mockNotificationChannels.splice(channelIndex, 1);
           return { data: true, status: 200 };
         }
-        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Channel not found", cause: "" } };
+        return {
+          data: null,
+          status: 404,
+          error: { code: "NOT_FOUND", message: "Channel not found", cause: "" },
+        };
       }
     }
 
@@ -1475,29 +2977,32 @@ export class MockResponseGenerator {
         // Generate mock evaluation history matching GetAlertEvaluationHistoryResponse
         // Format: Array of ScopeEvaluationHistory, each with scope_id, scope_name, and evaluation_history
         const now = Date.now();
-        
+
         // Get the alert's actual data from the datastore
         const alerts = this.dataStore.getAlerts();
         const alert = alerts.find((a: any) => a.alert_id === alertId);
-        
+
         if (!alert) {
           return { data: [], status: 200 };
         }
-        
+
         const alertStatus = alert.status || "NORMAL";
         const isAlertFiring = alertStatus === "FIRING";
         const isAlertNoData = alertStatus === "NO_DATA";
         const isAlertSnoozed = alertStatus === "SNOOZED" || alert.is_snoozed;
-        
+
         // Extract actual scope names and metrics from alert conditions
         // Each condition has: { alias, metric, metric_operator, threshold: { scopeName: value, ... } }
         const alertConditions = alert.alerts || [];
-        
+
         // Build scope configs from actual alert thresholds
         // Collect all unique scope names from all conditions
         const scopeNameSet = new Set<string>();
-        const scopeMetrics: Record<string, { metric: string; operator: string; threshold: number }[]> = {};
-        
+        const scopeMetrics: Record<
+          string,
+          { metric: string; operator: string; threshold: number }[]
+        > = {};
+
         alertConditions.forEach((condition: any) => {
           const thresholds = condition.threshold || {};
           Object.entries(thresholds).forEach(([scopeName, thresholdValue]) => {
@@ -1512,55 +3017,72 @@ export class MockResponseGenerator {
             });
           });
         });
-        
+
         const scopeNames = Array.from(scopeNameSet);
-        
+
         // Helper to generate human-readable metric values based on threshold
-        const generateMetricValue = (metric: string, threshold: number, operator: string, isFiring: boolean): string => {
+        const generateMetricValue = (
+          metric: string,
+          threshold: number,
+          operator: string,
+          isFiring: boolean,
+        ): string => {
           // Determine if we should be above or below threshold based on operator and firing state
-          const shouldExceed = (operator === "GREATER_THAN" && isFiring) || (operator === "LESS_THAN" && !isFiring);
-          
-          if (metric.includes("DURATION") || metric.includes("LOAD_TIME") || metric.includes("LATENCY")) {
+          const shouldExceed =
+            (operator === "GREATER_THAN" && isFiring) ||
+            (operator === "LESS_THAN" && !isFiring);
+
+          if (
+            metric.includes("DURATION") ||
+            metric.includes("LOAD_TIME") ||
+            metric.includes("LATENCY")
+          ) {
             // Duration metrics - values in ms
-            const value = shouldExceed 
-              ? threshold + Math.floor(Math.random() * 5) * 100 + 100  // Above threshold
-              : Math.max(100, threshold - Math.floor(Math.random() * 5) * 100 - 500); // Below threshold
+            const value = shouldExceed
+              ? threshold + Math.floor(Math.random() * 5) * 100 + 100 // Above threshold
+              : Math.max(
+                  100,
+                  threshold - Math.floor(Math.random() * 5) * 100 - 500,
+                ); // Below threshold
             return `${Math.round(value)}ms`;
           } else if (metric.includes("RATE") || metric.includes("5XX")) {
             // Rate metrics - typically 0-1 or 0-100
             if (threshold < 1) {
               // Decimal rate (0.05 = 5%)
               const pctThreshold = threshold * 100;
-              const value = shouldExceed 
+              const value = shouldExceed
                 ? pctThreshold + 2 + Math.floor(Math.random() * 3)
-                : Math.max(0.1, pctThreshold - 2 - Math.floor(Math.random() * 2));
+                : Math.max(
+                    0.1,
+                    pctThreshold - 2 - Math.floor(Math.random() * 2),
+                  );
               return `${value.toFixed(1)}%`;
             } else {
               // Percentage already
-              const value = shouldExceed 
+              const value = shouldExceed
                 ? threshold + 5 + Math.floor(Math.random() * 5)
                 : Math.max(1, threshold - 5 - Math.floor(Math.random() * 5));
               return `${value.toFixed(1)}%`;
             }
           } else if (metric === "APDEX") {
             // APDEX score 0-1
-            const value = shouldExceed 
+            const value = shouldExceed
               ? Math.min(0.99, threshold + 0.05 + Math.random() * 0.05)
               : Math.max(0.5, threshold - 0.1 - Math.random() * 0.1);
             return value.toFixed(2);
           } else if (metric.includes("COUNT")) {
             // Count metrics
-            const value = shouldExceed 
+            const value = shouldExceed
               ? threshold + Math.floor(Math.random() * 50) + 20
               : Math.max(0, threshold - Math.floor(Math.random() * 30) - 10);
             return `${Math.round(value)}`;
           } else {
             // Generic numeric
-            const value = shouldExceed 
+            const value = shouldExceed
               ? threshold * 1.2 + Math.random() * threshold * 0.2
               : threshold * 0.7 + Math.random() * threshold * 0.2;
-            return typeof threshold === 'number' && threshold < 1 
-              ? value.toFixed(2) 
+            return typeof threshold === "number" && threshold < 1
+              ? value.toFixed(2)
               : `${Math.round(value)}`;
           }
         };
@@ -1569,12 +3091,12 @@ export class MockResponseGenerator {
         const history = scopeNames.map((scopeName, idx) => {
           const evaluationHistory = [];
           const metricsForScope = scopeMetrics[scopeName] || [];
-          
+
           for (let i = 0; i < 12; i++) {
             // Determine state for this evaluation entry
             let isFiring: boolean;
             let stateValue: string;
-            
+
             if (isAlertNoData && i < 3) {
               stateValue = "NO_DATA";
               isFiring = false;
@@ -1592,13 +3114,18 @@ export class MockResponseGenerator {
               }
               stateValue = isFiring ? "FIRING" : "NORMAL";
             }
-            
+
             const evalTime = now - i * 3600000;
-            
+
             // Generate evaluation_result with actual metrics for this scope
             const metricReadings: Record<string, string> = {};
             metricsForScope.forEach(({ metric, operator, threshold }) => {
-              metricReadings[metric] = generateMetricValue(metric, threshold, operator, isFiring);
+              metricReadings[metric] = generateMetricValue(
+                metric,
+                threshold,
+                operator,
+                isFiring,
+              );
             });
 
             evaluationHistory.push({
@@ -1617,7 +3144,11 @@ export class MockResponseGenerator {
         });
 
         if (this.config.shouldLog()) {
-          console.log("[Mock Server] EVALUATION_HISTORY - Generated", history.length, "scopes");
+          console.log(
+            "[Mock Server] EVALUATION_HISTORY - Generated",
+            history.length,
+            "scopes",
+          );
         }
 
         return {
@@ -1665,50 +3196,54 @@ export class MockResponseGenerator {
     if (pathname.includes("/alert") && method === "GET") {
       const url = this.parseURL(request.url);
       let alerts = this.dataStore.getAlerts();
-      
+
       // Apply status filter
       const statusFilter = url.searchParams.get("status");
       if (statusFilter) {
         alerts = alerts.filter((a: any) => a.status === statusFilter);
       }
-      
+
       // Apply scope filter
       const scopeFilter = url.searchParams.get("scope");
       if (scopeFilter) {
         alerts = alerts.filter((a: any) => a.scope === scopeFilter);
       }
-      
+
       // Apply name search filter
       const nameFilter = url.searchParams.get("name");
       if (nameFilter) {
-        alerts = alerts.filter((a: any) => 
-          a.name.toLowerCase().includes(nameFilter.toLowerCase())
+        alerts = alerts.filter((a: any) =>
+          a.name.toLowerCase().includes(nameFilter.toLowerCase()),
         );
       }
-      
+
       // Apply created_by filter
       const createdByFilter = url.searchParams.get("created_by");
       if (createdByFilter) {
         alerts = alerts.filter((a: any) => a.created_by === createdByFilter);
       }
-      
+
       // Apply updated_by filter
       const updatedByFilter = url.searchParams.get("updated_by");
       if (updatedByFilter) {
         alerts = alerts.filter((a: any) => a.updated_by === updatedByFilter);
       }
-      
+
       // Apply pagination
       const offset = parseInt(url.searchParams.get("offset") || "0");
       const limit = parseInt(url.searchParams.get("limit") || "12");
       const totalAlerts = alerts.length;
       const paginatedAlerts = alerts.slice(offset, offset + limit);
-      
+
       if (this.config.shouldLog()) {
-        console.log(`[Mock Server] GET_ALERTS - Filters: status=${statusFilter}, scope=${scopeFilter}, name=${nameFilter}`);
-        console.log(`[Mock Server] GET_ALERTS - Total: ${totalAlerts}, Returning: ${paginatedAlerts.length}`);
+        console.log(
+          `[Mock Server] GET_ALERTS - Filters: status=${statusFilter}, scope=${scopeFilter}, name=${nameFilter}`,
+        );
+        console.log(
+          `[Mock Server] GET_ALERTS - Total: ${totalAlerts}, Returning: ${paginatedAlerts.length}`,
+        );
       }
-      
+
       return {
         data: {
           total_alerts: totalAlerts,
@@ -2668,7 +4203,9 @@ export class MockResponseGenerator {
     // Response must be an array of TableMetadata matching TableMetadataResponse type
     if (pathname.includes("/query/tables") && method === "GET") {
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET /query/tables - Returning table metadata");
+        console.log(
+          "[Mock Server] GET /query/tables - Returning table metadata",
+        );
       }
       return {
         data: [
@@ -2691,7 +4228,9 @@ export class MockResponseGenerator {
     // Get query history
     if (pathname.includes("/query/history") && method === "GET") {
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET /query/history - Returning query history");
+        console.log(
+          "[Mock Server] GET /query/history - Returning query history",
+        );
       }
       const history = generateMockQueryHistory();
       return {
@@ -2704,11 +4243,14 @@ export class MockResponseGenerator {
     if (pathname.includes("/query/job/") && method === "DELETE") {
       const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
       const jobId = jobIdMatch ? jobIdMatch[1] : "";
-      
+
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] DELETE /query/job/ - Cancelling job:", jobId);
+        console.log(
+          "[Mock Server] DELETE /query/job/ - Cancelling job:",
+          jobId,
+        );
       }
-      
+
       const result = cancelQueryJob(jobId);
       return {
         data: result,
@@ -2722,28 +4264,71 @@ export class MockResponseGenerator {
       const sessionId = sessionGetMatch[1];
       const session = this.getAiChatSession(sessionId);
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] GET /query/ai/session/", sessionId, session ? "found" : "not found");
+        console.log(
+          "[Mock Server] GET /query/ai/session/",
+          sessionId,
+          session ? "found" : "not found",
+        );
       }
       if (!session) {
-        return { data: null, status: 404, error: { code: "NOT_FOUND", message: "Session not found", cause: "Session ID not in store" } };
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "NOT_FOUND",
+            message: "Session not found",
+            cause: "Session ID not in store",
+          },
+        };
       }
       return { data: session, status: 200 };
     }
 
     // AI Chat Session - POST /query/ai/session (save for sharing)
-    if (pathname.includes("/query/ai/session") && !pathname.match(/\/query\/ai\/session\/[^/]+/) && method === "POST") {
-      let session: { id: string; messages: unknown[]; pinnedFindings: unknown[]; selectedMessageId: string | null; createdAt: number; updatedAt: number; title?: string };
+    if (
+      pathname.includes("/query/ai/session") &&
+      !pathname.match(/\/query\/ai\/session\/[^/]+/) &&
+      method === "POST"
+    ) {
+      let session: {
+        id: string;
+        messages: unknown[];
+        pinnedFindings: unknown[];
+        selectedMessageId: string | null;
+        createdAt: number;
+        updatedAt: number;
+        title?: string;
+      };
       try {
         session = JSON.parse(request.body || "{}");
       } catch {
-        return { data: null, status: 400, error: { code: "INVALID_REQUEST", message: "Invalid JSON body", cause: "Could not parse request body" } };
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Invalid JSON body",
+            cause: "Could not parse request body",
+          },
+        };
       }
       if (!session?.id) {
-        return { data: null, status: 400, error: { code: "INVALID_REQUEST", message: "Session id required", cause: "Missing session id in body" } };
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_REQUEST",
+            message: "Session id required",
+            cause: "Missing session id in body",
+          },
+        };
       }
       this.saveAiChatSession(session);
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] POST /query/ai/session - Saved session", session.id);
+        console.log(
+          "[Mock Server] POST /query/ai/session - Saved session",
+          session.id,
+        );
       }
       return { data: { ok: true, id: session.id }, status: 200 };
     }
@@ -2781,10 +4366,16 @@ export class MockResponseGenerator {
       }
 
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] AI Query:", naturalLanguageQuery.substring(0, 100));
+        console.log(
+          "[Mock Server] AI Query:",
+          naturalLanguageQuery.substring(0, 100),
+        );
       }
 
-      const aiResult = generateAiQueryResponse(naturalLanguageQuery, requestBody.context);
+      const aiResult = generateAiQueryResponse(
+        naturalLanguageQuery,
+        requestBody.context,
+      );
       return {
         data: aiResult,
         status: 200,
@@ -2825,7 +4416,10 @@ export class MockResponseGenerator {
       }
 
       if (this.config.shouldLog()) {
-        console.log("[Mock Server] Submitting query:", sql.substring(0, 100) + "...");
+        console.log(
+          "[Mock Server] Submitting query:",
+          sql.substring(0, 100) + "...",
+        );
       }
 
       // Check if we should return immediate results
@@ -2865,7 +4459,7 @@ export class MockResponseGenerator {
       // Extract job ID from pathname (stop at / or ? or end of string)
       const jobIdMatch = pathname.match(/\/query\/job\/([^/?]+)/);
       let jobId = jobIdMatch ? jobIdMatch[1] : "";
-      
+
       // Also strip query params if somehow included
       if (jobId.includes("?")) {
         jobId = jobId.split("?")[0];
@@ -2886,17 +4480,20 @@ export class MockResponseGenerator {
       console.log("[Mock Server] Getting job status for:", jobId);
 
       const jobStatus = getQueryJobStatus(jobId);
-      console.log("[Mock Server] Job status result:", JSON.stringify(jobStatus));
-      
+      console.log(
+        "[Mock Server] Job status result:",
+        JSON.stringify(jobStatus),
+      );
+
       // Map SUCCEEDED to COMPLETED to match interface expectations
       const statusMap: Record<string, string> = {
-        "SUCCEEDED": "COMPLETED",
-        "QUEUED": "QUEUED",
-        "RUNNING": "RUNNING",
-        "FAILED": "FAILED",
+        SUCCEEDED: "COMPLETED",
+        QUEUED: "QUEUED",
+        RUNNING: "RUNNING",
+        FAILED: "FAILED",
       };
       const mappedStatus = statusMap[jobStatus.status] || jobStatus.status;
-      
+
       let response;
       if (mappedStatus === "COMPLETED" && jobStatus.results) {
         response = {
@@ -2929,7 +4526,10 @@ export class MockResponseGenerator {
         };
       }
 
-      console.log("[Mock Server] Returning job status response:", JSON.stringify(response));
+      console.log(
+        "[Mock Server] Returning job status response:",
+        JSON.stringify(response),
+      );
       return response;
     }
 
