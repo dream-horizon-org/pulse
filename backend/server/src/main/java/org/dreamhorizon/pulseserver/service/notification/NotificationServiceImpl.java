@@ -104,10 +104,10 @@ public class NotificationServiceImpl implements NotificationService {
 
     return mappingDao
         .getActiveMappingWithChannelById(request.getMappingId())
-        .switchIfEmpty(
-            Maybe.error(
-                ServiceError.NOT_FOUND.getCustomException(
-                    "Mapping not found or inactive for id: " + request.getMappingId())))
+            .switchIfEmpty(
+                    Maybe.defer(() -> Maybe.error(
+                            ServiceError.NOT_FOUND.getCustomException(
+                                    "Mapping not found or inactive for id: " + request.getMappingId()))))
         .toSingle()
         .flatMap(
             row -> {
@@ -147,13 +147,13 @@ public class NotificationServiceImpl implements NotificationService {
 
               return templateDao
                   .getTemplateByEventNameAndChannel(eventName, channelType)
-                  .switchIfEmpty(
-                      Maybe.error(
-                          ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
-                              "No template found for event: "
-                                  + eventName
-                                  + " and channel: "
-                                  + channelType)))
+                      .switchIfEmpty(
+                              Maybe.defer(() -> Maybe.error(
+                                      ServiceError.INCORRECT_OR_MISSING_BODY_PARAMETERS.getCustomException(
+                                              "No template found for event: "
+                                                      + eventName
+                                                      + " and channel: "
+                                                      + channelType))))
                   .toSingle()
                   .flatMap(
                       template ->
@@ -235,14 +235,16 @@ public class NotificationServiceImpl implements NotificationService {
                         .getTemplateByEventNameAndChannel(
                             request.getEventName(), channelType)
                         .switchIfEmpty(
-                            Maybe.error(
-                                ServiceError
-                                    .INCORRECT_OR_MISSING_BODY_PARAMETERS
-                                    .getCustomException(
-                                        "No template found for event: "
-                                            + request.getEventName()
-                                            + " and channel: "
-                                            + channelType)))
+                            Maybe.defer(
+                                () ->
+                                    Maybe.error(
+                                        ServiceError
+                                            .INCORRECT_OR_MISSING_BODY_PARAMETERS
+                                            .getCustomException(
+                                                "No template found for event: "
+                                                    + request.getEventName()
+                                                    + " and channel: "
+                                                    + channelType))))
                         .toSingle()
                         .flatMap(
                             template ->
@@ -379,49 +381,68 @@ public class NotificationServiceImpl implements NotificationService {
                 .attemptCount(1)
                 .build())
         .flatMap(
-            inserted -> {
-              if (!inserted) {
+            logId -> {
+              if (logId == 0L) {
                 return Single.just(
                     skippedResult(
                         recipient, channelType, "Duplicate notification (idempotency)"));
               }
 
-              return logDao
-                  .getLogByIdempotency(projectId, idempotencyKey, channelType, recipient)
-                  .toSingle()
+              return provider
+                  .send(message, template)
                   .flatMap(
-                      logEntry ->
-                          provider
-                              .send(message, template)
-                              .flatMap(
-                                  result -> {
-                                    NotificationStatus status =
-                                        result.isSuccess()
-                                            ? NotificationStatus.SENT
-                                            : (result.isPermanentFailure()
-                                                ? NotificationStatus.PERMANENT_FAILURE
-                                                : NotificationStatus.FAILED);
+                      result -> {
+                        NotificationStatus status =
+                            result.isSuccess()
+                                ? NotificationStatus.SENT
+                                : (result.isPermanentFailure()
+                                    ? NotificationStatus.PERMANENT_FAILURE
+                                    : NotificationStatus.FAILED);
 
-                                    return logDao
-                                        .updateLogStatus(
-                                            logEntry.getId(),
-                                            status,
-                                            1,
-                                            result.getErrorMessage(),
-                                            result.getErrorCode(),
-                                            result.getExternalId(),
-                                            result.getProviderResponse(),
-                                            (int) result.getLatencyMs())
-                                        .map(
-                                            updated ->
-                                                NotificationResultDto.builder()
-                                                    .recipient(recipient)
-                                                    .channelType(channelType)
-                                                    .status(status)
-                                                    .externalId(result.getExternalId())
-                                                    .errorMessage(result.getErrorMessage())
-                                                    .build());
-                                  }));
+                        if (result.isSuccess()) {
+                          log.info(
+                              "Notification sent successfully to {} via {} (latency={}ms, externalId={})",
+                              recipient,
+                              channelType,
+                              result.getLatencyMs(),
+                              result.getExternalId());
+                        } else {
+                          log.warn(
+                              "Notification send failed for {} via {}: status={}, error={}, errorCode={}",
+                              recipient,
+                              channelType,
+                              status,
+                              result.getErrorMessage(),
+                              result.getErrorCode());
+                        }
+
+                        return logDao
+                            .updateLogStatus(
+                                logId,
+                                status,
+                                1,
+                                result.getErrorMessage(),
+                                result.getErrorCode(),
+                                result.getExternalId(),
+                                result.getProviderResponse(),
+                                (int) result.getLatencyMs())
+                            .doOnSuccess(
+                                updated ->
+                                    log.debug(
+                                        "Log status updated to {} for logId={}, recipient={}",
+                                        status,
+                                        logId,
+                                        recipient))
+                            .map(
+                                updated ->
+                                    NotificationResultDto.builder()
+                                        .recipient(recipient)
+                                        .channelType(channelType)
+                                        .status(status)
+                                        .externalId(result.getExternalId())
+                                        .errorMessage(result.getErrorMessage())
+                                        .build());
+                      });
             })
         .onErrorReturn(
             e -> {
@@ -499,20 +520,33 @@ public class NotificationServiceImpl implements NotificationService {
                                             return notificationQueue
                                                 .enqueue(message)
                                                 .map(
-                                                    messageId ->
-                                                        NotificationResultDto.builder()
-                                                            .recipient(recipient)
-                                                            .channelType(channelType)
-                                                            .status(
-                                                                NotificationStatus.QUEUED)
-                                                            .externalId(messageId)
-                                                            .build());
+                                                    messageId -> {
+                                                      log.info(
+                                                          "Notification queued for {} via {} (messageId={})",
+                                                          recipient,
+                                                          channelType,
+                                                          messageId);
+                                                      return NotificationResultDto.builder()
+                                                          .recipient(recipient)
+                                                          .channelType(channelType)
+                                                          .status(
+                                                              NotificationStatus.QUEUED)
+                                                          .externalId(messageId)
+                                                          .build();
+                                                    });
                                           })));
 
               return withSuppressionCheck(
                       projectId, recipient, channelType, processingChain)
                   .onErrorReturn(
-                      e -> failedResult(recipient, channelType, e.getMessage()));
+                      e -> {
+                        log.error(
+                            "Error enqueuing notification for {} via {}",
+                            recipient,
+                            channelType,
+                            e);
+                        return failedResult(recipient, channelType, e.getMessage());
+                      });
             })
         .toList();
   }
@@ -620,7 +654,10 @@ public class NotificationServiceImpl implements NotificationService {
     return channelDao
         .getChannelById(channelId)
         .switchIfEmpty(
-            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Channel not found")))
+            Maybe.defer(
+                () ->
+                    Maybe.error(
+                        ServiceError.NOT_FOUND.getCustomException("Channel not found"))))
         .toSingle()
         .flatMap(
             existing -> {
@@ -698,7 +735,10 @@ public class NotificationServiceImpl implements NotificationService {
     return templateDao
         .getTemplateById(templateId)
         .switchIfEmpty(
-            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Template not found")))
+            Maybe.defer(
+                () ->
+                    Maybe.error(
+                        ServiceError.NOT_FOUND.getCustomException("Template not found"))))
         .toSingle()
         .flatMap(
             existing -> {
@@ -799,7 +839,10 @@ public class NotificationServiceImpl implements NotificationService {
     return mappingDao
         .getMappingById(mappingId)
         .switchIfEmpty(
-            Maybe.error(ServiceError.NOT_FOUND.getCustomException("Mapping not found")))
+            Maybe.defer(
+                () ->
+                    Maybe.error(
+                        ServiceError.NOT_FOUND.getCustomException("Mapping not found"))))
         .toSingle()
         .flatMap(
             existing -> {
@@ -1069,9 +1112,11 @@ public class NotificationServiceImpl implements NotificationService {
     return channelDao
         .getChannelById(channelId)
         .switchIfEmpty(
-            Maybe.error(
-                ServiceError.NOT_FOUND.getCustomException(
-                    "Channel not found: " + channelId)))
+            Maybe.defer(
+                () ->
+                    Maybe.error(
+                        ServiceError.NOT_FOUND.getCustomException(
+                            "Channel not found: " + channelId))))
         .toSingle()
         .flatMap(
             channel ->
@@ -1079,15 +1124,17 @@ public class NotificationServiceImpl implements NotificationService {
                     .getTemplateByEventNameAndChannel(
                         eventName, channel.getChannelType())
                     .switchIfEmpty(
-                        Maybe.error(
-                            ServiceError
-                                .INCORRECT_OR_MISSING_BODY_PARAMETERS
-                                .getCustomException(
-                                    "No template found for event '"
-                                        + eventName
-                                        + "' and channel type "
-                                        + channel.getChannelType()
-                                        + ". Verify the event name is correct and a template exists.")))
+                        Maybe.defer(
+                            () ->
+                                Maybe.error(
+                                    ServiceError
+                                        .INCORRECT_OR_MISSING_BODY_PARAMETERS
+                                        .getCustomException(
+                                            "No template found for event '"
+                                                + eventName
+                                                + "' and channel type "
+                                                + channel.getChannelType()
+                                                + ". Verify the event name is correct and a template exists."))))
                     .toSingle()
                     .map(template -> true));
   }

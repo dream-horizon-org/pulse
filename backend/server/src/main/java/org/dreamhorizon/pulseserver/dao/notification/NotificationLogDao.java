@@ -83,7 +83,12 @@ public class NotificationLogDao {
         .map(rows -> rows.property(MySQLClient.LAST_INSERTED_ID));
   }
 
-  public Single<Boolean> insertLogIfNotExists(NotificationLog log) {
+  /**
+   * Inserts a notification log if no duplicate exists (INSERT IGNORE).
+   *
+   * @return the inserted row's auto-generated ID, or 0L if the row was a duplicate
+   */
+  public Single<Long> insertLogIfNotExists(NotificationLog log) {
     MySQLPool pool = mysqlClient.getWriterPool();
     Tuple tuple =
         Tuple.tuple()
@@ -98,7 +103,9 @@ public class NotificationLogDao {
             .addInteger(log.getAttemptCount());
     return pool.preparedQuery(NotificationQueries.INSERT_LOG_IF_NOT_EXISTS)
         .rxExecute(tuple)
-        .map(rows -> rows.rowCount() > 0);
+        .map(rows -> rows.rowCount() > 0
+            ? rows.property(MySQLClient.LAST_INSERTED_ID)
+            : 0L);
   }
 
   public Single<Integer> updateLogStatus(

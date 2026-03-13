@@ -913,10 +913,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
           .thenReturn(Single.just(false));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
-          eq("user@test.com")))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(emailProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true)
@@ -1014,7 +1011,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
           .thenReturn(Single.just(false));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(false));
+          .thenReturn(Single.just(0L));
 
       SendNotificationRequestDto request = SendNotificationRequestDto.builder()
           .mappingId(10L)
@@ -1040,7 +1037,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("suppressed@test.com")))
           .thenReturn(Single.just(true));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
+          .thenReturn(Single.just(1L));
 
       SendNotificationRequestDto request = SendNotificationRequestDto.builder()
           .mappingId(10L)
@@ -1065,10 +1062,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
           .thenReturn(Single.just(false));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
-          eq("user@test.com")))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(emailProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(false)
@@ -1125,10 +1119,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("request@test.com")))
           .thenReturn(Single.just(false));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
-          eq("request@test.com")))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(emailProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true).externalId("e1").latencyMs(10).build()));
@@ -1186,10 +1177,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
           .thenReturn(Single.just(false));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
-          eq("user@test.com")))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(emailProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(false)
@@ -1238,10 +1226,7 @@ class NotificationServiceImplTest {
       when(suppressionDao.isEmailSuppressed(eq(PROJECT_ID), eq("user@test.com")))
           .thenReturn(Single.just(false));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.EMAIL),
-          eq("user@test.com")))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(emailProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true).externalId("ext-2").latencyMs(80).build()));
@@ -1541,10 +1526,7 @@ class NotificationServiceImplTest {
       when(providerFactory.getProvider(eq(ChannelType.SLACK)))
           .thenReturn(Optional.of(slackProvider));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.SLACK),
-          eq("C123")))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(slackProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true).externalId("ts-1").latencyMs(50).build()));
@@ -1587,9 +1569,7 @@ class NotificationServiceImplTest {
       when(providerFactory.getProvider(eq(ChannelType.SLACK)))
           .thenReturn(Optional.of(slackProvider));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.SLACK), any()))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(slackProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true).externalId("ts-1").latencyMs(10).build()));
@@ -1640,9 +1620,7 @@ class NotificationServiceImplTest {
       when(providerFactory.getProvider(eq(ChannelType.TEAMS)))
           .thenReturn(Optional.of(teamsProvider));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(), eq(ChannelType.TEAMS), any()))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(teamsProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true).latencyMs(10).build()));
@@ -1680,10 +1658,7 @@ class NotificationServiceImplTest {
       when(providerFactory.getProvider(eq(ChannelType.SLACK_WEBHOOK)))
           .thenReturn(Optional.of(webhookProvider));
       when(logDao.insertLogIfNotExists(any()))
-          .thenReturn(Single.just(true));
-      when(logDao.getLogByIdempotency(eq(PROJECT_ID), anyString(),
-          eq(ChannelType.SLACK_WEBHOOK), any()))
-          .thenReturn(Maybe.just(notificationLog()));
+          .thenReturn(Single.just(1L));
       when(webhookProvider.send(any(), any()))
           .thenReturn(Single.just(NotificationResult.builder()
               .success(true).latencyMs(10).build()));
