@@ -325,6 +325,7 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
+  AI_CHAT: "/ai-chat",
 } as const;
 
 // Settings sub-routes (handled internally by Settings component)
@@ -398,8 +399,8 @@ export const NAVBAR_ITEMS: NavbarItems = [
         {
           tabName: "AI Chat",
           icon: IconRobot,
-          routeTo: ROUTES.AI_CHAT.basePath,
-          path: ROUTES.AI_CHAT.path,
+          routeTo: NAVBAR_ROUTES.AI_CHAT,
+          path: NAVBAR_ROUTES.AI_CHAT,
           iconSize: 25,
         },
       ]
