@@ -207,7 +207,7 @@ export function NetworkList({
         {
           function: "CUSTOM" as const,
           param: {
-            expression: "uniqCombined(SessionId)",
+            expression: "uniqCombined64(nullIf(SessionId, ''))",
           },
           alias: "all_sessions",
         },
