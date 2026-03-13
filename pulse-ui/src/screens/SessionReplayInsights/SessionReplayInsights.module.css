@@ -1,0 +1,19 @@
+.container {
+  min-height: 100vh;
+  padding: var(--mantine-spacing-md);
+}
+
+.pageContainer {
+  width: 100%;
+  padding: var(--mantine-spacing-md);
+  max-width: 100%;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-md);
+  min-height: 400px;
+}
