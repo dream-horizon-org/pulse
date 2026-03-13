@@ -1,6 +1,6 @@
 import { Box, TextInput, Group, ScrollArea, Select } from "@mantine/core";
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDebouncedValue } from "@mantine/hooks";
 import { NetworkListProps, NetworkApi } from "./NetworkList.interface";
 import classes from "./NetworkList.module.css";
@@ -44,6 +44,7 @@ export function NetworkList({
   externalFilters = [],
 }: NetworkListProps) {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const { trackClick, trackSearch, trackFilter } = useAnalytics("NetworkList");
   const [searchStr, setSearchStr] = useState<string>("");
@@ -74,8 +75,10 @@ export function NetworkList({
   }, [searchParams]);
 
   // Use external time if provided, otherwise use store values
-  const startTime = externalStartTime || storeStartTime || getDefaultTimeRange().startDate;
-  const endTime = externalEndTime || storeEndTime || getDefaultTimeRange().endDate;
+  const startTime =
+    externalStartTime || storeStartTime || getDefaultTimeRange().startDate;
+  const endTime =
+    externalEndTime || storeEndTime || getDefaultTimeRange().endDate;
 
   const handleTimeFilterChange = (value: StartEndDateTimeType) => {
     storeHandleTimeFilterChange(value);
@@ -150,7 +153,6 @@ export function NetworkList({
       return dayjs.utc(time, "YYYY-MM-DD HH:mm:ss").toISOString();
     };
 
-
     // add screen name to select fields if provided
 
     return {
@@ -216,11 +218,15 @@ export function NetworkList({
         //   },
         //   alias: "status_code",
         // },
-        ...(screenName ? [{
-          function: "COL" as const,
-          param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
-          alias: "screen_name",
-        }] : []),
+        ...(screenName
+          ? [
+              {
+                function: "COL" as const,
+                param: { field: `SpanAttributes['${PulseType.SCREEN_NAME}']` },
+                alias: "screen_name",
+              },
+            ]
+          : []),
       ],
       groupBy: [
         "url",
@@ -275,7 +281,14 @@ export function NetworkList({
     const responseTimeIndex = fields.indexOf("response_time");
     const allSessionsIndex = fields.indexOf("all_sessions");
 
-    const aggregated = new Map<string, NetworkApi & { totalRequests: number; successRequests: number; responseTimeTotal: number }>();
+    const aggregated = new Map<
+      string,
+      NetworkApi & {
+        totalRequests: number;
+        successRequests: number;
+        responseTimeTotal: number;
+      }
+    >();
 
     data.data.rows.forEach((row) => {
       const url = row[urlIndex] || "";
@@ -301,17 +314,26 @@ export function NetworkList({
         existing.requestCount = Math.round(existing.totalRequests);
         existing.successRate =
           existing.totalRequests > 0
-            ? Math.round((existing.successRequests / existing.totalRequests) * 1000) / 10
+            ? Math.round(
+                (existing.successRequests / existing.totalRequests) * 1000,
+              ) / 10
             : 0;
         existing.errorRate =
           existing.totalRequests > 0
-            ? Math.round(((existing.totalRequests - existing.successRequests) / existing.totalRequests) * 1000) / 10
+            ? Math.round(
+                ((existing.totalRequests - existing.successRequests) /
+                  existing.totalRequests) *
+                  1000,
+              ) / 10
             : 0;
         existing.avgResponseTime =
           existing.totalRequests > 0
             ? Math.round(existing.responseTimeTotal / existing.totalRequests)
             : 0;
-        existing.allSessions = Math.max(existing.allSessions || 0, Math.round(parseFloat(row[allSessionsIndex]) || 0));
+        existing.allSessions = Math.max(
+          existing.allSessions || 0,
+          Math.round(parseFloat(row[allSessionsIndex]) || 0),
+        );
         return;
       }
 
@@ -319,7 +341,7 @@ export function NetworkList({
       const id = encodeNetworkId(
         url,
         operationName ? String(operationName) : undefined,
-        operationType ? String(operationType) : undefined
+        operationType ? String(operationType) : undefined,
       );
 
       aggregated.set(aggregationKey, {
@@ -331,9 +353,15 @@ export function NetworkList({
         avgResponseTime: Math.round(responseTime || 0),
         requestCount: Math.round(totalRequests),
         successRate:
-          totalRequests > 0 ? Math.round((successRequests / totalRequests) * 1000) / 10 : 0,
+          totalRequests > 0
+            ? Math.round((successRequests / totalRequests) * 1000) / 10
+            : 0,
         errorRate:
-          totalRequests > 0 ? Math.round(((totalRequests - successRequests) / totalRequests) * 1000) / 10 : 0,
+          totalRequests > 0
+            ? Math.round(
+                ((totalRequests - successRequests) / totalRequests) * 1000,
+              ) / 10
+            : 0,
         p50: 0, // Not available in new contract
         p95: 0, // Not available in new contract
         p99: 0, // Not available in new contract
@@ -359,7 +387,7 @@ export function NetworkList({
 
   const onApiClick = (apiId: string) => {
     trackClick(`NetworkAPI: ${apiId}`);
-    const url = `${ROUTES.NETWORK_DETAIL.basePath}/${apiId}`;
+    const url = `${ROUTES.PROJECT_NETWORK_DETAIL.basePath.replace(":projectId", projectId || "")}/${apiId}`;
     if (screenName) {
       navigate(`${url}?screenName=${encodeURIComponent(screenName)}`);
     } else {
@@ -481,7 +509,7 @@ export function NetworkList({
                       ? "Search by URL/endpoint..."
                       : searchFilterType === "operation_name"
                         ? "Search by GraphQL operation name..."
-                      : "Search by status code (e.g., 200, 404)..."
+                        : "Search by status code (e.g., 200, 404)..."
                 }
                 onChange={handleSearchChange}
                 size="sm"
@@ -497,9 +525,15 @@ export function NetworkList({
             </Group>
             <DateTimeRangePicker
               handleTimefilterChange={handleTimeFilterChange}
-              selectedQuickTimeFilterIndex={quickTimeRangeFilterIndex !== null ? quickTimeRangeFilterIndex : DEFAULT_QUICK_TIME_FILTER_INDEX}
+              selectedQuickTimeFilterIndex={
+                quickTimeRangeFilterIndex !== null
+                  ? quickTimeRangeFilterIndex
+                  : DEFAULT_QUICK_TIME_FILTER_INDEX
+              }
               defaultQuickTimeFilterIndex={DEFAULT_QUICK_TIME_FILTER_INDEX}
-              defaultQuickTimeFilterString={quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER}
+              defaultQuickTimeFilterString={
+                quickTimeRangeString || DEFAULT_QUICK_TIME_FILTER
+              }
               defaultEndTime={selectedTimeFilter?.endDate || endTime}
               defaultStartTime={selectedTimeFilter?.startDate || startTime}
             />

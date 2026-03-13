@@ -62,10 +62,10 @@ export function Navbar({
   const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
-  
+
   // Show nav items only on project dashboard pages (not on org pages or onboarding)
-  const isProjectDashboard = pathname.startsWith('/projects/') && 
-                             !pathname.includes('/onboarding');
+  const isProjectDashboard =
+    pathname.startsWith("/projects/") && !pathname.includes("/onboarding");
 
   const handleAllProjectsClick = () => {
     clearProject();
@@ -76,8 +76,12 @@ export function Navbar({
 
   function onItemClick(routeTo: string) {
     // Transform flat routes to project-scoped routes
-    if (contextProjectId && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
-      const projectScopedRoute = `${ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId)}${routeTo}`;
+    if (
+      contextProjectId &&
+      !routeTo.startsWith("/organization") &&
+      !routeTo.startsWith("/projects/")
+    ) {
+      const projectScopedRoute = `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${routeTo}`;
       navigate(projectScopedRoute);
     } else {
       navigate(routeTo);
@@ -86,15 +90,15 @@ export function Navbar({
 
   const isActive = (path: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
-    
+
     // For project-scoped routes, check the part after /projects/:projectId
-    if (decodedRouteName.startsWith('/projects/')) {
-      const projectPathParts = decodedRouteName.split('/').slice(3); // Skip '', 'projects', projectId
-      const projectPath = '/' + projectPathParts.join('/');
-      const basePath = '/' + path.split('/')[1];
+    if (decodedRouteName.startsWith("/projects/")) {
+      const projectPathParts = decodedRouteName.split("/").slice(3); // Skip '', 'projects', projectId
+      const projectPath = "/" + projectPathParts.join("/");
+      const basePath = "/" + path.split("/")[1];
       return projectPath.startsWith(basePath);
     }
-    
+
     // For other routes, use the old logic
     const base = path.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
@@ -103,22 +107,32 @@ export function Navbar({
 
   const onLogoClick = () => {
     if (contextProjectId) {
-      navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId));
+      navigate(
+        ROUTES.PROJECT_DASHBOARD.basePath.replace(
+          ":projectId",
+          contextProjectId,
+        ),
+      );
     } else if (tenantId) {
-      navigate(ROUTES.ORGANIZATION_PROJECTS.basePath.replace(':organizationId', tenantId));
+      navigate(
+        ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
+          ":organizationId",
+          tenantId,
+        ),
+      );
     }
   };
 
   const onLogoutClick = async () => {
     setLogoutModalOpened(false);
-    
+
     // Clear all React contexts explicitly
     clearProject();
     clearTenant();
-    
+
     // Perform logout (clears cookies, sessionStorage, and signs out)
     await performLogout();
-    
+
     // Navigate to login
     navigate(ROUTES.LOGIN.basePath);
   };
@@ -128,12 +142,26 @@ export function Navbar({
 
   return (
     <AppShell.Navbar className={classes.navbarContainer}>
-      <AppShell.Section className={classes.navbarHeader} style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 16px' }}>
-        <Box className={classes.logoSection} style={{ width: '100%', justifyContent: opened ? 'flex-start' : 'center' }}>
+      <AppShell.Section
+        className={classes.navbarHeader}
+        style={{
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+        }}
+      >
+        <Box
+          className={classes.logoSection}
+          style={{
+            width: "100%",
+            justifyContent: opened ? "flex-start" : "center",
+          }}
+        >
           {opened ? (
             <Box className={classes.logoExpanded} onClick={onLogoClick}>
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || "") + "/logo.svg"}
                 radius="md"
                 className={classes.logo}
                 alt=""
@@ -149,7 +177,7 @@ export function Navbar({
               withArrow
             >
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || "") + "/logo.svg"}
                 radius="md"
                 className={classes.logoCollapsed}
                 onClick={onLogoClick}
@@ -217,7 +245,10 @@ export function Navbar({
       )}
 
       {/* Bottom Section: Menu Button */}
-      <AppShell.Section className={classes.menuSectionContainer} style={{ paddingBottom: 16 }}>
+      <AppShell.Section
+        className={classes.menuSectionContainer}
+        style={{ paddingBottom: 16 }}
+      >
         <Divider my="sm" />
 
         <Popover width={280} position="right-end" withArrow shadow="md">
@@ -269,7 +300,7 @@ export function Navbar({
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
                           {tenantName || currentTenantId}
                         </Text>
-                    )}
+                      )}
                   </Box>
                 </Group>
               </Box>
@@ -277,19 +308,25 @@ export function Navbar({
               <Divider />
 
               {/* Organization Section */}
-              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
-              
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                Organization
+              </Text>
+
               {tier === TIERS.ENTERPRISE && (
                 <Box
                   className={classes.menuItem}
                   onClick={handleAllProjectsClick}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: "pointer" }}
                 >
                   <Group gap="sm">
                     <IconFolder size={20} style={{ color: "#0ba09a" }} />
                     <Box>
-                      <Text size="sm" fw={500}>Projects</Text>
-                      <Text size="xs" c="dimmed">View all projects</Text>
+                      <Text size="sm" fw={500}>
+                        Projects
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        View all projects
+                      </Text>
                     </Box>
                   </Group>
                 </Box>
@@ -297,14 +334,25 @@ export function Navbar({
 
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.ORGANIZATION_MEMBERS.basePath)}
-                style={{ cursor: 'pointer' }}
+                onClick={() =>
+                  navigate(
+                    ROUTES.ORGANIZATION_MEMBERS.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  )
+                }
+                style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
                   <IconUsers size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Members</Text>
-                    <Text size="xs" c="dimmed">Team management</Text>
+                    <Text size="sm" fw={500}>
+                      Members
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Team management
+                    </Text>
                   </Box>
                 </Group>
               </Box>
@@ -312,14 +360,18 @@ export function Navbar({
               <Box
                 className={classes.menuItem}
                 onClick={() => navigate(ROUTES.PRICING.basePath)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
                   <IconCreditCard size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Pricing & Plans</Text>
+                    <Text size="sm" fw={500}>
+                      Pricing & Plans
+                    </Text>
                     <Text size="xs" c="dimmed">
-                      {tier === TIERS.ENTERPRISE ? 'View your plan' : 'Upgrade to Enterprise'}
+                      {tier === TIERS.ENTERPRISE
+                        ? "View your plan"
+                        : "Upgrade to Enterprise"}
                     </Text>
                   </Box>
                 </Group>
@@ -330,7 +382,9 @@ export function Navbar({
               {/* Project Section - Only show if a project is selected */}
               {contextProjectId && (
                 <>
-                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Current Project</Text>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                    Current Project
+                  </Text>
 
                   {/* Settings Link */}
                   {permissions.canManageProjectSettings && (
@@ -338,16 +392,22 @@ export function Navbar({
                       className={classes.menuItem}
                       onClick={() => {
                         if (contextProjectId) {
-                          navigate(`${ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`);
+                          navigate(
+                            `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`,
+                          );
                         }
                       }}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: "pointer" }}
                     >
                       <Group gap="sm">
                         <IconSettings size={20} style={{ color: "#0ba09a" }} />
                         <Box>
-                          <Text size="sm" fw={500}>Settings</Text>
-                          <Text size="xs" c="dimmed">API Keys, Team & Configuration</Text>
+                          <Text size="sm" fw={500}>
+                            Settings
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            API Keys, Team & Configuration
+                          </Text>
                         </Box>
                       </Group>
                     </Box>
