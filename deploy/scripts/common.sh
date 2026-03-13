@@ -198,6 +198,7 @@ load_env() {
     export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
     export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
     export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"
+    export CONFIG_REPLAY_API_BASE_URL="${CONFIG_REPLAY_API_BASE_URL:-}"
 }
 
 # ---------------------------------------------------------------------------
