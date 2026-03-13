@@ -25,6 +25,7 @@ import { COOKIES_KEY } from "../../constants";
 import {
   getMockSessionListingResponse,
   getMockSessionDetailApiResponse,
+  getMockSnapshotsData,
 } from "../../screens/SessionReplayDetail/mock/sessionReplayMock";
 
 export class SessionReplayService {
@@ -226,6 +227,20 @@ export class SessionReplayService {
   async getSnapshotsSource(
     sessionId: string,
   ): Promise<SnapshotsSourceResponse["data"]> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      const baseTs = 1773404248354;
+      return {
+        snapshotSource: "mock",
+        sources: [
+          {
+            blobKey: "0",
+            startTimestamp: new Date(baseTs).toISOString(),
+            endTimestamp: new Date(baseTs + 10000).toISOString(),
+          },
+        ],
+      };
+    }
+
     const url = `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-source`;
 
     const response = await makeRequestToServer({
@@ -254,6 +269,10 @@ export class SessionReplayService {
     startBlobKey: string,
     endBlobKey: string,
   ): Promise<SnapshotsDataResponse["data"]> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return getMockSnapshotsData();
+    }
+
     const url = new URL(
       `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-data`,
     );

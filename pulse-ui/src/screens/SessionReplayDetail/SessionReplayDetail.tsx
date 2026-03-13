@@ -15,8 +15,8 @@ import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
 import { SessionTimelineSection } from "./components/SessionTimelineSection";
-import { getSessionReplayImages } from "../../services/sessionReplay/sessionReplayImages";
 import { DEFAULTS } from "./constants/strings";
+import { MOCK_SNAPSHOT_BASE_TS } from "./mock/sessionReplayMock";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
@@ -50,8 +50,6 @@ export const SessionReplayDetail: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const useSnapshotApi =
-    process.env.REACT_APP_USE_MOCK_SESSION_REPLAY !== "true";
 
   const {
     data: apiSessionData,
@@ -68,8 +66,11 @@ export const SessionReplayDetail: React.FC = () => {
     return getMockSessionDetail(sessionId || DEFAULTS.SESSION_ID_UNKNOWN);
   }, [apiSessionData, sessionId]);
 
+  // When mock session replay is on, snapshot events use MOCK_SNAPSHOT_BASE_TS; align session start so image timestamps (event.ts - sessionStart) match currentTime (0..duration).
   const snapshotSessionStart =
-    sessionData.startTime ?? new Date().toISOString();
+    process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true"
+      ? new Date(MOCK_SNAPSHOT_BASE_TS).toISOString()
+      : (sessionData.startTime ?? new Date().toISOString());
 
   const {
     images: snapshotImages,
@@ -79,35 +80,11 @@ export const SessionReplayDetail: React.FC = () => {
     sessionId: sessionId ?? undefined,
     sessionStartTime: snapshotSessionStart,
     currentTime,
-    enabled: useSnapshotApi && !!sessionId,
+    enabled: !!sessionId,
   });
 
-  const [mockImages, setMockImages] = useState<any[]>([]);
-  const [mockImagesLoading, setMockImagesLoading] = useState(false);
-
-  useEffect(() => {
-    if (!useSnapshotApi && sessionId) {
-      const loadImages = async () => {
-        setMockImagesLoading(true);
-        try {
-          const images = await getSessionReplayImages(
-            sessionId,
-            new Date(sessionData.startTime),
-            10,
-          );
-          setMockImages(images);
-        } catch (error) {
-          console.error("Failed to load session replay images:", error);
-        } finally {
-          setMockImagesLoading(false);
-        }
-      };
-      loadImages();
-    }
-  }, [useSnapshotApi, sessionId, sessionData.startTime]);
-
-  const replayImages = useSnapshotApi ? snapshotImages : mockImages;
-  const imagesLoading = useSnapshotApi ? snapshotLoading : mockImagesLoading;
+  const replayImages = snapshotImages;
+  const imagesLoading = snapshotLoading;
 
   const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
     useMemo(() => {

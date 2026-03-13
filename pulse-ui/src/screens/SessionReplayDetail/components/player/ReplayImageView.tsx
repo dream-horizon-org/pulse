@@ -35,7 +35,6 @@ export function ReplayImageView({
           />
         )}
 
-      {/* Render current image with smooth transition */}
       <img
         key={`img-${imageToShow.timestamp}`}
         src={imageToShow.imageUrl}
@@ -44,7 +43,7 @@ export function ReplayImageView({
         style={{
           opacity: loadedImages.has(imageToShow.timestamp)
             ? transitionOpacity
-            : 0.3,
+            : 1,
           transition: "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
           display: "block",
           visibility: "visible",

@@ -20,10 +20,43 @@ const MAX_BLOBS_PER_REQUEST = 20;
 
 /** Type 4 = image frame with href in data */
 const IMAGE_FRAME_TYPE = 4;
+/** Type 3 = incremental snapshot with updates[].wireframe (may have base64) */
+const INCREMENTAL_SNAPSHOT_TYPE = 3;
+
+/**
+ * Decode raw base64 string to a blob: URL.
+ * Detects MIME from the binary header (RIFF → webp, PNG → png, JFIF/Exif → jpeg, fallback octet-stream).
+ */
+function base64ToBlobUrl(raw: string): string | null {
+  try {
+    const cleaned = raw.replace(/\s/g, "");
+    const binary = atob(cleaned);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    let mime = "application/octet-stream";
+    const header = binary.slice(0, 16);
+    if (header.startsWith("RIFF") && header.includes("WEBP")) {
+      mime = "image/webp";
+    } else if (binary.charCodeAt(0) === 0x89 && header.includes("PNG")) {
+      mime = "image/png";
+    } else if (binary.charCodeAt(0) === 0xff && binary.charCodeAt(1) === 0xd8) {
+      mime = "image/jpeg";
+    }
+
+    const blob = new Blob([bytes], { type: mime });
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Convert API snapshot events to player images.
- * Uses type 4 events (image frame) with data.href; others are skipped for display.
+ * Uses type 4 events (image frame) with data.href, or type 3 with data.updates[].wireframe.base64.
+ * Base64 payloads are decoded to blob: URLs for reliable <img> rendering.
  */
 export function snapshotEventsToImages(
   events: SnapshotEvent[],
@@ -32,13 +65,35 @@ export function snapshotEventsToImages(
 ): SessionReplayImage[] {
   const images: SessionReplayImage[] = [];
   for (const event of events) {
+    const timestampMs = Math.max(0, event.timestamp - sessionStartMs);
     if (event.type === IMAGE_FRAME_TYPE && event.data?.href) {
-      const timestampMs = Math.max(0, event.timestamp - sessionStartMs);
       images.push({
         timestamp: timestampMs,
         imageUrl: event.data.href,
         blobKey,
       });
+      continue;
+    }
+    const updates = event.data?.updates;
+    if (
+      event.type === INCREMENTAL_SNAPSHOT_TYPE &&
+      Array.isArray(updates) &&
+      updates.length > 0
+    ) {
+      for (const u of updates as Array<{ wireframe?: { base64?: string } }>) {
+        const w = u.wireframe;
+        if (w?.base64) {
+          const blobUrl = base64ToBlobUrl(w.base64);
+          if (blobUrl) {
+            images.push({
+              timestamp: timestampMs,
+              imageUrl: blobUrl,
+              blobKey,
+            });
+          }
+          break;
+        }
+      }
     }
   }
   return images;
