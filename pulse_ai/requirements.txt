@@ -1,2 +1,9 @@
 google-adk==1.26.0
 python-dotenv==1.2.2
+httpx==0.28.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.3
+respx==0.22.0
+freezegun==1.5.5

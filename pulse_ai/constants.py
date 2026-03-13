@@ -1,3 +1,14 @@
 DEFAULT_MODEL = 'gemini-2.5-flash'
 
 AGENT_MODEL_ENV_KEY = 'AGENT_MODEL'
+
+# Pulse backend connection
+PULSE_BASE_URL_ENV_KEY = 'PULSE_BASE_URL'
+DEFAULT_PULSE_BASE_URL = 'http://localhost:8080'
+
+# Authentication
+PULSE_ACCESS_TOKEN_ENV_KEY = 'PULSE_ACCESS_TOKEN'
+PULSE_REFRESH_TOKEN_ENV_KEY = 'PULSE_REFRESH_TOKEN'
+
+# User identity (required for write operations)
+PULSE_USER_EMAIL_ENV_KEY = 'PULSE_USER_EMAIL'
