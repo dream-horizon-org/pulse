@@ -1,5 +1,5 @@
 import { Box, Text } from "@mantine/core";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useMemo } from "react";
 import { ApiCallListProps, ApiCall } from "./ApiCallList.interface";
 import classes from "./ApiCallList.module.css";
@@ -7,6 +7,7 @@ import { NetworkApiCard } from "../NetworkApiCard";
 
 export const ApiCallList: React.FC<ApiCallListProps> = ({ screenName }) => {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
 
   // Mock API calls data for the screen
   const apiCalls: ApiCall[] = useMemo(
@@ -77,7 +78,7 @@ export const ApiCallList: React.FC<ApiCallListProps> = ({ screenName }) => {
 
   const handleApiClick = (apiId: string) => {
     // Navigate using apiId instead of screenName/endpoint
-    navigate(`/network-apis/${apiId}`);
+    navigate(`/projects/${projectId}/network-apis/${apiId}`);
   };
 
   return (

@@ -26,7 +26,7 @@ export const useGetScreenNameToEventQueryMapping = ({
 
       if (!search_string) {
         return {
-          data: [],
+          data: { eventList: [], recordCount: 0 },
           error: null,
         };
       }
@@ -41,6 +41,6 @@ export const useGetScreenNameToEventQueryMapping = ({
       });
     },
     placeholderData: keepPreviousData,
-    enabled: false,
+    enabled: !!queryParams?.search_string?.trim(),
   });
 };

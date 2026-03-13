@@ -85,12 +85,13 @@ export const makeRequestToServer = async (
   const { url, init } = requestConfig;
   const { headers, body, method, ...rest } = init ?? {};
   const authHeaders = buildAuthHeaders();
+  const isFormData = body instanceof FormData;
 
   return await fetch(url, {
     method: method ?? API_METHODS.GET,
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
+      ...(!isFormData && { "Content-Type": "application/json" }),
       ...authHeaders,
       ...(headers && { ...headers }),
     },
