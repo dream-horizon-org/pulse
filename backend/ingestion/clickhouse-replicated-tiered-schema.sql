@@ -168,3 +168,56 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
 ON CLUSTER `pulse-clickhouse`
 AS otel.stack_trace_events_local
 ENGINE = Distributed(`pulse-clickhouse`, otel, stack_trace_events_local, cityHash64(TraceId));
+
+
+CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
+ON CLUSTER `pulse-clickhouse`
+(
+    project_id String,
+    month Date,
+    source LowCardinality(String),
+    event_count SimpleAggregateFunction(sum, UInt64),
+    session_count AggregateFunction(uniqCombined64, String)
+)
+ENGINE = ReplicatedAggregatingMergeTree('/clickhouse/tables/{shard}/otel/project_monthly_usage', '{replica}')
+PARTITION BY toYYYYMM(month)
+ORDER BY (project_id, month, source);
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_logs_mv
+ON CLUSTER `pulse-clickhouse`
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+FROM otel.otel_logs_local
+GROUP BY project_id, month, source;
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_traces_mv
+ON CLUSTER `pulse-clickhouse`
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+FROM otel.otel_traces_local
+GROUP BY project_id, month, source;
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stacktraces_sessions_mv
+ON CLUSTER `pulse-clickhouse`
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    0 AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+FROM otel.stack_trace_events_local
+GROUP BY project_id, month, source;
