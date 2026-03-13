@@ -24,11 +24,14 @@ const CHART_COLORS = {
 };
 
 export const IssueDetail: React.FC = () => {
-  const { groupId } = useParams<{ groupId: string }>();
+  const { groupId, projectId } = useParams<{
+    groupId: string;
+    projectId: string;
+  }>();
   const navigate = useNavigate();
 
   const [trendView, setTrendView] = useState("aggregated");
-  
+
   // Use default time range (hooks will use last 7 days if empty)
   const startTime = "";
   const endTime = "";
@@ -94,13 +97,17 @@ export const IssueDetail: React.FC = () => {
     device: "all",
   });
 
-
   // Loading state - show skeleton layout matching actual content
   if (issueQueryState.isLoading) {
     return (
       <Box className={classes.pageContainer}>
         {/* Back Button Skeleton */}
-        <SkeletonLoader height={32} width={160} radius="md" className={classes.backButton} />
+        <SkeletonLoader
+          height={32}
+          width={160}
+          radius="md"
+          className={classes.backButton}
+        />
 
         {/* Issue Details Card Skeleton */}
         <Paper className={classes.issueCardSkeleton}>
@@ -173,7 +180,7 @@ export const IssueDetail: React.FC = () => {
             variant="light"
             color="teal"
             mt="md"
-            onClick={() => navigate("/app-vitals")}
+            onClick={() => navigate(`/projects/${projectId}/app-vitals`)}
           >
             Go Back to App Vitals
           </Button>
@@ -195,7 +202,7 @@ export const IssueDetail: React.FC = () => {
             variant="light"
             color="teal"
             mt="md"
-            onClick={() => navigate("/app-vitals")}
+            onClick={() => navigate(`/projects/${projectId}/app-vitals`)}
           >
             Go Back to App Vitals
           </Button>
@@ -211,14 +218,18 @@ export const IssueDetail: React.FC = () => {
         variant="subtle"
         color="teal"
         leftSection={<IconArrowLeft size={16} />}
-        onClick={() => navigate("/app-vitals")}
+        onClick={() => navigate(`/projects/${projectId}/app-vitals`)}
         className={classes.backButton}
       >
         Back to App Vitals
       </Button>
 
       {/* Issue Details */}
-      <IssueDetailsCard issue={issue} issueType={issueType} groupId={groupId || ""}/>
+      <IssueDetailsCard
+        issue={issue}
+        issueType={issueType}
+        groupId={groupId || ""}
+      />
 
       {/* Occurrence Section */}
       <OccurrenceSection

@@ -6,6 +6,8 @@ import {
   Container,
   Image,
   Button,
+  Switch,
+  Tooltip,
 } from "@mantine/core";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { getFirebaseAuth } from "../../config/firebase";
@@ -34,6 +36,7 @@ export function Login() {
   const { setTenantInfo } = useTenantContext();
   const [isFetchingTokensFromServer, setIsFetchingTokensFromServer] =
     useState<boolean>(false);
+  const [loginAsNewUser, setLoginAsNewUser] = useState(false);
 
   const loginMutation = useLogin();
 
@@ -71,25 +74,28 @@ export function Login() {
 
   const handleLoginSuccess = async (data: any, firebaseToken: string) => {
     if (data.needsOnboarding) {
-      sessionStorage.setItem('onboarding_user', JSON.stringify({
-        userId: data.userId,
-        email: data.email,
-        name: data.name,
-      }));
-      sessionStorage.setItem('firebase_token', firebaseToken);
+      sessionStorage.setItem(
+        "onboarding_user",
+        JSON.stringify({
+          userId: data.userId,
+          email: data.email,
+          name: data.name,
+        }),
+      );
+      sessionStorage.setItem("firebase_token", firebaseToken);
       navigate(ROUTES.ONBOARDING.basePath);
     } else {
       await setCookiesAfterAuthentication(data);
-      
+
       if (data.tenantId && data.tenantRole) {
         setTenantInfo({
           tenantId: data.tenantId,
-          tenantName: data.tenantName || '',
-          userRole: data.tenantRole as 'admin' | 'member',
-          tier: data.tier || 'free',
+          tenantName: data.tenantName || "",
+          userRole: data.tenantRole as "admin" | "member",
+          tier: data.tier || "free",
         });
       }
-      
+
       // Use backend's redirectTo if available, otherwise default to projects list
       const redirectPath = data.redirectTo || `/${data.tenantId}/projects`;
       navigate(redirectPath);
@@ -99,13 +105,13 @@ export function Login() {
   const onFirebaseGoogleLogin = async () => {
     setIsFetchingTokensFromServer(true);
     logEvent("User logged in", ROUTES.LOGIN.key);
-    
+
     try {
       const auth = getFirebaseAuth();
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const firebaseToken = await result.user.getIdToken();
-      
+
       loginMutation.mutate(firebaseToken, {
         onSuccess: async (response) => {
           if (response?.data) {
@@ -114,7 +120,11 @@ export function Login() {
         },
         onError: (error) => {
           console.error("[Login] ❌ Backend login error:", error);
-          showErrorToast(error instanceof Error ? error.message : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE);
+          showErrorToast(
+            error instanceof Error
+              ? error.message
+              : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE,
+          );
         },
       });
     } catch (error: any) {
@@ -129,18 +139,23 @@ export function Login() {
   const onDummyLogin = async () => {
     setIsFetchingTokensFromServer(true);
     logEvent("User logged in (dummy)", ROUTES.LOGIN.key);
-    
-    loginMutation.mutate("dev-id-token", {
+
+    const firebaseToken = loginAsNewUser ? "new-user-token" : "dev-id-token";
+    loginMutation.mutate(firebaseToken, {
       onSuccess: async (response) => {
         if (response?.data) {
-          await handleLoginSuccess(response.data, "dev-id-token");
+          await handleLoginSuccess(response.data, firebaseToken);
         }
       },
       onError: (error) => {
-        showErrorToast(error instanceof Error ? error.message : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE);
+        showErrorToast(
+          error instanceof Error
+            ? error.message
+            : COMMON_CONSTANTS.DEFAULT_ERROR_MESSAGE,
+        );
       },
     });
-    
+
     setIsFetchingTokensFromServer(false);
   };
 
@@ -152,7 +167,7 @@ export function Login() {
           <Box className={classes.leftSide}>
             <Box className={classes.dashboardPreview}>
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/landing_page.png"}
+                src={(process.env.PUBLIC_URL || "") + "/landing_page.png"}
                 alt="Dashboard Preview"
                 className={classes.previewImage}
               />
@@ -188,22 +203,38 @@ export function Login() {
                       Sign in to get started
                     </Text>
                     {shouldShowDummyLogin ? (
-                      <Button
-                        size="lg"
-                        radius="xl"
-                        onClick={onDummyLogin}
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
-                          border: "none",
-                          fontWeight: 600,
-                          fontSize: "16px",
-                          padding: "12px 32px",
-                          minWidth: "240px",
-                        }}
-                      >
-                        Sign in (Dev Mode)
-                      </Button>
+                      <Stack align="center" gap="md">
+                        <Tooltip
+                          label="Enable this to test the onboarding flow as a new user"
+                          position="top"
+                          withArrow
+                        >
+                          <Switch
+                            label="Login as New User (Test Onboarding)"
+                            checked={loginAsNewUser}
+                            onChange={(event) =>
+                              setLoginAsNewUser(event.currentTarget.checked)
+                            }
+                            size="md"
+                          />
+                        </Tooltip>
+                        <Button
+                          size="lg"
+                          radius="xl"
+                          onClick={onDummyLogin}
+                          style={{
+                            background:
+                              "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                            border: "none",
+                            fontWeight: 600,
+                            fontSize: "16px",
+                            padding: "12px 32px",
+                            minWidth: "240px",
+                          }}
+                        >
+                          Sign in (Dev Mode)
+                        </Button>
+                      </Stack>
                     ) : (
                       <Button
                         size="lg"
