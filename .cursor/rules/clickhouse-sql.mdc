@@ -65,7 +65,15 @@ Accessed via `SpanAttributes['key']` (for traces) or `LogAttributes['key']` (for
 
 ## Multi-Tenant Data Isolation
 
-Each tenant has dedicated ClickHouse credentials (stored in MySQL `clickhouse_credentials` table). The backend resolves the tenant from JWT/headers via `TenantFilter`, then uses `ClickhouseTenantConnectionPoolManager` to route queries through per-tenant connection pools — each pool authenticates as that tenant's ClickHouse user, scoping data access to their `ProjectId`.
+Each project has dedicated ClickHouse credentials (stored in MySQL `clickhouse_project_credentials` table). During project creation, `ClickhouseProjectService` creates:
+
+1. **ClickHouse user**: `project_{sanitized_project_id}`
+2. **Restrictive row policies**: One per table (`otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`) filtering by `ProjectId`
+3. **SELECT grants**: On `otel.*` database
+
+Row policies use `AS RESTRICTIVE` to enforce mandatory filtering — users can ONLY see rows matching their `ProjectId`.
+
+**Cluster support**: For clustered ClickHouse deployments (production), set `CLICKHOUSE_CLUSTER_NAME=pulse-clickhouse`. All DDL statements (`CREATE USER`, `CREATE ROW POLICY`, `GRANT`, `DROP`, `ALTER`) will include `ON CLUSTER` to replicate across all shards/replicas.
 
 For local CLI queries, use the admin credentials from `deploy/.env`:
 - User: `OTEL_CLICKHOUSE_USER` (default: `pulse_user`)

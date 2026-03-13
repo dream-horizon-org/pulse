@@ -80,29 +80,30 @@ public class ClickhouseProjectService {
 
     return Completable.fromAction(() -> {
           ConnectionPool adminPool = poolManager.getAdminPool();
+          String onCluster = poolManager.getOnClusterClause();
 
           // Step 1: Create ClickHouse user
           String createUserSQL = String.format(
-              "CREATE USER IF NOT EXISTS %s IDENTIFIED WITH plaintext_password BY '%s'",
-              username, password
+              "CREATE USER IF NOT EXISTS %s%s IDENTIFIED WITH plaintext_password BY '%s'",
+              username, onCluster, password
           );
           executeSQL(adminPool, createUserSQL);
-          log.info("Created ClickHouse user: {}", username);
+          log.info("Created ClickHouse user: {}{}", username, onCluster.isBlank() ? "" : " on cluster");
 
-          // Step 2: Create row policies for all tables
+          // Step 2: Create row policies for all tables (AS RESTRICTIVE to enforce filtering)
           for (String table : CLICKHOUSE_TABLES) {
             String policyName = generatePolicyName(projectId, table);
             String createPolicySQL = String.format(
-                "CREATE ROW POLICY IF NOT EXISTS %s ON %s " +
+                "CREATE ROW POLICY IF NOT EXISTS %s%s ON %s AS RESTRICTIVE " +
                     "FOR SELECT USING ProjectId = '%s' TO %s",
-                policyName, table, projectId, username
+                policyName, onCluster, table, projectId, username
             );
             executeSQL(adminPool, createPolicySQL);
             log.debug("Created row policy: {} for table: {}", policyName, table);
           }
 
           // Step 3: Grant SELECT permissions
-          String grantSQL = String.format("GRANT SELECT ON otel.* TO %s", username);
+          String grantSQL = String.format("GRANT%s SELECT ON otel.* TO %s", onCluster, username);
           executeSQL(adminPool, grantSQL);
           log.info("Granted SELECT permissions to: {}", username);
         })
@@ -155,19 +156,20 @@ public class ClickhouseProjectService {
 
         return Completable.fromAction(() -> {
             ConnectionPool adminPool = poolManager.getAdminPool();
+            String onCluster = poolManager.getOnClusterClause();
 
             // Drop row policies
             for (String table : CLICKHOUSE_TABLES) {
                 String policyName = generatePolicyName(projectId, table);
                 String dropPolicySQL = String.format(
-                    "DROP ROW POLICY IF EXISTS %s ON %s",
-                    policyName, table
+                    "DROP ROW POLICY IF EXISTS %s%s ON %s",
+                    policyName, onCluster, table
                 );
                 executeSQL(adminPool, dropPolicySQL);
             }
 
             // Drop user
-            String dropUserSQL = String.format("DROP USER IF EXISTS %s", username);
+            String dropUserSQL = String.format("DROP USER IF EXISTS %s%s", username, onCluster);
             executeSQL(adminPool, dropUserSQL);
 
             log.info("Removed ClickHouse user: {}", username);
@@ -200,11 +202,12 @@ public class ClickhouseProjectService {
 
         return Completable.fromAction(() -> {
             ConnectionPool adminPool = poolManager.getAdminPool();
+            String onCluster = poolManager.getOnClusterClause();
 
             // Update ClickHouse user password
             String alterUserSQL = String.format(
-                "ALTER USER %s IDENTIFIED WITH plaintext_password BY '%s'",
-                username, newPassword
+                "ALTER USER %s%s IDENTIFIED WITH plaintext_password BY '%s'",
+                username, onCluster, newPassword
             );
             executeSQL(adminPool, alterUserSQL);
             log.info("Updated ClickHouse password for user: {}", username);
