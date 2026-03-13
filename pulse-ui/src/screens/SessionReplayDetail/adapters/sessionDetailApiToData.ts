@@ -65,6 +65,28 @@ function toSafeISOString(ms: number): string {
   return d.toISOString();
 }
 
+/** Parse event timestamp (ISO string or relative ms number) to relative ms from session start. */
+function parseEventTimestampMs(timestamp: string, baseMs: number): number {
+  if (typeof timestamp !== "string" || !timestamp) return 0;
+  const parsed = Date.parse(timestamp);
+  if (Number.isFinite(parsed)) return parsed - baseMs;
+  const rel = Number(timestamp);
+  return Number.isFinite(rel) ? rel : 0;
+}
+
+function parseStatusToNumber(status: string): number {
+  const n = parseInt(status, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** API returns geography as string; UI expects { country, city }. */
+function parseGeography(
+  geography: string,
+): { country: string; city: string } | undefined {
+  if (typeof geography !== "string" || !geography.trim()) return undefined;
+  return { country: geography.trim(), city: "" };
+}
+
 /**
  * Convert API response to SessionDetailData.
  * Contract has no traces/logs tables; we build them from events[] and exceptions[].
@@ -84,19 +106,18 @@ export function sessionDetailApiToData(
 
   const criticalInteractions: CriticalInteraction[] = (
     api.interactions ?? []
-  ).map((i) => ({
-    interactionId: i.id,
-    interactionName: i.name,
-    displayName: i.name,
+  ).map((i, index) => ({
+    interactionId: index + 1,
+    interactionName: i.interactionName,
+    displayName: i.interactionName,
     status: i.status === "success" ? "success" : "failed",
-    timestamp: i.timestamp,
-    latency: i.latency,
+    latency: i.durationMs,
     apdexScore: i.apdexScore,
   }));
 
   const events: SessionEvent[] = (api.events ?? []).map((e) => ({
-    timestamp: e.timestamp,
-    type: e.type === "interaction" ? "click" : e.type,
+    timestamp: parseEventTimestampMs(e.timestamp, baseMs),
+    type: e.eventType === "interaction" ? "click" : e.eventType,
     description: e.description,
   }));
 
@@ -105,8 +126,9 @@ export function sessionDetailApiToData(
       timestamp: n.timestamp,
       method: n.method,
       url: n.url,
-      status: n.status,
-      duration: n.duration,
+      status: parseStatusToNumber(n.status),
+      duration: n.durationNs / 1e6,
+      ...(n.target && { target: n.target }),
     }),
   );
 
@@ -120,7 +142,7 @@ export function sessionDetailApiToData(
     device: api.device,
     os: api.osVersion,
     appVersion: api.appVersion,
-    geography: api.geography,
+    geography: parseGeography(api.geography),
     interactionQuality:
       typeof api.quality === "number" && Number.isFinite(api.quality)
         ? api.quality
@@ -136,10 +158,10 @@ export function sessionDetailApiToData(
     consoleLogs: [],
     networkRequests,
     performance: {
-      interactionMetrics: (api.interactions ?? []).map((i) => ({
-        interactionId: i.id,
-        interactionName: i.name,
-        duration: i.latency,
+      interactionMetrics: (api.interactions ?? []).map((i, index) => ({
+        interactionId: index + 1,
+        interactionName: i.interactionName,
+        duration: i.durationMs,
         apdexScore: i.apdexScore,
       })),
     },
@@ -154,21 +176,20 @@ function buildTracesFromEvents(
     return { fields: TRACE_FIELDS, rows: [] };
   }
   const rows: (string | number | null)[][] = events.map((e) => {
-    const relTs =
-      typeof e.timestamp === "number" && Number.isFinite(e.timestamp)
-        ? e.timestamp
-        : 0;
+    const relTs = parseEventTimestampMs(e.timestamp, startTimeMs);
     const iso = toSafeISOString(startTimeMs + relTs);
+    const durationMs =
+      typeof e.durationNs === "number" ? e.durationNs / 1e6 : 0;
     return [
       e.traceId,
       e.spanId,
       "",
-      e.description || e.type,
+      e.description || e.eventType,
       iso,
-      0,
+      durationMs,
       "UNSET",
-      e.type,
-      e.type,
+      e.eventType,
+      e.eventType,
       "session-replay",
     ];
   });
@@ -199,13 +220,13 @@ function buildExceptionsFromApi(
       iso,
       "error",
       e.title,
-      e.description,
+      e.exceptionStackTrace,
       e.title,
       "",
       e.traceId,
       e.spanId,
       e.spanId || "",
-      "error",
+      e.pulseType,
     ];
   });
   return { fields: EXCEPTION_FIELDS, rows };

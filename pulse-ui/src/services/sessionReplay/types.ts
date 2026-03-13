@@ -440,37 +440,41 @@ export interface GetSessionDetailResponse {
 export type SessionDetailInclude = "traces" | "logs" | "exceptions" | "events";
 
 export interface SessionDetailInteraction {
-  id: number;
-  name: string;
+  interactionName: string;
   status: "success" | "failed";
-  timestamp: number;
-  latency: number;
+  successCount: number;
+  failureCount: number;
+  durationMs: number;
   apdexScore: number;
 }
 
 export interface SessionDetailNetworkRequest {
   timestamp: number;
+  durationNs: number;
   method: string;
   url: string;
-  status: number;
-  duration: number;
+  status: string;
+  target: string;
+  traceId: string;
+  spanId: string;
 }
 
 export interface SessionDetailEvent {
   traceId: string;
   spanId: string;
-  timestamp: number;
-  type: "click" | "navigation" | "api_call" | "error" | "interaction";
+  timestamp: string;
+  eventType: "click" | "navigation" | "api_call" | "error" | "interaction";
   description: string;
+  durationNs: number;
 }
 
 export interface SessionDetailException {
   traceId: string;
   spanId: string;
+  pulseType: string;
   timestamp: number;
-  level: "error";
   title: string;
-  description: string;
+  exceptionStackTrace: string;
 }
 
 export interface SessionDetailApiResponse {
@@ -484,7 +488,7 @@ export interface SessionDetailApiResponse {
   device: string;
   osVersion: string;
   appVersion: string;
-  geography: { country: string; city: string };
+  geography: string;
   quality: number;
   journey: string[];
   interactions: SessionDetailInteraction[];
