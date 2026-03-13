@@ -13,8 +13,6 @@ import {
 } from "../constants/sessionList.constants";
 import { SessionReplayFilterState } from "../../../contexts/SessionReplayFilterContext";
 
-const DEFAULT_PROJECT_ID = process.env.REACT_APP_PROJECT_ID ?? "default";
-
 function buildTimeRangeFromState(
   filterState: SessionReplayFilterState,
 ): TimeRange {
@@ -103,7 +101,6 @@ export function useSessionListData({
           : (pageCursors[filterState.currentPage - 2] ?? undefined);
 
       const response = await sessionReplayService.postSessionsListing({
-        projectId: DEFAULT_PROJECT_ID,
         timeRange,
         page: {
           limit: filterState.pageSize,

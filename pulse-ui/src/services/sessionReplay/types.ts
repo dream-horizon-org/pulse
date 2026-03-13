@@ -628,7 +628,6 @@ export type SortField =
 export type SortDirection = "ASC" | "DESC";
 
 export type SessionListingRequest = {
-  projectId: string;
   timeRange: TimeRange;
   page?: PageRequest;
   filters?: FiltersRequest;
