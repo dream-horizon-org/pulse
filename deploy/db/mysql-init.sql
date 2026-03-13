@@ -766,6 +766,37 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
     INDEX idx_suppression_email (email)
 );
 
+-- Event Definitions catalog (project-scoped)
+CREATE TABLE IF NOT EXISTS event_definitions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255),
+    description TEXT,
+    category VARCHAR(64),
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by VARCHAR(255) NOT NULL,
+    updated_by VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_project_event (project_id, event_name),
+    INDEX idx_event_def_project (project_id),
+    INDEX idx_event_def_search (project_id, is_archived, event_name)
+);
+
+CREATE TABLE IF NOT EXISTS event_attribute_definitions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_definition_id BIGINT NOT NULL,
+    attribute_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    data_type VARCHAR(32) NOT NULL DEFAULT 'string',
+    is_required BOOLEAN NOT NULL DEFAULT FALSE,
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE KEY uk_event_attr (event_definition_id, attribute_name),
+    CONSTRAINT fk_attr_event FOREIGN KEY (event_definition_id)
+        REFERENCES event_definitions(id) ON DELETE CASCADE
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';
