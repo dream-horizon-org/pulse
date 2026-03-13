@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from pulse_ai.agent import root_agent
 from pulse_ai.constants import APP_NAME, DEFAULT_CORS_ORIGINS
+from pulse_ai.server.middleware import AuthMiddleware
 
 load_dotenv()
 
@@ -46,6 +47,7 @@ def _create_session_service() -> Any:
 
 app = FastAPI(title="Pulse AI Agent Server")
 
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_cors_origins(),
