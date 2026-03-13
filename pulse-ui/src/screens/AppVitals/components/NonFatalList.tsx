@@ -1,5 +1,5 @@
 import { IconExclamationCircle } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useExceptionListData } from "./ExceptionTable/hooks";
 import { ExceptionTable } from "./ExceptionTable";
 import type { ExceptionRow } from "./ExceptionTable/ExceptionTable.interface";
@@ -23,6 +23,7 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
   screenName,
 }) => {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const { exceptions, queryState } = useExceptionListData({
     startTime,
     endTime,
@@ -34,7 +35,7 @@ export const NonFatalList: React.FC<NonFatalListProps> = ({
   });
 
   const handleRowClick = (groupId: string) => {
-    navigate(`/app-vitals/${groupId}`);
+    navigate(`/projects/${projectId}/app-vitals/${groupId}`);
   };
 
   // Transform exceptions to ExceptionRow format

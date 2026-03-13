@@ -13,7 +13,7 @@ import {
   ScrollArea,
   Stack,
   Text,
-  Tooltip,
+  Tooltip
 } from "@mantine/core";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -24,7 +24,7 @@ import {
   MULTI_TENANT_CONSTANTS,
   NAVBAR_CONSTANTS,
   NAVBAR_ITEMS,
-  ROUTES,
+  ROUTES
 } from "../../constants";
 import { TIERS } from "../../constants/Tiers";
 import {
@@ -35,7 +35,7 @@ import {
   IconMail,
   IconMessageCircle,
   IconSettings,
-  IconUserCircle,
+  IconUserCircle
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef, useState } from "react";
@@ -345,8 +345,13 @@ export function Navbar({
               <Box
                 className={classes.menuItem}
                 onClick={() => {
+                  navigate(
+                    ROUTES.ORGANIZATION_MEMBERS.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
                   setPopoverOpened(false);
-                  navigate(ROUTES.SETTINGS.basePath);
                 }}
                 style={{ cursor: "pointer" }}
               >

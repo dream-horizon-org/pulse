@@ -13,7 +13,9 @@
     <logger name="io.netty" level="info"/>
     <logger name="org.jboss.resteasy" level="info"/>
     <logger name="org.apache" level="info"/>
-
+     <!-- Prevent LoggerFilter from logging request bodies (prevents OOM on large file uploads) -->
+    <logger name="com.dream11.rest.filter.LoggerFilter" level="info"/>
+    
     <root level="debug">
         <appender-ref ref="STDOUT"/>
     </root>

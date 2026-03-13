@@ -82,7 +82,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
@@ -113,7 +113,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             initializeInternal(
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
-                projectId = projectId,
+                apiKey = apiKey,
                 dataCollectionState = dataCollectionState,
                 tracerProviderCustomizer = tracerProviderCustomizer,
                 loggerProviderCustomizer = loggerProviderCustomizer,
@@ -141,7 +141,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private fun initializeInternal(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
@@ -170,8 +170,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 Context.MODE_PRIVATE,
             )
 
-        val projectIdHeader = createProjectIdHeader(projectId)
-        val endpointHeadersWithProject = endpointHeaders + projectIdHeader
+        val apiKeyHeader = createApiKeyHeader(apiKey)
+        val endpointHeadersWithProject = endpointHeaders + apiKeyHeader
 
         val currentSdkConfig =
             PulseSdkConfigRefresher.loadAndRefresh(
@@ -195,7 +195,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
-            put(PulseAttributes.PROJECT_ID, extractProjectID(projectId))
+            put(PulseAttributes.PROJECT_ID, extractProjectID(apiKey))
             resource?.invoke(this)
         }
 
@@ -241,7 +241,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             OtlpHttpSpanExporter
                 .builder()
                 .setEndpoint(finalSpanEndpointConnectivity.getUrl())
-                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                 .build()
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
@@ -259,7 +259,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalLogEndpointConnectivity.getUrl())
-                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                             .build(),
                     PulseSignalMatchCondition(
                         name = ".*",
@@ -273,7 +273,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
-                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                             .build(),
                 ),
             )
@@ -282,7 +282,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             OtlpHttpMetricExporter
                 .builder()
                 .setEndpoint(finalMetricEndpointConnectivity.getUrl())
-                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                 .build()
 
         val baseSpanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
@@ -299,8 +299,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
-            if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
+            currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
+                instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
             pulseSamplingProcessors?.run {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
@@ -677,7 +677,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
-        private const val PROJECT_ID_HEADER_KEY = "X-API-KEY"
+        private const val API_KEY_HEADER = "X-API-KEY"
         private const val METERING_SESSION_HEADER_KEY = "X-Pulse-Metering-Session-ID"
 
         internal object PrefsName {
@@ -685,16 +685,16 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
 
-        internal fun extractProjectID(projectId: String): String {
-            val lastUnderscoreIndex = projectId.lastIndexOf('_')
+        internal fun extractProjectID(apiKey: String): String {
+            val lastUnderscoreIndex = apiKey.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {
-                projectId.substring(0, lastUnderscoreIndex)
+                apiKey.take(lastUnderscoreIndex)
             } else {
-                projectId
+                apiKey
             }
         }
 
-        private fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
+        private fun createApiKeyHeader(apiKey: String): Map<String, String> = mapOf(API_KEY_HEADER to apiKey)
 
         private fun createMeteringSessionHeader(meteringSessionId: String): Map<String, String> =
             mapOf(METERING_SESSION_HEADER_KEY to meteringSessionId)

@@ -10,8 +10,10 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
+
 import java.io.IOException;
 import java.lang.reflect.Method;
+
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
@@ -41,6 +43,9 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
   private static final String TNC_DOCUMENTS_PATH = "v1/tnc/documents";
   private static final String CONFIG_PATH = "v1/configs";
+  private static final String ALERTS_PATH_PREFIX = "alerts";
+  private static final String SYMBOL_UPLOAD_PREFIX = "v1/symbolicate/file/upload";
+  private static final String INCIDENTS_PREFIC = "v1/incidents";
 
   @Context
   private ResourceInfo resourceInfo;
@@ -52,21 +57,19 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   public void filter(ContainerRequestContext requestContext) throws IOException {
     String path = requestContext.getUriInfo().getPath();
 
-    // Skip authorization for excluded paths
     if (isExcludedPath(path)) {
       log.debug("Skipping authorization for excluded path: {}", path);
       return;
     }
 
-    // Check if project context is set (required for project-scoped resources)
-    String projectId = ProjectContext.getProjectId();
-    if (projectId == null || projectId.isBlank()) {
-      // No project context - this might be a tenant-level resource
-      log.debug("No project context for path: {}", path);
+    RequiresPermission permission = getRequiresPermission();
+    if (permission == null) {
+      log.debug("No @RequiresPermission annotation for path: {}, skipping authorization", path);
       return;
     }
 
-    // Extract user ID from JWT token
+    String projectId = ProjectContext.requireProjectId();
+
     String userId = extractUserIdFromToken(requestContext);
     if (userId == null) {
       log.warn("Authorization check failed: missing user ID in token for path: {}", path);
@@ -74,20 +77,19 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       return;
     }
 
-    String action = resolveAction(requestContext.getMethod());
+    String action = permission.value();
 
     log.debug("Checking permission: userId={}, action={}, projectId={}", userId, action, projectId);
 
-    // Perform permission check
     try {
       Boolean hasPermission = getOpenFgaService().checkPermission(userId, action, "project", projectId)
-          .blockingGet();
+        .blockingGet();
 
       if (!hasPermission) {
         log.warn("Access denied: userId={}, action={}, projectId={}, path={}",
-            userId, action, projectId, path);
+          userId, action, projectId, path);
         abortForbidden(requestContext,
-            "Access denied: You don't have " + action + " permission for this project");
+          "Access denied: You don't have " + action + " permission for this project");
         return;
       }
 
@@ -95,7 +97,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
     } catch (Exception e) {
       log.error("Permission check failed: userId={}, projectId={}, error={}",
-          userId, projectId, e.getMessage(), e);
+        userId, projectId, e.getMessage(), e);
       abortInternalError(requestContext, "Authorization check failed");
     }
   }
@@ -104,53 +106,42 @@ public class AuthorizationFilter implements ContainerRequestFilter {
    * Check if the path should skip authorization checks.
    */
   private boolean isExcludedPath(String path) {
-      if (path == null) {
-          return false;
-      }
+    if (path == null) {
+      return false;
+    }
 
-      String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+    String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
 
-      return normalizedPath.equals(HEALTHCHECK_PATH)
-              || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
-              || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-              || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
-              || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
-              || normalizedPath.startsWith("v1/incidents")
-        || normalizedPath.startsWith(CONFIG_PATH);
+    return normalizedPath.equals(HEALTHCHECK_PATH)
+      || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
+      || normalizedPath.startsWith(AUTH_PATH_PREFIX)
+      || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
+      || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
+      || normalizedPath.startsWith(CONFIG_PATH)
+      || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+      || normalizedPath.startsWith(SYMBOL_UPLOAD_PREFIX);
   }
 
   /**
-   * Resolve the required OpenFGA permission for the current request.
-   * Checks for a {@link RequiresPermission} annotation on the resource method
-   * (or its class) first; falls back to HTTP-method-based inference.
+   * Returns the {@link RequiresPermission} annotation from the resource method
+   * or its class, or {@code null} if neither is annotated.
    */
-  private String resolveAction(String httpMethod) {
-    if (resourceInfo != null) {
-      Method resourceMethod = resourceInfo.getResourceMethod();
-      if (resourceMethod != null) {
-        RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
-        if (methodAnnotation != null) {
-          return methodAnnotation.value();
-        }
-      }
-      Class<?> resourceClass = resourceInfo.getResourceClass();
-      if (resourceClass != null) {
-        RequiresPermission classAnnotation = resourceClass.getAnnotation(RequiresPermission.class);
-        if (classAnnotation != null) {
-          return classAnnotation.value();
-        }
+  private RequiresPermission getRequiresPermission() {
+    if (resourceInfo == null) {
+      return null;
+    }
+    Method resourceMethod = resourceInfo.getResourceMethod();
+    if (resourceMethod != null) {
+      RequiresPermission methodAnnotation = resourceMethod.getAnnotation(RequiresPermission.class);
+      if (methodAnnotation != null) {
+        return methodAnnotation;
       }
     }
-    return mapHttpMethodToAction(httpMethod);
-  }
-
-  private String mapHttpMethodToAction(String method) {
-    return switch (method.toUpperCase()) {
-      case "GET", "HEAD" -> "can_view";
-      case "POST", "PUT", "PATCH" -> "can_edit";
-      case "DELETE" -> "can_delete_project";
-      default -> "can_view";
-    };
+    Class<?> resourceClass = resourceInfo.getResourceClass();
+    if (resourceClass != null) {
+      return resourceClass.getAnnotation(RequiresPermission.class);
+    }
+    return null;
   }
 
   /**
@@ -199,28 +190,28 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
   private void abortUnauthorized(ContainerRequestContext requestContext, String message) {
     requestContext.abortWith(
-        Response.status(Response.Status.UNAUTHORIZED)
-            .entity("{\"error\": \"Unauthorized\", \"message\": \"" + message + "\"}")
-            .type("application/json")
-            .build()
+      Response.status(Response.Status.UNAUTHORIZED)
+        .entity("{\"error\": \"Unauthorized\", \"message\": \"" + message + "\"}")
+        .type("application/json")
+        .build()
     );
   }
 
   private void abortForbidden(ContainerRequestContext requestContext, String message) {
     requestContext.abortWith(
-        Response.status(Response.Status.FORBIDDEN)
-            .entity("{\"error\": \"Forbidden\", \"message\": \"" + message + "\"}")
-            .type("application/json")
-            .build()
+      Response.status(Response.Status.FORBIDDEN)
+        .entity("{\"error\": \"Forbidden\", \"message\": \"" + message + "\"}")
+        .type("application/json")
+        .build()
     );
   }
 
   private void abortInternalError(ContainerRequestContext requestContext, String message) {
     requestContext.abortWith(
-        Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-            .entity("{\"error\": \"Internal Server Error\", \"message\": \"" + message + "\"}")
-            .type("application/json")
-            .build()
+      Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+        .entity("{\"error\": \"Internal Server Error\", \"message\": \"" + message + "\"}")
+        .type("application/json")
+        .build()
     );
   }
 }

@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.resources.alert.models.AlertResponseDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.CreateAlertRequestDto;
 import org.dreamhorizon.pulseserver.resources.alert.models.UpdateAlertRequestDto;
@@ -31,6 +32,7 @@ public class AlertController {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<AlertResponseDto>> createAlertV3(
       @NotNull @Valid CreateAlertRequestDto createAlertRequestDto
   ) {
@@ -43,6 +45,7 @@ public class AlertController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<AlertResponseDto>> updateAlert(
       @NotNull @Valid UpdateAlertRequestDto updateAlertRequestDto
   ) {
