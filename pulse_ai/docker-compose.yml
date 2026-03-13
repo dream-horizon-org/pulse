@@ -8,12 +8,16 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - TRUSTED_SERVICE_KEY=${AI_SERVICE_KEY:-}
     volumes:
       - ./__init__.py:/app/pulse_ai/__init__.py:ro
       - ./agent.py:/app/pulse_ai/agent.py:ro
       - ./server:/app/pulse_ai/server:ro
       - ./constants.py:/app/pulse_ai/constants.py:ro
       - ./agents:/app/pulse_ai/agents:ro
+    networks:
+      - pulse-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -21,3 +25,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+
+networks:
+  pulse-network:
+    external: true
+    name: deploy_pulse-network
