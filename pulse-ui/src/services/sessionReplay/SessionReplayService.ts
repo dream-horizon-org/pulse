@@ -101,7 +101,7 @@ export class SessionReplayService {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
       return getMockSessionDetailApiResponse(request.sessionId);
     }
-    const path = `/v1/session-replay/sessions/${encodeURIComponent(request.sessionId)}`;
+    const path = `/v1/sessions/${encodeURIComponent(request.sessionId)}`;
     const includeParam = request.include?.length
       ? request.include.join(",")
       : undefined;

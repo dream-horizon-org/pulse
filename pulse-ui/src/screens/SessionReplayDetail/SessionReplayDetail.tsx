@@ -229,6 +229,7 @@ export const SessionReplayDetail: React.FC = () => {
         </>
       )}
 
+      {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}
         sessionDuration={sessionDuration}
@@ -236,6 +237,7 @@ export const SessionReplayDetail: React.FC = () => {
         totalDepth={totalDepth}
         onItemClick={handleSpanClick}
       />
+      */}
       <DetailsSidebar item={selectedSpan} onClose={handleCloseSidebar} />
     </Box>
   );
