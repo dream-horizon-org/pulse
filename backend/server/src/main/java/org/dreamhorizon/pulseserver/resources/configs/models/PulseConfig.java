@@ -1,8 +1,6 @@
 package org.dreamhorizon.pulseserver.resources.configs.models;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.*;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -300,9 +298,10 @@ public class PulseConfig {
     private List<Sdk> sdks;
 
       @JsonProperty("config")
+      @JsonIgnoreProperties(ignoreUnknown = true)
       @JsonTypeInfo(
               use = JsonTypeInfo.Id.NAME,
-              include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
+              visible = true,
               property = "featureName",
               defaultImpl = FeatureConfigProperties.class
       )

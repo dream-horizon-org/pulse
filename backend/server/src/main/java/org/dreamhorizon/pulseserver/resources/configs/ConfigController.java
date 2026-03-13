@@ -117,7 +117,7 @@ public class ConfigController {
   }
 
     private SessionReplayFeatureConfig applySessionReplayDefaults(FeatureConfigProperties config) {
-        SessionReplayFeatureConfig sessionReplayConfig = config != null
+        SessionReplayFeatureConfig sessionReplayConfig = (config instanceof SessionReplayFeatureConfig)
                 ? (SessionReplayFeatureConfig) config
                 : SessionReplayFeatureConfig.builder().build();
 

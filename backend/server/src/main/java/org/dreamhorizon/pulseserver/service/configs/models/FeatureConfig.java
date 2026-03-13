@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.configs.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -26,9 +27,10 @@ public class FeatureConfig {
   private List<Sdk> sdks;
 
     @JsonProperty("config")
+    @JsonIgnoreProperties(ignoreUnknown = true)
     @JsonTypeInfo(
             use = JsonTypeInfo.Id.NAME,
-            include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
+            visible = true,
             property = "featureName",
             defaultImpl = FeatureConfigProperties.class
     )
