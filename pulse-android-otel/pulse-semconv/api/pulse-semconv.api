@@ -31,6 +31,7 @@ public final class com/pulse/semconv/PulseAttributes$PulseTypeValues {
 	public static final field PULSE_NETWORK Lio/opentelemetry/semconv/AttributeKeyTemplate;
 	public static final field SCREEN_LOAD Ljava/lang/String;
 	public static final field SCREEN_SESSION Ljava/lang/String;
+	public static final field SESSION_REPLAY Ljava/lang/String;
 	public static final field SLOW Ljava/lang/String;
 	public static final field TOUCH Ljava/lang/String;
 	public static final fun isNetworkType (Ljava/lang/String;)Z

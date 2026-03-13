@@ -1,0 +1,336 @@
+.deviceContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-md);
+}
+
+/* iOS Device Frame */
+.iosDevice {
+  position: relative;
+  width: 375px;
+  height: 812px;
+  background: #000;
+  border-radius: 40px;
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.iosDevice.deviceCompact {
+  width: 260px;
+  height: 563px;
+  border-radius: 28px;
+  padding: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.iosDevice.deviceCompact .iosNotch {
+  width: 100px;
+  height: 20px;
+  border-radius: 0 0 14px 14px;
+}
+
+.iosDevice.deviceCompact .iosStatusBar {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 11px;
+}
+
+.iosDevice.deviceCompact .iosHomeIndicator {
+  width: 100px;
+  height: 4px;
+  bottom: 6px;
+}
+
+.iosDevice.deviceCompact .deviceContent {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border-radius: 22px;
+}
+
+.iosNotch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 30px;
+  background: #000;
+  border-radius: 0 0 20px 20px;
+  z-index: 10;
+}
+
+.iosStatusBar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 44px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  z-index: 5;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.statusBarLeft {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.statusBarRight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 12px;
+}
+
+.signalBars {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.wifiIcon {
+  font-size: 12px;
+}
+
+.battery {
+  font-size: 12px;
+}
+
+.iosHomeIndicator {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+/* Android Device Frame */
+.androidDevice {
+  position: relative;
+  width: 360px;
+  height: 800px;
+  background: #1a1a1a;
+  border-radius: 24px;
+  padding: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.androidDevice.deviceCompact {
+  width: 252px;
+  height: 560px;
+  border-radius: 18px;
+  padding: 3px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.androidDevice.deviceCompact .androidStatusBar {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.androidDevice.deviceCompact .androidNavBar {
+  height: 36px;
+  bottom: 3px;
+  border-radius: 0 0 14px 14px;
+}
+
+.androidDevice.deviceCompact .navButton {
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+
+.androidDevice.deviceCompact .deviceContent {
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border-radius: 15px;
+}
+
+.androidStatusBar {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  height: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  z-index: 5;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.androidNavBar {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  height: 48px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0 0 20px 20px;
+  z-index: 5;
+}
+
+.navButton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* Web Browser Frame */
+.webBrowser {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  height: 100%;
+  max-height: 800px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.webBrowser.deviceCompact {
+  max-width: 252px;
+  max-height: 560px;
+}
+
+.browserChrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+  z-index: 5;
+}
+
+.browserControls {
+  display: flex;
+  gap: 6px;
+}
+
+.browserButton {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.browserAddressBar {
+  flex: 1;
+  height: 28px;
+  background: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #666;
+}
+
+.addressBarIcon {
+  font-size: 14px;
+}
+
+.addressBarText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browserMenu {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+}
+
+/* Common content area */
+.deviceContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.iosDevice .deviceContent {
+  border-radius: 32px;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+}
+
+.androidDevice .deviceContent {
+  border-radius: 20px;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+}
+
+.webBrowser .deviceContent {
+  top: 40px;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Dark mode support */
+[data-mantine-color-scheme="dark"] .webBrowser {
+  background: var(--mantine-color-dark-7);
+}
+
+[data-mantine-color-scheme="dark"] .browserChrome {
+  background: var(--mantine-color-dark-6);
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .browserAddressBar {
+  background: var(--mantine-color-dark-7);
+  border-color: var(--mantine-color-dark-4);
+  color: var(--mantine-color-gray-3);
+}
+
+[data-mantine-color-scheme="dark"] .deviceContent {
+  background: var(--mantine-color-dark-7);
+}

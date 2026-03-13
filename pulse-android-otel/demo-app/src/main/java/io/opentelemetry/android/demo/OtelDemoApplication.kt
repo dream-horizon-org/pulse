@@ -49,7 +49,7 @@ class OtelDemoApplication : Application() {
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
                 dataCollectionState = PulseDataCollectionConsent.ALLOWED,
-                projectId = "default",
+                apiKey = "default",
                 globalAttributes = {
                     Attributes.of(AttributeKey.stringKey("demo-version"), "test")
                 },
@@ -67,6 +67,9 @@ class OtelDemoApplication : Application() {
                 }
                 fragment {
                     enabled(true)
+                }
+                sessionReplay {
+                    // Code-level configs only; all other params come from backend
                 }
             }
             PulseSDK.INSTANCE.getOtelOrThrow()
