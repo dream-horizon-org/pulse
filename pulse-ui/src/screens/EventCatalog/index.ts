@@ -1,0 +1,1 @@
+export { EventCatalog } from "./EventCatalog";

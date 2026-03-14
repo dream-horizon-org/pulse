@@ -27,6 +27,7 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
+import { EventCatalog } from "../screens/EventCatalog";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 
 export const ROUTES = {
@@ -162,5 +163,9 @@ export const ROUTES = {
   PROJECT_SETTINGS: {
     ...ROUTE_PATHS.PROJECT_SETTINGS,
     element: ProjectSettings,
+  },
+  EVENT_CATALOG: {
+    ...ROUTE_PATHS.EVENT_CATALOG,
+    element: EventCatalog,
   },
 };

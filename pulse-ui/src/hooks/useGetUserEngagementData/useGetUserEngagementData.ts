@@ -26,7 +26,6 @@ export function useGetUserEngagementData({
   isLoading: boolean;
   error: Error | null;
 } {
-
   // Determine data source based on whether screenName is provided
   // - With screenName: Use TRACES with screen_session/screen_load (screen-specific users)
   // - Without screenName: Use LOGS with session.start (overall app users)
@@ -89,7 +88,7 @@ export function useGetUserEngagementData({
     return filterArray;
   }, [screenName, appVersion, osVersion, device, useTracesTable]);
 
-  // Fetch daily unique users for the last 7 days (for graph)
+  // Fetch daily unique users (bucketed by day) for trend chart
   const { data: dailyData, isLoading: isLoadingDaily } = useGetDataQuery({
     requestBody: {
       dataType,
@@ -105,7 +104,9 @@ export function useGetUserEngagementData({
         },
         {
           function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+          },
           alias: "user_count",
         },
       ],
@@ -116,7 +117,7 @@ export function useGetUserEngagementData({
     enabled: !!dailyStartDate && !!dailyEndDate,
   });
 
-  // Fetch weekly unique users for the last 1 month
+  // WAU: single aggregate over the entire week window (no time bucketing)
   const { data: weeklyData, isLoading: isLoadingWeekly } = useGetDataQuery({
     requestBody: {
       dataType,
@@ -126,24 +127,19 @@ export function useGetUserEngagementData({
       },
       select: [
         {
-          function: "TIME_BUCKET",
-          param: { bucket: "1w", field: COLUMN_NAME.TIMESTAMP },
-          alias: "t1",
-        },
-        {
           function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+          },
           alias: "user_count",
         },
       ],
       filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" }],
     },
     enabled: !!weekStartDate && !!weekEndDate,
   });
 
-  // Fetch monthly unique users for the last 1 month
+  // MAU: single aggregate over the entire month window (no time bucketing)
   const { data: monthlyData, isLoading: isLoadingMonthly } = useGetDataQuery({
     requestBody: {
       dataType,
@@ -153,24 +149,19 @@ export function useGetUserEngagementData({
       },
       select: [
         {
-          function: "TIME_BUCKET",
-          param: { bucket: "1M", field: COLUMN_NAME.TIMESTAMP },
-          alias: "t1",
-        },
-        {
           function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.USER_ID})` },
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+          },
           alias: "user_count",
         },
       ],
       filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" }],
     },
     enabled: !!monthStartDate && !!monthEndDate,
   });
 
-  // Transform daily data and calculate average
+  // Transform daily data: use the most recent day's value as the DAU headline
   const { dailyUsers, trendData, hasDailyData } = useMemo(() => {
     const responseData = dailyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
@@ -189,20 +180,17 @@ export function useGetUserEngagementData({
       dau: parseFloat(row[userCountIndex]) || 0,
     }));
 
-    // Calculate average daily users
-    const avgDailyUsers =
-      trend.length > 0
-        ? Math.round(trend.reduce((sum, d) => sum + d.dau, 0) / trend.length)
-        : null;
+    const latestDau =
+      trend.length > 0 ? Math.round(trend[trend.length - 1].dau) : null;
 
     return {
-      dailyUsers: avgDailyUsers,
+      dailyUsers: latestDau,
       trendData: trend,
       hasDailyData: true,
     };
   }, [dailyData]);
 
-  // Calculate weekly active users
+  // WAU: single aggregate value from non-bucketed query
   const { weeklyUsers, hasWeeklyData } = useMemo(() => {
     const responseData = weeklyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
@@ -210,15 +198,12 @@ export function useGetUserEngagementData({
     }
 
     const userCountIndex = responseData.fields.indexOf("user_count");
-    const total = responseData.rows.reduce(
-      (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-      0,
-    );
+    const value = parseFloat(responseData.rows[0][userCountIndex]) || 0;
 
-    return { weeklyUsers: total, hasWeeklyData: true };
+    return { weeklyUsers: Math.round(value), hasWeeklyData: true };
   }, [weeklyData]);
 
-  // Calculate monthly active users
+  // MAU: single aggregate value from non-bucketed query
   const { monthlyUsers, hasMonthlyData } = useMemo(() => {
     const responseData = monthlyData?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
@@ -226,12 +211,9 @@ export function useGetUserEngagementData({
     }
 
     const userCountIndex = responseData.fields.indexOf("user_count");
-    const total = responseData.rows.reduce(
-      (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-      0,
-    );
+    const value = parseFloat(responseData.rows[0][userCountIndex]) || 0;
 
-    return { monthlyUsers: total, hasMonthlyData: true };
+    return { monthlyUsers: Math.round(value), hasMonthlyData: true };
   }, [monthlyData]);
 
   const hasData = hasDailyData || hasWeeklyData || hasMonthlyData;
@@ -251,4 +233,3 @@ export function useGetUserEngagementData({
     error,
   };
 }
-
