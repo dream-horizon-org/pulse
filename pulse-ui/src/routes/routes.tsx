@@ -164,8 +164,8 @@ export const ROUTES = {
     ...ROUTE_PATHS.PROJECT_SETTINGS,
     element: ProjectSettings,
   },
-  EVENT_CATALOG: {
-    ...ROUTE_PATHS.EVENT_CATALOG,
+  PROJECT_EVENT_CATALOG: {
+    ...ROUTE_PATHS.PROJECT_EVENT_CATALOG,
     element: EventCatalog,
   },
 };

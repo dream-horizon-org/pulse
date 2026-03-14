@@ -209,6 +209,11 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/query-builder",
     path: "/projects/:projectId/query-builder",
   },
+  PROJECT_EVENT_CATALOG: {
+    key: "PROJECT_EVENT_CATALOG",
+    basePath: "/projects/:projectId/event-catalog",
+    path: "/projects/:projectId/event-catalog",
+  },
 
   LOGIN: {
     key: "LOGIN",
@@ -235,11 +240,6 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
-  EVENT_CATALOG: {
-    key: "EVENT_CATALOG",
-    basePath: "/event-catalog",
-    path: "/event-catalog",
-  },
 };
 
 // Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
@@ -253,6 +253,7 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
+  EVENT_CATALOG: "/event-catalog",
 } as const;
 
 // Settings sub-routes (handled internally by Settings component)
@@ -324,8 +325,8 @@ export const NAVBAR_ITEMS: NavbarItems = [
   {
     tabName: "Event Catalog",
     icon: IconCalendarEvent,
-    routeTo: ROUTES.EVENT_CATALOG.basePath,
-    path: ROUTES.EVENT_CATALOG.path,
+    routeTo: NAVBAR_ROUTES.EVENT_CATALOG,
+    path: NAVBAR_ROUTES.EVENT_CATALOG,
     iconSize: 25,
   },
 ];
