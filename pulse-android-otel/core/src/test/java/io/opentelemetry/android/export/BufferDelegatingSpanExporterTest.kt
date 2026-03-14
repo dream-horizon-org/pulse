@@ -8,9 +8,9 @@ package io.opentelemetry.android.export
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
-import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.data.SpanData
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 import java.nio.BufferOverflowException
 

@@ -13,8 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AthenaJob {
   private String jobId;
-  private String tenantId; // Parent tenant for organizational hierarchy
-  private String projectId; // Project where query was executed (data isolation)
+  private String projectId;
   private String queryString;
   private String userEmail;
   private String queryExecutionId;
@@ -22,15 +21,12 @@ public class AthenaJob {
   private String resultLocation;
   private String errorMessage;
   private JsonArray resultData;
-  private String nextToken; // For pagination
-  private Long dataScannedInBytes; // Data scanned by the query (in bytes)
-  private Long executionTimeMillis; // Total execution time in milliseconds
-  private Long engineExecutionTimeMillis; // Engine execution time in milliseconds
-  private Long queryQueueTimeMillis; // Query queue time in milliseconds
+  private String nextToken;
+  private Long dataScannedInBytes;
+  private Long executionTimeMillis;
+  private Long engineExecutionTimeMillis;
+  private Long queryQueueTimeMillis;
   private Timestamp createdAt;
   private Timestamp updatedAt;
   private Timestamp completedAt;
 }
-
-
-

@@ -14,6 +14,7 @@ import io.opentelemetry.android.common.RumConstants
 import io.opentelemetry.android.instrumentation.common.EventAttributesExtractor
 import io.opentelemetry.api.common.Attributes
 import java.io.File
+import io.opentelemetry.context.Context as OtelContext
 
 /** Represents details about the runtime environment at a time  */
 internal class RuntimeDetailsExtractor(
@@ -33,7 +34,7 @@ internal class RuntimeDetailsExtractor(
     }
 
     override fun extract(
-        parentContext: io.opentelemetry.context.Context,
+        parentContext: OtelContext,
         subject: CrashDetails,
     ): Attributes {
         val attributes = Attributes.builder()
