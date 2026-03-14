@@ -15,9 +15,9 @@ import io.opentelemetry.android.common.internal.features.networkattributes.data.
 import io.opentelemetry.android.internal.services.network.CurrentNetworkProvider
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.context.Context
-import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.trace.ReadWriteSpan
 import io.opentelemetry.semconv.incubating.NetworkIncubatingAttributes
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 

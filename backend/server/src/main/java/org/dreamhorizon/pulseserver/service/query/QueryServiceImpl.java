@@ -11,8 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,19 +31,6 @@ import org.dreamhorizon.pulseserver.util.SqlQueryValidator;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class QueryServiceImpl implements QueryService {
 
-  private static final Pattern WHERE_PATTERN =
-      Pattern.compile("\\bWHERE\\b", Pattern.CASE_INSENSITIVE);
-  private static final Pattern[] TRAILING_CLAUSE_PATTERNS = {
-      Pattern.compile("\\bGROUP\\s+BY\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bHAVING\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bORDER\\s+BY\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bLIMIT\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bOFFSET\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bUNION\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bINTERSECT\\b", Pattern.CASE_INSENSITIVE),
-      Pattern.compile("\\bEXCEPT\\b", Pattern.CASE_INSENSITIVE),
-  };
-
   private final QueryClient queryClient;
   private final QueryJobDao queryJobDao;
   private final AthenaConfig athenaConfig;
@@ -57,16 +42,14 @@ public class QueryServiceImpl implements QueryService {
     }
 
     String projectId = ProjectContext.requireProjectId();
-    // Appending TenantId for now. Will be changed to projectId once those changes are deployed.
-    String queryWithProjectId = appendProjectId(queryString, projectId);
 
-    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryWithProjectId);
+    SqlQueryValidator.ValidationResult validationResult = SqlQueryValidator.validateQuery(queryString, projectId);
     if (!validationResult.isValid()) {
       return Single.error(new IllegalArgumentException(validationResult.getErrorMessage()));
     }
 
-    return queryJobDao.createJob(projectId, queryWithProjectId, userEmail.trim())
-        .flatMap(jobId -> queryClient.submitQuery(queryWithProjectId)
+    return queryJobDao.createJob(projectId, queryString, userEmail.trim())
+        .flatMap(jobId -> queryClient.submitQuery(queryString)
             .flatMap(queryExecutionId -> queryClient.getQueryExecution(queryExecutionId)
                 .flatMap(execution -> {
                   Long initialDataScannedBytes = execution.getDataScannedInBytes();
@@ -86,37 +69,6 @@ public class QueryServiceImpl implements QueryService {
               return queryJobDao.updateJobFailed(jobId, "Failed to submit query: " + error.getMessage(), null)
                   .flatMap(v -> Single.error(error));
             }));
-  }
-
-  String appendProjectId(String originalQuery, String projectId) {
-    String cleanedBase = originalQuery.trim()
-        .replaceAll(";+$", "")
-        .trim();
-
-    boolean hasWhere = WHERE_PATTERN.matcher(cleanedBase).find();
-    String projectFilter = hasWhere
-        ? String.format("AND project_id = '%s'", projectId)
-        : String.format("WHERE project_id = '%s'", projectId);
-
-    int insertPosition = findTrailingClausePosition(cleanedBase);
-    String before = cleanedBase.substring(0, insertPosition).trim();
-    String after = cleanedBase.substring(insertPosition).trim();
-
-    if (after.isEmpty()) {
-      return before + " " + projectFilter + ";";
-    }
-    return before + " " + projectFilter + " " + after + ";";
-  }
-
-  private int findTrailingClausePosition(String query) {
-    int position = query.length();
-    for (Pattern pattern : TRAILING_CLAUSE_PATTERNS) {
-      Matcher matcher = pattern.matcher(query);
-      if (matcher.find()) {
-        position = Math.min(position, matcher.start());
-      }
-    }
-    return position;
   }
 
   private Single<QueryJob> handleQueryState(String jobId, String queryExecutionId, QueryStatus status, Long initialDataScannedBytes) {

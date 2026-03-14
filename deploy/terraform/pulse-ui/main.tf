@@ -210,7 +210,7 @@ resource "aws_autoscaling_group" "pulse_ui" {
   min_size                  = var.asg_min_size
   max_size                  = var.asg_max_size
   protect_from_scale_in     = true
-  target_group_arns         = [aws_lb_target_group.pulse_ui.arn]
+  target_group_arns = [aws_lb_target_group.pulse_ui.arn]
 
   instance_refresh {
     strategy = "Rolling"
@@ -269,8 +269,20 @@ resource "aws_autoscaling_group" "pulse_ui" {
 # -------------------------------------------------------------------
 # Route53 Alias Record (recommended)
 # -------------------------------------------------------------------
-resource "aws_route53_record" "pulse_ui" {
-  zone_id = var.route53_zone_id
+resource "aws_route53_record" "pulse_ui_com" {
+  zone_id = var.route53_com_zone_id
+  name    = var.route53_record_name
+  type    = "A"
+
+  alias {
+    name                   = var.cloudfront_distribution
+    zone_id = "Z2FDTNDATAQYW2" # This is the official AWS hardcoded Zone ID for ALL CloudFront distributions
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "pulse_ui_local" {
+  zone_id = var.route53_local_zone_id
   name    = var.route53_record_name
   type    = "A"
 

@@ -201,28 +201,32 @@ print_info "Testing backend health endpoint..."
 if curl -sf http://localhost:8080/healthcheck > /dev/null 2>&1; then
     print_success "Backend is responding"
 else
-    print_warning "Backend health check failed (may still be starting)"
+    print_error "Backend health check failed"
+    exit 1
 fi
 
 print_info "Testing frontend..."
 if curl -sf http://localhost:3000/healthcheck.txt > /dev/null 2>&1; then
     print_success "Frontend is responding"
 else
-    print_warning "Frontend health check failed (may still be starting)"
+    print_error "Frontend health check failed"
+    exit 1
 fi
 
 print_info "Testing MySQL connection..."
 if docker exec "$CONTAINER_MYSQL" mysql -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" -e "SELECT 1" > /dev/null 2>&1; then
     print_success "MySQL is accessible"
 else
-    print_warning "MySQL connection failed"
+    print_error "MySQL connection failed"
+    exit 1
 fi
 
 print_info "Testing ClickHouse connection..."
 if curl -s "http://localhost:8123/?query=SELECT+1&user=${OTEL_CLICKHOUSE_USER}&password=${OTEL_CLICKHOUSE_PASSWORD}" > /dev/null 2>&1; then
     print_success "ClickHouse is accessible"
 else
-    print_warning "ClickHouse connection failed"
+    print_error "ClickHouse connection failed"
+    exit 1
 fi
 
 echo ""
