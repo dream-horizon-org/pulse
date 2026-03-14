@@ -18,6 +18,7 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
   const { projects, tenantId } = useTenantContext();
 
   useEffect(() => {
+
     // If tenantId is null, user is logged out or logging out - skip all guard logic
     if (!tenantId) {
       return;

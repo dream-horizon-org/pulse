@@ -41,6 +41,11 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `OPENFGA_*` — OpenFGA authorization service config
 - `SLACK_*` — Slack OAuth integration config
 - `AWS_*` — AWS credentials for Athena/S3
+- `SPAN_COLLECTOR_URL` — OTLP span collector endpoint (default: `http://localhost:4318/v1/traces`)
+- `LOGS_COLLECTOR_URL` — OTLP logs collector endpoint (default: `http://localhost:4318/v1/logs`)
+- `METRIC_COLLECTOR_URL` — OTLP metrics collector endpoint (default: `http://localhost:4318/v1/metrics`)
+- `CUSTOM_EVENT_COLLECTOR_URL` — Custom event collector endpoint (default: `http://localhost:4318/v1/logs`)
+- `INTERACTION_CONFIG_URL` — Interaction config URL (default: `http://localhost:4318/v1/traces`)
 
 Credentials (defined in docker-compose, overridable via `.env`):
 - MySQL: `MYSQL_USER` / `MYSQL_PASSWORD` (defaults: `pulse_user` / `pulse_password`)
