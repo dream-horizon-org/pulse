@@ -20,6 +20,8 @@ public class ProjectResponse {
     private String tenantId;
     private String apiKey;
     private Boolean isEventFlowStarted;
+    private Boolean isActive;
+    private String userRole;
     private String createdAt;
     private String createdBy;
 }

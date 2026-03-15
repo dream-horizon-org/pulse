@@ -109,33 +109,68 @@ public class ProjectResource {
     }
     
     /**
-     * Get project details by ID.
+     * Get project details by ID, including user's role and project status.
      * 
+     * @param authorization JWT token in Authorization header
      * @param projectId Project ID
-     * @return Project details
+     * @return Project details with user role and active status
      */
     @GET
     @Path("/{projectId}")
     public CompletionStage<Response<ProjectResponse>> getProject(
+            @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("projectId") String projectId) {
         
-        log.info("Getting project: projectId={}", projectId);
-        
-        return projectService.getProjectById(projectId)
-            .flatMap(project ->
-                projectService.hasEventFlowStarted(projectId)
-                    .map(isEventFlowStarted -> ProjectResponse.builder()
-                        .projectId(project.getProjectId())
-                        .name(project.getName())
-                        .description(project.getDescription())
-                        .tenantId(project.getTenantId())
-                        .apiKey(null)
-                        .isEventFlowStarted(isEventFlowStarted)  
-                        .createdAt(project.getCreatedAt())
-                        .createdBy(project.getCreatedBy())
-                        .build())
-            )
-            .to(RestResponse.jaxrsRestHandler());
+        try {
+            // Extract user ID from JWT token
+            String token = extractToken(authorization);
+            if (token == null) {
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Missing authorization", "Authorization header required");
+            }
+            
+            String userId;
+            try {
+                var claims = jwtService.verifyToken(token);
+                userId = claims.getSubject();
+            } catch (Exception e) {
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Invalid token", e.getMessage());
+            }
+            
+            if (userId == null || userId.isBlank()) {
+                throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                    .getCustomException("Invalid token", "User ID not found in token");
+            }
+            
+            log.info("Getting project: projectId={}, userId={}", projectId, userId);
+            
+            return projectService.getProjectById(projectId)
+                .flatMap(project ->
+                    Single.zip(
+                        projectService.hasEventFlowStarted(projectId),
+                        projectService.getUserRoleInProject(userId, projectId),
+                        (isEventFlowStarted, userRole) -> ProjectResponse.builder()
+                            .projectId(project.getProjectId())
+                            .name(project.getName())
+                            .description(project.getDescription())
+                            .tenantId(project.getTenantId())
+                            .apiKey(null)
+                            .isEventFlowStarted(isEventFlowStarted)
+                            .isActive(project.getIsActive())
+                            .userRole(userRole.orElse("none"))
+                            .createdAt(project.getCreatedAt())
+                            .createdBy(project.getCreatedBy())
+                            .build()
+                    )
+                )
+                .to(RestResponse.jaxrsRestHandler());
+                
+        } catch (Exception e) {
+            log.error("Failed to get project: {}", e.getMessage(), e);
+            throw ServiceError.SERVICE_UNKNOWN_EXCEPTION
+                .getCustomException("Failed to get project", e.getMessage());
+        }
     }
     
     private String extractToken(String authorization) {

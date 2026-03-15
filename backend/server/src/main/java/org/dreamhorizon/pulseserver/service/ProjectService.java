@@ -371,4 +371,19 @@ public class ProjectService {
             projectId, error.getMessage()))
         .onErrorReturnItem(false);
   }
+
+  /**
+   * Get user's role in a project.
+   * 
+   * @param userId User ID
+   * @param projectId Project ID
+   * @return Optional role (admin/editor/viewer) or empty if no access
+   */
+  public Single<java.util.Optional<String>> getUserRoleInProject(String userId, String projectId) {
+    return openFgaService.getUserRoleInProject(userId, projectId)
+        .doOnSuccess(role ->
+            log.debug("Retrieved user role: userId={}, projectId={}, role={}",
+                userId, projectId, role.orElse("none"))
+        );
+  }
 }
