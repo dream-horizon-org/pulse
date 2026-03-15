@@ -58,8 +58,13 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const { projectId: contextProjectId, clearProject } = useProjectContext();
-  const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
+  const {
+    projectId: contextProjectId,
+    clearProject,
+    navigateToProject,
+  } = useProjectContext();
+  const { tenantId, tenantName, tier, clearTenant, projects } =
+    useTenantContext();
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
   const [popoverOpened, setPopoverOpened] = useState(false);
@@ -108,10 +113,14 @@ export function Navbar({
   };
 
   const onLogoClick = () => {
-    // Clear project context to ensure clean state
-    
+    if (!tenantId) return;
 
-    if (tenantId) {
+    // FREE tier: Navigate directly to the single project
+    if (tier === TIERS.FREE && projects.length === 1) {
+      const singleProject = projects[0];
+      navigateToProject(singleProject.projectId);
+    } else {
+      // ENTERPRISE tier: Clear context and show projects listing
       clearProject();
       navigate(
         ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
