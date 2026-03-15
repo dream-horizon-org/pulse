@@ -25,8 +25,13 @@ public class UserProjectsService {
     private final ProjectDao projectDao;
     private final org.dreamhorizon.pulseserver.dao.tenant.TenantDao tenantDao;
     
+    private static final int FREE_TIER_ID = 1;
+    
     /**
      * Get all projects accessible to a user within a tenant.
+     * 
+     * FOR FREE TIER (tierId = 1): Returns only the FIRST project to enforce single-project limit.
+     * FOR ENTERPRISE TIER: Returns all projects in the tenant.
      * 
      * TEMPORARY: Returns ALL projects in the tenant until OpenFGA is fully integrated.
      * TODO: Restore OpenFGA role-based filtering when ready.
@@ -42,10 +47,14 @@ public class UserProjectsService {
         // Fetch tenant information first
         return tenantDao.getTenantById(tenantId)
             .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
-            .flatMap(tenant -> 
+            .flatMap(tenant -> {
+                boolean isFreeTier = tenant.getTierId() != null && tenant.getTierId() == FREE_TIER_ID;
+                log.info("Tenant tier check: tenantId={}, tierId={}, isFreeTier={}", 
+                    tenantId, tenant.getTierId(), isFreeTier);
+                
                 // TEMPORARY FIX: Return all projects in the tenant
                 // Once OpenFGA is integrated, uncomment the OpenFGA code below and remove this section
-                projectDao.getProjectsByTenantId(tenantId)
+                return projectDao.getProjectsByTenantId(tenantId)
                     .map(project -> ProjectSummary.builder()
                         .projectId(project.getProjectId())
                         .name(project.getName())
@@ -55,27 +64,39 @@ public class UserProjectsService {
                         .build())
                     .toList()
                     .map(projectList -> {
+                        List<ProjectSummary> filteredProjects;
+                        
+                        // For FREE tier, return only the first project
+                        if (isFreeTier && !projectList.isEmpty()) {
+                            filteredProjects = List.of(projectList.get(0));
+                            log.info("FREE tier: Limiting to first project only. Total projects={}, returned=1", 
+                                projectList.size());
+                        } else {
+                            filteredProjects = projectList;
+                            log.info("ENTERPRISE tier or empty: Returning all {} projects", projectList.size());
+                        }
+                        
                         // Calculate redirect hint
                         String redirectTo;
-                        if (projectList.isEmpty()) {
+                        if (filteredProjects.isEmpty()) {
                             redirectTo = null;
                             log.info("No projects found in tenant");
-                        } else if (projectList.size() == 1) {
-                            redirectTo = "/projects/" + projectList.get(0).getProjectId();
+                        } else if (filteredProjects.size() == 1) {
+                            redirectTo = "/projects/" + filteredProjects.get(0).getProjectId();
                             log.info("Single project, redirecting to: {}", redirectTo);
                         } else {
                             redirectTo = "/project-selection";
-                            log.info("Multiple projects ({}), redirecting to selection page", projectList.size());
+                            log.info("Multiple projects ({}), redirecting to selection page", filteredProjects.size());
                         }
                         
                         return UserProjectsResult.builder()
                             .tenantId(tenantId)
                             .tenantName(tenant.getName())
-                            .projects(projectList)
+                            .projects(filteredProjects)
                             .redirectTo(redirectTo)
                             .build();
-                    })
-            )
+                    });
+            })
             .doOnError(error -> 
                 log.error("Failed to fetch projects: userId={}, tenantId={}", userId, tenantId, error)
             );

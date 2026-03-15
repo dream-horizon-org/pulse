@@ -37,32 +37,23 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
             className={classes.projectSection}
             style={{ marginLeft: "64px" }}
           >
-            {projectId && projects.length <= 1 ? (
-              // Single project display
-              tier === TIERS.FREE ? (
-                // FREE tier: Show project name with upgrade badge
-                <Group gap="xs" className={classes.projectInfo}>
-                  <IconFolder size={18} style={{ color: "#0ba09a" }} />
-                  <Text className={classes.projectName}>{projectName}</Text>
-                  <Badge
-                    variant="light"
-                    color="teal"
-                    size="sm"
-                    className={classes.upgradeBadge}
-                    onClick={() => navigate("/pricing")}
-                  >
-                    Free · Upgrade
-                  </Badge>
-                </Group>
-              ) : (
-                // ENTERPRISE tier: Show project name only (no upgrade badge)
-                <Group gap="xs" className={classes.projectInfo}>
-                  <IconFolder size={18} style={{ color: "#0ba09a" }} />
-                  <Text className={classes.projectName}>{projectName}</Text>
-                </Group>
-              )
+            {projectId && tier === TIERS.FREE ? (
+              // FREE tier: Always show project name with upgrade badge (single project enforced by backend)
+              <Group gap="xs" className={classes.projectInfo}>
+                <IconFolder size={18} style={{ color: "#0ba09a" }} />
+                <Text className={classes.projectName}>{projectName}</Text>
+                <Badge
+                  variant="light"
+                  color="teal"
+                  size="sm"
+                  className={classes.upgradeBadge}
+                  onClick={() => navigate("/pricing")}
+                >
+                  Free · Upgrade
+                </Badge>
+              </Group>
             ) : projectId && projects.length > 1 ? (
-              // Multiple projects - show selector (same for both tiers)
+              // ENTERPRISE tier with multiple projects - show selector
               <Select
                 leftSection={<IconFolder size={18} />}
                 placeholder="Select project"
@@ -75,6 +66,12 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                 className={classes.projectDropdown}
                 comboboxProps={{ withinPortal: true }}
               />
+            ) : projectId ? (
+              // ENTERPRISE tier with single project - show project name only
+              <Group gap="xs" className={classes.projectInfo}>
+                <IconFolder size={18} style={{ color: "#0ba09a" }} />
+                <Text className={classes.projectName}>{projectName}</Text>
+              </Group>
             ) : null}
           </Box>
         </Box>
