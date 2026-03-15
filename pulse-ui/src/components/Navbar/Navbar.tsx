@@ -109,9 +109,10 @@ export function Navbar({
 
   const onLogoClick = () => {
     // Clear project context to ensure clean state
-    clearProject();
+    
 
     if (tenantId) {
+      clearProject();
       navigate(
         ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
           ":organizationId",

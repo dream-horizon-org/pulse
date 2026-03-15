@@ -21,7 +21,8 @@ import {
 import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
 import { useCompleteOnboarding } from "../../hooks";
-import { PROJECT_ROLES } from "../../constants/Roles";
+import { PROJECT_ROLES, TENANT_ROLES } from "../../constants/Roles";
+import { TIERS } from "../../constants/Tiers";
 import { setCookiesAfterAuthentication } from "../../helpers/setCookiesAfterAuthentication";
 import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
@@ -109,8 +110,8 @@ export function Onboarding() {
             setTenantInfo({
               tenantId: data.tenantId,
               tenantName: data.tenantName,
-              userRole: "admin",
-              tier: data.tier || "free",
+              userRole: TENANT_ROLES.ADMIN,
+              tier: data.tier || TIERS.FREE,
             });
 
             // Add project to tenant's projects list

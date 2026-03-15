@@ -30,10 +30,9 @@ import {
   IconAlertCircle,
 } from "@tabler/icons-react";
 import { showNotification } from "../../helpers/showNotification";
-import { getProjectApiKey } from "../../helpers/getProjectApiKey";
 import { useProjectContext } from "../../contexts";
-import { ROUTES } from "../../constants";
-import { useInviteProjectMember } from "../../hooks";
+import { ROUTES, COOKIES_KEY } from "../../constants";
+import { useInviteProjectMember, useProjectApiKey } from "../../hooks";
 import { ApiResponse } from "../../helpers/makeRequest";
 import { ProjectMember } from "../../types/members";
 import {
@@ -60,13 +59,7 @@ export function OnboardingSuccess() {
   const [projectName, setProjectName] = useState<string | null>(
     locationState.projectName || contextProjectName || null,
   );
-  const [projectApiKey, setProjectApiKey] = useState<string | null>(
-    locationState.projectApiKey || null,
-  );
-  const [loading, setLoading] = useState(
-    !locationState.projectName || !locationState.projectApiKey,
-  );
-  const [loadingApiKey, setLoadingApiKey] = useState(false);
+  const [loading, setLoading] = useState(!locationState.projectName);
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -75,33 +68,23 @@ export function OnboardingSuccess() {
     PROJECT_ROLES.VIEWER,
   );
 
+  // React Query hook for API key - provides automatic loading state
+  const { data: apiKeyData, isLoading: loadingApiKey } = useProjectApiKey(
+    projectId || "",
+  );
+
+  const projectApiKey = apiKeyData?.key || locationState.projectApiKey || null;
+
   // React Query hook for inviting members
   const inviteMutation = useInviteProjectMember();
   const inviting = inviteMutation.isPending;
 
-  // Update project name AND refetch API key when context changes (for project switching)
+  // Update project name when context changes (for project switching)
+  // API key is automatically refetched by React Query when projectId changes
   useEffect(() => {
-    const updateProjectData = async () => {
-      if (contextProjectId === projectId && contextProjectName) {
-        setProjectName(contextProjectName);
-
-        // Refetch API key for the new project
-        try {
-          setLoadingApiKey(true);
-          const apiKeyResult = await getProjectApiKey(projectId);
-          setProjectApiKey(apiKeyResult.key);
-        } catch (error) {
-          console.error(
-            "[OnboardingSuccess] Error fetching API key on project switch:",
-            error,
-          );
-        } finally {
-          setLoadingApiKey(false);
-        }
-      }
-    };
-
-    updateProjectData();
+    if (contextProjectId === projectId && contextProjectName) {
+      setProjectName(contextProjectName);
+    }
   }, [contextProjectId, contextProjectName, projectId]);
 
   // Fetch project details if not in location.state
@@ -111,19 +94,25 @@ export function OnboardingSuccess() {
         // Get tenant ID from cookies and redirect to organization projects
         const tenantId = document.cookie
           .split("; ")
-          .find((row) => row.startsWith("tenantId="))
+          .find((row) => row.startsWith(`${COOKIES_KEY.TENANT_ID}=`))
           ?.split("=")[1];
 
         if (tenantId && tenantId !== "undefined") {
-          navigate(`/${tenantId}/projects`, { replace: true });
+          navigate(
+            ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
+              ":organizationId",
+              tenantId,
+            ),
+            { replace: true },
+          );
         } else {
           navigate("/", { replace: true });
         }
         return;
       }
 
-      // If we already have data from location.state, no need to fetch
-      if (projectName && projectApiKey) {
+      // If we already have project name, no need to fetch
+      if (projectName) {
         setLoading(false);
         return;
       }
@@ -142,10 +131,6 @@ export function OnboardingSuccess() {
           );
           return;
         }
-
-        // Fetch API key using shared helper
-        const apiKeyResult = await getProjectApiKey(projectId);
-        setProjectApiKey(apiKeyResult.key);
       } catch (error) {
         console.error(
           "[OnboardingSuccess] Error fetching project details:",
@@ -162,21 +147,16 @@ export function OnboardingSuccess() {
     };
 
     fetchProjectDetails();
-  }, [
-    projectId,
-    projectName,
-    projectApiKey,
-    navigate,
-    contextProjectName,
-    contextProjectId,
-  ]);
+  }, [projectId, projectName, navigate, contextProjectName, contextProjectId]);
 
-  // Show loading while fetching
-  if (loading || !projectId || !projectName || !projectApiKey) {
+  // Show loading while fetching basic project info
+  // Note: API key loading is handled separately by React Query in the render
+  if (loading || !projectId || !projectName) {
     return null;
   }
 
   const handleCopyKey = () => {
+    if (!projectApiKey) return;
     navigator.clipboard.writeText(projectApiKey);
     setCopiedKey(true);
     showNotification(
@@ -235,8 +215,8 @@ export function OnboardingSuccess() {
     );
   };
 
-  const maskApiKey = (key: string) => {
-    if (!key) return "";
+  const maskApiKey = (key: string | null) => {
+    if (!key) return "••••••••••••••••••••••••••••••••";
     return `${key.substring(0, 8)}${"•".repeat(24)}${key.substring(key.length - 4)}`;
   };
 
@@ -249,7 +229,7 @@ class MyApplication : Application() {
         
         Pulse.initialize(
             context = this,
-            apiKey = "${projectApiKey}"
+            apiKey = "${projectApiKey || "LOADING..."}"
         )
     }
 }`;
@@ -260,7 +240,7 @@ import Pulse
 func application(_ application: UIApplication,
                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
     
-    Pulse.initialize(apiKey: "${projectApiKey}")
+    Pulse.initialize(apiKey: "${projectApiKey || "LOADING..."}")
     
     return true
 }`;
@@ -269,7 +249,7 @@ func application(_ application: UIApplication,
 import { Pulse } from '@dreamhorizon/pulse-react-native';
 
 Pulse.initialize({
-  apiKey: '${projectApiKey}',
+  apiKey: '${projectApiKey || "LOADING..."}',
 });`;
 
   return (
