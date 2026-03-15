@@ -195,13 +195,7 @@ services:
 
   # Vector Service (Data Collector)
   vector:
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
+    image: 650012445044.dkr.ecr.ap-south-1.amazonaws.com/pulse-vector:latest
     container_name: vector
     command: [ ]
     environment:

@@ -800,6 +800,31 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/funnel/sessions`,
     method: API_METHODS.POST,
   },
+  FUNNEL_TREND: {
+    key: "FUNNEL_TREND",
+    apiPath: `/v1/funnel/trend`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_GROUPED: {
+    key: "FUNNEL_GROUPED",
+    apiPath: `/v1/funnel/grouped`,
+    method: API_METHODS.POST,
+  },
+  JOURNEY_EXPLORE: {
+    key: "JOURNEY_EXPLORE",
+    apiPath: `/v1/journey/explore`,
+    method: API_METHODS.POST,
+  },
+  FUNNEL_EVENTS: {
+    key: "FUNNEL_EVENTS",
+    apiPath: `/v1/funnel/events`,
+    method: API_METHODS.GET,
+  },
+  FUNNEL_FILTERS: {
+    key: "FUNNEL_FILTERS",
+    apiPath: `/v1/funnel/filters`,
+    method: API_METHODS.GET,
+  },
   GET_TNC_STATUS: {
     key: "GET_TNC_STATUS",
     apiPath: `/v1/tnc/status`,

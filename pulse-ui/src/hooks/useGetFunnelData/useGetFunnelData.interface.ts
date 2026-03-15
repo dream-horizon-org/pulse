@@ -102,3 +102,81 @@ export interface GetFunnelSessionsParams {
   requestBody: FunnelSessionsRequestBody;
   enabled?: boolean;
 }
+
+// Conversion trend
+export interface FunnelTrendResponse {
+  totalConversionRate: number;
+  conversionTrend: number;
+  medianTimes: (number | null)[];
+}
+
+export interface GetFunnelTrendParams {
+  requestBody: FunnelRequestBody;
+  enabled?: boolean;
+}
+
+// Grouped funnel
+export interface FunnelGroupedStepResult {
+  stepName: string;
+  count: number;
+  conversionRate: number;
+  dropoffRate: number;
+  medianTimeToStep: number | null;
+}
+
+export interface FunnelGroupedRow {
+  groupValue: string;
+  steps: FunnelGroupedStepResult[];
+}
+
+export interface FunnelGroupedResponse {
+  groups: FunnelGroupedRow[];
+}
+
+export interface FunnelGroupedRequestBody extends FunnelRequestBody {
+  groupBy: string;
+}
+
+export interface GetFunnelGroupedParams {
+  requestBody: FunnelGroupedRequestBody;
+  enabled?: boolean;
+}
+
+// Journey explorer
+export interface JourneyNode {
+  name: string;
+}
+
+export interface JourneyLink {
+  source: string;
+  target: string;
+  value: number;
+}
+
+export interface JourneyResponse {
+  nodes: JourneyNode[];
+  links: JourneyLink[];
+}
+
+export interface JourneyRequestBody {
+  direction: "forward" | "reverse";
+  anchorEvent: string;
+  depth: number;
+  timeRange: TimeRange;
+  filters?: FilterField[];
+}
+
+export interface GetJourneyParams {
+  requestBody: JourneyRequestBody;
+  enabled?: boolean;
+}
+
+// Funnel events list
+export interface FunnelEventsResponse {
+  events: string[];
+}
+
+// Funnel filter options
+export interface FunnelFiltersResponse {
+  filters: Record<string, string[]>;
+}

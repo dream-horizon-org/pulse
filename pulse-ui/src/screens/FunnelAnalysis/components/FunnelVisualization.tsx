@@ -1,24 +1,32 @@
 import { Box, Text, Tooltip } from "@mantine/core";
 import { IconTrendingUp, IconTrendingDown, IconClock } from "@tabler/icons-react";
-import { MockFunnelData, formatDuration } from "../mockData";
+import { FunnelStepResult } from "../../../hooks/useGetFunnelData";
+import { formatDuration } from "../mockData";
 import classes from "../FunnelAnalysis.module.css";
 
 interface FunnelVisualizationProps {
-  data: MockFunnelData;
+  steps: FunnelStepResult[];
+  totalConversionRate: number;
+  conversionTrend: number;
+  medianTimes: (number | null)[];
 }
 
 const SLOW_THRESHOLD_SECONDS = 30;
 
-export function FunnelVisualization({ data }: FunnelVisualizationProps) {
-  const maxCompleted = data.steps.length > 0 ? data.steps[0].completed : 1;
-  const isPositiveTrend = data.conversionTrend >= 0;
+export function FunnelVisualization({
+  steps,
+  totalConversionRate,
+  conversionTrend,
+  medianTimes,
+}: FunnelVisualizationProps) {
+  const maxCompleted = steps.length > 0 ? steps[0].count : 1;
+  const isPositiveTrend = conversionTrend >= 0;
 
   return (
     <>
-      {/* Big Number KPI */}
       <Box className={classes.kpiSection}>
         <Text className={classes.kpiBigNumber}>
-          {data.totalConversionRate}%
+          {totalConversionRate}%
         </Text>
         <Box>
           <Text className={classes.kpiLabel}>Total Conversion</Text>
@@ -31,44 +39,42 @@ export function FunnelVisualization({ data }: FunnelVisualizationProps) {
               <IconTrendingDown size={14} />
             )}
             {isPositiveTrend ? "+" : ""}
-            {data.conversionTrend}% from last week
+            {conversionTrend}% from last week
           </Box>
         </Box>
       </Box>
 
-      {/* Horizontal Bar Chart */}
       <Box className={classes.chartSection}>
         <Text size="sm" fw={600} c="dark.7" mb="lg">
           Funnel Steps
         </Text>
 
-        {data.steps.map((step, index) => {
-          const completedPct = (step.completed / maxCompleted) * 100;
-          const dropoffPct =
+        {steps.map((step, index) => {
+          const completedPct = (step.count / maxCompleted) * 100;
+          const dropoffCount =
             index === 0
               ? 0
-              : (step.dropoffCount / maxCompleted) * 100;
+              : steps[index - 1].count - step.count;
+          const dropoffPct =
+            index === 0 ? 0 : (dropoffCount / maxCompleted) * 100;
+          const medianTime = medianTimes[index] ?? null;
 
           return (
-            <Box key={step.id}>
-              {/* Time-to-Convert Badge between steps */}
-              {step.medianTimeToStep !== null && (
+            <Box key={step.stepName}>
+              {medianTime !== null && (
                 <Box
                   className={`${classes.timeBadge} ${
-                    step.medianTimeToStep > SLOW_THRESHOLD_SECONDS
-                      ? classes.timeBadgeSlow
-                      : ""
+                    medianTime > SLOW_THRESHOLD_SECONDS ? classes.timeBadgeSlow : ""
                   }`}
                 >
                   <IconClock size={12} />
-                  {formatDuration(step.medianTimeToStep)} median
+                  {formatDuration(medianTime)} median
                 </Box>
               )}
 
-              {/* Bar Row */}
               <Box className={classes.chartBar}>
-                <Text className={classes.chartBarLabel} title={step.eventName}>
-                  {step.eventName}
+                <Text className={classes.chartBarLabel} title={step.stepName}>
+                  {step.stepName}
                 </Text>
                 <Box className={classes.chartBarTrack}>
                   <Box
@@ -76,12 +82,12 @@ export function FunnelVisualization({ data }: FunnelVisualizationProps) {
                     style={{ width: `${completedPct}%` }}
                   >
                     <Text className={classes.chartBarCount}>
-                      {step.completed.toLocaleString()}
+                      {step.count.toLocaleString()}
                     </Text>
                   </Box>
                   {dropoffPct > 0 && (
                     <Tooltip
-                      label={`${step.dropoffCount.toLocaleString()} users dropped off at Step ${index + 1}`}
+                      label={`${dropoffCount.toLocaleString()} users dropped off at Step ${index + 1}`}
                       position="top"
                       withArrow
                     >
@@ -90,7 +96,7 @@ export function FunnelVisualization({ data }: FunnelVisualizationProps) {
                         style={{ width: `${dropoffPct}%` }}
                       >
                         <Text className={classes.chartBarDropoffCount}>
-                          -{step.dropoffCount.toLocaleString()}
+                          -{dropoffCount.toLocaleString()}
                         </Text>
                       </Box>
                     </Tooltip>

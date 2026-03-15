@@ -107,7 +107,7 @@ sinks:
     # Protects data if Vector crashes or restarts.
     buffer:
       type: "disk"
-      max_size: 10737418240  # 10 GB limit on disk
+      max_size: 2684354880  # 10 GB limit on disk
       when_full: "block"     # Stop accepting new logs if disk is full (Backpressure)
 
     # ---------------------------------------------------------------------

@@ -4,9 +4,17 @@ import {
   FunnelResponse,
   FunnelHealthResponse,
   FunnelSessionsResponse,
+  FunnelTrendResponse,
+  FunnelGroupedResponse,
+  JourneyResponse,
+  FunnelEventsResponse,
+  FunnelFiltersResponse,
   GetFunnelDataParams,
   GetFunnelHealthParams,
   GetFunnelSessionsParams,
+  GetFunnelTrendParams,
+  GetFunnelGroupedParams,
+  GetJourneyParams,
 } from "./useGetFunnelData.interface";
 import { makeRequest } from "../../helpers/makeRequest";
 import dayjs from "dayjs";
@@ -140,5 +148,153 @@ export const useGetFunnelSessions = ({
     refetchOnWindowFocus: false,
     enabled: enabled && requestBody.stepLevel >= 1,
     staleTime: 10000,
+  });
+};
+
+export const useGetFunnelTrend = ({
+  requestBody,
+  enabled = true,
+}: GetFunnelTrendParams) => {
+  const api = API_ROUTES.FUNNEL_TREND;
+
+  const modifiedRequestBody = {
+    ...requestBody,
+    timeRange: {
+      start: formatTime(requestBody.timeRange.start),
+      end: formatTime(requestBody.timeRange.end),
+    },
+  };
+
+  return useQuery({
+    queryKey: [
+      api.key,
+      JSON.stringify(requestBody.steps),
+      requestBody.timeRange.start,
+      requestBody.timeRange.end,
+      requestBody.mode,
+    ],
+    queryFn: async () => {
+      return makeRequest<FunnelTrendResponse>({
+        url: `${API_BASE_URL}${api.apiPath}`,
+        init: {
+          method: api.method,
+          body: JSON.stringify(modifiedRequestBody),
+        },
+      });
+    },
+    refetchOnWindowFocus: false,
+    enabled:
+      enabled &&
+      requestBody.steps.length >= 2 &&
+      requestBody.steps.every((s) => s.eventName.trim() !== ""),
+    staleTime: 10000,
+  });
+};
+
+export const useGetFunnelGrouped = ({
+  requestBody,
+  enabled = true,
+}: GetFunnelGroupedParams) => {
+  const api = API_ROUTES.FUNNEL_GROUPED;
+
+  const modifiedRequestBody = {
+    ...requestBody,
+    timeRange: {
+      start: formatTime(requestBody.timeRange.start),
+      end: formatTime(requestBody.timeRange.end),
+    },
+  };
+
+  return useQuery({
+    queryKey: [
+      api.key,
+      JSON.stringify(requestBody.steps),
+      requestBody.timeRange.start,
+      requestBody.timeRange.end,
+      requestBody.groupBy,
+      requestBody.mode,
+    ],
+    queryFn: async () => {
+      return makeRequest<FunnelGroupedResponse>({
+        url: `${API_BASE_URL}${api.apiPath}`,
+        init: {
+          method: api.method,
+          body: JSON.stringify(modifiedRequestBody),
+        },
+      });
+    },
+    refetchOnWindowFocus: false,
+    enabled: enabled && !!requestBody.groupBy && requestBody.groupBy !== "none",
+    staleTime: 10000,
+  });
+};
+
+export const useGetJourneyData = ({
+  requestBody,
+  enabled = true,
+}: GetJourneyParams) => {
+  const api = API_ROUTES.JOURNEY_EXPLORE;
+
+  const modifiedRequestBody = {
+    ...requestBody,
+    timeRange: {
+      start: formatTime(requestBody.timeRange.start),
+      end: formatTime(requestBody.timeRange.end),
+    },
+  };
+
+  return useQuery({
+    queryKey: [
+      api.key,
+      requestBody.direction,
+      requestBody.anchorEvent,
+      requestBody.depth,
+      requestBody.timeRange.start,
+      requestBody.timeRange.end,
+    ],
+    queryFn: async () => {
+      return makeRequest<JourneyResponse>({
+        url: `${API_BASE_URL}${api.apiPath}`,
+        init: {
+          method: api.method,
+          body: JSON.stringify(modifiedRequestBody),
+        },
+      });
+    },
+    refetchOnWindowFocus: false,
+    enabled: enabled && !!requestBody.anchorEvent,
+    staleTime: 10000,
+  });
+};
+
+export const useGetFunnelEvents = () => {
+  const api = API_ROUTES.FUNNEL_EVENTS;
+
+  return useQuery({
+    queryKey: [api.key],
+    queryFn: async () => {
+      return makeRequest<FunnelEventsResponse>({
+        url: `${API_BASE_URL}${api.apiPath}`,
+        init: { method: api.method },
+      });
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 300000,
+  });
+};
+
+export const useGetFunnelFilters = () => {
+  const api = API_ROUTES.FUNNEL_FILTERS;
+
+  return useQuery({
+    queryKey: [api.key],
+    queryFn: async () => {
+      return makeRequest<FunnelFiltersResponse>({
+        url: `${API_BASE_URL}${api.apiPath}`,
+        init: { method: api.method },
+      });
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 300000,
   });
 };

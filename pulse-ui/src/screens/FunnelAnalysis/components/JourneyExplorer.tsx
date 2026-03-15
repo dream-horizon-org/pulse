@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
+  Loader,
   SegmentedControl,
   Select,
   Slider,
@@ -8,23 +9,22 @@ import {
   Group,
 } from "@mantine/core";
 import ReactECharts from "echarts-for-react";
-import {
-  AVAILABLE_EVENTS,
-  MOCK_JOURNEY_FORWARD,
-  MOCK_JOURNEY_REVERSE,
-  MockJourneyData,
-} from "../mockData";
+import { useGetJourneyData, JourneyResponse } from "../../../hooks/useGetFunnelData";
+import { getDateRangeFromPreset } from "../mockData";
 import classes from "../FunnelAnalysis.module.css";
 
-const eventOptions = AVAILABLE_EVENTS.map((e) => ({ value: e, label: e }));
+interface JourneyExplorerProps {
+  dateRange: string;
+  availableEvents: string[];
+}
 
-function buildSankeyOption(data: MockJourneyData) {
+function buildSankeyOption(data: JourneyResponse) {
   const maxValue = Math.max(...data.links.map((l) => l.value));
 
   return {
     tooltip: {
-      trigger: "item",
-      triggerOn: "mousemove",
+      trigger: "item" as const,
+      triggerOn: "mousemove" as const,
       formatter: (params: any) => {
         if (params.dataType === "edge") {
           return `<strong>${params.data.source}</strong> → <strong>${params.data.target}</strong><br/>Users: <strong>${params.data.value.toLocaleString()}</strong>`;
@@ -34,9 +34,9 @@ function buildSankeyOption(data: MockJourneyData) {
     },
     series: [
       {
-        type: "sankey",
-        emphasis: { focus: "adjacency" },
-        nodeAlign: "justify",
+        type: "sankey" as const,
+        emphasis: { focus: "adjacency" as const },
+        nodeAlign: "justify" as const,
         layoutIterations: 32,
         draggable: true,
         left: 20,
@@ -46,24 +46,18 @@ function buildSankeyOption(data: MockJourneyData) {
         nodeWidth: 20,
         nodeGap: 14,
         lineStyle: {
-          color: "gradient",
+          color: "gradient" as const,
           curveness: 0.5,
           opacity: 0.3,
         },
-        itemStyle: {
-          borderWidth: 1,
-          borderColor: "#fff",
-        },
+        itemStyle: { borderWidth: 1, borderColor: "#fff" },
         label: {
-          position: "right",
+          position: "right" as const,
           fontSize: 12,
           fontWeight: 500,
           color: "#334155",
           formatter: (params: any) => {
-            const pct =
-              maxValue > 0
-                ? ((params.value / maxValue) * 100).toFixed(1)
-                : "0";
+            const pct = maxValue > 0 ? ((params.value / maxValue) * 100).toFixed(1) : "0";
             return `${params.name}\n${pct}% · ${params.value?.toLocaleString() ?? ""}`;
           },
         },
@@ -80,24 +74,40 @@ function buildSankeyOption(data: MockJourneyData) {
   };
 }
 
-export function JourneyExplorer() {
+export function JourneyExplorer({ dateRange, availableEvents }: JourneyExplorerProps) {
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
-  const [anchorEvent, setAnchorEvent] = useState<string | null>("App_Launch");
+  const [anchorEvent, setAnchorEvent] = useState<string | null>(null);
   const [depth, setDepth] = useState(5);
 
-  const journeyData =
-    direction === "forward" ? MOCK_JOURNEY_FORWARD : MOCK_JOURNEY_REVERSE;
+  const eventOptions = useMemo(
+    () => availableEvents.map((e) => ({ value: e, label: e })),
+    [availableEvents],
+  );
 
-  const option = buildSankeyOption(journeyData);
+  const timeRange = useMemo(() => getDateRangeFromPreset(dateRange), [dateRange]);
+
+  const requestBody = useMemo(
+    () => ({
+      direction,
+      anchorEvent: anchorEvent || "",
+      depth,
+      timeRange,
+    }),
+    [direction, anchorEvent, depth, timeRange],
+  );
+
+  const { data, isLoading } = useGetJourneyData({
+    requestBody,
+    enabled: !!anchorEvent,
+  });
+
+  const journeyData = data?.data;
 
   return (
     <Box className={classes.journeyLayout}>
-      {/* Control Panel */}
       <Box className={classes.journeyControlPanel}>
         <Box>
-          <Text size="xs" fw={600} c="dimmed" mb={4}>
-            Direction
-          </Text>
+          <Text size="xs" fw={600} c="dimmed" mb={4}>Direction</Text>
           <SegmentedControl
             value={direction}
             onChange={(val) => setDirection(val as "forward" | "reverse")}
@@ -116,16 +126,15 @@ export function JourneyExplorer() {
             data={eventOptions}
             value={anchorEvent}
             onChange={setAnchorEvent}
-            placeholder="Select root event..."
+            placeholder={availableEvents.length === 0 ? "No events available" : "Select root event..."}
             size="xs"
             searchable
+            disabled={availableEvents.length === 0}
           />
         </Box>
 
         <Box style={{ minWidth: 200 }}>
-          <Text size="xs" fw={600} c="dimmed" mb={4}>
-            Depth: {depth} steps
-          </Text>
+          <Text size="xs" fw={600} c="dimmed" mb={4}>Depth: {depth} steps</Text>
           <Slider
             value={depth}
             onChange={setDepth}
@@ -145,30 +154,43 @@ export function JourneyExplorer() {
 
         <Box style={{ flex: 1 }} />
 
-        <Group gap="xs">
-          <Text size="xs" c="dimmed">
-            Showing mock data ·
-          </Text>
-          <Text size="xs" fw={600} c="teal">
-            {journeyData.nodes.length} nodes · {journeyData.links.length} paths
-          </Text>
-        </Group>
+        {journeyData && (
+          <Group gap="xs">
+            <Text size="xs" c="dimmed">
+              {journeyData.nodes.length} nodes · {journeyData.links.length} paths
+            </Text>
+          </Group>
+        )}
       </Box>
 
-      {/* Sankey Diagram */}
       <Box className={classes.journeyCanvas}>
         <Box className={classes.sankeyContainer}>
-          <Text size="sm" fw={600} c="dark.7" mb="md">
-            {direction === "forward" ? "Forward" : "Reverse"} Journey from{" "}
-            <Text span c="teal" fw={700}>
-              {anchorEvent || "—"}
+          {anchorEvent ? (
+            <Text size="sm" fw={600} c="dark.7" mb="md">
+              {direction === "forward" ? "Forward" : "Reverse"} Journey from{" "}
+              <Text span c="teal" fw={700}>{anchorEvent}</Text>
             </Text>
-          </Text>
-          <ReactECharts
-            option={option}
-            style={{ height: "520px", width: "100%" }}
-            notMerge
-          />
+          ) : null}
+
+          {isLoading ? (
+            <Box style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+              <Loader color="teal" size="lg" />
+            </Box>
+          ) : journeyData ? (
+            <ReactECharts
+              option={buildSankeyOption(journeyData)}
+              style={{ height: "520px", width: "100%" }}
+              notMerge
+            />
+          ) : (
+            <Box className={classes.emptyState}>
+              <Text size="sm" c="dimmed">
+                {availableEvents.length === 0
+                  ? "No events available. Connect a data source to explore journeys."
+                  : "Select an anchor event to explore journeys"}
+              </Text>
+            </Box>
+          )}
         </Box>
       </Box>
     </Box>

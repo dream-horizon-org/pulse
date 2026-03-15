@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Box, SegmentedControl, Select, Text } from "@mantine/core";
+import { useMemo, useState } from "react";
+import { Box, Loader, SegmentedControl, Select, Text } from "@mantine/core";
 import { IconChartFunnel, IconRoute } from "@tabler/icons-react";
 import classes from "./FunnelAnalysis.module.css";
 import {
@@ -10,55 +10,85 @@ import { FunnelBuilder, BuilderStep } from "./components/FunnelBuilder";
 import { FunnelVisualization } from "./components/FunnelVisualization";
 import { FunnelDataTable } from "./components/FunnelDataTable";
 import { JourneyExplorer } from "./components/JourneyExplorer";
-import { MOCK_FUNNEL_DATA, DATE_RANGE_OPTIONS } from "./mockData";
+import { DATE_RANGE_OPTIONS, getDateRangeFromPreset } from "./mockData";
+import {
+  useGetFunnelData,
+  useGetFunnelTrend,
+  useGetFunnelEvents,
+  useGetFunnelFilters,
+  FunnelStep,
+} from "../../hooks/useGetFunnelData";
 
-const INITIAL_STEPS: BuilderStep[] = [
-  { id: "s-1", eventName: "Screen_View: Home" },
-  { id: "s-2", eventName: "Screen_View: Product Detail" },
-  { id: "s-3", eventName: "Tap: Add to Cart" },
-  { id: "s-4", eventName: "Tap: Checkout" },
-  { id: "s-5", eventName: "Tap: Place Order" },
+const EMPTY_STEPS: BuilderStep[] = [
+  { id: "s-1", eventName: "" },
+  { id: "s-2", eventName: "" },
 ];
 
+function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
+  return steps
+    .filter((s) => s.eventName)
+    .map((s) => ({ eventName: s.eventName, dataType: "LOGS" as const }));
+}
+
 export function FunnelAnalysis() {
-  const [activeModule, setActiveModule] = useState<"funnels" | "journeys">(
-    "funnels"
-  );
+  const [activeModule, setActiveModule] = useState<"funnels" | "journeys">("funnels");
   const [dateRange, setDateRange] = useState("7d");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
-  // Funnel state
-  const [steps, setSteps] = useState<BuilderStep[]>(INITIAL_STEPS);
-  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">(
-    "ordered"
-  );
+  const [steps, setSteps] = useState<BuilderStep[]>(EMPTY_STEPS);
+  const [funnelMode, setFunnelMode] = useState<"ordered" | "unordered">("ordered");
   const [conversionWindow, setConversionWindow] = useState("86400");
-  const [showResults, setShowResults] = useState(true);
+  const [shouldFetch, setShouldFetch] = useState(false);
+
+  const { data: eventsData } = useGetFunnelEvents();
+  const { data: filtersData } = useGetFunnelFilters();
+
+  const availableEvents = eventsData?.data?.events ?? [];
+  const filterOptions = filtersData?.data?.filters ?? {};
+
+  const timeRange = useMemo(() => getDateRangeFromPreset(dateRange), [dateRange]);
+
+  const apiSteps = useMemo(() => toApiSteps(steps), [steps]);
+
+  const requestBody = useMemo(
+    () => ({
+      steps: apiSteps,
+      timeRange,
+      mode: "UNIQUE_USERS" as const,
+      windowSeconds: parseInt(conversionWindow, 10),
+    }),
+    [apiSteps, timeRange, conversionWindow],
+  );
+
+  const {
+    data: funnelData,
+    isLoading: funnelLoading,
+  } = useGetFunnelData({ requestBody, enabled: shouldFetch });
+
+  const {
+    data: trendData,
+    isLoading: trendLoading,
+  } = useGetFunnelTrend({ requestBody, enabled: shouldFetch });
+
+  const funnelResult = funnelData?.data;
+  const trendResult = trendData?.data;
+  const isLoading = funnelLoading || trendLoading;
 
   const handleAnalyze = () => {
-    setShowResults(true);
+    setShouldFetch(true);
   };
 
   return (
     <Box className={classes.shell}>
-      {/* ===== Top Navigation Bar ===== */}
       <Box className={classes.topBar}>
         <Box className={classes.topBarLeft}>
           <SegmentedControl
             value={activeModule}
-            onChange={(val) =>
-              setActiveModule(val as "funnels" | "journeys")
-            }
+            onChange={(val) => setActiveModule(val as "funnels" | "journeys")}
             data={[
               {
                 label: (
-                  <Box
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
+                  <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <IconChartFunnel size={15} />
                     <span>Funnels</span>
                   </Box>
@@ -67,13 +97,7 @@ export function FunnelAnalysis() {
               },
               {
                 label: (
-                  <Box
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
+                  <Box style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <IconRoute size={15} />
                     <span>Journeys</span>
                   </Box>
@@ -85,9 +109,7 @@ export function FunnelAnalysis() {
             color="teal"
           />
           <Text className={classes.moduleTitle}>
-            {activeModule === "funnels"
-              ? "Funnel Analysis"
-              : "Journey Explorer"}
+            {activeModule === "funnels" ? "Funnel Analysis" : "Journey Explorer"}
           </Text>
         </Box>
 
@@ -95,7 +117,10 @@ export function FunnelAnalysis() {
           <Select
             data={DATE_RANGE_OPTIONS}
             value={dateRange}
-            onChange={(val) => setDateRange(val || "7d")}
+            onChange={(val) => {
+              setDateRange(val || "7d");
+              setShouldFetch(false);
+            }}
             size="xs"
             style={{ width: 160 }}
             allowDeselect={false}
@@ -103,33 +128,52 @@ export function FunnelAnalysis() {
         </Box>
       </Box>
 
-      {/* ===== Filter Bar ===== */}
-      <GlobalFilterBar filters={filters} onFiltersChange={setFilters} />
+      <GlobalFilterBar
+        filters={filters}
+        onFiltersChange={setFilters}
+        filterOptions={filterOptions}
+      />
 
-      {/* ===== Module Content ===== */}
       {activeModule === "funnels" ? (
         <Box className={classes.funnelLayout}>
-          {/* Left Sidebar: The Builder */}
           <Box className={classes.sidebar}>
             <FunnelBuilder
               steps={steps}
-              onStepsChange={setSteps}
+              onStepsChange={(s) => { setSteps(s); setShouldFetch(false); }}
               funnelMode={funnelMode}
               onFunnelModeChange={setFunnelMode}
               conversionWindow={conversionWindow}
-              onConversionWindowChange={setConversionWindow}
+              onConversionWindowChange={(v) => { setConversionWindow(v); setShouldFetch(false); }}
               onAnalyze={handleAnalyze}
+              availableEvents={availableEvents}
             />
           </Box>
 
-          {/* Right Canvas: The Visualization */}
           <Box className={classes.mainCanvas}>
-            {showResults ? (
+            {isLoading && shouldFetch && (
+              <Box className={classes.emptyState}>
+                <Loader color="teal" size="lg" />
+                <Text size="sm" c="dimmed" mt="md">Analyzing funnel...</Text>
+              </Box>
+            )}
+
+            {!isLoading && funnelResult && funnelResult.steps && (
               <>
-                <FunnelVisualization data={MOCK_FUNNEL_DATA} />
-                <FunnelDataTable steps={MOCK_FUNNEL_DATA.steps} />
+                <FunnelVisualization
+                  steps={funnelResult.steps}
+                  totalConversionRate={trendResult?.totalConversionRate ?? funnelResult.overallConversionRate}
+                  conversionTrend={trendResult?.conversionTrend ?? 0}
+                  medianTimes={trendResult?.medianTimes ?? []}
+                />
+                <FunnelDataTable
+                  steps={funnelResult.steps}
+                  timeRange={timeRange}
+                  apiSteps={apiSteps}
+                />
               </>
-            ) : (
+            )}
+
+            {!isLoading && !funnelResult && (
               <Box className={classes.emptyState}>
                 <Box className={classes.emptyStateIcon}>
                   <IconChartFunnel size={28} color="#0ba09a" />
@@ -138,16 +182,15 @@ export function FunnelAnalysis() {
                   Build Your Funnel
                 </Text>
                 <Text size="sm" c="dimmed" mt={4} maw={380}>
-                  Select events for each step in the builder, set your
-                  conversion window, and click "Analyze Funnel" to see
-                  results.
+                  Select events for each step, set your conversion window, and
+                  click "Analyze Funnel" to see results.
                 </Text>
               </Box>
             )}
           </Box>
         </Box>
       ) : (
-        <JourneyExplorer />
+        <JourneyExplorer dateRange={dateRange} availableEvents={availableEvents} />
       )}
     </Box>
   );

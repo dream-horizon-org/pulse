@@ -28,6 +28,7 @@ import {
   generateAiQueryResponse,
 } from "./responses/realtimeQueryResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { handleFunnelEndpoints } from "./responses/funnelResponses";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -308,6 +309,11 @@ export class MockResponseGenerator {
     // SDK Configuration endpoints (legacy)
     if (pathname.includes("/sdk-config")) {
       return this.handleSdkConfigEndpoints(pathname, method, request);
+    }
+
+    // Funnel Analysis & Journey Explorer
+    if (pathname.includes("/v1/funnel/") || pathname.includes("/v1/journey/")) {
+      return handleFunnelEndpoints(pathname, method, request);
     }
 
     // Default response
