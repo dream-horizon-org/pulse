@@ -3,6 +3,8 @@ package org.dreamhorizon.pulseserver.service.rootcause;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
+
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -38,11 +40,11 @@ public class RootCauseService {
         : end.atZone(ZoneOffset.UTC).toLocalDate().toString();
 
     return cacheDao.get(tenantId, projectId, interactionName, cacheDate)
-        .flatMap(row -> {
+        .<RootCauseResult>flatMap(row -> {
           if (isCacheValid(row)) {
-            return Single.just(fromCacheRow(row));
+            return Single.just(fromCacheRow(row)).toMaybe();
           }
-          return computeAndCache(tenantId, projectId, interactionName, cacheDate, start, end);
+          return computeAndCache(tenantId, projectId, interactionName, cacheDate, start, end).toMaybe();
         })
         .switchIfEmpty(Single.defer(() ->
             computeAndCache(tenantId, projectId, interactionName, cacheDate, start, end)));
