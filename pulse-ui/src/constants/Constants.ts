@@ -837,6 +837,12 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v1/projects`,
     method: API_METHODS.POST,
   },
+  // Get Project Details API Route
+  GET_PROJECT: {
+    key: "GET_PROJECT",
+    apiPath: `/v1/projects/:projectId`,
+    method: API_METHODS.GET,
+  },
   // Project API Key Management API Routes
   GET_PROJECT_API_KEYS: {
     key: "GET_PROJECT_API_KEYS",
