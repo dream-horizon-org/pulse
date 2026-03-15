@@ -20,20 +20,10 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     navigateToProject,
     isInitializing,
   } = useProjectContext();
-  const {
-    projects,
-    tenantId,
-    isLoading: isLoadingProjects,
-  } = useTenantContext();
+  const { projects, tenantId } = useTenantContext();
 
   useEffect(() => {
     if (!tenantId || isInitializing) {
-      return;
-    }
-
-    // Wait for projects list to load before making decisions
-    // This prevents race conditions when sessionStorage is cleared
-    if (isLoadingProjects) {
       return;
     }
 
@@ -65,13 +55,15 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     if (urlProjectId && !isExcludedPath) {
       // Check if context needs to be synced
       if (!contextProjectId || contextProjectId !== urlProjectId) {
-        // Always try to call the API for the project in the URL
-        // The API will determine if user has access (more authoritative than projects list)
-        // This handles:
-        // 1. Deep links with cleared sessionStorage
-        // 2. Direct URL access
-        // 3. Cases where projects list might be stale or incomplete
-        navigateToProject(urlProjectId);
+        const hasAccess = projects.some((p) => p.projectId === urlProjectId);
+
+        if (hasAccess) {
+          // Context is out of sync - fetch and navigate
+          navigateToProject(urlProjectId);
+        } else if (projects.length > 0 && tenantId) {
+          // No access - redirect to projects list
+          navigate(`/${tenantId}/projects`);
+        }
       }
     } else if (
       !contextProjectId &&
@@ -92,7 +84,6 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
     tenantId,
     navigateToProject,
     isInitializing,
-    isLoadingProjects,
   ]);
 
   return <>{children}</>;
