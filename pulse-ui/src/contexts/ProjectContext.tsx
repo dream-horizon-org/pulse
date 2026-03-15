@@ -123,6 +123,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Add 300ms delay to ensure initialization modal is visible
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
         // Set complete project info from API response
         setProject({
           projectId: projectData.projectId,
