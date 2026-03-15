@@ -108,14 +108,7 @@ export function Navbar({
   };
 
   const onLogoClick = () => {
-    if (contextProjectId) {
-      navigate(
-        ROUTES.PROJECT_DASHBOARD.basePath.replace(
-          ":projectId",
-          contextProjectId,
-        ),
-      );
-    } else if (tenantId) {
+    if (tenantId) {
       navigate(
         ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
           ":organizationId",

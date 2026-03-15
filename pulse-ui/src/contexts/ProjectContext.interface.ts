@@ -1,13 +1,12 @@
-import { ProjectRole } from '../constants/Roles';
-import { TierType } from '../constants/Tiers';
+import { ProjectRole } from "../constants/Roles";
 
 export interface ProjectInfo {
   projectId: string;
   projectName: string;
   userRole: ProjectRole;
-  isActive?: boolean;
-  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. This field is ignored. */
-  plan?: TierType;
+  isActive: boolean;
+  isEventFlowStarted: boolean;
+  description?: string;
 }
 
 export interface ProjectContextType {
@@ -15,13 +14,13 @@ export interface ProjectContextType {
   projectId: string | null;
   projectName: string | null;
   userRole: ProjectRole | null;
-  /** @deprecated Tier is now tenant-level. Use TenantContext.tier instead. Always returns 'free' for backward compatibility. */
-  plan: TierType | null;
   isActive: boolean;
-  
+  isEventFlowStarted: boolean;
+  isInitializing: boolean;
+
   // Methods
   setProject: (project: ProjectInfo) => void;
-  switchProject: (projectId: string) => Promise<void>;
+  navigateToProject: (projectId: string) => Promise<void>;
   clearProject: () => void;
 }
 
@@ -30,6 +29,7 @@ export interface StoredProjectData {
   projectName: string;
   userRole: ProjectRole;
   isActive: boolean;
-  plan?: TierType;
+  isEventFlowStarted: boolean;
+  description?: string;
   timestamp: number;
 }

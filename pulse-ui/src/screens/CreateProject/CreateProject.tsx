@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Container,
   Title,
@@ -11,121 +10,94 @@ import {
   Stack,
   Card,
   Group,
-} from '@mantine/core';
-import { IconFolder, IconArrowLeft } from '@tabler/icons-react';
-import { useTenantContext, useProjectContext } from '../../contexts';
-import { showNotification } from '../../helpers/showNotification';
-import { ROUTES } from '../../constants';
-import { useCreateProject } from '../../hooks';
-import { PROJECT_ROLES } from '../../constants/Roles';
-import { TIERS } from '../../constants/Tiers';
+} from "@mantine/core";
+import { IconFolder, IconArrowLeft } from "@tabler/icons-react";
+import { useTenantContext, useProjectContext } from "../../contexts";
+import { showNotification } from "../../helpers/showNotification";
+import { ROUTES } from "../../constants";
+import { useCreateProject } from "../../hooks";
+import { PROJECT_ROLES } from "../../constants/Roles";
 
 export function CreateProject() {
   const navigate = useNavigate();
   const { tenantId, addProject } = useTenantContext();
-  const { setProject } = useProjectContext();
-  
-  const [projectName, setProjectName] = useState('');
-  const [projectDescription, setProjectDescription] = useState('');
+  const { navigateToProject } = useProjectContext();
+
+  const [projectName, setProjectName] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
   const [errors, setErrors] = useState<{ name?: string }>({});
-  
+
   const createProjectMutation = useCreateProject();
   const isSubmitting = createProjectMutation.isPending;
 
   const validateForm = (): boolean => {
     const newErrors: { name?: string } = {};
-    
+
     if (!projectName.trim()) {
-      newErrors.name = 'Project name is required';
+      newErrors.name = "Project name is required";
     } else if (projectName.trim().length < 3) {
-      newErrors.name = 'Project name must be at least 3 characters';
+      newErrors.name = "Project name must be at least 3 characters";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm() || !tenantId) return;
-    
+
     createProjectMutation.mutate(
       {
         name: projectName.trim(),
         description: projectDescription.trim() || undefined,
       },
       {
-        onSuccess: (response) => {
+        onSuccess: async (response) => {
           if (response?.data) {
             const projectData = response.data;
 
-            // Force immediate state update using flushSync to prevent race conditions
-            // This ensures the project is in both TenantContext and ProjectContext before navigation
-            flushSync(() => {
-              // Update TenantContext (adds to projects list)
-              addProject({
-                projectId: projectData.projectId,
-                name: projectData.name,
-                description: projectData.description,
-                isActive: true,
-                role: PROJECT_ROLES.ADMIN,
-              });
-              
-              // Update ProjectContext (sets as active project)
-              setProject({
-                projectId: projectData.projectId,
-                projectName: projectData.name,
-                userRole: PROJECT_ROLES.ADMIN,
-                isActive: true,
-              });
-              
-              // CRITICAL: Also update sessionStorage immediately to prevent race conditions
-              sessionStorage.setItem('pulse_project_context', JSON.stringify({
-                projectId: projectData.projectId,
-                projectName: projectData.name,
-                userRole: PROJECT_ROLES.ADMIN,
-                isActive: true,
-                plan: TIERS.FREE,
-                timestamp: Date.now()
-              }));
-              
-              // Update last used project ID
-              sessionStorage.setItem('pulse_last_project_id', projectData.projectId);
+            // Add project to tenant's projects list
+            addProject({
+              projectId: projectData.projectId,
+              name: projectData.name,
+              description: projectData.description,
+              isActive: true,
+              role: PROJECT_ROLES.ADMIN,
             });
-            
+
             showNotification(
-              'Success',
-              'Project created successfully!',
+              "Success",
+              "Project created successfully!",
               <IconFolder />,
-              '#0ec9c2'
+              "#0ec9c2",
             );
-            
-            // Navigate to project onboarding
-            navigate(`/projects/${projectData.projectId}/onboarding`, {
-              state: {
-                projectId: projectData.projectId,
-                projectName: projectData.name,
-                projectApiKey: projectData.apiKey,
-              }
-            });
+
+            // Use navigateToProject to fetch full details and navigate
+            await navigateToProject(projectData.projectId);
           }
         },
         onError: (error) => {
           showNotification(
-            'Error',
-            error instanceof Error ? error.message : 'Failed to create project',
+            "Error",
+            error instanceof Error ? error.message : "Failed to create project",
             <IconFolder />,
-            '#fa5252'
+            "#fa5252",
           );
         },
-      }
+      },
     );
   };
 
   const handleBack = () => {
     if (tenantId) {
-      navigate(ROUTES.ORGANIZATION_PROJECTS.basePath.replace(':organizationId', tenantId));
+      navigate(
+        ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
+          ":organizationId",
+          tenantId,
+        ),
+      );
     }
   };
 
@@ -192,9 +164,9 @@ export function CreateProject() {
                   loading={isSubmitting}
                   disabled={isSubmitting}
                   variant="gradient"
-                  gradient={{ from: '#0ec9c2', to: '#0ba09a' }}
+                  gradient={{ from: "#0ec9c2", to: "#0ba09a" }}
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Project'}
+                  {isSubmitting ? "Creating..." : "Create Project"}
                 </Button>
               </Group>
             </Stack>

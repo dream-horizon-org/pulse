@@ -5,6 +5,8 @@ export interface ProjectDetailsResponse {
   tenantId: string;
   apiKey?: string;
   isEventFlowStarted: boolean;
+  isActive: boolean;
+  userRole: string;
   createdAt: string;
   createdBy: string;
 }
