@@ -6,7 +6,7 @@ import React, {
   ReactNode,
   useEffect,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTenantContext } from "./TenantContext";
 import { ProjectRole } from "../constants/Roles";
@@ -33,6 +33,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const { tenantId } = useTenantContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
   // Hydrate from sessionStorage on mount
@@ -139,11 +140,26 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // Invalidate all project-related queries to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["project"] });
 
-        // Navigate based on event flow status
-        if (projectData.isEventFlowStarted) {
-          navigate(`/projects/${targetProjectId}`);
+        // Check if we're on the exact dashboard route or a sub-route
+        const currentPath = location.pathname;
+        const exactDashboardRoute = `/projects/${targetProjectId}`;
+        const isOnExactDashboard = currentPath === exactDashboardRoute;
+
+        // Only navigate/redirect if on the exact dashboard route
+        // For deep links (sub-routes), preserve the current route
+        if (isOnExactDashboard) {
+          // On exact dashboard route - check if we should redirect to onboarding
+          if (!projectData.isEventFlowStarted) {
+            console.log(
+              "[ProjectContext] Redirecting to onboarding - no event flow started",
+            );
+            navigate(`/projects/${targetProjectId}/onboarding`);
+          }
+          // If isEventFlowStarted is true, stay on dashboard (no navigation needed)
         } else {
-          navigate(`/projects/${targetProjectId}/onboarding`);
+          // On a sub-route (deep link) - just set context, don't navigate
+          // This preserves deep links like /projects/:id/alerts, /projects/:id/settings, etc.
+          console.log("[ProjectContext] Deep link preserved:", currentPath);
         }
       } catch (err) {
         console.error("[ProjectContext] navigateToProject failed:", err);
@@ -154,7 +170,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setIsInitializing(false);
       }
     },
-    [queryClient, setProject, navigate, tenantId],
+    [queryClient, setProject, navigate, location.pathname, tenantId],
   );
 
   const value: ProjectContextType = {
