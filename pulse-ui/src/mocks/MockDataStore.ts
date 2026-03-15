@@ -1674,12 +1674,9 @@ export class MockDataStore {
   getProject(projectId: string): MockProjectDetails | null {
     const stored = this.mockProjects.get(projectId);
     if (stored) {
-      // Find user's role from project members
+      // Find user's role from project members (default to admin for mocks)
       const members = this.mockProjectMembers.get(projectId) ?? [];
-      const userMember = members.find(
-        (m) => m.email === this.currentTenant?.currentUserEmail,
-      );
-      const userRole = userMember?.role ?? "admin";
+      const userRole = members.length > 0 ? members[0].role : "admin";
 
       return {
         ...stored,
