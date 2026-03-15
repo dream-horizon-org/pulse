@@ -201,13 +201,14 @@ CREATE TABLE symbol_files (
 );
 
 CREATE TABLE pulse_sdk_configs (
-    version INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    version INT UNSIGNED NOT NULL,
     project_id VARCHAR(64) NOT NULL,
     description TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     config_json JSON NOT NULL,
+    PRIMARY KEY (project_id, version),
     INDEX idx_sdk_configs_project (project_id),
     INDEX idx_sdk_configs_project_active (project_id, is_active),
     CONSTRAINT fk_sdk_configs_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE

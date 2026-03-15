@@ -885,10 +885,9 @@ class SdkConfigsDaoTest {
           .features(List.of())
           .build();
 
-      long insertedId = 1L;
+      // Mock the INSERT query execution
       RowSet<Row> insertRowSet = mock(RowSet.class);
       when(insertRowSet.rowCount()).thenReturn(1);
-      when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
 
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -898,7 +897,8 @@ class SdkConfigsDaoTest {
           sqlConnection, "new-project-id", configData).blockingGet();
 
       assertThat(result).isNotNull();
-      assertThat(result.getVersion()).isEqualTo(insertedId);
+      // Version should always be 1 for initial config
+      assertThat(result.getVersion()).isEqualTo(1L);
       assertThat(result.getDescription()).isEqualTo("Initial config for new project");
     }
   }

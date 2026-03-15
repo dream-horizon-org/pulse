@@ -4,6 +4,7 @@ import static org.dreamhorizon.pulseserver.dao.configs.Queries.DEACTIVATE_ACTIVE
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_ALL_CONFIG_DETAILS;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_CONFIG_BY_VERSION;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_LATEST_VERSION;
+import static org.dreamhorizon.pulseserver.dao.configs.Queries.GET_NEXT_VERSION;
 import static org.dreamhorizon.pulseserver.dao.configs.Queries.INSERT_CONFIG;
 
 import com.google.inject.Inject;
@@ -37,6 +38,31 @@ public class SdkConfigsDao {
    */
   private String getProjectId() {
     return ProjectContext.getProjectId();
+  }
+
+  /**
+   * Gets the next available version number for a project.
+   * Returns 1 for the first config, or MAX(version) + 1 for subsequent configs.
+   * 
+   * @param conn Database connection (for use within transactions)
+   * @param projectId Project ID
+   * @return Single with the next version number
+   */
+  private Single<Long> getNextVersion(SqlConnection conn, String projectId) {
+    return conn.preparedQuery(GET_NEXT_VERSION)
+        .rxExecute(Tuple.of(projectId))
+        .map(rows -> {
+          if (rows.size() > 0) {
+            Row row = rows.iterator().next();
+            Long nextVersion = row.getLong("next_version");
+            log.debug("Next version for project {}: {}", projectId, nextVersion);
+            return nextVersion;
+          } else {
+            log.warn("No result from GET_NEXT_VERSION query for project: {}, defaulting to 1", projectId);
+            return 1L;
+          }
+        })
+        .doOnError(error -> log.error("Failed to get next version for project: {}", projectId, error));
   }
 
   public Single<PulseConfig> getConfig(String projectId, long version) {
@@ -81,14 +107,6 @@ public class SdkConfigsDao {
         });
   }
 
-  private static Single<Long> getLastInsertedId(RowSet<Row> rowSet) {
-    if (rowSet.rowCount() == 0) {
-      return Single.error(new RuntimeException("Failed to insert config"));
-    }
-
-    return Single.just(Long.parseLong(rowSet.property(MySQLClient.LAST_INSERTED_ID).toString()));
-  }
-
   public Single<PulseConfig> createConfig(String projectId, org.dreamhorizon.pulseserver.service.configs.models.ConfigData createConfig) {
     SdkConfigData sdkConfigData = SdkConfigData.builder()
         .features(createConfig.getFeatures())
@@ -98,42 +116,52 @@ public class SdkConfigsDao {
         .build();
 
     String configDetailRowStr = objectMapper.writeValueAsString(sdkConfigData);
-    Tuple tuple = Tuple.tuple()
-        .addString(projectId)
-        .addString(configDetailRowStr)
-        .addBoolean(true)
-        .addString(createConfig.getUser())
-        .addString(createConfig.getDescription());
 
     return d11MysqlClient
         .getWriterPool()
         .rxGetConnection()
         .flatMap(conn -> conn.begin()
-            .flatMap(tx -> conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
-                .rxExecute(Tuple.of(projectId))
-                .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
-                .flatMap(SdkConfigsDao::getLastInsertedId)
-                .map(configId -> {
-                  PulseConfig pulseConfig = PulseConfig.builder()
-                      .version(configId)
-                      .description(createConfig.getDescription())
-                      .sampling(objectMapper.convertValue(createConfig.getSampling(), PulseConfig.SamplingConfig.class))
-                      .signals(objectMapper.convertValue(createConfig.getSignals(), PulseConfig.SignalsConfig.class))
-                      .interaction(objectMapper.convertValue(createConfig.getInteraction(), PulseConfig.InteractionConfig.class))
-                      .features(objectMapper.convertValue(createConfig.getFeatures(),
-                          objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
-                      .build();
-                  return pulseConfig;
-                })
-                .flatMap(config -> tx.rxCommit().toSingleDefault(config))
-                .onErrorResumeNext(err -> {
-                  log.error("Error while creating config in DB ", err);
-                  return tx
-                      .rxRollback()
-                      .toSingleDefault(PulseConfig.builder().build())
-                      .flatMap(msg -> Single.error(err));
-                })
-                .doFinally(conn::close)));
+            .flatMap(tx -> 
+                // Get the next version number for this project
+                getNextVersion(conn, projectId)
+                    .flatMap(nextVersion -> {
+                      // Build tuple with the calculated version
+                      Tuple tuple = Tuple.tuple()
+                          .addString(projectId)
+                          .addLong(nextVersion)
+                          .addString(configDetailRowStr)
+                          .addBoolean(true)
+                          .addString(createConfig.getUser())
+                          .addString(createConfig.getDescription());
+                      
+                      // Deactivate existing configs and insert new one
+                      return conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
+                          .rxExecute(Tuple.of(projectId))
+                          .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
+                          .map(insertResult -> {
+                            // Build PulseConfig with the calculated version
+                            PulseConfig pulseConfig = PulseConfig.builder()
+                                .version(nextVersion)
+                                .description(createConfig.getDescription())
+                                .sampling(objectMapper.convertValue(createConfig.getSampling(), PulseConfig.SamplingConfig.class))
+                                .signals(objectMapper.convertValue(createConfig.getSignals(), PulseConfig.SignalsConfig.class))
+                                .interaction(objectMapper.convertValue(createConfig.getInteraction(), PulseConfig.InteractionConfig.class))
+                                .features(objectMapper.convertValue(createConfig.getFeatures(),
+                                    objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
+                                .build();
+                            log.info("Created new SDK config for project: {}, version: {}", projectId, nextVersion);
+                            return pulseConfig;
+                          });
+                    })
+                    .flatMap(config -> tx.rxCommit().toSingleDefault(config))
+                    .onErrorResumeNext(err -> {
+                      log.error("Error while creating config in DB ", err);
+                      return tx
+                          .rxRollback()
+                          .toSingleDefault(PulseConfig.builder().build())
+                          .flatMap(msg -> Single.error(err));
+                    })
+                    .doFinally(conn::close)));
   }
 
   public Single<AllConfigdetails> getAllConfigDetails() {
@@ -161,6 +189,7 @@ public class SdkConfigsDao {
    * Creates the initial SDK config for a new project.
    * Used during project creation to include config insertion in the main transaction.
    * Does NOT deactivate existing configs (assumes none exist for new projects).
+   * Always creates version 1 for new projects.
    */
   public Single<PulseConfig> createInitialConfig(
       SqlConnection conn,
@@ -175,28 +204,31 @@ public class SdkConfigsDao {
         .build();
 
     String configJson = objectMapper.writeValueAsString(sdkConfigData);
-    Tuple tuple = buildConfigTuple(projectId, configJson, configData.getUser(), configData.getDescription());
+    
+    // For initial config, version is always 1
+    long initialVersion = 1L;
+    Tuple tuple = buildConfigTuple(projectId, initialVersion, configJson, configData.getUser(), configData.getDescription());
 
     return conn.preparedQuery(INSERT_CONFIG)
         .rxExecute(tuple)
-        .flatMap(SdkConfigsDao::getLastInsertedId)
-        .map(configId -> mapToPulseConfig(configId, configData))
+        .map(insertResult -> mapToPulseConfig(initialVersion, configData))
         .doOnSuccess(config -> log.info("Created initial SDK config for project: {}, version: {}", projectId, config.getVersion()))
         .doOnError(error -> log.error("Failed to create initial SDK config for project: {}", projectId, error));
   }
 
-  private Tuple buildConfigTuple(String projectId, String configJson, String createdBy, String description) {
+  private Tuple buildConfigTuple(String projectId, long version, String configJson, String createdBy, String description) {
     return Tuple.tuple()
         .addString(projectId)
+        .addLong(version)
         .addString(configJson)
         .addBoolean(true)
         .addString(createdBy)
         .addString(description);
   }
 
-  private PulseConfig mapToPulseConfig(Long configId, org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData) {
+  private PulseConfig mapToPulseConfig(Long version, org.dreamhorizon.pulseserver.service.configs.models.ConfigData configData) {
     return PulseConfig.builder()
-        .version(configId)
+        .version(version)
         .description(configData.getDescription())
         .sampling(objectMapper.convertValue(configData.getSampling(), PulseConfig.SamplingConfig.class))
         .signals(objectMapper.convertValue(configData.getSignals(), PulseConfig.SignalsConfig.class))
