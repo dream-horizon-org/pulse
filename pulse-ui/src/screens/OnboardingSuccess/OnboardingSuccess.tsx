@@ -71,11 +71,29 @@ export function OnboardingSuccess() {
   const inviteMutation = useInviteProjectMember();
   const inviting = inviteMutation.isPending;
 
-  // Update project name when context changes (for project switching)
+  // Update project name AND refetch API key when context changes (for project switching)
   useEffect(() => {
-    if (contextProjectId === projectId && contextProjectName) {
-      setProjectName(contextProjectName);
-    }
+    const updateProjectData = async () => {
+      if (contextProjectId === projectId && contextProjectName) {
+        setProjectName(contextProjectName);
+
+        // Refetch API key for the new project
+        try {
+          setLoading(true);
+          const apiKeyResult = await getProjectApiKey(projectId);
+          setProjectApiKey(apiKeyResult.key);
+        } catch (error) {
+          console.error(
+            "[OnboardingSuccess] Error fetching API key on project switch:",
+            error,
+          );
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    updateProjectData();
   }, [contextProjectId, contextProjectName, projectId]);
 
   // Fetch project details if not in location.state
