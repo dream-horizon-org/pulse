@@ -1835,9 +1835,43 @@ export class MockDataStore {
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
   }
 
+  getTenantMemberByEmail(
+    tenantId: string,
+    email: string,
+  ):
+    | {
+        userId: string;
+        email: string;
+        name: string;
+        role: string;
+        status: string;
+        lastLoginAt: string | null;
+      }
+    | undefined {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    return members.find((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
   hasProjectMember(projectId: string, email: string): boolean {
     const members = this.mockProjectMembers.get(projectId) ?? [];
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
+  getProjectMemberByEmail(
+    projectId: string,
+    email: string,
+  ):
+    | {
+        userId: string;
+        email: string;
+        name: string;
+        role: string;
+        status: string;
+        lastLoginAt: string | null;
+      }
+    | undefined {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    return members.find((m) => m.email.toLowerCase() === email.toLowerCase());
   }
 
   removeTenantMember(tenantId: string, userId: string): boolean {
