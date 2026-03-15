@@ -6,6 +6,8 @@ import {
   LAYOUT_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
+import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
+import { TIERS, TierType } from "../../constants/Tiers";
 import { useDisclosure } from "@mantine/hooks";
 import { Header } from "../Header";
 import { Navbar } from "../Navbar";
@@ -63,8 +65,8 @@ export function Layout({ children }: LayoutProps) {
           setTenantInfo({
             tenantId: cookieTenantId,
             tenantName: cookieTenantName || "",
-            userRole: (cookieTenantRole as "admin" | "member") || "member",
-            tier: (cookieTier as "free" | "enterprise") || "free",
+            userRole: (cookieTenantRole as TenantRole) || TENANT_ROLES.MEMBER,
+            tier: (cookieTier as TierType) || TIERS.FREE,
           });
         } catch (error) {
           console.error("[Layout] Failed to initialize tenant context:", error);
