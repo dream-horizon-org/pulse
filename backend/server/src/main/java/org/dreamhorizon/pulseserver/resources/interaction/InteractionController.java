@@ -16,6 +16,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +31,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractions
 import org.dreamhorizon.pulseserver.resources.interaction.models.GetInteractionsRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.InteractionFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.RestInteractionDetail;
+import org.dreamhorizon.pulseserver.resources.interaction.models.RootCauseRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilterOptionsResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.models.UpdateInteractionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.validators.CreateInteractionValidations;
@@ -36,8 +39,14 @@ import org.dreamhorizon.pulseserver.resources.interaction.validators.UpdateInter
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
 import org.dreamhorizon.pulseserver.service.interaction.models.CreateInteractionRequest;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
+import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
 import org.dreamhorizon.pulseserver.service.interaction.models.DeleteInteractionRequest;
 import org.dreamhorizon.pulseserver.service.interaction.models.UpdateInteractionRequest;
 
@@ -49,6 +58,8 @@ public class InteractionController {
 
   private final InteractionService interactionService;
   private final Validator validator;
+  private final RootCauseConfig rootCauseConfig;
+  private final RootCauseService rootCauseService;
 
   private static WebApplicationException getWebApplicationException(Set<ConstraintViolation<RestInteractionDetail>> violations) {
     return new WebApplicationException(
@@ -181,5 +192,52 @@ public class InteractionController {
   public CompletionStage<Response<TelemetryFilterOptionsResponse>> getTelemetryFilterOptions() {
     return interactionService.getTelemetryFilterOptions()
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  @GET
+  @Path("/{name}/root-cause")
+  @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
+  public CompletionStage<Response<RootCauseRestResponse>> getRootCause(
+      @PathParam("name") String name,
+      @QueryParam("date") String dateParam
+  ) {
+    if (!rootCauseConfig.isEnabled()) {
+      throw ServiceError.NOT_FOUND.getException();
+    }
+    String projectId = ProjectContext.requireProjectId();
+    LocalDate date = dateParam != null && !dateParam.isBlank()
+        ? LocalDate.parse(dateParam)
+        : LocalDate.now(ZoneOffset.UTC);
+
+    return rootCauseService.getRootCause(projectId, name, date)
+        .map(this::toRootCauseRestResponse)
+        .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private RootCauseRestResponse toRootCauseRestResponse(RootCauseResult result) {
+    List<RootCauseRestResponse.RootCauseSegmentRest> segments = result.getSegments() == null
+        ? List.of()
+        : result.getSegments().stream()
+            .map(this::toRootCauseSegmentRest)
+            .collect(Collectors.toList());
+    return RootCauseRestResponse.builder()
+        .baseline(result.getBaseline())
+        .segments(segments)
+        .mode(result.getMode())
+        .cachedAt(result.getCachedAt())
+        .everythingGood(result.getEverythingGood())
+        .noDataAvailable(result.getNoDataAvailable())
+        .message(result.getMessage())
+        .build();
+  }
+
+  private RootCauseRestResponse.RootCauseSegmentRest toRootCauseSegmentRest(RootCauseSegment seg) {
+    return RootCauseRestResponse.RootCauseSegmentRest.builder()
+        .label(seg.getLabel())
+        .dimensions(seg.getDimensions())
+        .metrics(seg.getMetrics())
+        .deltas(seg.getDeltas())
+        .build();
   }
 }

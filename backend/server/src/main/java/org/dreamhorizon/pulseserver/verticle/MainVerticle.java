@@ -28,6 +28,7 @@ import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
@@ -101,6 +102,12 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), openfgaConfig);
           log.info("OpenFGA config initialized - enabled: {}, apiUrl: {}, storeId: {}",
               openfgaConfig.isEnabled(), openfgaConfig.getApiUrl(), openfgaConfig.getStoreId());
+
+          // Root Cause Analysis config
+          JsonObject rootCauseJson = config.getJsonObject("rootCause", new JsonObject());
+          RootCauseConfig rootCauseConfig = buildRootCauseConfig(rootCauseJson);
+          SharedDataUtils.put(vertx.getDelegate(), rootCauseConfig);
+          log.info("Root Cause config initialized - enabled: {}", rootCauseConfig.isEnabled());
 
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
@@ -210,6 +217,28 @@ public class MainVerticle extends AbstractVerticle {
       log.error("Failed to fetch OpenFGA model ID: {}", e.getMessage());
       return null;
     }
+  }
+
+  private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
+    boolean enabled = false;
+    Object enabledValue = rootCauseJson.getValue("enabled");
+    if (enabledValue instanceof Boolean) {
+      enabled = (Boolean) enabledValue;
+    } else if (enabledValue instanceof String) {
+      enabled = Boolean.parseBoolean((String) enabledValue);
+    }
+
+    RootCauseConfig from = RootCauseConfig.builder()
+        .enabled(enabled)
+        .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct", 0))
+        .lookbackDays(rootCauseJson.getInteger("lookbackDays", 0))
+        .cacheTtlHours(rootCauseJson.getInteger("cacheTtlHours", 0))
+        .maxSegments(rootCauseJson.getInteger("maxSegments", 0))
+        .build();
+    if (rootCauseJson.getValue("dimensionOrder") != null) {
+      from.setDimensionOrder(rootCauseJson.getJsonArray("dimensionOrder").getList());
+    }
+    return RootCauseConfig.withDefaults(from);
   }
 
   private WebClientOptions getWebClientOptions(JsonObject config) {

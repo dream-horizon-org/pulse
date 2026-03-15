@@ -336,6 +336,13 @@ accept connections, then applies `backend/ingestion/clickhouse-otel-schema.sql`
 to create the OTEL tables. Called automatically by `start.sh` and
 `docker-compose.yml`; you should never need to run it manually.
 
+**Schema / migrations:** All tables (including `otel.root_cause_cache` for Root
+Cause Analysis) are defined in `backend/ingestion/clickhouse-otel-schema.sql`.
+They are applied when ClickHouse is first initialized (quickstart, start with
+fresh volumes, or after `reset-databases.sh`). If that schema file is updated
+with new tables (e.g. `root_cause_cache`), re-run init by using a fresh
+ClickHouse volume or `reset-databases.sh`.
+
 ## 📊 Monitoring & Observability
 
 ### Health Checks
@@ -389,6 +396,7 @@ curl http://localhost:8888/metrics
 **Environment Variables:**
 - `REACT_APP_GOOGLE_CLIENT_ID`: Google OAuth client ID
 - `GOOGLE_OAUTH_ENABLED`: Common variable to enable/disable Google OAuth (set to `false` to use dummy login). If not set, defaults based on whether client ID is configured.
+- `REACT_APP_ROOT_CAUSE_ENABLED`: Root Cause Analysis tab visibility (e.g. `true`/`false`). When building the UI in deploy, set this to match the backend; enable both when enabling the feature.
 
 ### Pulse Server (Backend)
 
@@ -403,6 +411,7 @@ curl http://localhost:8888/metrics
 - All variables prefixed with `CONFIG_SERVICE_APPLICATION_*`
 - All variables prefixed with `VAULT_SERVICE_*`
 - `GOOGLE_OAUTH_ENABLED`: Common variable to enable/disable Google OAuth (shared with frontend)
+- `ROOT_CAUSE_ENABLED`: Root Cause Analysis feature flag (e.g. `true`/`false`). When false, the root-cause API is disabled (404 or route not registered). For local dev, set in `.env` and ensure `REACT_APP_ROOT_CAUSE_ENABLED` matches when building the UI.
 
 ### Pulse Alerts Cron
 

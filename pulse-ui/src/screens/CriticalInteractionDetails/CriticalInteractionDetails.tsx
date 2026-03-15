@@ -9,6 +9,7 @@ import {
   Tooltip,
   useMantineTheme,
 } from "@mantine/core";
+import dayjs from "dayjs";
 import {
   CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS,
   ROUTES,
@@ -24,7 +25,10 @@ import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
+import { RootCause } from "./components/RootCause";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,11 +62,23 @@ export function CiritcalInteractionDetails() {
     },
   });
 
-  const VALID_TABS = ["overview", "analysis", "sessions"];
+  const VALID_TABS = [
+    "overview",
+    "analysis",
+    "sessions",
+    ...(isRootCauseEnabled ? (["root-cause"] as const) : []),
+  ];
   const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")
     : "overview";
   const [activeTab, setActiveTab] = useState<string | null>(initialTab);
+
+  const rootCauseDate =
+    endTime != null && endTime !== ""
+      ? dayjs(typeof endTime === "string" ? Number(endTime) : endTime).format(
+          "YYYY-MM-DD",
+        )
+      : undefined;
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
@@ -224,6 +240,9 @@ export function CiritcalInteractionDetails() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="analysis">Analysis</Tabs.Tab>
           <Tabs.Tab value="sessions">Interactions</Tabs.Tab>
+          {isRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="overview">
@@ -285,6 +304,14 @@ export function CiritcalInteractionDetails() {
             />
           )}
         </Tabs.Panel>
+        {isRootCauseEnabled && (
+          <Tabs.Panel value="root-cause">
+            <RootCause
+              interactionName={interactionName ?? null}
+              date={rootCauseDate}
+            />
+          </Tabs.Panel>
+        )}
       </div>
     </Tabs>
   );
