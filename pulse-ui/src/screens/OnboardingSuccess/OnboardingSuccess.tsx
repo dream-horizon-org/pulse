@@ -15,6 +15,8 @@ import {
   Select,
   Badge,
   Alert,
+  Loader,
+  Center,
 } from "@mantine/core";
 import {
   IconCheck,
@@ -64,6 +66,7 @@ export function OnboardingSuccess() {
   const [loading, setLoading] = useState(
     !locationState.projectName || !locationState.projectApiKey,
   );
+  const [loadingApiKey, setLoadingApiKey] = useState(false);
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -84,7 +87,7 @@ export function OnboardingSuccess() {
 
         // Refetch API key for the new project
         try {
-          setLoading(true);
+          setLoadingApiKey(true);
           const apiKeyResult = await getProjectApiKey(projectId);
           setProjectApiKey(apiKeyResult.key);
         } catch (error) {
@@ -93,7 +96,7 @@ export function OnboardingSuccess() {
             error,
           );
         } finally {
-          setLoading(false);
+          setLoadingApiKey(false);
         }
       }
     };
@@ -351,26 +354,36 @@ Pulse.initialize({
               Keep it secure!
             </Text>
 
-            <Group gap="xs" className={classes.apiKeyGroup}>
-              <Code className={classes.apiKeyDisplay}>
-                {showApiKey ? projectApiKey : maskApiKey(projectApiKey)}
-              </Code>
-              <ActionIcon
-                variant="subtle"
-                onClick={() => setShowApiKey(!showApiKey)}
-                title={showApiKey ? "Hide API key" : "Show API key"}
-              >
-                {showApiKey ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-              </ActionIcon>
-              <ActionIcon
-                variant="filled"
-                color="teal"
-                onClick={handleCopyKey}
-                title="Copy API key"
-              >
-                {copiedKey ? <IconCheck size={18} /> : <IconCopy size={18} />}
-              </ActionIcon>
-            </Group>
+            {loadingApiKey ? (
+              <Center py="md">
+                <Loader size="md" color="teal" />
+              </Center>
+            ) : (
+              <Group gap="xs" className={classes.apiKeyGroup}>
+                <Code className={classes.apiKeyDisplay}>
+                  {showApiKey ? projectApiKey : maskApiKey(projectApiKey)}
+                </Code>
+                <ActionIcon
+                  variant="subtle"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  title={showApiKey ? "Hide API key" : "Show API key"}
+                >
+                  {showApiKey ? (
+                    <IconEyeOff size={18} />
+                  ) : (
+                    <IconEye size={18} />
+                  )}
+                </ActionIcon>
+                <ActionIcon
+                  variant="filled"
+                  color="teal"
+                  onClick={handleCopyKey}
+                  title="Copy API key"
+                >
+                  {copiedKey ? <IconCheck size={18} /> : <IconCopy size={18} />}
+                </ActionIcon>
+              </Group>
+            )}
           </Paper>
 
           {/* Quick Start Code Section */}
