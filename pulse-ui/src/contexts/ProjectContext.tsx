@@ -98,6 +98,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     async (targetProjectId: string) => {
       setIsInitializing(true);
       try {
+        // Remove any cached data for this project to force fresh fetch
+        queryClient.removeQueries({ queryKey: ["project", targetProjectId] });
+
         const response = await queryClient.fetchQuery({
           queryKey: ["project", targetProjectId],
           queryFn: async () =>
@@ -107,7 +110,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 method: API_ROUTES.GET_PROJECT.method,
               },
             }),
-          staleTime: 30000,
+          // Force fresh fetch - don't use stale cache
+          staleTime: 0,
         });
 
         const projectData = response?.data;
@@ -128,6 +132,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           isEventFlowStarted: projectData.isEventFlowStarted,
           description: projectData.description,
         });
+
+        // Invalidate all project-related queries to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ["project"] });
 
         // Navigate based on event flow status
         if (projectData.isEventFlowStarted) {

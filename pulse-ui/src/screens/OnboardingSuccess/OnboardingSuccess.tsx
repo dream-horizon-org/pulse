@@ -71,6 +71,13 @@ export function OnboardingSuccess() {
   const inviteMutation = useInviteProjectMember();
   const inviting = inviteMutation.isPending;
 
+  // Update project name when context changes (for project switching)
+  useEffect(() => {
+    if (contextProjectId === projectId && contextProjectName) {
+      setProjectName(contextProjectName);
+    }
+  }, [contextProjectId, contextProjectName, projectId]);
+
   // Fetch project details if not in location.state
   useEffect(() => {
     const fetchProjectDetails = async () => {

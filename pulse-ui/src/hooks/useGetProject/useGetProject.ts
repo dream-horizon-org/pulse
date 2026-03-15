@@ -29,7 +29,7 @@ export const useGetProject = ({
       });
     },
     enabled: enabled && !!projectId,
-    staleTime: 30000,
+    staleTime: 0, // Always fetch fresh data
     refetchOnMount: true,
   });
 };
