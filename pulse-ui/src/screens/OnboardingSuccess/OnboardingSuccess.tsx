@@ -14,6 +14,7 @@ import {
   TextInput,
   Select,
   Badge,
+  Alert,
 } from "@mantine/core";
 import {
   IconCheck,
@@ -24,6 +25,7 @@ import {
   IconKey,
   IconUsers,
   IconCode,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import { showNotification } from "../../helpers/showNotification";
 import { getProjectApiKey } from "../../helpers/getProjectApiKey";
@@ -47,8 +49,11 @@ export function OnboardingSuccess() {
   const projectId = urlProjectId;
 
   // Get project info from context
-  const { projectName: contextProjectName, projectId: contextProjectId } =
-    useProjectContext();
+  const {
+    projectName: contextProjectName,
+    projectId: contextProjectId,
+    isEventFlowStarted,
+  } = useProjectContext();
 
   const [projectName, setProjectName] = useState<string | null>(
     locationState.projectName || contextProjectName || null,
@@ -288,6 +293,37 @@ Pulse.initialize({
               Your project is ready! Complete the setup below to start using
               Pulse.
             </Text>
+
+            {/* Warning Banner - Only show if no data received yet */}
+            {!isEventFlowStarted && (
+              <Alert
+                icon={<IconAlertCircle size={20} />}
+                color="yellow"
+                variant="filled"
+                mt="lg"
+                styles={{
+                  root: {
+                    backgroundColor: "rgba(250, 176, 5, 0.15)",
+                    border: "1px solid rgba(250, 176, 5, 0.3)",
+                  },
+                  icon: {
+                    color: "#fab005",
+                  },
+                  message: {
+                    color: "white",
+                  },
+                }}
+              >
+                <Text size="sm" fw={500} c="white">
+                  ⚠️ We haven't received any data from your SDK yet. Please
+                  complete the SDK initialization steps below to start viewing
+                  analytics in your dashboard.{" "}
+                  <Text component="span" fw={700} c="white">
+                    Without SDK setup, your dashboard will be empty.
+                  </Text>
+                </Text>
+              </Alert>
+            )}
 
             {/* Primary CTA Button in Header */}
             <Group justify="center" mt="lg" gap="md">
