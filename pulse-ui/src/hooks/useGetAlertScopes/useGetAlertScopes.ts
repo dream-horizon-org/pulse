@@ -2,9 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import { GetAlertScopesResponse } from "./useGetAlertScopes.interface";
+import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetAlertScopes = () => {
   const getAlertScopes = API_ROUTES.GET_ALERT_SCOPES;
+  const enabled = useProjectQueryEnabled();
+
   return useQuery({
     queryKey: [getAlertScopes.key],
     queryFn: async () => {
@@ -15,11 +18,8 @@ export const useGetAlertScopes = () => {
         },
       });
     },
+    enabled,
     refetchOnWindowFocus: false,
     refetchInterval: false,
   });
 };
-
-
-
-

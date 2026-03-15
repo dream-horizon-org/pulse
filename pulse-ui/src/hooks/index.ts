@@ -2,6 +2,7 @@
 export { usePermissions } from "./usePermissions";
 export { useTierLimits } from "./useTierLimits";
 export type { TierLimits } from "./useTierLimits.interface";
+export { useProjectQueryEnabled } from "./useProjectQueryEnabled";
 
 // AI hooks
 export * from "./useAiQuery";

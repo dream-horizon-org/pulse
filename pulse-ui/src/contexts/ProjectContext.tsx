@@ -54,7 +54,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           sessionStorage.removeItem(STORAGE_KEY);
         }
       } catch (error) {
-        console.error("[ProjectContext] Failed to parse stored data:", error);
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
@@ -71,8 +70,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         isEventFlowStarted,
         timestamp: Date.now(),
       };
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    }
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));    }
   }, [projectId, projectName, userRole, isActive, isEventFlowStarted]);
 
   const setProject = useCallback((project: ProjectInfo) => {
@@ -84,7 +82,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     // Store last used project ID for auto-selection on next login
     sessionStorage.setItem("pulse_last_project_id", project.projectId);
-  }, []);
+
+    // CRITICAL: Write to sessionStorage IMMEDIATELY (synchronously)
+    // This ensures X-Project-ID header is available before any API calls fire
+    // The useEffect at line 64 will also write, but this guarantees it's available immediately
+    const data: StoredProjectData = {
+      projectId: project.projectId,
+      projectName: project.projectName || "",
+      userRole: project.userRole,
+      isActive: project.isActive,
+      isEventFlowStarted: project.isEventFlowStarted,
+      timestamp: Date.now(),
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));  }, []);
 
   const clearProject = useCallback(() => {
     setProjectId(null);
@@ -117,13 +127,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
         const projectData = response?.data;
         if (!projectData) {
-          console.error("[ProjectContext] Failed to fetch project details");
           if (tenantId) {
             navigate(`/${tenantId}/projects`);
           }
           return;
         }
-
         // Add 300ms delay to ensure initialization modal is visible
         await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -140,29 +148,34 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         // Invalidate all project-related queries to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["project"] });
 
-        // Check if we're on the exact dashboard route or a sub-route
+        // Determine what route we're currently on and where we should go
         const currentPath = location.pathname;
         const exactDashboardRoute = `/projects/${targetProjectId}`;
         const isOnExactDashboard = currentPath === exactDashboardRoute;
-
-        // Only navigate/redirect if on the exact dashboard route
-        // For deep links (sub-routes), preserve the current route
+        const isOnProjectSubRoute = currentPath.startsWith(
+          `/projects/${targetProjectId}/`,
+        );
         if (isOnExactDashboard) {
-          // On exact dashboard route - check if we should redirect to onboarding
-          if (!projectData.isEventFlowStarted) {
-            console.log(
-              "[ProjectContext] Redirecting to onboarding - no event flow started",
-            );
-            navigate(`/projects/${targetProjectId}/onboarding`);
-          }
-          // If isEventFlowStarted is true, stay on dashboard (no navigation needed)
+          // CASE 1: On exact dashboard route - redirect to onboarding if needed
+          if (!projectData.isEventFlowStarted) {            navigate(`/projects/${targetProjectId}/onboarding`);
+          } else {          }
+        } else if (isOnProjectSubRoute) {
+          // CASE 2: On a sub-route (deep link) - preserve it          // Don't navigate - just set context and stay on current route
         } else {
-          // On a sub-route (deep link) - just set context, don't navigate
-          // This preserves deep links like /projects/:id/alerts, /projects/:id/settings, etc.
-          console.log("[ProjectContext] Deep link preserved:", currentPath);
+          // CASE 3: NOT on a project route at all (e.g., projects listing page, other pages)
+          // Navigate to appropriate destination
+          if (!projectData.isEventFlowStarted) {            navigate(`/projects/${targetProjectId}/onboarding`);
+          } else {            navigate(`/projects/${targetProjectId}`);
+          }
         }
       } catch (err) {
-        console.error("[ProjectContext] navigateToProject failed:", err);
+        // Don't redirect on CancelledError - this happens when React Query cancels a pending request
+        // because a newer request for the same data is made (e.g., from duplicate useEffect calls)
+        const isCancelled =
+          err instanceof Error && err.message === "CancelledError";
+        if (isCancelled) {          return;
+        }
+
         if (tenantId) {
           navigate(`/${tenantId}/projects`);
         }

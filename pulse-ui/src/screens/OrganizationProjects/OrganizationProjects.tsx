@@ -20,13 +20,14 @@ import {
 } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { usePermissions, useTierLimits } from "../../hooks";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { showNotification } from "../../helpers/showNotification";
 import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
+  const location = useLocation();
   const { projects, hasLoadedProjects, tier, refreshProjects } =
     useTenantContext();
   const { projectId, navigateToProject } = useProjectContext();
@@ -48,9 +49,7 @@ export function OrganizationProjects() {
         }
         await navigateToProject(selectedProjectId);
       } catch (err) {
-        setError("Failed to switch to project");
-        console.error(err);
-      }
+        setError("Failed to switch to project");      }
     },
     [projects, navigateToProject],
   );
@@ -66,9 +65,15 @@ export function OrganizationProjects() {
       return;
     }
 
+    // CRITICAL: Only run auto-selection logic if we're actually ON the projects listing page
+    // This prevents interfering with deep links like /projects/:id/alerts
+    const isOnProjectsListingPage =
+      location.pathname === `/${organizationId}/projects`;
+
+    if (!isOnProjectsListingPage) {      return;
+    }
     // If user already has a project context set, redirect to that project
-    if (projectId) {
-      navigate(`/projects/${projectId}`, { replace: true });
+    if (projectId) {      navigateToProject(projectId);
       return;
     }
 
@@ -76,16 +81,17 @@ export function OrganizationProjects() {
     if (!projectId && projects.length > 0 && tier === TIERS.FREE) {
       const lastUsedProjectId = sessionStorage.getItem("pulse_last_project_id");
       const projectToSelect =
-        projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];
-      handleProjectClick(projectToSelect.projectId);
+        projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];      handleProjectClick(projectToSelect.projectId);
     }
   }, [
     projectId,
     projects,
-    navigate,
     hasLoadedProjects,
     tier,
     handleProjectClick,
+    location.pathname,
+    organizationId,
+    navigateToProject,
   ]);
 
   const handleCreateProject = () => {

@@ -1,5 +1,4 @@
 import { AppShell, Group, Text, Box, Select, Badge } from "@mantine/core";
-import { useState } from "react";
 
 import classes from "./Header.module.css";
 import { HeaderProps } from "./Header.interface";

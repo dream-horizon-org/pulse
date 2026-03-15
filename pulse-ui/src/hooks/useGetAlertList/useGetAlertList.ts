@@ -6,6 +6,7 @@ import {
   GetAlertListResponse,
 } from "./useGetAlertList.interface";
 import { makeRequest } from "../../helpers/makeRequest";
+import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetAlertList = ({
   queryParams = null,
@@ -14,6 +15,7 @@ export const useGetAlertList = ({
   const filteredQueryParams = filterNonNullParams(queryParams);
 
   const searchParams = getQueryParamString(filteredQueryParams);
+  const enabled = useProjectQueryEnabled();
 
   return useQuery({
     queryKey: [getAlertList.key, searchParams.toString()],
@@ -25,6 +27,7 @@ export const useGetAlertList = ({
         },
       });
     },
+    enabled,
     refetchOnWindowFocus: false,
     refetchInterval: 30000,
   });
@@ -45,7 +48,3 @@ function filterNonNullParams(
   // Rebuild the object without null values
   return Object.fromEntries(filteredEntries);
 }
-
-
-
-

@@ -69,6 +69,7 @@ export function OnboardingSuccess() {
   );
 
   // React Query hook for API key - provides automatic loading state
+  // useProjectApiKey internally waits for project context via useProjectQueryEnabled
   const { data: apiKeyData, isLoading: loadingApiKey } = useProjectApiKey(
     projectId || "",
   );
@@ -131,12 +132,7 @@ export function OnboardingSuccess() {
           );
           return;
         }
-      } catch (error) {
-        console.error(
-          "[OnboardingSuccess] Error fetching project details:",
-          error,
-        );
-        // On error, redirect to project dashboard
+      } catch (error) {        // On error, redirect to project dashboard
         navigate(
           ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
           { replace: true },

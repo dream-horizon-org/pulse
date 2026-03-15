@@ -78,8 +78,7 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
       !isExcludedPath &&
       !urlProjectId &&
       !isOrganizationPath
-    ) {
-      // No project in URL and no project in context - redirect to projects list
+    ) {      // No project in URL and no project in context - redirect to projects list
       if (tenantId) {
         navigate(`/${tenantId}/projects`);
       }

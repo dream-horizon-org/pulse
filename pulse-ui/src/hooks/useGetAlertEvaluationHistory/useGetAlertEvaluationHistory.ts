@@ -5,12 +5,14 @@ import {
   GetAlertEvaluationHistoryParams,
   GetAlertEvaluationHistoryResponse,
 } from "./useGetAlertEvaluationHistory.interface";
+import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetAlertEvaluationHistory = ({
   alertId,
   refetchInterval = false,
 }: GetAlertEvaluationHistoryParams) => {
   const getAlertEvaluationHistory = API_ROUTES.GET_ALERT_EVALUATION_HISTORY;
+  const enabled = useProjectQueryEnabled(!!alertId);
 
   return useQuery({
     queryKey: [getAlertEvaluationHistory.key, alertId],
@@ -31,9 +33,6 @@ export const useGetAlertEvaluationHistory = ({
     },
     refetchOnWindowFocus: false,
     refetchInterval,
-    enabled: !!alertId,
+    enabled,
   });
 };
-
-
-
