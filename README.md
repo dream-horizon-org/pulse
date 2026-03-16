@@ -10,15 +10,11 @@ Open-source observability platform for mobile and web applications.
 
 ### 🚀 Quick Start
 
-For the multi-tenancy and RBAC implementation:
-
-1. **[docs/IMPLEMENTATION_COMPLETE.md](docs/IMPLEMENTATION_COMPLETE.md)** - Quick overview
-2. **[docs/SETUP_CHECKLIST.md](docs/SETUP_CHECKLIST.md)** - Step-by-step setup
-3. **[docs/INTEGRATION_GUIDE.md](docs/INTEGRATION_GUIDE.md)** - Detailed integration
+TBA
 
 ### 📖 Full Documentation Index
 
-See **[docs/README.md](docs/README.md)** for the complete documentation index.
+See TBA
 
 ---
 
@@ -33,26 +29,6 @@ See **[docs/README.md](docs/README.md)** for the complete documentation index.
 - ✅ Comprehensive documentation
 
 **Status:** 100% Complete - Ready for Deployment
-
-**Get Started:** See [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md)
-
----
-
-## 🏗️ Project Structure
-
-```
-pulse/
-├── backend/
-│   ├── server/          # Java/Vert.x backend
-│   └── ingestion/       # Data ingestion services
-├── frontend/            # React frontend (if applicable)
-├── docs/               # 📚 All documentation
-│   ├── README.md       # Documentation index
-│   ├── SETUP_CHECKLIST.md
-│   ├── INTEGRATION_GUIDE.md
-│   └── ...
-└── README.md           # This file
-```
 
 ---
 
@@ -90,25 +66,16 @@ docker run -d --name openfga -p 8080:8080 openfga/openfga:latest run
 ## 🔗 Links
 
 - **Documentation:** [`docs/`](docs/)
-- **Setup Guide:** [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md)
-- **Architecture:** [`docs/ARCHITECTURE_DIAGRAMS.md`](docs/ARCHITECTURE_DIAGRAMS.md)
 
 ---
 
 ## 📞 Support
 
 For integration questions or issues, refer to:
-- [`docs/INTEGRATION_GUIDE.md`](docs/INTEGRATION_GUIDE.md) - Troubleshooting section
-- [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md) - Common issues
+TBA
 
 ---
 
 ## ✅ Implementation Status
 
 **Multi-Tenancy & RBAC:** ✅ 100% Complete
-
-See [`docs/FINAL_STATUS.md`](docs/FINAL_STATUS.md) for details.
-
----
-
-**Ready to start?** Open [`docs/SETUP_CHECKLIST.md`](docs/SETUP_CHECKLIST.md)
