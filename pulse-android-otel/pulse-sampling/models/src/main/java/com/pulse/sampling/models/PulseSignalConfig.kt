@@ -23,7 +23,7 @@ public class PulseSignalConfig internal constructor(
     @SerialName("attributesToAdd")
     public val attributesToAdd: Collection<PulseAttributesToAddEntry> = emptySet(),
     /**
-     * Metrics to derive based on signal matching and target
+     * Metrics to derive based on signal matching and target. See [PulseMetricsToAddEntry]
      */
     @SerialName("metricsToAdd")
     public val metricsToAdd: Collection<PulseMetricsToAddEntry> = emptySet(),
@@ -116,21 +116,25 @@ public class PulseMetricsToAddEntry internal constructor(
     @SerialName("name")
     public val name: String,
     /**
-     * Target of the metric
+     * Target value from the signal is used as the data point
      */
     @SerialName("target")
     public val target: PulseMetricsToAddTarget,
-    public val values: Collection<PulseAttributeValue> = emptySet(),
     /**
      * Condition to match the signal
      */
     @SerialName("condition")
     public val condition: PulseSignalMatchCondition = PulseSignalMatchCondition(),
     /**
-     * Data of the metric. See [PulseMetricsData] for all the supported metric data
+     * The kind of OTel instrument to create. See [PulseMetricsType] for all the supported metric data
      */
     @SerialName("type")
-    public val data: PulseMetricsData,
+    public val type: PulseMetricsType,
+    /**
+     * Optional list of conditions specifying which signal attributes to attach to the emitted metric data point
+     */
+    @SerialName("attributesToPick")
+    public val attributesToPick: Collection<PulseSignalMatchCondition> = emptySet(),
 )
 
 @Keep
@@ -154,43 +158,62 @@ public sealed class PulseMetricsToAddTarget protected constructor() {
     /**
      * Name of the signal will be used as data to record the metric
      */
-    public object Name : PulseMetricsToAddTarget()
+    @SerialName("name")
+    public data class Name(
+        @SerialName("type")
+        public val type: String,
+    ) : PulseMetricsToAddTarget()
 
     /**
-     * Attribute of the signal matched by [matcher] will be used as data to record the metric
+     * Attribute of the signal matched by [condition] will be used as data to record the metric
      */
+    @SerialName("attribute")
     public class Attribute internal constructor(
-        public val matcher: PulseSignalMatchCondition,
+        @SerialName("type")
+        public val type: String,
+        @SerialName("condition")
+        public val condition: PulseSignalMatchCondition,
+        @SerialName("shouldAddPropNameAsSuffix")
+        /**
+         * When true final name of the metric will be <name>.<key_name_of_the_prop_matched>, where name is from [PulseMetricsToAddEntry.name]
+         */
+        public val shouldAddPropNameAsSuffix: Boolean = false,
     ) : PulseMetricsToAddTarget()
 }
 
 @Keep
 @Serializable
-public sealed class PulseMetricsData {
+public sealed class PulseMetricsType {
     @SerialName("counter")
     public class Counter internal constructor(
-        @SerialName("isMonotonic")
-        public val isMonotonic: Boolean,
-        @SerialName("isFraction")
-        public val isFraction: Boolean,
-    ) : PulseMetricsData()
+        @SerialName("type")
+        public val type: String,
+    ) : PulseMetricsType()
 
     @SerialName("gauge")
     public class Gauge internal constructor(
+        @SerialName("type")
+        public val type: String,
         @SerialName("isFraction") public val isFraction: Boolean,
-    ) : PulseMetricsData()
+    ) : PulseMetricsType()
 
     @SerialName("histogram")
     public class Histogram internal constructor(
+        @SerialName("type")
+        public val type: String,
         @SerialName("bucket")
         public val bucket: List<Number>?,
         @SerialName("isFraction")
         public val isFraction: Boolean,
-    ) : PulseMetricsData()
+    ) : PulseMetricsType()
 
     @SerialName("sum")
     public class Sum internal constructor(
+        @SerialName("type")
+        public val type: String,
         @SerialName("isFraction")
         public val isFraction: Boolean,
-    ) : PulseMetricsData()
+        @SerialName("isMonotonic")
+        public val isMonotonic: Boolean,
+    ) : PulseMetricsType()
 }

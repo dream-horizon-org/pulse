@@ -160,40 +160,43 @@ public object PulseSdkConfigFakeUtils {
 
     public fun createFakeMetricsToAddEntry(
         name: String = "fake_metric",
-        target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name,
+        target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name(type = "name"),
         condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
-        data: PulseMetricsData = createFakeCounter(),
+        data: PulseMetricsType = createFakeCounter(),
     ): PulseMetricsToAddEntry =
         PulseMetricsToAddEntry(
             name = name,
             target = target,
             condition = condition,
-            data = data,
+            type = data,
         )
 
-    public fun createFakeCounter(
-        isMonotonic: Boolean = true,
-        isFraction: Boolean = false,
-    ): PulseMetricsData.Counter =
-        PulseMetricsData.Counter(
-            isMonotonic = isMonotonic,
-            isFraction = isFraction,
+    public fun createFakeCounter(): PulseMetricsType.Counter =
+        PulseMetricsType.Counter(
+            type = "counter",
         )
 
-    public fun createFakeGauge(isFraction: Boolean = false): PulseMetricsData.Gauge = PulseMetricsData.Gauge(isFraction = isFraction)
+    public fun createFakeGauge(isFraction: Boolean = false): PulseMetricsType.Gauge =
+        PulseMetricsType.Gauge(type = "gauge", isFraction = isFraction)
 
     public fun createFakeHistogram(
         bucket: List<Number>? = null,
         isFraction: Boolean = false,
-    ): PulseMetricsData.Histogram =
-        PulseMetricsData.Histogram(
+    ): PulseMetricsType.Histogram =
+        PulseMetricsType.Histogram(
+            type = "histogram",
             bucket = bucket,
             isFraction = isFraction,
         )
 
-    public fun createFakeSum(isFraction: Boolean = false): PulseMetricsData.Sum = PulseMetricsData.Sum(isFraction = isFraction)
+    public fun createFakeSum(
+        isFraction: Boolean = false,
+        isMonotonic: Boolean = false,
+    ): PulseMetricsType.Sum = PulseMetricsType.Sum(type = "sum", isFraction = isFraction, isMonotonic = isMonotonic)
 
     public fun createFakeMetricsToAddTargetAttribute(
         matcher: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
-    ): PulseMetricsToAddTarget.Attribute = PulseMetricsToAddTarget.Attribute(matcher = matcher)
+        shouldAddPropNameAsSuffix: Boolean = false,
+    ): PulseMetricsToAddTarget.Attribute =
+        PulseMetricsToAddTarget.Attribute(type = "attribute", matcher = matcher, shouldAddPropNameAsSuffix = shouldAddPropNameAsSuffix)
 }

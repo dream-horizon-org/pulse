@@ -19,6 +19,8 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
+import io.opentelemetry.sdk.testing.assertj.DoublePointAssert
+import io.opentelemetry.sdk.testing.assertj.DoubleSumAssert
 import io.opentelemetry.sdk.testing.assertj.LongPointAssert
 import io.opentelemetry.sdk.testing.assertj.LongSumAssert
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
@@ -27,6 +29,7 @@ import io.opentelemetry.sdk.testing.exporter.InMemoryMetricExporter
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.offset
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.RepeatedTest
@@ -842,258 +845,220 @@ class PulseSamplingSignalProcessorsTest {
 
         @Nested
         inner class Counter {
-            @Nested
-            inner class `without fraction` {
-                private val metricData = PulseSdkConfigFakeUtils.createFakeCounter(isMonotonic = true, isFraction = false)
+            private val metricData = PulseSdkConfigFakeUtils.createFakeCounter()
 
-                @Test
-                fun `in span, records when condition matches and target is Name`() {
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "span_count",
-                                target = PulseMetricsToAddTarget.Name,
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(
-                        listOf(
-                            createSpanData("1", emptyMap()),
-                            createSpanData("2", emptyMap()),
-                        ),
-                    )
-                    meterProvider.forceFlush()
-
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).hasSize(1)
-                    assertThat(metrics[0].name).isEqualTo("span_count")
-                    OpenTelemetryAssertions
-                        .assertThat(metrics[0])
-                        .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
-                }
-
-                @Test
-                fun `in span, does not record when condition does not match`() {
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "span_count",
-                                target = PulseMetricsToAddTarget.Name,
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = "exact_match_only",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(listOf(createSpanData("1", emptyMap())))
-                    sampledSpanExporter.export(listOf(createSpanData("2", emptyMap())))
-                    meterProvider.forceFlush()
-
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).isEmpty()
-                }
-
-                @Test
-                fun `in log, records when condition matches and target is Name`() {
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "log_count",
-                                target = PulseMetricsToAddTarget.Name,
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.LOGS),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledLogExporter = createSampledLogExporter(metricsToAdd)
-                    sampledLogExporter.export(listOf(createLogRecordData("1", emptyMap())))
-                    sampledLogExporter.export(listOf(createLogRecordData("2", emptyMap())))
-                    meterProvider.forceFlush()
-
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).hasSize(1)
-                    assertThat(metrics[0].name).isEqualTo("log_count")
-                    OpenTelemetryAssertions
-                        .assertThat(metrics[0])
-                        .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
-                }
-
-                @Test
-                fun `in span, records when target is Attribute and attribute key matches`() {
-                    val attributeMatcher =
-                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                            name = ".*",
-                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("attr_key", ".*")),
-                            scopes = setOf(PulseSignalScope.TRACES),
-                        )
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "1",
-                                target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(listOf(createSpanData("any_span", mapOf("attr_key" to "2"))))
-                    sampledSpanExporter.export(listOf(createSpanData("any_span", mapOf("attr_key" to "3"))))
-                    meterProvider.forceFlush()
-
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).hasSize(1)
-                    assertThat(metrics[0].name).isEqualTo("m1")
-                    OpenTelemetryAssertions
-                        .assertThat(metrics[0])
-                        .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
-                }
-
-                @Test
-                fun `in span, records when target is Attribute and attribute key matches multiple attr in same signal`() {
-                    val attributeMatcher =
-                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                            name = ".*",
-                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("attr_key_.", ".*")),
-                            scopes = setOf(PulseSignalScope.TRACES),
-                        )
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "1",
-                                target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(
-                        listOf(
-                            createSpanData(
-                                "any_span_1",
-                                mapOf(
-                                    "attr_key_1" to "2",
-                                    "attr_key_2" to "3",
+            @Test
+            fun `in span, records when condition matches and target is Name`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "span_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            ),
+                            data = metricData,
                         ),
                     )
-                    sampledSpanExporter.export(listOf(createSpanData("any_span_2", mapOf("attr_key_3" to "4"))))
-                    meterProvider.forceFlush()
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(
+                    listOf(
+                        createSpanData("1", emptyMap()),
+                        createSpanData("2", emptyMap()),
+                    ),
+                )
+                meterProvider.forceFlush()
 
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).hasSize(1)
-                    assertThat(metrics[0].name).isEqualTo("m1")
-                    OpenTelemetryAssertions
-                        .assertThat(metrics[0])
-                        .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(3L) }) }
-                }
-
-                @Test
-                fun `in span, has 0 when no spans exported`() {
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "span_count",
-                                target = PulseMetricsToAddTarget.Name,
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(emptyList())
-                    meterProvider.forceFlush()
-
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).isEmpty()
-                }
-
-                @Test
-                fun `in span, does not record when condition matches and target is Name but doesn't match sdk`() {
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "span_count",
-                                target = PulseMetricsToAddTarget.Name,
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                        sdks = setOf(PulseSdkName.ANDROID_RN),
-                                    ),
-                                data = metricData,
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(
-                        listOf(
-                            createSpanData("1", emptyMap()),
-                            createSpanData("2", emptyMap()),
-                        ),
-                    )
-                    meterProvider.forceFlush()
-
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).isEmpty()
-                }
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("span_count")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
             }
 
-            @Nested
-            inner class `with fraction` {
-                @Test
-                fun `in span, records double counter when condition matches`() {
-                    val metricsToAdd =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
-                                name = "span_double",
-                                target = PulseMetricsToAddTarget.Name,
-                                condition =
-                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                        name = ".*",
-                                        scopes = setOf(PulseSignalScope.TRACES),
-                                    ),
-                                data = PulseSdkConfigFakeUtils.createFakeCounter(isMonotonic = true, isFraction = true),
-                            ),
-                        )
-                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
-                    sampledSpanExporter.export(listOf(createSpanData("3.5", emptyMap())))
-                    sampledSpanExporter.export(listOf(createSpanData("1.5", emptyMap())))
-                    meterProvider.forceFlush()
+            @Test
+            fun `in span, does not record when condition does not match`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "span_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = "exact_match_only",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = metricData,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(listOf(createSpanData("1", emptyMap())))
+                sampledSpanExporter.export(listOf(createSpanData("2", emptyMap())))
+                meterProvider.forceFlush()
 
-                    val metrics = metricReader.collectAllMetrics().toList()
-                    assertThat(metrics).hasSize(1)
-                    assertThat(metrics[0].name).isEqualTo("span_double")
-                    OpenTelemetryAssertions
-                        .assertThat(metrics[0])
-                        .hasDoubleSumSatisfying { sum: io.opentelemetry.sdk.testing.assertj.DoubleSumAssert ->
-                            sum.hasPointsSatisfying(
-                                { pt: io.opentelemetry.sdk.testing.assertj.DoublePointAssert -> pt.hasValue(2.0) },
-                            )
-                        }
-                }
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).isEmpty()
+            }
+
+            @Test
+            fun `in log, records when condition matches and target is Name`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "log_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.LOGS),
+                                ),
+                            data = metricData,
+                        ),
+                    )
+                val sampledLogExporter = createSampledLogExporter(metricsToAdd)
+                sampledLogExporter.export(listOf(createLogRecordData("1", emptyMap())))
+                sampledLogExporter.export(listOf(createLogRecordData("2", emptyMap())))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("log_count")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
+            }
+
+            @Test
+            fun `in span, records when target is Attribute and attribute key matches`() {
+                val attributeMatcher =
+                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                        name = ".*",
+                        props = setOf(PulseSdkConfigFakeUtils.createFakeProp("attr_key", ".*")),
+                        scopes = setOf(PulseSignalScope.TRACES),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "1",
+                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = metricData,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(listOf(createSpanData("any_span", mapOf("attr_key" to "2"))))
+                sampledSpanExporter.export(listOf(createSpanData("any_span", mapOf("attr_key" to "3"))))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("m1")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
+            }
+
+            @Test
+            fun `in span, records when target is Attribute and attribute key matches multiple attr in same signal`() {
+                val attributeMatcher =
+                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                        name = ".*",
+                        props = setOf(PulseSdkConfigFakeUtils.createFakeProp("attr_key_.", ".*")),
+                        scopes = setOf(PulseSignalScope.TRACES),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "1",
+                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = metricData,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(
+                    listOf(
+                        createSpanData(
+                            "any_span_1",
+                            mapOf(
+                                "attr_key_1" to "2",
+                                "attr_key_2" to "3",
+                            ),
+                        ),
+                    ),
+                )
+                sampledSpanExporter.export(listOf(createSpanData("any_span_2", mapOf("attr_key_3" to "4"))))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("m1")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(3L) }) }
+            }
+
+            @Test
+            fun `in span, has 0 when no spans exported`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "span_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = metricData,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(emptyList())
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).isEmpty()
+            }
+
+            @Test
+            fun `in span, does not record when condition matches and target is Name but doesn't match sdk`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "span_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                    sdks = setOf(PulseSdkName.ANDROID_RN),
+                                ),
+                            data = metricData,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(
+                    listOf(
+                        createSpanData("1", emptyMap()),
+                        createSpanData("2", emptyMap()),
+                    ),
+                )
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).isEmpty()
             }
         }
 
@@ -1104,12 +1069,12 @@ class PulseSamplingSignalProcessorsTest {
                 private val metricData = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false)
 
                 @Test
-                fun `in span, records long up-down sum when condition matches`() {
+                fun `in span, records long non-monotonic sum when condition matches`() {
                     val metricsToAdd =
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_sum",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1212,6 +1177,62 @@ class PulseSamplingSignalProcessorsTest {
                         .assertThat(metrics[0])
                         .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(9L) }) }
                 }
+
+                @Test
+                fun `in span, records long monotonic sum when isMonotonic is true`() {
+                    val metricsToAdd =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                                name = "span_sum_monotonic",
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
+                                condition =
+                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                        name = ".*",
+                                        scopes = setOf(PulseSignalScope.TRACES),
+                                    ),
+                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false, isMonotonic = true),
+                            ),
+                        )
+                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                    sampledSpanExporter.export(listOf(createSpanData("5", emptyMap())))
+                    sampledSpanExporter.export(listOf(createSpanData("7", emptyMap())))
+                    meterProvider.forceFlush()
+
+                    val metrics = metricReader.collectAllMetrics().toList()
+                    assertThat(metrics).hasSize(1)
+                    assertThat(metrics[0].name).isEqualTo("span_sum_monotonic")
+                    OpenTelemetryAssertions
+                        .assertThat(metrics[0])
+                        .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(12L) }) }
+                }
+
+                @Test
+                fun `in span, records long non monotonic sum when isMonotonic is false`() {
+                    val metricsToAdd =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                                name = "span_sum_monotonic",
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
+                                condition =
+                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                        name = ".*",
+                                        scopes = setOf(PulseSignalScope.TRACES),
+                                    ),
+                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false, isMonotonic = false),
+                            ),
+                        )
+                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                    sampledSpanExporter.export(listOf(createSpanData("5", emptyMap())))
+                    sampledSpanExporter.export(listOf(createSpanData("-7", emptyMap())))
+                    meterProvider.forceFlush()
+
+                    val metrics = metricReader.collectAllMetrics().toList()
+                    assertThat(metrics).hasSize(1)
+                    assertThat(metrics[0].name).isEqualTo("span_sum_monotonic")
+                    OpenTelemetryAssertions
+                        .assertThat(metrics[0])
+                        .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(-2L) }) }
+                }
             }
 
             @Nested
@@ -1224,7 +1245,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_sum_double",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1243,13 +1264,9 @@ class PulseSamplingSignalProcessorsTest {
                     assertThat(metrics[0].name).isEqualTo("span_sum_double")
                     OpenTelemetryAssertions
                         .assertThat(metrics[0])
-                        .hasDoubleSumSatisfying { sum: io.opentelemetry.sdk.testing.assertj.DoubleSumAssert ->
+                        .hasDoubleSumSatisfying { sum: DoubleSumAssert ->
                             sum.hasPointsSatisfying(
-                                { pt: io.opentelemetry.sdk.testing.assertj.DoublePointAssert ->
-                                    pt.hasValue(
-                                        5.7,
-                                    )
-                                },
+                                { pt: DoublePointAssert -> pt.hasValue(5.7) },
                             )
                         }
                 }
@@ -1260,7 +1277,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_sum_double",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1277,6 +1294,70 @@ class PulseSamplingSignalProcessorsTest {
                     val metrics = metricReader.collectAllMetrics().toList()
                     assertThat(metrics).isEmpty()
                 }
+
+                @Test
+                fun `in span, records double monotonic sum when isMonotonic is true`() {
+                    val metricsToAdd =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                                name = "span_sum_double_monotonic",
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
+                                condition =
+                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                        name = ".*",
+                                        scopes = setOf(PulseSignalScope.TRACES),
+                                    ),
+                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = true, isMonotonic = true),
+                            ),
+                        )
+                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                    sampledSpanExporter.export(listOf(createSpanData("1.5", emptyMap())))
+                    sampledSpanExporter.export(listOf(createSpanData("2.7", emptyMap())))
+                    meterProvider.forceFlush()
+
+                    val metrics = metricReader.collectAllMetrics().toList()
+                    assertThat(metrics).hasSize(1)
+                    assertThat(metrics[0].name).isEqualTo("span_sum_double_monotonic")
+                    OpenTelemetryAssertions
+                        .assertThat(metrics[0])
+                        .hasDoubleSumSatisfying { sum: DoubleSumAssert ->
+                            sum.hasPointsSatisfying(
+                                { pt: DoublePointAssert -> assertThat(pt.actual().value).isCloseTo(4.2, offset(0.0001)) },
+                            )
+                        }
+                }
+
+                @Test
+                fun `in span, records double monotonic sum when isMonotonic is false`() {
+                    val metricsToAdd =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                                name = "span_sum_double_monotonic",
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
+                                condition =
+                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                        name = ".*",
+                                        scopes = setOf(PulseSignalScope.TRACES),
+                                    ),
+                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = true, isMonotonic = false),
+                            ),
+                        )
+                    val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                    sampledSpanExporter.export(listOf(createSpanData("1.5", emptyMap())))
+                    sampledSpanExporter.export(listOf(createSpanData("-2.7", emptyMap())))
+                    meterProvider.forceFlush()
+
+                    val metrics = metricReader.collectAllMetrics().toList()
+                    assertThat(metrics).hasSize(1)
+                    assertThat(metrics[0].name).isEqualTo("span_sum_double_monotonic")
+                    OpenTelemetryAssertions
+                        .assertThat(metrics[0])
+                        .hasDoubleSumSatisfying { sum: DoubleSumAssert ->
+                            sum.hasPointsSatisfying(
+                                { pt: DoublePointAssert -> assertThat(pt.actual().value).isCloseTo(-1.2, offset(0.0001)) },
+                            )
+                        }
+                }
             }
         }
 
@@ -1290,7 +1371,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_histogram",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1338,7 +1419,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_histogram_double",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1382,7 +1463,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_histogram_no_buckets",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1428,7 +1509,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_gauge",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1461,7 +1542,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_gauge",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1487,7 +1568,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "span_gauge_double",
-                                target = PulseMetricsToAddTarget.Name,
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1507,7 +1588,7 @@ class PulseSamplingSignalProcessorsTest {
                         .assertThat(metrics[0])
                         .hasDoubleGaugeSatisfying { gauge ->
                             gauge.hasPointsSatisfying(
-                                { pt: io.opentelemetry.sdk.testing.assertj.DoublePointAssert ->
+                                { pt: DoublePointAssert ->
                                     pt.hasValue(
                                         7.25,
                                     )
@@ -1515,6 +1596,211 @@ class PulseSamplingSignalProcessorsTest {
                             )
                         }
                 }
+            }
+        }
+
+        @Nested
+        inner class `Add prop name as suffix` {
+            @Test
+            fun `in span, metric name has attribute key as suffix when addPropNameAsSuffix is true`() {
+                val attributeMatcher =
+                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                        name = ".*",
+                        props = setOf(PulseSdkConfigFakeUtils.createFakeProp("response_time_ms", ".*")),
+                        scopes = setOf(PulseSignalScope.TRACES),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "api_time",
+                            target =
+                                PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(
+                                    matcher = attributeMatcher,
+                                    shouldAddPropNameAsSuffix = true,
+                                ),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(listOf(createSpanData("my_span", mapOf("response_time_ms" to "250"))))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("api_time.response_time_ms")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(250L) }) }
+            }
+
+            @Test
+            fun `in span, metric name has no suffix when addPropNameAsSuffix is false`() {
+                val attributeMatcher =
+                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                        name = ".*",
+                        props = setOf(PulseSdkConfigFakeUtils.createFakeProp("response_time_ms", ".*")),
+                        scopes = setOf(PulseSignalScope.TRACES),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "api_time",
+                            target =
+                                PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(
+                                    matcher = attributeMatcher,
+                                    shouldAddPropNameAsSuffix = false,
+                                ),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(listOf(createSpanData("my_span", mapOf("response_time_ms" to "250"))))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("api_time")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(250L) }) }
+            }
+        }
+
+        @Nested
+        inner class `Metrics observe added attributes` {
+            @Test
+            fun `in span, metric condition matches attribute added by attributesToAdd`() {
+                val attributesToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeAttributesToAddEntry(
+                            values =
+                                listOf(
+                                    PulseSdkConfigFakeUtils.createFakeAttributeValue(
+                                        name = "enriched_key",
+                                        value = "enriched_val",
+                                        type = PulseAttributeType.STRING,
+                                    ),
+                                ),
+                            matcher =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = "my_span",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                        ),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "enriched_metric",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = "my_span",
+                                    props = setOf(PulseSdkConfigFakeUtils.createFakeProp("enriched_key", ".*")),
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = PulseSdkConfigFakeUtils.createFakeCounter(),
+                        ),
+                    )
+                val config =
+                    PulseSdkConfigFakeUtils.createFakeConfig(
+                        attributesToAdd = attributesToAdd,
+                        metricsToAdd = metricsToAdd,
+                    )
+                val processors =
+                    createSamplingSignalProcessors(
+                        config = config,
+                        meterProviderForMetricsToAdd = meterProvider,
+                    )
+                val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+                sampledSpanExporter.export(listOf(createSpanData("my_span", emptyMap())))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("enriched_metric")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(1L) }) }
+            }
+
+            @Test
+            fun `in span, metric condition derives metrics from attributes added by attributesToAdd`() {
+                val attributesToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeAttributesToAddEntry(
+                            values =
+                                listOf(
+                                    PulseSdkConfigFakeUtils.createFakeAttributeValue(
+                                        name = "response_time_ms",
+                                        value = "350",
+                                        type = PulseAttributeType.LONG,
+                                    ),
+                                ),
+                            matcher =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = "api_span",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                        ),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "api_latency",
+                            target =
+                                PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(
+                                    matcher =
+                                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                            name = ".*",
+                                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("response_time_ms", ".*")),
+                                            scopes = setOf(PulseSignalScope.TRACES),
+                                        ),
+                                ),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = "api_span",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
+                        ),
+                    )
+                val config =
+                    PulseSdkConfigFakeUtils.createFakeConfig(
+                        attributesToAdd = attributesToAdd,
+                        metricsToAdd = metricsToAdd,
+                    )
+                val processors =
+                    createSamplingSignalProcessors(
+                        config = config,
+                        meterProviderForMetricsToAdd = meterProvider,
+                    )
+                val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+                // span has no "response_time_ms" originally — it gets added by attributesToAdd
+                sampledSpanExporter.export(
+                    listOf(
+                        createSpanData("api_span", emptyMap()),
+                        createSpanData("api_span", emptyMap()),
+                    ),
+                )
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("api_latency")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(700L) }) }
             }
         }
     }
