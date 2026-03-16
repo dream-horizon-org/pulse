@@ -1,39 +1,33 @@
 .summary {
   border-radius: var(--mantine-radius-md);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.summaryContent {
+.infoRow {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--mantine-spacing-md);
-  align-items: stretch;
-  text-align: left;
-}
-
-.metricsRow {
-  display: flex;
   flex-wrap: wrap;
-  gap: var(--mantine-spacing-lg);
-  align-items: flex-start;
+  padding: 12px var(--mantine-spacing-lg);
+  border-bottom: 1px solid var(--mantine-color-gray-1);
 }
 
-.metricBlock {
+.infoItem {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  gap: 6px;
 }
 
-.qualityBlock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mantine-color-gray-3);
+  flex-shrink: 0;
 }
 
 .journeyBlock {
+  padding: 8px var(--mantine-spacing-md) 10px;
   width: 100%;
   min-width: 0;
   text-align: left;
@@ -41,4 +35,13 @@
 
 .journeyBlock > * {
   width: 100%;
+}
+
+/* Dark mode */
+[data-mantine-color-scheme="dark"] .infoRow {
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .dot {
+  background: var(--mantine-color-dark-3);
 }

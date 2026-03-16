@@ -1,11 +1,7 @@
 import { Box, Text, Group, Badge, Card, Stack } from "@mantine/core";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import type { CriticalInteraction } from "../../../../services/sessionReplay/mockSessionDetail";
-import {
-  HEADERS,
-  STATUS_LABELS,
-  FORMAT_STRINGS,
-} from "../../constants/strings";
+import { STATUS_LABELS, FORMAT_STRINGS } from "../../constants/strings";
 
 interface CriticalInteractionsProps {
   criticalInteractions: CriticalInteraction[];
@@ -36,10 +32,7 @@ export function CriticalInteractions({
 
   return (
     <Box>
-      <Group justify="space-between" mb="xs">
-        <Text size="xs" tt="uppercase" fw={600} c="dimmed">
-          {HEADERS.CRITICAL_INTERACTIONS}
-        </Text>
+      <Group justify="flex-end" mb="xs">
         <Badge size="xs" variant="light" color="blue">
           {FORMAT_STRINGS.SUCCESSFUL_COUNT.replace(
             "{success}",

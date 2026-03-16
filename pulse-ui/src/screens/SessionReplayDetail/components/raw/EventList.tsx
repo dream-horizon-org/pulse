@@ -6,6 +6,17 @@ import { convertEventToFlameChartNode } from "./utils/eventConverter";
 import type { SessionDetailData } from "../../../../services/sessionReplay/mockSessionDetail";
 import { HEADERS } from "../../constants/strings";
 
+function formatAbsoluteTime(sessionStartIso: string, offsetMs: number): string {
+  const date = new Date(new Date(sessionStartIso).getTime() + offsetMs);
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const day = date.getDate();
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  const s = date.getSeconds().toString().padStart(2, "0");
+  const year = date.getFullYear();
+  return `${month} ${day} ${year}, ${h}:${m}:${s}`;
+}
+
 interface EventListProps {
   unifiedEvents: UnifiedEvent[];
   sessionData: SessionDetailData;
@@ -176,9 +187,12 @@ export function EventList({
                       size="xs"
                       c="dimmed"
                       ff="monospace"
-                      style={{ minWidth: "56px", flexShrink: 0 }}
+                      style={{ minWidth: "120px", flexShrink: 0 }}
                     >
-                      {event.timestamp}ms
+                      {formatAbsoluteTime(
+                        sessionData.startTime,
+                        event.timestamp,
+                      )}
                     </Text>
                     <Box style={{ minWidth: 100, flexShrink: 0 }}>
                       <Badge
@@ -203,10 +217,16 @@ export function EventList({
                           )
                         : event.description;
                       const lastColon = full.lastIndexOf(": ");
-                      const content =
+                      const rawContent =
                         lastColon >= 0 ? full.slice(0, lastColon) : full;
                       const status =
                         lastColon >= 0 ? full.slice(lastColon + 2) : "";
+                      let content = rawContent;
+                      try {
+                        content = decodeURIComponent(rawContent);
+                      } catch (error) {
+                        console.error("Error decoding content", error);
+                      }
                       return (
                         <>
                           <Text size="sm" style={{ flex: 1, minWidth: 0 }}>

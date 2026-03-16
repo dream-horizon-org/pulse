@@ -240,7 +240,7 @@ export interface SessionDetailData {
   os: string;
   appVersion?: string;
   geography?: { country: string; city: string };
-  interactionQuality: number;
+  interactionQuality: number | null;
   sessionType: SessionType;
   detectedIssues: DetectedIssue[];
   sessionIntent?: SessionIntent;

@@ -32,18 +32,9 @@ export const SessionReplayDetail: React.FC = () => {
     t1: number;
   } | null>(null);
 
-  const [eventsViewMode, setEventsViewMode] = useState<"text" | "graph">(
-    "text",
-  );
-  const [consoleViewMode, setConsoleViewMode] = useState<"text" | "graph">(
-    "text",
-  );
   const [networkViewMode, setNetworkViewMode] = useState<"text" | "graph">(
     "text",
   );
-  const [performanceViewMode, setPerformanceViewMode] = useState<
-    "text" | "graph"
-  >("text");
 
   const [activePersona, setActivePersona] = useState<PersonaType>("all");
 
@@ -169,7 +160,7 @@ export const SessionReplayDetail: React.FC = () => {
 
   return (
     <Box className={classes.container}>
-      <SessionHeader sessionData={sessionData} onBack={handleBack} />
+      <SessionHeader onBack={handleBack} />
 
       {activePersona === "all" && (
         <>
@@ -201,16 +192,10 @@ export const SessionReplayDetail: React.FC = () => {
                 currentTime={currentTime}
                 scrollToTimestamp={scrollToTimestamp}
                 onEventClick={handleSpanClick}
-                eventsViewMode={eventsViewMode}
-                consoleViewMode={consoleViewMode}
                 networkViewMode={networkViewMode}
-                performanceViewMode={performanceViewMode}
                 onTabChange={setActiveTab}
                 onCriticalInteractionClick={handleCriticalInteractionClick}
-                onEventsViewModeChange={setEventsViewMode}
-                onConsoleViewModeChange={setConsoleViewMode}
                 onNetworkViewModeChange={setNetworkViewMode}
-                onPerformanceViewModeChange={setPerformanceViewMode}
               />
             </Box>
           </Box>

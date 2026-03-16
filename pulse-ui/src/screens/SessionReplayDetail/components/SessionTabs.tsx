@@ -23,16 +23,10 @@ interface SessionTabsProps {
   currentTime: number;
   scrollToTimestamp: { t0: number; t1: number } | null;
   onEventClick: (item: FlameChartNode) => void;
-  eventsViewMode: "text" | "graph";
-  consoleViewMode: "text" | "graph";
   networkViewMode: "text" | "graph";
-  performanceViewMode: "text" | "graph";
   onTabChange: (value: string) => void;
   onCriticalInteractionClick: (t0: number, t1: number) => void;
-  onEventsViewModeChange: (mode: "text" | "graph") => void;
-  onConsoleViewModeChange: (mode: "text" | "graph") => void;
   onNetworkViewModeChange: (mode: "text" | "graph") => void;
-  onPerformanceViewModeChange: (mode: "text" | "graph") => void;
 }
 
 export function SessionTabs({
@@ -41,16 +35,10 @@ export function SessionTabs({
   currentTime,
   scrollToTimestamp,
   onEventClick,
-  eventsViewMode,
-  consoleViewMode,
   networkViewMode,
-  performanceViewMode,
   onTabChange,
   onCriticalInteractionClick,
-  onEventsViewModeChange,
-  onConsoleViewModeChange,
   onNetworkViewModeChange,
-  onPerformanceViewModeChange,
 }: SessionTabsProps) {
   return (
     <Paper className={classes.allTabContainer}>
@@ -107,11 +95,7 @@ export function SessionTabs({
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.EVENTS}>
-            <EventsTab
-              sessionData={sessionData}
-              viewMode={eventsViewMode}
-              onViewModeChange={onEventsViewModeChange}
-            />
+            <EventsTab sessionData={sessionData} />
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.NETWORK}>
@@ -123,19 +107,11 @@ export function SessionTabs({
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.PERFORMANCE}>
-            <PerformanceTab
-              sessionData={sessionData}
-              viewMode={performanceViewMode}
-              onViewModeChange={onPerformanceViewModeChange}
-            />
+            <PerformanceTab sessionData={sessionData} />
           </Tabs.Panel>
 
           <Tabs.Panel value={TABS.CONSOLE}>
-            <ConsoleTab
-              sessionData={sessionData}
-              viewMode={consoleViewMode}
-              onViewModeChange={onConsoleViewModeChange}
-            />
+            <ConsoleTab />
           </Tabs.Panel>
         </Box>
       </Tabs>

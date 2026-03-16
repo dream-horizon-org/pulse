@@ -18,7 +18,7 @@ export const TAB_LABELS = {
   EVENTS: "Events",
   CONSOLE: "Console",
   NETWORK: "Network",
-  PERFORMANCE: "Performance",
+  PERFORMANCE: "App Vitals",
 } as const;
 
 // View Modes

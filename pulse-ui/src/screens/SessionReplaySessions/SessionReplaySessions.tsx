@@ -62,6 +62,38 @@ export function SessionReplaySessions() {
     filterActions.resetAll();
   };
 
+  const removeLastFilter = () => {
+    const af = filterState.advancedFilters;
+    if (af && af.conditions?.length > 0) {
+      const updated = af.conditions.slice(0, -1);
+      filterActions.setAdvancedFilters(
+        updated.length === 0 ? null : { ...af, conditions: updated },
+      );
+      return;
+    }
+    if (filterState.searchQuery) {
+      filterActions.setSearchQuery("");
+      return;
+    }
+    const activeQuickKeys = Object.entries(filterState.quickFilters)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    if (activeQuickKeys.length > 0) {
+      filterActions.setQuickFilters({
+        ...filterState.quickFilters,
+        [activeQuickKeys[activeQuickKeys.length - 1]]: false,
+      });
+      return;
+    }
+    if (isNonDefaultDateRange) {
+      filterActions.setDateRange(DEFAULT_DATE_PRESET);
+      return;
+    }
+    if (filterState.drillDown.type) {
+      filterActions.clearDrillDown();
+    }
+  };
+
   const handleApplyAdvancedFilters = (filterGroup: FilterGroup) => {
     filterActions.setAdvancedFilters(filterGroup);
   };
@@ -113,6 +145,7 @@ export function SessionReplaySessions() {
       <SessionListEmptyState
         hasActiveFilters={activeFiltersCount > 0}
         onClearFilters={clearAllFilters}
+        onRemoveLastFilter={removeLastFilter}
       />
     );
   }

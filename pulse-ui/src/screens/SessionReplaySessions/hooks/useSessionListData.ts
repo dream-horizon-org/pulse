@@ -154,8 +154,25 @@ export function useSessionListData({
     !filterState.dateRange.from &&
     !filterState.dateRange.to;
 
+  const lastFetchKeyRef = useRef("");
+
   useEffect(() => {
     if (isCustomWithoutDates) return;
+
+    const fetchKey = JSON.stringify([
+      filterState.currentPage,
+      filterState.dateRange,
+      filterState.quickFilters,
+      filterState.advancedFilters,
+      filterState.drillDown,
+      filterState.pageSize,
+      sortBy,
+      sortDirection,
+    ]);
+
+    if (fetchKey === lastFetchKeyRef.current) return;
+    lastFetchKeyRef.current = fetchKey;
+
     fetchRef.current();
   }, [
     filterState.currentPage,
@@ -169,8 +186,14 @@ export function useSessionListData({
     isCustomWithoutDates,
   ]);
 
+  const prevSearchRef = useRef(filterState.searchQuery);
+
   useEffect(() => {
+    if (prevSearchRef.current === filterState.searchQuery) return;
+    prevSearchRef.current = filterState.searchQuery;
+
     const timer = setTimeout(() => {
+      lastFetchKeyRef.current = "";
       if (filterState.currentPage === 1) {
         fetchRef.current();
       } else {
