@@ -46,7 +46,7 @@ class AnrWatcherTest {
     @Test
     fun mainThreadDisappearing() {
         val anrWatcher = AnrWatcher(handler, mainThread, logger)
-        for (i in 0..4) {
+        (0..4).forEach { _ ->
             every { handler.post(any()) } returns false
             anrWatcher.run()
         }
@@ -56,7 +56,7 @@ class AnrWatcherTest {
     @Test
     fun noAnr() {
         val anrWatcher = AnrWatcher(handler, mainThread, logger)
-        for (i in 0..4) {
+        (0..4).forEach { _ ->
             every { handler.post(any()) } answers {
                 val callback = it.invocation.args[0] as? Runnable ?: error("Should be not null")
                 callback.run()
@@ -91,7 +91,7 @@ class AnrWatcherTest {
         val anrWatcher = AnrWatcher(handler, mainThread, logger, emptyList(), 1)
         every { handler.post(any()) } returns true
 
-        for (i in 0..4) {
+        (0..4).forEach { _ ->
             anrWatcher.run()
         }
         verify(exactly = 1) { logger.logRecordBuilder() }
@@ -99,7 +99,7 @@ class AnrWatcherTest {
         verify(exactly = 1) { logRecordBuilder.setAllAttributes(any<Attributes>()) }
         verify(exactly = 1) { logRecordBuilder.emit() }
 
-        for (i in 0..3) {
+        (0..3).forEach { _ ->
             anrWatcher.run()
         }
         // Still just the 1 time

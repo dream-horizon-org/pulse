@@ -9,8 +9,8 @@ import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
 import io.opentelemetry.sdk.logs.data.LogRecordData
-import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.exporter.InMemoryLogRecordExporter
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 
 class BufferDelegatingLogExporterTest {
