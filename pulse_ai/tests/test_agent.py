@@ -12,28 +12,28 @@ class TestBuildSystemPrompt:
 
     @freeze_time("2026-03-09T14:30:00Z")
     def test_prompt_contains_current_time(self):
-        from pulse_ai.agent import build_system_prompt
+        from pulse_ai.agents.em.prompts import build_system_prompt
         # ADK passes a ReadonlyContext as the first arg; we pass None for tests
         prompt = build_system_prompt(None)
         assert "2026-03-09T14:30:00" in prompt
 
     @freeze_time("2026-03-09T14:30:00Z")
     def test_prompt_contains_behavior_rules(self):
-        from pulse_ai.agent import build_system_prompt
+        from pulse_ai.agents.em.prompts import build_system_prompt
         prompt = build_system_prompt(None)
         assert "Pulse Engineering Manager" in prompt
         assert "LAST 24 HOURS" in prompt
 
     @freeze_time("2026-03-09T14:30:00Z")
     def test_prompt_contains_capabilities(self):
-        from pulse_ai.agent import build_system_prompt
+        from pulse_ai.agents.em.prompts import build_system_prompt
         prompt = build_system_prompt(None)
         assert "interaction" in prompt.lower()
         assert "alert" in prompt.lower()
 
 
 class TestAgentWiring:
-    """Verify root_agent is properly configured."""
+    """Verify root_agent is a SequentialAgent with em_agent + report_agent."""
 
     def test_root_agent_exists(self):
         from pulse_ai.agent import root_agent
@@ -43,17 +43,17 @@ class TestAgentWiring:
         from pulse_ai.agent import root_agent
         assert root_agent.name == "root_agent"
 
-    def test_root_agent_has_tools(self):
-        from pulse_ai.agent import root_agent
+    def test_em_agent_has_tools(self):
+        from pulse_ai.agents.em import em_agent
         # Should have 7 tools: 2 config + 4 analytics + 1 utility (calculate)
-        assert root_agent.tools is not None
-        assert len(root_agent.tools) == 7
+        assert em_agent.tools is not None
+        assert len(em_agent.tools) == 7
 
-    def test_root_agent_has_callable_instruction(self):
-        from pulse_ai.agent import root_agent
+    def test_em_agent_has_callable_instruction(self):
+        from pulse_ai.agents.em import em_agent
         # instruction should be a callable (function), not a static string
-        assert callable(root_agent.instruction)
+        assert callable(em_agent.instruction)
 
-    def test_root_agent_description(self):
-        from pulse_ai.agent import root_agent
-        assert "observability" in root_agent.description.lower() or "pulse" in root_agent.description.lower()
+    def test_em_agent_description(self):
+        from pulse_ai.agents.em import em_agent
+        assert "observability" in em_agent.description.lower() or "pulse" in em_agent.description.lower()

@@ -1,6 +1,12 @@
+import os
+
 DEFAULT_MODEL = 'gemini-2.5-flash'
 
 AGENT_MODEL_ENV_KEY = 'AGENT_MODEL'
+AGENT_MODEL = os.getenv(AGENT_MODEL_ENV_KEY, DEFAULT_MODEL)
+
+# Agent names
+REPORT_AGENT_NAME = 'ReportAgent'
 
 # Pulse backend connection
 PULSE_BASE_URL_ENV_KEY = 'PULSE_BASE_URL'

@@ -15,7 +15,7 @@ from freezegun import freeze_time
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_24h():
     """last_24h returns (now - 24h, now) in ISO 8601 with Z suffix."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_24h")
 
@@ -26,7 +26,7 @@ def test_compute_time_range_last_24h():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_1h():
     """last_1h returns correct 1-hour delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_1h")
 
@@ -37,7 +37,7 @@ def test_compute_time_range_last_1h():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_6h():
     """last_6h returns correct 6-hour delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_6h")
 
@@ -48,7 +48,7 @@ def test_compute_time_range_last_6h():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_7d():
     """last_7d returns correct 7-day delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_7d")
 
@@ -59,7 +59,7 @@ def test_compute_time_range_last_7d():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_30d():
     """last_30d returns correct 30-day delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_30d")
 
@@ -73,7 +73,7 @@ def test_compute_time_range_last_30d():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_5m():
     """last_5m returns correct 5-minute delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_5m")
 
@@ -84,7 +84,7 @@ def test_compute_time_range_last_5m():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_15m():
     """last_15m returns correct 15-minute delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_15m")
 
@@ -95,7 +95,7 @@ def test_compute_time_range_last_15m():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_30m():
     """last_30m returns correct 30-minute delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_30m")
 
@@ -106,7 +106,7 @@ def test_compute_time_range_last_30m():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_3h():
     """last_3h returns correct 3-hour delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_3h")
 
@@ -117,7 +117,7 @@ def test_compute_time_range_last_3h():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_12h():
     """last_12h returns correct 12-hour delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_12h")
 
@@ -128,7 +128,7 @@ def test_compute_time_range_last_12h():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_2d():
     """last_2d returns correct 2-day delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_2d")
 
@@ -139,7 +139,7 @@ def test_compute_time_range_last_2d():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_last_90d():
     """last_90d returns correct 90-day delta."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_90d")
 
@@ -153,7 +153,7 @@ def test_compute_time_range_last_90d():
 @freeze_time("2026-03-09T14:30:00Z")  # a Monday
 def test_compute_time_range_yesterday():
     """yesterday returns start-of-yesterday to end-of-yesterday."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("yesterday")
 
@@ -164,7 +164,7 @@ def test_compute_time_range_yesterday():
 @freeze_time("2026-03-11T14:30:00Z")  # a Wednesday
 def test_compute_time_range_previous_week():
     """previous_week returns Monday 00:00 to Sunday 23:59:59 of last week."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("previous_week")
 
@@ -176,7 +176,7 @@ def test_compute_time_range_previous_week():
 @freeze_time("2026-03-15T14:30:00Z")  # mid-March
 def test_compute_time_range_previous_month():
     """previous_month returns first-of-last-month to last-day-of-last-month."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("previous_month")
 
@@ -187,7 +187,7 @@ def test_compute_time_range_previous_month():
 @freeze_time("2026-03-09T14:30:00Z")
 def test_compute_time_range_today_so_far():
     """today_so_far returns start-of-today to now."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("today_so_far")
 
@@ -198,7 +198,7 @@ def test_compute_time_range_today_so_far():
 @freeze_time("2026-03-11T14:30:00Z")  # Wednesday
 def test_compute_time_range_this_week():
     """this_week returns start-of-this-week (Monday) to now."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("this_week")
 
@@ -209,7 +209,7 @@ def test_compute_time_range_this_week():
 @freeze_time("2026-03-15T14:30:00Z")
 def test_compute_time_range_this_month_so_far():
     """this_month_so_far returns first-of-month to now."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("this_month_so_far")
 
@@ -219,7 +219,7 @@ def test_compute_time_range_this_month_so_far():
 
 def test_compute_time_range_custom_passthrough():
     """custom time_range passes start_time and end_time through as-is."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range(
         "custom",
@@ -233,7 +233,7 @@ def test_compute_time_range_custom_passthrough():
 
 def test_compute_time_range_custom_missing_times():
     """custom time_range without start/end raises ValueError."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     with pytest.raises(ValueError, match="start_time.*end_time"):
         compute_time_range("custom")
@@ -241,7 +241,7 @@ def test_compute_time_range_custom_missing_times():
 
 def test_compute_time_range_invalid_enum():
     """Unknown time_range enum raises ValueError."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     with pytest.raises(ValueError, match="last_99d"):
         compute_time_range("last_99d")
@@ -250,7 +250,7 @@ def test_compute_time_range_invalid_enum():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_compute_time_range_always_utc():
     """Output always ends with Z, never +00:00."""
-    from pulse_ai.templates.base import compute_time_range
+    from pulse_ai.agents.em.templates.base import compute_time_range
 
     start, end = compute_time_range("last_24h")
 
@@ -267,7 +267,7 @@ def test_compute_time_range_always_utc():
 
 def test_build_filters_single_kv():
     """Single key-value translates to one backend filter object."""
-    from pulse_ai.templates.base import build_filters
+    from pulse_ai.agents.em.templates.base import build_filters
 
     result = build_filters({"platform": "Android"})
 
@@ -276,7 +276,7 @@ def test_build_filters_single_kv():
 
 def test_build_filters_multiple_kv():
     """Multiple key-values produce multiple filter objects."""
-    from pulse_ai.templates.base import build_filters
+    from pulse_ai.agents.em.templates.base import build_filters
 
     result = build_filters({"platform": "Android", "app_version": "5.29.1"})
 
@@ -288,7 +288,7 @@ def test_build_filters_multiple_kv():
 
 def test_build_filters_list_value():
     """List value is preserved as-is (multi-value filter)."""
-    from pulse_ai.templates.base import build_filters
+    from pulse_ai.agents.em.templates.base import build_filters
 
     result = build_filters({"platform": ["Android", "iOS"]})
 
@@ -297,7 +297,7 @@ def test_build_filters_list_value():
 
 def test_build_filters_empty_none():
     """None or empty dict returns empty list."""
-    from pulse_ai.templates.base import build_filters
+    from pulse_ai.agents.em.templates.base import build_filters
 
     assert build_filters(None) == []
     assert build_filters({}) == []
@@ -305,7 +305,7 @@ def test_build_filters_empty_none():
 
 def test_build_filters_unknown_key():
     """Unknown filter key raises ValueError."""
-    from pulse_ai.templates.base import build_filters
+    from pulse_ai.agents.em.templates.base import build_filters
 
     with pytest.raises(ValueError, match="unknown_field"):
         build_filters({"unknown_field": "value"})
@@ -319,7 +319,7 @@ def test_build_filters_unknown_key():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_build_query_request_minimal():
     """Minimal QueryRequest has dataType, timeRange, select."""
-    from pulse_ai.templates.base import build_query_request
+    from pulse_ai.agents.em.templates.base import build_query_request
 
     result = build_query_request(
         select=[{"function": "APDEX", "alias": "apdex"}],
@@ -336,7 +336,7 @@ def test_build_query_request_minimal():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_build_query_request_with_user_filters():
     """User filters are merged into the request filters list."""
-    from pulse_ai.templates.base import build_query_request
+    from pulse_ai.agents.em.templates.base import build_query_request
 
     result = build_query_request(
         select=[{"function": "APDEX", "alias": "apdex"}],
@@ -351,7 +351,7 @@ def test_build_query_request_with_user_filters():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_build_query_request_injects_pulse_type():
     """Interaction queries always include PulseType=interaction base filter."""
-    from pulse_ai.templates.base import build_query_request
+    from pulse_ai.agents.em.templates.base import build_query_request
 
     result = build_query_request(
         select=[{"function": "APDEX", "alias": "apdex"}],
@@ -370,7 +370,7 @@ def test_build_query_request_injects_pulse_type():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_build_query_request_injects_span_name():
     """When interaction_name given, SpanName filter is auto-injected."""
-    from pulse_ai.templates.base import build_query_request
+    from pulse_ai.agents.em.templates.base import build_query_request
 
     result = build_query_request(
         select=[{"function": "APDEX", "alias": "apdex"}],
@@ -390,7 +390,7 @@ def test_build_query_request_injects_span_name():
 @freeze_time("2026-03-09T12:00:00Z")
 def test_build_query_request_no_tenant_id():
     """Output never contains tenantId field."""
-    from pulse_ai.templates.base import build_query_request
+    from pulse_ai.agents.em.templates.base import build_query_request
 
     result = build_query_request(
         select=[{"function": "APDEX", "alias": "apdex"}],

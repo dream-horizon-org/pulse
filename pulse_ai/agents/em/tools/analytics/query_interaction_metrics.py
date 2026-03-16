@@ -1,13 +1,13 @@
-"""Tool 8: breakdown_interaction — Performance by a dimension.
+"""Tool 6: query_interaction_metrics — Specific metric for one interaction.
 
-Uses build_breakdown_query template → PulseClient POST → transform response.
+Uses build_metrics_query template → PulseClient POST → transform response.
 """
 
 import json
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.templates.interaction_templates import build_breakdown_query
-from pulse_ai.transformers.response_transformer import (
+from pulse_ai.agents.em.templates.interaction_templates import build_metrics_query
+from pulse_ai.agents.em.transformers.response_transformer import (
     parse_error_response,
     transform_columnar,
 )
@@ -15,30 +15,35 @@ from pulse_ai.transformers.response_transformer import (
 DATA_QUERY_PATH = "/v1/interactions/performance-metric/distribution"
 
 
-async def breakdown_interaction(
-    dimension: str,
+async def query_interaction_metrics(
+    metric_type: str,
     interaction_name: str,
     time_range: str = "last_24h",
     start_time: str = None,
     end_time: str = None,
+    timeseries: bool = False,
     filters: str = None,
 ) -> dict:
-    """Break down interaction performance by a dimension.
+    """Get a specific performance metric for one interaction.
 
-    The dimension parameter controls how data is grouped. For example,
-    dimension="platform" returns one row per platform (Android, iOS)
-    in a single call — do NOT make separate calls with platform filters.
-    Use filters only to narrow results WITHIN a different dimension
-    (e.g. dimension="device" + filters='{"platform":"Android"}' shows
-    only Android devices).
+    Use metric_type="composite" when the user asks for "all metrics",
+    "key metrics", "full picture", or an overview of a SINGLE interaction.
+    Composite returns: Apdex, success/error counts, P50, P95, crash, ANR,
+    frozen frames, network status codes, and user categories — all in one call.
 
     Args:
-        dimension: Breakdown dimension. One of: device, region, release, platform, os, network, latency_by_network, latency_by_device, latency_by_os
-        interaction_name: The interaction name
+        metric_type: Which metric. One of: apdex, latency, error_rate, user_categories, composite.
+            - apdex: Single Apdex score
+            - latency: P50 and P95 latency
+            - error_rate: Success and error counts
+            - user_categories: Excellent/Good/Average/Poor user counts
+            - composite: ALL of the above plus crash, ANR, frozen frames, network codes (most comprehensive)
+        interaction_name: The interaction name (e.g., "ContestJoinSuccess")
         time_range: One of: last_5m, last_15m, last_30m, last_1h, last_3h, last_6h, last_12h, last_24h, last_2d, last_7d, last_30d, last_90d, yesterday, previous_week, previous_month, today_so_far, this_week, this_month_so_far, custom
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
-        filters: Optional dimension filters as JSON string to narrow within another dimension, e.g. '{"platform": "Android"}' when dimension is "device"
+        timeseries: If true, return time-bucketed trend data instead of aggregates
+        filters: Optional dimension filters as JSON string, e.g. '{"platform": "Android"}'
     """
     # Parse filters JSON string → dict
     parsed_filters = None
@@ -49,12 +54,13 @@ async def breakdown_interaction(
             return {"status": "error", "message": f"Invalid JSON in filters: {filters}"}
 
     try:
-        query_request = build_breakdown_query(
-            dimension=dimension,
+        query_request = build_metrics_query(
+            metric_type=metric_type,
             interaction_name=interaction_name,
             time_range=time_range,
             start_time=start_time,
             end_time=end_time,
+            timeseries=timeseries,
             user_filters=parsed_filters,
         )
     except ValueError as e:

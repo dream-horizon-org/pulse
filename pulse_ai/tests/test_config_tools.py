@@ -18,7 +18,7 @@ import respx
 @pytest.mark.asyncio
 async def test_query_interactions_list_default():
     """scope=list with defaults returns paginated interactions."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     respx.get("http://localhost:8080/v1/interactions").mock(
         return_value=httpx.Response(200, json={
@@ -41,7 +41,7 @@ async def test_query_interactions_list_default():
 @pytest.mark.asyncio
 async def test_query_interactions_list_sends_query_params():
     """scope=list sends page, size, status as query params."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     route = respx.get("http://localhost:8080/v1/interactions").mock(
         return_value=httpx.Response(200, json={"data": [], "error": None})
@@ -66,7 +66,7 @@ async def test_query_interactions_list_sends_query_params():
 @pytest.mark.asyncio
 async def test_query_interactions_detail():
     """scope=detail fetches a single interaction by name."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     respx.get("http://localhost:8080/v1/interactions/ContestJoin").mock(
         return_value=httpx.Response(200, json={
@@ -94,7 +94,7 @@ async def test_query_interactions_detail():
 @pytest.mark.asyncio
 async def test_query_interactions_detail_missing_name():
     """scope=detail without interaction_name returns validation error."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     result = await query_interactions(scope="detail")
 
@@ -111,7 +111,7 @@ async def test_query_interactions_detail_missing_name():
 @pytest.mark.asyncio
 async def test_query_interactions_filters():
     """scope=filters hits /v1/interactions/filter-options."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     respx.get("http://localhost:8080/v1/interactions/filter-options").mock(
         return_value=httpx.Response(200, json={
@@ -130,7 +130,7 @@ async def test_query_interactions_filters():
 @pytest.mark.asyncio
 async def test_query_interactions_telemetry_filters():
     """scope=telemetry_filters hits /v1/interactions/telemetry-filters."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     respx.get("http://localhost:8080/v1/interactions/telemetry-filters").mock(
         return_value=httpx.Response(200, json={
@@ -153,7 +153,7 @@ async def test_query_interactions_telemetry_filters():
 @pytest.mark.asyncio
 async def test_query_interactions_invalid_scope():
     """Invalid scope returns error without hitting backend."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     result = await query_interactions(scope="invalid_scope")
 
@@ -165,7 +165,7 @@ async def test_query_interactions_invalid_scope():
 @pytest.mark.asyncio
 async def test_query_interactions_backend_error():
     """Backend 500 returns structured error."""
-    from pulse_ai.tools.config.query_interactions import query_interactions
+    from pulse_ai.agents.em.tools.config.query_interactions import query_interactions
 
     respx.get("http://localhost:8080/v1/interactions").mock(
         return_value=httpx.Response(500, json={
@@ -189,7 +189,7 @@ async def test_query_interactions_backend_error():
 @pytest.mark.asyncio
 async def test_query_alerts_list_default():
     """scope=list with defaults returns paginated alerts."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     respx.get("http://localhost:8080/v1/alert").mock(
         return_value=httpx.Response(200, json={
@@ -211,7 +211,7 @@ async def test_query_alerts_list_default():
 @pytest.mark.asyncio
 async def test_query_alerts_list_sends_query_params():
     """scope=list sends name, scope, state, limit, offset as query params."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     route = respx.get("http://localhost:8080/v1/alert").mock(
         return_value=httpx.Response(200, json={"data": [], "error": None})
@@ -237,7 +237,7 @@ async def test_query_alerts_list_sends_query_params():
 @pytest.mark.asyncio
 async def test_query_alerts_detail():
     """scope=detail fetches a single alert by ID."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     respx.get("http://localhost:8080/v1/alert/42").mock(
         return_value=httpx.Response(200, json={
@@ -256,7 +256,7 @@ async def test_query_alerts_detail():
 @pytest.mark.asyncio
 async def test_query_alerts_detail_missing_id():
     """scope=detail without alert_id returns validation error."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     result = await query_alerts(scope="detail")
 
@@ -273,7 +273,7 @@ async def test_query_alerts_detail_missing_id():
 @pytest.mark.asyncio
 async def test_query_alerts_evaluation_history():
     """scope=evaluation_history hits /v1/alert/{id}/evaluationHistory."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     respx.get("http://localhost:8080/v1/alert/42/evaluationHistory").mock(
         return_value=httpx.Response(200, json={
@@ -291,7 +291,7 @@ async def test_query_alerts_evaluation_history():
 @pytest.mark.asyncio
 async def test_query_alerts_evaluation_history_missing_id():
     """scope=evaluation_history without alert_id returns validation error."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     result = await query_alerts(scope="evaluation_history")
 
@@ -308,7 +308,7 @@ async def test_query_alerts_evaluation_history_missing_id():
 @pytest.mark.asyncio
 async def test_query_alerts_available_scopes():
     """scope=available_scopes hits /v1/alert/scopes."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     respx.get("http://localhost:8080/v1/alert/scopes").mock(
         return_value=httpx.Response(200, json={
@@ -331,7 +331,7 @@ async def test_query_alerts_available_scopes():
 @pytest.mark.asyncio
 async def test_query_alerts_invalid_scope():
     """Invalid scope returns error without hitting backend."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     result = await query_alerts(scope="invalid_scope")
 
@@ -343,7 +343,7 @@ async def test_query_alerts_invalid_scope():
 @pytest.mark.asyncio
 async def test_query_alerts_backend_error():
     """Backend error returns structured error."""
-    from pulse_ai.tools.config.query_alerts import query_alerts
+    from pulse_ai.agents.em.tools.config.query_alerts import query_alerts
 
     respx.get("http://localhost:8080/v1/alert").mock(
         return_value=httpx.Response(500, json={

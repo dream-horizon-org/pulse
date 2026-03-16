@@ -9,7 +9,7 @@ ClickhouseMetricService.java for field names and functions.
 
 from datetime import datetime, timezone
 
-from pulse_ai.templates.base import build_query_request
+from pulse_ai.agents.em.templates.base import build_query_request
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +223,7 @@ def build_metrics_query(
 
     if timeseries:
         # Compute the actual time range to determine bucket size
-        from pulse_ai.templates.base import compute_time_range
+        from pulse_ai.agents.em.templates.base import compute_time_range
         computed_start, computed_end = compute_time_range(time_range, start_time, end_time)
         bucket_size = get_time_bucket_size(computed_start, computed_end)
 

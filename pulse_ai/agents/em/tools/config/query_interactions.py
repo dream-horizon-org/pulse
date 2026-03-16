@@ -5,7 +5,7 @@ Supports: list, detail, filters, telemetry_filters.
 """
 
 from pulse_ai.client.pulse_client import PulseClient
-from pulse_ai.transformers.response_transformer import parse_error_response
+from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "filters", "telemetry_filters")
 

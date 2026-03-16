@@ -45,7 +45,7 @@ DATA_QUERY_URL = "http://localhost:8080/v1/interactions/performance-metric/distr
 @pytest.mark.asyncio
 async def test_health_returns_transformed_data():
     """Health tool returns list-of-dicts from columnar response."""
-    from pulse_ai.tools.analytics.query_interaction_health import query_interaction_health
+    from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
     respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json=MOCK_HEALTH_RESPONSE)
@@ -64,7 +64,7 @@ async def test_health_returns_transformed_data():
 @pytest.mark.asyncio
 async def test_health_sends_correct_request_body():
     """Health tool sends QueryRequest with correct select/groupBy/orderBy."""
-    from pulse_ai.tools.analytics.query_interaction_health import query_interaction_health
+    from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json=MOCK_HEALTH_RESPONSE)
@@ -88,7 +88,7 @@ async def test_health_sends_correct_request_body():
 @pytest.mark.asyncio
 async def test_health_with_specific_interactions():
     """Health tool filters by specific interaction names."""
-    from pulse_ai.tools.analytics.query_interaction_health import query_interaction_health
+    from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json=MOCK_HEALTH_RESPONSE)
@@ -108,7 +108,7 @@ async def test_health_with_specific_interactions():
 @pytest.mark.asyncio
 async def test_health_backend_error():
     """Health tool returns structured error on backend failure."""
-    from pulse_ai.tools.analytics.query_interaction_health import query_interaction_health
+    from pulse_ai.agents.em.tools.analytics.query_interaction_health import query_interaction_health
 
     respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(500, json={
@@ -133,7 +133,7 @@ async def test_health_backend_error():
 @pytest.mark.asyncio
 async def test_metrics_apdex_returns_data():
     """Metrics tool with apdex metric returns transformed data."""
-    from pulse_ai.tools.analytics.query_interaction_metrics import query_interaction_metrics
+    from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
     respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json=MOCK_COLUMNAR_RESPONSE)
@@ -152,7 +152,7 @@ async def test_metrics_apdex_returns_data():
 @pytest.mark.asyncio
 async def test_metrics_timeseries_includes_time_bucket():
     """Metrics tool with timeseries=True sends TIME_BUCKET in select."""
-    from pulse_ai.tools.analytics.query_interaction_metrics import query_interaction_metrics
+    from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -175,7 +175,7 @@ async def test_metrics_timeseries_includes_time_bucket():
 @pytest.mark.asyncio
 async def test_metrics_invalid_type_returns_error():
     """Metrics tool with invalid metric_type returns error without hitting backend."""
-    from pulse_ai.tools.analytics.query_interaction_metrics import query_interaction_metrics
+    from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
     result = await query_interaction_metrics(
         metric_type="invalid_metric", interaction_name="ContestJoin"
@@ -190,7 +190,7 @@ async def test_metrics_invalid_type_returns_error():
 @pytest.mark.asyncio
 async def test_metrics_with_filters():
     """Metrics tool passes user filters to QueryRequest."""
-    from pulse_ai.tools.analytics.query_interaction_metrics import query_interaction_metrics
+    from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json=MOCK_COLUMNAR_RESPONSE)
@@ -213,7 +213,7 @@ async def test_metrics_with_filters():
 @pytest.mark.asyncio
 async def test_metrics_with_invalid_json_filters():
     """Metrics tool with malformed JSON filters returns error."""
-    from pulse_ai.tools.analytics.query_interaction_metrics import query_interaction_metrics
+    from pulse_ai.agents.em.tools.analytics.query_interaction_metrics import query_interaction_metrics
 
     result = await query_interaction_metrics(
         metric_type="latency",
@@ -235,7 +235,7 @@ async def test_metrics_with_invalid_json_filters():
 @pytest.mark.asyncio
 async def test_sessions_returns_session_list():
     """Sessions tool scope=sessions returns session rows."""
-    from pulse_ai.tools.analytics.query_interaction_sessions import query_interaction_sessions
+    from pulse_ai.agents.em.tools.analytics.query_interaction_sessions import query_interaction_sessions
 
     respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -259,7 +259,7 @@ async def test_sessions_returns_session_list():
 @pytest.mark.asyncio
 async def test_sessions_stats_returns_aggregates():
     """Sessions tool scope=stats returns aggregate counts."""
-    from pulse_ai.tools.analytics.query_interaction_sessions import query_interaction_sessions
+    from pulse_ai.agents.em.tools.analytics.query_interaction_sessions import query_interaction_sessions
 
     respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -282,7 +282,7 @@ async def test_sessions_stats_returns_aggregates():
 @pytest.mark.asyncio
 async def test_sessions_invalid_scope_returns_error():
     """Sessions tool with invalid scope returns error."""
-    from pulse_ai.tools.analytics.query_interaction_sessions import query_interaction_sessions
+    from pulse_ai.agents.em.tools.analytics.query_interaction_sessions import query_interaction_sessions
 
     result = await query_interaction_sessions(scope="invalid", interaction_name="ContestJoin")
 
@@ -300,7 +300,7 @@ async def test_sessions_invalid_scope_returns_error():
 @pytest.mark.asyncio
 async def test_breakdown_device_returns_data():
     """Breakdown tool with device dimension returns grouped data."""
-    from pulse_ai.tools.analytics.breakdown_interaction import breakdown_interaction
+    from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
     respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -327,7 +327,7 @@ async def test_breakdown_device_returns_data():
 @pytest.mark.asyncio
 async def test_breakdown_invalid_dimension_returns_error():
     """Breakdown tool with invalid dimension returns error."""
-    from pulse_ai.tools.analytics.breakdown_interaction import breakdown_interaction
+    from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
     result = await breakdown_interaction(dimension="invalid", interaction_name="ContestJoin")
 
@@ -340,7 +340,7 @@ async def test_breakdown_invalid_dimension_returns_error():
 @pytest.mark.asyncio
 async def test_breakdown_sends_correct_groupby():
     """Breakdown tool sends correct groupBy for the dimension."""
-    from pulse_ai.tools.analytics.breakdown_interaction import breakdown_interaction
+    from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -361,7 +361,7 @@ async def test_breakdown_sends_correct_groupby():
 @pytest.mark.asyncio
 async def test_breakdown_cross_dimensional_filter():
     """Breakdown with cross-dimensional filter (e.g. device + platform filter)."""
-    from pulse_ai.tools.analytics.breakdown_interaction import breakdown_interaction
+    from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -400,7 +400,7 @@ async def test_breakdown_same_dimension_as_filter_warns():
     but semantically wrong — the user likely wanted comparison, not filtering.
     This test documents the current (permissive) behavior.
     """
-    from pulse_ai.tools.analytics.breakdown_interaction import breakdown_interaction
+    from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
@@ -433,7 +433,7 @@ async def test_breakdown_same_dimension_as_filter_warns():
 @pytest.mark.asyncio
 async def test_breakdown_platform_no_filters_returns_all_platforms():
     """Breakdown with dimension=platform and NO filters returns all platforms."""
-    from pulse_ai.tools.analytics.breakdown_interaction import breakdown_interaction
+    from pulse_ai.agents.em.tools.analytics.breakdown_interaction import breakdown_interaction
 
     route = respx.post(DATA_QUERY_URL).mock(
         return_value=httpx.Response(200, json={
