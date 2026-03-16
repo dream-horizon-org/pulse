@@ -16,6 +16,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.rxjava3.core.AbstractVerticle;
 import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
@@ -107,7 +108,7 @@ public class MainVerticle extends AbstractVerticle {
           JsonObject rootCauseJson = config.getJsonObject("rootCause", new JsonObject());
           RootCauseConfig rootCauseConfig = buildRootCauseConfig(rootCauseJson);
           SharedDataUtils.put(vertx.getDelegate(), rootCauseConfig);
-          log.info("Root Cause config initialized - enabled: {}", rootCauseConfig.isEnabled());
+          log.info("Root Cause config initialized");
 
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
@@ -220,23 +221,18 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private RootCauseConfig buildRootCauseConfig(JsonObject rootCauseJson) {
-    boolean enabled = false;
-    Object enabledValue = rootCauseJson.getValue("enabled");
-    if (enabledValue instanceof Boolean) {
-      enabled = (Boolean) enabledValue;
-    } else if (enabledValue instanceof String) {
-      enabled = Boolean.parseBoolean((String) enabledValue);
-    }
-
     RootCauseConfig from = RootCauseConfig.builder()
-        .enabled(enabled)
         .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct", 0))
         .lookbackDays(rootCauseJson.getInteger("lookbackDays", 0))
         .cacheTtlHours(rootCauseJson.getInteger("cacheTtlHours", 0))
         .maxSegments(rootCauseJson.getInteger("maxSegments", 0))
         .build();
     if (rootCauseJson.getValue("dimensionOrder") != null) {
-      from.setDimensionOrder(rootCauseJson.getJsonArray("dimensionOrder").getList());
+      List<String> dimensionOrder = new java.util.ArrayList<>();
+      for (Object o : rootCauseJson.getJsonArray("dimensionOrder").getList()) {
+        dimensionOrder.add(o == null ? "" : o.toString());
+      }
+      from.setDimensionOrder(dimensionOrder);
     }
     return RootCauseConfig.withDefaults(from);
   }

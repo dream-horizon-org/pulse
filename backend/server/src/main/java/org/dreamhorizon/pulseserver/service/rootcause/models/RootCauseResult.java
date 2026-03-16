@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 
 /** Result of root cause analysis: baseline, segments, mode, cache info, edge-case flags. */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)

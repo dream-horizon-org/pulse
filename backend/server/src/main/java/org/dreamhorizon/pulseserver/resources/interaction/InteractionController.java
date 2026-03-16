@@ -14,6 +14,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import java.time.LocalDate;
@@ -202,9 +203,6 @@ public class InteractionController {
       @PathParam("name") String name,
       @QueryParam("date") String dateParam
   ) {
-    if (!rootCauseConfig.isEnabled()) {
-      throw ServiceError.NOT_FOUND.getException();
-    }
     String projectId = ProjectContext.requireProjectId();
     LocalDate date = dateParam != null && !dateParam.isBlank()
         ? LocalDate.parse(dateParam)
