@@ -87,9 +87,10 @@ Curtains.onRootViewsChangedListeners → addView(rootView, added)
     → view.phoneWindow → window.onDecorViewReady { decorView → … }
     → NextDrawListener on decorView, touchEventInterceptors += listener
 OnDraw (throttled)
-    → executor.submit { generateSnapshot(decorView, window) }
-    → ScreenshotCapture.capture(window, decorView) or WireframeCapture.capture(decorView)
-    → MaskingCollector collects mask rects → apply to bitmap or wireframe
+    → decorView.post { MaskRectCache collects mask rects on main thread }
+    → executor.submit { generateSnapshot(decorView, window, maskRects) }
+    → ScreenshotCapture.capture(window, decorView, maskRects) or WireframeCapture.capture(decorView)
+    → Pre-collected mask rects applied to bitmap
     → Build ReplayEvent list (Meta, FullSnapshot or IncrementalSnapshot, Custom)
     → ReplayEventEmitter.emit(sessionId, events)
 ```

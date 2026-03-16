@@ -34,10 +34,14 @@ internal object ScreenshotCapture {
     private val pixelCopyHandler: Handler by lazy { Handler(pixelCopyThread.looper) }
 
     /**
-     * Capture screenshot. Runs on background. [getMaskRects] is invoked with the view and a list
-     * to fill with mask rects (in window coordinates matching the bitmap); returns false if
-     * capture should be discarded. Mask rects are collected **before** PixelCopy to avoid
-     * timing races with screen changes.
+     * Capture screenshot with pre-collected mask rects.
+     *
+     * Mask rects must be collected on the **main thread** (via [MaskRectCache]) before calling
+     * this method so that view coordinates are read atomically in the same frame. This method
+     * only performs PixelCopy + mask drawing + encoding on the background thread.
+     *
+     * @param maskRects Pre-collected mask rects in window coordinates (from main thread).
+     * @param masksValid false if the mask collection was aborted (e.g. screen changed mid-walk).
      * @param screenshotScale Scale factor (0.01, 1.0]. e.g. 0.5 = half dimensions. Reduces payload size.
      * @param screenshotQuality WebP lossy quality 0–100. Lower = smaller size.
      */
@@ -46,7 +50,8 @@ internal object ScreenshotCapture {
         window: Window,
         view: View,
         displayMetrics: android.util.DisplayMetrics,
-        getMaskRects: (View, MutableList<android.graphics.Rect>) -> Boolean,
+        maskRects: List<android.graphics.Rect>,
+        masksValid: Boolean,
         onDrawFlag: () -> Boolean,
         setOnDrawFlag: (Boolean) -> Unit,
         logger: (String) -> Unit,
@@ -69,13 +74,8 @@ internal object ScreenshotCapture {
         val width = view.width.densityValue(displayMetrics.density)
         val height = view.height.densityValue(displayMetrics.density)
 
-        // Reset draw flag, then collect mask rects BEFORE PixelCopy to avoid
-        // timing race: the view hierarchy must be read while it still matches
-        // the screen state that PixelCopy will capture. Collecting inside the
-        // async callback risks reading a stale/changed hierarchy.
         setOnDrawFlag(false)
-        val maskableWidgets = mutableListOf<android.graphics.Rect>()
-        val masksValid = getMaskRects(view, maskableWidgets)
+        val maskableWidgets = maskRects
 
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val latch = CountDownLatch(1)
