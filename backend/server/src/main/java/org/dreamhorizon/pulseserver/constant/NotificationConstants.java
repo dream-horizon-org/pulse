@@ -37,6 +37,7 @@ public final class NotificationConstants {
   public static final String KEY_ACTIONS = "actions";
   public static final String CONTACT_US_EVENT_NAME = "contact_us";
   public static final String CONTACT_SUPPORT_EVENT_NAME = "contact_support";
+  public static final String NOTIFICATION_DEFAULT_PROJECT = "default-project";
 
   // Default values
   public static final String DEFAULT_SUBJECT = "Notification";
