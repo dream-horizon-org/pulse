@@ -1,7 +1,5 @@
 package org.dreamhorizon.pulseserver.config;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -9,7 +7,6 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Singleton
 public class StartupConfigValidator {
 
   private static final Set<String> VALID_ENVIRONMENTS = Set.of("dev", "stag", "uat", "prod");
@@ -17,15 +14,16 @@ public class StartupConfigValidator {
   private final ApplicationConfig appConfig;
   private final ClickhouseConfig clickhouseConfig;
 
-  @Inject
-  public StartupConfigValidator(
-      ApplicationConfig appConfig, ClickhouseConfig clickhouseConfig) {
+  public StartupConfigValidator(ApplicationConfig appConfig, ClickhouseConfig clickhouseConfig) {
     this.appConfig = appConfig;
     this.clickhouseConfig = clickhouseConfig;
-    validate();
   }
 
-  private void validate() {
+  public static void validate(ApplicationConfig appConfig, ClickhouseConfig clickhouseConfig) {
+    new StartupConfigValidator(appConfig, clickhouseConfig).validate();
+  }
+
+  public void validate() {
     List<String> errors = new ArrayList<>();
     errors.addAll(validateEnvironment());
     errors.addAll(validateClickhouseConfig());

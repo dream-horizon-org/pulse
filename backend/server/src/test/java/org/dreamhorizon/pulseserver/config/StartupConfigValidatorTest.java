@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,8 +30,8 @@ class StartupConfigValidatorTest {
     void validValues_returnsEmpty(String env) {
       when(appConfig.getAppEnvironment()).thenReturn(env);
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateEnvironment();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).isEmpty();
     }
@@ -42,8 +41,8 @@ class StartupConfigValidatorTest {
     void invalidValue_returnsError(String env) {
       when(appConfig.getAppEnvironment()).thenReturn(env);
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateEnvironment();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("APP_ENVIRONMENT").contains("invalid");
@@ -53,8 +52,8 @@ class StartupConfigValidatorTest {
     void nullValue_returnsError() {
       when(appConfig.getAppEnvironment()).thenReturn(null);
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateEnvironment();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("APP_ENVIRONMENT").contains("required");
@@ -64,8 +63,8 @@ class StartupConfigValidatorTest {
     void blankValue_returnsError() {
       when(appConfig.getAppEnvironment()).thenReturn("   ");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateEnvironment();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("APP_ENVIRONMENT").contains("required");
@@ -75,8 +74,8 @@ class StartupConfigValidatorTest {
     void emptyValue_returnsError() {
       when(appConfig.getAppEnvironment()).thenReturn("");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateEnvironment();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateEnvironment();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("APP_ENVIRONMENT").contains("required");
@@ -91,8 +90,8 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("prod");
       when(clickhouseConfig.getClusterName()).thenReturn("pulse-clickhouse");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateClickhouseConfig();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).isEmpty();
     }
@@ -102,8 +101,8 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("prod");
       when(clickhouseConfig.getClusterName()).thenReturn("");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateClickhouseConfig();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("CLICKHOUSE_CLUSTER_NAME").contains("production");
@@ -114,8 +113,8 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("prod");
       when(clickhouseConfig.getClusterName()).thenReturn(null);
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateClickhouseConfig();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("CLICKHOUSE_CLUSTER_NAME").contains("production");
@@ -126,8 +125,8 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("PROD");
       when(clickhouseConfig.getClusterName()).thenReturn("  ");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateClickhouseConfig();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).hasSize(1);
       assertThat(errors.get(0)).contains("CLICKHOUSE_CLUSTER_NAME");
@@ -139,8 +138,8 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(env);
       when(clickhouseConfig.getClusterName()).thenReturn("cluster-name");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateClickhouseConfig();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).isEmpty();
     }
@@ -151,8 +150,8 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn(env);
       when(clickhouseConfig.getClusterName()).thenReturn("");
 
-      StartupConfigValidatorTestHelper helper = new StartupConfigValidatorTestHelper(appConfig, clickhouseConfig);
-      List<String> errors = helper.validateClickhouseConfig();
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      List<String> errors = validator.validateClickhouseConfig();
 
       assertThat(errors).isEmpty();
     }
@@ -167,6 +166,7 @@ class StartupConfigValidatorTest {
       when(clickhouseConfig.getClusterName()).thenReturn("");
 
       StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+      validator.validate();
 
       assertThat(validator).isNotNull();
     }
@@ -175,7 +175,9 @@ class StartupConfigValidatorTest {
     void invalidEnvironment_throwsException() {
       when(appConfig.getAppEnvironment()).thenReturn("invalid");
 
-      assertThatThrownBy(() -> new StartupConfigValidator(appConfig, clickhouseConfig))
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+
+      assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("APP_ENVIRONMENT")
           .hasMessageContaining("invalid");
@@ -186,7 +188,9 @@ class StartupConfigValidatorTest {
       when(appConfig.getAppEnvironment()).thenReturn("prod");
       when(clickhouseConfig.getClusterName()).thenReturn("");
 
-      assertThatThrownBy(() -> new StartupConfigValidator(appConfig, clickhouseConfig))
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+
+      assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("CLICKHOUSE_CLUSTER_NAME")
           .hasMessageContaining("production");
@@ -196,52 +200,28 @@ class StartupConfigValidatorTest {
     void multipleErrors_allReported() {
       when(appConfig.getAppEnvironment()).thenReturn("invalid-env");
 
-      assertThatThrownBy(() -> new StartupConfigValidator(appConfig, clickhouseConfig))
+      StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
+
+      assertThatThrownBy(validator::validate)
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("APP_ENVIRONMENT");
     }
-  }
 
-  /**
-   * Test helper class that exposes package-private validation methods for testing.
-   */
-  static class StartupConfigValidatorTestHelper {
-    private final ApplicationConfig appConfig;
-    private final ClickhouseConfig clickhouseConfig;
+    @Test
+    void staticValidateMethod_throwsOnInvalidConfig() {
+      when(appConfig.getAppEnvironment()).thenReturn("invalid");
 
-    StartupConfigValidatorTestHelper(ApplicationConfig appConfig, ClickhouseConfig clickhouseConfig) {
-      this.appConfig = appConfig;
-      this.clickhouseConfig = clickhouseConfig;
+      assertThatThrownBy(() -> StartupConfigValidator.validate(appConfig, clickhouseConfig))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("APP_ENVIRONMENT");
     }
 
-    List<String> validateEnvironment() {
-      String env = appConfig.getAppEnvironment();
-      if (isBlank(env)) {
-        return List.of("APP_ENVIRONMENT is required and cannot be blank");
-      }
-      if (!java.util.Set.of("dev", "stag", "uat", "prod").contains(env.toLowerCase())) {
-        return List.of(
-            String.format(
-                "APP_ENVIRONMENT '%s' is invalid. Must be one of: [dev, stag, uat, prod] (case-insensitive)",
-                env));
-      }
-      return java.util.Collections.emptyList();
-    }
+    @Test
+    void staticValidateMethod_passesOnValidConfig() {
+      when(appConfig.getAppEnvironment()).thenReturn("dev");
+      when(clickhouseConfig.getClusterName()).thenReturn("");
 
-    List<String> validateClickhouseConfig() {
-      if (isProduction() && isBlank(clickhouseConfig.getClusterName())) {
-        return List.of("CLICKHOUSE_CLUSTER_NAME is required in production environment");
-      }
-      return java.util.Collections.emptyList();
-    }
-
-    private boolean isProduction() {
-      String env = appConfig.getAppEnvironment();
-      return env != null && "prod".equalsIgnoreCase(env);
-    }
-
-    private boolean isBlank(String value) {
-      return value == null || value.isBlank();
+      StartupConfigValidator.validate(appConfig, clickhouseConfig);
     }
   }
 }
