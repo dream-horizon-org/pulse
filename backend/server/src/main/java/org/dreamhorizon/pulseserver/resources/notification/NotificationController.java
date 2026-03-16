@@ -15,6 +15,7 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationLogsResponseDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
@@ -130,7 +131,7 @@ public class NotificationController {
                 request != null && request.getMessage() != null ? request.getMessage() : null);
 
             return notificationService.sendNotificationAsync(
-                "default-project",
+                Constants.DEFAULT_PROJECT_ID,
                 SendNotificationRequestDto.builder()
                     .eventName(eventName)
                     .channelTypes(List.of(ChannelType.EMAIL))

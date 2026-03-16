@@ -14,6 +14,7 @@ import io.vertx.junit5.VertxTestContext;
 import java.util.Base64;
 import java.util.concurrent.CompletionStage;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.resources.notification.models.ContactRequestDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
@@ -118,7 +119,7 @@ class NotificationControllerTest {
 
         Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Acme Corp").build();
         when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
-        when(notificationService.sendNotificationAsync(eq("default-project"), any()))
+        when(notificationService.sendNotificationAsync(eq(Constants.DEFAULT_PROJECT_ID), any()))
             .thenReturn(Single.just(
                 NotificationBatchResponseDto.builder()
                     .idempotencyKey("key-1")
@@ -136,7 +137,7 @@ class NotificationControllerTest {
             ArgumentCaptor<SendNotificationRequestDto> captor =
                 ArgumentCaptor.forClass(SendNotificationRequestDto.class);
             verify(notificationService)
-                .sendNotificationAsync(eq("default-project"), captor.capture());
+                .sendNotificationAsync(eq(Constants.DEFAULT_PROJECT_ID), captor.capture());
 
             SendNotificationRequestDto sent = captor.getValue();
             assertThat(sent.getEventName())
@@ -160,7 +161,7 @@ class NotificationControllerTest {
 
         Tenant tenant = Tenant.builder().tenantId(TENANT_ID).name("Acme Corp").build();
         when(tenantService.getTenant(eq(TENANT_ID))).thenReturn(Maybe.just(tenant));
-        when(notificationService.sendNotificationAsync(eq("default-project"), any()))
+        when(notificationService.sendNotificationAsync(eq(Constants.DEFAULT_PROJECT_ID), any()))
             .thenReturn(Single.just(
                 NotificationBatchResponseDto.builder()
                     .idempotencyKey("key-2")
@@ -178,7 +179,7 @@ class NotificationControllerTest {
             ArgumentCaptor<SendNotificationRequestDto> captor =
                 ArgumentCaptor.forClass(SendNotificationRequestDto.class);
             verify(notificationService)
-                .sendNotificationAsync(eq("default-project"), captor.capture());
+                .sendNotificationAsync(eq(Constants.DEFAULT_PROJECT_ID), captor.capture());
 
             SendNotificationRequestDto sent = captor.getValue();
             assertThat(sent.getEventName())

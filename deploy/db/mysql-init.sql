@@ -744,6 +744,7 @@ CREATE TABLE IF NOT EXISTS channel_event_mapping (
     INDEX idx_mapping_project_event (project_id, event_name, is_active)
 );
 
+-- Contact channel mappings (uses DEFAULT_PROJECT_ID from Constants.java)
 INSERT INTO channel_event_mapping (project_id, channel_id, event_name, recipient, is_active) VALUES
 ('default-project', 1, 'contact_us', 'contact@pulse-ux.com', TRUE),
 ('default-project', 1, 'contact_support', 'support@pulse-ux.com', TRUE)

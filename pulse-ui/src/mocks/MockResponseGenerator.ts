@@ -341,6 +341,11 @@ export class MockResponseGenerator {
       return this.handleTncEndpoints(pathname, method, request);
     }
 
+    // Notification endpoints
+    if (pathname.includes("/v1/notifications/")) {
+      return this.handleNotificationEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
@@ -516,6 +521,58 @@ export class MockResponseGenerator {
         code: "NOT_FOUND",
         message: "TNC endpoint not found",
         cause: `Unknown path: ${pathname}`,
+      },
+    };
+  }
+
+  /**
+   * Handle notification endpoints
+   */
+  private handleNotificationEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // POST /v1/notifications/contact-us
+    if (pathname.includes("/notifications/contact-us") && method === "POST") {
+      const url = this.parseURL(request.url);
+      const eventType = url.searchParams.get("type");
+
+      // Validate event type
+      if (
+        !eventType ||
+        !["sales", "support"].includes(eventType.toLowerCase())
+      ) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_TYPE",
+            message: "Invalid contact type. Use 'sales' or 'support'",
+            cause: "Invalid or missing type query parameter",
+          },
+        };
+      }
+
+      // Success response
+      const successMessage =
+        eventType.toLowerCase() === "sales"
+          ? "Contact request submitted successfully"
+          : "Support request submitted successfully";
+
+      return {
+        data: successMessage,
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Notification endpoint not found",
+        cause: `Unknown notification endpoint: ${pathname}`,
       },
     };
   }
@@ -2804,7 +2861,10 @@ export class MockResponseGenerator {
     const dataStore = MockDataStore.getInstance();
 
     // GET /v1/event-definitions/categories
-    if (pathname.includes("/event-definitions/categories") && method === "GET") {
+    if (
+      pathname.includes("/event-definitions/categories") &&
+      method === "GET"
+    ) {
       return {
         data: dataStore.getEventDefinitionCategories(),
         status: 200,
@@ -2831,7 +2891,15 @@ export class MockResponseGenerator {
       const id = parseInt(idMatch[1], 10);
       const def = dataStore.getEventDefinitionById(id);
       if (!def) {
-        return { data: null, status: 404, error: { code: "404", message: "Event definition not found", cause: "Not found" } };
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "404",
+            message: "Event definition not found",
+            cause: "Not found",
+          },
+        };
       }
       return { data: def, status: 200 };
     }
@@ -2840,7 +2908,11 @@ export class MockResponseGenerator {
     if (idMatch && method === "PUT") {
       const id = parseInt(idMatch[1], 10);
       let body: any = {};
-      try { body = JSON.parse(request.body || "{}"); } catch { /* empty */ }
+      try {
+        body = JSON.parse(request.body || "{}");
+      } catch {
+        /* empty */
+      }
       const updated = dataStore.updateEventDefinition(id, {
         displayName: body.displayName,
         description: body.description,
@@ -2854,7 +2926,15 @@ export class MockResponseGenerator {
         })),
       });
       if (!updated) {
-        return { data: null, status: 404, error: { code: "404", message: "Event definition not found", cause: "Not found" } };
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "404",
+            message: "Event definition not found",
+            cause: "Not found",
+          },
+        };
       }
       return { data: updated, status: 200 };
     }
@@ -2864,7 +2944,15 @@ export class MockResponseGenerator {
       const id = parseInt(idMatch[1], 10);
       const archived = dataStore.archiveEventDefinition(id);
       if (!archived) {
-        return { data: null, status: 404, error: { code: "404", message: "Event definition not found", cause: "Not found" } };
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "404",
+            message: "Event definition not found",
+            cause: "Not found",
+          },
+        };
       }
       const def = dataStore.getEventDefinitionById(id);
       return { data: def, status: 200 };
@@ -2873,7 +2961,11 @@ export class MockResponseGenerator {
     // POST /v1/event-definitions (create)
     if (pathname.endsWith("/event-definitions") && method === "POST") {
       let body: any = {};
-      try { body = JSON.parse(request.body || "{}"); } catch { /* empty */ }
+      try {
+        body = JSON.parse(request.body || "{}");
+      } catch {
+        /* empty */
+      }
       const created = dataStore.addEventDefinition({
         eventName: body.eventName || "unnamed_event",
         displayName: body.displayName || body.eventName || "Unnamed Event",
@@ -2897,11 +2989,19 @@ export class MockResponseGenerator {
       const category = url.searchParams.get("category") || undefined;
       const limit = parseInt(url.searchParams.get("limit") || "50", 10);
       const offset = parseInt(url.searchParams.get("offset") || "0", 10);
-      const result = dataStore.getEventDefinitions({ search, category, limit, offset });
+      const result = dataStore.getEventDefinitions({
+        search,
+        category,
+        limit,
+        offset,
+      });
       return { data: result, status: 200 };
     }
 
-    return { data: { message: "Event definition endpoint not implemented" }, status: 200 };
+    return {
+      data: { message: "Event definition endpoint not implemented" },
+      status: 200,
+    };
   }
 
   private handleAlertEndpoints(

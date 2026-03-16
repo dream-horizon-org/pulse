@@ -59,4 +59,7 @@ public final class Constants {
   public static final String RESOURCE_TYPE_TENANT = "tenant";
   public static final String RESOURCE_TYPE_SYSTEM = "system";
   public static final String RESOURCE_SYSTEM_PULSE = "pulse";
+
+  // Default Project
+  public static final String DEFAULT_PROJECT_ID = "default-project";
 }
