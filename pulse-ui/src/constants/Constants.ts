@@ -28,13 +28,6 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { SupportQueries } from "../screens/SupportQueries";
-import React from "react";
-
-const EventCatalog = React.lazy(() =>
-  import("../screens/EventCatalog/EventCatalog").then((m) => ({
-    default: m.EventCatalog,
-  })),
-);
 
 export const APP_NAME: string = "Pulse";
 
@@ -249,12 +242,6 @@ export const ROUTES: Routes = {
     basePath: "/support-queries",
     path: "/support-queries",
     element: SupportQueries,
-  },
-  EVENT_CATALOG: {
-    key: "EVENT_CATALOG",
-    basePath: "/event-catalog",
-    path: "/event-catalog",
-    element: EventCatalog,
   },
 };
 
