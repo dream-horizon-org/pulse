@@ -402,7 +402,6 @@ public class UsageLimitService {
         });
   }
 
-  // ==================== NOTIFICATION CHECKING ====================
 
   /**
    * Analyzes all projects and determines which usage notifications need to be sent.

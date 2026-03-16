@@ -38,7 +38,7 @@ import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
  * Internal endpoints:
  * - GET /internal/v1/projects/{projectId}/limits - Get project limits (full info)
  * - GET /internal/v1/projects/limits - Get all active project limits
- * - GET /internal/v1/projects/limits/notifications - Get usage notifications due
+ * - GET /internal/v1/projects/limits/notifications-due - Get usage notifications due
  * - PUT /internal/v1/projects/{projectId}/limits - Set custom limits
  * - POST /internal/v1/projects/{projectId}/limits/reset - Reset to tier defaults
  * - GET /internal/v1/projects/{projectId}/limits/history - Get limit change history
@@ -97,7 +97,7 @@ public class InternalUsageLimitsController {
    * Called by alerts-cron to determine which notifications to send.
    */
   @GET
-  @Path("/limits/notifications")
+  @Path("/limits/notifications-due")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<UsageNotificationRestResponse>> getUsageNotifications() {

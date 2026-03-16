@@ -23,7 +23,7 @@ public class PulseServerApiClient {
   
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
-  private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications";
+  private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
   private static final String SEND_NOTIFICATION_PATH = "/internal/v1/notifications/send";
   private static final long REQUEST_TIMEOUT_MS = 30000;
