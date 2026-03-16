@@ -35,6 +35,8 @@ import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.incident.IncidentService;
+import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -131,6 +133,8 @@ public class MainModule extends VertxAbstractModule {
         }
       }
     }).in(Singleton.class);
+    bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
     bindNotificationFeature();
   }
 
