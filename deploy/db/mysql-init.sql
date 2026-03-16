@@ -193,8 +193,8 @@ CREATE TABLE symbol_files (
     app_version VARCHAR(64) NOT NULL,
     app_version_code INT NOT NULL,
     platform ENUM('ios','android') NOT NULL,
-    framework ENUM('java','js', 'mapping', 'dsym') NOT NULL,
-    file_content LONGBLOB NOT NULL,
+    framework ENUM('js', 'mapping', 'dsym') NOT NULL,
+    s3_key VARCHAR(512) NOT NULL,
     bundleid VARCHAR(255),
     PRIMARY KEY (project_id, app_version, app_version_code, platform, framework),
     CONSTRAINT fk_symbol_files_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
