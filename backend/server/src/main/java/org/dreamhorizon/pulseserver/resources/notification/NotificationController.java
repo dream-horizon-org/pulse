@@ -131,7 +131,7 @@ public class NotificationController {
                 request != null && request.getMessage() != null ? request.getMessage() : null);
 
             return notificationService.sendNotificationAsync(
-                Constants.DEFAULT_PROJECT_ID,
+                NotificationConstants.NOTIFICATION_DEFAULT_PROJECT,
                 SendNotificationRequestDto.builder()
                     .eventName(eventName)
                     .channelTypes(List.of(ChannelType.EMAIL))
