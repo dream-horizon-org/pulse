@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import com.google.inject.Inject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
@@ -14,7 +15,7 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 
 @Slf4j
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class RootCauseCacheDao {
 
   private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
