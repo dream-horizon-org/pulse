@@ -167,6 +167,18 @@ public class ClickhouseProjectConnectionPoolManager {
         }
         return wrapper.pool;
     }
+
+    /**
+     * Returns the ON CLUSTER clause if a cluster is configured, empty string otherwise.
+     * Used for DDL statements that need to be replicated across all cluster nodes.
+     */
+    public String getOnClusterClause() {
+        String clusterName = baseConfig.getClusterName();
+        if (clusterName != null && !clusterName.isBlank()) {
+            return " ON CLUSTER '" + clusterName + "'";
+        }
+        return "";
+    }
     
     /**
      * Close connection pool for a project.

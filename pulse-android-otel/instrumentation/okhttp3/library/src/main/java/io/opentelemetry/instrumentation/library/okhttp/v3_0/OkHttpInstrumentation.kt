@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-@file:Suppress("ktlint:standard:package-name")
+@file:Suppress("ktlint:standard:package-name", "PackageNaming")
 
 package io.opentelemetry.instrumentation.library.okhttp.v3_0
 

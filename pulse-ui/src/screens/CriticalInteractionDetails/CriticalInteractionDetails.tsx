@@ -1,9 +1,17 @@
 import classes from "./CriticalInteractionDetails.module.css";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Badge, Box, Grid, Tabs, Title, Tooltip, useMantineTheme } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Grid,
+  Tabs,
+  Title,
+  Tooltip,
+  useMantineTheme,
+} from "@mantine/core";
 import {
   CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS,
-  NAVBAR_ROUTES,
+  ROUTES,
 } from "../../constants";
 import { AllInteractionDetails } from "./AllInteractionDetails";
 import { useEffect, useState } from "react";
@@ -32,7 +40,9 @@ export function CiritcalInteractionDetails() {
   } = useFilterStore();
 
   const navigate = useNavigate();
-  const routeParams = useParams()["*"];
+  const params = useParams<{ projectId: string; "*": string }>();
+  const projectId = params.projectId;
+  const routeParams = params["*"];
   const theme = useMantineTheme();
 
   const routeParamsArray = routeParams?.split("/") ?? [];
@@ -56,7 +66,7 @@ export function CiritcalInteractionDetails() {
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Show skeleton loading state while fetching interaction details
@@ -78,27 +88,39 @@ export function CiritcalInteractionDetails() {
             <SkeletonLoader height={32} width={150} radius="md" />
           </div>
         </div>
-        
+
         {/* Tab skeleton */}
         <div className={classes.tabsSkeleton}>
           <SkeletonLoader height={36} width={100} radius="sm" />
           <SkeletonLoader height={36} width={80} radius="sm" />
           <SkeletonLoader height={36} width={100} radius="sm" />
         </div>
-        
+
         {/* Content skeleton - graphs layout */}
         <Grid mt="md">
           <Grid.Col span={8.5}>
-            <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--mantine-spacing-md)' }}>
+            <Box
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: "var(--mantine-spacing-md)",
+              }}
+            >
               <GraphCardSkeleton chartHeight={200} metricsCount={3} />
               <GraphCardSkeleton chartHeight={200} metricsCount={3} />
-              <Box style={{ gridColumn: '1 / span 2' }}>
+              <Box style={{ gridColumn: "1 / span 2" }}>
                 <GraphCardSkeleton chartHeight={200} metricsCount={3} />
               </Box>
             </Box>
           </Grid.Col>
           <Grid.Col span={3.5}>
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mantine-spacing-sm)' }}>
+            <Box
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--mantine-spacing-sm)",
+              }}
+            >
               <SkeletonLoader height={60} width="100%" radius="md" />
               <SkeletonLoader height={60} width="100%" radius="md" />
               <SkeletonLoader height={60} width="100%" radius="md" />
@@ -118,13 +140,21 @@ export function CiritcalInteractionDetails() {
   }
 
   const handBackToListingPage = () => {
-    navigate(NAVBAR_ROUTES.CRITICAL_INTERACTIONS);
+    navigate(
+      ROUTES.PROJECT_INTERACTIONS.basePath.replace(
+        ":projectId",
+        projectId || "",
+      ),
+    );
   };
 
   const handleTabChange = (value: string | null) => {
     if (value) {
       setActiveTab(value);
-      setSearchParams({ ...Object.fromEntries(searchParams.entries()), tab: value }, { replace: true });
+      setSearchParams(
+        { ...Object.fromEntries(searchParams.entries()), tab: value },
+        { replace: true },
+      );
     }
   };
   return (
@@ -200,7 +230,13 @@ export function CiritcalInteractionDetails() {
           {!startTime || !endTime ? (
             <Grid mt="md">
               <Grid.Col span={8.5}>
-                <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--mantine-spacing-md)' }}>
+                <Box
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "var(--mantine-spacing-md)",
+                  }}
+                >
                   <GraphCardSkeleton chartHeight={200} metricsCount={3} />
                   <GraphCardSkeleton chartHeight={200} metricsCount={3} />
                 </Box>

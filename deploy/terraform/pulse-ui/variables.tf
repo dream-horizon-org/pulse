@@ -13,7 +13,7 @@ variable "ami_id" {
 
 variable "instance_types" {
   description = "List of EC2 instance types for the ASG mixed instances policy"
-  type        = list(string)
+  type = list(string)
 }
 
 variable "desired_capacity" {
@@ -38,22 +38,22 @@ variable "asg_on_demand_base_capacity" {
 
 variable "ec2_subnet_ids" {
   description = "Subnets for instances (ASG)"
-  type        = list(string)
+  type = list(string)
 }
 
 variable "alb_subnet_ids" {
   description = "Subnets for ALB"
-  type        = list(string)
+  type = list(string)
 }
 
 variable "alb_security_group_ids" {
   description = "SG for the ALB"
-  type        = list(string)
+  type = list(string)
 }
 
 variable "ec2_security_group_ids" {
   description = "EC2 Security Group IDs"
-  type        = list(string)
+  type = list(string)
 }
 
 
@@ -72,8 +72,13 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "route53_zone_id" {
-  description = "Route53 hosted zone ID"
+variable "route53_com_zone_id" {
+  description = "Route53 hosted zone ID for pulse-ux.com"
+  type        = string
+}
+
+variable "route53_local_zone_id" {
+  description = "Route53 hosted zone ID for pulse.local"
   type        = string
 }
 
@@ -94,6 +99,11 @@ variable "healthcheck_port" {
 
 variable "artifact_version" {
   description = "Artifact version"
+  type        = string
+}
+
+variable "cloudfront_distribution" {
+  description = "Cloudfront distribution id for pulse-server"
   type        = string
 }
 
