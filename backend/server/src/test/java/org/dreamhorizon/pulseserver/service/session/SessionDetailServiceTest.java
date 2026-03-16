@@ -16,6 +16,7 @@ import org.dreamhorizon.pulseserver.dao.sessiondetail.models.NetworkRequestRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionExceptionRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
+import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionTimingRow;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,9 +50,6 @@ class SessionDetailServiceTest {
         .device("Pixel 6")
         .osVersion("14")
         .appVersion("1.0.0")
-        .sessionStart("2024-01-01T10:00:00Z")
-        .sessionEnd("2024-01-01T10:05:00Z")
-        .durationMs(300_000L)
         .geography("IN")
         .qualityScore(0.95)
         .journey(null)
@@ -70,6 +68,18 @@ class SessionDetailServiceTest {
         .build();
   }
 
+  private QueryResultResponse<SessionTimingRow> emptyTimingResult() {
+    return QueryResultResponse.<SessionTimingRow>builder()
+        .rows(Collections.emptyList())
+        .build();
+  }
+
+  private QueryResultResponse<SessionTimingRow> timingResult(SessionTimingRow row) {
+    return QueryResultResponse.<SessionTimingRow>builder()
+        .rows(List.of(row))
+        .build();
+  }
+
   @Nested
   class GetSessionDetail {
 
@@ -85,6 +95,8 @@ class SessionDetailServiceTest {
           .thenReturn(Single.just(QueryResultResponse.<NetworkRequestRow>builder()
               .rows(Collections.emptyList())
               .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(emptyTimingResult()));
 
       SessionDetailResponse result =
           sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
@@ -104,6 +116,36 @@ class SessionDetailServiceTest {
       verify(sessionDetailDao).getSessionCore(SESSION_ID);
       verify(sessionDetailDao).getInteractions(SESSION_ID);
       verify(sessionDetailDao).getNetworkRequests(SESSION_ID);
+      verify(sessionDetailDao).getSessionTiming(SESSION_ID);
+    }
+
+    @Test
+    void shouldUseSessionSummaryForStartEndDurationWhenPresent() {
+      SessionTimingRow timing = SessionTimingRow.builder()
+          .sessionId(SESSION_ID)
+          .sessionStart("2024-01-01T09:58:00.000Z")
+          .sessionEnd("2024-01-01T10:06:00.000Z")
+          .durationMs(480_000L)
+          .build();
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID)))
+          .thenReturn(Single.just(coreResult(coreRow(SESSION_ID))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID)))
+          .thenReturn(Single.just(QueryResultResponse.<InteractionRow>builder()
+              .rows(Collections.emptyList())
+              .build()));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID)))
+          .thenReturn(Single.just(QueryResultResponse.<NetworkRequestRow>builder()
+              .rows(Collections.emptyList())
+              .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(timingResult(timing)));
+
+      SessionDetailResponse result =
+          sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+
+      assertThat(result.getStartTime()).isEqualTo("2024-01-01T09:58:00.000Z");
+      assertThat(result.getEndTime()).isEqualTo("2024-01-01T10:06:00.000Z");
+      assertThat(result.getDuration()).isEqualTo(480_000L);
     }
 
     @Test
@@ -136,6 +178,8 @@ class SessionDetailServiceTest {
           .thenReturn(Single.just(QueryResultResponse.<NetworkRequestRow>builder()
               .rows(List.of(network))
               .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(emptyTimingResult()));
 
       SessionDetailResponse result =
           sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
@@ -146,6 +190,29 @@ class SessionDetailServiceTest {
       assertThat(result.getNetworkRequests()).hasSize(1);
       assertThat(result.getNetworkRequests().get(0).getUrl()).isEqualTo("https://api.example.com/data");
       assertThat(result.getNetworkRequests().get(0).getStatus()).isEqualTo("200");
+    }
+
+    @Test
+    void shouldFallBackToCoreWhenSessionSummaryHasNoTiming() {
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID)))
+          .thenReturn(Single.just(coreResult(coreRow(SESSION_ID))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID)))
+          .thenReturn(Single.just(QueryResultResponse.<InteractionRow>builder()
+              .rows(Collections.emptyList())
+              .build()));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID)))
+          .thenReturn(Single.just(QueryResultResponse.<NetworkRequestRow>builder()
+              .rows(Collections.emptyList())
+              .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(emptyTimingResult()));
+
+      SessionDetailResponse result =
+          sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+
+      assertThat(result.getStartTime()).isEqualTo("2024-01-01T10:00:00Z");
+      assertThat(result.getEndTime()).isEqualTo("2024-01-01T10:05:00Z");
+      assertThat(result.getDuration()).isEqualTo(300_000L);
     }
 
     @Test
@@ -174,6 +241,8 @@ class SessionDetailServiceTest {
           .thenReturn(Single.just(QueryResultResponse.<NetworkRequestRow>builder()
               .rows(Collections.emptyList())
               .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(emptyTimingResult()));
 
       assertThatThrownBy(() ->
           sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet())
@@ -217,6 +286,8 @@ class SessionDetailServiceTest {
           .thenReturn(Single.just(QueryResultResponse.<SessionExceptionRow>builder()
               .rows(List.of(exc))
               .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(emptyTimingResult()));
 
       SessionDetailResponse result =
           sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events")).blockingGet();
@@ -254,6 +325,8 @@ class SessionDetailServiceTest {
           .thenReturn(Single.just(QueryResultResponse.<SessionExceptionRow>builder()
               .rows(List.of(exc))
               .build()));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID)))
+          .thenReturn(Single.just(emptyTimingResult()));
 
       SessionDetailResponse result =
           sessionDetailService.getSessionDetail(SESSION_ID, Set.of("exceptions")).blockingGet();

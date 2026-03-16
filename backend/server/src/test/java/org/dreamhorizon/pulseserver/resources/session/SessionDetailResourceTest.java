@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.resources.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,6 +12,7 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.service.session.SessionDetailService;
@@ -62,7 +64,8 @@ class SessionDetailResourceTest {
           assertThat(response).isNotNull();
           assertThat(response.getData()).isNotNull();
           assertThat(response.getData().getSessionId()).isEqualTo(SESSION_ID);
-          verify(sessionDetailService).getSessionDetail(SESSION_ID, Set.of());
+          verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), argThat(
+              (Set<String> s) -> s != null && s.isEmpty()));
         });
         testContext.completeNow();
       });
@@ -77,7 +80,8 @@ class SessionDetailResourceTest {
           .sessionId(SESSION_ID)
           .build();
 
-      when(sessionDetailService.getSessionDetail(eq(SESSION_ID), eq(Set.of("events", "exceptions"))))
+      when(sessionDetailService.getSessionDetail(eq(SESSION_ID), argThat(
+          (Set<String> s) -> s != null && s.size() == 2 && s.contains("events") && s.contains("exceptions"))))
           .thenReturn(Single.just(detail));
 
       CompletionStage<Response<SessionDetailResponse>> result =
@@ -89,7 +93,8 @@ class SessionDetailResourceTest {
           return;
         }
         testContext.verify(() ->
-            verify(sessionDetailService).getSessionDetail(SESSION_ID, Set.of("events", "exceptions")));
+            verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), argThat(
+                (Set<String> s) -> s != null && s.size() == 2 && s.contains("events") && s.contains("exceptions"))));
         testContext.completeNow();
       });
     });
@@ -102,7 +107,8 @@ class SessionDetailResourceTest {
           .sessionId(SESSION_ID)
           .build();
 
-      when(sessionDetailService.getSessionDetail(eq(SESSION_ID), eq(Set.of("events"))))
+      when(sessionDetailService.getSessionDetail(eq(SESSION_ID), argThat(
+          (Set<String> s) -> s != null && s.size() == 1 && s.contains("events"))))
           .thenReturn(Single.just(detail));
 
       CompletionStage<Response<SessionDetailResponse>> result =
@@ -114,7 +120,8 @@ class SessionDetailResourceTest {
           return;
         }
         testContext.verify(() ->
-            verify(sessionDetailService).getSessionDetail(SESSION_ID, Set.of("events")));
+            verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), argThat(
+                (Set<String> s) -> s != null && s.size() == 1 && s.contains("events"))));
         testContext.completeNow();
       });
     });
@@ -132,8 +139,9 @@ class SessionDetailResourceTest {
       result.whenComplete((response, error) -> {
         testContext.verify(() -> {
           assertThat(error).isNotNull();
-          assertThat(error).isInstanceOf(RuntimeException.class);
-          assertThat(error.getMessage()).contains("DAO error");
+          Throwable cause = error instanceof ExecutionException ? error.getCause() : error;
+          assertThat(cause).isInstanceOf(RuntimeException.class);
+          assertThat(cause.getMessage()).contains("DAO error");
         });
         testContext.completeNow();
       });
