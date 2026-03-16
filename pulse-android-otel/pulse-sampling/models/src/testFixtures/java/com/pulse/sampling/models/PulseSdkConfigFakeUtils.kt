@@ -163,12 +163,14 @@ public object PulseSdkConfigFakeUtils {
         target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name(type = "name"),
         condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
         data: PulseMetricsType = createFakeCounter(),
+        attributesToPick: Collection<PulseSignalMatchCondition> = emptySet(),
     ): PulseMetricsToAddEntry =
         PulseMetricsToAddEntry(
             name = name,
             target = target,
             condition = condition,
             type = data,
+            attributesToPick = attributesToPick,
         )
 
     public fun createFakeCounter(): PulseMetricsType.Counter =
@@ -195,8 +197,8 @@ public object PulseSdkConfigFakeUtils {
     ): PulseMetricsType.Sum = PulseMetricsType.Sum(type = "sum", isFraction = isFraction, isMonotonic = isMonotonic)
 
     public fun createFakeMetricsToAddTargetAttribute(
-        matcher: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
         shouldAddPropNameAsSuffix: Boolean = false,
     ): PulseMetricsToAddTarget.Attribute =
-        PulseMetricsToAddTarget.Attribute(type = "attribute", matcher = matcher, shouldAddPropNameAsSuffix = shouldAddPropNameAsSuffix)
+        PulseMetricsToAddTarget.Attribute(type = "attribute", condition = condition, shouldAddPropNameAsSuffix = shouldAddPropNameAsSuffix)
 }

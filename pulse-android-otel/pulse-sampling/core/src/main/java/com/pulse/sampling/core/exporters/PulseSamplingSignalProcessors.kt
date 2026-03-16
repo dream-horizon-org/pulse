@@ -17,6 +17,7 @@ import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.filterNot
 import com.pulse.utils.matchesFromRegexCache
@@ -462,6 +463,23 @@ public class PulseSamplingSignalProcessors internal constructor(
             }
         }
 
+    private fun buildAttributesFromPick(
+        signalAttributes: Attributes,
+        attributesToPick: Collection<PulseSignalMatchCondition>?,
+    ): Attributes {
+        if (attributesToPick.isNullOrEmpty()) return Attributes.empty()
+        val keyPatterns = attributesToPick.flatMap { it.props }.map { it.name }
+        if (keyPatterns.isEmpty()) return Attributes.empty()
+        val builder = Attributes.builder()
+        signalAttributes.forEach { key, value ->
+            if (keyPatterns.any { key.key.matchesFromRegexCache(it) }) {
+                @Suppress("UNCHECKED_CAST")
+                builder.put(key as AttributeKey<Any>, value)
+            }
+        }
+        return builder.build()
+    }
+
     private inline fun <M> addMetrics(
         signal: M,
         scope: PulseSignalScope,
@@ -479,6 +497,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                     currentSdkName,
                 )
             ) {
+                val pickedAttributes = buildAttributesFromPick(props, metricsToAddEntry.attributesToPick)
                 val baseMetricName = PulseOtelUtils.sanitizeMetricName(metricsToAddEntry.name)
                 when (val target = metricsToAddEntry.target) {
                     is PulseMetricsToAddTarget.Attribute -> {
@@ -490,13 +509,13 @@ public class PulseSamplingSignalProcessors internal constructor(
                                     } else {
                                         baseMetricName
                                     }
-                                recorderFactory(metricName)(value)
+                                recorderFactory(metricName)(value, pickedAttributes)
                             }
                         }
                     }
 
                     is PulseMetricsToAddTarget.Name -> {
-                        recorderFactory(baseMetricName)(name)
+                        recorderFactory(baseMetricName)(name, pickedAttributes)
                     }
                 }
             }
@@ -513,18 +532,22 @@ public class PulseSamplingSignalProcessors internal constructor(
                 when (val data = meterConfigEntry.type) {
                     is PulseMetricsType.Counter -> {
                         val counter = meter.counterBuilder(metricName).build()
-                        val recorder: DataRecorder = { counter.add(1) }
+                        val recorder: DataRecorder = { _, attributes -> counter.add(1, attributes) }
                         recorder
                     }
 
                     is PulseMetricsType.Gauge -> {
                         if (data.isFraction) {
                             val gauge = meter.gaugeBuilder(metricName).build()
-                            val recorder: DataRecorder = { value -> value.toString().toDoubleOrNull()?.let { gauge.set(it) } }
+                            val recorder: DataRecorder = { value, attributes ->
+                                value.toString().toDoubleOrNull()?.let { gauge.set(it, attributes) }
+                            }
                             recorder
                         } else {
                             val gauge = meter.gaugeBuilder(metricName).ofLongs().build()
-                            val recorder: DataRecorder = { value -> value.toString().toLongOrNull()?.let { gauge.set(it) } }
+                            val recorder: DataRecorder = { value, attributes ->
+                                value.toString().toLongOrNull()?.let { gauge.set(it, attributes) }
+                            }
                             recorder
                         }
                     }
@@ -537,11 +560,15 @@ public class PulseSamplingSignalProcessors internal constructor(
                         }
                         if (data.isFraction) {
                             val histogram = histogramBuilder.build()
-                            val recorder: DataRecorder = { value -> value.toString().toDoubleOrNull()?.let { histogram.record(it) } }
+                            val recorder: DataRecorder = { value, attributes ->
+                                value.toString().toDoubleOrNull()?.let { histogram.record(it, attributes) }
+                            }
                             recorder
                         } else {
                             val histogram = histogramBuilder.ofLongs().build()
-                            val recorder: DataRecorder = { value -> value.toString().toLongOrNull()?.let { histogram.record(it) } }
+                            val recorder: DataRecorder = { value, attributes ->
+                                value.toString().toLongOrNull()?.let { histogram.record(it, attributes) }
+                            }
                             recorder
                         }
                     }
@@ -550,25 +577,33 @@ public class PulseSamplingSignalProcessors internal constructor(
                         when {
                             data.isFraction && data.isMonotonic -> {
                                 val counter = meter.counterBuilder(metricName).ofDoubles().build()
-                                val recorder: DataRecorder = { value -> value.toString().toDoubleOrNull()?.let { counter.add(it) } }
+                                val recorder: DataRecorder = { value, attributes ->
+                                    value.toString().toDoubleOrNull()?.let { counter.add(it, attributes) }
+                                }
                                 recorder
                             }
 
                             data.isFraction && !data.isMonotonic -> {
                                 val upDownCounter = meter.upDownCounterBuilder(metricName).ofDoubles().build()
-                                val recorder: DataRecorder = { value -> value.toString().toDoubleOrNull()?.let { upDownCounter.add(it) } }
+                                val recorder: DataRecorder = { value, attributes ->
+                                    value.toString().toDoubleOrNull()?.let { upDownCounter.add(it, attributes) }
+                                }
                                 recorder
                             }
 
                             !data.isFraction && data.isMonotonic -> {
                                 val counter = meter.counterBuilder(metricName).build()
-                                val recorder: DataRecorder = { value -> value.toString().toLongOrNull()?.let { counter.add(it) } }
+                                val recorder: DataRecorder = { value, attributes ->
+                                    value.toString().toLongOrNull()?.let { counter.add(it, attributes) }
+                                }
                                 recorder
                             }
 
                             else -> {
                                 val upDownCounter = meter.upDownCounterBuilder(metricName).build()
-                                val recorder: DataRecorder = { value -> value.toString().toLongOrNull()?.let { upDownCounter.add(it) } }
+                                val recorder: DataRecorder = { value, attributes ->
+                                    value.toString().toLongOrNull()?.let { upDownCounter.add(it, attributes) }
+                                }
                                 recorder
                             }
                         }
@@ -643,5 +678,5 @@ internal fun SpanData.toSignalValues() = SignalMatchValues(name.orEmpty(), attri
 
 internal fun MetricData.toSignalValues() = SignalMatchValues(this.name, Attributes.empty())
 
-private typealias DataRecorder = (value: Any) -> Unit
+private typealias DataRecorder = (value: Any, attributes: Attributes) -> Unit
 private typealias DataRecorderFactory = (metricName: String) -> DataRecorder
