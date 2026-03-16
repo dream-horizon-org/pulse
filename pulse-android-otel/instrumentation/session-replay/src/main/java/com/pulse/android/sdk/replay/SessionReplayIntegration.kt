@@ -62,7 +62,6 @@ public class SessionReplayIntegration(
         Thread(r, "PulseReplayThread").apply { isDaemon = true }
     }
     private val displayMetrics = context.resources.displayMetrics
-    private val maskRectCache = MaskRectCache(config, logger)
 
     @Volatile
     private var isSessionReplayActive = false
@@ -71,7 +70,7 @@ public class SessionReplayIntegration(
 
     private fun onDrawCallback() {
         isOnDrawnCalled.set(true)
-        maskRectCache.invalidate()
+        decorViews.values.forEach { it.maskRectCache.invalidate() }
     }
 
     private fun addView(view: View, added: Boolean) {
@@ -85,7 +84,8 @@ public class SessionReplayIntegration(
                     if (view.windowAttachCount == 0 || !hasDecorView) {
                         window.onDecorViewReady { decorView ->
                             try {
-                                maskRectCache.registerListeners(decorView)
+                                val viewMaskCache = MaskRectCache(config, logger)
+                                viewMaskCache.registerListeners(decorView)
                                 val listener = decorView.onNextDraw(
                                     mainHandler,
                                     dateProvider,
@@ -97,12 +97,12 @@ public class SessionReplayIntegration(
                                         try {
                                             if (!isActive()) return@post
                                             isOnDrawnCalled.set(false)
-                                            maskRectCache.collectIfNeeded(
+                                            viewMaskCache.collectIfNeeded(
                                                 decorView,
                                                 onDrawCalled = { isOnDrawnCalled.get() },
                                             )
-                                            val snapshotMasks = ArrayList(maskRectCache.rects)
-                                            val snapshotMasksValid = maskRectCache.valid
+                                            val snapshotMasks = ArrayList(viewMaskCache.rects)
+                                            val snapshotMasksValid = viewMaskCache.valid
                                             executor.submit {
                                                 try {
                                                     generateSnapshot(
@@ -120,7 +120,7 @@ public class SessionReplayIntegration(
                                         }
                                     }
                                 }
-                                decorViews[decorView] = ViewTreeSnapshotStatus(listener)
+                                decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
                             } catch (e: Throwable) {
                                 logger("Session Replay onDecorViewReady failed: $e")
                             }
@@ -211,7 +211,8 @@ public class SessionReplayIntegration(
     }
 
     private fun clearViewListeners(view: View, status: ViewTreeSnapshotStatus) {
-        maskRectCache.unregisterListeners()
+        status.maskRectCache.unregisterListeners()
+        status.maskRectCache.clear()
         if (view.isAliveAndAttachedToWindow()) {
             mainHandler.post {
                 if (view.isAliveAndAttachedToWindow()) {
@@ -293,6 +294,7 @@ public class SessionReplayIntegration(
         status.sentMetaEvent = false
         status.keyboardVisible = false
         status.lastSnapshot = null
+        status.maskRectCache.clear()
     }
 
     private fun clearSnapshotStates() {
@@ -317,8 +319,6 @@ public class SessionReplayIntegration(
         }
         isSessionReplayActive = false
         isOnDrawnCalled.set(false)
-        maskRectCache.unregisterListeners()
-        maskRectCache.clear()
         clearSnapshotStates()
         decorViews.clear()
     }
