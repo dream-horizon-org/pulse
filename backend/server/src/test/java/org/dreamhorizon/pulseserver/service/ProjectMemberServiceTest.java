@@ -65,7 +65,7 @@ class ProjectMemberServiceTest {
         userService, projectDao, openFgaService, emailService,
         tenantMemberService, notificationService);
     // Stub notification service for fire-and-forget calls in success paths
-    when(notificationService.sendNotification(anyString(), any()))
+    when(notificationService.sendNotificationAsync(anyString(), any()))
         .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
   }
 
@@ -151,7 +151,7 @@ class ProjectMemberServiceTest {
       assertThat(result.getUserId()).isEqualTo(USER_ID);
       assertThat(result.getEmail()).isEqualTo("newuser@test.com");
       verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "viewer");
-      verify(notificationService).sendNotification(anyString(), any());
+      verify(notificationService).sendNotificationAsync(anyString(), any());
     }
 
     @Test
@@ -246,7 +246,7 @@ class ProjectMemberServiceTest {
       projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID).blockingAwait();
 
       verify(openFgaService).removeProjectMember(USER_ID, PROJECT_ID);
-      verify(notificationService).sendNotification(anyString(), any());
+      verify(notificationService).sendNotificationAsync(anyString(), any());
     }
 
     @Test
@@ -451,7 +451,7 @@ class ProjectMemberServiceTest {
       projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID).blockingAwait();
 
       verify(openFgaService).updateProjectRole(USER_ID, PROJECT_ID, "editor");
-      verify(notificationService).sendNotification(anyString(), any());
+      verify(notificationService).sendNotificationAsync(anyString(), any());
     }
 
     @Test

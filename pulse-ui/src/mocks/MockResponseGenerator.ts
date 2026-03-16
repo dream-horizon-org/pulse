@@ -341,6 +341,11 @@ export class MockResponseGenerator {
       return this.handleTncEndpoints(pathname, method, request);
     }
 
+    // Notification endpoints
+    if (pathname.includes("/v1/notifications/")) {
+      return this.handleNotificationEndpoints(pathname, method, request);
+    }
+
     // Default response
     return {
       data: { message: "Mock response not implemented" },
@@ -516,6 +521,58 @@ export class MockResponseGenerator {
         code: "NOT_FOUND",
         message: "TNC endpoint not found",
         cause: `Unknown path: ${pathname}`,
+      },
+    };
+  }
+
+  /**
+   * Handle notification endpoints
+   */
+  private handleNotificationEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // POST /v1/notifications/contact-us
+    if (pathname.includes("/notifications/contact-us") && method === "POST") {
+      const url = this.parseURL(request.url);
+      const eventType = url.searchParams.get("type");
+
+      // Validate event type
+      if (
+        !eventType ||
+        !["sales", "support"].includes(eventType.toLowerCase())
+      ) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_TYPE",
+            message: "Invalid contact type. Use 'sales' or 'support'",
+            cause: "Invalid or missing type query parameter",
+          },
+        };
+      }
+
+      // Success response
+      const successMessage =
+        eventType.toLowerCase() === "sales"
+          ? "Contact request submitted successfully"
+          : "Support request submitted successfully";
+
+      return {
+        data: successMessage,
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Notification endpoint not found",
+        cause: `Unknown notification endpoint: ${pathname}`,
       },
     };
   }

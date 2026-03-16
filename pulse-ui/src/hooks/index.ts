@@ -97,6 +97,10 @@ export * from "./useProjectApiKeys";
 export * from "./useLogin";
 export * from "./useCompleteOnboarding";
 
+// Contact
+export * from "./useContactUs";
+export * from "./useContactSupport";
+
 // User hooks
 export * from "./useUserProjects";
 
