@@ -36,6 +36,7 @@ import {
   IconMessageCircle,
   IconSettings,
   IconUserCircle,
+  IconUsers,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef, useState } from "react";
@@ -357,7 +358,7 @@ export function Navbar({
                 style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <IconUsers size={20} style={{ color: "#0ba09a" }} />
                   <Box>
                     <Text size="sm" fw={500}>
                       Members
@@ -492,7 +493,6 @@ export function Navbar({
                 leftSection={<IconLogout size={18} />}
                 onClick={() => {
                   setPopoverOpened(false);
-                  onLogoutClick();
                   setLogoutModalOpened(true);
                 }}
                 variant="light"
