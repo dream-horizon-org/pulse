@@ -4,6 +4,13 @@ export type Route = {
   path: string;
   key: string;
   basePath: string;
+  element?: React.ElementType;
+};
+
+export type RouteConfig = {
+  path: string;
+  key: string;
+  basePath: string;
   element: React.ElementType;
 };
 

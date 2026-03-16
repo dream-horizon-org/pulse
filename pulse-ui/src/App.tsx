@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import { theme } from "./theme";
 import { Layout } from "./components/Layout";
-import { ROUTES } from "./constants";
+import { ROUTES } from "./routes";
 import { NotFound } from "./components/NotFound";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./clients/react-query";
@@ -26,7 +26,7 @@ export default function App() {
   return (
     <MantineProvider theme={theme}>
       <Notifications position="top-center" />
-      <Router basename={process.env.PUBLIC_URL || '/'}>
+      <Router basename={process.env.PUBLIC_URL || "/"}>
         <PageTracker />
         <QueryClientProvider client={queryClient}>
           <AppContextProvider>

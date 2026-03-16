@@ -42,7 +42,9 @@ export interface UseAiChatSessionManagerReturn {
   /** Close a session tab */
   closeSession: (sessionId: string) => void;
   /** Persist session state (call when messages/pins change) */
-  persistSession: (data: Omit<AiChatSessionData, "id" | "createdAt" | "updatedAt">) => void;
+  persistSession: (
+    data: Omit<AiChatSessionData, "id" | "createdAt" | "updatedAt">,
+  ) => void;
   /** Get full session data for a given ID */
   getSessionData: (sessionId: string) => AiChatSessionData | null;
 }
@@ -61,10 +63,13 @@ export function useAiChatSessionManager(): UseAiChatSessionManagerReturn {
   const sessionIdFromUrl = searchParams.get(SEARCH_PARAM);
 
   const [tabs, setTabs] = useState<AiSessionTab[]>([]);
-  const [sessionsData, setSessionsData] = useState<Map<string, AiChatSessionData>>(new Map());
+  const [sessionsData, setSessionsData] = useState<
+    Map<string, AiChatSessionData>
+  >(new Map());
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoadingShared, setIsLoadingShared] = useState(false);
   const initialLoadDone = useRef(false);
+  const apiSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load session from URL on mount / URL change
   useEffect(() => {
@@ -125,10 +130,15 @@ export function useAiChatSessionManager(): UseAiChatSessionManagerReturn {
           updatedAt: now,
         };
         saveSessionToLocal(newSession);
-        setSessionsData((prev) => new Map(prev).set(sessionIdFromUrl, newSession));
+        setSessionsData((prev) =>
+          new Map(prev).set(sessionIdFromUrl, newSession),
+        );
         setTabs((prev) => {
           if (prev.some((t) => t.id === sessionIdFromUrl)) return prev;
-          return [...prev, { id: sessionIdFromUrl, title: "New chat", createdAt: now }];
+          return [
+            ...prev,
+            { id: sessionIdFromUrl, title: "New chat", createdAt: now },
+          ];
         });
         setActiveSessionId(sessionIdFromUrl);
       }
@@ -151,10 +161,10 @@ export function useAiChatSessionManager(): UseAiChatSessionManagerReturn {
           }
           return next;
         },
-        { replace: true }
+        { replace: true },
       );
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const createSession = useCallback((): string => {
@@ -181,7 +191,7 @@ export function useAiChatSessionManager(): UseAiChatSessionManagerReturn {
       setActiveSessionId(sessionId);
       updateUrl(sessionId);
     },
-    [updateUrl]
+    [updateUrl],
   );
 
   const closeSession = useCallback(
@@ -202,39 +212,57 @@ export function useAiChatSessionManager(): UseAiChatSessionManagerReturn {
       });
       deleteSessionFromLocal(sessionId);
     },
-    [activeSessionId, updateUrl]
+    [activeSessionId, updateUrl],
   );
 
   const persistSession = useCallback(
     (data: Omit<AiChatSessionData, "id" | "createdAt" | "updatedAt">) => {
-      const sid = activeSessionId;
-      if (!sid) return;
+      if (!activeSessionId) return;
 
-      const existing = sessionsData.get(sid);
       const now = Date.now();
-      const full: AiChatSessionData = {
-        ...data,
-        id: sid,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-        title: data.title ?? getTabTitle(data.messages),
-      };
-      saveSessionToLocal(full);
-      setSessionsData((prev) => new Map(prev).set(sid, full));
+      let fullSession: AiChatSessionData;
+
+      setSessionsData((prev) => {
+        const existing = prev.get(activeSessionId);
+        fullSession = {
+          ...data,
+          id: activeSessionId,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+          title: data.title ?? getTabTitle(data.messages),
+        };
+        saveSessionToLocal(fullSession);
+        return new Map(prev).set(activeSessionId, fullSession);
+      });
+
       setTabs((prev) =>
-        prev.map((t) => (t.id === sid ? { ...t, title: full.title ?? t.title } : t))
+        prev.map((t) =>
+          t.id === activeSessionId
+            ? { ...t, title: fullSession.title ?? t.title }
+            : t,
+        ),
       );
-      // Optionally save to API for sharing (debounced in real impl)
-      saveSessionToApi(full).catch(() => {});
+
+      // Debounce API saves to prevent excessive requests
+      if (apiSaveTimerRef.current) {
+        clearTimeout(apiSaveTimerRef.current);
+      }
+      apiSaveTimerRef.current = setTimeout(() => {
+        saveSessionToApi(fullSession).catch((err) => {
+          // Silently fail on 404 or other errors - session sharing is optional
+          console.warn("[AiChatSession] Failed to save to API:", err);
+        });
+        apiSaveTimerRef.current = null;
+      }, 500);
     },
-    [activeSessionId, sessionsData]
+    [activeSessionId],
   );
 
   const getSessionData = useCallback(
     (sessionId: string): AiChatSessionData | null => {
       return sessionsData.get(sessionId) ?? null;
     },
-    [sessionsData]
+    [sessionsData],
   );
 
   // If no session in URL and no tabs, create one on first interaction
@@ -245,7 +273,18 @@ export function useAiChatSessionManager(): UseAiChatSessionManagerReturn {
     }
   }, [sessionIdFromUrl, tabs.length, createSession]);
 
-  const activeSession = activeSessionId ? sessionsData.get(activeSessionId) ?? null : null;
+  // Cleanup API save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (apiSaveTimerRef.current) {
+        clearTimeout(apiSaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const activeSession = activeSessionId
+    ? (sessionsData.get(activeSessionId) ?? null)
+    : null;
 
   return {
     tabs,
