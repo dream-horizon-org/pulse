@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 @AllArgsConstructor
 @Singleton
 public class ApplicationConfig {
+  public String appEnvironment;
   public String cronManagerBaseUrl;
   public String serviceUrl;
   public Integer shutdownGracePeriod;

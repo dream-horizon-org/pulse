@@ -289,15 +289,25 @@ class ConfigClassesTest {
     @Test
     void shouldSupportAllArgsConstructor() {
       ApplicationConfig config = new ApplicationConfig(
-          "cron", "service", 10, "oauth", true, "firebase",
+          "dev", "cron", "service", 10, "oauth", true, "firebase",
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
           "interPath", "interCfPath", "encKey", "tncBucket");
 
+      assertThat(config.getAppEnvironment()).isEqualTo("dev");
       assertThat(config.getCronManagerBaseUrl()).isEqualTo("cron");
       assertThat(config.getServiceUrl()).isEqualTo("service");
       assertThat(config.getShutdownGracePeriod()).isEqualTo(10);
       assertThat(config.getEncryptionMasterKey()).isEqualTo("encKey");
+    }
+
+    @Test
+    void shouldSupportAppEnvironmentSetterGetter() {
+      ApplicationConfig config = new ApplicationConfig();
+      assertThat(config.getAppEnvironment()).isNull();
+
+      config.setAppEnvironment("prod");
+      assertThat(config.getAppEnvironment()).isEqualTo("prod");
     }
   }
 
