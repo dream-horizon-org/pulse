@@ -41,7 +41,6 @@ export interface SessionIntent {
   actualDuration: number;
 }
 
-
 export interface CriticalInteraction {
   interactionId: number;
   interactionName: string;
@@ -57,7 +56,11 @@ export interface CriticalInteraction {
 export interface SessionEvent {
   timestamp: number;
   type: "click" | "navigation" | "api_call" | "error";
+  eventType?: string;
   description: string;
+  durationNs?: number;
+  traceId?: string;
+  spanId?: string;
   details?: Record<string, AttributeValue>;
 }
 
@@ -76,6 +79,9 @@ export interface NetworkRequest {
   duration: number; // ms
   requestBody?: string;
   responseBody?: string;
+  offset?: string;
+  target?: string;
+  errorCode?: string;
 }
 
 export interface BusinessContext {
@@ -118,7 +124,6 @@ export interface SupportContext {
     workaround?: string;
     status: "investigating" | "fix_in_progress" | "resolved";
   };
-
 
   suggestedActions: Array<{
     id: string;
@@ -261,6 +266,16 @@ export interface SessionDetailData {
   events: SessionEvent[];
   consoleLogs: ConsoleLog[];
   networkRequests: NetworkRequest[];
+  /** Session replay metadata from API */
+  internalCallback?: boolean;
+  timestampProcessCount?: number;
+  intervalGapCount?: number;
+  totalEvents?: number;
+  sessionReplayTime?: number;
+  offset?: string;
+  target?: string;
+  errorCode?: string;
+  associatedApplicationIdentifier?: string;
   performance: {
     coreWebVitals?: {
       lcp: number;

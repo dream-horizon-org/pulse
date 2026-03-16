@@ -13,8 +13,6 @@ import {
 } from "../constants/sessionList.constants";
 import { SessionReplayFilterState } from "../../../contexts/SessionReplayFilterContext";
 
-const DEFAULT_PROJECT_ID = process.env.REACT_APP_PROJECT_ID ?? "default";
-
 function buildTimeRangeFromState(
   filterState: SessionReplayFilterState,
 ): TimeRange {
@@ -75,6 +73,7 @@ export interface UseSessionListDataResult {
   sessionsData: SessionListingResponse | null;
   sessions: SessionListingResponse["sessions"];
   hasMorePages: boolean;
+  maxPage: number;
   fetchSessions: () => Promise<void>;
 }
 
@@ -88,6 +87,7 @@ export function useSessionListData({
   const [sessionsData, setSessionsData] =
     useState<SessionListingResponse | null>(null);
   const [pageCursors, setPageCursors] = useState<(string | null)[]>([]);
+  const [maxPage, setMaxPage] = useState(1);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -103,7 +103,6 @@ export function useSessionListData({
           : (pageCursors[filterState.currentPage - 2] ?? undefined);
 
       const response = await sessionReplayService.postSessionsListing({
-        projectId: DEFAULT_PROJECT_ID,
         timeRange,
         page: {
           limit: filterState.pageSize,
@@ -125,6 +124,9 @@ export function useSessionListData({
           next[filterState.currentPage - 1] = response.page.nextCursor!;
           return next;
         });
+        setMaxPage((prev) => Math.max(prev, filterState.currentPage + 1));
+      } else {
+        setMaxPage((prev) => Math.max(prev, filterState.currentPage));
       }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
@@ -147,7 +149,13 @@ export function useSessionListData({
   const fetchRef = useRef(fetchSessions);
   fetchRef.current = fetchSessions;
 
+  const isCustomWithoutDates =
+    filterState.dateRange.preset === "custom" &&
+    !filterState.dateRange.from &&
+    !filterState.dateRange.to;
+
   useEffect(() => {
+    if (isCustomWithoutDates) return;
     fetchRef.current();
   }, [
     filterState.currentPage,
@@ -158,6 +166,7 @@ export function useSessionListData({
     filterState.pageSize,
     sortBy,
     sortDirection,
+    isCustomWithoutDates,
   ]);
 
   useEffect(() => {
@@ -172,6 +181,19 @@ export function useSessionListData({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterState.searchQuery]);
 
+  useEffect(() => {
+    setMaxPage(1);
+    setPageCursors([]);
+  }, [
+    filterState.dateRange,
+    filterState.quickFilters,
+    filterState.advancedFilters,
+    filterState.drillDown,
+    filterState.searchQuery,
+    sortBy,
+    sortDirection,
+  ]);
+
   const sessions = sessionsData?.sessions ?? [];
   const hasMorePages = sessionsData?.page?.hasMore ?? false;
 
@@ -180,6 +202,7 @@ export function useSessionListData({
     sessionsData,
     sessions,
     hasMorePages,
+    maxPage,
     fetchSessions,
   };
 }

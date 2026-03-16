@@ -172,8 +172,7 @@ internal object MaskingCollector {
                 }
             }
             is TextView -> {
-                val hasContent = !view.text.isNullOrEmpty() || !view.hint.isNullOrEmpty()
-                if (hasContent && shouldMaskTextView(view, config)) {
+                if (shouldMaskTextView(view, config)) {
                     view.getTextAreaWindowRect(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
                         ?: view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
                 }
@@ -210,7 +209,10 @@ internal object MaskingCollector {
         return when (config.textAndInputPrivacy) {
             TextAndInputPrivacy.MASK_ALL -> true
             TextAndInputPrivacy.MASK_ALL_INPUTS -> false
-            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> isSensitiveInputType(view.inputType)
+            TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> {
+                val hasContent = !view.text.isNullOrEmpty() || !view.hint.isNullOrEmpty()
+                hasContent && isSensitiveInputType(view.inputType)
+            }
         }
     }
 
@@ -254,16 +256,19 @@ internal object MaskingCollector {
     /**
      * Returns the visible rect of this view in **window** coordinates
      * (matching the PixelCopy bitmap's coordinate space).
+     *
+     * Always returns a best-effort rect even when view state is unstable
+     * (e.g. mid-scroll, animation). Privacy masking must never be silently
+     * dropped — an approximate mask is safer than no mask at all.
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun View.windowVisibleRectSafe(offset: IntArray, logger: (String) -> Unit): Rect? {
         return try {
-            if (!isViewStateStableForMatrixOperations(logger)) null
-            else {
-                val rect = Rect()
-                getGlobalVisibleRect(rect, null)
-                rect.offset(-offset[0], -offset[1])
-                rect
-            }
+            val rect = Rect()
+            if (!getGlobalVisibleRect(rect, null)) return null
+            rect.offset(-offset[0], -offset[1])
+            if (rect.isEmpty) return null
+            rect
         } catch (_: Throwable) {
             null
         }
@@ -281,9 +286,6 @@ internal object MaskingCollector {
     }
 
     private fun View.isVisible(logger: (String) -> Unit): Boolean = ScreenshotCapture.isVisible(this, logger)
-
-    private fun View.isViewStateStableForMatrixOperations(logger: (String) -> Unit): Boolean =
-        ScreenshotCapture.isViewStateStable(this, logger)
 
     // --- Compose detection ---
 

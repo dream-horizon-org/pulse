@@ -23,14 +23,12 @@ export function convertEventToFlameChartNode(
     console_log: "log",
   };
 
-  // Generate IDs based on event
   const id = `raw_event_${event.timestamp}_${event.type}`;
-  const traceId = `trace_${event.timestamp}`;
-  const spanId = `span_${event.timestamp}`;
+  const traceId = event.traceId ?? `${event.timestamp}`;
+  const spanId = event.spanId ?? `${event.timestamp}`;
 
-  // Find additional context from original data
   let additionalMetadata: Record<string, AttributeValue> = {};
-  let duration = 0;
+  let duration = event.durationMs ?? 0;
 
   // Try to find matching network request
   const matchingNetworkRequest = sessionData.networkRequests.find(

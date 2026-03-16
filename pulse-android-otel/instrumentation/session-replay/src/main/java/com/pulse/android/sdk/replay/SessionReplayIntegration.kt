@@ -11,7 +11,7 @@ import curtains.onDecorViewReady
 import curtains.phoneWindow
 import curtains.touchEventInterceptors
 import curtains.windowAttachCount
-import com.pulse.android.sdk.replay.internal.capture.MaskingCollector
+import com.pulse.android.sdk.replay.internal.capture.MaskRectCache
 import com.pulse.android.sdk.replay.internal.capture.ScreenshotCapture
 import com.pulse.android.sdk.replay.internal.capture.WireframeCapture
 import com.pulse.android.sdk.replay.internal.pipeline.SnapshotPipeline
@@ -30,7 +30,7 @@ import java.util.Collections
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
@@ -66,9 +66,12 @@ public class SessionReplayIntegration(
     @Volatile
     private var isSessionReplayActive = false
 
-    private val isOnDrawnCalled = AtomicBoolean(false)
+    private val drawCounter = AtomicLong(0)
 
-    private fun onDrawCallback() { isOnDrawnCalled.set(true) }
+    private fun onDrawCallback() {
+        drawCounter.incrementAndGet()
+        decorViews.values.forEach { it.maskRectCache.invalidate() }
+    }
 
     private fun addView(view: View, added: Boolean) {
         try {
@@ -81,6 +84,8 @@ public class SessionReplayIntegration(
                     if (view.windowAttachCount == 0 || !hasDecorView) {
                         window.onDecorViewReady { decorView ->
                             try {
+                                val viewMaskCache = MaskRectCache(config, logger)
+                                viewMaskCache.registerListeners(decorView)
                                 val listener = decorView.onNextDraw(
                                     mainHandler,
                                     dateProvider,
@@ -88,15 +93,35 @@ public class SessionReplayIntegration(
                                     ::onDrawCallback,
                                 ) {
                                     if (!isActive()) return@onNextDraw
-                                    executor.submit {
+                                    decorView.post {
                                         try {
-                                            generateSnapshot(WeakReference(decorView), WeakReference(window))
+                                            if (!isActive()) return@post
+                                            val countAtCollection = drawCounter.get()
+                                            viewMaskCache.collectIfNeeded(
+                                                decorView,
+                                                onDrawCalled = { drawCounter.get() != countAtCollection },
+                                            )
+                                            val snapshotMasks = ArrayList(viewMaskCache.rects)
+                                            val snapshotMasksValid = viewMaskCache.valid
+                                            executor.submit {
+                                                try {
+                                                    generateSnapshot(
+                                                        WeakReference(decorView),
+                                                        WeakReference(window),
+                                                        snapshotMasks,
+                                                        snapshotMasksValid,
+                                                        countAtCollection,
+                                                    )
+                                                } catch (e: Throwable) {
+                                                    logger("Session Replay generateSnapshot failed: $e")
+                                                }
+                                            }
                                         } catch (e: Throwable) {
-                                            logger("Session Replay generateSnapshot failed: $e")
+                                            logger("Session Replay mask collection failed: $e")
                                         }
                                     }
                                 }
-                                decorViews[decorView] = ViewTreeSnapshotStatus(listener)
+                                decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
                             } catch (e: Throwable) {
                                 logger("Session Replay onDecorViewReady failed: $e")
                             }
@@ -187,6 +212,8 @@ public class SessionReplayIntegration(
     }
 
     private fun clearViewListeners(view: View, status: ViewTreeSnapshotStatus) {
+        status.maskRectCache.unregisterListeners()
+        status.maskRectCache.clear()
         if (view.isAliveAndAttachedToWindow()) {
             mainHandler.post {
                 if (view.isAliveAndAttachedToWindow()) {
@@ -205,7 +232,13 @@ public class SessionReplayIntegration(
         decorViews.remove(view)
     }
 
-    private fun generateSnapshot(viewRef: WeakReference<View>, windowRef: WeakReference<Window>) {
+    private fun generateSnapshot(
+        viewRef: WeakReference<View>,
+        windowRef: WeakReference<Window>,
+        preCollectedMasks: List<android.graphics.Rect>,
+        masksValid: Boolean,
+        drawCountAtCollection: Long,
+    ) {
         val view = viewRef.get() ?: return
         val status = decorViews[view] ?: return
         val window = windowRef.get() ?: return
@@ -217,17 +250,10 @@ public class SessionReplayIntegration(
                 window = window,
                 view = view,
                 displayMetrics = displayMetrics,
-                getMaskRects = { v, rects ->
-                    MaskingCollector.findMaskableWidgets(
-                        v,
-                        config,
-                        rects,
-                        onDrawCalled = { isOnDrawnCalled.get() },
-                        logger = logger,
-                    )
-                },
-                onDrawFlag = { isOnDrawnCalled.get() },
-                setOnDrawFlag = { isOnDrawnCalled.set(it) },
+                maskRects = preCollectedMasks,
+                masksValid = masksValid,
+                drawCountAtCollection = drawCountAtCollection,
+                currentDrawCount = { drawCounter.get() },
                 logger = logger,
                 screenshotScale = config.screenshotScale,
                 screenshotQuality = config.screenshotQuality,
@@ -270,6 +296,7 @@ public class SessionReplayIntegration(
         status.sentMetaEvent = false
         status.keyboardVisible = false
         status.lastSnapshot = null
+        status.maskRectCache.clear()
     }
 
     private fun clearSnapshotStates() {
@@ -293,7 +320,7 @@ public class SessionReplayIntegration(
             logger("Session Replay uninstall failed: $e")
         }
         isSessionReplayActive = false
-        isOnDrawnCalled.set(false)
+        drawCounter.incrementAndGet()
         clearSnapshotStates()
         decorViews.clear()
     }
@@ -317,7 +344,7 @@ public class SessionReplayIntegration(
 
     override fun stop() {
         isSessionReplayActive = false
-        isOnDrawnCalled.set(false)
+        drawCounter.incrementAndGet()
     }
 
     override fun isActive(): Boolean = isSessionReplayActive

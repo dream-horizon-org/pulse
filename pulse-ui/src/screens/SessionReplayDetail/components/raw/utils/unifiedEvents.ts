@@ -28,6 +28,9 @@ export interface UnifiedEvent {
   color: string;
   /** Display label for chip (e.g. Interaction, Network, Event) */
   categoryLabel: string;
+  traceId?: string;
+  spanId?: string;
+  durationMs?: number;
 }
 
 export function createUnifiedEvents(
@@ -104,6 +107,11 @@ export function createUnifiedEvents(
       description: `${category.label}: ${content}: ${status}`,
       color: category.color,
       categoryLabel: category.label,
+      traceId: event.traceId,
+      spanId: event.spanId,
+      durationMs: event.durationNs
+        ? Math.round(event.durationNs / 1_000_000)
+        : undefined,
     });
   });
 

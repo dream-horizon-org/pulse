@@ -3,9 +3,13 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "../../hooks/useAnalytics";
+import { useProjectContext } from "../../contexts";
 import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
 import { FilterGroup } from "../../services/sessionReplay/filterConfig";
-import { SESSION_LIST_LABELS } from "./constants/sessionList.constants";
+import {
+  SESSION_LIST_LABELS,
+  DEFAULT_DATE_PRESET,
+} from "./constants/sessionList.constants";
 import { useSessionsFilters } from "./hooks/useSessionsFilters";
 import { useSessionListData } from "./hooks/useSessionListData";
 import type { SortField } from "../../services/sessionReplay";
@@ -21,6 +25,7 @@ import { SessionListPagination } from "./components/SessionListPagination";
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");
   const navigate = useNavigate();
+  const { projectId } = useProjectContext();
   const { state: filterState, actions: filterActions } =
     useSessionReplayFilters();
   const { config: filtersConfig, loading: quickFiltersLoading } =
@@ -29,12 +34,13 @@ export function SessionReplaySessions() {
   const [sortBy, setSortBy] = useState<SortField>("START_TIME");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
-  const { loading, sessionsData, sessions, hasMorePages } = useSessionListData({
-    filterState,
-    filterActions,
-    sortBy,
-    sortDirection,
-  });
+  const { loading, sessionsData, sessions, hasMorePages, maxPage } =
+    useSessionListData({
+      filterState,
+      filterActions,
+      sortBy,
+      sortDirection,
+    });
 
   const handleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -53,8 +59,7 @@ export function SessionReplaySessions() {
   };
 
   const clearAllFilters = () => {
-    filterActions.resetFilters();
-    filterActions.clearDrillDown();
+    filterActions.resetAll();
   };
 
   const handleApplyAdvancedFilters = (filterGroup: FilterGroup) => {
@@ -76,20 +81,27 @@ export function SessionReplaySessions() {
 
   const advancedConditionsLength =
     filterState.advancedFilters?.conditions?.length ?? 0;
+  const isNonDefaultDateRange =
+    filterState.dateRange.preset !== DEFAULT_DATE_PRESET;
   const activeFiltersCount =
     Object.values(filterState.quickFilters).filter(Boolean).length +
     (filterState.searchQuery ? 1 : 0) +
     (advancedConditionsLength > 0 ? advancedConditionsLength : 0) +
-    (filterState.drillDown.type ? 1 : 0);
+    (filterState.drillDown.type ? 1 : 0) +
+    (isNonDefaultDateRange ? 1 : 0);
+
+  const sessionReplayBase = projectId
+    ? `/projects/${projectId}/session-replay`
+    : "/session-replay";
 
   const handleWatchSession = (sessionId: string) => {
     trackClick(`WatchSession_${sessionId}`);
-    navigate(`/session-replay/${sessionId}`);
+    navigate(`${sessionReplayBase}/${sessionId}`);
   };
 
   const handleOpenInNewTab = (sessionId: string) => {
     trackClick(`OpenSession_${sessionId}`);
-    window.open(`/session-replay/${sessionId}`, "_blank");
+    window.open(`${sessionReplayBase}/${sessionId}`, "_blank");
   };
 
   if (loading && !sessionsData) {
@@ -174,8 +186,10 @@ export function SessionReplaySessions() {
       <SessionListPagination
         currentPage={filterState.currentPage}
         hasMorePages={hasMorePages}
+        maxPage={maxPage}
         onPrevious={() => filterActions.setPage(filterState.currentPage - 1)}
         onNext={() => filterActions.setPage(filterState.currentPage + 1)}
+        onGoToPage={(page) => filterActions.setPage(page)}
       />
     </div>
   );

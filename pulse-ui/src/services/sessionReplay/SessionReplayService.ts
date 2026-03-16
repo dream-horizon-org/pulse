@@ -25,6 +25,7 @@ import { COOKIES_KEY } from "../../constants";
 import {
   getMockSessionListingResponse,
   getMockSessionDetailApiResponse,
+  getMockSnapshotsData,
 } from "../../screens/SessionReplayDetail/mock/sessionReplayMock";
 
 export class SessionReplayService {
@@ -101,7 +102,7 @@ export class SessionReplayService {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
       return getMockSessionDetailApiResponse(request.sessionId);
     }
-    const path = `/v1/session-replay/sessions/${encodeURIComponent(request.sessionId)}`;
+    const path = `/v1/sessions/${encodeURIComponent(request.sessionId)}`;
     const includeParam = request.include?.length
       ? request.include.join(",")
       : undefined;
@@ -226,6 +227,27 @@ export class SessionReplayService {
   async getSnapshotsSource(
     sessionId: string,
   ): Promise<SnapshotsSourceResponse["data"]> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return {
+        sessionId: sessionId,
+        snapshotSource: "android",
+        sources: [
+          {
+            source: "blob",
+            blobKey: "0",
+            startTimestamp: "2026-03-13 12:17:28.354000",
+            endTimestamp: "2026-03-13 12:17:36.197000",
+          },
+          {
+            source: "blob",
+            blobKey: "1",
+            startTimestamp: "2026-03-13 12:17:37.197000",
+            endTimestamp: "2026-03-13 12:17:46.219000",
+          },
+        ],
+      };
+    }
+
     const url = `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-source`;
 
     const response = await makeRequestToServer({
@@ -254,6 +276,10 @@ export class SessionReplayService {
     startBlobKey: string,
     endBlobKey: string,
   ): Promise<SnapshotsDataResponse["data"]> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return getMockSnapshotsData(startBlobKey);
+    }
+
     const url = new URL(
       `${this.baseURL}/v1/sessions/${encodeURIComponent(sessionId)}/snapshots-data`,
     );
@@ -386,7 +412,7 @@ export class SessionReplayService {
 
   /**
    * Sessions Listing API – cursor-paginated session list with filters, sort, search.
-   * POST /api/v1/sessions/listing
+   * POST /v1/sessions/listing
    */
   async postSessionsListing(
     request: SessionListingRequest,
@@ -394,7 +420,7 @@ export class SessionReplayService {
     if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
       return getMockSessionListingResponse(request);
     }
-    const url = `${this.baseURL}/api/v1/sessions/listing`;
+    const url = `${this.baseURL}/v1/sessions/listing`;
 
     try {
       const response = await makeRequestToServer({
@@ -423,10 +449,10 @@ export class SessionReplayService {
 
   /**
    * Sessions Filters API – filter config for quick filters and advanced builder.
-   * GET /api/v1/sessions/filters (if available on backend)
+   * GET /v1/sessions/filters
    */
   async getSessionsFilters(): Promise<FilterConfigResponse> {
-    const url = `${this.baseURL}/api/v1/sessions/filters`;
+    const url = `${this.baseURL}/v1/sessions/filters`;
 
     try {
       const response = await makeRequestToServer({
@@ -453,8 +479,8 @@ export class SessionReplayService {
   }
 }
 
-// Create singleton instance
-const API_BASE_URL =
-  process.env.REACT_APP_PULSE_SERVER_URL || "http://localhost:8080";
+const SESSION_REPLAY_API_BASE = process.env.REACT_APP_PULSE_SERVER_URL ?? "";
 
-export const sessionReplayService = new SessionReplayService(API_BASE_URL);
+export const sessionReplayService = new SessionReplayService(
+  SESSION_REPLAY_API_BASE,
+);
