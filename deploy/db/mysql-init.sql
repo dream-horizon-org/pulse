@@ -493,8 +493,7 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- Athena job tracking table (depends on projects table)
 CREATE TABLE IF NOT EXISTS athena_job (
     job_id VARCHAR(255) PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT 'Parent tenant for organizational hierarchy',
-    project_id VARCHAR(64) COMMENT 'Project where query was executed (data isolation)',
+    project_id VARCHAR(64) NOT NULL COMMENT 'Project where query was executed (data isolation)',
     query_string TEXT NOT NULL,
     user_email VARCHAR(255) NOT NULL,
     query_execution_id VARCHAR(255),
@@ -513,10 +512,7 @@ CREATE TABLE IF NOT EXISTS athena_job (
     INDEX idx_created_at (created_at),
     INDEX idx_user_email (user_email),
     INDEX idx_user_email_created_at (user_email, created_at),
-    INDEX idx_athena_job_tenant (tenant_id),
     INDEX idx_athena_job_project (project_id),
-    INDEX idx_athena_job_tenant_project (tenant_id, project_id),
-    CONSTRAINT fk_athena_job_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
     CONSTRAINT fk_athena_job_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 

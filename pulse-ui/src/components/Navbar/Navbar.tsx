@@ -62,6 +62,7 @@ export function Navbar({
   const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
+  const [popoverOpened, setPopoverOpened] = useState(false);
 
   // Show nav items only on project dashboard pages (not on org pages or onboarding)
   const isProjectDashboard =
@@ -72,6 +73,7 @@ export function Navbar({
     if (tenantId) {
       navigate(`/${tenantId}/projects`);
     }
+    setPopoverOpened(false);
   };
 
   function onItemClick(routeTo: string) {
@@ -251,7 +253,14 @@ export function Navbar({
       >
         <Divider my="sm" />
 
-        <Popover width={280} position="right-end" withArrow shadow="md">
+        <Popover
+          opened={popoverOpened}
+          onChange={setPopoverOpened}
+          width={280}
+          position="right-end"
+          withArrow
+          shadow="md"
+        >
           <Popover.Target>
             {opened ? (
               <Button
@@ -260,6 +269,7 @@ export function Navbar({
                 fullWidth
                 leftSection={<IconUserCircle size={20} />}
                 className={classes.menuButton}
+                onClick={() => setPopoverOpened((o) => !o)}
               >
                 More
               </Button>
@@ -270,6 +280,7 @@ export function Navbar({
                   color="teal"
                   size="lg"
                   className={classes.menuButtonCollapsed}
+                  onClick={() => setPopoverOpened((o) => !o)}
                 >
                   <IconUserCircle size={22} />
                 </ActionIcon>
@@ -334,14 +345,15 @@ export function Navbar({
 
               <Box
                 className={classes.menuItem}
-                onClick={() =>
+                onClick={() => {
                   navigate(
                     ROUTES.ORGANIZATION_MEMBERS.basePath.replace(
                       ":organizationId",
                       tenantId || "",
                     ),
-                  )
-                }
+                  );
+                  setPopoverOpened(false);
+                }}
                 style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
@@ -359,7 +371,10 @@ export function Navbar({
 
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.PRICING.basePath)}
+                onClick={() => {
+                  navigate(ROUTES.PRICING.basePath);
+                  setPopoverOpened(false);
+                }}
                 style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
@@ -395,6 +410,7 @@ export function Navbar({
                           navigate(
                             `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`,
                           );
+                          setPopoverOpened(false);
                         }
                       }}
                       style={{ cursor: "pointer" }}
@@ -452,7 +468,10 @@ export function Navbar({
               {/* Logout Button */}
               <Button
                 leftSection={<IconLogout size={18} />}
-                onClick={() => setLogoutModalOpened(true)}
+                onClick={() => {
+                  setLogoutModalOpened(true);
+                  setPopoverOpened(false);
+                }}
                 variant="light"
                 color="red"
                 size="sm"
