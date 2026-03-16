@@ -47,5 +47,11 @@ public class ProjectQueries {
 
   public static final String GET_ACTIVE_PROJECT_COUNT = 
       "SELECT COUNT(*) as count FROM projects WHERE tenant_id = ? AND is_active = TRUE";
+
+  public static final String HAS_EVENT_FLOW_STARTED = 
+      "SELECT sum(event_count) > 0 AS has_events "
+          + "FROM otel.project_monthly_usage "
+          + "WHERE project_id = :projectId "
+          + "AND month = toStartOfMonth(now())";
 }
 
