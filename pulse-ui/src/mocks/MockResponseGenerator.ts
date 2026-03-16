@@ -322,6 +322,11 @@ export class MockResponseGenerator {
       return this.handleQueryEndpoints(pathname, method, request);
     }
 
+    // Funnel Analysis & Journey Explorer (before /events catch-all)
+    if (pathname.includes("/v1/funnel/") || pathname.includes("/v1/journey/")) {
+      return handleFunnelEndpoints(pathname, method, request);
+    }
+
     // Event endpoints
     if (pathname.includes("/events") || pathname.includes("/whitelist")) {
       return this.handleEventEndpoints(pathname, method, request);
@@ -335,11 +340,6 @@ export class MockResponseGenerator {
     // SDK Configuration endpoints (legacy)
     if (pathname.includes("/sdk-config")) {
       return this.handleSdkConfigEndpoints(pathname, method, request);
-    }
-
-    // Funnel Analysis & Journey Explorer
-    if (pathname.includes("/v1/funnel/") || pathname.includes("/v1/journey/")) {
-      return handleFunnelEndpoints(pathname, method, request);
     }
 
     // TNC endpoints
