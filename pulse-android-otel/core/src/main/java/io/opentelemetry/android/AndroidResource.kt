@@ -6,6 +6,7 @@
 package io.opentelemetry.android
 
 import android.app.Application
+import android.content.pm.PackageInfo
 import android.os.Build
 import androidx.annotation.RequiresApi
 import io.opentelemetry.android.common.RumConstants
@@ -91,7 +92,7 @@ object AndroidResource {
     }
 
     @RequiresApi(Build.VERSION_CODES.P)
-    private fun getLongVersionCodeApi28(packageInfo: android.content.pm.PackageInfo): Long = packageInfo.longVersionCode
+    private fun getLongVersionCodeApi28(packageInfo: PackageInfo): Long = packageInfo.longVersionCode
 
     private val modelIdentifier: String
         get() =

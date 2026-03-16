@@ -2,22 +2,23 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem,
+  ComboboxItem
 } from "@mantine/core";
 import {
-  IconBell,
-  IconListDetails,
-  IconHome,
   IconActivityHeartbeat,
-  IconDeviceDesktop,
-  IconNetwork,
-  IconUsers,
+  IconBell,
+  IconCalendarEvent,
   IconDatabaseSearch,
+  IconDeviceDesktop,
+  IconHome,
+  IconListDetails,
+  IconNetwork,
+  IconUsers
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
   CriticalInteractionDetailsFilterValues,
-  TimeFilter,
+  TimeFilter
 } from "../screens/CriticalInteractionDetails";
 import { CriticalInteractionList } from "../screens/CriticalInteractionList";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
@@ -29,7 +30,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps,
+  FormSteps
 } from "../screens/CriticalInteractionForm";
 import { Login } from "../screens/Login";
 import { UniversalEventQuery } from "../screens/UniversalEventQuery/UniversalEventQuery";
@@ -59,6 +60,13 @@ import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
 import { SupportQueries } from "../screens/SupportQueries";
+import React from "react";
+
+const EventCatalog = React.lazy(() =>
+  import("../screens/EventCatalog/EventCatalog").then((m) => ({
+    default: m.EventCatalog,
+  })),
+);
 
 export const APP_NAME: string = "Pulse";
 
@@ -130,7 +138,7 @@ export const ROUTES: Routes = {
     path: "/:organizationId/projects/new",
     element: CreateProject,
   },
-  
+
   // Project-scoped routes (nested under /projects/:projectId)
   PROJECT_DASHBOARD: {
     key: "PROJECT_DASHBOARD",
@@ -194,7 +202,8 @@ export const ROUTES: Routes = {
   },
   PROJECT_APP_VITALS_OCCURRENCE_DETAIL: {
     key: "PROJECT_APP_VITALS_OCCURRENCE_DETAIL",
-    basePath: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
+    basePath:
+      "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     path: "/projects/:projectId/app-vitals/:issueId/occurrence/:occurrenceId",
     element: OccurrenceDetail,
   },
@@ -264,7 +273,7 @@ export const ROUTES: Routes = {
     path: "/projects/:projectId/query-builder",
     element: RealTimeQuery,
   },
-  
+
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -300,6 +309,12 @@ export const ROUTES: Routes = {
     basePath: "/support-queries",
     path: "/support-queries",
     element: SupportQueries,
+  },
+  EVENT_CATALOG: {
+    key: "EVENT_CATALOG",
+    basePath: "/event-catalog",
+    path: "/event-catalog",
+    element: EventCatalog,
   },
 };
 
@@ -367,7 +382,7 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.NETWORK_LIST,
     iconSize: 25,
   },
-  
+
   {
     tabName: "Query Builder",
     icon: IconDatabaseSearch,
@@ -380,6 +395,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconBell,
     routeTo: NAVBAR_ROUTES.ALERTS,
     path: NAVBAR_ROUTES.ALERTS,
+    iconSize: 25,
+  },
+  {
+    tabName: "Event Catalog",
+    icon: IconCalendarEvent,
+    routeTo: ROUTES.EVENT_CATALOG.basePath,
+    path: ROUTES.EVENT_CATALOG.path,
     iconSize: 25,
   },
 ];
@@ -401,6 +423,36 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_SCREEN_NAME_EVENTS_MAPPING: {
     key: "GET_SCREEN_NAME_EVENTS_MAPPING",
     apiPath: `/v1/events`,
+    method: API_METHODS.GET,
+  },
+  GET_EVENT_DEFINITIONS: {
+    key: "GET_EVENT_DEFINITIONS",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.GET,
+  },
+  CREATE_EVENT_DEFINITION: {
+    key: "CREATE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_EVENT_DEFINITION: {
+    key: "UPDATE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.PUT,
+  },
+  BULK_UPLOAD_EVENT_DEFINITIONS: {
+    key: "BULK_UPLOAD_EVENT_DEFINITIONS",
+    apiPath: `/v1/event-definitions/bulk`,
+    method: API_METHODS.POST,
+  },
+  DELETE_EVENT_DEFINITION: {
+    key: "DELETE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.DELETE,
+  },
+  GET_EVENT_CATEGORIES: {
+    key: "GET_EVENT_CATEGORIES",
+    apiPath: `/v1/event-definitions/categories`,
     method: API_METHODS.GET,
   },
   GET_INTERACTIONS: {
@@ -1080,13 +1132,13 @@ export const ALERT_EVALUATION_HISTORY_CONSTANTS: Record<string, string> = {
 
 export const FOOTER_CONSTANTS: Record<string, string> = {
   FOOTER_MESSAGE: "Have questions? Join our Discord community",
-  DISCORD_LINK: "https://discord.com/channels/1317172052179943504/1443921274039435335",
+  DISCORD_LINK:
+    "https://discord.com/channels/1317172052179943504/1443921274039435335",
 };
 
 export const NAVBAR_CONSTANTS: Record<string, string> = {
   HELP_BAR_TEXT: "About Pulse",
-  HELP_LINK:
-    "https://pulse.dreamhorizon.org/docs/intro",
+  HELP_LINK: "https://pulse.dreamhorizon.org/docs/intro",
 };
 
 export const HEADER_CONSTANTS: Record<string, string> = {
@@ -1370,7 +1422,8 @@ export const CRITICAL_INTERACTION_QUICK_TIME_FILTERS = {
 };
 
 // Default time filter for the dashboard (Last 24 hours)
-export const DEFAULT_QUICK_TIME_FILTER = CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
+export const DEFAULT_QUICK_TIME_FILTER =
+  CRITICAL_INTERACTION_QUICK_TIME_FILTERS.LAST_24_HOURS;
 export const DEFAULT_QUICK_TIME_FILTER_INDEX = 7; // Index of LAST_24_HOURS in CRITICAL_INTERACTION_DETAILS_TIME_FILTERS_OPTIONS
 
 export const SNOOZE_ALERT_QUICK_TIME_FILTERS = {

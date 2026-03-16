@@ -95,17 +95,21 @@ export function EngagementBreakdown({
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: "uniqCombined(UserId)" },
+            param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
             alias: "user_count",
           },
           {
             function: "CUSTOM" as const,
-            param: { expression: "uniqCombined(SessionId)" },
+            param: { expression: "uniqCombined64(nullIf(SessionId, ''))" },
             alias: "session_count",
           },
         ],
         filters: [
-          { field: "PulseType", operator: "EQ" as const, value: [PulseType.SESSION_START] },
+          {
+            field: "PulseType",
+            operator: "EQ" as const,
+            value: [PulseType.SESSION_START],
+          },
           {
             field: attributeField,
             operator: "IN" as const,
@@ -133,17 +137,21 @@ export function EngagementBreakdown({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(SessionId)" },
+          param: { expression: "uniqCombined64(nullIf(SessionId, ''))" },
           alias: "session_count",
         },
       ],
       filters: [
-        { field: "PulseType", operator: "EQ" as const, value: [PulseType.SESSION_START] },
+        {
+          field: "PulseType",
+          operator: "EQ" as const,
+          value: [PulseType.SESSION_START],
+        },
       ],
       groupBy: [fieldConfig.alias],
     };

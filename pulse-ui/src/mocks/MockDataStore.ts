@@ -6,6 +6,11 @@
  */
 
 import { MockDataStore as IMockDataStore } from "./types";
+import {
+  MockEventDefinition,
+  mockEventDefinitions,
+  getNextEventDefId,
+} from "./responses/eventDefinitionResponses";
 
 // SDK Config types matching the PulseConfig schema
 type SdkEnum = "android_native" | "android_rn" | "ios_native" | "ios_rn";
@@ -176,6 +181,7 @@ export class MockDataStore {
   private data: IMockDataStore;
   private sdkConfig: PulseConfig;
   private configHistory: PulseConfigWithMeta[];
+  private eventDefinitions: MockEventDefinition[];
 
   /** Current tenant context - set by login (dev-id-token) or onboarding complete */
   private currentTenant: MockTenantContext | null = null;
@@ -212,6 +218,7 @@ export class MockDataStore {
     };
     this.sdkConfig = this.getDefaultSdkConfig();
     this.configHistory = this.initializeConfigHistory();
+    this.eventDefinitions = [...mockEventDefinitions];
     this.initializeData();
   }
 
@@ -2053,6 +2060,96 @@ export class MockDataStore {
     this.data.alerts = this.data.alerts.filter(
       (alert) => alert.alert_id !== alertId,
     );
+  }
+
+  getEventDefinitions(params: {
+    search?: string;
+    category?: string;
+    limit?: number;
+    offset?: number;
+  }): { eventDefinitions: MockEventDefinition[]; totalCount: number } {
+    let filtered = this.eventDefinitions.filter((d) => !d.isArchived);
+
+    if (params.search) {
+      const s = params.search.toLowerCase();
+      filtered = filtered.filter(
+        (d) =>
+          d.eventName.toLowerCase().includes(s) ||
+          d.displayName.toLowerCase().includes(s) ||
+          d.description.toLowerCase().includes(s),
+      );
+    }
+
+    if (params.category) {
+      filtered = filtered.filter((d) => d.category === params.category);
+    }
+
+    const limit = params.limit ?? 50;
+    const offset = params.offset ?? 0;
+    return {
+      eventDefinitions: filtered.slice(offset, offset + limit),
+      totalCount: filtered.length,
+    };
+  }
+
+  getEventDefinitionById(id: number): MockEventDefinition | undefined {
+    return this.eventDefinitions.find((d) => d.id === id);
+  }
+
+  addEventDefinition(def: Omit<MockEventDefinition, "id" | "createdAt" | "updatedAt" | "isArchived">): MockEventDefinition {
+    const now = new Date().toISOString();
+    const newDef: MockEventDefinition = {
+      ...def,
+      id: getNextEventDefId(),
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      attributes: (def.attributes || []).map((a, i) => ({
+        ...a,
+        id: Date.now() + i,
+        isArchived: false,
+      })),
+    };
+    this.eventDefinitions.push(newDef);
+    return newDef;
+  }
+
+  updateEventDefinition(id: number, updates: Partial<MockEventDefinition>): MockEventDefinition | null {
+    const idx = this.eventDefinitions.findIndex((d) => d.id === id);
+    if (idx === -1) return null;
+    this.eventDefinitions[idx] = {
+      ...this.eventDefinitions[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    if (updates.attributes) {
+      this.eventDefinitions[idx].attributes = updates.attributes.map((a, i) => ({
+        ...a,
+        id: a.id || Date.now() + i,
+        isArchived: a.isArchived ?? false,
+      }));
+    }
+    return this.eventDefinitions[idx];
+  }
+
+  archiveEventDefinition(id: number): boolean {
+    const idx = this.eventDefinitions.findIndex((d) => d.id === id);
+    if (idx === -1) return false;
+    this.eventDefinitions[idx] = {
+      ...this.eventDefinitions[idx],
+      isArchived: true,
+      updatedAt: new Date().toISOString(),
+    };
+    return true;
+  }
+
+  getEventDefinitionCategories(): string[] {
+    const cats = new Set(
+      this.eventDefinitions
+        .filter((d) => !d.isArchived && d.category)
+        .map((d) => d.category),
+    );
+    return Array.from(cats).sort();
   }
 
   // Initialize config history with mock data
