@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.sessiondetail.impl;
+package org.dreamhorizon.pulseserver.service.session;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,24 +16,22 @@ import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionExceptionRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.EventType;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.Event;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.Interaction;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.NetworkRequest;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.SessionException;
-import org.dreamhorizon.pulseserver.service.sessiondetail.SessionDetailService;
+import org.dreamhorizon.pulseserver.resources.session.models.EventType;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.Event;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.Interaction;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.NetworkRequest;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.SessionException;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class SessionDetailServiceImpl implements SessionDetailService {
+public class SessionDetailService {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
 
   private final SessionDetailDao sessionDetailDao;
 
-  @Override
   public Single<SessionDetailResponse> getSessionDetail(
       String sessionId, Set<String> includeSections
   ) {
