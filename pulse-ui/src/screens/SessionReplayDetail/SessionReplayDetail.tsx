@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Box, Stack, Loader, Text, Center } from "@mantine/core";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import {
@@ -16,15 +16,15 @@ import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
 import { SessionTimelineSection } from "./components/SessionTimelineSection";
 import { DEFAULTS } from "./constants/strings";
-import { MOCK_SNAPSHOT_BASE_TS } from "./mock/sessionReplayMock";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
   const [scrollToTimestamp, setScrollToTimestamp] = useState<{
@@ -66,12 +66,6 @@ export const SessionReplayDetail: React.FC = () => {
     return getMockSessionDetail(sessionId || DEFAULTS.SESSION_ID_UNKNOWN);
   }, [apiSessionData, sessionId]);
 
-  // When mock session replay is on, snapshot events use MOCK_SNAPSHOT_BASE_TS; align session start so image timestamps (event.ts - sessionStart) match currentTime (0..duration).
-  const snapshotSessionStart =
-    process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true"
-      ? new Date(MOCK_SNAPSHOT_BASE_TS).toISOString()
-      : (sessionData.startTime ?? new Date().toISOString());
-
   const {
     images: snapshotImages,
     loading: snapshotLoading,
@@ -79,7 +73,6 @@ export const SessionReplayDetail: React.FC = () => {
     snapshotDurationMs,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
-    sessionStartTime: snapshotSessionStart,
     currentTime,
     enabled: !!sessionId,
   });
@@ -100,7 +93,11 @@ export const SessionReplayDetail: React.FC = () => {
     }, [sessionData]);
 
   const handleBack = () => {
-    navigate("/session-replay/sessions");
+    const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
+    const base = projectMatch
+      ? `/projects/${projectMatch[1]}/session-replay/sessions`
+      : "/session-replay/sessions";
+    navigate(base);
   };
 
   const handleSpanClick = (item: FlameChartNode) => {
@@ -127,26 +124,35 @@ export const SessionReplayDetail: React.FC = () => {
     }, 500);
   };
 
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-  };
+  const handlePlayPause = useCallback(() => {
+    setIsPlaying((prev) => {
+      if (!prev) {
+        // Starting playback — restart from 0 if we're at (or past) the end
+        setCurrentTime((ct) => (ct >= effectiveDuration ? 0 : ct));
+      }
+      return !prev;
+    });
+  }, [effectiveDuration]);
 
-  const handleTimelineChange = (value: number) => {
+  const handleTimelineChange = useCallback((value: number) => {
     setCurrentTime(value);
-  };
+  }, []);
 
-  const handleTimeUpdate = (time: number) => {
-    if (time <= effectiveDuration) {
-      setCurrentTime(time);
-    } else {
-      setIsPlaying(false);
-      setCurrentTime(effectiveDuration);
-    }
-  };
+  const handleTimeUpdate = useCallback(
+    (time: number) => {
+      if (time <= effectiveDuration) {
+        setCurrentTime(time);
+      } else {
+        setIsPlaying(false);
+        setCurrentTime(effectiveDuration);
+      }
+    },
+    [effectiveDuration],
+  );
 
-  const handleSpeedChange = (speed: number) => {
+  const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
-  };
+  }, []);
 
   if (sessionLoading && !apiSessionData) {
     return (

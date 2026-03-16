@@ -5,40 +5,30 @@ export interface ImageTransitionResult {
   transitionOpacity: number;
 }
 
+/**
+ * Decide which image to display and at what opacity.
+ *
+ * We intentionally skip crossfade: session-replay screenshots are discrete
+ * frames, so an instant swap looks natural and avoids the "flicker" that
+ * a CSS transition causes when the user seeks to a distant timestamp.
+ *
+ * Falls back to the previous image while the current one is loading.
+ */
 export function calculateImageTransition(
   currentImage: SessionReplayImage | null,
   previousImage: SessionReplayImage | null,
   loadedImages: Set<number>,
-  currentTime: number,
+  _currentTime: number,
 ): ImageTransitionResult {
   if (!currentImage) return { imageToShow: null, transitionOpacity: 1 };
 
-  const currentLoaded = loadedImages.has(currentImage.timestamp);
-  const previousLoaded =
-    previousImage && loadedImages.has(previousImage.timestamp);
-
-  // Calculate smooth transition based on time between images
-  let opacity = 1;
-  if (previousImage && previousImage.timestamp !== currentImage.timestamp) {
-    const timeDiff = currentTime - previousImage.timestamp;
-    const imageInterval = currentImage.timestamp - previousImage.timestamp;
-
-    // Smooth crossfade: fade in current image as we progress through the second
-    if (timeDiff > 0 && imageInterval > 0) {
-      opacity = Math.min(1, Math.max(0, timeDiff / imageInterval));
-    }
+  if (loadedImages.has(currentImage.timestamp)) {
+    return { imageToShow: currentImage, transitionOpacity: 1 };
   }
 
-  // If current image is loaded, use it
-  if (currentLoaded) {
-    return { imageToShow: currentImage, transitionOpacity: opacity };
-  }
-
-  // Otherwise, use previous image if available and loaded
-  if (previousLoaded) {
+  if (previousImage && loadedImages.has(previousImage.timestamp)) {
     return { imageToShow: previousImage, transitionOpacity: 1 };
   }
 
-  // Fallback to current image (will show loading state)
-  return { imageToShow: currentImage, transitionOpacity: opacity };
+  return { imageToShow: currentImage, transitionOpacity: 1 };
 }

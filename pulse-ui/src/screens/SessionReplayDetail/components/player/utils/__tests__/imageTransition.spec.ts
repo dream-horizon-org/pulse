@@ -38,14 +38,14 @@ describe("imageTransition", () => {
     expect(result.transitionOpacity).toBe(1);
   });
 
-  it("computes transition opacity between previous and current image time", () => {
+  it("returns opacity 1 when both previous and current are loaded (no crossfade)", () => {
     const loaded = new Set([0, 100]);
     const result = calculateImageTransition(imageAt100, imageAt0, loaded, 50);
     expect(result.imageToShow).toEqual(imageAt100);
-    expect(result.transitionOpacity).toBe(0.5);
+    expect(result.transitionOpacity).toBe(1);
   });
 
-  it("clamps opacity to 1 when time is past current image", () => {
+  it("returns opacity 1 when time is past current image", () => {
     const loaded = new Set([0, 100]);
     const result = calculateImageTransition(imageAt100, imageAt0, loaded, 150);
     expect(result.transitionOpacity).toBe(1);

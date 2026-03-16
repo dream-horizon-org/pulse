@@ -8,6 +8,15 @@ interface UsePlaybackAnimationProps {
   onTimeUpdate?: (time: number) => void;
 }
 
+/**
+ * Drives the playback clock using requestAnimationFrame.
+ *
+ * The animation anchors to `performance.now()` at the moment the effect
+ * (re-)starts and advances `currentTime` by `elapsed * playbackSpeed`.
+ *
+ * `onTimeUpdate` is kept in a ref so changes to the callback identity
+ * do not restart the loop.
+ */
 export function usePlaybackAnimation({
   isPlaying,
   currentTime,
@@ -16,6 +25,8 @@ export function usePlaybackAnimation({
   onTimeUpdate,
 }: UsePlaybackAnimationProps) {
   const animationFrameRef = useRef<number | null>(null);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  onTimeUpdateRef.current = onTimeUpdate;
 
   useEffect(() => {
     if (!isPlaying || imagesLength === 0) {
@@ -26,18 +37,13 @@ export function usePlaybackAnimation({
       return;
     }
 
-    const startTime = Date.now();
+    const startWallTime = performance.now();
     const startPlaybackTime = currentTime;
 
     const animate = () => {
-      const now = Date.now();
-      const elapsed = now - startTime;
+      const elapsed = performance.now() - startWallTime;
       const nextTime = startPlaybackTime + elapsed * playbackSpeed;
-
-      if (onTimeUpdate) {
-        onTimeUpdate(nextTime);
-      }
-
+      onTimeUpdateRef.current?.(nextTime);
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
@@ -49,5 +55,5 @@ export function usePlaybackAnimation({
         animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, currentTime, playbackSpeed, imagesLength, onTimeUpdate]);
+  }, [isPlaying, currentTime, playbackSpeed, imagesLength]);
 }
