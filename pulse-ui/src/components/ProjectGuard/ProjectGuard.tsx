@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useProjectContext, useTenantContext } from "../../contexts";
-import { ROUTES } from "../../constants";
+import { ROUTES, ORGANIZATION_PATH_SEGMENTS } from "../../constants";
 
 interface ProjectGuardProps {
   children: React.ReactNode;
@@ -37,13 +37,10 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
       return;
     }
 
-    const excludedPaths = [
-      ROUTES.LOGIN.basePath,
-      ROUTES.ONBOARDING.basePath,
-      ROUTES.PRICING.basePath,
-    ];
+    const excludedPaths = [ROUTES.LOGIN.basePath, ROUTES.ONBOARDING.basePath];
 
-    const isOrganizationPath = /^\/[^/]+\/(projects|members)/.test(
+    const orgSegments = Object.values(ORGANIZATION_PATH_SEGMENTS).join("|");
+    const isOrganizationPath = new RegExp(`^/[^/]+/(${orgSegments})`).test(
       location.pathname,
     );
     const isOnboardingPath = /^\/projects\/[^/]+\/onboarding/.test(
@@ -78,7 +75,8 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
       !isExcludedPath &&
       !urlProjectId &&
       !isOrganizationPath
-    ) {      // No project in URL and no project in context - redirect to projects list
+    ) {
+      // No project in URL and no project in context - redirect to projects list
       if (tenantId) {
         navigate(`/${tenantId}/projects`);
       }

@@ -9,7 +9,7 @@ import { TIERS } from "../../constants/Tiers";
 
 export function Header({ toggle: toogle, opened }: HeaderProps) {
   const navigate = useNavigate();
-  const { projects, tier, tenantName } = useTenantContext();
+  const { projects, tier, tenantName, tenantId } = useTenantContext();
   const { projectId, projectName, navigateToProject } = useProjectContext();
 
   const handleProjectSwitch = async (newProjectId: string | null) => {
@@ -46,7 +46,7 @@ export function Header({ toggle: toogle, opened }: HeaderProps) {
                   color="teal"
                   size="sm"
                   className={classes.upgradeBadge}
-                  onClick={() => navigate("/pricing")}
+                  onClick={() => navigate(`/${tenantId}/pricing`)}
                 >
                   Free · Upgrade
                 </Badge>

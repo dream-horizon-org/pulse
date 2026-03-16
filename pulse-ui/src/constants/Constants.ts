@@ -227,8 +227,8 @@ export const ROUTES: Routes = {
   },
   PRICING: {
     key: "PRICING",
-    basePath: "/pricing",
-    path: "/pricing",
+    basePath: "/:organizationId/pricing",
+    path: "/:organizationId/pricing",
   },
   COMING_SOON: {
     key: "COMING_SOON",
@@ -262,6 +262,13 @@ export const SETTINGS_PATHS = {
   SDK_CONFIG: "/settings/sdk-config",
   NOTIFICATIONS: "/settings/notifications",
   SECURITY: "/settings/security",
+} as const;
+
+// Organization-level path segments (for URL pattern matching)
+export const ORGANIZATION_PATH_SEGMENTS = {
+  PROJECTS: "projects",
+  MEMBERS: "members",
+  PRICING: "pricing",
 } as const;
 
 export const NAVBAR_ITEMS: NavbarItems = [

@@ -48,3 +48,4 @@ function filterNonNullParams(
   // Rebuild the object without null values
   return Object.fromEntries(filteredEntries);
 }
+

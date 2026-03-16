@@ -378,7 +378,12 @@ export function Navbar({
               <Box
                 className={classes.menuItem}
                 onClick={() => {
-                  navigate(ROUTES.PRICING.basePath);
+                  navigate(
+                    ROUTES.PRICING.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
                   setPopoverOpened(false);
                 }}
                 style={{ cursor: "pointer" }}

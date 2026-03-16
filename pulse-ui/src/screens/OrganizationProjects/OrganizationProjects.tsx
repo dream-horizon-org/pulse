@@ -49,7 +49,8 @@ export function OrganizationProjects() {
         }
         await navigateToProject(selectedProjectId);
       } catch (err) {
-        setError("Failed to switch to project");      }
+        setError("Failed to switch to project");
+      }
     },
     [projects, navigateToProject],
   );
@@ -70,10 +71,12 @@ export function OrganizationProjects() {
     const isOnProjectsListingPage =
       location.pathname === `/${organizationId}/projects`;
 
-    if (!isOnProjectsListingPage) {      return;
+    if (!isOnProjectsListingPage) {
+      return;
     }
     // If user already has a project context set, redirect to that project
-    if (projectId) {      navigateToProject(projectId);
+    if (projectId) {
+      navigateToProject(projectId);
       return;
     }
 
@@ -81,7 +84,8 @@ export function OrganizationProjects() {
     if (!projectId && projects.length > 0 && tier === TIERS.FREE) {
       const lastUsedProjectId = sessionStorage.getItem("pulse_last_project_id");
       const projectToSelect =
-        projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];      handleProjectClick(projectToSelect.projectId);
+        projects.find((p) => p.projectId === lastUsedProjectId) || projects[0];
+      handleProjectClick(projectToSelect.projectId);
     }
   }, [
     projectId,
@@ -102,7 +106,7 @@ export function OrganizationProjects() {
         <IconLock />,
         "orange",
       );
-      navigate("/pricing");
+      navigate(`/${organizationId}/pricing`);
       return;
     }
     navigate(`/${organizationId}/projects/new`);
