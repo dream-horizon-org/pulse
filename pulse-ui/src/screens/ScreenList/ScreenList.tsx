@@ -7,7 +7,7 @@ import {
   DEFAULT_QUICK_TIME_FILTER,
   DEFAULT_QUICK_TIME_FILTER_INDEX,
 } from "../../constants";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useGetScreenNames } from "../../hooks/useGetScreenNames";
 import { useGetScreenDetails } from "../../hooks/useGetScreenDetails";
@@ -25,6 +25,7 @@ import { getStartAndEndDateTimeString } from "../../utils/DateUtil";
 
 export function ScreenList() {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackClick, trackSearch } = useAnalytics("ScreenList");
   const searchFields = Object.fromEntries(searchParams.entries());
@@ -192,7 +193,7 @@ export function ScreenList() {
                 onClick={() => {
                   trackClick(`Screen: ${screenName}`);
                   navigate(
-                    `${ROUTES.SCREEN_DETAILS.basePath}/${encodeURIComponent(screenName)}`,
+                    `${ROUTES.PROJECT_SCREEN_DETAILS.basePath.replace(":projectId", projectId || "")}/${encodeURIComponent(screenName)}`,
                   );
                 }}
               />

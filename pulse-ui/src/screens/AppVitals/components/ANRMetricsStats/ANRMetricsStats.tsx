@@ -84,14 +84,16 @@ export function ANRMetricsStats({
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(UserId, PulseType = 'device.anr')",
+            expression:
+              "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.anr')",
           },
           alias: "anr_users",
         },
         {
           function: "CUSTOM",
           param: {
-            expression: "uniqCombinedIf(SessionId, PulseType = 'device.anr')",
+            expression:
+              "uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.anr')",
           },
           alias: "anr_sessions",
         },
@@ -137,11 +139,17 @@ export function ANRMetricsStats({
     const anrFreeUsers =
       totalUsers > 0 ? ((totalUsers - anrUsers) / totalUsers) * 100 : null;
     const anrFreeSessions =
-      totalSessions > 0 ? ((totalSessions - anrSessions) / totalSessions) * 100 : null;
+      totalSessions > 0
+        ? ((totalSessions - anrSessions) / totalSessions) * 100
+        : null;
 
     return {
-      anrFreeUsers: anrFreeUsers !== null ? parseFloat(anrFreeUsers.toFixed(2)) : null,
-      anrFreeSessions: anrFreeSessions !== null ? parseFloat(anrFreeSessions.toFixed(2)) : null,
+      anrFreeUsers:
+        anrFreeUsers !== null ? parseFloat(anrFreeUsers.toFixed(2)) : null,
+      anrFreeSessions:
+        anrFreeSessions !== null
+          ? parseFloat(anrFreeSessions.toFixed(2))
+          : null,
       hasData: true,
     };
   }, [data, externalTotalUsers, externalTotalSessions]);
@@ -172,13 +180,19 @@ export function ANRMetricsStats({
       <Box className={classes.metricsGrid}>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>ANR-Free Users</Text>
-          <Text className={classes.statValue} c={metrics.anrFreeUsers !== null ? "orange" : "dimmed"}>
+          <Text
+            className={classes.statValue}
+            c={metrics.anrFreeUsers !== null ? "orange" : "dimmed"}
+          >
             {formatMetricValue(metrics.anrFreeUsers)}
           </Text>
         </Box>
         <Box className={classes.statItem}>
           <Text className={classes.statLabel}>ANR-Free Sessions</Text>
-          <Text className={classes.statValue} c={metrics.anrFreeSessions !== null ? "orange" : "dimmed"}>
+          <Text
+            className={classes.statValue}
+            c={metrics.anrFreeSessions !== null ? "orange" : "dimmed"}
+          >
             {formatMetricValue(metrics.anrFreeSessions)}
           </Text>
         </Box>

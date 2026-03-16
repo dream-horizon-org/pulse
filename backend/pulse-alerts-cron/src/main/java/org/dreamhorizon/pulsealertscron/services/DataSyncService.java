@@ -35,23 +35,23 @@ public class DataSyncService {
     
     return clickhouseService.getCurrentMonthUsage()
         .flatMap(clickhouseStats -> {
-          log.info("✅ Got ClickHouse data for {} tenants", clickhouseStats.size());
+          log.info("✅ Got ClickHouse data for {} projects", clickhouseStats.size());
           
           return apiClient.getActiveLimits()
               .map(apiResponse -> {
-                log.info("✅ Got API limits for {} projects", apiResponse.getCount());
+                log.info("✅ Got API limits for {} projects", apiResponse.getTotalCount());
                 
                 List<ProjectUsageResult> results = new ArrayList<>();
                 
                 for (UsageLimitsApiResponse.ProjectLimit limit : apiResponse.getLimits()) {
                   String projectId = limit.getProjectId();
                   
-                  // Find matching ClickHouse data by tenant
+                  // Find matching ClickHouse data by project_id
                   UsageStats chStats = clickhouseStats.stream()
-                      .filter(s -> s.getTenant().equals(projectId))
+                      .filter(s -> s.getProject_id().equals(projectId))
                       .findFirst()
                       .orElse(UsageStats.builder()
-                          .tenant(projectId)
+                          .project_id(projectId)
                           .eventsUsed(0L)
                           .sessionsUsed(0L)
                           .build());

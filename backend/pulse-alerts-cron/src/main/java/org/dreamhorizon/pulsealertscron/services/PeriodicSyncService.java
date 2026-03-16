@@ -16,7 +16,7 @@ public class PeriodicSyncService {
   private Long usageLimitsTimerId;
   private Long apiKeysTimerId;
   
-  private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 minutes
+  private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 seconds
   private static final long API_KEYS_INTERVAL_SECONDS = 10 * 60; // 10 minutes
 
   @Inject
