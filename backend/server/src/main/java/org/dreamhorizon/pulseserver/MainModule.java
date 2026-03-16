@@ -118,21 +118,18 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {
-      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-      if (config == null) {
-        config = OpenFgaConfig.builder().enabled(false).build();
-      }
-      try {
-        return new OpenFgaService(config);
-      } catch (Exception e) {
-        log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-        try {
-          return new OpenFgaService(OpenFgaConfig.builder().enabled(false).build());
-        } catch (Exception ex) {
-          throw new RuntimeException("Failed to create fallback OpenFgaService", ex);
+        OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+        if (config != null && config.isEnabled()) {
+            try {
+                return new OpenFgaService(config);
+            } catch (Exception e) {
+                log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
+                return null;
+            }
         }
-      }
+          return null;
     }).in(Singleton.class);
+
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
 
     bindNotificationFeature();
