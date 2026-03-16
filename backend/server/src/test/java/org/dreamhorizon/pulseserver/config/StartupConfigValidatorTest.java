@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -136,7 +137,6 @@ class StartupConfigValidatorTest {
     @ValueSource(strings = {"dev", "stag", "uat"})
     void nonProdWithClusterName_returnsEmpty(String env) {
       when(appConfig.getAppEnvironment()).thenReturn(env);
-      when(clickhouseConfig.getClusterName()).thenReturn("cluster-name");
 
       StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
       List<String> errors = validator.validateClickhouseConfig();
@@ -148,7 +148,6 @@ class StartupConfigValidatorTest {
     @ValueSource(strings = {"dev", "stag", "uat"})
     void nonProdWithBlankClusterName_returnsEmpty(String env) {
       when(appConfig.getAppEnvironment()).thenReturn(env);
-      when(clickhouseConfig.getClusterName()).thenReturn("");
 
       StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
       List<String> errors = validator.validateClickhouseConfig();
@@ -163,7 +162,6 @@ class StartupConfigValidatorTest {
     @Test
     void validConfig_noException() {
       when(appConfig.getAppEnvironment()).thenReturn("dev");
-      when(clickhouseConfig.getClusterName()).thenReturn("");
 
       StartupConfigValidator validator = new StartupConfigValidator(appConfig, clickhouseConfig);
       validator.validate();
@@ -219,7 +217,6 @@ class StartupConfigValidatorTest {
     @Test
     void staticValidateMethod_passesOnValidConfig() {
       when(appConfig.getAppEnvironment()).thenReturn("dev");
-      when(clickhouseConfig.getClusterName()).thenReturn("");
 
       StartupConfigValidator.validate(appConfig, clickhouseConfig);
     }
