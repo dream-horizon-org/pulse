@@ -13,7 +13,7 @@ import {
   ScrollArea,
   Stack,
   Text,
-  Tooltip
+  Tooltip,
 } from "@mantine/core";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -24,7 +24,7 @@ import {
   MULTI_TENANT_CONSTANTS,
   NAVBAR_CONSTANTS,
   NAVBAR_ITEMS,
-  ROUTES
+  ROUTES,
 } from "../../constants";
 import { TIERS } from "../../constants/Tiers";
 import {
@@ -35,7 +35,8 @@ import {
   IconMail,
   IconMessageCircle,
   IconSettings,
-  IconUserCircle
+  IconUserCircle,
+  IconUsers,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef, useState } from "react";
@@ -73,6 +74,7 @@ export function Navbar({
     if (tenantId) {
       navigate(`/${tenantId}/projects`);
     }
+    setPopoverOpened(false);
   };
 
   function onItemClick(routeTo: string) {
@@ -253,12 +255,12 @@ export function Navbar({
         <Divider my="sm" />
 
         <Popover
+          opened={popoverOpened}
+          onChange={setPopoverOpened}
           width={280}
           position="right-end"
           withArrow
           shadow="md"
-          opened={popoverOpened}
-          onChange={setPopoverOpened}
         >
           <Popover.Target>
             {opened ? (
@@ -356,7 +358,7 @@ export function Navbar({
                 style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
-                  <IconSettings size={20} style={{ color: "#0ba09a" }} />
+                  <IconUsers size={20} style={{ color: "#0ba09a" }} />
                   <Box>
                     <Text size="sm" fw={500}>
                       Members
@@ -370,7 +372,10 @@ export function Navbar({
 
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.PRICING.basePath)}
+                onClick={() => {
+                  navigate(ROUTES.PRICING.basePath);
+                  setPopoverOpened(false);
+                }}
                 style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
@@ -406,6 +411,7 @@ export function Navbar({
                           navigate(
                             `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`,
                           );
+                          setPopoverOpened(false);
                         }
                       }}
                       style={{ cursor: "pointer" }}
@@ -487,7 +493,7 @@ export function Navbar({
                 leftSection={<IconLogout size={18} />}
                 onClick={() => {
                   setPopoverOpened(false);
-                  onLogoutClick();
+                  setLogoutModalOpened(true);
                 }}
                 variant="light"
                 color="red"

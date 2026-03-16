@@ -1,17 +1,10 @@
 import { useState } from "react";
-import {
-  Modal,
-  TextInput,
-  Textarea,
-  Select,
-  Button,
-  Stack,
-} from "@mantine/core";
+import { Button, Modal, Stack, Textarea, TextInput } from "@mantine/core";
 import { IconCheck, IconSquareRoundedX } from "@tabler/icons-react";
 import { getCookies } from "../../helpers/cookies";
 import { makeRequest } from "../../helpers/makeRequest";
 import { showNotification } from "../../helpers/showNotification";
-import { API_BASE_URL, COOKIES_KEY, COMMON_CONSTANTS } from "../../constants";
+import { API_BASE_URL, COMMON_CONSTANTS, COOKIES_KEY } from "../../constants";
 
 interface ContactUsModalProps {
   opened: boolean;
