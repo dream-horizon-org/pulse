@@ -1,0 +1,44 @@
+.summary {
+  border-radius: var(--mantine-radius-md);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.summaryContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-md);
+  align-items: stretch;
+  text-align: left;
+}
+
+.metricsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-lg);
+  align-items: flex-start;
+}
+
+.metricBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.qualityBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.journeyBlock {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.journeyBlock > * {
+  width: 100%;
+}

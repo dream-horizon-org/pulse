@@ -91,9 +91,13 @@ export function LineChart({
     <ReactECharts
       ref={chartRef}
       echarts={echarts}
-      style={{ height, width: "100%", ...style }}
       option={mergedOptions}
-      onChartReady={onChartReady}
+      style={{ height, width: "100%", ...style }}
+      onChartReady={
+        onChartReady as unknown as React.ComponentProps<
+          typeof ReactECharts
+        >["onChartReady"]
+      }
       {...props}
     />
   );

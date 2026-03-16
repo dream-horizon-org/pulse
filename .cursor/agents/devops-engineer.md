@@ -17,7 +17,7 @@ Services on `pulse-network` bridge:
 
 **Infrastructure**: mysql (3307), clickhouse (8123/9000), openfga (8180/8181/3001)
 **Init Containers**: openfga-migrate, openfga-init, clickhouse-init (run-once)
-**Data Pipeline**: otel-collector (4317/4318 → ClickHouse), vector (14317/14318 → S3)
+**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Vector (14317/14318 → S3) is currently disabled in docker-compose.
 **Application**: pulse-server (8080), pulse-ui (3000), pulse-alerts-cron (4000)
 
 **Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.

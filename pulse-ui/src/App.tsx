@@ -16,6 +16,7 @@ import { AppContextProvider } from "./contexts";
 import "@mantine/dates/styles.css";
 import { useEffect } from "react";
 import { initGA, logPageView } from "./helpers/googleAnalytics";
+import { SessionReplayFilterProvider } from "./contexts/SessionReplayFilterContext";
 
 export default function App() {
   useEffect(() => {
@@ -25,26 +26,28 @@ export default function App() {
   return (
     <MantineProvider theme={theme}>
       <Notifications position="top-center" />
-      <Router basename={process.env.PUBLIC_URL || '/'}>
+      <Router basename={process.env.PUBLIC_URL || "/"}>
         <PageTracker />
         <QueryClientProvider client={queryClient}>
-          <AppContextProvider>
-            <Layout>
-              <Routes>
-                {Object.entries(ROUTES).map(([_, value]) => {
-                  const Component = value.element;
-                  return (
-                    <Route
-                      key={value.key}
-                      path={value.path}
-                      element={<Component />}
-                    />
-                  );
-                })}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
-          </AppContextProvider>
+          <SessionReplayFilterProvider>
+            <AppContextProvider>
+              <Layout>
+                <Routes>
+                  {Object.entries(ROUTES).map(([_, value]) => {
+                    const Component = value.element;
+                    return (
+                      <Route
+                        key={value.key}
+                        path={value.path}
+                        element={<Component />}
+                      />
+                    );
+                  })}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Layout>
+            </AppContextProvider>
+          </SessionReplayFilterProvider>
         </QueryClientProvider>
       </Router>
     </MantineProvider>

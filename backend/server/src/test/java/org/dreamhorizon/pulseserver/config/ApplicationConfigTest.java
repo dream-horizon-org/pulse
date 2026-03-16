@@ -86,9 +86,14 @@ class ApplicationConfigTest {
         "webhook",
         "interactionPath",
         "interactionAsset",
-            "replayApiBaseUrl",
         "key",
-        "tncS3Bucket"
+        "tncS3Bucket",
+        "replayApiBaseUrl",
+        "sessionReplayBucket",
+        "sessionReplayEndpoint",
+        "sessionReplayRegion",
+        "sessionReplayAccessKey",
+        "sessionReplaySecretKey"
     );
     assertNotNull(config);
     assertEquals("cronUrl", config.getCronManagerBaseUrl());

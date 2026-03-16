@@ -66,7 +66,7 @@ internal object PulseSdkConfigRefresher {
         endpointBaseUrl: String,
     ): String =
         configEndpointUrl
-            ?: "${PulseNetworkingUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
+            ?: "http://10.0.2.2:8080/v1/configs/active"
 
     private const val TAG = "PulseSdkConfigRefresher"
 }

@@ -68,7 +68,7 @@ function buildGlobalAttributesLambda(attributes: PulseAttributes): string {
 
 export function buildPulseInitializationCode(options: {
   endpointBaseUrl: string;
-  projectId: string;
+  apiKey: string;
   dataCollectionState?: PulsePluginProps['dataCollectionState'];
   endpointHeaders?: Record<string, string>;
   configEndpointUrl?: string;
@@ -77,7 +77,7 @@ export function buildPulseInitializationCode(options: {
 }): string {
   const {
     endpointBaseUrl,
-    projectId,
+    apiKey,
     dataCollectionState,
     endpointHeaders,
     configEndpointUrl,
@@ -86,7 +86,7 @@ export function buildPulseInitializationCode(options: {
   } = options;
   const params: string[] = [];
 
-  params.push(`projectId = "${projectId}"`);
+  params.push(`apiKey = "${apiKey}"`);
 
   params.push(
     `dataCollectionState = PulseDataCollectionConsent.${dataCollectionState ?? 'PENDING'}`

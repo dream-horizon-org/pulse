@@ -11,9 +11,13 @@ import {
   Paper,
   Badge,
   Group,
-  Space,
 } from "@mantine/core";
-import { IconSquareRoundedX, IconBuilding, IconFolder, IconCheck } from "@tabler/icons-react";
+import {
+  IconSquareRoundedX,
+  IconBuilding,
+  IconFolder,
+  IconCheck,
+} from "@tabler/icons-react";
 import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
 import { useCompleteOnboarding } from "../../hooks";
@@ -24,8 +28,6 @@ import { showNotification } from "../../helpers/showNotification";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { useMantineTheme } from "@mantine/core";
 import { useTenantContext, useProjectContext } from "../../contexts";
-import { useGetTncStatus } from "../../hooks/useGetTncStatus";
-import { TncAcceptance } from "../TncAcceptance";
 
 interface OnboardingUserData {
   userId: string;
@@ -39,7 +41,7 @@ export function Onboarding() {
   const theme = useMantineTheme();
   const { setTenantInfo, addProject } = useTenantContext();
   const { setProject } = useProjectContext();
-  
+
   const [userData, setUserData] = useState<OnboardingUserData | null>(null);
   const [organizationName, setOrganizationName] = useState("");
   const [projectName, setProjectName] = useState("");
@@ -51,15 +53,15 @@ export function Onboarding() {
 
   useEffect(() => {
     // Load user data from sessionStorage
-    const storedData = sessionStorage.getItem('onboarding_user');
-    const firebaseToken = sessionStorage.getItem('firebase_token');
-    
+    const storedData = sessionStorage.getItem("onboarding_user");
+    const firebaseToken = sessionStorage.getItem("firebase_token");
+
     if (!storedData || !firebaseToken) {
       // No onboarding data - redirect to login
       navigate(ROUTES.LOGIN.basePath);
       return;
     }
-    
+
     try {
       const parsed = JSON.parse(storedData);
       setUserData({ ...parsed, firebaseToken });
@@ -70,23 +72,23 @@ export function Onboarding() {
 
   const validateForm = (): boolean => {
     const newErrors: { org?: string; project?: string } = {};
-    
+
     if (!organizationName.trim()) {
       newErrors.org = "Organization name is required";
     }
     if (!projectName.trim()) {
       newErrors.project = "Project name is required";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm() || !userData?.firebaseToken) return;
-    
+
     onboardingMutation.mutate(
       {
         request: {
@@ -100,18 +102,18 @@ export function Onboarding() {
         onSuccess: async (response) => {
           if (response?.data) {
             const data = response.data;
-            
+
             // Set cookies with auth tokens only
             await setCookiesAfterAuthentication(data);
-            
+
             // Set tenant context
             setTenantInfo({
               tenantId: data.tenantId,
               tenantName: data.tenantName,
-              userRole: 'admin',
-              tier: data.tier || 'free',
+              userRole: "admin",
+              tier: data.tier || "free",
             });
-            
+
             // Set project context
             if (data.projectId && data.projectName) {
               setProject({
@@ -121,40 +123,48 @@ export function Onboarding() {
                 isActive: true,
                 plan: TIERS.FREE,
               });
-              
+
               // Add project to tenant's projects list
               addProject({
                 projectId: data.projectId,
                 name: data.projectName,
-                description: projectDescription.trim() || '',
+                description: projectDescription.trim() || "",
                 isActive: true,
                 role: PROJECT_ROLES.ADMIN,
               });
             }
-            
+
             // Clear sessionStorage
-            sessionStorage.removeItem('onboarding_user');
-            sessionStorage.removeItem('firebase_token');
-            
+            sessionStorage.removeItem("onboarding_user");
+            sessionStorage.removeItem("firebase_token");
+
             // Navigate to project-scoped onboarding success page
-            navigate(ROUTES.PROJECT_ONBOARDING_SUCCESS.basePath.replace(':projectId', data.projectId), {
-              state: {
-                projectId: data.projectId,
-                projectName: data.projectName,
-                projectApiKey: data.projectApiKey,
-              }
-            });
+            navigate(
+              ROUTES.PROJECT_ONBOARDING_SUCCESS.basePath.replace(
+                ":projectId",
+                data.projectId,
+              ),
+              {
+                state: {
+                  projectId: data.projectId,
+                  projectName: data.projectName,
+                  projectApiKey: data.projectApiKey,
+                },
+              },
+            );
           }
         },
         onError: (error) => {
           showNotification(
             COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
-            error instanceof Error ? error.message : 'Onboarding failed. Please try again.',
+            error instanceof Error
+              ? error.message
+              : "Onboarding failed. Please try again.",
             <IconSquareRoundedX />,
-            theme.colors.red[6]
+            theme.colors.red[6],
           );
         },
-      }
+      },
     );
   };
 
@@ -181,13 +191,21 @@ export function Onboarding() {
           <form onSubmit={handleSubmit}>
             <Stack gap="xl">
               {/* Step 1: Organization */}
-              <Paper className={classes.stepSection} shadow="sm" p="xl" radius="md">
+              <Paper
+                className={classes.stepSection}
+                shadow="sm"
+                p="xl"
+                radius="md"
+              >
                 <Group gap="sm" mb="md">
-                  <Badge 
-                    size="lg" 
-                    circle 
+                  <Badge
+                    size="lg"
+                    circle
                     variant="filled"
-                    style={{ background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)" }}
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                    }}
                   >
                     1
                   </Badge>
@@ -195,12 +213,18 @@ export function Onboarding() {
                     Create Your Organization
                   </Text>
                   {organizationName.trim() && (
-                    <IconCheck size={20} style={{ color: '#0ec9c2' }} />
+                    <IconCheck size={20} style={{ color: "#0ec9c2" }} />
                   )}
                 </Group>
-                
-                <Text size="sm" c="dimmed" mb="lg" className={classes.stepDescription}>
-                  Your organization represents your company or team. You can invite members and manage multiple projects within it.
+
+                <Text
+                  size="sm"
+                  c="dimmed"
+                  mb="lg"
+                  className={classes.stepDescription}
+                >
+                  Your organization represents your company or team. You can
+                  invite members and manage multiple projects within it.
                 </Text>
 
                 <TextInput
@@ -217,22 +241,25 @@ export function Onboarding() {
               </Paper>
 
               {/* Step 2: Project */}
-              <Paper 
-                className={classes.stepSection} 
-                shadow="sm" 
-                p="xl" 
+              <Paper
+                className={classes.stepSection}
+                shadow="sm"
+                p="xl"
                 radius="md"
-                style={{ 
+                style={{
                   opacity: organizationName.trim() ? 1 : 0.7,
-                  transition: 'opacity 0.3s ease'
+                  transition: "opacity 0.3s ease",
                 }}
               >
                 <Group gap="sm" mb="md">
-                  <Badge 
-                    size="lg" 
-                    circle 
+                  <Badge
+                    size="lg"
+                    circle
                     variant="filled"
-                    style={{ background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)" }}
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                    }}
                   >
                     2
                   </Badge>
@@ -240,12 +267,18 @@ export function Onboarding() {
                     Create Your First Project
                   </Text>
                   {projectName.trim() && (
-                    <IconCheck size={20} style={{ color: '#0ec9c2' }} />
+                    <IconCheck size={20} style={{ color: "#0ec9c2" }} />
                   )}
                 </Group>
-                
-                <Text size="sm" c="dimmed" mb="lg" className={classes.stepDescription}>
-                  Projects live inside your organization. Each project tracks a specific application or service.
+
+                <Text
+                  size="sm"
+                  c="dimmed"
+                  mb="lg"
+                  className={classes.stepDescription}
+                >
+                  Projects live inside your organization. Each project tracks a
+                  specific application or service.
                 </Text>
 
                 <Stack gap="md">
@@ -282,11 +315,14 @@ export function Onboarding() {
                 disabled={isSubmitting}
                 fullWidth
                 style={{
-                  background: "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
+                  background:
+                    "linear-gradient(135deg, #0ec9c2 0%, #0ba09a 100%)",
                   marginTop: "1rem",
                 }}
               >
-                {isSubmitting ? "Setting up..." : "Complete Setup & Get Started"}
+                {isSubmitting
+                  ? "Setting up..."
+                  : "Complete Setup & Get Started"}
               </Button>
             </Stack>
           </form>

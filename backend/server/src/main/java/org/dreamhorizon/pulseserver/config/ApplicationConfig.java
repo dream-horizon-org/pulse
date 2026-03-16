@@ -35,4 +35,9 @@ public class ApplicationConfig {
   public String encryptionMasterKey;
   public String tncS3BucketName;
   public String replayApiBaseUrl;
+  public String sessionReplayS3Bucket;
+  public String sessionReplayS3Endpoint;
+  public String sessionReplayS3Region;
+  public String sessionReplayS3AccessKeyId;
+  public String sessionReplayS3SecretAccessKey;
 }
