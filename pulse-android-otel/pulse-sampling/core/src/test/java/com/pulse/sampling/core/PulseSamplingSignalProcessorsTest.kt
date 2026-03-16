@@ -18,6 +18,8 @@ import com.pulse.utils.createSpanData
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import io.opentelemetry.sdk.testing.assertj.DoublePointAssert
 import io.opentelemetry.sdk.testing.assertj.DoubleSumAssert
@@ -943,7 +945,7 @@ class PulseSamplingSignalProcessorsTest {
                     listOf(
                         PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                             name = "1",
-                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
+                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(condition = attributeMatcher),
                             condition =
                                 PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                     name = ".*",
@@ -977,7 +979,7 @@ class PulseSamplingSignalProcessorsTest {
                     listOf(
                         PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                             name = "1",
-                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
+                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(condition = attributeMatcher),
                             condition =
                                 PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                     name = ".*",
@@ -1063,6 +1065,116 @@ class PulseSamplingSignalProcessorsTest {
         }
 
         @Nested
+        inner class `Attributes To Pick` {
+            private val metricData = PulseSdkConfigFakeUtils.createFakeCounter()
+
+            private val attributesToPick =
+                listOf(
+                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                        name = ".*",
+                        props =
+                            setOf(
+                                PulseSdkConfigFakeUtils.createFakeProp("env", null),
+                                PulseSdkConfigFakeUtils.createFakeProp("region", null),
+                            ),
+                    ),
+                )
+            private val expectedAttrs =
+                Attributes.of(
+                    AttributeKey.stringKey("env"),
+                    "prod",
+                    AttributeKey.stringKey("region"),
+                    "eu-west",
+                )
+
+            @Test
+            fun `in span, emitted metric carries only picked attributes`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "span_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.TRACES),
+                                ),
+                            data = metricData,
+                            attributesToPick = attributesToPick,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(
+                    listOf(
+                        createSpanData(
+                            "api_span",
+                            mapOf(
+                                "env" to "prod",
+                                "region" to "eu-west",
+                                "internal_key" to "should_not_appear",
+                            ),
+                        ),
+                    ),
+                )
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("span_count")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert ->
+                        sum.hasPointsSatisfying(
+                            { pt: LongPointAssert -> pt.hasValue(1L).hasAttributes(expectedAttrs) },
+                        )
+                    }
+            }
+
+            @Test
+            fun `in log, emitted metric carries only picked attributes`() {
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "log_count",
+                            target = PulseMetricsToAddTarget.Name(type = "name"),
+                            condition =
+                                PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                    name = ".*",
+                                    scopes = setOf(PulseSignalScope.LOGS),
+                                ),
+                            data = metricData,
+                            attributesToPick = attributesToPick,
+                        ),
+                    )
+                val sampledLogExporter = createSampledLogExporter(metricsToAdd)
+                sampledLogExporter.export(
+                    listOf(
+                        createLogRecordData(
+                            "error_log",
+                            mapOf(
+                                "env" to "prod",
+                                "region" to "eu-west",
+                                "internal_key" to "should_not_appear",
+                            ),
+                        ),
+                    ),
+                )
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("log_count")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert ->
+                        sum.hasPointsSatisfying(
+                            { pt: LongPointAssert -> pt.hasValue(1L).hasAttributes(expectedAttrs) },
+                        )
+                    }
+            }
+        }
+
+        @Nested
         inner class Sum {
             @Nested
             inner class `without fraction` {
@@ -1112,7 +1224,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "1",
-                                target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
+                                target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(condition = attributeMatcher),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1146,7 +1258,7 @@ class PulseSamplingSignalProcessorsTest {
                         listOf(
                             PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
                                 name = "1",
-                                target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(matcher = attributeMatcher),
+                                target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(condition = attributeMatcher),
                                 condition =
                                     PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                         name = ".*",
@@ -1615,7 +1727,7 @@ class PulseSamplingSignalProcessorsTest {
                             name = "api_time",
                             target =
                                 PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(
-                                    matcher = attributeMatcher,
+                                    condition = attributeMatcher,
                                     shouldAddPropNameAsSuffix = true,
                                 ),
                             condition =
@@ -1652,7 +1764,7 @@ class PulseSamplingSignalProcessorsTest {
                             name = "api_time",
                             target =
                                 PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(
-                                    matcher = attributeMatcher,
+                                    condition = attributeMatcher,
                                     shouldAddPropNameAsSuffix = false,
                                 ),
                             condition =
@@ -1760,7 +1872,7 @@ class PulseSamplingSignalProcessorsTest {
                             name = "api_latency",
                             target =
                                 PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(
-                                    matcher =
+                                    condition =
                                         PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                             name = ".*",
                                             props = setOf(PulseSdkConfigFakeUtils.createFakeProp("response_time_ms", ".*")),
