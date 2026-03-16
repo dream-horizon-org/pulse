@@ -60,7 +60,8 @@ export class DataQueryMockGeneratorV2 {
     const sessionIdFilter = filters?.find(
       (f) => f.field === "SessionId" && f.operator === "EQ",
     );
-    const isSessionTimelineQuery = !!sessionIdFilter && !hasGroupBy && !hasTimeBucket;
+    const isSessionTimelineQuery =
+      !!sessionIdFilter && !hasGroupBy && !hasTimeBucket;
 
     // Check if this is a Span/Log Details query (TraceId + SpanId filter with toJSONString attributes)
     const traceIdFilter = filters?.find(
@@ -70,11 +71,17 @@ export class DataQueryMockGeneratorV2 {
       (f) => f.field === "SpanId" && f.operator === "EQ",
     );
     const hasJsonAttributes = select.some(
-      (s) => s.function === "CUSTOM" && 
-        s.param?.expression?.includes("toJSONString")
+      (s) =>
+        s.function === "CUSTOM" &&
+        s.param?.expression?.includes("toJSONString"),
     );
-    const isSpanDetailsQuery = !!traceIdFilter && !!spanIdFilter && hasJsonAttributes && limit === 1;
-    const isLogDetailsQuery = requestBody.dataType === "LOGS" && !!traceIdFilter && hasJsonAttributes && limit === 1;
+    const isSpanDetailsQuery =
+      !!traceIdFilter && !!spanIdFilter && hasJsonAttributes && limit === 1;
+    const isLogDetailsQuery =
+      requestBody.dataType === "LOGS" &&
+      !!traceIdFilter &&
+      hasJsonAttributes &&
+      limit === 1;
 
     // Check if this is an exceptions query
     const isExceptionsQuery = requestBody.dataType === "EXCEPTIONS";
@@ -239,25 +246,24 @@ export class DataQueryMockGeneratorV2 {
       return response;
     } else if (hasGroupBy) {
       // Check if this is a network query (has network filter)
-      const hasNetworkFilter = filters?.some(
-        (f) => {
-          const matches = f.field === "PulseType" &&
-            f.operator === "LIKE" &&
-            Array.isArray(f.value) &&
-            f.value
-              .map((v) => String(v).toLowerCase())
-              .some((v: string) => v.includes("network"));
-          if (f.field === "PulseType") {
-            console.log("[DataQueryMockV2] PulseType filter check:", {
-              field: f.field,
-              operator: f.operator,
-              value: f.value,
-              matches,
-            });
-          }
-          return matches;
-        },
-      );
+      const hasNetworkFilter = filters?.some((f) => {
+        const matches =
+          f.field === "PulseType" &&
+          f.operator === "LIKE" &&
+          Array.isArray(f.value) &&
+          f.value
+            .map((v) => String(v).toLowerCase())
+            .some((v: string) => v.includes("network"));
+        if (f.field === "PulseType") {
+          console.log("[DataQueryMockV2] PulseType filter check:", {
+            field: f.field,
+            operator: f.operator,
+            value: f.value,
+            matches,
+          });
+        }
+        return matches;
+      });
 
       // Check if this is a network ERROR BREAKDOWN query (groups by status_code/error_type)
       // This must be checked FIRST because it also has method/url filters
@@ -288,7 +294,8 @@ export class DataQueryMockGeneratorV2 {
       const isMethodDistributionQuery =
         hasNetworkFilter &&
         urlFilter &&
-        (groupBy?.includes("http_method") || groupBy?.includes("operation_type")) &&
+        (groupBy?.includes("http_method") ||
+          groupBy?.includes("operation_type")) &&
         !groupBy?.includes("status_code") &&
         !groupBy?.includes("method") &&
         !groupBy?.includes("url");
@@ -371,7 +378,8 @@ export class DataQueryMockGeneratorV2 {
 
       // Handle status code distribution query (for StatusCodeDistribution component)
       if (isStatusCodeDistributionQuery) {
-        const response = this.generateStatusCodeDistributionResponse(requestBody);
+        const response =
+          this.generateStatusCodeDistributionResponse(requestBody);
         console.log(
           "[DataQueryMockV2] Generated status code distribution response:",
           response.rows.length,
@@ -393,7 +401,8 @@ export class DataQueryMockGeneratorV2 {
 
       // Handle network error breakdown query FIRST (has method/url filters but groups by status_code)
       if (isNetworkErrorBreakdownQuery) {
-        const response = this.generateNetworkErrorBreakdownResponse(requestBody);
+        const response =
+          this.generateNetworkErrorBreakdownResponse(requestBody);
         console.log(
           "[DataQueryMockV2] Generated network error breakdown response:",
           response.rows.length,
@@ -530,7 +539,7 @@ export class DataQueryMockGeneratorV2 {
     // Get groupBy values if any (for screen_name, etc.)
     const groupByFields = requestBody.groupBy || [];
     const groupByValues: Record<string, string> = {};
-    
+
     // Extract groupBy field values from filters or use defaults
     groupByFields.forEach((groupField) => {
       if (groupField !== "t1") {
@@ -554,7 +563,7 @@ export class DataQueryMockGeneratorV2 {
       select.forEach((selectField) => {
         // Get groupValue for this field if it's a groupBy field
         const groupValue = groupByValues[selectField.alias] || undefined;
-        
+
         const value = this.generateValueForFunction(
           selectField.function,
           timestamp,
@@ -816,18 +825,16 @@ export class DataQueryMockGeneratorV2 {
     }
 
     // Parse ADDITIONAL filters for event type filtering
-    const additionalFilter = filters?.find(
-      (f) => f.operator === "ADDITIONAL"
-    );
-    
+    const additionalFilter = filters?.find((f) => f.operator === "ADDITIONAL");
+
     // Extract which event types are being filtered
     const eventTypeFilters: Set<string> = new Set();
     let hasErrorFilter = false;
     let hasCompletedFilter = false;
-    
+
     if (additionalFilter && Array.isArray(additionalFilter.value)) {
       const filterExpression = String(additionalFilter.value[0] || "");
-      
+
       // Check for specific event type filters
       if (filterExpression.includes("device.crash")) {
         eventTypeFilters.add("crash");
@@ -848,9 +855,10 @@ export class DataQueryMockGeneratorV2 {
         hasCompletedFilter = true;
       }
     }
-    
-    const hasEventTypeFilter = eventTypeFilters.size > 0 || hasErrorFilter || hasCompletedFilter;
-    
+
+    const hasEventTypeFilter =
+      eventTypeFilters.size > 0 || hasErrorFilter || hasCompletedFilter;
+
     console.log("[DataQueryMockV2] Event type filters:", {
       eventTypeFilters: Array.from(eventTypeFilters),
       hasErrorFilter,
@@ -991,7 +999,7 @@ export class DataQueryMockGeneratorV2 {
       // For SessionReplays, generate events per session
       const rand = Math.random();
       const events: string[] = [];
-      
+
       // Determine StatusCode for this row (used for error/completed filtering)
       let statusCode = "Ok";
 
@@ -999,11 +1007,11 @@ export class DataQueryMockGeneratorV2 {
       if (hasEventTypeFilter) {
         // When filters are active, generate data that matches the selected filters
         const filterArray = Array.from(eventTypeFilters);
-        
+
         if (filterArray.length > 0) {
           // Cycle through the event type filters to distribute them evenly
           const selectedFilter = filterArray[i % filterArray.length];
-          
+
           switch (selectedFilter) {
             case "crash":
               events.push("device.crash");
@@ -1021,7 +1029,7 @@ export class DataQueryMockGeneratorV2 {
               break;
           }
         }
-        
+
         // Handle error/completed filters
         if (hasErrorFilter && !hasCompletedFilter) {
           // Only errors - ensure StatusCode is Error
@@ -1073,7 +1081,7 @@ export class DataQueryMockGeneratorV2 {
             events.push("non_fatal");
             events.push("app.jank.frozen");
           }
-        } else if (rand < 0.30) {
+        } else if (rand < 0.3) {
           // P2: device.anr
           events.push("device.anr");
           statusCode = "Error";
@@ -1087,10 +1095,10 @@ export class DataQueryMockGeneratorV2 {
           if (hasMultipleEvents) {
             events.push("app.jank.frozen");
           }
-        } else if (rand < 0.60) {
+        } else if (rand < 0.6) {
           // P4: app.jank.frozen (lowest priority event)
           events.push("app.jank.frozen");
-        } else if (rand < 0.70) {
+        } else if (rand < 0.7) {
           // Error status without specific event
           statusCode = "Error";
         } else {
@@ -1319,14 +1327,22 @@ export class DataQueryMockGeneratorV2 {
 
     if (dataType === "TRACES") {
       // Generate trace spans for session timeline - create a realistic span hierarchy
-      const traceSpans = this.generateSessionTraceSpans(sessionId, startTime, sessionDurationMs);
-      
-      console.log("[DataQueryMockV2] Generated", traceSpans.length, "trace spans");
-      
+      const traceSpans = this.generateSessionTraceSpans(
+        sessionId,
+        startTime,
+        sessionDurationMs,
+      );
+
+      console.log(
+        "[DataQueryMockV2] Generated",
+        traceSpans.length,
+        "trace spans",
+      );
+
       for (const span of traceSpans) {
         const row: string[] = select.map((selectField) => {
           const alias = selectField.alias?.toLowerCase() || selectField.alias;
-          
+
           switch (alias) {
             case "traceid":
               return span.traceId;
@@ -1357,7 +1373,7 @@ export class DataQueryMockGeneratorV2 {
     } else if (dataType === "LOGS") {
       // Generate more logs for the session - 25-40 logs
       const numLogs = 25 + Math.floor(Math.random() * 15);
-      
+
       const logBodies = [
         "Application initialized",
         "User session started",
@@ -1397,15 +1413,27 @@ export class DataQueryMockGeneratorV2 {
         "Feed updated with 5 new items",
       ];
 
-      const severities = ["INFO", "DEBUG", "INFO", "DEBUG", "INFO", "WARN", "INFO", "DEBUG"];
+      const severities = [
+        "INFO",
+        "DEBUG",
+        "INFO",
+        "DEBUG",
+        "INFO",
+        "WARN",
+        "INFO",
+        "DEBUG",
+      ];
 
       for (let i = 0; i < numLogs; i++) {
         const progress = i / (numLogs - 1);
-        const logTime = startTime.add(progress * sessionDurationMs * 0.95, "millisecond");
-        
+        const logTime = startTime.add(
+          progress * sessionDurationMs * 0.95,
+          "millisecond",
+        );
+
         const row: string[] = select.map((selectField) => {
           const alias = selectField.alias?.toLowerCase() || selectField.alias;
-          
+
           switch (alias) {
             case "traceid":
               return `${sessionId}-trace-${Math.floor(i / 3)}`;
@@ -1428,22 +1456,47 @@ export class DataQueryMockGeneratorV2 {
     } else if (dataType === "EXCEPTIONS") {
       // Always generate 1-2 exceptions for demo visualization
       const numExceptions = 1 + Math.floor(Math.random() * 2);
-      
+
       const exceptionDetails = [
-        { type: "non_fatal", title: "NetworkTimeoutException", message: "Connection timed out after 30000ms", screen: "HomeScreen" },
-        { type: "crash", title: "NullPointerException", message: "Cannot invoke method 'getString()' on null object reference", screen: "ProfileScreen" },
-        { type: "anr", title: "Application Not Responding", message: "Input dispatching timed out (Waiting to send non-key event)", screen: "CheckoutScreen" },
-        { type: "non_fatal", title: "OutOfMemoryError", message: "Failed to allocate 4194304 bytes", screen: "ImageGalleryScreen" },
+        {
+          type: "non_fatal",
+          title: "NetworkTimeoutException",
+          message: "Connection timed out after 30000ms",
+          screen: "HomeScreen",
+        },
+        {
+          type: "crash",
+          title: "NullPointerException",
+          message:
+            "Cannot invoke method 'getString()' on null object reference",
+          screen: "ProfileScreen",
+        },
+        {
+          type: "anr",
+          title: "Application Not Responding",
+          message:
+            "Input dispatching timed out (Waiting to send non-key event)",
+          screen: "CheckoutScreen",
+        },
+        {
+          type: "non_fatal",
+          title: "OutOfMemoryError",
+          message: "Failed to allocate 4194304 bytes",
+          screen: "ImageGalleryScreen",
+        },
       ];
 
       for (let i = 0; i < numExceptions; i++) {
-        const progress = 0.3 + (i * 0.3); // Space exceptions throughout session
-        const exceptionTime = startTime.add(progress * sessionDurationMs, "millisecond");
+        const progress = 0.3 + i * 0.3; // Space exceptions throughout session
+        const exceptionTime = startTime.add(
+          progress * sessionDurationMs,
+          "millisecond",
+        );
         const exception = exceptionDetails[i % exceptionDetails.length];
-        
+
         const row: string[] = select.map((selectField) => {
           const alias = selectField.alias?.toLowerCase() || selectField.alias;
-          
+
           switch (alias) {
             case "timestamp":
               return exceptionTime.toISOString();
@@ -1514,8 +1567,15 @@ export class DataQueryMockGeneratorV2 {
     }> = [];
 
     // Screen names for realistic navigation flow
-    const screens = ["HomeScreen", "ProfileScreen", "SettingsScreen", "SearchScreen", "DetailsScreen", "CheckoutScreen"];
-    
+    const screens = [
+      "HomeScreen",
+      "ProfileScreen",
+      "SettingsScreen",
+      "SearchScreen",
+      "DetailsScreen",
+      "CheckoutScreen",
+    ];
+
     // Define rich interaction templates with nested operations
     const interactionTemplates = [
       {
@@ -1523,24 +1583,44 @@ export class DataQueryMockGeneratorV2 {
         pulseType: PulseType.APP_START,
         baseDuration: 2500,
         children: [
-          { name: "SDK Initialization", type: "internal", duration: 150, children: [
-            { name: "Config Load", type: "internal", duration: 30 },
-            { name: "Analytics Init", type: "internal", duration: 50 },
-            { name: "Crash Reporter Init", type: "internal", duration: 40 },
-          ]},
-          { name: "Database Migration", type: "database", duration: 200, children: [
-            { name: "Schema Check", type: "database", duration: 50 },
-            { name: "Run Migrations", type: "database", duration: 120 },
-          ]},
-          { name: "User Session Restore", type: "internal", duration: 300, children: [
-            { name: "Token Validation", type: "network", duration: 180 },
-            { name: "Profile Fetch", type: "network", duration: 100 },
-          ]},
-          { name: "Initial Screen Render", type: "render", duration: 400, children: [
-            { name: "Layout Inflation", type: "render", duration: 80 },
-            { name: "View Binding", type: "render", duration: 60 },
-            { name: "Data Binding", type: "render", duration: 100 },
-          ]},
+          {
+            name: "SDK Initialization",
+            type: "internal",
+            duration: 150,
+            children: [
+              { name: "Config Load", type: "internal", duration: 30 },
+              { name: "Analytics Init", type: "internal", duration: 50 },
+              { name: "Crash Reporter Init", type: "internal", duration: 40 },
+            ],
+          },
+          {
+            name: "Database Migration",
+            type: "database",
+            duration: 200,
+            children: [
+              { name: "Schema Check", type: "database", duration: 50 },
+              { name: "Run Migrations", type: "database", duration: 120 },
+            ],
+          },
+          {
+            name: "User Session Restore",
+            type: "internal",
+            duration: 300,
+            children: [
+              { name: "Token Validation", type: "network", duration: 180 },
+              { name: "Profile Fetch", type: "network", duration: 100 },
+            ],
+          },
+          {
+            name: "Initial Screen Render",
+            type: "render",
+            duration: 400,
+            children: [
+              { name: "Layout Inflation", type: "render", duration: 80 },
+              { name: "View Binding", type: "render", duration: 60 },
+              { name: "Data Binding", type: "render", duration: 100 },
+            ],
+          },
         ],
       },
       {
@@ -1550,14 +1630,24 @@ export class DataQueryMockGeneratorV2 {
         screenName: true,
         children: [
           { name: "View Creation", type: "render", duration: 100 },
-          { name: "Data Fetch", type: "network", duration: 350, children: [
-            { name: "API Request", type: "network", duration: 280 },
-            { name: "Response Parse", type: "internal", duration: 50 },
-          ]},
-          { name: "Render Content", type: "render", duration: 200, children: [
-            { name: "RecyclerView Bind", type: "render", duration: 120 },
-            { name: "Image Decode", type: "internal", duration: 60 },
-          ]},
+          {
+            name: "Data Fetch",
+            type: "network",
+            duration: 350,
+            children: [
+              { name: "API Request", type: "network", duration: 280 },
+              { name: "Response Parse", type: "internal", duration: 50 },
+            ],
+          },
+          {
+            name: "Render Content",
+            type: "render",
+            duration: 200,
+            children: [
+              { name: "RecyclerView Bind", type: "render", duration: 120 },
+              { name: "Image Decode", type: "internal", duration: 60 },
+            ],
+          },
         ],
       },
       {
@@ -1567,11 +1657,16 @@ export class DataQueryMockGeneratorV2 {
         children: [
           { name: "Click Handler", type: "internal", duration: 20 },
           { name: "State Update", type: "internal", duration: 50 },
-          { name: "API Call", type: "network", duration: 250, children: [
-            { name: "Request Prepare", type: "internal", duration: 15 },
-            { name: "Network Request", type: "network", duration: 200 },
-            { name: "Response Handle", type: "internal", duration: 30 },
-          ]},
+          {
+            name: "API Call",
+            type: "network",
+            duration: 250,
+            children: [
+              { name: "Request Prepare", type: "internal", duration: 15 },
+              { name: "Network Request", type: "network", duration: 200 },
+              { name: "Response Handle", type: "internal", duration: 30 },
+            ],
+          },
           { name: "UI Update", type: "render", duration: 80 },
         ],
       },
@@ -1581,10 +1676,15 @@ export class DataQueryMockGeneratorV2 {
         baseDuration: 600,
         children: [
           { name: "Route Resolve", type: "internal", duration: 30 },
-          { name: "Screen Transition", type: "render", duration: 250, children: [
-            { name: "Exit Animation", type: "render", duration: 100 },
-            { name: "Enter Animation", type: "render", duration: 120 },
-          ]},
+          {
+            name: "Screen Transition",
+            type: "render",
+            duration: 250,
+            children: [
+              { name: "Exit Animation", type: "render", duration: 100 },
+              { name: "Enter Animation", type: "render", duration: 120 },
+            ],
+          },
           { name: "New Screen Init", type: "internal", duration: 150 },
           { name: "Data Prefetch", type: "network", duration: 170 },
         ],
@@ -1608,26 +1708,31 @@ export class DataQueryMockGeneratorV2 {
     // Generate 8-12 traces distributed across the session
     const numTraces = 8 + Math.floor(Math.random() * 5);
     const timeSlotSize = sessionDurationMs / numTraces;
-    
+
     for (let t = 0; t < numTraces; t++) {
       const traceId = this.generateHexString(32).toUpperCase();
       const template = interactionTemplates[t % interactionTemplates.length];
-      
+
       // Calculate trace start time with some randomness within the slot
       const slotStart = t * timeSlotSize;
       const randomOffset = Math.random() * (timeSlotSize * 0.3);
-      const traceStartTime = startTime.add(slotStart + randomOffset, "millisecond");
-      
+      const traceStartTime = startTime.add(
+        slotStart + randomOffset,
+        "millisecond",
+      );
+
       // Duration variation: 70-130% of base
       const durationMultiplier = 0.7 + Math.random() * 0.6;
-      const traceDuration = Math.floor(template.baseDuration * durationMultiplier);
-      
+      const traceDuration = Math.floor(
+        template.baseDuration * durationMultiplier,
+      );
+
       // Determine span name (add screen name for screen-related spans)
       let spanName = template.name;
       if (template.screenName) {
         spanName = `${screens[t % screens.length]} Load`;
       }
-      
+
       // Create root span
       const rootSpanId = this.generateHexString(16).toUpperCase();
       spans.push({
@@ -1642,10 +1747,10 @@ export class DataQueryMockGeneratorV2 {
         statusCode: Math.random() < 0.95 ? "OK" : "ERROR",
         pulseType: template.pulseType,
       });
-      
+
       // Create child spans recursively
       let childOffset = 5; // Start 5ms after parent
-      
+
       for (const child of template.children) {
         const childDuration = Math.floor(child.duration * durationMultiplier);
         this.addSpanWithChildren(
@@ -1661,7 +1766,9 @@ export class DataQueryMockGeneratorV2 {
     }
 
     // Sort spans by timestamp for proper visualization
-    spans.sort((a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf());
+    spans.sort(
+      (a, b) => dayjs(a.timestamp).valueOf() - dayjs(b.timestamp).valueOf(),
+    );
 
     return spans;
   }
@@ -1684,31 +1791,41 @@ export class DataQueryMockGeneratorV2 {
     }>,
     traceId: string,
     parentSpanId: string,
-    spanDef: { name: string; type: string; duration: number; children?: Array<{ name: string; type: string; duration: number; children?: any[] }> },
+    spanDef: {
+      name: string;
+      type: string;
+      duration: number;
+      children?: Array<{
+        name: string;
+        type: string;
+        duration: number;
+        children?: any[];
+      }>;
+    },
     startTime: dayjs.Dayjs,
     durationMultiplier: number,
   ): void {
     const spanId = this.generateHexString(16).toUpperCase();
     const duration = Math.floor(spanDef.duration * durationMultiplier);
-    
+
     // Map type to spanKind
     const spanKindMap: Record<string, string> = {
-      "internal": "INTERNAL",
-      "network": "CLIENT",
-      "database": "CLIENT",
-      "render": "INTERNAL",
-      "cache": "INTERNAL",
+      internal: "INTERNAL",
+      network: "CLIENT",
+      database: "CLIENT",
+      render: "INTERNAL",
+      cache: "INTERNAL",
     };
-    
+
     // Map type to pulseType
     const pulseTypeMap: Record<string, string> = {
-      "internal": "internal",
-      "network": "network.request",
-      "database": "database.query",
-      "render": "ui.render",
-      "cache": "cache.operation",
+      internal: "internal",
+      network: "network.request",
+      database: "database.query",
+      render: "ui.render",
+      cache: "cache.operation",
     };
-    
+
     spans.push({
       traceId,
       spanId,
@@ -1721,7 +1838,7 @@ export class DataQueryMockGeneratorV2 {
       statusCode: Math.random() < 0.92 ? "OK" : "ERROR",
       pulseType: pulseTypeMap[spanDef.type] || "internal",
     });
-    
+
     // Add children if present
     if (spanDef.children && spanDef.children.length > 0) {
       let childOffset = 3; // Small offset for child spans
@@ -1798,7 +1915,10 @@ export class DataQueryMockGeneratorV2 {
       {
         timestamp: now.subtract(100, "millisecond").toISOString(),
         name: "view.created",
-        attributes: { "view.class": "HomeViewController", "view.id": "home_root" },
+        attributes: {
+          "view.class": "HomeViewController",
+          "view.id": "home_root",
+        },
       },
       {
         timestamp: now.subtract(50, "millisecond").toISOString(),
@@ -1817,14 +1937,17 @@ export class DataQueryMockGeneratorV2 {
       {
         traceId: this.generateHexString(32).toUpperCase(),
         spanId: this.generateHexString(16).toUpperCase(),
-        attributes: { "link.type": "parent_request", "link.source": "api_gateway" },
+        attributes: {
+          "link.type": "parent_request",
+          "link.source": "api_gateway",
+        },
       },
     ];
 
     // Build the row based on select fields
     const row: string[] = select.map((selectField) => {
       const alias = selectField.alias?.toLowerCase() || selectField.alias;
-      
+
       switch (alias) {
         case "resourceattributes":
           return JSON.stringify(resourceAttributes);
@@ -1914,7 +2037,7 @@ export class DataQueryMockGeneratorV2 {
     // Build the row based on select fields
     const row: string[] = select.map((selectField) => {
       const alias = selectField.alias?.toLowerCase() || selectField.alias;
-      
+
       switch (alias) {
         case "resourceattributes":
           return JSON.stringify(resourceAttributes);
@@ -1927,7 +2050,9 @@ export class DataQueryMockGeneratorV2 {
         case "severitytext":
           return severities[randomIndex % severities.length];
         case "severitynumber":
-          return severityNumbers[randomIndex % severityNumbers.length].toString();
+          return severityNumbers[
+            randomIndex % severityNumbers.length
+          ].toString();
         default:
           return "";
       }
@@ -2049,7 +2174,12 @@ export class DataQueryMockGeneratorV2 {
 
       case "ANALYSED_FRAME":
         // Analysed frames - successfully processed frames (should be larger than frozen)
-        return this.randomCount(200, 500, interactionName, groupValue).toString();
+        return this.randomCount(
+          200,
+          500,
+          interactionName,
+          groupValue,
+        ).toString();
 
       case "ANR":
         return this.randomCount(3, 15, interactionName, groupValue).toString();
@@ -2077,17 +2207,32 @@ export class DataQueryMockGeneratorV2 {
       case "DURATION_P50":
         // Return latency in milliseconds (backend query already divides Duration by 1e6)
         // P50: 100-400ms
-        return this.randomLatency(100, 400, interactionName, groupValue).toString();
+        return this.randomLatency(
+          100,
+          400,
+          interactionName,
+          groupValue,
+        ).toString();
 
       case "DURATION_P95":
         // Return latency in milliseconds (backend query already divides Duration by 1e6)
         // P95: 400-1200ms
-        return this.randomLatency(400, 1200, interactionName, groupValue).toString();
+        return this.randomLatency(
+          400,
+          1200,
+          interactionName,
+          groupValue,
+        ).toString();
 
       case "DURATION_P99":
         // Return latency in milliseconds (backend query already divides Duration by 1e6)
         // P99: 800-2500ms
-        return this.randomLatency(800, 2500, interactionName, groupValue).toString();
+        return this.randomLatency(
+          800,
+          2500,
+          interactionName,
+          groupValue,
+        ).toString();
 
       case "NET_0":
         return this.randomCount(0, 2, interactionName, groupValue).toString();
@@ -2218,9 +2363,12 @@ export class DataQueryMockGeneratorV2 {
           }
         }
 
-        // Handle uniqCombinedIf for crash metrics (CrashMetricsStats component)
-        // These must come BEFORE uniqCombined handlers since they are more specific
-        if (expression.includes("uniqCombinedIf") && expression.includes("device.crash")) {
+        // Handle uniqCombined64If for crash metrics (CrashMetricsStats component)
+        // These must come BEFORE uniqCombined64 handlers since they are more specific
+        if (
+          expression.includes("uniqCombined64If") &&
+          expression.includes("device.crash")
+        ) {
           if (expression.includes("UserId")) {
             // Crash users: 1-2% of total users (80-240 out of 8000-12000)
             // This gives ~98-99% crash-free users rate
@@ -2243,8 +2391,11 @@ export class DataQueryMockGeneratorV2 {
           }
         }
 
-        // Handle uniqCombined(UserId) - total unique users (for crash metrics)
-        if (expression.includes("uniqCombined(UserId)") && !expression.includes("If")) {
+        // Handle uniqCombined64(nullIf(UserId, '')) - total unique users (for crash metrics)
+        if (
+          expression.includes("uniqCombined64(nullIf(UserId") &&
+          !expression.includes("64If")
+        ) {
           // Total unique users: 8000-12000
           // When used with crash metrics, this aligns with crash_users for ~98-99% crash-free rate
           return this.randomCount(
@@ -2255,8 +2406,11 @@ export class DataQueryMockGeneratorV2 {
           ).toString();
         }
 
-        // Handle uniqCombined(SessionId) - total sessions (for crash metrics)
-        if (expression.includes("uniqCombined(SessionId)") && !expression.includes("If")) {
+        // Handle uniqCombined64(nullIf(SessionId, '')) - total sessions (for crash metrics)
+        if (
+          expression.includes("uniqCombined64(nullIf(SessionId") &&
+          !expression.includes("64If")
+        ) {
           // Total sessions: 25000-50000
           // When used with crash metrics, this aligns with crash_sessions for ~99-99.5% crash-free rate
           return this.randomCount(
@@ -2268,14 +2422,12 @@ export class DataQueryMockGeneratorV2 {
         }
 
         // Handle countIf(StatusCode = 'ERROR') - error count for screens
-        if (expression.includes("countIf") && expression.includes("StatusCode")) {
+        if (
+          expression.includes("countIf") &&
+          expression.includes("StatusCode")
+        ) {
           // Realistic error count: 0-5% crash rate of ~100 sessions = 0-5 errors
-          return this.randomCount(
-            0,
-            5,
-            interactionName,
-            groupValue,
-          ).toString();
+          return this.randomCount(0, 5, interactionName, groupValue).toString();
         }
 
         // Default fallback for other CUSTOM expressions
@@ -2299,7 +2451,9 @@ export class DataQueryMockGeneratorV2 {
     let normalizedField = groupByField.toLowerCase();
 
     // Extract actual field name from SpanAttributes notation
-    if (normalizedField.includes(`spanattributes['${PulseType.SCREEN_NAME}']`)) {
+    if (
+      normalizedField.includes(`spanattributes['${PulseType.SCREEN_NAME}']`)
+    ) {
       normalizedField = "screen_name";
     }
     if (normalizedField.includes("spanattributes['http.url']")) {
@@ -2322,7 +2476,7 @@ export class DataQueryMockGeneratorV2 {
         "SettingsScreen",
         "NotificationsScreen",
       ];
-      
+
       // Check if there's a filter with specific screen names
       if (filters) {
         const screenNameFilter = filters.find(
@@ -2331,7 +2485,7 @@ export class DataQueryMockGeneratorV2 {
             f.field?.toLowerCase().includes("screen") ||
             f.field?.toLowerCase().includes("screen_name"),
         );
-        
+
         if (screenNameFilter && screenNameFilter.value) {
           const filterValues = Array.isArray(screenNameFilter.value)
             ? screenNameFilter.value
@@ -2343,7 +2497,7 @@ export class DataQueryMockGeneratorV2 {
           return filterValues.filter(Boolean);
         }
       }
-      
+
       console.log(
         "[DataQueryMockV2] Using predefined screen names:",
         screenNames,
@@ -2864,7 +3018,10 @@ export class DataQueryMockGeneratorV2 {
 
       // If not found, create a single entry with the requested method and url
       if (filteredApis.length === 0 && targetUrl) {
-        console.log("[DataQueryMockV2] Creating fallback API entry:", targetUrl);
+        console.log(
+          "[DataQueryMockV2] Creating fallback API entry:",
+          targetUrl,
+        );
         const fallbackApi =
           targetOperationName && targetOperationType
             ? {
@@ -2880,14 +3037,18 @@ export class DataQueryMockGeneratorV2 {
         filteredApis = [fallbackApi];
       }
 
-      console.log("[DataQueryMockV2] Filtered APIs count:", filteredApis.length);
+      console.log(
+        "[DataQueryMockV2] Filtered APIs count:",
+        filteredApis.length,
+      );
     }
 
     // For list query, we might need to filter by screen name if provided
     if (!isDetailQuery) {
       const screenNameFilter = filters?.find(
         (f) =>
-          f.field === `SpanAttributes['${PulseType.SCREEN_NAME}']` && f.operator === "EQ",
+          f.field === `SpanAttributes['${PulseType.SCREEN_NAME}']` &&
+          f.operator === "EQ",
       );
       if (screenNameFilter) {
         // In a real scenario, we'd filter by screen name, but for mock we'll return all
@@ -2911,12 +3072,16 @@ export class DataQueryMockGeneratorV2 {
         : "";
       if (searchName) {
         filteredApis = filteredApis.filter((api) =>
-          (api.operationName || "").toLowerCase().includes(searchName.replace(/%/g, "").toLowerCase()),
+          (api.operationName || "")
+            .toLowerCase()
+            .includes(searchName.replace(/%/g, "").toLowerCase()),
         );
       }
       if (searchType) {
         filteredApis = filteredApis.filter((api) =>
-          (api.operationType || "").toLowerCase().includes(searchType.replace(/%/g, "").toLowerCase()),
+          (api.operationType || "")
+            .toLowerCase()
+            .includes(searchType.replace(/%/g, "").toLowerCase()),
         );
       }
     }
@@ -2934,19 +3099,20 @@ export class DataQueryMockGeneratorV2 {
         api.method === "GET"
           ? this.randomCount(5000, 80000, apiSeed)
           : this.randomCount(1000, 25000, apiSeed);
-      
+
       // Success rate: 96-99.5% (realistic for production APIs)
       const successRate = 0.96 + (this.hashString(apiSeed) % 35) / 1000;
       const successCount = Math.floor(baseRequestCount * successRate);
-      
+
       // Response time in milliseconds
       const responseTimeMs =
         api.method === "GET"
           ? this.randomLatency(80, 400, apiSeed)
           : this.randomLatency(150, 800, apiSeed);
-      
+
       // Sessions: 15-40% of requests
-      const sessionRate = 0.15 + (this.hashString(apiSeed + "session") % 25) / 100;
+      const sessionRate =
+        0.15 + (this.hashString(apiSeed + "session") % 25) / 100;
       const sessionCount = Math.floor(baseRequestCount * sessionRate);
 
       console.log("[DataQueryMockV2] Generating row for API:", {
@@ -2989,19 +3155,28 @@ export class DataQueryMockGeneratorV2 {
           case "p50":
             // P50 latency in milliseconds (backend already converts Duration/1e6)
             // P50 is typically 50-70% of average response time
-            const p50Ms = Math.floor(responseTimeMs * (0.5 + (this.hashString(apiSeed + "p50") % 20) / 100));
+            const p50Ms = Math.floor(
+              responseTimeMs *
+                (0.5 + (this.hashString(apiSeed + "p50") % 20) / 100),
+            );
             row.push(p50Ms.toString());
             break;
           case "p95":
             // P95 latency in milliseconds (backend already converts Duration/1e6)
             // P95 is typically 180-280% of average response time
-            const p95Ms = Math.floor(responseTimeMs * (1.8 + (this.hashString(apiSeed + "p95") % 100) / 100));
+            const p95Ms = Math.floor(
+              responseTimeMs *
+                (1.8 + (this.hashString(apiSeed + "p95") % 100) / 100),
+            );
             row.push(p95Ms.toString());
             break;
           case "p99":
             // P99 latency in milliseconds (backend already converts Duration/1e6)
             // P99 is typically 250-450% of average response time
-            const p99Ms = Math.floor(responseTimeMs * (2.5 + (this.hashString(apiSeed + "p99") % 200) / 100));
+            const p99Ms = Math.floor(
+              responseTimeMs *
+                (2.5 + (this.hashString(apiSeed + "p99") % 200) / 100),
+            );
             row.push(p99Ms.toString());
             break;
           case "status_code":
@@ -3228,24 +3403,24 @@ export class DataQueryMockGeneratorV2 {
     // ~97-99% success (2xx/3xx), ~1-2% client errors (4xx), ~0.1-0.5% server errors (5xx)
     const statusCodeData = [
       // Success codes (97-99% of traffic)
-      { code: "200", weight: 0.72 },   // OK - most common
-      { code: "201", weight: 0.12 },   // Created
-      { code: "204", weight: 0.08 },   // No Content
-      { code: "304", weight: 0.05 },   // Not Modified (caching)
+      { code: "200", weight: 0.72 }, // OK - most common
+      { code: "201", weight: 0.12 }, // Created
+      { code: "204", weight: 0.08 }, // No Content
+      { code: "304", weight: 0.05 }, // Not Modified (caching)
       // Client errors (1-2% of traffic)
-      { code: "400", weight: 0.008 },  // Bad Request
-      { code: "401", weight: 0.005 },  // Unauthorized
-      { code: "403", weight: 0.003 },  // Forbidden
-      { code: "404", weight: 0.006 },  // Not Found
-      { code: "422", weight: 0.003 },  // Unprocessable Entity
-      { code: "429", weight: 0.002 },  // Too Many Requests
+      { code: "400", weight: 0.008 }, // Bad Request
+      { code: "401", weight: 0.005 }, // Unauthorized
+      { code: "403", weight: 0.003 }, // Forbidden
+      { code: "404", weight: 0.006 }, // Not Found
+      { code: "422", weight: 0.003 }, // Unprocessable Entity
+      { code: "429", weight: 0.002 }, // Too Many Requests
       // Server errors (0.1-0.5% of traffic)
-      { code: "500", weight: 0.002 },  // Internal Server Error
-      { code: "502", weight: 0.001 },  // Bad Gateway
+      { code: "500", weight: 0.002 }, // Internal Server Error
+      { code: "502", weight: 0.001 }, // Bad Gateway
       { code: "503", weight: 0.0008 }, // Service Unavailable
       { code: "504", weight: 0.0005 }, // Gateway Timeout
       // Connection errors (very rare)
-      { code: "0", weight: 0.0007 },   // Connection Error (no HTTP response)
+      { code: "0", weight: 0.0007 }, // Connection Error (no HTTP response)
     ];
 
     // Generate rows with realistic counts based on weights
@@ -3333,13 +3508,13 @@ export class DataQueryMockGeneratorV2 {
           { method: "SUBSCRIPTION", weight: 0.05 },
         ]
       : [
-          { method: "GET", weight: 0.52 },     // Most common for data fetching
-          { method: "POST", weight: 0.26 },    // For creating/submitting data
-          { method: "PUT", weight: 0.09 },     // For full updates
-          { method: "PATCH", weight: 0.065 },  // For partial updates
+          { method: "GET", weight: 0.52 }, // Most common for data fetching
+          { method: "POST", weight: 0.26 }, // For creating/submitting data
+          { method: "PUT", weight: 0.09 }, // For full updates
+          { method: "PATCH", weight: 0.065 }, // For partial updates
           { method: "DELETE", weight: 0.034 }, // For deletions
-          { method: "HEAD", weight: 0.01 },    // For checking resource existence
-          { method: "OPTIONS", weight: 0.006 },// CORS preflight requests
+          { method: "HEAD", weight: 0.01 }, // For checking resource existence
+          { method: "OPTIONS", weight: 0.006 }, // CORS preflight requests
         ];
 
     // Generate rows with realistic counts based on weights
@@ -3419,19 +3594,21 @@ export class DataQueryMockGeneratorV2 {
 
     // Generate consistent metrics based on URL seed
     const seed = this.hashString(targetUrl);
-    
+
     // Realistic total requests: 15,000 - 85,000 requests in the time period
     const totalRequests = 15000 + (seed % 70000);
-    
+
     // Realistic success rate: 96.5% - 99.8%
     const successRatePercent = 96.5 + (seed % 33) / 10;
-    const successRequests = Math.round(totalRequests * (successRatePercent / 100));
-    
+    const successRequests = Math.round(
+      totalRequests * (successRatePercent / 100),
+    );
+
     // Realistic response times (in nanoseconds, as Duration field stores nanoseconds)
     // Average response time: 120-450ms
     const avgResponseTimeMs = 120 + (seed % 330);
     const avgResponseTimeNs = avgResponseTimeMs * 1_000_000;
-    
+
     // Percentile response times
     // P50: 60-80% of average (faster)
     const p50Ms = Math.round(avgResponseTimeMs * (0.6 + (seed % 20) / 100));
@@ -3539,7 +3716,9 @@ export class DataQueryMockGeneratorV2 {
 
       // Realistic success rate: 96.5% - 99.9%
       const successRatePercent = 96.5 + (seed % 34) / 10;
-      const successRequests = Math.round(totalRequests * (successRatePercent / 100));
+      const successRequests = Math.round(
+        totalRequests * (successRatePercent / 100),
+      );
 
       // Realistic response times (in nanoseconds, as Duration field stores nanoseconds)
       // Average response time: 80-500ms
@@ -3547,7 +3726,7 @@ export class DataQueryMockGeneratorV2 {
       const avgResponseTimeNs = avgResponseTimeMs * 1_000_000;
 
       // Sessions: 10-30% of requests
-      const sessionRate = 0.10 + (seed % 20) / 100;
+      const sessionRate = 0.1 + (seed % 20) / 100;
       const sessionCount = Math.max(1, Math.round(totalRequests * sessionRate));
 
       // Percentile response times
@@ -3656,21 +3835,23 @@ export class DataQueryMockGeneratorV2 {
 
     // Base requests per bucket (total / number of buckets, adjusted for realistic per-bucket counts)
     const baseTotalRequests = 15000 + (seed % 70000);
-    const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
+    const requestsPerBucket = Math.round(
+      baseTotalRequests / Math.max(1, timePoints.length),
+    );
 
     // Status code categories with weights matching the distribution response
     // ~97-99% success (2xx/3xx), ~1-2% client errors (4xx), ~0.1-0.5% server errors (5xx)
     const statusCategories = [
-      { code: "200", weight: 0.72, variance: 0.2 },   // OK - most common
-      { code: "201", weight: 0.12, variance: 0.25 },  // Created
-      { code: "204", weight: 0.08, variance: 0.25 },  // No Content
-      { code: "304", weight: 0.05, variance: 0.3 },   // Not Modified (cache)
-      { code: "400", weight: 0.008, variance: 0.4 },  // Bad Request
+      { code: "200", weight: 0.72, variance: 0.2 }, // OK - most common
+      { code: "201", weight: 0.12, variance: 0.25 }, // Created
+      { code: "204", weight: 0.08, variance: 0.25 }, // No Content
+      { code: "304", weight: 0.05, variance: 0.3 }, // Not Modified (cache)
+      { code: "400", weight: 0.008, variance: 0.4 }, // Bad Request
       { code: "401", weight: 0.005, variance: 0.45 }, // Unauthorized
-      { code: "404", weight: 0.006, variance: 0.4 },  // Not Found
-      { code: "500", weight: 0.002, variance: 0.5 },  // Server Error (spiky)
+      { code: "404", weight: 0.006, variance: 0.4 }, // Not Found
+      { code: "500", weight: 0.002, variance: 0.5 }, // Server Error (spiky)
       { code: "503", weight: 0.0008, variance: 0.6 }, // Service Unavailable (spiky)
-      { code: "0", weight: 0.0007, variance: 0.5 },   // Connection Error
+      { code: "0", weight: 0.0007, variance: 0.5 }, // Connection Error
     ];
 
     const rows: string[][] = [];
@@ -3688,15 +3869,19 @@ export class DataQueryMockGeneratorV2 {
         const row: string[] = [];
 
         // Calculate base count from weight and per-bucket requests
-        const baseCount = requestsPerBucket * category.weight * trafficMultiplier;
-        
+        const baseCount =
+          requestsPerBucket * category.weight * trafficMultiplier;
+
         // Add variance
         const variance = category.variance;
         const randomFactor = 1 + (Math.random() * variance * 2 - variance);
         let count = Math.round(baseCount * randomFactor);
 
         // Apply error spike if applicable (rare spikes for server errors)
-        if (isErrorSpike && (category.code.startsWith("5") || category.code === "0")) {
+        if (
+          isErrorSpike &&
+          (category.code.startsWith("5") || category.code === "0")
+        ) {
           count = Math.round(count * (1.5 + Math.random() * 2));
         }
 
@@ -3772,7 +3957,9 @@ export class DataQueryMockGeneratorV2 {
 
     // Base requests per bucket (total / number of buckets)
     const baseTotalRequests = 15000 + (seed % 70000);
-    const requestsPerBucket = Math.round(baseTotalRequests / Math.max(1, timePoints.length));
+    const requestsPerBucket = Math.round(
+      baseTotalRequests / Math.max(1, timePoints.length),
+    );
 
     const usesOperationType = fields.includes("operation_type");
     const methodCategories = usesOperationType
@@ -3782,13 +3969,13 @@ export class DataQueryMockGeneratorV2 {
           { method: "SUBSCRIPTION", weight: 0.05, variance: 0.35 },
         ]
       : [
-          { method: "GET", weight: 0.52, variance: 0.2 },     // Most common
-          { method: "POST", weight: 0.26, variance: 0.25 },   // Second most common
-          { method: "PUT", weight: 0.09, variance: 0.3 },     // Updates
-          { method: "PATCH", weight: 0.065, variance: 0.3 },  // Partial updates
-          { method: "DELETE", weight: 0.034, variance: 0.35 },// Deletions
-          { method: "HEAD", weight: 0.01, variance: 0.4 },    // Health checks
-          { method: "OPTIONS", weight: 0.006, variance: 0.4 },// CORS preflight
+          { method: "GET", weight: 0.52, variance: 0.2 }, // Most common
+          { method: "POST", weight: 0.26, variance: 0.25 }, // Second most common
+          { method: "PUT", weight: 0.09, variance: 0.3 }, // Updates
+          { method: "PATCH", weight: 0.065, variance: 0.3 }, // Partial updates
+          { method: "DELETE", weight: 0.034, variance: 0.35 }, // Deletions
+          { method: "HEAD", weight: 0.01, variance: 0.4 }, // Health checks
+          { method: "OPTIONS", weight: 0.006, variance: 0.4 }, // CORS preflight
         ];
 
     const rows: string[][] = [];
@@ -3807,8 +3994,12 @@ export class DataQueryMockGeneratorV2 {
         const row: string[] = [];
 
         // Calculate base count from weight and per-bucket requests
-        const baseCount = requestsPerBucket * category.weight * trafficMultiplier * weekendMultiplier;
-        
+        const baseCount =
+          requestsPerBucket *
+          category.weight *
+          trafficMultiplier *
+          weekendMultiplier;
+
         // Add variance
         const variance = category.variance;
         const randomFactor = 1 + (Math.random() * variance * 2 - variance);
@@ -3914,7 +4105,8 @@ export class DataQueryMockGeneratorV2 {
         }
 
         const variance = Math.floor(baseCount * 0.25);
-        const randomVariance = Math.floor(Math.random() * variance * 2) - variance;
+        const randomVariance =
+          Math.floor(Math.random() * variance * 2) - variance;
         const count = Math.max(0, baseCount + randomVariance);
 
         select.forEach((selectField) => {

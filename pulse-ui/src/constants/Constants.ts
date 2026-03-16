@@ -7,6 +7,7 @@ import {
 import {
   IconActivityHeartbeat,
   IconBell,
+  IconCalendarEvent,
   IconChartFunnel,
   IconDatabaseSearch,
   IconDeviceDesktop,
@@ -60,6 +61,13 @@ import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
+import React from "react";
+
+const EventCatalog = React.lazy(() =>
+  import("../screens/EventCatalog/EventCatalog").then((m) => ({
+    default: m.EventCatalog,
+  })),
+);
 
 export const APP_NAME: string = "Pulse";
 
@@ -303,6 +311,12 @@ export const ROUTES: Routes = {
     path: "/projects/:projectId/funnel-analysis",
     element: FunnelAnalysis,
   },
+  EVENT_CATALOG: {
+    key: "EVENT_CATALOG",
+    basePath: "/event-catalog",
+    path: "/event-catalog",
+    element: EventCatalog,
+  },
 };
 
 // Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
@@ -392,6 +406,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.ALERTS,
     iconSize: 25,
   },
+  {
+    tabName: "Event Catalog",
+    icon: IconCalendarEvent,
+    routeTo: ROUTES.EVENT_CATALOG.basePath,
+    path: ROUTES.EVENT_CATALOG.path,
+    iconSize: 25,
+  },
 ];
 
 export const API_METHODS: Record<string, string> = {
@@ -411,6 +432,36 @@ export const API_ROUTES: StreamverseRoutes = {
   GET_SCREEN_NAME_EVENTS_MAPPING: {
     key: "GET_SCREEN_NAME_EVENTS_MAPPING",
     apiPath: `/v1/events`,
+    method: API_METHODS.GET,
+  },
+  GET_EVENT_DEFINITIONS: {
+    key: "GET_EVENT_DEFINITIONS",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.GET,
+  },
+  CREATE_EVENT_DEFINITION: {
+    key: "CREATE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_EVENT_DEFINITION: {
+    key: "UPDATE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.PUT,
+  },
+  BULK_UPLOAD_EVENT_DEFINITIONS: {
+    key: "BULK_UPLOAD_EVENT_DEFINITIONS",
+    apiPath: `/v1/event-definitions/bulk`,
+    method: API_METHODS.POST,
+  },
+  DELETE_EVENT_DEFINITION: {
+    key: "DELETE_EVENT_DEFINITION",
+    apiPath: `/v1/event-definitions`,
+    method: API_METHODS.DELETE,
+  },
+  GET_EVENT_CATEGORIES: {
+    key: "GET_EVENT_CATEGORIES",
+    apiPath: `/v1/event-definitions/categories`,
     method: API_METHODS.GET,
   },
   GET_INTERACTIONS: {

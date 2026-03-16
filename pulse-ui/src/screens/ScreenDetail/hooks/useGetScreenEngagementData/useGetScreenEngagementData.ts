@@ -165,16 +165,14 @@ export function useGetScreenEngagementData({
         {
           function: "CUSTOM" as const,
           param: {
-            // Note: TRACES table has direct UserId column (not nested in ResourceAttributes)
-            expression: `uniqCombined(${COLUMN_NAME.USER_ID})`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
           },
           alias: "unique_users",
         },
         {
           function: "CUSTOM" as const,
           param: {
-            // Note: TRACES table has direct SessionId column (not nested in ResourceAttributes)
-            expression: `uniqCombined(${COLUMN_NAME.SESSION_ID})`,
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
           },
           alias: "unique_sessions",
         },
@@ -193,14 +191,54 @@ export function useGetScreenEngagementData({
 
   const {
     data,
-    isLoading,
+    isLoading: isLoadingTrend,
     error: queryError,
   } = useGetDataQuery({
     requestBody,
     enabled: !!screenName && !!formattedStartTime && !!formattedEndTime,
   });
 
-  // Transform data
+  // Separate non-bucketed query for accurate total unique users/sessions
+  const totalsRequestBody = useMemo(
+    () => ({
+      dataType: "TRACES" as const,
+      timeRange: {
+        start: formattedStartTime,
+        end: formattedEndTime,
+      },
+      select: [
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
+          },
+          alias: "unique_users",
+        },
+        {
+          function: "CUSTOM" as const,
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+          },
+          alias: "unique_sessions",
+        },
+      ],
+      filters,
+    }),
+    [formattedStartTime, formattedEndTime, filters],
+  );
+
+  const {
+    data: totalsData,
+    isLoading: isLoadingTotals,
+    error: totalsError,
+  } = useGetDataQuery({
+    requestBody: totalsRequestBody,
+    enabled: !!screenName && !!formattedStartTime && !!formattedEndTime,
+  });
+
+  const isLoading = isLoadingTrend || isLoadingTotals;
+
+  // Transform trend data from bucketed query; use totals query for accurate unique counts
   const transformedData = useMemo<TransformedData | null>(() => {
     const responseData = data?.data;
     if (!responseData || !responseData.rows || responseData.rows.length === 0) {
@@ -212,8 +250,6 @@ export function useGetScreenEngagementData({
     const totalLoadTimeIndex = responseData.fields.indexOf("total_load_time");
     const sessionCountIndex = responseData.fields.indexOf("session_count");
     const loadCountIndex = responseData.fields.indexOf("load_count");
-    const uniqueUsersIndex = responseData.fields.indexOf("unique_users");
-    const uniqueSessionsIndex = responseData.fields.indexOf("unique_sessions");
 
     const trend: Array<{
       timestamp: number;
@@ -226,8 +262,6 @@ export function useGetScreenEngagementData({
     let totalLoadTimeSum = 0;
     let totalSessions = 0;
     let totalLoads = 0;
-    let totalUniqueUsers = 0;
-    let totalUniqueSessions = 0;
 
     responseData.rows.forEach((row) => {
       const timestamp = dayjs(row[t1Index]).valueOf();
@@ -235,52 +269,62 @@ export function useGetScreenEngagementData({
       const loadTime = parseFloat(row[totalLoadTimeIndex]) || 0;
       const sessions = parseFloat(row[sessionCountIndex]) || 0;
       const loads = parseFloat(row[loadCountIndex]) || 0;
-      const uniqueUsers = parseFloat(row[uniqueUsersIndex]) || 0;
-      const uniqueSessions = parseFloat(row[uniqueSessionsIndex]) || 0;
 
       totalTimeSpentSum += timeSpent;
       totalLoadTimeSum += loadTime;
       totalSessions += sessions;
       totalLoads += loads;
-      // Sum unique users/sessions from all buckets (approximation)
-      totalUniqueUsers += uniqueUsers;
-      totalUniqueSessions += uniqueSessions;
 
-      const avgTimeSpentVal = sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0; // Convert nanoseconds to seconds
-      const avgLoadTimeVal = loads > 0 ? loadTime / loads / 1_000_000_000 : 0; // Convert nanoseconds to seconds
+      const avgTimeSpentVal =
+        sessions > 0 ? timeSpent / sessions / 1_000_000_000 : 0;
+      const avgLoadTimeVal = loads > 0 ? loadTime / loads / 1_000_000_000 : 0;
 
       trend.push({
         timestamp,
-        avgTimeSpent: Math.round(avgTimeSpentVal * 100) / 100, // Round to 2 decimals for better precision
-        avgLoadTime: Math.round(avgLoadTimeVal * 100) / 100, // Round to 2 decimals
+        avgTimeSpent: Math.round(avgTimeSpentVal * 100) / 100,
+        avgLoadTime: Math.round(avgLoadTimeVal * 100) / 100,
         sessionCount: Math.round(sessions),
       });
     });
-    
-    // Calculate overall averages - return null if no valid data
+
+    // Accurate unique user/session totals from the non-bucketed query
+    const totalsResponse = totalsData?.data;
+    let totalUniqueUsers = 0;
+    let totalUniqueSessions = 0;
+    if (totalsResponse?.rows && totalsResponse.rows.length > 0) {
+      const usersIdx = totalsResponse.fields.indexOf("unique_users");
+      const sessionsIdx = totalsResponse.fields.indexOf("unique_sessions");
+      totalUniqueUsers = parseFloat(totalsResponse.rows[0][usersIdx]) || 0;
+      totalUniqueSessions =
+        parseFloat(totalsResponse.rows[0][sessionsIdx]) || 0;
+    }
+
     const avgTimeSpent =
       totalSessions > 0
-        ? Math.round((totalTimeSpentSum / totalSessions / 1_000_000_000) * 100) / 100
+        ? Math.round(
+            (totalTimeSpentSum / totalSessions / 1_000_000_000) * 100,
+          ) / 100
         : null;
     const avgLoadTime =
       totalLoads > 0
-        ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 100) / 100
+        ? Math.round((totalLoadTimeSum / totalLoads / 1_000_000_000) * 100) /
+          100
         : null;
-        
+
     const hasData = totalSessions > 0 || totalLoads > 0 || trend.length > 0;
-    
+
     return {
       avgTimeSpent,
       avgLoadTime,
-      totalSessions: Math.round(totalUniqueSessions), // Use unique session count for crash-free calculations
+      totalSessions: Math.round(totalUniqueSessions),
       totalUsers: Math.round(totalUniqueUsers),
       hasData,
       trendData: trend,
     };
-  }, [data]);
+  }, [data, totalsData]);
   return {
     data: transformedData,
     isLoading,
-    error: queryError as Error | null,
+    error: (queryError || totalsError) as Error | null,
   };
 }

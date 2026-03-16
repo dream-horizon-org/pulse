@@ -17,16 +17,13 @@ import org.dreamhorizon.pulseserver.service.athena.models.AthenaJobStatus;
 
 /**
  * DAO for Athena job operations.
- * Updated to use project-based isolation while maintaining tenant hierarchy.
+ * Uses project-based isolation — each project has its own Athena table.
  */
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AthenaJobDao {
   private final MysqlClient mysqlClient;
 
-  /**
-   * Gets the current project ID from the ProjectContext.
-   */
   private String getProjectId() {
     return ProjectContext.getProjectId();
   }
@@ -163,7 +160,6 @@ public class AthenaJobDao {
   private AthenaJob mapRowToAthenaJob(io.vertx.rxjava3.sqlclient.Row row) {
     return AthenaJob.builder()
         .jobId(row.getString("job_id"))
-        .tenantId(row.getString("tenant_id"))
         .projectId(row.getString("project_id"))
         .queryString(row.getString("query_string"))
         .userEmail(row.getString("user_email"))

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Card,
@@ -32,7 +32,10 @@ import type {
 } from "./ProblematicInteractions.interface";
 import { AbsoluteNumbersForGraphs } from "../AbsoluteNumbersForGraphs/AbsoluteNumbersForGraphs";
 import { ErrorAndEmptyStateWithNotification } from "../ErrorAndEmptyStateWithNotification";
-import { MetricsGridSkeleton, TableSkeleton } from "../../../../../../components/Skeletons";
+import {
+  MetricsGridSkeleton,
+  TableSkeleton,
+} from "../../../../../../components/Skeletons";
 import {
   useGetProblematicInteractionsStats,
   useGetProblematicInteractions,
@@ -55,6 +58,7 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
   dashboardFilters,
 }) => {
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const [filters, setFilters] = useState<FiltersState>({
     eventTypes: [],
     device: "all",
@@ -120,7 +124,9 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
     setCurrentPage(0);
   };
 
-  const getEventTypeConfig = (eventType: ProblematicInteractionData["event_type"]) => {
+  const getEventTypeConfig = (
+    eventType: ProblematicInteractionData["event_type"],
+  ) => {
     return eventTypeConfig[eventType] || eventTypeConfig.completed;
   };
 
@@ -130,7 +136,9 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
     return transformedInteractions.slice(startIndex, endIndex);
   }, [transformedInteractions, currentPage]);
 
-  const totalPages = Math.ceil(transformedInteractions.length / DEFAULT_PAGE_SIZE);
+  const totalPages = Math.ceil(
+    transformedInteractions.length / DEFAULT_PAGE_SIZE,
+  );
 
   const isLoading = isLoadingInteractions || isLoadingStats;
 
@@ -141,19 +149,29 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
         <Flex mt="lg" mb="lg" wrap="wrap" gap="md">
           <MetricsGridSkeleton count={5} />
         </Flex>
-        
+
         {/* Filters skeleton */}
         <Card p="md" mb="md" withBorder>
           <Box mb="xs">
-            <Text size="sm" fw={600}>Interaction Filters</Text>
+            <Text size="sm" fw={600}>
+              Interaction Filters
+            </Text>
           </Box>
           <Flex gap="xs">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Box key={i} style={{ height: 28, width: 100, background: 'rgba(14, 201, 194, 0.08)', borderRadius: 4 }} />
+              <Box
+                key={i}
+                style={{
+                  height: 28,
+                  width: 100,
+                  background: "rgba(14, 201, 194, 0.08)",
+                  borderRadius: 4,
+                }}
+              />
             ))}
           </Flex>
         </Card>
-        
+
         {/* Table skeleton */}
         <Card withBorder>
           <TableSkeleton columns={7} rows={8} />
@@ -171,11 +189,10 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
     );
   }
 
-
   const formattedDuration = (duration: number) => {
     // duration is in nanoseconds, convert to milliseconds
-    const durationMs = duration / 1000000;  
-    
+    const durationMs = duration / 1000000;
+
     if (durationMs > 1000) {
       return `${(durationMs / 1000).toFixed(2)}s`;
     }
@@ -276,29 +293,19 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
                   </td>
                 </tr>
               ) : (
-                paginatedInteractions.map((interaction: ProblematicInteractionData, index: number) => (
-                  <tr
-                    key={`${interaction.trace_id}-${interaction.sessionId}-${index}`}
-                    style={{
-                      cursor: "pointer",
-                      borderBottom: "1px solid #dee2e6",
-                    }}
-                    className={classes.tableCardRow}
-                    onClick={() => {
-                      const interactionTime = dayjs(interaction.start_time).utc();
-                      const startTime = interactionTime
-                        .subtract(30, "minutes")
-                        .toISOString();
-                      const endTime = interactionTime
-                        .add(30, "minutes")
-                        .toISOString();
-                      navigate(
-                        `/session/${interaction.sessionId}?traceId=${interaction.trace_id}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`,
-                      );
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        const interactionTime = dayjs(interaction.start_time).utc();
+                paginatedInteractions.map(
+                  (interaction: ProblematicInteractionData, index: number) => (
+                    <tr
+                      key={`${interaction.trace_id}-${interaction.sessionId}-${index}`}
+                      style={{
+                        cursor: "pointer",
+                        borderBottom: "1px solid #dee2e6",
+                      }}
+                      className={classes.tableCardRow}
+                      onClick={() => {
+                        const interactionTime = dayjs(
+                          interaction.start_time,
+                        ).utc();
                         const startTime = interactionTime
                           .subtract(30, "minutes")
                           .toISOString();
@@ -306,69 +313,89 @@ const ProblematicInteractions: React.FC<ProblematicInteractionsProps> = ({
                           .add(30, "minutes")
                           .toISOString();
                         navigate(
-                          `/session/${interaction.sessionId}?traceId=${interaction.trace_id}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`,
+                          `/projects/${projectId}/session/${interaction.sessionId}?traceId=${interaction.trace_id}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`,
                         );
-                      }
-                    }}
-                    tabIndex={0}
-                  >
-                    <td>
-                      <Text fw={500}>{interaction.trace_id}</Text>
-                    </td>
-                    <td>
-                      <Text>{interaction.user_id}</Text>
-                    </td>
-                    <td>
-                      <Group gap={6}>
-                        <IconDeviceMobile size={16} />
-                        <Box>
-                          <Text>{interaction.device}</Text>
-                          <Text size="xs" c="dimmed">
-                            {interaction.os_version}
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          const interactionTime = dayjs(
+                            interaction.start_time,
+                          ).utc();
+                          const startTime = interactionTime
+                            .subtract(30, "minutes")
+                            .toISOString();
+                          const endTime = interactionTime
+                            .add(30, "minutes")
+                            .toISOString();
+                          navigate(
+                            `/projects/${projectId}/session/${interaction.sessionId}?traceId=${interaction.trace_id}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`,
+                          );
+                        }
+                      }}
+                      tabIndex={0}
+                    >
+                      <td>
+                        <Text fw={500}>{interaction.trace_id}</Text>
+                      </td>
+                      <td>
+                        <Text>{interaction.user_id}</Text>
+                      </td>
+                      <td>
+                        <Group gap={6}>
+                          <IconDeviceMobile size={16} />
+                          <Box>
+                            <Text>{interaction.device}</Text>
+                            <Text size="xs" c="dimmed">
+                              {interaction.os_version}
+                            </Text>
+                          </Box>
+                        </Group>
+                      </td>
+                      <td>
+                        <Group gap={4}>
+                          <IconClock size={16} />
+                          <Text>
+                            {formattedDuration(interaction.duration_ms)}
                           </Text>
+                        </Group>
+                      </td>
+                      <td>
+                        {(() => {
+                          const config = getEventTypeConfig(
+                            interaction.event_type,
+                          );
+                          const Icon = config.icon;
+                          return (
+                            <Badge color={config.color} size="md">
+                              <Flex align="center" gap="xs">
+                                <Icon size={16} />
+                                {config.label}
+                              </Flex>
+                            </Badge>
+                          );
+                        })()}
+                      </td>
+                      <td>
+                        <Text>
+                          {dayjs(interaction.start_time).format("MMM D, YYYY")}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {dayjs(interaction.start_time).format("HH:mm:ss")}
+                        </Text>
+                      </td>
+                      <td>
+                        <Box className={classes.actionButtonContainer}>
+                          <Tooltip label="View Session Timeline">
+                            <IconArrowNarrowRight
+                              className={classes.actionButton}
+                              size={18}
+                            />
+                          </Tooltip>
                         </Box>
-                      </Group>
-                    </td>
-                    <td>
-                      <Group gap={4}>
-                        <IconClock size={16} />
-                        <Text>{formattedDuration(interaction.duration_ms)}</Text>
-                      </Group>
-                    </td>
-                    <td>
-                      {(() => {
-                        const config = getEventTypeConfig(interaction.event_type);
-                        const Icon = config.icon;
-                        return (
-                          <Badge color={config.color} size="md">
-                            <Flex align="center" gap="xs">
-                              <Icon size={16} />
-                              {config.label}
-                            </Flex>
-                          </Badge>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      <Text>
-                        {dayjs(interaction.start_time).format("MMM D, YYYY")}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {dayjs(interaction.start_time).format("HH:mm:ss")}
-                      </Text>
-                    </td>
-                    <td>
-                      <Box className={classes.actionButtonContainer}>
-                        <Tooltip label="View Session Timeline">
-                          <IconArrowNarrowRight
-                            className={classes.actionButton}
-                            size={18}
-                          />
-                        </Tooltip>
-                      </Box>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  ),
+                )
               )}
             </tbody>
           </Table>
