@@ -2,22 +2,29 @@ package org.dreamhorizon.pulseserver.resources.usagelimits;
 
 import org.dreamhorizon.pulseserver.resources.tiers.models.UsageLimitPublicRestDto;
 import org.dreamhorizon.pulseserver.resources.tiers.models.UsageLimitValueRestDto;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.NotificationStatusRestDto;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectLimitHistoryRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitListRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitPublicRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ResetLimitsRestRequest;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.SetCustomLimitsRestRequest;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.UsageNotificationRestDto;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.UsageNotificationRestResponse;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.NotificationStatus;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitPublicInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ResetLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.SetCustomLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitPublicValue;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotification;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationResult;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,6 +62,17 @@ public abstract class UsageLimitMapper {
         .disabledAt(info.getDisabledAt())
         .disabledBy(info.getDisabledBy())
         .disabledReason(info.getDisabledReason())
+        .notificationStatus(mapNotificationStatus(info.getNotificationStatus()))
+        .build();
+  }
+
+  private NotificationStatusRestDto mapNotificationStatus(NotificationStatus notificationStatus) {
+    if (notificationStatus == null) {
+      return null;
+    }
+    return NotificationStatusRestDto.builder()
+        .thresholdsNotified(notificationStatus.getThresholdsNotified())
+        .createdAt(notificationStatus.getCreatedAt())
         .build();
   }
 
@@ -129,6 +147,42 @@ public abstract class UsageLimitMapper {
             Map.Entry::getKey,
             entry -> toUsageLimitPublicRestDto(entry.getValue())
         ));
+  }
+
+  // Usage notification mappings
+  public UsageNotificationRestResponse toUsageNotificationResponse(UsageNotificationResult result) {
+    if (result == null) {
+      return null;
+    }
+    
+    List<UsageNotificationRestDto> notificationDtos = result.getNotifications().stream()
+        .map(this::toUsageNotificationDto)
+        .collect(Collectors.toList());
+    
+    String checkedAt = result.getCheckedAt() != null 
+        ? result.getCheckedAt().toString()
+        : null;
+    
+    return UsageNotificationRestResponse.builder()
+        .notifications(notificationDtos)
+        .totalProjectsChecked(result.getTotalProjectsChecked())
+        .notificationsDue(result.getNotificationsDue())
+        .checkedAt(checkedAt)
+        .build();
+  }
+
+  public UsageNotificationRestDto toUsageNotificationDto(UsageNotification notification) {
+    if (notification == null) {
+      return null;
+    }
+    return UsageNotificationRestDto.builder()
+        .projectId(notification.getProjectId())
+        .metricType(notification.getMetricType())
+        .threshold(notification.getThreshold())
+        .percentage(notification.getPercentage())
+        .currentUsage(notification.getCurrentUsage())
+        .limit(notification.getLimit())
+        .build();
   }
 }
 

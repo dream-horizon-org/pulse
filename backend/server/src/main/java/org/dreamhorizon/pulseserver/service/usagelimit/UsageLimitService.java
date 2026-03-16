@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.service.usagelimit;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -9,9 +10,16 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
@@ -22,12 +30,16 @@ import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.dao.tier.TierDao;
 import org.dreamhorizon.pulseserver.dao.tier.models.Tier;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.NotificationStatus;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitPublicInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ResetLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.SetCustomLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitPublicValue;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotification;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationResult;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +52,7 @@ public class UsageLimitService {
   private static final int FREE_TIER_ID = 1;
   private static final String DISABLED_REASON_CUSTOM_OVERRIDE = "custom_override";
   private static final String DISABLED_REASON_RESET_TO_DEFAULTS = "reset_to_defaults";
+  private static final List<Integer> NOTIFICATION_THRESHOLDS = List.of(50, 75, 90, 100);
 
   private final ProjectUsageLimitDao usageLimitDao;
   private final ProjectDao projectDao;
@@ -47,6 +60,7 @@ public class UsageLimitService {
   private final TierDao tierDao;
   private final TierService tierService;
   private final ObjectMapper objectMapper;
+  private final ClickhouseQueryService clickhouseQueryService;
 
   // ==================== PUBLIC API ====================
 
@@ -282,6 +296,15 @@ public class UsageLimitService {
   private ProjectUsageLimitInfo mapToInfo(ProjectUsageLimit limit) {
     Map<String, UsageLimitValue> usageLimits = parseUsageLimits(limit.getUsageLimits());
 
+    // Map notification status
+    NotificationStatus notificationStatus = null;
+    if (limit.getThresholdsNotified() != null) {
+      notificationStatus = NotificationStatus.builder()
+          .thresholdsNotified(limit.getThresholdsNotified())
+          .createdAt(limit.getNotificationCreatedAt())
+          .build();
+    }
+
     return ProjectUsageLimitInfo.builder()
         .projectUsageLimitId(limit.getProjectUsageLimitId())
         .projectId(limit.getProjectId())
@@ -292,6 +315,7 @@ public class UsageLimitService {
         .disabledAt(limit.getDisabledAt())
         .disabledBy(limit.getDisabledBy())
         .disabledReason(limit.getDisabledReason())
+        .notificationStatus(notificationStatus)
         .build();
   }
 
@@ -345,6 +369,219 @@ public class UsageLimitService {
     // simple arithmetic is sufficient since values are within reasonable bounds
     long threshold = limitValue.getValue() + (limitValue.getValue() * overage / 100);
     limitValue.setFinalThreshold(threshold);
+  }
+
+
+  /**
+   * Mark specific thresholds as notified for the current month.
+   */
+  public Single<NotificationStatusResponse> markThresholdsNotified(String projectId, List<Integer> thresholds) {
+    return usageLimitDao.markThresholdsNotified(projectId, thresholds)
+        .onErrorResumeNext(error -> {
+          // Convert RuntimeException to proper RestException
+          if (error.getMessage() != null && error.getMessage().contains("already been notified")) {
+            return Single.error(new ForbiddenOperationException(
+                "THRESHOLD_ALREADY_NOTIFIED", 
+                error.getMessage()));
+          }
+          return Single.error(error);
+        })
+        .map(record -> {
+          String month = record.getCreatedAt() != null 
+              ? record.getCreatedAt().atZone(java.time.ZoneOffset.UTC)
+                  .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"))
+              : null;
+          
+          return NotificationStatusResponse.builder()
+              .projectId(record.getProjectId())
+              .month(month)
+              .thresholdsNotified(record.getThresholdsNotified())
+              .createdAt(record.getCreatedAt())
+              .updatedAt(record.getUpdatedAt())
+              .build();
+        });
+  }
+
+  // ==================== NOTIFICATION CHECKING ====================
+
+  /**
+   * Analyzes all projects and determines which usage notifications need to be sent.
+   * Does NOT send notifications - just returns the list.
+   */
+  public Single<UsageNotificationResult> getUsageNotifications() {
+    log.info("=== Analyzing usage limits for notifications ===");
+    Instant startTime = Instant.now();
+
+    return getAllActiveLimits()
+        .toList()
+        .flatMap(limits -> {
+          log.info("Found {} active project limits", limits.size());
+          
+          return clickhouseQueryService.getCurrentMonthUsage()
+              .map(usageStatsMap -> {
+                List<UsageNotification> notifications = new ArrayList<>();
+                
+                for (ProjectUsageLimitInfo limit : limits) {
+                  String projectId = limit.getProjectId();
+                  UsageStats usage = usageStatsMap.get(projectId);
+                  
+                  if (usage == null) {
+                    log.debug("No usage data found for project: {}", projectId);
+                    continue;
+                  }
+                  
+                  Set<Integer> alreadyNotified = parseNotifiedThresholds(limit.getNotificationStatus());
+                  
+                  Long sessionLimit = getSessionLimit(limit);
+                  if (sessionLimit != null && sessionLimit > 0) {
+                    notifications.addAll(
+                        checkMetric(
+                            projectId,
+                            "sessions",
+                            usage.getSessionsUsed(),
+                            sessionLimit,
+                            alreadyNotified
+                        )
+                    );
+                  }
+                  
+                  Long eventLimit = getEventLimit(limit);
+                  if (eventLimit != null && eventLimit > 0) {
+                    notifications.addAll(
+                        checkMetric(
+                            projectId,
+                            "events",
+                            usage.getEventsUsed(),
+                            eventLimit,
+                            alreadyNotified
+                        )
+                    );
+                  }
+                }
+                
+                Instant endTime = Instant.now();
+                log.info("✅ Analysis complete: {} notifications due across {} projects (took {}ms)",
+                    notifications.size(), limits.size(), 
+                    java.time.Duration.between(startTime, endTime).toMillis());
+                
+                return UsageNotificationResult.builder()
+                    .notifications(notifications)
+                    .totalProjectsChecked(limits.size())
+                    .notificationsDue(notifications.size())
+                    .checkedAt(endTime)
+                    .build();
+              });
+        })
+        .doOnError(error -> 
+            log.error("❌ Failed to analyze usage notifications", error)
+        );
+  }
+
+  /**
+   * Check a single metric for threshold crossings.
+   */
+  private List<UsageNotification> checkMetric(
+      String projectId,
+      String metricType,
+      Long currentUsage,
+      Long limit,
+      Set<Integer> alreadyNotified) {
+    
+    if (currentUsage == null || limit == null || limit == 0) {
+      return Collections.emptyList();
+    }
+    
+    int percentage = calculatePercentage(currentUsage, limit);
+    List<UsageNotification> notifications = new ArrayList<>();
+    
+    for (Integer threshold : NOTIFICATION_THRESHOLDS) {
+      if (percentage >= threshold && !alreadyNotified.contains(threshold)) {
+        notifications.add(UsageNotification.builder()
+            .projectId(projectId)
+            .metricType(metricType)
+            .threshold(threshold)
+            .percentage(percentage)
+            .currentUsage(currentUsage)
+            .limit(limit)
+            .build());
+        
+        log.info("📊 Notification due: {} - {} at {}% ({}/{})",
+            projectId, metricType, threshold, currentUsage, limit);
+      }
+    }
+    
+    return notifications;
+  }
+
+  /**
+   * Calculate percentage used.
+   */
+  private int calculatePercentage(long used, long limit) {
+    if (limit == 0) {
+      return 0;
+    }
+    return (int) ((used * 100) / limit);
+  }
+
+  /**
+   * Parse which thresholds have already been notified from notification status.
+   */
+  private Set<Integer> parseNotifiedThresholds(NotificationStatus status) {
+    if (status == null || status.getThresholdsNotified() == null) {
+      return Collections.emptySet();
+    }
+    
+    Set<Integer> notified = new HashSet<>();
+    JsonNode node = status.getThresholdsNotified();
+    node.fieldNames().forEachRemaining(key -> {
+      try {
+        notified.add(Integer.parseInt(key));
+      } catch (NumberFormatException e) {
+        log.warn("Invalid threshold key: {}", key);
+      }
+    });
+    
+    return notified;
+  }
+
+  /**
+   * Extract session limit from project usage limit info.
+   */
+  private Long getSessionLimit(ProjectUsageLimitInfo limit) {
+    if (limit.getUsageLimits() == null) {
+      return null;
+    }
+    UsageLimitValue sessionLimit = limit.getUsageLimits().get("max_user_sessions_per_project");
+    if (sessionLimit == null || sessionLimit.getValue() == null) {
+      return null;
+    }
+    return sessionLimit.getValue().longValue();
+  }
+
+  /**
+   * Extract event limit from project usage limit info.
+   */
+  private Long getEventLimit(ProjectUsageLimitInfo limit) {
+    if (limit.getUsageLimits() == null) {
+      return null;
+    }
+    UsageLimitValue eventLimit = limit.getUsageLimits().get("max_events_per_project");
+    if (eventLimit == null || eventLimit.getValue() == null) {
+      return null;
+    }
+    return eventLimit.getValue().longValue();
+  }
+
+  @lombok.Data
+  @lombok.Builder
+  @lombok.NoArgsConstructor
+  @lombok.AllArgsConstructor
+  public static class NotificationStatusResponse {
+    private String projectId;
+    private String month;
+    private com.fasterxml.jackson.databind.JsonNode thresholdsNotified;
+    private java.time.Instant createdAt;
+    private java.time.Instant updatedAt;
   }
 
   // ==================== CONTEXT CLASSES ====================

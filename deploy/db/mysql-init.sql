@@ -797,6 +797,22 @@ CREATE TABLE IF NOT EXISTS event_attribute_definitions (
         REFERENCES event_definitions(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS usage_limit_notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id VARCHAR(64) NOT NULL,
+    thresholds_notified JSON NOT NULL DEFAULT ('{}'),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY uk_project_month (project_id, (DATE_FORMAT(created_at, '%Y-%m'))),
+    INDEX idx_created_at (created_at),
+    
+    CONSTRAINT fk_usage_notif_project 
+        FOREIGN KEY (project_id) 
+        REFERENCES projects(project_id) 
+        ON DELETE CASCADE
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';

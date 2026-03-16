@@ -12,12 +12,15 @@ public class PeriodicSyncService {
   private final Vertx vertx;
   private final DataSyncService dataSyncService;
   private final RedisService redisService;
+  private final UsageLimitNotificationService notificationService;
   
   private Long usageLimitsTimerId;
   private Long apiKeysTimerId;
+  private Long notificationTimerId;
   
   private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 seconds
   private static final long API_KEYS_INTERVAL_SECONDS = 10 * 60; // 10 minutes
+  private static final long NOTIFICATION_INTERVAL_SECONDS = 60 * 60; // 1 hour
 
   @Inject
   public PeriodicSyncService(Vertx vertx, WebClient webClient, ApplicationConfig config) {
@@ -27,6 +30,7 @@ public class PeriodicSyncService {
     PulseServerApiClient apiClient = new PulseServerApiClient(webClient, config);
     this.redisService = new RedisService(vertx, config);
     this.dataSyncService = new DataSyncService(clickhouseService, apiClient, redisService);
+    this.notificationService = new UsageLimitNotificationService(apiClient);
   }
 
   /**
@@ -35,7 +39,7 @@ public class PeriodicSyncService {
   public void start() {
     log.info("🚀 Starting Periodic Sync Service");
     
-    // Start usage limits sync (5 minutes)
+    // Start usage limits sync (5 seconds)
     log.info("📊 Starting Usage Limits sync (interval: {} seconds)", USAGE_LIMITS_INTERVAL_SECONDS);
     executeUsageLimitsSync();
     this.usageLimitsTimerId = vertx.setPeriodic(USAGE_LIMITS_INTERVAL_SECONDS * 1000, id -> {
@@ -50,6 +54,14 @@ public class PeriodicSyncService {
       executeApiKeysSync();
     });
     log.info("✅ API Keys sync started with timer ID: {}", apiKeysTimerId);
+    
+    // Start usage notification processing (1 hour)
+    log.info("📧 Starting Usage Notification processing (interval: {} seconds)", NOTIFICATION_INTERVAL_SECONDS);
+    executeNotificationProcessing();
+    this.notificationTimerId = vertx.setPeriodic(NOTIFICATION_INTERVAL_SECONDS * 1000, id -> {
+      executeNotificationProcessing();
+    });
+    log.info("✅ Usage Notification processing started with timer ID: {}", notificationTimerId);
   }
 
   /**
@@ -68,6 +80,12 @@ public class PeriodicSyncService {
       vertx.cancelTimer(apiKeysTimerId);
       log.info("✅ Cancelled API keys timer: {}", apiKeysTimerId);
       apiKeysTimerId = null;
+    }
+    
+    if (notificationTimerId != null) {
+      vertx.cancelTimer(notificationTimerId);
+      log.info("✅ Cancelled notification timer: {}", notificationTimerId);
+      notificationTimerId = null;
     }
     
     // Close Redis connection
@@ -91,4 +109,13 @@ public class PeriodicSyncService {
             error -> log.error("❌ API keys sync failed", error)
         );
   }
+
+  private void executeNotificationProcessing() {
+    notificationService.processNotifications()
+        .subscribe(
+            () -> log.info("✅ Usage notification processing completed successfully"),
+            error -> log.error("❌ Usage notification processing failed", error)
+        );
+  }
 }
+

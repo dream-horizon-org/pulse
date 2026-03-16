@@ -7,10 +7,17 @@ import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueri
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ALL_LIMITS_BY_PROJECT_ID;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_LIMIT_BY_ID;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_LIMIT_HISTORY_BY_PROJECT_ID;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_NOTIFICATION_FOR_CURRENT_MONTH;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.INSERT_NOTIFICATION;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.INSERT_USAGE_LIMIT;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMIT;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.SOFT_DELETE_ACTIVE_LIMITS_FOR_PROJECTS;
+import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.UPDATE_NOTIFICATION;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
@@ -35,6 +42,7 @@ import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class ProjectUsageLimitDao {
   private final MysqlClient mysqlClient;
+  private final ObjectMapper objectMapper;
 
   public Single<ProjectUsageLimit> createUsageLimit(String projectId, String usageLimitsJson, String createdBy) {
     MySQLPool pool = mysqlClient.getWriterPool();
@@ -208,6 +216,22 @@ public class ProjectUsageLimitDao {
       }
     }
     
+    // Parse notification JSON
+    JsonNode thresholdsNotified = null;
+    Object thresholdsValue = row.getValue("thresholds_notified");
+    if (thresholdsValue != null) {
+      try {
+        if (thresholdsValue instanceof io.vertx.core.json.JsonObject) {
+          thresholdsNotified = objectMapper.readTree(((io.vertx.core.json.JsonObject) thresholdsValue).encode());
+        } else {
+          thresholdsNotified = objectMapper.readTree(thresholdsValue.toString());
+        }
+      } catch (JsonProcessingException e) {
+        log.error("Failed to parse thresholds_notified JSON", e);
+        thresholdsNotified = objectMapper.createObjectNode();
+      }
+    }
+    
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
         .projectId(row.getString("project_id"))
@@ -220,7 +244,116 @@ public class ProjectUsageLimitDao {
         .disabledBy(row.getString("disabled_by"))
         .disabledReason(row.getString("disabled_reason"))
         .createdBy(row.getString("created_by"))
+        .thresholdsNotified(thresholdsNotified)
+        .notificationCreatedAt(row.getLocalDateTime("notification_created_at") != null
+            ? row.getLocalDateTime("notification_created_at").toInstant(ZoneOffset.UTC) : null)
         .build();
+  }
+
+  /**
+   * Mark thresholds as notified for the current month.
+   * Creates a new row if one doesn't exist for this month, otherwise updates existing row.
+   */
+  public Single<NotificationRecord> markThresholdsNotified(String projectId, List<Integer> thresholds) {
+    MySQLPool pool = mysqlClient.getWriterPool();
+    Instant now = Instant.now();
+    
+    return pool.preparedQuery(GET_NOTIFICATION_FOR_CURRENT_MONTH)
+        .rxExecute(Tuple.of(projectId))
+        .flatMap(result -> {
+          if (result.size() > 0) {
+            return updateExistingNotification(pool, result.iterator().next(), thresholds, now);
+          } else {
+            return createNewNotification(pool, projectId, thresholds, now);
+          }
+        })
+        .doOnError(error -> log.error("Failed to mark thresholds notified for project: {}", projectId, error));
+  }
+
+  private Single<NotificationRecord> updateExistingNotification(
+      MySQLPool pool, Row existingRow, List<Integer> thresholds, Instant now) {
+    try {
+      Long id = existingRow.getLong("id");
+      String projectId = existingRow.getString("project_id");
+      
+      // Get JSON column - MySQL returns it as JsonObject, convert to String
+      Object thresholdsObj = existingRow.getValue("thresholds_notified");
+      String existingJson = thresholdsObj != null ? thresholdsObj.toString() : "{}";
+      
+      JsonNode existingNode = objectMapper.readTree(existingJson);
+      ObjectNode updatedNode = existingNode.isObject() 
+          ? (ObjectNode) existingNode 
+          : objectMapper.createObjectNode();
+      
+          for (Integer threshold : thresholds) {
+            String key = String.valueOf(threshold);
+            if (updatedNode.has(key)) {
+                return Single.error(new RuntimeException(
+                    "Threshold " + threshold + " has already been notified for this month"));
+            }
+            updatedNode.put(key, now.toString());
+          }
+      
+      String updatedJson = objectMapper.writeValueAsString(updatedNode);
+      
+      return pool.preparedQuery(UPDATE_NOTIFICATION)
+          .rxExecute(Tuple.of(updatedJson, id))
+          .map(result -> NotificationRecord.builder()
+              .id(id)
+              .projectId(projectId)
+              .thresholdsNotified(updatedNode)
+              .createdAt(existingRow.getLocalDateTime("created_at") != null
+                  ? existingRow.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
+              .updatedAt(now)
+              .build());
+    } catch (JsonProcessingException e) {
+      return Single.error(new RuntimeException("Failed to parse notification JSON", e));
+    }
+  }
+
+  private Single<NotificationRecord> createNewNotification(
+      MySQLPool pool, String projectId, List<Integer> thresholds, Instant now) {
+    try {
+      ObjectNode notificationNode = objectMapper.createObjectNode();
+      for (Integer threshold : thresholds) {
+        notificationNode.put(String.valueOf(threshold), now.toString());
+      }
+      
+      String notificationJson = objectMapper.writeValueAsString(notificationNode);
+      
+      return pool.preparedQuery(INSERT_NOTIFICATION)
+          .rxExecute(Tuple.of(projectId, notificationJson))
+          .flatMap(result -> {
+            return pool.preparedQuery(GET_NOTIFICATION_FOR_CURRENT_MONTH)
+                .rxExecute(Tuple.of(projectId))
+                .map(rows -> {
+                  Row row = rows.iterator().next();
+                  return NotificationRecord.builder()
+                      .id(row.getLong("id"))
+                      .projectId(projectId)
+                      .thresholdsNotified(notificationNode)
+                      .createdAt(row.getLocalDateTime("created_at") != null
+                          ? row.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
+                      .updatedAt(row.getLocalDateTime("updated_at") != null
+                          ? row.getLocalDateTime("updated_at").toInstant(ZoneOffset.UTC) : null)
+                      .build();
+                });
+          });
+    } catch (JsonProcessingException e) {
+      return Single.error(new RuntimeException("Failed to create notification JSON", e));
+    }
+  }
+
+  @lombok.Data
+  @lombok.Builder
+  @lombok.NoArgsConstructor
+  @lombok.AllArgsConstructor
+  public static class NotificationRecord {
+    private Long id;
+    private String projectId;
+    private JsonNode thresholdsNotified;
+    private Instant createdAt;
+    private Instant updatedAt;
   }
 }
 

@@ -26,5 +26,6 @@ public class ProjectUsageLimitInfo {
   private Instant disabledAt;
   private String disabledBy;
   private String disabledReason;
+  private NotificationStatus notificationStatus;
 }
 

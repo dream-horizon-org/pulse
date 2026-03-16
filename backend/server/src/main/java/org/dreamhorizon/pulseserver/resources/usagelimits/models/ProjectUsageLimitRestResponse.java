@@ -26,5 +26,6 @@ public class ProjectUsageLimitRestResponse {
   private Instant disabledAt;
   private String disabledBy;
   private String disabledReason;
+  private NotificationStatusRestDto notificationStatus;
 }
 
