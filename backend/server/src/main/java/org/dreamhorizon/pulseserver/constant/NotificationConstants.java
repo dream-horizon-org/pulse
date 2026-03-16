@@ -15,8 +15,6 @@ public final class NotificationConstants {
     public static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
     public static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
     public static final String EVENT_COLLABORATOR_ROLE_UPDATED = "collaborator_role_updated";
-    public static final String EVENT_CONTACT_US = "contact_us";
-    public static final String EVENT_CONTACT_SUPPORT = "contact_support";
 
     public record DefaultMapping(String eventName, String recipient) {}
 
@@ -24,9 +22,7 @@ public final class NotificationConstants {
         new DefaultMapping(EVENT_PROJECT_CREATED, null),
         new DefaultMapping(EVENT_COLLABORATOR_ADDED, null),
         new DefaultMapping(EVENT_COLLABORATOR_REMOVED, null),
-        new DefaultMapping(EVENT_COLLABORATOR_ROLE_UPDATED, null),
-        new DefaultMapping(EVENT_CONTACT_US, "contact@pulse-ux.com"),
-        new DefaultMapping(EVENT_CONTACT_SUPPORT, "support@pulse-ux.com")
+        new DefaultMapping(EVENT_COLLABORATOR_ROLE_UPDATED, null)
     );
   }
 

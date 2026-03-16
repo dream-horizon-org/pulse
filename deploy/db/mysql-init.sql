@@ -744,6 +744,11 @@ CREATE TABLE IF NOT EXISTS channel_event_mapping (
     INDEX idx_mapping_project_event (project_id, event_name, is_active)
 );
 
+INSERT INTO channel_event_mapping (project_id, channel_id, event_name, recipient, is_active) VALUES
+('default-project', 1, 'contact_us', 'contact@pulse-ux.com', TRUE),
+('default-project', 1, 'contact_support', 'support@pulse-ux.com', TRUE)
+ON DUPLICATE KEY UPDATE is_active = is_active;
+
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
