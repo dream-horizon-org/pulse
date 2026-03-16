@@ -40,10 +40,10 @@ public class PersistingReplayEmitter(
     private val replayStorageEncryption: ReplayStorageEncryption,
     private val logger: (String) -> Unit = {},
 ) : ReplayEventEmitter {
-
-    private val executor = Executors.newSingleThreadScheduledExecutor { r ->
-        Thread(r, "PulseReplayQueue").apply { isDaemon = true }
-    } as ScheduledExecutorService
+    private val executor =
+        Executors.newSingleThreadScheduledExecutor { r ->
+            Thread(r, "PulseReplayQueue").apply { isDaemon = true }
+        } as ScheduledExecutorService
 
     private val deque = ArrayDeque<File>()
     private val dequeLock = Any()
@@ -55,7 +55,10 @@ public class PersistingReplayEmitter(
         scheduleFlush()
     }
 
-    override fun emit(sessionId: String, events: List<ReplayEvent>) {
+    override fun emit(
+        sessionId: String,
+        events: List<ReplayEvent>,
+    ) {
         if (events.isEmpty()) return
         executor.execute {
             try {
@@ -68,18 +71,22 @@ public class PersistingReplayEmitter(
                     deque.addLast(file)
                 }
                 logger("Replay batch persisted: ${file.name} (queue size: ${deque.size}) session_id: $sessionId")
-                val eventTypesSummary = events
-                    .groupBy { e ->
-                        when (val d = e.data) {
-                            is ReplayIncrementalMouseInteractionData -> "Touch"
-                            is ReplayIncrementalMutationData -> "ViewMutation"
-                            is ReplayCustomEventData -> "Custom(${d.tag})"
-                            else -> e.type.name
-                        }
-                    }
-                    .entries.joinToString(", ") { "${it.key}(${it.value.size})" }
+                val eventTypesSummary =
+                    events
+                        .groupBy { e ->
+                            when (val d = e.data) {
+                                is ReplayIncrementalMouseInteractionData -> "Touch"
+                                is ReplayIncrementalMutationData -> "ViewMutation"
+                                is ReplayCustomEventData -> "Custom(${d.tag})"
+                                else -> e.type.name
+                            }
+                        }.entries
+                        .joinToString(", ") { "${it.key}(${it.value.size})" }
                 val eventWord = if (events.size == 1) "event" else "events"
-                Log.d(ReplayLog.TAG, "[Replay flow] Batch persisted to disk (${events.size} $eventWord) — event types: [$eventTypesSummary] — queue size: ${deque.size}, flush at: $flushAt")
+                Log.d(
+                    ReplayLog.TAG,
+                    "[Replay flow] Batch persisted to disk (${events.size} $eventWord) — event types: [$eventTypesSummary] — queue size: ${deque.size}, flush at: $flushAt",
+                )
                 if (deque.size >= flushAt) {
                     Log.d(ReplayLog.TAG, "[Replay flow] Queue reached flush threshold ($flushAt) → triggering flush")
                     flushIfNeeded()
@@ -103,17 +110,25 @@ public class PersistingReplayEmitter(
                 if (files.isEmpty()) return@execute
                 logger("Sending ${files.size} cached replay batches from previous run")
                 Log.d(ReplayLog.TAG, "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run")
-                val fileToContent = readFilesToContent(files) { file, e ->
-                    logger("Failed to read cached replay file ${file.name}: $e")
-                    file.delete()
-                }
+                val fileToContent =
+                    readFilesToContent(files) { file, e ->
+                        logger("Failed to read cached replay file ${file.name}: $e")
+                        file.delete()
+                    }
                 if (fileToContent.isEmpty()) return@execute
                 val payload = buildBatchPayload(fileToContent.map { it.second })
-                Log.d(ReplayLog.TAG, "[Replay flow] Cached → combining ${fileToContent.size} batch(es) into single request (${payload.length} bytes) → flushing to backend")
+                Log.d(
+                    ReplayLog.TAG,
+                    "[Replay flow] Cached → combining ${fileToContent.size} batch(es) into single request (${payload.length} bytes) → flushing to backend",
+                )
                 realSend(payload).fold(
                     onSuccess = { fileToContent.forEach { (file) -> file.delete() } },
                     onFailure = { t ->
-                        Log.w(ReplayLog.TAG, "[Replay flow] Cached send failed, ${fileToContent.size} batch(es) will be retried on next launch", t)
+                        Log.w(
+                            ReplayLog.TAG,
+                            "[Replay flow] Cached send failed, ${fileToContent.size} batch(es) will be retried on next launch",
+                            t,
+                        )
                         logger("Send cached replay failed: ${t.message}")
                     },
                 )
@@ -128,7 +143,7 @@ public class PersistingReplayEmitter(
      * On send failure batches are re-queued and retried on the next flush or app launch.
      * Called periodically and when queue size >= [flushAt].
      */
-    public fun flush() {
+    override fun flush() {
         executor.execute { flushIfNeeded() }
     }
 
@@ -144,13 +159,17 @@ public class PersistingReplayEmitter(
             }
             if (toSend.isEmpty()) return
             Log.d(ReplayLog.TAG, "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (maxBatchSize: $maxBatchSize)")
-            val fileToContent = readFilesToContent(toSend) { file, e ->
-                logger("Flush failed for ${file.name}: $e")
-                file.delete()
-            }
+            val fileToContent =
+                readFilesToContent(toSend) { file, e ->
+                    logger("Flush failed for ${file.name}: $e")
+                    file.delete()
+                }
             if (fileToContent.isEmpty()) return
             val payload = buildBatchPayload(fileToContent.map { it.second })
-            Log.d(ReplayLog.TAG, "[Replay flow] Flush → combining ${fileToContent.size} batch(es) into single request (${payload.length} bytes) → sending to backend")
+            Log.d(
+                ReplayLog.TAG,
+                "[Replay flow] Flush → combining ${fileToContent.size} batch(es) into single request (${payload.length} bytes) → sending to backend",
+            )
             realSend(payload).fold(
                 onSuccess = { fileToContent.forEach { (file) -> file.delete() } },
                 onFailure = { t ->
@@ -173,14 +192,15 @@ public class PersistingReplayEmitter(
     private fun readFilesToContent(
         files: List<File>,
         onReadError: (File, Throwable) -> Unit,
-    ): List<Pair<File, String>> = files.mapNotNull { file ->
-        try {
-            readFileContent(file)?.let { file to it }
-        } catch (e: Throwable) {
-            onReadError(file, e)
-            null
+    ): List<Pair<File, String>> =
+        files.mapNotNull { file ->
+            try {
+                readFileContent(file)?.let { file to it }
+            } catch (e: Throwable) {
+                onReadError(file, e)
+                null
+            }
         }
-    }
 
     private fun buildBatchPayload(contents: List<String>): String =
         if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")

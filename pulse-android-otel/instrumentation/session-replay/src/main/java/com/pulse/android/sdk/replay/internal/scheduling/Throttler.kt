@@ -14,7 +14,7 @@ internal class Throttler(
     private val dateProvider: DateProvider,
     throttleDelayMs: Long,
 ) {
-    private var lastCall = 0L
+    @Volatile private var lastCall = 0L
     private val delayNs = TimeUnit.MILLISECONDS.toNanos(throttleDelayMs)
     private val isThrottling = AtomicBoolean(false)
 
