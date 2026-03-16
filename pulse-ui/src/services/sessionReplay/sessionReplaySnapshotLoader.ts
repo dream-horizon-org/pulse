@@ -3,6 +3,10 @@
  * Uses GET /v1/sessions/{sessionId}/snapshots-source and
  * GET /v1/sessions/{sessionId}/snapshots-data?start_blob_key=&end_blob_key=
  * with IndexedDB cache (max 20 blobs per request).
+ *
+ * The manifest (snapshots-source) is fetched once per session and cached
+ * in-memory so that loadInitialSnapshots / loadSnapshotsForTime never
+ * duplicate the call.
  */
 
 import { sessionReplayService } from "./SessionReplayService";
@@ -18,9 +22,55 @@ import type { SessionReplayImage } from "./sessionReplayImages";
 
 const MAX_BLOBS_PER_REQUEST = 20;
 
-function parseTimestamp(ts: string): number {
+export function parseTimestamp(ts: string): number {
   const normalized = ts.includes("T") ? ts : ts.replace(" ", "T") + "Z";
   return new Date(normalized).getTime();
+}
+
+/* ── manifest cache (one entry per session, lives for the tab lifetime) ── */
+
+interface CachedManifest {
+  sources: SnapshotsSourceBlob[];
+  durationMs: number;
+  sessionStartMs: number;
+}
+
+const manifestCache = new Map<string, CachedManifest>();
+const inflightManifest = new Map<string, Promise<CachedManifest>>();
+
+export function clearManifestCache(sessionId?: string): void {
+  if (sessionId) {
+    manifestCache.delete(sessionId);
+    inflightManifest.delete(sessionId);
+  } else {
+    manifestCache.clear();
+    inflightManifest.clear();
+  }
+}
+
+async function getOrFetchManifest(sessionId: string): Promise<CachedManifest> {
+  const cached = manifestCache.get(sessionId);
+  if (cached) return cached;
+
+  // Deduplicate concurrent requests (e.g. React Strict Mode double-effect)
+  const inflight = inflightManifest.get(sessionId);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const response = await sessionReplayService.getSnapshotsSource(sessionId);
+    const sources = response.sources ?? [];
+    const durationMs = computeSnapshotDurationMs(sources);
+    const sessionStartMs =
+      sources.length > 0 ? parseTimestamp(sources[0].startTimestamp) : 0;
+
+    const entry: CachedManifest = { sources, durationMs, sessionStartMs };
+    manifestCache.set(sessionId, entry);
+    inflightManifest.delete(sessionId);
+    return entry;
+  })();
+
+  inflightManifest.set(sessionId, promise);
+  return promise;
 }
 
 /** Type 4 = image frame with href in data */
@@ -178,17 +228,13 @@ export function computeSnapshotDurationMs(
 
 /**
  * Fetch the snapshot source manifest for a session.
- * Returns the sources array and computed total duration in ms.
+ * Returns the sources array, computed total duration, and session start time.
+ * Uses the in-memory cache so the network call happens at most once per session.
  */
 export async function fetchSnapshotManifest(
   sessionId: string,
-): Promise<{ sources: SnapshotsSourceBlob[]; durationMs: number }> {
-  const manifest = await sessionReplayService.getSnapshotsSource(sessionId);
-  const sources = manifest.sources ?? [];
-  return {
-    sources,
-    durationMs: computeSnapshotDurationMs(sources),
-  };
+): Promise<CachedManifest> {
+  return getOrFetchManifest(sessionId);
 }
 
 export interface LoadSnapshotsOptions {
@@ -206,7 +252,8 @@ export interface LoadSnapshotsResult {
 
 /**
  * Load snapshot images for the current time window (and buffer).
- * Uses manifest to determine blob range, then cache/API. Merges with already-loaded ranges.
+ * Uses cached manifest to determine blob range, then cache/API.
+ * Merges with already-loaded ranges.
  */
 export async function loadSnapshotsForTime(
   options: LoadSnapshotsOptions,
@@ -215,8 +262,8 @@ export async function loadSnapshotsForTime(
 
   await touchSession(sessionId);
 
-  const manifest = await sessionReplayService.getSnapshotsSource(sessionId);
-  const sources = manifest.sources ?? [];
+  const manifest = await getOrFetchManifest(sessionId);
+  const sources = manifest.sources;
   if (sources.length === 0) {
     return { images: [], loadedRanges: new Set(loadedRanges) };
   }
@@ -292,7 +339,8 @@ async function buildImagesFromLoadedRanges(
 }
 
 /**
- * Initial load: cleanup stale cache, then load first window of snapshots (start of session).
+ * Initial load: cleanup stale cache, then load first window of snapshots
+ * (start of session). Uses the cached manifest — no extra network call.
  */
 export async function loadInitialSnapshots(
   sessionId: string,
@@ -301,8 +349,8 @@ export async function loadInitialSnapshots(
   await cleanupStaleSessions();
   await touchSession(sessionId);
 
-  const manifest = await sessionReplayService.getSnapshotsSource(sessionId);
-  const sources = manifest.sources ?? [];
+  const manifest = await getOrFetchManifest(sessionId);
+  const sources = manifest.sources;
   if (sources.length === 0) {
     return { images: [], loadedRanges: new Set() };
   }

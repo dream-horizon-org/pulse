@@ -10,6 +10,14 @@ interface ReplayImageViewProps {
   onImageLoad: (timestamp: number) => void;
 }
 
+/**
+ * Renders the current replay frame.
+ *
+ * No CSS transition / crossfade — instant swap gives the cleanest result
+ * for discrete session-replay screenshots and avoids flicker on seek.
+ * The `<img>` intentionally omits a React `key` so the DOM element is
+ * reused; the browser swaps src in-place which avoids an unmount flash.
+ */
 export function ReplayImageView({
   imageToShow,
   previousImage,
@@ -19,52 +27,18 @@ export function ReplayImageView({
 }: ReplayImageViewProps) {
   return (
     <Box className={classes.imageViewport}>
-      {/* Render previous image for smooth crossfade transition */}
-      {previousImage &&
-        previousImage.timestamp !== imageToShow.timestamp &&
-        loadedImages.has(previousImage.timestamp) && (
-          <img
-            key={`prev-${previousImage.timestamp}`}
-            src={previousImage.imageUrl}
-            alt={`Previous frame at ${previousImage.timestamp}ms`}
-            className={classes.transitionImage}
-            style={{
-              opacity: 1 - transitionOpacity,
-              transition: "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}
-          />
-        )}
-
       <img
-        key={`img-${imageToShow.timestamp}`}
         src={imageToShow.imageUrl}
         alt={`Frame at ${imageToShow.timestamp}ms`}
         className={classes.currentImage}
         style={{
-          opacity: loadedImages.has(imageToShow.timestamp)
-            ? transitionOpacity
-            : 1,
-          transition: "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+          opacity: transitionOpacity,
           display: "block",
           visibility: "visible",
         }}
-        onLoad={(e) => {
-          onImageLoad(imageToShow.timestamp);
-          const target = e.target as HTMLImageElement;
-          if (target && process.env.NODE_ENV === "development") {
-            console.log("✅ Image loaded:", imageToShow.imageUrl, {
-              width: target.naturalWidth,
-              height: target.naturalHeight,
-            });
-          }
-        }}
+        onLoad={() => onImageLoad(imageToShow.timestamp)}
         onError={(e) => {
           const target = e.target as HTMLImageElement;
-          console.error("❌ Failed to load image:", imageToShow.imageUrl, {
-            error: e,
-            target,
-          });
-          // Show error indicator
           if (target) {
             target.style.border = "2px solid red";
             target.style.backgroundColor = "#fee";

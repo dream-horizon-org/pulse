@@ -38,19 +38,6 @@ export function PlayerViewport({
     ? `${classes.playerPlaceholder} ${classes.playerPlaceholderCompact}`
     : classes.playerPlaceholder;
 
-  if (imagesLoading) {
-    return (
-      <Box className={viewportClass}>
-        <Stack align="center" gap="md">
-          <IconReload size={32} className={classes.loadingSpinner} />
-          <Text size="sm" c="dimmed">
-            {MESSAGES.LOADING_SESSION_REPLAY_IMAGES}
-          </Text>
-        </Stack>
-      </Box>
-    );
-  }
-
   if (images.length > 0) {
     return (
       <Box className={viewportClass}>
@@ -71,6 +58,19 @@ export function PlayerViewport({
             </Badge>
           </Box>
         )}
+      </Box>
+    );
+  }
+
+  if (imagesLoading) {
+    return (
+      <Box className={viewportClass}>
+        <Stack align="center" gap="md">
+          <IconReload size={32} className={classes.loadingSpinner} />
+          <Text size="sm" c="dimmed">
+            {MESSAGES.LOADING_SESSION_REPLAY_IMAGES}
+          </Text>
+        </Stack>
       </Box>
     );
   }

@@ -118,7 +118,11 @@ export function sessionDetailApiToData(
   const events: SessionEvent[] = (api.events ?? []).map((e) => ({
     timestamp: parseEventTimestampMs(e.timestamp, baseMs),
     type: e.eventType === "interaction" ? "click" : e.eventType,
+    eventType: e.eventType,
     description: e.description,
+    durationNs: e.durationNs,
+    traceId: e.traceId,
+    spanId: e.spanId,
   }));
 
   const networkRequests: NetworkRequest[] = (api.networkRequests ?? []).map(

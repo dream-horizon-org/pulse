@@ -2,6 +2,9 @@
  * Loads snapshot images for the session replay player using the snapshot APIs:
  * GET /v1/sessions/{sessionId}/snapshots-source and snapshots-data.
  * Caches blob ranges in IndexedDB; loads on initial mount and when user seeks.
+ *
+ * sessionStartMs is derived from the manifest's first blob startTimestamp
+ * so we never depend on session-detail API timing.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -13,11 +16,10 @@ import {
 } from "../../../services/sessionReplay/sessionReplaySnapshotLoader";
 
 const SEEK_DEBOUNCE_MS = 300;
+const SEEK_THRESHOLD_MS = 2000;
 
 export interface UseSessionReplaySnapshotsParams {
   sessionId: string | undefined;
-  /** Session start time (Date or ISO string) */
-  sessionStartTime: Date | string;
   /** Current playback time in ms from session start */
   currentTime: number;
   enabled?: boolean;
@@ -27,13 +29,11 @@ export interface UseSessionReplaySnapshotsResult {
   images: SessionReplayImage[];
   loading: boolean;
   error: Error | null;
-
   snapshotDurationMs: number;
 }
 
 export function useSessionReplaySnapshots({
   sessionId,
-  sessionStartTime,
   currentTime,
   enabled = true,
 }: UseSessionReplaySnapshotsParams): UseSessionReplaySnapshotsResult {
@@ -41,31 +41,21 @@ export function useSessionReplaySnapshots({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [snapshotDurationMs, setSnapshotDurationMs] = useState(0);
+
   const loadedRangesRef = useRef<Set<string>>(new Set());
-  const sessionStartMs = useRef(0);
+  const sessionStartMsRef = useRef(0);
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastLoadTimeRef = useRef(0);
-  const SEEK_THRESHOLD_MS = 2000;
 
   const effectiveEnabled = Boolean(enabled && sessionId);
-
-  useEffect(() => {
-    if (!sessionStartTime) return;
-    sessionStartMs.current =
-      typeof sessionStartTime === "string"
-        ? new Date(sessionStartTime).getTime()
-        : sessionStartTime.getTime();
-  }, [sessionStartTime]);
 
   const loadForTime = useCallback(
     async (timeMs: number) => {
       if (!sessionId || !effectiveEnabled) return;
-      setLoading(true);
-      setError(null);
       try {
         const result = await loadSnapshotsForTime({
           sessionId,
-          sessionStartMs: sessionStartMs.current,
+          sessionStartMs: sessionStartMsRef.current,
           currentTimeMs: timeMs,
           loadedRanges: loadedRangesRef.current,
         });
@@ -73,26 +63,14 @@ export function useSessionReplaySnapshots({
         setImages(result.images);
       } catch (err) {
         setError(err instanceof Error ? err : new Error(String(err)));
-        setImages([]);
-      } finally {
-        setLoading(false);
       }
     },
     [sessionId, effectiveEnabled],
   );
 
-  useEffect(() => {
-    if (!sessionId || !effectiveEnabled) return;
-    let cancelled = false;
-    fetchSnapshotManifest(sessionId).then((result) => {
-      if (!cancelled) setSnapshotDurationMs(result.durationMs);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, effectiveEnabled]);
-
-  // Initial load
+  // Fetch manifest once, then load the first window of blobs.
+  // sessionStartMs is derived from the manifest (first blob startTimestamp)
+  // so we are independent of the session-detail API load timing.
   useEffect(() => {
     if (!sessionId || !effectiveEnabled) {
       setImages([]);
@@ -101,13 +79,24 @@ export function useSessionReplaySnapshots({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadInitialSnapshots(sessionId, sessionStartMs.current)
-      .then((result) => {
-        if (cancelled) return;
-        loadedRangesRef.current = result.loadedRanges;
-        setImages(result.images);
-        lastLoadTimeRef.current = 0;
-      })
+
+    (async () => {
+      const manifest = await fetchSnapshotManifest(sessionId);
+      if (cancelled) return;
+
+      setSnapshotDurationMs(manifest.durationMs);
+      sessionStartMsRef.current = manifest.sessionStartMs;
+
+      const result = await loadInitialSnapshots(
+        sessionId,
+        manifest.sessionStartMs,
+      );
+      if (cancelled) return;
+
+      loadedRangesRef.current = result.loadedRanges;
+      setImages(result.images);
+      lastLoadTimeRef.current = 0;
+    })()
       .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err : new Error(String(err)));
@@ -117,6 +106,7 @@ export function useSessionReplaySnapshots({
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };

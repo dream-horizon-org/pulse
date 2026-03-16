@@ -79,8 +79,25 @@ export function SessionTableRow({
         </Badge>
       </Table.Td>
       <Table.Td>
-        <Tooltip label={formatImpactedScreensTooltip(session.impactedScreens)}>
-          <Text size="xs" c="dimmed" className={classes.journey}>
+        <Tooltip
+          label={formatImpactedScreensTooltip(session.impactedScreens)}
+          multiline
+          maw={300}
+        >
+          <Text
+            size="sm"
+            c={
+              formatImpactedScreensPreview(session.impactedScreens) === "—"
+                ? "dimmed"
+                : undefined
+            }
+            className={classes.journey}
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {formatImpactedScreensPreview(session.impactedScreens)}
           </Text>
         </Tooltip>

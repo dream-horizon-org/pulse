@@ -479,8 +479,8 @@ export class SessionReplayService {
   }
 }
 
-// Create singleton instance
-const API_BASE_URL =
-  process.env.REACT_APP_PULSE_SERVER_URL || "http://localhost:8080";
+const SESSION_REPLAY_API_BASE = process.env.REACT_APP_PULSE_SERVER_URL ?? "";
 
-export const sessionReplayService = new SessionReplayService(API_BASE_URL);
+export const sessionReplayService = new SessionReplayService(
+  SESSION_REPLAY_API_BASE,
+);
