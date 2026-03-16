@@ -13,6 +13,7 @@ import org.dreamhorizon.pulseserver.dao.sessiondetail.models.NetworkRequestRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionExceptionRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
+import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionTimingRow;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 
@@ -23,6 +24,12 @@ public class SessionDetailDao {
   private static final int DEFAULT_TIMEOUT_MS = 5000;
 
   private final ClickhouseQueryService clickhouseQueryService;
+
+  public Single<QueryResultResponse<SessionTimingRow>> getSessionTiming(String sessionId) {
+    return executeQuery(
+        SessionDetailQueries.GET_SESSION_TIMING, sessionId, SessionTimingRow.class
+    );
+  }
 
   public Single<QueryResultResponse<SessionCoreRow>> getSessionCore(String sessionId) {
     return executeQuery(

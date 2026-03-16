@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.resources.sessiondetail.models;
+package org.dreamhorizon.pulseserver.resources.session.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;

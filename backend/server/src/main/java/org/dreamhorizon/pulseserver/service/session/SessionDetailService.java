@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.sessiondetail.impl;
+package org.dreamhorizon.pulseserver.service.session;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,25 +15,24 @@ import org.dreamhorizon.pulseserver.dao.sessiondetail.models.NetworkRequestRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionExceptionRow;
 import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
+import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionTimingRow;
 import org.dreamhorizon.pulseserver.error.ServiceError;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.EventType;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.Event;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.Interaction;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.NetworkRequest;
-import org.dreamhorizon.pulseserver.resources.sessiondetail.models.SessionDetailResponse.SessionException;
-import org.dreamhorizon.pulseserver.service.sessiondetail.SessionDetailService;
+import org.dreamhorizon.pulseserver.resources.session.models.EventType;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.Event;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.Interaction;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.NetworkRequest;
+import org.dreamhorizon.pulseserver.resources.session.models.SessionDetailResponse.SessionException;
 
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
-public class SessionDetailServiceImpl implements SessionDetailService {
+public class SessionDetailService {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
 
   private final SessionDetailDao sessionDetailDao;
 
-  @Override
   public Single<SessionDetailResponse> getSessionDetail(
       String sessionId, Set<String> includeSections
   ) {
@@ -62,13 +61,16 @@ public class SessionDetailServiceImpl implements SessionDetailService {
         ? toList(sessionDetailDao.getEventSpans(sessionId))
         : Single.just(Collections.emptyList());
 
+    Single<List<SessionTimingRow>> timingSingle = toList(
+        sessionDetailDao.getSessionTiming(sessionId));
+
     return Single.zip(
         coreSingle, interactionsSingle, networkSingle,
-        exceptionsSingle, eventSpansSingle,
-        (coreRows, interactions, network, exceptions, eventSpans) ->
+        exceptionsSingle, eventSpansSingle, timingSingle,
+        (coreRows, interactions, network, exceptions, eventSpans, timingRows) ->
             assembleResponse(
                 coreRows, interactions, network, exceptions,
-                eventSpans, includeSections, sessionId
+                eventSpans, timingRows.get(0), includeSections, sessionId
             )
     );
   }
@@ -79,6 +81,7 @@ public class SessionDetailServiceImpl implements SessionDetailService {
       List<NetworkRequestRow> networkRows,
       List<SessionExceptionRow> exceptionRows,
       List<SessionSpanRow> eventSpans,
+      SessionTimingRow timingRows,
       Set<String> includeSections,
       String sessionId
   ) {
@@ -93,9 +96,9 @@ public class SessionDetailServiceImpl implements SessionDetailService {
         .sessionId(core.getSessionId())
         .userId(core.getUserId())
         .isAnonymous(core.getUserId() == null || core.getUserId().isBlank())
-        .startTime(core.getSessionStart())
-        .endTime(core.getSessionEnd())
-        .duration(core.getDurationMs())
+        .startTime(timingRows.getSessionStart())
+        .endTime(timingRows.getSessionEnd())
+        .duration(timingRows.getDurationMs())
         .platform(core.getPlatform())
         .device(core.getDevice())
         .osVersion(core.getOsVersion())
