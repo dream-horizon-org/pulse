@@ -215,10 +215,11 @@ impl sinks::Event for KafkaSink {
             .payload(payload)
             .headers(headers);
 
-        match self
-            .producer
-            .send(record, Timeout::After(Duration::from_secs(10)))
-            .await
+        // match self
+        //     .producer
+        //     .send(record, Timeout::After(Duration::from_secs(10)))
+        //     .await
+        match self.producer.send(record, Timeout::Never)
         {
             Ok(_) => Ok(()),
             Err((err, _)) => {
