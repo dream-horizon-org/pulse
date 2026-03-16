@@ -6,6 +6,7 @@ import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
