@@ -1,5 +1,6 @@
 package io.opentelemetry.android.instrumentation.location.library
 
+import android.content.Context
 import com.google.auto.service.AutoService
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
@@ -20,7 +21,7 @@ public class LocationInstrumentation : AndroidInstrumentation {
         val sharedPreferences =
             ctx.application.getSharedPreferences(
                 SHARED_PREFS_NAME,
-                android.content.Context.MODE_PRIVATE,
+                Context.MODE_PRIVATE,
             )
         val locationProvider =
             LocationProvider(
