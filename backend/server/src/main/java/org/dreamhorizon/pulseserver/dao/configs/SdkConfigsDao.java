@@ -138,7 +138,10 @@ public class SdkConfigsDao {
                       return conn.preparedQuery(DEACTIVATE_ACTIVE_CONFIG)
                           .rxExecute(Tuple.of(projectId))
                           .flatMap(deactivateResult -> conn.preparedQuery(INSERT_CONFIG).rxExecute(tuple))
-                          .map(insertResult -> {
+                          .flatMap(insertResult -> {
+                            if (insertResult.rowCount() == 0) {
+                              return Single.error(new RuntimeException("Failed to insert config"));
+                            }
                             // Build PulseConfig with the calculated version
                             PulseConfig pulseConfig = PulseConfig.builder()
                                 .version(nextVersion)
@@ -150,7 +153,7 @@ public class SdkConfigsDao {
                                     objectMapper.constructCollectionType(List.class, PulseConfig.FeatureConfig.class)))
                                 .build();
                             log.info("Created new SDK config for project: {}, version: {}", projectId, nextVersion);
-                            return pulseConfig;
+                            return Single.just(pulseConfig);
                           });
                     })
                     .flatMap(config -> tx.rxCommit().toSingleDefault(config))

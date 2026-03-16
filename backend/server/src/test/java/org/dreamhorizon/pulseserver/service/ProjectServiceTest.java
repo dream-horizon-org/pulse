@@ -556,7 +556,7 @@ class ProjectServiceTest {
       metadata = mock(io.r2dbc.spi.RowMetadata.class);
     }
 
-    private void mockClickhouseResult(Integer hasEventsValue) {
+    private void mockClickhouseResult(Object hasEventsValue) {
       when(clickhouseReadClient.getPool()).thenReturn(pool);
       when(pool.create()).thenReturn(Mono.just(conn));
       when(conn.createStatement(anyString())).thenReturn(stmt);
@@ -572,7 +572,7 @@ class ProjectServiceTest {
             return reactor.core.publisher.Flux.just(mapper.apply(row, metadata));
           });
 
-      when(row.get(eq("has_events"), eq(Integer.class))).thenReturn(hasEventsValue);
+      when(row.get(eq("has_events"))).thenReturn(hasEventsValue);
       when(conn.close()).thenReturn(Mono.empty());
     }
 
@@ -592,7 +592,7 @@ class ProjectServiceTest {
 
     @Test
     void shouldReturnTrueWhenEventsExistInClickhouse() {
-      mockClickhouseResult(1);
+      mockClickhouseResult(Integer.valueOf(1));
 
       Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
 
@@ -604,7 +604,7 @@ class ProjectServiceTest {
 
     @Test
     void shouldReturnFalseWhenNoEventsInClickhouse() {
-      mockClickhouseResult(0);
+      mockClickhouseResult(Integer.valueOf(0));
 
       Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
 

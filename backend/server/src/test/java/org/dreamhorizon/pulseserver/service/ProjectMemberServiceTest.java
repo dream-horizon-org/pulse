@@ -139,6 +139,8 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
           .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
@@ -179,6 +181,8 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
           .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.empty()));
       when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
