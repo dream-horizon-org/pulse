@@ -6,7 +6,6 @@ import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -24,44 +23,38 @@ public class MysqlSymbolFileService extends SymbolFileService {
 
   @Override
   public Single<Boolean> uploadFile(String fileName, InputStream fileInputStream, UploadMetadata metadata) {
-    return Single.fromCallable(() -> {
-      byte[] fileBytes = fileInputStream.readAllBytes();
-      return fileBytes;
-    })
-    .flatMap(fileBytes -> {
-      return s3SymbolFileService.uploadFile(metadata, new ByteArrayInputStream(fileBytes))
-          .flatMap(s3Key -> {
-            final String sql =
-                "INSERT INTO symbol_files "
-                    + "  (app_version, app_version_code, platform, framework, s3_key, bundleid, project_id) "
-                    + "VALUES (?,?,?,?,?,?,?) "
-                    + "ON DUPLICATE KEY UPDATE s3_key = VALUES(s3_key), bundleid = VALUES(bundleid)";
-            
-            return d11MysqlClient.getWriterPool()
-                .preparedQuery(sql)
-                .execute(Tuple.wrap(Arrays.asList(
-                    metadata.getAppVersion(),
-                    metadata.getVersionCode(),
-                    metadata.getPlatform(),
-                    metadata.getType(),
-                    s3Key,
-                    metadata.getBundleId(),
-                    metadata.getProjectId())))
-                .map(rows -> {
-                  log.info("Symbol file uploaded successfully: metadata={} , s3Key={}", metadata, s3Key);
-                  return true;
-                })
-                .onErrorResumeNext(dbError -> {
-                  log.error("Database insert failed: projectId={}, framework={}, platform={}, error={}", 
-                      metadata.getProjectId(), metadata.getType(), metadata.getPlatform(), dbError.getMessage(), dbError);
-                  return Single.error(new RuntimeException("Database insert failed: " + dbError.getMessage(), dbError));
-                });
-          })
-          .onErrorResumeNext(s3Error -> {
-            log.error("S3 upload failed: fileName={}, error={}", fileName, s3Error.getMessage(), s3Error);
-            return Single.error(new RuntimeException("S3 upload failed: " + s3Error.getMessage(), s3Error));
-          });
-    });
+    return s3SymbolFileService.uploadFile(metadata, fileInputStream)
+        .flatMap(s3Key -> {
+          final String sql =
+              "INSERT INTO symbol_files "
+                  + "  (app_version, app_version_code, platform, framework, s3_key, bundleid, project_id) "
+                  + "VALUES (?,?,?,?,?,?,?) "
+                  + "ON DUPLICATE KEY UPDATE s3_key = VALUES(s3_key), bundleid = VALUES(bundleid)";
+
+          return d11MysqlClient.getWriterPool()
+              .preparedQuery(sql)
+              .execute(Tuple.wrap(Arrays.asList(
+                  metadata.getAppVersion(),
+                  metadata.getVersionCode(),
+                  metadata.getPlatform(),
+                  metadata.getType(),
+                  s3Key,
+                  metadata.getBundleId(),
+                  metadata.getProjectId())))
+              .map(rows -> {
+                log.info("Symbol file uploaded successfully: metadata={}, s3Key={}", metadata, s3Key);
+                return true;
+              })
+              .onErrorResumeNext(dbError -> {
+                log.error("Database insert failed: projectId={}, framework={}, platform={}, error={}",
+                    metadata.getProjectId(), metadata.getType(), metadata.getPlatform(), dbError.getMessage(), dbError);
+                return Single.error(new RuntimeException("Database insert failed: " + dbError.getMessage(), dbError));
+              });
+        })
+        .onErrorResumeNext(s3Error -> {
+          log.error("S3 upload failed: fileName={}, error={}", fileName, s3Error.getMessage(), s3Error);
+          return Single.error(new RuntimeException("S3 upload failed: " + s3Error.getMessage(), s3Error));
+        });
   }
 
   public Single<Buffer> readFile(UploadMetadata metadata) {

@@ -2,6 +2,7 @@ package org.dreamhorizon.pulseserver.errorgrouping.service;
 
 
 import io.reactivex.rxjava3.core.Single;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +53,8 @@ public abstract class SymbolFileService {
       }
 
       try (InputStream fileInputStream = inputPart.getBody(InputStream.class, null)) {
-        uploads.add(uploadFile(fileName, fileInputStream, metadata));
+        byte[] fileBytes = fileInputStream.readAllBytes();
+        uploads.add(uploadFile(fileName, new ByteArrayInputStream(fileBytes), metadata));
       } catch (Exception e) {
         log.error("Failed to process file '{}': error={}", fileName, e.getMessage(), e);
         return Single.error(new RuntimeException("Failed to process file '" + fileName + "': " + e.getMessage(), e));
