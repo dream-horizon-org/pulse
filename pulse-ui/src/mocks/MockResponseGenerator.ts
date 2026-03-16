@@ -9,6 +9,8 @@ import { MockDataStore } from "./MockDataStore";
 import { MockConfigManager } from "./MockConfig";
 import { generateDataQueryMockResponseV2 } from "./v2";
 import { mockJobResponses } from "./responses/jobResponses";
+import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { handleFunnelEndpoints } from "./responses/funnelResponses";
 import {
   mockAlertFilters,
   mockAlertMetrics,
@@ -27,8 +29,6 @@ import {
   mockTableMetadata,
   shouldReturnImmediate
 } from "./responses/realtimeQueryResponses";
-import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
-import { handleFunnelEndpoints } from "./responses/funnelResponses";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -89,9 +89,9 @@ export class MockResponseGenerator {
     await this.delay(this.config.getDelay());
 
     // Simulate random errors
-    if (this.config.shouldSimulateError()) {
-      return this.generateErrorResponse();
-    }
+    // if (this.config.shouldSimulateError()) {
+    //   return this.generateErrorResponse();
+    // }
 
     // Route to appropriate handler based on path and method
     return this.routeRequest(pathname, method, request);
