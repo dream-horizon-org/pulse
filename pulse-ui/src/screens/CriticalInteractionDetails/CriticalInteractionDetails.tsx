@@ -73,11 +73,15 @@ export function CiritcalInteractionDetails() {
     : "overview";
   const [activeTab, setActiveTab] = useState<string | null>(initialTab);
 
-  const rootCauseDate =
+  const rootCauseDateRaw =
     endTime != null && endTime !== ""
       ? dayjs(typeof endTime === "string" ? Number(endTime) : endTime).format(
           "YYYY-MM-DD",
         )
+      : undefined;
+  const rootCauseDate =
+    rootCauseDateRaw && rootCauseDateRaw !== "Invalid Date"
+      ? rootCauseDateRaw
       : undefined;
 
   useEffect(() => {

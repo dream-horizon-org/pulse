@@ -5,9 +5,15 @@ Simulates a large Indian e-commerce platform with 12 critical interactions,
 realistic device/network/geo distributions, and intentional bad segments
 per interaction for the AI root cause engine to discover.
 
+Before seeding, the script checks MySQL for tenants and projects. If there are
+multiple tenants, it prompts you to choose which tenant (and project) to insert
+data for. Set PROJECT_ID in the environment to skip the prompt and seed that
+project directly.
+
 Usage:
     python3 deploy/scripts/seed-ecommerce-data.py [--clear]
-    --clear  Wipe existing data before seeding
+    --clear       Wipe existing seed data for the chosen project before seeding
+    PROJECT_ID=x  (env) Use this project_id; skip tenant/project selection
 """
 
 import random
@@ -70,6 +76,120 @@ def mysql_query(query):
             print(f"  MySQL error: {stderr.strip()}")
             sys.exit(1)
     return result.stdout
+
+
+def mysql_query_rows(query):
+    """Run MySQL query with -N (no column names), return rows as list of lists (tab-separated)."""
+    import subprocess
+    if MYSQL_MODE == "direct":
+        cmd = [
+            "mysql", "-h", MYSQL_HOST, "-P", str(MYSQL_PORT),
+            "-u", MYSQL_USER, f"-p{MYSQL_PASSWORD}", "--skip-ssl", "-N", MYSQL_DB,
+            "-e", query
+        ]
+    else:
+        cmd = [
+            "docker", "exec", "pulse-mysql",
+            "mysql", "-u", MYSQL_USER, f"-p{MYSQL_PASSWORD}", "-N", MYSQL_DB,
+            "-e", query
+        ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        stderr = result.stderr.replace("mysql: [Warning] Using a password on the command line interface can be insecure.\n", "")
+        if stderr.strip():
+            print(f"  MySQL error: {stderr.strip()}")
+            sys.exit(1)
+    out = result.stdout.strip()
+    if not out:
+        return []
+    return [line.split("\t") for line in out.splitlines()]
+
+
+TENANTS_PROJECTS_QUERY = """
+SELECT t.tenant_id, t.name, p.project_id, p.name
+FROM tenants t
+JOIN projects p ON p.tenant_id = t.tenant_id
+WHERE t.is_active = TRUE AND p.is_active = TRUE
+ORDER BY t.name, p.name;
+"""
+
+
+def resolve_project_id():
+    """
+    Check tenants in DB; if multiple, ask user which tenant/project.
+    Returns project_id. Exits if no tenants or projects.
+    """
+    rows = mysql_query_rows(TENANTS_PROJECTS_QUERY)
+    if not rows:
+        print("\n  No tenants or projects found in the database.")
+        print("  Create a tenant and project first (e.g. via onboarding or admin).")
+        sys.exit(1)
+
+    # Build: tenant_id -> (tenant_name, [(project_id, project_name), ...])
+    by_tenant = {}
+    for row in rows:
+        tenant_id, tenant_name, project_id, project_name = row[0], row[1], row[2], row[3]
+        if tenant_id not in by_tenant:
+            by_tenant[tenant_id] = (tenant_name, [])
+        by_tenant[tenant_id][1].append((project_id, project_name))
+
+    tenants_list = list(by_tenant.items())
+
+    if len(tenants_list) == 1:
+        tenant_id, (tenant_name, projects) = tenants_list[0]
+        if len(projects) == 1:
+            project_id, pname = projects[0]
+            print(f"\n  Using tenant '{tenant_name}' and project '{pname}' ({project_id})")
+            return project_id
+        print(f"\n  Tenant: {tenant_name}")
+        print("  Projects:")
+        for i, (pid, pname) in enumerate(projects, 1):
+            print(f"    {i}. {pname} ({pid})")
+        while True:
+            try:
+                choice = input("  Enter project number: ").strip()
+                idx = int(choice)
+                if 1 <= idx <= len(projects):
+                    project_id, project_name = projects[idx - 1]
+                    print(f"  Using project: {project_name} ({project_id})")
+                    return project_id
+            except ValueError:
+                pass
+            print("  Invalid choice. Try again.")
+
+    # Multiple tenants
+    print("\n  Multiple tenants found. Select tenant:")
+    for i, (tid, (tname, projs)) in enumerate(tenants_list, 1):
+        print(f"    {i}. {tname} (tenant_id={tid}) — {len(projs)} project(s)")
+    while True:
+        try:
+            choice = input("  Enter tenant number: ").strip()
+            idx = int(choice)
+            if 1 <= idx <= len(tenants_list):
+                tenant_id, (tenant_name, projects) = tenants_list[idx - 1]
+                break
+        except ValueError:
+            pass
+        print("  Invalid choice. Try again.")
+
+    if len(projects) == 1:
+        project_id, pname = projects[0]
+        print(f"  Using project: {pname} ({project_id})")
+        return project_id
+    print(f"\n  Tenant '{tenant_name}' has multiple projects:")
+    for i, (pid, pname) in enumerate(projects, 1):
+        print(f"    {i}. {pname} ({pid})")
+    while True:
+        try:
+            choice = input("  Enter project number: ").strip()
+            idx = int(choice)
+            if 1 <= idx <= len(projects):
+                project_id, project_name = projects[idx - 1]
+                print(f"  Using project: {project_name} ({project_id})")
+                return project_id
+        except ValueError:
+            pass
+        print("  Invalid choice. Try again.")
 
 
 def wc(choices, weights):
@@ -463,7 +583,7 @@ def compute_apdex(duration_ms, is_error, lower, mid, upper):
         return "0.0", "Poor"
 
 
-def generate_interaction_rows(interaction):
+def generate_interaction_rows(interaction, project_id):
     rows = []
     vol = interaction["volume"]
     base_dur_mean, base_dur_std = interaction["base_duration"]
@@ -543,7 +663,7 @@ def generate_interaction_rows(interaction):
             f"'os.version','{escape(os_version)}'",
             f"'app.build_name','{escape(app_version)}'",
             f"'device.model.name','{escape(device)}'",
-            "'project.id','default'",
+            f"'project.id','{escape(project_id)}'",
             f"'rum.sdk.version','{escape(sdk_version)}'",
         ]
         resource_attr_str = "map(" + ",".join(resource_attrs_parts) + ")"
@@ -559,7 +679,7 @@ def generate_interaction_rows(interaction):
     return rows
 
 
-def generate_rum_events(interaction_name, count):
+def generate_rum_events(interaction_name, count, project_id):
     """Generate standalone crash/ANR RUM events in otel_traces."""
     rows = []
     for _ in range(count):
@@ -588,7 +708,7 @@ def generate_rum_events(interaction_name, count):
             f"'os.version','{escape(os_version)}'",
             f"'app.build_name','{escape(app_version)}'",
             f"'device.model.name','{escape(device)}'",
-            "'project.id','default'",
+            f"'project.id','{escape(project_id)}'",
             f"'rum.sdk.version','{escape(sdk_version)}'",
         ]
         resource_attr_str = "map(" + ",".join(resource_attrs_parts) + ")"
@@ -664,7 +784,7 @@ SCREEN_NAMES = [
 ]
 
 
-def generate_stack_trace_events(total_crashes, total_anrs):
+def generate_stack_trace_events(total_crashes, total_anrs, project_id):
     """Generate crash/ANR rows for the stack_trace_events table (Vitals page)."""
     import hashlib
     rows = []
@@ -717,7 +837,7 @@ def generate_stack_trace_events(total_crashes, total_anrs):
 
         log_attrs = f"map('pulse.type','{pulse_type}')"
         resource_attrs = (
-            f"map('project.id','default','os.name','{escape(platform)}',"
+            f"map('project.id','{escape(project_id)}','os.name','{escape(platform)}',"
             f"'os.version','{escape(os_version)}',"
             f"'app.build_name','{escape(app_version)}',"
             f"'device.model.name','{escape(device)}',"
@@ -740,7 +860,7 @@ def generate_stack_trace_events(total_crashes, total_anrs):
     return rows
 
 
-def generate_session_start_logs(count):
+def generate_session_start_logs(count, project_id):
     """Generate session.start log entries in otel_logs for total user/session counts."""
     rows = []
     for _ in range(count):
@@ -762,7 +882,7 @@ def generate_session_start_logs(count):
             f"'network.carrier.name','{escape(network)}')"
         )
         resource_attrs = (
-            f"map('project.id','default',"
+            f"map('project.id','{escape(project_id)}',"
             f"'os.name','{escape(platform)}',"
             f"'os.version','{escape(os_version)}',"
             f"'app.build_name','{escape(app_version)}',"
@@ -845,19 +965,28 @@ def insert_log_rows(rows, label=""):
 
 if __name__ == "__main__":
     clear = "--clear" in sys.argv
+    project_id = os.environ.get("PROJECT_ID", "").strip()
 
     print("=" * 60)
     print("  E-commerce Data Seeder for Pulse")
     print("=" * 60)
 
+    if project_id:
+        print(f"\n  Using project_id from env: {project_id}")
+    else:
+        project_id = resolve_project_id()
+
+    project_id_mysql = project_id.replace("\\", "\\\\").replace("'", "''")
+    project_id_ch = escape(project_id)
+
     if clear:
-        print("\n[0/5] Clearing existing data...")
-        ch_query("TRUNCATE TABLE otel_traces")
-        ch_query("TRUNCATE TABLE otel_logs")
-        ch_query("TRUNCATE TABLE stack_trace_events")
-        print("  Cleared ClickHouse tables (otel_traces, otel_logs, stack_trace_events)")
-        mysql_query("DELETE FROM interaction WHERE tenant_id = 'default';")
-        print("  Cleared MySQL interactions")
+        print("\n[0/5] Clearing existing seed data for this project...")
+        ch_query(f"ALTER TABLE otel_traces DELETE WHERE ProjectId = '{project_id_ch}'")
+        ch_query(f"ALTER TABLE otel_logs DELETE WHERE ProjectId = '{project_id_ch}'")
+        ch_query(f"ALTER TABLE stack_trace_events DELETE WHERE ProjectId = '{project_id_ch}'")
+        print("  Cleared ClickHouse data for this project")
+        mysql_query(f"DELETE FROM interaction WHERE project_id = '{project_id_mysql}' AND created_by = 'seed-script';")
+        print("  Cleared MySQL interactions for this project")
 
     # ── Step 1: Insert interactions in MySQL ──────────────────────────────
     print("\n[1/5] Creating interactions in MySQL...")
@@ -874,8 +1003,8 @@ if __name__ == "__main__":
         })
         details_escaped = details.replace("\\", "\\\\").replace("'", "\\'")
         sql = (
-            f"INSERT INTO interaction (tenant_id, name, status, details, created_by, updated_by) "
-            f"VALUES ('default', '{ix['name']}', 'RUNNING', '{details_escaped}', 'seed-script', 'seed-script') "
+            f"INSERT INTO interaction (project_id, name, status, details, created_by, updated_by) "
+            f"VALUES ('{project_id_mysql}', '{ix['name']}', 'RUNNING', '{details_escaped}', 'seed-script', 'seed-script') "
             f"ON DUPLICATE KEY UPDATE status = VALUES(status), details = VALUES(details), updated_by = VALUES(updated_by);"
         )
         mysql_query(sql)
@@ -886,13 +1015,13 @@ if __name__ == "__main__":
     total_rows = 0
     for ix in INTERACTIONS:
         print(f"\n  Generating {ix['volume']} spans for '{ix['name']}'...")
-        rows = generate_interaction_rows(ix)
+        rows = generate_interaction_rows(ix, project_id)
         insert_trace_rows(rows, label=ix["name"])
         total_rows += len(rows)
 
     # ── Step 3: Generate standalone crash/ANR in otel_traces ──────────────
     print("\n[3/5] Generating standalone crash/ANR RUM events (otel_traces)...")
-    rum_rows = generate_rum_events("global", 800)
+    rum_rows = generate_rum_events("global", 800, project_id)
     insert_trace_rows(rum_rows, label="crash/ANR events")
     total_rows += len(rum_rows)
 
@@ -900,14 +1029,14 @@ if __name__ == "__main__":
     num_crashes = 600
     num_anrs = 350
     print(f"\n[4/5] Generating {num_crashes} crashes + {num_anrs} ANRs (stack_trace_events for Vitals)...")
-    ste_rows = generate_stack_trace_events(num_crashes, num_anrs)
+    ste_rows = generate_stack_trace_events(num_crashes, num_anrs, project_id)
     insert_stack_trace_rows(ste_rows, label="stack_trace_events")
     total_rows += len(ste_rows)
 
     # ── Step 5: Generate session.start logs (otel_logs for total user counts) ─
     num_sessions = 5000
     print(f"\n[5/5] Generating {num_sessions} session.start logs (otel_logs)...")
-    log_rows = generate_session_start_logs(num_sessions)
+    log_rows = generate_session_start_logs(num_sessions, project_id)
     insert_log_rows(log_rows, label="session.start logs")
     total_rows += len(log_rows)
 
@@ -917,30 +1046,31 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"\n  Total rows inserted: {total_rows}")
 
+    ch_where = f" AND ProjectId = '{project_id_ch}'"
     print("\n  Interaction traces (otel_traces):")
     for ix in INTERACTIONS:
-        count = ch_query(f"SELECT count() FROM otel_traces WHERE SpanName = '{ix['name']}'").strip()
+        count = ch_query(f"SELECT count() FROM otel_traces WHERE SpanName = '{ix['name']}'{ch_where}").strip()
         apdex = ch_query(
             f"SELECT round(avgIf(toFloat64OrNull(SpanAttributes['pulse.interaction.apdex_score']), "
-            f"StatusCode != 'Error'), 3) FROM otel_traces WHERE SpanName = '{ix['name']}'"
+            f"StatusCode != 'Error'), 3) FROM otel_traces WHERE SpanName = '{ix['name']}'{ch_where}"
         ).strip()
         err = ch_query(
             f"SELECT round(countIf(StatusCode = 'Error') / count() * 100, 1) "
-            f"FROM otel_traces WHERE SpanName = '{ix['name']}'"
+            f"FROM otel_traces WHERE SpanName = '{ix['name']}'{ch_where}"
         ).strip()
         print(f"    {ix['name']:25s}  vol={count:>6s}  apdex={apdex:>6s}  err%={err:>5s}")
 
-    crash_trace = ch_query("SELECT count() FROM otel_traces WHERE PulseType = 'device.crash'").strip()
-    anr_trace = ch_query("SELECT count() FROM otel_traces WHERE PulseType = 'device.anr'").strip()
+    crash_trace = ch_query(f"SELECT count() FROM otel_traces WHERE PulseType = 'device.crash'{ch_where}").strip()
+    anr_trace = ch_query(f"SELECT count() FROM otel_traces WHERE PulseType = 'device.anr'{ch_where}").strip()
     print(f"\n  otel_traces standalone: crashes={crash_trace}, ANRs={anr_trace}")
 
-    crash_ste = ch_query("SELECT count() FROM stack_trace_events WHERE EventName = 'device.crash'").strip()
-    anr_ste = ch_query("SELECT count() FROM stack_trace_events WHERE EventName = 'device.anr'").strip()
-    groups = ch_query("SELECT uniqExact(GroupId) FROM stack_trace_events").strip()
+    crash_ste = ch_query(f"SELECT count() FROM stack_trace_events WHERE EventName = 'device.crash'{ch_where}").strip()
+    anr_ste = ch_query(f"SELECT count() FROM stack_trace_events WHERE EventName = 'device.anr'{ch_where}").strip()
+    groups = ch_query(f"SELECT uniqExact(GroupId) FROM stack_trace_events{ch_where.replace(' AND ', ' WHERE ', 1)}").strip()
     print(f"  stack_trace_events:    crashes={crash_ste}, ANRs={anr_ste}, unique groups={groups}")
 
-    session_logs = ch_query("SELECT count() FROM otel_logs WHERE EventName = 'session.start'").strip()
-    unique_users = ch_query("SELECT uniqExact(LogAttributes['user.id']) FROM otel_logs WHERE EventName = 'session.start'").strip()
+    session_logs = ch_query(f"SELECT count() FROM otel_logs WHERE EventName = 'session.start'{ch_where}").strip()
+    unique_users = ch_query(f"SELECT uniqExact(LogAttributes['user.id']) FROM otel_logs WHERE EventName = 'session.start'{ch_where}").strip()
     print(f"  otel_logs:             sessions={session_logs}, unique_users={unique_users}")
 
     print("\n" + "=" * 60)

@@ -35,7 +35,9 @@ export function useGetRootCause({
         };
       }
       const path = `${API_BASE_URL}${GET_INTERACTION_ROOT_CAUSE_ROUTE.apiPath}/${encodeURIComponent(interactionName)}/root-cause`;
-      const url = date ? `${path}?date=${encodeURIComponent(date)}` : path;
+      const validDate =
+        date && date !== "Invalid Date" && /^\d{4}-\d{2}-\d{2}$/.test(date);
+      const url = validDate ? `${path}?date=${encodeURIComponent(date)}` : path;
       return makeRequest<RootCauseResponse>({
         url,
         init: {
