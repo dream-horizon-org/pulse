@@ -1,22 +1,21 @@
 package com.pulse.android.sdk.replay.internal.capture
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Build
-import android.view.View
-import android.view.Window
-import android.view.PixelCopy
-import android.graphics.Bitmap
-import androidx.annotation.RequiresApi
 import android.os.Handler
 import android.os.HandlerThread
-
+import android.view.PixelCopy
+import android.view.View
+import android.view.Window
+import androidx.annotation.RequiresApi
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.WireframeType
-import com.pulse.android.sdk.replay.internal.util.webpBase64
 import com.pulse.android.sdk.replay.internal.util.isValid
+import com.pulse.android.sdk.replay.internal.util.webpBase64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -25,7 +24,6 @@ import java.util.concurrent.TimeUnit
  * and returns a [ReplayWireframe] with type "screenshot" and base64 image, or null on failure.
  */
 internal object ScreenshotCapture {
-
     private val maskPaint = Paint().apply { color = android.graphics.Color.BLACK }
 
     private val pixelCopyThread: HandlerThread by lazy {
@@ -63,6 +61,7 @@ internal object ScreenshotCapture {
     ): ReplayWireframe? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
         if (!isVisible(view, logger)) return null
+        if (view.width <= 0 || view.height <= 0) return null
 
         fun screenChangedSinceCollection(): Boolean = currentDrawCount() != drawCountAtCollection
 
@@ -101,14 +100,15 @@ internal object ScreenshotCapture {
                             success = false
                             return@request
                         }
-                        val canvas = try {
-                            Canvas(bitmap)
-                        } catch (e: Throwable) {
-                            bitmap.recycle()
-                            logger("Session Replay Canvas creation failed: $e")
-                            success = false
-                            return@request
-                        }
+                        val canvas =
+                            try {
+                                Canvas(bitmap)
+                            } catch (e: Throwable) {
+                                bitmap.recycle()
+                                logger("Session Replay Canvas creation failed: $e")
+                                success = false
+                                return@request
+                            }
                         for (rect in maskableWidgets) {
                             if (screenChangedSinceCollection()) {
                                 bitmap.recycle()
@@ -134,24 +134,28 @@ internal object ScreenshotCapture {
             latch.countDown()
         }
 
+        @Suppress("KotlinConstantConditions")
         var bitmapRecycled = false
         try {
             latch.await(1000, TimeUnit.MILLISECONDS)
             val scale = screenshotScale.coerceIn(0.01f, 1f)
             val quality = screenshotQuality.coerceIn(0, 100)
-            val toEncode = if (scale < 1f && bitmap.isValid()) {
-                val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
-                val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
-                Bitmap.createScaledBitmap(bitmap, w, h, true).also {
-                    bitmap.recycle()
-                    bitmapRecycled = true
+            val toEncode =
+                if (scale < 1f && bitmap.isValid()) {
+                    val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
+                    val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
+                    val scaled = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                    if (scaled !== bitmap) {
+                        bitmap.recycle()
+                        bitmapRecycled = true
+                    }
+                    scaled
+                } else {
+                    bitmap
                 }
-            } else {
-                bitmap
-            }
             val base64 = if (success) toEncode.webpBase64(quality) else null
-            toEncode.recycle()
-            if (toEncode === bitmap) bitmapRecycled = true
+            if (toEncode.isValid()) toEncode.recycle()
+            bitmapRecycled = true
             return ReplayWireframe(
                 id = viewId,
                 x = x,
@@ -169,8 +173,15 @@ internal object ScreenshotCapture {
         }
     }
 
-    internal fun isVisible(view: View, logger: (String) -> Unit): Boolean = view.isVisibleInternal(logger)
-    internal fun isViewStateStable(view: View, logger: (String) -> Unit): Boolean = view.isViewStateStableInternal(logger)
+    internal fun isVisible(
+        view: View,
+        logger: (String) -> Unit,
+    ): Boolean = view.isVisibleInternal(logger)
+
+    internal fun isViewStateStable(
+        view: View,
+        logger: (String) -> Unit,
+    ): Boolean = view.isViewStateStableInternal(logger)
 }
 
 @RequiresApi(Build.VERSION_CODES.Q)

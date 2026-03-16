@@ -17,7 +17,6 @@ import java.io.File
  */
 @AutoService(AndroidInstrumentation::class)
 public class SessionReplayInstrumentation : AndroidInstrumentation {
-
     override val name: String = INSTRUMENTATION_NAME
 
     override fun install(ctx: InstallationContext) {
@@ -52,25 +51,27 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
             }
         }
 
-        val persistingEmitter = PersistingReplayEmitter(
-            storageDir = storageDir,
-            buildEnvelope = buildEnvelope,
-            realSend = sendReplayPayload,
-            flushIntervalSeconds = config.flushIntervalSeconds,
-            flushAt = config.flushAt,
-            maxBatchSize = config.maxBatchSize,
-            replayStorageEncryption = DefaultReplayStorageEncryption(application),
-            logger = {},
-        )
+        val persistingEmitter =
+            PersistingReplayEmitter(
+                storageDir = storageDir,
+                buildEnvelope = buildEnvelope,
+                realSend = sendReplayPayload,
+                flushIntervalSeconds = config.effectiveFlushIntervalSeconds,
+                flushAt = config.effectiveFlushAt,
+                maxBatchSize = config.effectiveMaxBatchSize,
+                replayStorageEncryption = DefaultReplayStorageEncryption(application),
+                logger = {},
+            )
         persistingEmitter.sendCachedEvents()
 
-        val integration = SessionReplayIntegration(
-            context = application,
-            config = config,
-            eventEmitter = persistingEmitter,
-            sessionIdProvider = { ctx.sessionProvider.getSessionId() },
-            logger = {},
-        )
+        val integration =
+            SessionReplayIntegration(
+                context = application,
+                config = config,
+                eventEmitter = persistingEmitter,
+                sessionIdProvider = { ctx.sessionProvider.getSessionId() },
+                logger = {},
+            )
         integration.install()
         integration.start(resumeCurrent = false)
         SessionReplayRegistry.setIntegration(integration)
@@ -86,19 +87,23 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
         val isBatched = payload.trimStart().startsWith("[") && payload.contains("},{")
         val eventTypesSummary = ReplayEnvelopeBuilder.getEventTypesSummary(payload)
         val sessionIdsLog = ReplayEnvelopeBuilder.getSessionIdsForLog(payload)
-        val parts = buildList {
-            add("$payloadSizeKb KB (${payload.length} bytes)")
-            if (isBatched) add("[batched request]") else add("[single envelope]")
-            sessionIdsLog?.let { add("— $it") }
-            eventTypesSummary?.let { add("— event types: $it") }
-        }
+        val parts =
+            buildList {
+                add("$payloadSizeKb KB (${payload.length} bytes)")
+                if (isBatched) add("[batched request]") else add("[single envelope]")
+                sessionIdsLog?.let { add("— $it") }
+                eventTypesSummary?.let { add("— event types: $it") }
+            }
         Log.d(ReplayLog.TAG, "[Replay flow] Sending to backend: ${parts.joinToString(" ")}")
     }
 
     private fun logPayloadNoApiUrl(payload: String) {
         val payloadSizeKb = payload.length / 1024
         val sessionIdsLog = ReplayEnvelopeBuilder.getSessionIdsForLog(payload)
-        Log.d(ReplayLog.TAG, "Session replay payload (no API URL): $payloadSizeKb KB (${payload.length} bytes)${if (sessionIdsLog != null) " — $sessionIdsLog" else ""}")
+        Log.d(
+            ReplayLog.TAG,
+            "Session replay payload (no API URL): $payloadSizeKb KB (${payload.length} bytes)${if (sessionIdsLog != null) " — $sessionIdsLog" else ""}",
+        )
         if (payload.length <= MAX_LOG_LEN) {
             Log.d(ReplayLog.TAG, "Replay payload: $payload")
         } else {

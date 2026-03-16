@@ -70,7 +70,9 @@ public class SessionReplayIntegration(
 
     private fun onDrawCallback() {
         drawCounter.incrementAndGet()
-        decorViews.values.forEach { it.maskRectCache.invalidate() }
+        synchronized(decorViews) {
+            decorViews.values.forEach { it.maskRectCache.invalidate() }
+        }
     }
 
     private fun addView(view: View, added: Boolean) {
@@ -89,7 +91,7 @@ public class SessionReplayIntegration(
                                 val listener = decorView.onNextDraw(
                                     mainHandler,
                                     dateProvider,
-                                    config.throttleDelayMs,
+                                    config.effectiveThrottleDelayMs,
                                     ::onDrawCallback,
                                 ) {
                                     if (!isActive()) return@onNextDraw
@@ -255,8 +257,8 @@ public class SessionReplayIntegration(
                 drawCountAtCollection = drawCountAtCollection,
                 currentDrawCount = { drawCounter.get() },
                 logger = logger,
-                screenshotScale = config.screenshotScale,
-                screenshotQuality = config.screenshotQuality,
+                screenshotScale = config.effectiveScreenshotScale,
+                screenshotQuality = config.effectiveScreenshotQuality,
             )
         } else {
             WireframeCapture.toWireframe(
@@ -300,7 +302,9 @@ public class SessionReplayIntegration(
     }
 
     private fun clearSnapshotStates() {
-        decorViews.values.forEach { resetViewSnapshotStates(it) }
+        synchronized(decorViews) {
+            decorViews.values.forEach { resetViewSnapshotStates(it) }
+        }
     }
 
     public fun install() {
@@ -315,7 +319,8 @@ public class SessionReplayIntegration(
     public fun uninstall() {
         try {
             Curtains.onRootViewsChangedListeners -= onRootViewsChangedListener
-            decorViews.entries.toList().forEach { (view, status) -> clearViewListeners(view, status) }
+            val snapshot = synchronized(decorViews) { decorViews.entries.toList() }
+            snapshot.forEach { (view, status) -> clearViewListeners(view, status) }
         } catch (e: Throwable) {
             logger("Session Replay uninstall failed: $e")
         }
@@ -323,11 +328,12 @@ public class SessionReplayIntegration(
         drawCounter.incrementAndGet()
         clearSnapshotStates()
         decorViews.clear()
+        executor.shutdownNow()
     }
 
-    /** Flushes any pending replay batches (e.g. before shutdown). No-op if emitter is not a [PersistingReplayEmitter]. */
+    /** Flushes any pending replay batches (e.g. before shutdown). */
     public fun flush() {
-        (eventEmitter as? PersistingReplayEmitter)?.flush()
+        eventEmitter.flush()
     }
 
     override fun start(resumeCurrent: Boolean) {
