@@ -42,6 +42,9 @@ internal object ScreenshotCapture {
      *
      * @param maskRects Pre-collected mask rects in window coordinates (from main thread).
      * @param masksValid false if the mask collection was aborted (e.g. screen changed mid-walk).
+     * @param drawCountAtCollection monotonic counter value captured when masks were collected.
+     * @param currentDrawCount returns the current counter; if it differs from [drawCountAtCollection],
+     *        the screen changed between mask collection and capture — masks are stale.
      * @param screenshotScale Scale factor (0.01, 1.0]. e.g. 0.5 = half dimensions. Reduces payload size.
      * @param screenshotQuality WebP lossy quality 0–100. Lower = smaller size.
      */
@@ -52,14 +55,16 @@ internal object ScreenshotCapture {
         displayMetrics: android.util.DisplayMetrics,
         maskRects: List<android.graphics.Rect>,
         masksValid: Boolean,
-        onDrawFlag: () -> Boolean,
-        setOnDrawFlag: (Boolean) -> Unit,
+        drawCountAtCollection: Long,
+        currentDrawCount: () -> Long,
         logger: (String) -> Unit,
         screenshotScale: Float = 1f,
         screenshotQuality: Int = 30,
     ): ReplayWireframe? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
         if (!isVisible(view, logger)) return null
+
+        fun screenChangedSinceCollection(): Boolean = currentDrawCount() != drawCountAtCollection
 
         val viewId = System.identityHashCode(view)
         val coordinates = IntArray(2)
@@ -74,7 +79,6 @@ internal object ScreenshotCapture {
         val width = view.width.densityValue(displayMetrics.density)
         val height = view.height.densityValue(displayMetrics.density)
 
-        setOnDrawFlag(false)
         val maskableWidgets = maskRects
 
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
@@ -90,7 +94,7 @@ internal object ScreenshotCapture {
                         success = false
                         return@request
                     }
-                    if (!onDrawFlag() && masksValid) {
+                    if (!screenChangedSinceCollection() && masksValid) {
                         if (!bitmap.isValid()) {
                             bitmap.recycle()
                             logger("Session Replay Bitmap is invalid")
@@ -106,7 +110,7 @@ internal object ScreenshotCapture {
                             return@request
                         }
                         for (rect in maskableWidgets) {
-                            if (onDrawFlag()) {
+                            if (screenChangedSinceCollection()) {
                                 bitmap.recycle()
                                 success = false
                                 return@request
@@ -121,7 +125,6 @@ internal object ScreenshotCapture {
                     bitmap.recycle()
                     logger("Session Replay PixelCopy callback failed: $e")
                 } finally {
-                    setOnDrawFlag(false)
                     latch.countDown()
                 }
             }, pixelCopyHandler)
@@ -149,7 +152,6 @@ internal object ScreenshotCapture {
             val base64 = if (success) toEncode.webpBase64(quality) else null
             toEncode.recycle()
             if (toEncode === bitmap) bitmapRecycled = true
-            setOnDrawFlag(false)
             return ReplayWireframe(
                 id = viewId,
                 x = x,

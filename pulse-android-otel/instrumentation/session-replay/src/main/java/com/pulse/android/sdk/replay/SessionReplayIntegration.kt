@@ -30,7 +30,7 @@ import java.util.Collections
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
@@ -66,10 +66,10 @@ public class SessionReplayIntegration(
     @Volatile
     private var isSessionReplayActive = false
 
-    private val isOnDrawnCalled = AtomicBoolean(false)
+    private val drawCounter = AtomicLong(0)
 
     private fun onDrawCallback() {
-        isOnDrawnCalled.set(true)
+        drawCounter.incrementAndGet()
         decorViews.values.forEach { it.maskRectCache.invalidate() }
     }
 
@@ -96,10 +96,10 @@ public class SessionReplayIntegration(
                                     decorView.post {
                                         try {
                                             if (!isActive()) return@post
-                                            isOnDrawnCalled.set(false)
+                                            val countAtCollection = drawCounter.get()
                                             viewMaskCache.collectIfNeeded(
                                                 decorView,
-                                                onDrawCalled = { isOnDrawnCalled.get() },
+                                                onDrawCalled = { drawCounter.get() != countAtCollection },
                                             )
                                             val snapshotMasks = ArrayList(viewMaskCache.rects)
                                             val snapshotMasksValid = viewMaskCache.valid
@@ -110,6 +110,7 @@ public class SessionReplayIntegration(
                                                         WeakReference(window),
                                                         snapshotMasks,
                                                         snapshotMasksValid,
+                                                        countAtCollection,
                                                     )
                                                 } catch (e: Throwable) {
                                                     logger("Session Replay generateSnapshot failed: $e")
@@ -236,6 +237,7 @@ public class SessionReplayIntegration(
         windowRef: WeakReference<Window>,
         preCollectedMasks: List<android.graphics.Rect>,
         masksValid: Boolean,
+        drawCountAtCollection: Long,
     ) {
         val view = viewRef.get() ?: return
         val status = decorViews[view] ?: return
@@ -250,8 +252,8 @@ public class SessionReplayIntegration(
                 displayMetrics = displayMetrics,
                 maskRects = preCollectedMasks,
                 masksValid = masksValid,
-                onDrawFlag = { isOnDrawnCalled.get() },
-                setOnDrawFlag = { isOnDrawnCalled.set(it) },
+                drawCountAtCollection = drawCountAtCollection,
+                currentDrawCount = { drawCounter.get() },
                 logger = logger,
                 screenshotScale = config.screenshotScale,
                 screenshotQuality = config.screenshotQuality,
@@ -318,7 +320,7 @@ public class SessionReplayIntegration(
             logger("Session Replay uninstall failed: $e")
         }
         isSessionReplayActive = false
-        isOnDrawnCalled.set(false)
+        drawCounter.incrementAndGet()
         clearSnapshotStates()
         decorViews.clear()
     }
@@ -342,7 +344,7 @@ public class SessionReplayIntegration(
 
     override fun stop() {
         isSessionReplayActive = false
-        isOnDrawnCalled.set(false)
+        drawCounter.incrementAndGet()
     }
 
     override fun isActive(): Boolean = isSessionReplayActive
