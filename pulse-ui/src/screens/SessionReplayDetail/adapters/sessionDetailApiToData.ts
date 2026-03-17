@@ -217,11 +217,16 @@ function buildExceptionsFromApi(
     return { fields: EXCEPTION_FIELDS, rows: [] };
   }
   const rows: (string | number | null)[][] = exceptions.map((e) => {
-    const relTs =
-      typeof e.timestamp === "number" && Number.isFinite(e.timestamp)
-        ? e.timestamp
-        : 0;
-    const iso = toSafeISOString(startTimeMs + relTs);
+    const rawTs = e.timestamp;
+    const absMs =
+      typeof rawTs === "string"
+        ? new Date(rawTs).getTime()
+        : typeof rawTs === "number" && Number.isFinite(rawTs)
+          ? rawTs >= 1e12
+            ? rawTs
+            : startTimeMs + rawTs
+          : 0;
+    const iso = toSafeISOString(absMs);
     return [
       iso,
       "error",

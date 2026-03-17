@@ -472,7 +472,7 @@ export interface SessionDetailException {
   traceId: string;
   spanId: string;
   pulseType: string;
-  timestamp: number;
+  timestamp: number | string;
   title: string;
   exceptionStackTrace: string;
 }
