@@ -102,7 +102,7 @@ class ConfigClassesTest {
       NotificationConfig.SlackOAuthConfig slack = config.getSlackOAuthConfig();
 
       assertThat(slack).isNotNull();
-      assertThat(slack.getScopes()).isEqualTo("chat:write,chat:write.public,channels:read");
+      assertThat(slack.getScopes()).isEqualTo("chat:write,channels:read");
     }
 
     @Test

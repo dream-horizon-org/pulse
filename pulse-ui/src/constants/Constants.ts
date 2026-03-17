@@ -2,24 +2,23 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem,
+  ComboboxItem
 } from "@mantine/core";
 import {
-  IconBell,
-  IconListDetails,
-  IconHome,
   IconActivityHeartbeat,
+  IconBell,
+  IconCalendarEvent,
+  IconDatabaseSearch,
   IconDeviceDesktop,
+  IconHome,
+  IconListDetails,
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
   IconVideo,
   IconCalendarEvent,
 } from "@tabler/icons-react";
-import {
-  CriticalInteractionDetailsFilterValues,
-  TimeFilter,
-} from "../screens/CriticalInteractionDetails";
+import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -28,7 +27,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps,
+  FormSteps
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
@@ -41,6 +40,7 @@ import { SessionReplay } from "../screens/SessionReplay";
 import { SessionReplayInsights } from "../screens/SessionReplayInsights";
 import { SessionReplaySessions } from "../screens/SessionReplaySessions";
 import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
 
@@ -250,7 +250,6 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/event-catalog",
     path: "/projects/:projectId/event-catalog",
   },
-
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -299,6 +298,12 @@ export const ROUTES: Routes = {
     key: "PROJECT_SETTINGS",
     basePath: "/settings",
     path: "/settings",
+  },
+  SUPPORT_QUERIES: {
+    key: "SUPPORT_QUERIES",
+    basePath: "/support-queries",
+    path: "/support-queries",
+    element: SupportQueries,
   },
 };
 
@@ -778,6 +783,53 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "GET_NOTIFICATION_CHANNEL_BY_ID",
     apiPath: `/v1/alert/notificationChannels/{notificationChannelId}`,
     method: API_METHODS.GET,
+  },
+  // New Notification Service API Routes
+  GET_NOTIFICATION_CHANNELS: {
+    key: "GET_NOTIFICATION_CHANNELS",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.GET,
+  },
+  GET_NOTIFICATION_CHANNEL: {
+    key: "GET_NOTIFICATION_CHANNEL",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.GET,
+  },
+  CREATE_NOTIFICATION_CHANNEL_V2: {
+    key: "CREATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels`,
+    method: API_METHODS.POST,
+  },
+  UPDATE_NOTIFICATION_CHANNEL_V2: {
+    key: "UPDATE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.PUT,
+  },
+  DELETE_NOTIFICATION_CHANNEL_V2: {
+    key: "DELETE_NOTIFICATION_CHANNEL_V2",
+    apiPath: `/v1/notifications/channels/{channelId}`,
+    method: API_METHODS.DELETE,
+  },
+  // Slack OAuth Integration
+  SLACK_INSTALL: {
+    key: "SLACK_INSTALL",
+    apiPath: `/v1/notifications/integrations/slack/install`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CALLBACK: {
+    key: "SLACK_CALLBACK",
+    apiPath: `/v1/notifications/integrations/slack/callback`,
+    method: API_METHODS.GET,
+  },
+  SLACK_CHANNELS: {
+    key: "SLACK_CHANNELS",
+    apiPath: `/v1/notifications/integrations/slack/channels`,
+    method: API_METHODS.GET,
+  },
+  CONTACT_US: {
+    key: "CONTACT_US",
+    apiPath: `/v1/notifications/contact-us`,
+    method: API_METHODS.POST,
   },
   // SDK Configuration API Routes
   GET_ALL_SDK_CONFIGS: {

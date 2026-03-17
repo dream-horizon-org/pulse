@@ -37,6 +37,8 @@ public interface NotificationService {
   Single<Boolean> deleteTemplate(Long templateId);
 
   // Mappings
+  Single<List<ChannelEventMappingDto>> createDefaultPlatformMappings(String projectId);
+
   Single<List<ChannelEventMappingDto>> getMappings(String projectId);
 
   Single<ChannelEventMappingDto> createMapping(String projectId, CreateMappingRequestDto request);

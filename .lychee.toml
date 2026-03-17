@@ -17,6 +17,8 @@ exclude = [
   "^https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/.*$",
   # TODO validate why not able to resolve below url
   "https://www.npmjs.com/package/@dreamhorizonorg/pulse-react-native",
+  # TODO: Exclude placeholder docs URLs until documentation site is live
+  "^https://pulse.dreamhorizon.org/docs/.*$",
 ]
 
 exclude_path = [
