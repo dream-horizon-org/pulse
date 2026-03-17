@@ -22,6 +22,7 @@ import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener.Compani
 import com.pulse.android.sdk.replay.internal.util.DefaultDateProvider
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
+import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionEvent
 import com.pulse.android.sdk.replay.events.ReplayMouseInteraction
 import com.pulse.android.sdk.replay.events.ScreenSizeInfo
@@ -247,8 +248,8 @@ public class SessionReplayIntegration(
 
         val timestamp = dateProvider.currentTimeMillis()
 
-        val wireframe = if (config.screenshot) {
-            ScreenshotCapture.capture(
+        if (config.screenshot) {
+            ScreenshotCapture.captureAsync(
                 window = window,
                 view = view,
                 displayMetrics = displayMetrics,
@@ -259,17 +260,30 @@ public class SessionReplayIntegration(
                 logger = logger,
                 screenshotScale = config.effectiveScreenshotScale,
                 screenshotQuality = config.effectiveScreenshotQuality,
+                onDone = { wireframe ->
+                    executor.submit {
+                        wireframe?.let { generateSnapshotWithWireframe(it, viewRef, timestamp) }
+                    }
+                },
             )
         } else {
-            WireframeCapture.toWireframe(
+            val wireframe = WireframeCapture.toWireframe(
                 view = view,
                 config = config,
                 displayMetrics = displayMetrics,
                 logger = logger,
             )
+            wireframe?.let { generateSnapshotWithWireframe(it, viewRef, timestamp) }
         }
+    }
 
-        val wireframeOrNull = wireframe ?: return
+    private fun generateSnapshotWithWireframe(
+        wireframeOrNull: ReplayWireframe,
+        viewRef: WeakReference<View>,
+        timestamp: Long,
+    ) {
+        val view = viewRef.get() ?: return
+        val status = decorViews[view] ?: return
 
         val screenSize = context.screenSize()
         val screenWidth = screenSize?.width ?: (displayMetrics.widthPixels / displayMetrics.density).toInt()
@@ -328,6 +342,8 @@ public class SessionReplayIntegration(
         drawCounter.incrementAndGet()
         clearSnapshotStates()
         decorViews.clear()
+        (eventEmitter as? PersistingReplayEmitter)?.shutdown()
+        ScreenshotCapture.shutdown()
         executor.shutdownNow()
     }
 

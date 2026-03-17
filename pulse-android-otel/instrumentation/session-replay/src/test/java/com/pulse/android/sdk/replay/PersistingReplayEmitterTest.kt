@@ -235,14 +235,36 @@ class PersistingReplayEmitterTest {
         Thread.sleep(500)
         emitter.flush()
         assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue()
-        Thread.sleep(200)
+        Thread.sleep(600)
         val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") } ?: emptyList()
         assertThat(files).hasSize(1)
     }
 
     @Test
+    fun `shutdown stops executor and prevents new work`() {
+        val sent = AtomicReference<String?>(null)
+        val emitter =
+            PersistingReplayEmitter(
+                storageDir = tempDir,
+                buildEnvelope = { _, _ -> """{"event":"snapshot"}""" },
+                realSend = { payload -> sent.set(payload); Result.success(Unit) },
+                flushIntervalSeconds = 60,
+                flushAt = 10,
+                maxBatchSize = 50,
+                replayStorageEncryption = IdentityReplayStorageEncryption(),
+            )
+        emitter.emit("sid", listOf(ReplayMetaEvent(800, 600, 0L, "")))
+        Thread.sleep(200)
+        emitter.shutdown()
+        emitter.emit("sid", listOf(ReplayMetaEvent(800, 600, 0L, "")))
+        emitter.flush()
+        Thread.sleep(300)
+        assertThat(sent.get()).isNull()
+    }
+
+    @Test
     fun `concurrent emit and flush dont lose events`() {
-        val storageDir = File(tempDir, "concurrent_test").also { it.mkdirs() }
+        val storageDir = File(tempDir, "concurrent_test").apply { mkdirs() }
         val emitter =
             PersistingReplayEmitter(
                 storageDir = storageDir,
