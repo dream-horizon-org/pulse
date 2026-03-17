@@ -64,50 +64,46 @@ public class SessionDetailService {
     Single<List<SessionTimingRow>> timingSingle = toList(
         sessionDetailDao.getSessionTiming(sessionId));
 
-    return Single.zip(
-        coreSingle, interactionsSingle, networkSingle,
-        exceptionsSingle, eventSpansSingle, timingSingle,
-        (coreRows, interactions, network, exceptions, eventSpans, timingRows) ->
-            assembleResponse(
-                coreRows, interactions, network, exceptions,
-                eventSpans, timingRows.get(0), includeSections, sessionId
-            )
-    );
-  }
-
-  private SessionDetailResponse assembleResponse(
-      List<SessionCoreRow> coreRows,
-      List<InteractionRow> interactionRows,
-      List<NetworkRequestRow> networkRows,
-      List<SessionExceptionRow> exceptionRows,
-      List<SessionSpanRow> eventSpans,
-      SessionTimingRow timingRows,
-      Set<String> includeSections,
-      String sessionId
-  ) {
-    if (coreRows.isEmpty()) {
-      throw ServiceError.NOT_FOUND
-          .getCustomException("Session not found: " + sessionId);
+        return Single.zip(
+                coreSingle, interactionsSingle, networkSingle,
+                exceptionsSingle, eventSpansSingle, timingSingle,
+                (coreRows, interactions, network, exceptions, eventSpans, timingRows) ->
+                        assembleResponse(
+                                sessionId, coreRows, interactions, network, exceptions,
+                                eventSpans, timingRows, includeSections
+                        )
+        );
     }
 
-    SessionCoreRow core = coreRows.get(0);
+    private SessionDetailResponse assembleResponse(
+            String sessionId,
+            List<SessionCoreRow> coreRows,
+            List<InteractionRow> interactionRows,
+            List<NetworkRequestRow> networkRows,
+            List<SessionExceptionRow> exceptionRows,
+            List<SessionSpanRow> eventSpans,
+            List<SessionTimingRow> timingRows,
+            Set<String> includeSections
+    ) {
+        SessionCoreRow core = firstOrElse(coreRows, defaultCoreRow(sessionId));
+        SessionTimingRow timing = firstOrElse(timingRows, defaultTimingRow());
 
-    SessionDetailResponse.SessionDetailResponseBuilder builder = SessionDetailResponse.builder()
-        .sessionId(core.getSessionId())
-        .userId(core.getUserId())
-        .isAnonymous(core.getUserId() == null || core.getUserId().isBlank())
-        .startTime(timingRows.getSessionStart())
-        .endTime(timingRows.getSessionEnd())
-        .duration(timingRows.getDurationMs())
-        .platform(core.getPlatform())
-        .device(core.getDevice())
-        .osVersion(core.getOsVersion())
-        .appVersion(core.getAppVersion())
-        .geography(core.getGeography())
-        .quality(core.getQualityScore())
-        .journey(parseJourney(core.getJourney()))
-        .interactions(mapInteractions(interactionRows))
-        .networkRequests(mapNetwork(networkRows));
+        SessionDetailResponse.SessionDetailResponseBuilder builder = SessionDetailResponse.builder()
+                .sessionId(core.getSessionId())
+                .userId(core.getUserId())
+                .isAnonymous(core.getUserId() == null || core.getUserId().isBlank())
+                .startTime(timing.getSessionStart())
+                .endTime(timing.getSessionEnd())
+                .duration(timing.getDurationMs())
+                .platform(core.getPlatform())
+                .device(core.getDevice())
+                .osVersion(core.getOsVersion())
+                .appVersion(core.getAppVersion())
+                .geography(core.getGeography())
+                .quality(core.getQualityScore())
+                .journey(parseJourney(core.getJourney()))
+                .interactions(mapInteractions(interactionRows))
+                .networkRequests(mapNetwork(networkRows));
 
     if (includeSections.contains("events")) {
       builder.events(mergeTimelines(
@@ -124,7 +120,24 @@ public class SessionDetailService {
     return builder.build();
   }
 
-  // ---- Direct mapping: ClickHouse rows → response DTOs (zero aggregation) ----
+    private static <T> T firstOrElse(List<T> list, T defaultValue) {
+        return list.isEmpty() ? defaultValue : list.get(0);
+    }
+
+    private static SessionCoreRow defaultCoreRow(String sessionId) {
+        return SessionCoreRow.builder()
+                .sessionId(sessionId)
+                .qualityScore(0)
+                .build();
+    }
+
+    private static SessionTimingRow defaultTimingRow() {
+        return SessionTimingRow.builder()
+                .durationMs(0)
+                .build();
+    }
+
+    // ---- Direct mapping: ClickHouse rows → response DTOs (zero aggregation) ----
 
   private List<Interaction> mapInteractions(List<InteractionRow> rows) {
     return rows.stream()
@@ -218,34 +231,34 @@ public class SessionDetailService {
         .collect(Collectors.toList());
   }
 
-  // ---- Generic merge: concat all sources and sort by timestamp ----
+    // ---- Generic merge: concat all sources and sort by timestamp ----
 
-  @SafeVarargs
-  private List<Event> mergeTimelines(List<Event>... sources) {
-    List<Event> result = new ArrayList<>();
-    for (List<Event> src : sources) {
-      result.addAll(src);
+    @SafeVarargs
+    private List<Event> mergeTimelines(List<Event>... sources) {
+        List<Event> result = new ArrayList<>();
+        for (List<Event> src : sources) {
+            result.addAll(src);
+        }
+
+        result.sort(Comparator.comparing(Event::getTimestamp));
+        return result;
     }
 
-    result.sort(Comparator.comparing(Event::getTimestamp));
-    return result;
-  }
-
-  private List<String> parseJourney(String journeyJson) {
-    if (journeyJson == null || journeyJson.isBlank()) {
-      return Collections.emptyList();
+    private List<String> parseJourney(String journeyJson) {
+        if (journeyJson == null || journeyJson.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return MAPPER.readValue(journeyJson, STRING_LIST_TYPE);
+        } catch (Exception e) {
+            log.warn("Failed to parse journey JSON: {}", journeyJson, e);
+            return Collections.emptyList();
+        }
     }
-    try {
-      return MAPPER.readValue(journeyJson, STRING_LIST_TYPE);
-    } catch (Exception e) {
-      log.warn("Failed to parse journey JSON: {}", journeyJson, e);
-      return Collections.emptyList();
-    }
-  }
 
-  private <T> Single<List<T>> toList(
-      Single<? extends org.dreamhorizon.pulseserver.model.QueryResultResponse<T>> single
-  ) {
-    return single.map(r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
-  }
+    private <T> Single<List<T>> toList(
+            Single<? extends org.dreamhorizon.pulseserver.model.QueryResultResponse<T>> single
+    ) {
+        return single.map(r -> r.getRows() != null ? r.getRows() : Collections.emptyList());
+    }
 }
