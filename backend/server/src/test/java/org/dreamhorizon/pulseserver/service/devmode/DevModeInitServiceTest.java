@@ -17,9 +17,9 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.apikey.ProjectApiKeyDao;
 import org.dreamhorizon.pulseserver.dao.apikey.models.ProjectApiKey;
-import org.dreamhorizon.pulseserver.dao.config.models.PulseSdkConfig;
-import org.dreamhorizon.pulseserver.dao.usagelimit.models.UsageLimit;
-import org.dreamhorizon.pulseserver.resources.notification.models.PlatformEventMappingDto;
+import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
+import org.dreamhorizon.pulseserver.resources.configs.models.PulseConfig;
+import org.dreamhorizon.pulseserver.resources.notification.models.ChannelEventMappingDto;
 import org.dreamhorizon.pulseserver.service.ClickhouseProjectService;
 import org.dreamhorizon.pulseserver.service.ProjectService;
 import org.dreamhorizon.pulseserver.service.configs.ConfigService;
@@ -141,7 +141,7 @@ class DevModeInitServiceTest {
             when(projectService.projectExists(DEFAULT_PROJECT_ID)).thenReturn(Single.just(true));
             
             // API key check
-            EncryptedData encryptedData = new EncryptedData("encrypted", "salt");
+            EncryptedData encryptedData = EncryptedData.builder().encryptedValue("encrypted").salt("salt").digest("digest").build();
             when(encryptionUtil.encrypt(DEV_API_KEY)).thenReturn(encryptedData);
             when(encryptionUtil.generateDigest(any())).thenReturn("digest123");
             when(apiKeyDao.getApiKeyByDigest(any())).thenReturn(Maybe.empty());
@@ -209,7 +209,7 @@ class DevModeInitServiceTest {
             when(applicationConfig.getDevModeApiKey()).thenReturn(DEV_API_KEY);
             when(projectService.projectExists(DEFAULT_PROJECT_ID)).thenReturn(Single.just(true));
             
-            EncryptedData encryptedData = new EncryptedData("encrypted", "salt");
+            EncryptedData encryptedData = EncryptedData.builder().encryptedValue("encrypted").salt("salt").digest("digest").build();
             when(encryptionUtil.encrypt(DEV_API_KEY)).thenReturn(encryptedData);
             when(encryptionUtil.generateDigest(any())).thenReturn("digest123");
             when(apiKeyDao.getApiKeyByDigest("digest123")).thenReturn(Maybe.empty());
@@ -251,7 +251,7 @@ class DevModeInitServiceTest {
             when(applicationConfig.getDevModeApiKey()).thenReturn(DEV_API_KEY);
             when(projectService.projectExists(DEFAULT_PROJECT_ID)).thenReturn(Single.just(true));
             
-            EncryptedData encryptedData = new EncryptedData("encrypted", "salt");
+            EncryptedData encryptedData = EncryptedData.builder().encryptedValue("encrypted").salt("salt").digest("digest").build();
             when(encryptionUtil.encrypt(DEV_API_KEY)).thenReturn(encryptedData);
             when(encryptionUtil.generateDigest(any())).thenReturn("digest123");
             when(apiKeyDao.getApiKeyByDigest("digest123")).thenReturn(Maybe.just(createMockApiKey()));
@@ -327,7 +327,7 @@ class DevModeInitServiceTest {
         when(applicationConfig.getDevModeApiKey()).thenReturn(DEV_API_KEY);
         when(projectService.projectExists(DEFAULT_PROJECT_ID)).thenReturn(Single.just(true));
         
-        EncryptedData encryptedData = new EncryptedData("encrypted", "salt");
+        EncryptedData encryptedData = EncryptedData.builder().encryptedValue("encrypted").salt("salt").digest("digest").build();
         when(encryptionUtil.encrypt(DEV_API_KEY)).thenReturn(encryptedData);
         when(encryptionUtil.generateDigest(any())).thenReturn("digest123");
         when(apiKeyDao.getApiKeyByDigest(any())).thenReturn(Maybe.empty());
@@ -347,24 +347,22 @@ class DevModeInitServiceTest {
         return apiKey;
     }
 
-    private PulseSdkConfig createMockSdkConfig() {
-        PulseSdkConfig config = new PulseSdkConfig();
-        config.setProjectId(DEFAULT_PROJECT_ID);
-        config.setVersion(1);
-        config.setIsActive(true);
-        return config;
+    private PulseConfig createMockSdkConfig() {
+        return PulseConfig.builder()
+            .version(1L)
+            .build();
     }
 
-    private UsageLimit createMockUsageLimit() {
-        UsageLimit limit = new UsageLimit();
-        limit.setProjectId(DEFAULT_PROJECT_ID);
-        return limit;
-    }
-
-    private PlatformEventMappingDto createMockPlatformMapping() {
-        return PlatformEventMappingDto.builder()
+    private ProjectUsageLimit createMockUsageLimit() {
+        return ProjectUsageLimit.builder()
             .projectId(DEFAULT_PROJECT_ID)
-            .platformEventName("test_event")
+            .build();
+    }
+
+    private ChannelEventMappingDto createMockPlatformMapping() {
+        return ChannelEventMappingDto.builder()
+            .projectId(DEFAULT_PROJECT_ID)
+            .eventName("test_event")
             .build();
     }
 }
