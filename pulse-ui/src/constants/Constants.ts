@@ -224,8 +224,8 @@ export const ROUTES: Routes = {
   },
   PRICING: {
     key: "PRICING",
-    basePath: "/pricing",
-    path: "/pricing",
+    basePath: "/:organizationId/pricing",
+    path: "/:organizationId/pricing",
   },
   COMING_SOON: {
     key: "COMING_SOON",
@@ -265,6 +265,13 @@ export const SETTINGS_PATHS = {
   SDK_CONFIG: "/settings/sdk-config",
   NOTIFICATIONS: "/settings/notifications",
   SECURITY: "/settings/security",
+} as const;
+
+// Organization-level path segments (for URL pattern matching)
+export const ORGANIZATION_PATH_SEGMENTS = {
+  PROJECTS: "projects",
+  MEMBERS: "members",
+  PRICING: "pricing",
 } as const;
 
 export const NAVBAR_ITEMS: NavbarItems = [
@@ -886,6 +893,12 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "CREATE_PROJECT",
     apiPath: `/v1/projects`,
     method: API_METHODS.POST,
+  },
+  // Get Project Details API Route
+  GET_PROJECT: {
+    key: "GET_PROJECT",
+    apiPath: `/v1/projects/:projectId`,
+    method: API_METHODS.GET,
   },
   // Project API Key Management API Routes
   GET_PROJECT_API_KEYS: {
