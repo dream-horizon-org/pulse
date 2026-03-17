@@ -54,4 +54,23 @@ public final class SessionListingConstants {
             "  arrayStringConcat(arrayFilter(x -> x != '', groupUniqArrayIf(ScreenName, PulseType = 'non_fatal')),    '|||') AS nonFatalScreens",
             "FROM otel.stack_trace_events"
     );
+
+    /** Impacted = error, slow (Poor), or had frozen frames. Returns unique interaction names per session. */
+    public static final String IMPACTED_INTERACTIONS_SELECT = String.join("\n",
+            "SELECT",
+            "  SessionId,",
+            "  arrayStringConcat(",
+            "    arrayFilter(x -> x != '',",
+            "      groupUniqArrayIf(",
+            "        nullIf(trimBoth(SpanAttributes['pulse.interaction.name']), ''),",
+            "        StatusCode = 'Error'",
+            "        OR ifNull(SpanAttributes['pulse.interaction.is_error'], '') = 'true'",
+            "        OR ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor'",
+            "        OR toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']) > 0",
+            "      )",
+            "    ),",
+            "    '|||'",
+            "  ) AS impactedInteractionNames",
+            "FROM otel.otel_traces"
+    );
 }

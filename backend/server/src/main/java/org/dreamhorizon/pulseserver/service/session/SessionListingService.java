@@ -19,6 +19,7 @@ import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.session.models.AdvancedFilterGroup;
 import org.dreamhorizon.pulseserver.resources.session.models.FilterConditionRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.FiltersRequest;
+import org.dreamhorizon.pulseserver.resources.session.models.ImpactedInteractionsRow;
 import org.dreamhorizon.pulseserver.resources.session.models.ImpactedScreensRow;
 import org.dreamhorizon.pulseserver.resources.session.models.JourneyRow;
 import org.dreamhorizon.pulseserver.resources.session.models.PageRequest;
@@ -108,14 +109,17 @@ public class SessionListingService {
 
                     String journeySql = builder.buildJourneyQuery(sessionIds);
                     String impactedScreensSql = builder.buildImpactedScreensQuery(sessionIds);
+                    String impactedInteractionsSql = builder.buildImpactedInteractionsQuery(sessionIds);
                     log.debug("Journey SQL: {}", journeySql);
                     log.debug("Impacted screens SQL: {}", impactedScreensSql);
+                    log.debug("Impacted interactions SQL: {}", impactedInteractionsSql);
 
                     return Single.zip(
                             executeJourneyQuery(journeySql, projectId),
                             executeImpactedScreensQuery(impactedScreensSql, projectId),
-                            (journeyRows, screenRows) -> buildResponse(
-                                    pageRows, journeyRows, screenRows,
+                            executeImpactedInteractionsQuery(impactedInteractionsSql, projectId),
+                            (journeyRows, screenRows, interactionRows) -> buildResponse(
+                                    pageRows, journeyRows, screenRows, interactionRows,
                                     hasMore, pageSize, activeSortField)
                     );
                 })
@@ -272,6 +276,16 @@ public class SessionListingService {
                 .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
     }
 
+    private Single<List<ImpactedInteractionsRow>> executeImpactedInteractionsQuery(String sql, String tenantId) {
+        QueryConfiguration config = QueryConfiguration.newQuery(sql)
+                .timeoutMs(TIMEOUT_MS)
+                .tenantId(tenantId)
+                .projectId(tenantId)
+                .build();
+        return clickhouseQueryService.executeQueryOrCreateJob(config, ImpactedInteractionsRow.class)
+                .map(result -> result.getRows() != null ? result.getRows() : Collections.emptyList());
+    }
+
     // -------------------------------------------------------------------------
     // Response assembly
     // -------------------------------------------------------------------------
@@ -280,6 +294,7 @@ public class SessionListingService {
             List<SessionRow> rows,
             List<JourneyRow> journeyRows,
             List<ImpactedScreensRow> screenRows,
+            List<ImpactedInteractionsRow> interactionRows,
             boolean hasMore,
             int pageSize,
             SortField activeSortField
@@ -298,6 +313,13 @@ public class SessionListingService {
                         (a, b) -> a
                 ));
 
+        Map<String, List<String>> interactionsMap = interactionRows.stream()
+                .collect(Collectors.toMap(
+                        ImpactedInteractionsRow::getSessionId,
+                        row -> parseDelimited(row.getImpactedInteractionNames()),
+                        (a, b) -> a
+                ));
+
         List<SessionItem> sessions = rows.stream()
                 .map(row -> SessionItem.builder()
                         .sessionId(row.getSessionId())
@@ -310,6 +332,7 @@ public class SessionListingService {
                         .spanCount(row.getSpanCount())
                         .journey(journeyMap.getOrDefault(row.getSessionId(), Collections.emptyList()))
                         .impactedScreens(screensMap.getOrDefault(row.getSessionId(), null))
+                        .impactedInteractions(interactionsMap.getOrDefault(row.getSessionId(), Collections.emptyList()))
                         .build())
                 .collect(Collectors.toList());
 
