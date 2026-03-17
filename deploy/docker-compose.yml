@@ -171,8 +171,13 @@ services:
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
-        REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+        REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
+        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER:-false}
+        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY:-500}
+        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE:-0}
+        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING:-false}
+        REACT_APP_GCP_MULTI_TENANT_ENABLED: ${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
     container_name: pulse-ui
     ports:
       - "3000:8080"
@@ -192,34 +197,34 @@ services:
       start_period: 10s
 
   # Vector Service (Data Collector)
-  vector:
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
-    container_name: vector
-    command: [ ]
-    environment:
-      - VECTOR_LOG=debug
-    volumes:
-      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - vector-data:/var/lib/vector
-    networks:
-      - pulse-network
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    ports:
-      - "8686:8686"
-      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+  # vector:
+  #   build:
+  #     context: ../vector
+  #     dockerfile: Dockerfile
+  #     args:
+  #       VECTOR_REPO: https://github.com/parth-modh/vector
+  #       VECTOR_REF: forked/multi-bucket
+  #       DEBIAN_VERSION: "12"
+  #   container_name: vector
+  #   command: [ ]
+  #   environment:
+  #     - VECTOR_LOG=debug
+  #   volumes:
+  #     - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+  #     - vector-data:/var/lib/vector
+  #   networks:
+  #     - pulse-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 15s
+  #   ports:
+  #     - "8686:8686"
+  #     - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+  #     - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
