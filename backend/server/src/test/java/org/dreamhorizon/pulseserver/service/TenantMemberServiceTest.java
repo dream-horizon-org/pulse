@@ -309,7 +309,6 @@ class TenantMemberServiceTest {
   }
 
   @Nested
-<<<<<<< HEAD
   class AddUsersToTenant {
 
     @Test
@@ -420,7 +419,10 @@ class TenantMemberServiceTest {
       assertThat(result.getSuccessEmails()).containsExactlyInAnyOrder("user1@test.com", "user2@test.com");
       assertThat(result.getFailedEmails()).hasSize(1);
       assertThat(result.getFailedEmails().get(0)).contains("invalid@test.com").contains("Invalid email");
-=======
+    }
+  }
+
+  @Nested
   class AddUserToTenantInternal {
 
     @Test
@@ -471,7 +473,6 @@ class TenantMemberServiceTest {
           tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet());
 
       assertThat(ex.getMessage()).contains("Tenant not found");
->>>>>>> f34dcad3e3f09f0d5bfdedff15c24c4dbf0812fe
     }
   }
 }

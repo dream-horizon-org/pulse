@@ -100,9 +100,6 @@ public class ProjectMemberService {
             // 3. Get or create user being added
             .flatMap(ctx -> userService.getOrCreateUser(email, email)
                 .map(user -> new AddCompleteContext(ctx.project, ctx.admin, user)))
-<<<<<<< HEAD
-            // 4. Ensure user is in parent tenant
-=======
             // Check if user already has a project role
             .flatMap(ctx -> openFgaService.getUserProjectRole(ctx.newUser.getUserId(), projectId)
                 .flatMap(existingRole -> {
@@ -117,8 +114,7 @@ public class ProjectMemberService {
                     }
                     return Single.just(ctx);
                 }))
-            // Ensure user is in parent tenant
->>>>>>> f34dcad3e3f09f0d5bfdedff15c24c4dbf0812fe
+            // 4. Ensure user is in parent tenant
             .flatMap(ctx -> ensureUserInTenant(ctx.newUser, ctx.project.getTenantId(), addedBy)
                 .andThen(Single.just(ctx)))
             // 5. Assign project role in OpenFGA with rollback awareness

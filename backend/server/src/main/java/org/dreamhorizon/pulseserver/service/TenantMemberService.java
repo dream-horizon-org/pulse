@@ -81,28 +81,6 @@ public class TenantMemberService {
             // 3. Get or create user being added
             .flatMap(ctx -> userService.getOrCreateUser(email, email)
                 .map(user -> new AddCompleteContext(ctx.tenant, ctx.admin, user)))
-<<<<<<< HEAD
-            // 4. Assign role in OpenFGA with rollback on failure
-            .flatMap(ctx -> {
-                // Check if user was newly created by checking if they existed before
-                return userService.getUserByEmail(email)
-                    .isEmpty()
-                    .flatMap(wasNewlyCreated -> 
-                        openFgaService.assignTenantRole(ctx.newUser.getUserId(), tenantId, role)
-                            .toSingleDefault(ctx)
-                            .onErrorResumeNext(fgaError -> {
-                                if (wasNewlyCreated) {
-                                    // ROLLBACK: User was just created, log warning about orphaned user
-                                    log.error("OpenFGA role assignment failed for newly created user. " +
-                                        "User {} may be orphaned in database. Error: {}", 
-                                        ctx.newUser.getUserId(), fgaError.getMessage());
-                                }
-                                return Single.error(fgaError);
-                            })
-                    );
-            })
-            // 5. Send notification email (non-critical)
-=======
             // Check if user already has a tenant role
             .flatMap(ctx -> openFgaService.getUserTenantRole(ctx.newUser.getUserId(), tenantId)
                 .flatMap(existingRole -> {
@@ -117,11 +95,24 @@ public class TenantMemberService {
                     }
                     return Single.just(ctx);
                 }))
-            // Assign role in OpenFGA
-            .flatMap(ctx -> openFgaService.assignTenantRole(ctx.newUser.getUserId(), tenantId, role)
-                .andThen(Single.just(ctx)))
-            // Send notification email
->>>>>>> f34dcad3e3f09f0d5bfdedff15c24c4dbf0812fe
+            // 4. Assign role in OpenFGA with rollback on failure
+            .flatMap(ctx -> {
+                return userService.getUserByEmail(email)
+                    .isEmpty()
+                    .flatMap(wasNewlyCreated ->
+                        openFgaService.assignTenantRole(ctx.newUser.getUserId(), tenantId, role)
+                            .toSingleDefault(ctx)
+                            .onErrorResumeNext(fgaError -> {
+                                if (wasNewlyCreated) {
+                                    log.error("OpenFGA role assignment failed for newly created user. " +
+                                        "User {} may be orphaned in database. Error: {}",
+                                        ctx.newUser.getUserId(), fgaError.getMessage());
+                                }
+                                return Single.error(fgaError);
+                            })
+                    );
+            })
+            // 5. Send notification email (non-critical)
             .doOnSuccess(ctx -> {
                 try {
                     emailService.sendTenantWelcomeEmail(
