@@ -328,8 +328,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
-      openfga:
-        condition: service_started  # OpenFGA distroless image has no healthcheck
+      openfga-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
