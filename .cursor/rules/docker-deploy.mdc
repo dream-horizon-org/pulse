@@ -41,6 +41,8 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `OPENFGA_*` — OpenFGA authorization service config
 - `SLACK_*` — Slack OAuth integration config
 - `AWS_*` — AWS credentials for Athena/S3
+- `AI_SERVICE_URL` — Pulse AI agent service URL (default: `http://pulse-ai-agent:8000`)
+- `AI_SERVICE_KEY` — Shared secret for service-to-service auth (optional, adds `X-Pulse-Service-Key` header)
 
 Credentials (defined in docker-compose, overridable via `.env`):
 - MySQL: `MYSQL_USER` / `MYSQL_PASSWORD` (defaults: `pulse_user` / `pulse_password`)

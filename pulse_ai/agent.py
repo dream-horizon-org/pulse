@@ -1,17 +1,52 @@
-import os
+from google.adk.agents.parallel_agent import ParallelAgent
+from google.adk.agents.sequential_agent import SequentialAgent
 
-from dotenv import load_dotenv
-from google.adk.agents.llm_agent import Agent
+from .agents import (
+    planner_agent,
+    product_analytics_agent,
+    engineering_manager_agent,
+    designer_agent,
+    customer_success_agent,
+    business_leaders_agent,
+    summary_agent,
+    report_agent,
+)
+from .constants import (
+    PIPELINE_AGENT_NAME,
+    CORE_ANALYSIS_AGENT_NAME,
+    DEPENDENT_ANALYSIS_AGENT_NAME,
+)
 
-from .constants import AGENT_MODEL_ENV_KEY, DEFAULT_MODEL
+core_analysis = ParallelAgent(
+    name=CORE_ANALYSIS_AGENT_NAME,
+    sub_agents=[
+        product_analytics_agent,
+        engineering_manager_agent,
+        designer_agent,
+    ],
+    description="Runs core persona analyses in parallel.",
+)
 
-load_dotenv()
+dependent_analysis = ParallelAgent(
+    name=DEPENDENT_ANALYSIS_AGENT_NAME,
+    sub_agents=[
+        customer_success_agent,
+        business_leaders_agent,
+    ],
+    description="Runs dependent persona analyses in parallel (after core results are available).",
+)
 
-agent_model = os.getenv(AGENT_MODEL_ENV_KEY, DEFAULT_MODEL)
-
-root_agent = Agent(
-    model=agent_model,
-    name='root_agent',
-    description='A helpful assistant for user questions.',
-    instruction='Answer user questions to the best of your knowledge',
+root_agent = SequentialAgent(
+    name=PIPELINE_AGENT_NAME,
+    sub_agents=[
+        planner_agent,
+        core_analysis,
+        dependent_analysis,
+        summary_agent,
+        report_agent,
+    ],
+    description=(
+        "Sequential pipeline: Planner -> Core Personas (parallel) "
+        "-> Dependent Personas (parallel) -> Summary -> Report"
+    ),
 )

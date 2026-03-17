@@ -13,6 +13,7 @@ import {
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
+  IconRobot,
 } from "@tabler/icons-react";
 import {
   CiritcalInteractionDetails,
@@ -53,6 +54,7 @@ import { AlertForm } from "../screens/AlertFormWizard";
 import { AlertDetail } from "../screens/AlertDetail";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { RealTimeQuery } from "../screens/RealTimeQuery";
+import { AiChat } from "../screens/AiChat";
 import { OrganizationDashboard } from "../screens/OrganizationDashboard";
 import { OrganizationSettings } from "../screens/OrganizationSettings";
 import { OrganizationMembers } from "../screens/OrganizationMembers";
@@ -81,6 +83,12 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
+
+export const AI_BASE_URL: string =
+  process.env.REACT_APP_AI_BASE_URL ?? "http://localhost:8000";
+
+export const ENABLE_AI_CHAT: boolean =
+  process.env.REACT_APP_ENABLE_AI_CHAT === "true";
 
 export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
@@ -295,6 +303,16 @@ export const ROUTES: Routes = {
     path: "/settings",
     element: ProjectSettings,
   },
+  ...(ENABLE_AI_CHAT
+    ? {
+        AI_CHAT: {
+          key: "AI_CHAT",
+          basePath: "/projects/:projectId/ai-chat",
+          path: "/projects/:projectId/ai-chat",
+          element: AiChat,
+        },
+      }
+    : {}),
 };
 
 // Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
@@ -308,6 +326,7 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
+  AI_CHAT: "/ai-chat",
 } as const;
 
 // Settings sub-routes (handled internally by Settings component)
@@ -376,6 +395,17 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.ALERTS,
     iconSize: 25,
   },
+  ...(ENABLE_AI_CHAT && ROUTES.AI_CHAT
+    ? [
+        {
+          tabName: "AI Chat",
+          icon: IconRobot,
+          routeTo: NAVBAR_ROUTES.AI_CHAT,
+          path: NAVBAR_ROUTES.AI_CHAT,
+          iconSize: 25,
+        },
+      ]
+    : []),
 ];
 
 export const API_METHODS: Record<string, string> = {
