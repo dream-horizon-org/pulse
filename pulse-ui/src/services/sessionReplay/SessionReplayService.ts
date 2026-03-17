@@ -26,6 +26,7 @@ import {
   getMockSessionListingResponse,
   getMockSessionDetailApiResponse,
   getMockSnapshotsData,
+  getMockSessionsFiltersResponse,
 } from "../../screens/SessionReplayDetail/mock/sessionReplayMock";
 
 export class SessionReplayService {
@@ -452,6 +453,9 @@ export class SessionReplayService {
    * GET /v1/sessions/filters
    */
   async getSessionsFilters(): Promise<FilterConfigResponse> {
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return getMockSessionsFiltersResponse();
+    }
     const url = `${this.baseURL}/v1/sessions/filters`;
 
     try {

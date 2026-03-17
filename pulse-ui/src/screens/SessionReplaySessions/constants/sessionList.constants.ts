@@ -38,6 +38,7 @@ export const SESSION_LIST_LABELS = {
   emptyStateDescriptionDefault:
     "Session replay data will appear here once your app starts sending telemetry.",
   clearAllFilters: "Clear All Filters",
+  removeLastFilter: "Remove Last Filter",
   timeRangeLabel: "Time range:",
   timeRangePlaceholder: "Select range",
   fromDatePlaceholder: "From date",
@@ -54,7 +55,7 @@ export const SESSION_LIST_LABELS = {
   loading: "Loading sessions...",
   moreAvailable: "(more available)",
   anonymousUser: "Anonymous",
-  noQuality: "—",
+  noQuality: "NA",
   watchSession: "Watch session",
   openInNewTab: "Open in new tab",
   clean: "Clean",

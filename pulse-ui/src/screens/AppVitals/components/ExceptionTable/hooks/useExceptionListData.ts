@@ -116,13 +116,13 @@ export function useExceptionListData({
       },
     ];
 
-      baseFields.push({
-        function: "COL",
-        param: {
-          field: COLUMN_NAME.EXCEPTION_TYPE,
-        },
-        alias: "error_type",
-      });
+    baseFields.push({
+      function: "COL",
+      param: {
+        field: COLUMN_NAME.EXCEPTION_TYPE,
+      },
+      alias: "error_type",
+    });
 
     // Add common fields
     baseFields.push(
@@ -143,14 +143,14 @@ export function useExceptionListData({
       {
         function: "CUSTOM",
         param: {
-          expression: `uniqCombined(${COLUMN_NAME.USER_ID})`,
+          expression: `uniqCombined64(nullIf(${COLUMN_NAME.USER_ID}, ''))`,
         },
         alias: "affected_users",
       },
     );
 
     return baseFields;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exceptionType]);
 
   // Fetch exception list data grouped by GroupId

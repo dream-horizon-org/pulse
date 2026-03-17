@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import kotlin.coroutines.cancellation.CancellationException
 
 internal class TaskAwaitTest {
     private val standardTestDispatcher =
@@ -46,6 +47,8 @@ internal class TaskAwaitTest {
             try {
                 task.await()
                 Assertions.fail<Nothing>("Expected exception was not thrown")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: RuntimeException) {
                 assertThat(e).isInstanceOf(RuntimeException::class.java)
                 assertThat(e.message).isEqualTo("Task failed")

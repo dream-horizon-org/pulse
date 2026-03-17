@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { sessionReplayService } from "../../../services/sessionReplay/SessionReplayService";
 import { FilterConfigResponse } from "../../../services/sessionReplay/types";
 
@@ -13,8 +13,9 @@ export function useSessionsFilters(): UseSessionsFiltersResult {
   const [config, setConfig] = useState<FilterConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const fetchedRef = useRef(false);
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -26,11 +27,13 @@ export function useSessionsFilters(): UseSessionsFiltersResult {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     fetchConfig();
-  }, []);
+  }, [fetchConfig]);
 
   return {
     config,

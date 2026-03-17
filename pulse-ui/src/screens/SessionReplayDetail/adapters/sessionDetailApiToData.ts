@@ -148,9 +148,11 @@ export function sessionDetailApiToData(
     appVersion: api.appVersion,
     geography: parseGeography(api.geography),
     interactionQuality:
-      typeof api.quality === "number" && Number.isFinite(api.quality)
+      typeof api.quality === "number" &&
+      Number.isFinite(api.quality) &&
+      api.quality > 0
         ? api.quality
-        : 0,
+        : null,
     sessionType: "exploration",
     detectedIssues: [],
     criticalInteractions,

@@ -30,11 +30,7 @@ export function AdvancedFilterModalFooter({
           <Button variant="default" onClick={onCancel}>
             {ADVANCED_FILTER_LABELS.cancel}
           </Button>
-          <Button
-            color="teal"
-            onClick={onApply}
-            disabled={conditionCount === 0}
-          >
+          <Button color="teal" onClick={onApply}>
             {ADVANCED_FILTER_LABELS.apply}{" "}
             {conditionCount > 0 ? `(${conditionCount})` : ""}
           </Button>

@@ -19,6 +19,8 @@ import { ProjectGuard } from "../ProjectGuard";
 import { useTenantContext } from "../../contexts";
 import { useGetTncStatus } from "../../hooks/useGetTncStatus";
 import { TncAcceptance } from "../../screens/TncAcceptance";
+import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
+import { TIERS, TierType } from "../../constants/Tiers";
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
@@ -55,15 +57,16 @@ export function Layout({ children }: LayoutProps) {
       // Initialize tenant context if tenantId exists in cookies but not in context
       const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
       const cookieTenantName = getCookies(COOKIES_KEY.TENANT_NAME);
+      const cookieTenantRole = getCookies(COOKIES_KEY.TENANT_ROLE);
       const cookieTier = getCookies(COOKIES_KEY.TIER);
       if (cookieTenantId && cookieTenantId !== "undefined" && !tenantId) {
         try {
           // Set tenant info (which will automatically trigger project fetch)
           setTenantInfo({
             tenantId: cookieTenantId,
-            tenantName: cookieTenantName || "", // Get tenantName from cookie
-            userRole: "member", // Default role, will be updated from projects API
-            tier: (cookieTier as "free" | "enterprise") || "free", // Get tier from cookie
+            tenantName: cookieTenantName || "",
+            userRole: (cookieTenantRole as TenantRole) || TENANT_ROLES.MEMBER,
+            tier: (cookieTier as TierType) || TIERS.FREE,
           });
         } catch (error) {
           console.error("[Layout] Failed to initialize tenant context:", error);
@@ -101,7 +104,15 @@ export function Layout({ children }: LayoutProps) {
 
   const tncStatus = tncData?.data;
   if (tncStatus && !tncStatus.accepted) {
-    return <TncAcceptance tncStatus={tncStatus} />;
+    return (
+      <TncAcceptance
+        tncStatus={tncStatus}
+        onAccepted={() => {
+          const redirectPath = tenantId ? `/${tenantId}/projects` : "/";
+          navigate(redirectPath);
+        }}
+      />
+    );
   }
 
   return (

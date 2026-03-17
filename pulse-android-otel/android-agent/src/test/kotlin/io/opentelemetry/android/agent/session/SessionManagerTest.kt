@@ -20,8 +20,8 @@ import io.mockk.verifyOrder
 import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.session.Session
 import io.opentelemetry.android.session.SessionObserver
-import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.time.TestClock
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch

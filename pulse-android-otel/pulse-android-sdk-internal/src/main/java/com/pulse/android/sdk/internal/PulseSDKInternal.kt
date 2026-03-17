@@ -325,7 +325,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             SessionReplayRegistry.set(
                 SessionReplayBootstrap(
                     config = replayConfig,
-                    projectId = apiKey,
+                    projectId = extractProjectID(apiKey),
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
                 ),
             )

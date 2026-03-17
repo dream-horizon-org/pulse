@@ -212,9 +212,10 @@ const MOCK_STACK_TRACE = [
 ];
 
 export const OccurrenceDetail: React.FC = () => {
-  const { issueId, occurrenceId } = useParams<{
+  const { issueId, occurrenceId, projectId } = useParams<{
     issueId: string;
     occurrenceId: string;
+    projectId: string;
   }>();
   const navigate = useNavigate();
 
@@ -234,7 +235,7 @@ export const OccurrenceDetail: React.FC = () => {
         variant="subtle"
         color="teal"
         leftSection={<IconArrowLeft size={16} />}
-        onClick={() => navigate(`/app-vitals/${issueId}`)}
+        onClick={() => navigate(`/projects/${projectId}/app-vitals/${issueId}`)}
         className={classes.backButton}
       >
         Back to Issue Details

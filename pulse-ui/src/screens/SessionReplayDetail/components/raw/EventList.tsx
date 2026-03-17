@@ -1,10 +1,33 @@
-import { Box, Text, Stack, ScrollArea, Group, Badge } from "@mantine/core";
+import {
+  Box,
+  Text,
+  Stack,
+  ScrollArea,
+  Group,
+  Badge,
+  ActionIcon,
+  Tooltip,
+} from "@mantine/core";
 import { useRef, useMemo, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { IconExternalLink } from "@tabler/icons-react";
 import type { UnifiedEvent } from "./utils/unifiedEvents";
 import type { FlameChartNode } from "../../../SessionTimeline/utils/flameChartTransform";
 import { convertEventToFlameChartNode } from "./utils/eventConverter";
 import type { SessionDetailData } from "../../../../services/sessionReplay/mockSessionDetail";
+import { ROUTES } from "../../../../constants";
 import { HEADERS } from "../../constants/strings";
+
+function formatAbsoluteTime(sessionStartIso: string, offsetMs: number): string {
+  const date = new Date(new Date(sessionStartIso).getTime() + offsetMs);
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const day = date.getDate();
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  const s = date.getSeconds().toString().padStart(2, "0");
+  const year = date.getFullYear();
+  return `${month} ${day} ${year}, ${h}:${m}:${s}`;
+}
 
 interface EventListProps {
   unifiedEvents: UnifiedEvent[];
@@ -27,6 +50,7 @@ export function EventList({
   scrollViewportRef,
   onEventClick,
 }: EventListProps) {
+  const { projectId } = useParams<{ projectId: string }>();
   const lastPlaybackScrollRef = useRef<number>(-1);
 
   // Event at current playback time: last event with timestamp <= currentTime
@@ -176,9 +200,12 @@ export function EventList({
                       size="xs"
                       c="dimmed"
                       ff="monospace"
-                      style={{ minWidth: "56px", flexShrink: 0 }}
+                      style={{ minWidth: "120px", flexShrink: 0 }}
                     >
-                      {event.timestamp}ms
+                      {formatAbsoluteTime(
+                        sessionData.startTime,
+                        event.timestamp,
+                      )}
                     </Text>
                     <Box style={{ minWidth: 100, flexShrink: 0 }}>
                       <Badge
@@ -203,10 +230,16 @@ export function EventList({
                           )
                         : event.description;
                       const lastColon = full.lastIndexOf(": ");
-                      const content =
+                      const rawContent =
                         lastColon >= 0 ? full.slice(0, lastColon) : full;
                       const status =
                         lastColon >= 0 ? full.slice(lastColon + 2) : "";
+                      let content = rawContent;
+                      try {
+                        content = decodeURIComponent(rawContent);
+                      } catch (error) {
+                        console.error("Error decoding content", error);
+                      }
                       return (
                         <>
                           <Text size="sm" style={{ flex: 1, minWidth: 0 }}>
@@ -227,6 +260,29 @@ export function EventList({
                         </>
                       );
                     })()}
+                    {event.interactionName && projectId && (
+                      <Tooltip label="Open interaction details" withArrow>
+                        <ActionIcon
+                          variant="subtle"
+                          color="teal"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const name = event.interactionName;
+                            if (!name || !projectId) return;
+                            const path =
+                              ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(
+                                ":projectId",
+                                projectId,
+                              );
+                            const segment = name.replace(/\s+/g, "");
+                            window.open(`${path}/${segment}`, "_blank");
+                          }}
+                        >
+                          <IconExternalLink size={14} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
                   </Group>
                 </Box>
               );

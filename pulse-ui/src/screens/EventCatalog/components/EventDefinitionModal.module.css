@@ -1,0 +1,109 @@
+.formSection {
+  padding: var(--mantine-spacing-md);
+  background: #ffffff;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.formSectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mantine-color-dark-5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-sm);
+  border-bottom: 1px solid rgba(14, 201, 194, 0.12);
+}
+
+.attributeCard {
+  background: rgba(14, 201, 194, 0.02);
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid rgba(14, 201, 194, 0.08);
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.attributeCard:hover {
+  border-color: rgba(14, 201, 194, 0.2);
+  background: rgba(14, 201, 194, 0.04);
+}
+
+.attributeCardHeader {
+  padding: 10px 12px 8px;
+}
+
+.attributeCardBody {
+  padding: 0 12px 10px;
+  padding-left: 48px;
+}
+
+.attributeIndex {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(14, 201, 194, 0.1);
+  color: #0ba09a;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.addAttributeButton {
+  border: 1px dashed rgba(14, 201, 194, 0.3);
+  border-radius: var(--mantine-radius-md);
+  color: #0ba09a;
+  transition: all 0.2s ease;
+  width: 100%;
+  height: 38px;
+}
+
+.addAttributeButton:hover {
+  background: rgba(14, 201, 194, 0.06);
+  border-color: rgba(14, 201, 194, 0.5);
+}
+
+.removeAttrButton {
+  transition: all 0.2s ease;
+}
+
+.removeAttrButton:hover {
+  transform: translateY(-1px);
+}
+
+.footerSection {
+  padding-top: var(--mantine-spacing-md);
+  border-top: 2px solid #0ec9c2;
+}
+
+.cancelButton {
+  border-color: rgba(14, 201, 194, 0.2);
+  color: var(--mantine-color-dark-5);
+}
+
+.cancelButton:hover {
+  background: rgba(14, 201, 194, 0.04);
+}
+
+.submitButton {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(14, 201, 194, 0.15);
+}
+
+.submitButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(14, 201, 194, 0.25);
+}
+
+.emptyAttributes {
+  padding: var(--mantine-spacing-lg);
+  text-align: center;
+  color: var(--mantine-color-dark-3);
+  font-size: 13px;
+  background: rgba(14, 201, 194, 0.02);
+  border-radius: var(--mantine-radius-md);
+  border: 1px dashed rgba(14, 201, 194, 0.15);
+}

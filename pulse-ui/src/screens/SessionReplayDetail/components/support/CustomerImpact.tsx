@@ -53,12 +53,18 @@ export function CustomerImpact({ sessionData }: CustomerImpactProps) {
           <Text size="sm" c="dimmed">
             {LABELS.SESSION_QUALITY}
           </Text>
-          <Badge color={getQualityColor(sessionData.interactionQuality)}>
-            {FORMAT_STRINGS.QUALITY_SCORE.replace(
-              "{score}",
-              sessionData.interactionQuality.toString(),
-            )}
-          </Badge>
+          {sessionData.interactionQuality != null ? (
+            <Badge color={getQualityColor(sessionData.interactionQuality)}>
+              {FORMAT_STRINGS.QUALITY_SCORE.replace(
+                "{score}",
+                sessionData.interactionQuality.toString(),
+              )}
+            </Badge>
+          ) : (
+            <Text size="sm" fw={600} c="dimmed">
+              NA
+            </Text>
+          )}
         </Group>
 
         {sessionData.businessContext?.conversionValue && (

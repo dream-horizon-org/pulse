@@ -39,6 +39,24 @@ public data class SessionReplayConfig(
 ) {
     /** Screenshot capture is always enabled (PixelCopy mode). */
     val screenshot: Boolean = true
+
+    /** Scale factor clamped to valid range. */
+    val effectiveScreenshotScale: Float get() = screenshotScale.coerceIn(0.01f, 1f)
+
+    /** Quality clamped to valid range. */
+    val effectiveScreenshotQuality: Int get() = screenshotQuality.coerceIn(0, 100)
+
+    /** Throttle delay clamped to minimum 100ms. */
+    val effectiveThrottleDelayMs: Long get() = throttleDelayMs.coerceAtLeast(100L)
+
+    /** Flush interval clamped to minimum 1 second. */
+    val effectiveFlushIntervalSeconds: Int get() = flushIntervalSeconds.coerceAtLeast(1)
+
+    /** Flush-at threshold clamped to minimum 1. */
+    val effectiveFlushAt: Int get() = flushAt.coerceAtLeast(1)
+
+    /** Max batch size clamped to minimum 1. */
+    val effectiveMaxBatchSize: Int get() = maxBatchSize.coerceAtLeast(1)
 }
 
 /**

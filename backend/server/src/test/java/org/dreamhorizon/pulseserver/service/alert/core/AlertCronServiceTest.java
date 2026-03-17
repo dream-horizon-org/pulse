@@ -405,6 +405,7 @@ class AlertCronServiceTest {
     @Test
     void shouldCreateApplicationConfigWithAllArgs() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -435,6 +436,7 @@ class AlertCronServiceTest {
           "secret-key"
       );
 
+      assertEquals("dev", config.getAppEnvironment());
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://service.url", config.getServiceUrl());
       assertEquals(30, config.getShutdownGracePeriod());
@@ -508,6 +510,7 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectToStringForApplicationConfig() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -546,7 +549,7 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
@@ -554,7 +557,7 @@ class AlertCronServiceTest {
           "http://replay.url", "replay-bucket", "http://minio:9000", "us-east-1", "ak", "sk"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
@@ -562,7 +565,7 @@ class AlertCronServiceTest {
           "http://replay.url", "replay-bucket", "http://minio:9000", "us-east-1", "ak", "sk"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
