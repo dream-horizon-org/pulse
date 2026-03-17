@@ -1207,6 +1207,8 @@ export class MockResponseGenerator {
         description: project.description,
         tenantId: project.tenantId,
         isActive: project.isActive,
+        isEventFlowStarted: project.isEventFlowStarted ?? true,
+        userRole: project.userRole ?? "admin",
         createdAt: project.createdAt,
         createdBy: project.createdBy,
       },
@@ -1319,7 +1321,24 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      if (this.dataStore.hasProjectMember(projectId, email)) {
+      const existingMember = this.dataStore.getProjectMemberByEmail(
+        projectId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this project with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }
@@ -1934,7 +1953,24 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      if (this.dataStore.hasTenantMember(tenantId, email)) {
+      const existingMember = this.dataStore.getTenantMemberByEmail(
+        tenantId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this organization with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }

@@ -20,7 +20,7 @@ const getMockServer = async () => {
  */
 function buildAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  
+
   // Only add Authorization header if access token exists (user is logged in)
   const accessToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
   if (accessToken && accessToken !== "undefined") {
@@ -38,10 +38,10 @@ function buildAuthHeaders(): Record<string, string> {
   // Priority: 1) React Context (sessionStorage) - single source of truth
   // NOTE: Never extract projectId from URL to avoid parsing issues
   let projectId: string | undefined;
-  
+
   // Try sessionStorage (ProjectContext - single source of truth)
   try {
-    const stored = sessionStorage.getItem('pulse_project_context');
+    const stored = sessionStorage.getItem("pulse_project_context");
     if (stored) {
       const data = JSON.parse(stored);
       if (data.projectId && data.projectId !== "undefined") {
@@ -51,7 +51,7 @@ function buildAuthHeaders(): Record<string, string> {
   } catch (error) {
     // Silently ignore parsing errors
   }
-  
+
   // Only set header if we have a valid projectId from context
   if (projectId) {
     headers["X-Project-ID"] = projectId;
