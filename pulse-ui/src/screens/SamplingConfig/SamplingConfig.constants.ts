@@ -1,11 +1,11 @@
 /**
  * SDK Configuration Constants
  * Aligned with Backend PulseConfig Schema
- * 
+ *
  * Note: SDK, Scope, Rule, and Feature options are fetched dynamically from backend APIs:
  * - GET /v1/configs/rules-features -> rules and features
  * - GET /v1/configs/scopes-sdks -> scopes and SDKs
- * 
+ *
  * The constants below are fallbacks and display helpers.
  */
 
@@ -48,17 +48,66 @@ export const RULE_DISPLAY_INFO: Record<string, { label: string; description: str
   network: { label: 'Network', description: 'Match by network type' },
 };
 
-export const FEATURE_DISPLAY_INFO: Record<string, { label: string; description: string; icon: string }> = {
-  interaction: { label: 'User Interactions', description: 'Track taps, scrolls, and navigation patterns', icon: 'click' },
-  java_crash: { label: 'Java Crash', description: 'Capture Java/Kotlin crashes', icon: 'bug' },
-  js_crash: { label: 'JS Crash', description: 'Capture JavaScript crashes', icon: 'bug' },
-  java_anr: { label: 'Java ANR', description: 'Capture Application Not Responding events', icon: 'alert' },
-  network_change: { label: 'Network Change', description: 'Track network state changes', icon: 'wifi' },
-  network_instrumentation: { label: 'Network Instrumentation', description: 'Track API calls and network performance', icon: 'network' },
-  screen_session: { label: 'Screen Session', description: 'Track screen views and sessions', icon: 'screen' },
-  custom_events: { label: 'Custom Events', description: 'User-defined custom events', icon: 'tag' },
-  rn_screen_load: { label: 'React Native Screen Load', description: 'Track React Native Screen Loads', icon: 'navigation' },
-  rn_screen_interactive: { label: 'React Native Screen Interactive', description: 'Track React Native Screen Interaactive Events', icon: 'navigation' },
+export const FEATURE_DISPLAY_INFO: Record<
+  string,
+  { label: string; description: string; icon: string }
+> = {
+  interaction: {
+    label: "User Interactions",
+    description: "Track taps, scrolls, and navigation patterns",
+    icon: "click",
+  },
+  java_crash: {
+    label: "Java Crash",
+    description: "Capture Java/Kotlin crashes",
+    icon: "bug",
+  },
+  js_crash: {
+    label: "JS Crash",
+    description: "Capture JavaScript crashes",
+    icon: "bug",
+  },
+  java_anr: {
+    label: "Java ANR",
+    description: "Capture Application Not Responding events",
+    icon: "alert",
+  },
+  network_change: {
+    label: "Network Change",
+    description: "Track network state changes",
+    icon: "wifi",
+  },
+  network_instrumentation: {
+    label: "Network Instrumentation",
+    description: "Track API calls and network performance",
+    icon: "network",
+  },
+  screen_session: {
+    label: "Screen Session",
+    description: "Track screen views and sessions",
+    icon: "screen",
+  },
+  custom_events: {
+    label: "Custom Events",
+    description: "User-defined custom events",
+    icon: "tag",
+  },
+  rn_screen_load: {
+    label: "React Native Screen Load",
+    description: "Track React Native Screen Loads",
+    icon: "navigation",
+  },
+  rn_screen_interactive: {
+    label: "React Native Screen Interactive",
+    description: "Track React Native Screen Interaactive Events",
+    icon: "navigation",
+  },
+  session_replay: {
+    label: "Session Replay",
+    description:
+      "Record and replay user sessions with configurable PII masking",
+    icon: "replay",
+  },
 };
 
 // ============================================================================
@@ -100,37 +149,37 @@ function unescapeRegex(str: string): string {
  */
 export function detectOperatorFromRegex(regexPattern: string): { operator: PropertyMatchOperator; rawValue: string } {
   // Try to match common patterns we generate
-  
+
   // Equals: ^escapedValue$
   const equalsMatch = regexPattern.match(/^\^(.+)\$$/);
   if (equalsMatch && !regexPattern.includes('.*') && !regexPattern.includes('(?!')) {
     return { operator: 'equals', rawValue: unescapeRegex(equalsMatch[1]) };
   }
-  
+
   // Not Equals: ^(?!escapedValue$).*$
   const notEqualsMatch = regexPattern.match(/^\^\(\?!(.+)\$\)\.\*\$$/);
   if (notEqualsMatch) {
     return { operator: 'not_equals', rawValue: unescapeRegex(notEqualsMatch[1]) };
   }
-  
+
   // Contains: .*escapedValue.*
   const containsMatch = regexPattern.match(/^\.\*(.+)\.\*$/);
   if (containsMatch) {
     return { operator: 'contains', rawValue: unescapeRegex(containsMatch[1]) };
   }
-  
+
   // Starts With: ^escapedValue.*
   const startsWithMatch = regexPattern.match(/^\^(.+)\.\*$/);
   if (startsWithMatch) {
     return { operator: 'starts_with', rawValue: unescapeRegex(startsWithMatch[1]) };
   }
-  
+
   // Ends With: .*escapedValue$
   const endsWithMatch = regexPattern.match(/^\.\*(.+)\$$/);
   if (endsWithMatch) {
     return { operator: 'ends_with', rawValue: unescapeRegex(endsWithMatch[1]) };
   }
-  
+
   // Default: treat as raw regex
   return { operator: 'regex', rawValue: regexPattern };
 }
@@ -209,7 +258,7 @@ export const validateRegex = (pattern: string): string | null => {
   if (!pattern.trim()) {
     return null; // Empty is valid (will be handled by required field validation)
   }
-  
+
   try {
     new RegExp(pattern);
     return null; // Valid regex
@@ -229,27 +278,27 @@ export const validateRegex = (pattern: string): string | null => {
  */
 export const formatNameForDisplay = (regexName: string): string => {
   if (!regexName) return '(any)';
-  
+
   const detected = detectOperatorFromRegex(regexName);
   const operatorLabel = PROPERTY_MATCH_OPERATORS.find(op => op.value === detected.operator)?.label || 'Matches';
-  
+
   if (detected.operator === 'regex') {
     // For raw regex, show a truncated version
     const truncated = detected.rawValue.length > 30 
       ? detected.rawValue.substring(0, 30) + '...' 
-      : detected.rawValue;
+        : detected.rawValue;
     return `Regex: ${truncated}`;
   }
-  
+
   // For standard operators, show "Value (Operator)"
   const truncatedValue = detected.rawValue.length > 25 
     ? detected.rawValue.substring(0, 25) + '...' 
-    : detected.rawValue;
-  
+      : detected.rawValue;
+
   if (detected.operator === 'equals') {
     return truncatedValue; // For exact match, just show the value
   }
-  
+
   return `${truncatedValue} (${operatorLabel})`;
 };
 
@@ -296,13 +345,13 @@ export const DEFAULT_PULSE_CONFIG: PulseConfig = {
 // ============================================================================
 export const calculatePipelineStats = (config: PulseConfig): PipelineStats => {
   const baseEvents = 100000; // Simulated monthly events
-  
+
   // Calculate filter impact
   // Blacklist: More filters = more events blocked. Estimate ~5% per filter rule, max 50%
   // Whitelist: More filters = more events allowed. With whitelist, having 0 filters blocks everything
   const filterRulesCount = config.signals.filters.values.length;
   let filterDropRate: number;
-  
+
   if (config.signals.filters.mode === 'whitelist') {
     // Whitelist: If no filters defined, nothing is allowed (100% drop)
     // With filters, estimate each filter allows ~20% of traffic, max 95% pass
@@ -311,19 +360,19 @@ export const calculatePipelineStats = (config: PulseConfig): PipelineStats => {
     // Blacklist: Each filter blocks ~5% of traffic, max 50% blocked
     filterDropRate = Math.min(filterRulesCount * 5, 50);
   }
-  
+
   const afterFilters = baseEvents * (1 - filterDropRate / 100);
-  
+
   // Sampling rate from default session sample rate
   const samplingRate = config.sampling.default.sessionSampleRate * 100;
   const afterSampling = afterFilters * (samplingRate / 100);
-  
+
   // Feature gates - features control which types of data are collected
   // If no features configured, assume 100% of data passes (no feature-level filtering)
   // If features are configured, enabled features contribute to data sent
   const totalFeatures = config.features.length;
   const enabledFeatures = config.features.filter(f => f.sessionSampleRate === 1);
-  
+
   let featurePassRate: number;
   if (totalFeatures === 0) {
     // No features configured = all data passes through (no feature filtering)
@@ -337,10 +386,10 @@ export const calculatePipelineStats = (config: PulseConfig): PipelineStats => {
       featurePassRate = 10;
     }
   }
-  
+
   const featureDropRate = 100 - featurePassRate;
   const afterFeatures = afterSampling * (featurePassRate / 100);
-  
+
   // Final sent is after all stages
   const finalSent = Math.round(afterFeatures);
 
@@ -363,7 +412,7 @@ export const calculatePipelineStats = (config: PulseConfig): PipelineStats => {
 export const UI_CONSTANTS = {
   PAGE_TITLE: 'SDK Configuration',
   PAGE_SUBTITLE: 'Control what data your app sends to Pulse',
-  
+
   SECTIONS: {
     FILTERS: {
       TITLE: 'Event Filters',
@@ -402,14 +451,14 @@ export const UI_CONSTANTS = {
       DESCRIPTION: 'Infrastructure settings for interaction tracking (auto-configured)',
     },
   },
-  
+
   ACTIONS: {
     SAVE: 'Save Configuration',
     RESET: 'Reset to Defaults',
     SAVING: 'Saving...',
     VIEW_JSON: 'View JSON',
   },
-  
+
   NOTIFICATIONS: {
     SAVE_SUCCESS: 'Configuration saved successfully',
     SAVE_ERROR: 'Failed to save configuration',
@@ -427,34 +476,34 @@ export const UI_CONSTANTS = {
  */
 export const stripUIFields = (config: PulseConfig): PulseConfig => {
   const cleanConfig = JSON.parse(JSON.stringify(config));
-  
+
   // Remove id fields from filters
   cleanConfig.signals.filters.values.forEach((f: { id?: string }) => delete f.id);
-  
+
   // Remove id fields from attributesToDrop and their conditions
   cleanConfig.signals.attributesToDrop.forEach((a: { id?: string; condition?: { id?: string } }) => {
-    delete a.id;
-    if (a.condition) delete a.condition.id;
+      delete a.id;
+      if (a.condition) delete a.condition.id;
   });
-  
+
   // Remove id fields from attributesToAdd and their conditions
   cleanConfig.signals.attributesToAdd?.forEach((a: { id?: string; condition?: { id?: string } }) => {
-    delete a.id;
-    if (a.condition) delete a.condition.id;
+      delete a.id;
+      if (a.condition) delete a.condition.id;
   });
-  
+
   // Remove id fields from sampling rules
   cleanConfig.sampling.rules.forEach((r: { id?: string }) => delete r.id);
-  
+
   // Remove id fields from critical event policies
   cleanConfig.sampling.criticalEventPolicies.alwaysSend.forEach((p: { id?: string }) => delete p.id);
-  
+
   // Remove id fields from critical session policies
   cleanConfig.sampling.criticalSessionPolicies.alwaysSend.forEach((p: { id?: string }) => delete p.id);
-  
+
   // Remove id fields from features
   cleanConfig.features.forEach((f: { id?: string }) => delete f.id);
-  
+
   return cleanConfig;
 };
 
@@ -463,47 +512,47 @@ export const stripUIFields = (config: PulseConfig): PulseConfig => {
  */
 export const addUIIds = (config: PulseConfig): PulseConfig => {
   const configWithIds = JSON.parse(JSON.stringify(config));
-  
+
   // Add id fields to filters
   configWithIds.signals.filters.values = configWithIds.signals.filters.values.map(
     (f: object) => ({ ...f, id: generateId() })
   );
-  
+
   // Add id fields to attributesToDrop
   configWithIds.signals.attributesToDrop = configWithIds.signals.attributesToDrop.map(
     (a: object) => ({ ...a, id: generateId() })
   );
-  
+
   // Add id fields to attributesToAdd
   if (configWithIds.signals.attributesToAdd) {
     configWithIds.signals.attributesToAdd = configWithIds.signals.attributesToAdd.map(
       (a: object) => ({ ...a, id: generateId() })
     );
   }
-  
+
   // Add id fields to sampling rules
   configWithIds.sampling.rules = configWithIds.sampling.rules.map(
     (r: object) => ({ ...r, id: generateId() })
   );
-  
+
   // Add id fields to critical event policies
-  configWithIds.sampling.criticalEventPolicies.alwaysSend = 
+  configWithIds.sampling.criticalEventPolicies.alwaysSend =
     configWithIds.sampling.criticalEventPolicies.alwaysSend.map(
       (p: object) => ({ ...p, id: generateId() })
     );
-  
+
   // Add id fields to critical session policies
   if (configWithIds.sampling.criticalSessionPolicies) {
-    configWithIds.sampling.criticalSessionPolicies.alwaysSend = 
+    configWithIds.sampling.criticalSessionPolicies.alwaysSend =
       configWithIds.sampling.criticalSessionPolicies.alwaysSend.map(
         (p: object) => ({ ...p, id: generateId() })
       );
   }
-  
+
   // Add id fields to features
   configWithIds.features = configWithIds.features.map(
     (f: object) => ({ ...f, id: generateId() })
   );
-  
+
   return configWithIds;
 };

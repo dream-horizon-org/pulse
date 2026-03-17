@@ -18,26 +18,46 @@ export type FilterMode = 'blacklist' | 'whitelist';
 
 // Sampling rule names - matches backend rules enum
 export type SamplingRuleName =
-  | 'os_version'
-  | 'app_version'
-  | 'country'
-  | 'platform'
-  | 'state'
-  | 'device'
-  | 'network';
+  | "os_version"
+  | "app_version"
+  | "country"
+  | "platform"
+  | "state"
+  | "device"
+  | "network";
 
 // Feature names - matches backend Features enum
 export type FeatureName =
-  | 'interaction'
-  | 'java_crash'
-  | 'js_crash'
-  | 'java_anr'
-  | 'network_change'
-  | 'network_instrumentation'
-  | 'screen_session'
-  | 'custom_events'
-  | 'rn_screen_load'
-  | 'rn_screen_interactive';
+  | "interaction"
+  | "java_crash"
+  | "js_crash"
+  | "java_anr"
+  | "network_change"
+  | "network_instrumentation"
+  | "screen_session"
+  | "custom_events"
+  | "rn_screen_load"
+  | "rn_screen_interactive"
+  | "session_replay";
+
+export type TextAndInputPrivacy =
+  | "MASK_ALL"
+  | "MASK_ALL_INPUTS"
+  | "MASK_SENSITIVE_INPUTS";
+export type ImagePrivacy = "MASK_ALL" | "MASK_NONE";
+
+export interface SessionReplayFeatureConfig {
+  featureName?: "session_replay";
+  textAndInputPrivacy?: TextAndInputPrivacy;
+  imagePrivacy?: ImagePrivacy;
+  throttleDelayMs?: number;
+  screenshotScale?: number;
+  screenshotQuality?: number;
+  flushIntervalSeconds?: number;
+  flushAt?: number;
+  maxBatchSize?: number;
+  replayApiBaseUrl?: string;
+}
 
 // ============================================================================
 // EVENT FILTER TYPES
@@ -171,6 +191,7 @@ export interface FeatureConfig {
   featureName: FeatureName;
   sessionSampleRate: number; // 0 = disabled, 1 = enabled (UI shows as on/off toggle)
   sdks: SdkEnum[];
+  config?: SessionReplayFeatureConfig | null;
 }
 
 // ============================================================================
