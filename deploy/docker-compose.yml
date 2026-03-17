@@ -301,7 +301,7 @@ services:
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
 
       # Incident Configuration
-      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${#test-incident-channel:-}
+      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 
       # Notification Service Configuration
       - AWS_REGION=${AWS_REGION:-ap-south-1}
