@@ -2,7 +2,7 @@
  * Session List page – copy, config, and magic numbers in one place.
  */
 
-export const DEFAULT_DATE_PRESET = "7d";
+export const DEFAULT_DATE_PRESET = "24h";
 
 export const TIME_RANGE_OPTIONS = [
   { value: "1h", label: "Last hour" },
@@ -77,7 +77,7 @@ export const TABLE_COLUMN_LABELS = {
   quality: "Quality",
   issues: "Issues",
   platform: "Platform",
-  impactedScreens: "Impacted Screens",
+  impactedScreens: "Impacted Interactions",
   actions: "Actions",
 } as const;
 

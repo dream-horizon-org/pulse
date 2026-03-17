@@ -76,7 +76,7 @@ const SessionReplayFilterContext = createContext<
 
 const DEFAULT_STATE: SessionReplayFilterState = {
   dateRange: {
-    preset: "7d",
+    preset: "24h",
     from: null,
     to: null,
   },

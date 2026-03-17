@@ -240,11 +240,35 @@ export function EventList({
                       } catch (error) {
                         console.error("Error decoding content", error);
                       }
+                      const path =
+                        projectId && event.interactionName
+                          ? ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(
+                              ":projectId",
+                              projectId,
+                            ) +
+                            "/" +
+                            event.interactionName.replace(/\s+/g, "")
+                          : null;
                       return (
                         <>
                           <Text size="sm" style={{ flex: 1, minWidth: 0 }}>
                             {content}
                           </Text>
+                          {event.interactionName && projectId && path && (
+                            <Tooltip label="Open interaction details" withArrow>
+                              <ActionIcon
+                                variant="subtle"
+                                color="teal"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(path, "_blank");
+                                }}
+                              >
+                                <IconExternalLink size={14} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
                           {status ? (
                             <Text
                               size="sm"
@@ -260,29 +284,6 @@ export function EventList({
                         </>
                       );
                     })()}
-                    {event.interactionName && projectId && (
-                      <Tooltip label="Open interaction details" withArrow>
-                        <ActionIcon
-                          variant="subtle"
-                          color="teal"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const name = event.interactionName;
-                            if (!name || !projectId) return;
-                            const path =
-                              ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(
-                                ":projectId",
-                                projectId,
-                              );
-                            const segment = name.replace(/\s+/g, "");
-                            window.open(`${path}/${segment}`, "_blank");
-                          }}
-                        >
-                          <IconExternalLink size={14} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
                   </Group>
                 </Box>
               );

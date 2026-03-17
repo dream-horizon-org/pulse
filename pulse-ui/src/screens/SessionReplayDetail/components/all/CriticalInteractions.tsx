@@ -1,11 +1,14 @@
 import { Box, Text, Group, Badge, Card, Stack } from "@mantine/core";
-import { IconCheck, IconX } from "@tabler/icons-react";
+import { IconCheck, IconX, IconExternalLink } from "@tabler/icons-react";
+import { useLocation } from "react-router-dom";
 import type { CriticalInteraction } from "../../../../services/sessionReplay/mockSessionDetail";
+import { ROUTES } from "../../../../constants";
 import { STATUS_LABELS, FORMAT_STRINGS } from "../../constants/strings";
 
 interface CriticalInteractionsProps {
   criticalInteractions: CriticalInteraction[];
   onCriticalInteractionClick?: (t0: number, t1: number) => void;
+  projectId?: string;
 }
 
 function getStatusIcon(status: "success" | "failed" | "not_attempted") {
@@ -25,7 +28,12 @@ function getStatusColor(status: "success" | "failed" | "not_attempted") {
 export function CriticalInteractions({
   criticalInteractions,
   onCriticalInteractionClick,
+  projectId: projectIdProp,
 }: CriticalInteractionsProps) {
+  const { pathname } = useLocation();
+  const projectIdFromUrl = pathname.match(/\/projects\/([^/]+)/)?.[1];
+  const projectId = projectIdProp ?? projectIdFromUrl;
+
   const successCount = criticalInteractions.filter(
     (i) => i.status === "success",
   ).length;
@@ -60,6 +68,20 @@ export function CriticalInteractions({
                 ? interaction.apdexScore.toFixed(2)
                 : "—";
 
+            const nameForUrl =
+              interaction.interactionName || interaction.displayName || "";
+            const path =
+              projectId && nameForUrl
+                ? `${ROUTES.PROJECT_INTERACTION_DETAILS.basePath.replace(":projectId", projectId)}/${nameForUrl.replace(/\s+/g, "")}`
+                : null;
+
+            const openInteractionDetail = (e: React.MouseEvent) => {
+              e.stopPropagation();
+              e.preventDefault();
+              if (!path) return;
+              window.open(path, "_blank");
+            };
+
             return (
               <Group
                 key={interaction.interactionId}
@@ -76,9 +98,42 @@ export function CriticalInteractions({
               >
                 <Group gap="xs" wrap="nowrap">
                   {getStatusIcon(interaction.status)}
-                  <Text size="sm" fw={500} style={{ flex: 1 }}>
-                    {interaction.displayName}
-                  </Text>
+                  {path ? (
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={openInteractionDetail}
+                      style={{
+                        flex: 1,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: 0,
+                        border: "none",
+                        background: "none",
+                        cursor: "pointer",
+                        color: "var(--mantine-color-blue-6)",
+                        textDecoration: "none",
+                        fontWeight: 500,
+                        fontSize: "var(--mantine-font-size-sm)",
+                        textAlign: "left",
+                        font: "inherit",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.textDecoration = "underline";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.textDecoration = "none";
+                      }}
+                    >
+                      {interaction.displayName}
+                      <IconExternalLink size={14} style={{ flexShrink: 0 }} />
+                    </Box>
+                  ) : (
+                    <Text size="sm" fw={500} style={{ flex: 1 }}>
+                      {interaction.displayName}
+                    </Text>
+                  )}
                 </Group>
                 <Group gap="xs" wrap="nowrap">
                   <Text size="xs" c="dimmed">

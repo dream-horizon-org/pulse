@@ -166,12 +166,14 @@ export function CiritcalInteractionDetails() {
         interactionName,
       );
     }
-    navigate(
-      ROUTES.PROJECT_SESSION_REPLAY_SESSIONS.basePath.replace(
-        ":projectId",
-        projectId || "",
-      ),
+    const basePath = ROUTES.PROJECT_SESSION_REPLAY_SESSIONS.basePath.replace(
+      ":projectId",
+      projectId || "",
     );
+    const url = interactionName
+      ? `${basePath}?drillDownType=interaction&drillDownValue=${encodeURIComponent(interactionName)}`
+      : basePath;
+    navigate(url);
   };
 
   const handleTabChange = (value: string | null) => {
