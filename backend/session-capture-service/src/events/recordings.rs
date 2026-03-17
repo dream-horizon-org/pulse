@@ -66,6 +66,8 @@ pub async fn process_replay_events(
 ) -> Result<(), CaptureError> {
     // Extract metadata from first event by consuming the vec via iterator (no clones!)
     // We split off the first event to extract metadata, then iterate over the rest
+    let start = Instant::now();
+
     let mut events_iter = events.into_iter();
     let mut first_event = events_iter.next().ok_or(CaptureError::EmptyBatch)?;
 
@@ -163,6 +165,9 @@ pub async fn process_replay_events(
         items = snapshot_items.len(),
         "Recording event captured"
     );
+
+    metrics::histogram!("capture_processing_time_seconds")
+    .record(start.elapsed().as_secs_f64());
 
     Ok(())
 }

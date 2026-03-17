@@ -7,6 +7,7 @@ use crate::api::CaptureError;
 use crate::extractors::extract_body_with_timeout;
 use crate::events::recordings::RawRecording;
 use crate::payload::decompress_payload;
+use std::time::Instant;
 
 /// Supports both single event and array of events in one request
 #[derive(Debug, Deserialize)]
@@ -38,6 +39,8 @@ pub async fn handle_recording_payload(
     chunk_size_kb: usize,
     path: &str,
 ) -> Result<Vec<RawRecording>, CaptureError> {
+    let start = Instant::now();
+ 
     let bytes = extract_body_with_timeout(
         body,
         payload_size_limit,
@@ -47,10 +50,28 @@ pub async fn handle_recording_payload(
     )
     .await?;
 
+    let body_read_done = Instant::now();
+
+
     let payload_str = decompress_payload(bytes, payload_size_limit)?;
+
+    let decompress_done = Instant::now();
+
 
     let payload: RecordingPayload = serde_json::from_str(&payload_str)
         .map_err(|e| CaptureError::InvalidPayload(e.to_string()))?;
+
+    let parse_done = Instant::now();
+
+    metrics::histogram!("capture_body_read_time_seconds")
+    .record((body_read_done - start).as_secs_f64());
+
+    metrics::histogram!("capture_decompress_time_seconds")
+    .record((decompress_done - body_read_done).as_secs_f64());
+
+    metrics::histogram!("capture_json_parse_time_seconds")
+    .record((parse_done - decompress_done).as_secs_f64());
+
     let events = payload.into_vec();
 
     if events.is_empty() {

@@ -215,33 +215,33 @@ impl sinks::Event for KafkaSink {
             .payload(payload)
             .headers(headers);
 
-        // match self
-        //     .producer
-        //     .send(record, Timeout::After(Duration::from_secs(10)))
-        //     .await
-        // {
-        //     Ok(_) => Ok(()),
-        //     Err((err, _)) => {
-        //         let err_string = err.to_string();
-        //         if err_string.contains("Message size too large")
-        //             || err_string.contains("MSG_SIZE_TOO_LARGE")
-        //         {
-        //             tracing::error!(
-        //                 key = key,
-        //                 payload_size = payload.len(),
-        //                 "Kafka message too large"
-        //             );
-        //             Err(CaptureError::EventTooBig(format!(
-        //                 "Event payload too large for Kafka: {} bytes",
-        //                 payload.len()
-        //             )))
-        //         } else {
-        //             tracing::error!("Kafka produce error: {err}");
-        //             Err(CaptureError::RetryableSinkError)
-        //         }
-        //     }
-        // }
-        self.producer.send(record, Timeout::Never);
-        Ok(())
+        match self
+            .producer
+            .send(record, Timeout::After(Duration::from_secs(10)))
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err((err, _)) => {
+                let err_string = err.to_string();
+                if err_string.contains("Message size too large")
+                    || err_string.contains("MSG_SIZE_TOO_LARGE")
+                {
+                    tracing::error!(
+                        key = key,
+                        payload_size = payload.len(),
+                        "Kafka message too large"
+                    );
+                    Err(CaptureError::EventTooBig(format!(
+                        "Event payload too large for Kafka: {} bytes",
+                        payload.len()
+                    )))
+                } else {
+                    tracing::error!("Kafka produce error: {err}");
+                    Err(CaptureError::RetryableSinkError)
+                }
+            }
+        }
+        // self.producer.send(record, Timeout::Never);
+        // Ok(())
     }
 }
