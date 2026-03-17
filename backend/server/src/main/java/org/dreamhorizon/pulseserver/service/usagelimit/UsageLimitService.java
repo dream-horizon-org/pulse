@@ -515,6 +515,8 @@ public class UsageLimitService {
                     }
                     
                     String projectName = limit.getProjectName() != null ? limit.getProjectName() : projectId;
+                    long sessionsUsedVal = usage.getSessionsUsed() != null ? usage.getSessionsUsed() : 0;
+                    long eventsUsedVal = usage.getEventsUsed() != null ? usage.getEventsUsed() : 0;
                     UsageNotification notification = UsageNotification.builder()
                         .projectId(projectId)
                         .projectName(projectName)
@@ -524,12 +526,14 @@ public class UsageLimitService {
                         .sessionsUsed(usage.getSessionsUsed())
                         .sessionsLimit(sessionLimit)
                         .sessionsPercentage(displaySessionsPercentage)
+                        .sessionsPercentageDisplay(toPercentageDisplay(sessionsUsedVal, sessionLimit, displaySessionsPercentage))
                         .sessionsOverage(sessionsOverage)
                         .sessionsBlocked(sessionsBlocked)
                         .sessionsAtLimit(sessionsAtLimit)
                         .eventsUsed(usage.getEventsUsed())
                         .eventsLimit(eventLimit)
                         .eventsPercentage(displayEventsPercentage)
+                        .eventsPercentageDisplay(toPercentageDisplay(eventsUsedVal, eventLimit, displayEventsPercentage))
                         .eventsOverage(eventsOverage)
                         .eventsBlocked(eventsBlocked)
                         .eventsAtLimit(eventsAtLimit)
@@ -569,6 +573,17 @@ public class UsageLimitService {
       return 0;
     }
     return (int) ((used * 100) / limit);
+  }
+
+  /**
+   * Returns display string for template: "&lt;1" when used&gt;0 but percentage rounds to 0,
+   * otherwise the numeric percentage as string.
+   */
+  private String toPercentageDisplay(long used, Long limit, int displayPercentage) {
+    if (used > 0 && limit != null && limit > 0 && displayPercentage == 0) {
+      return "<1";
+    }
+    return String.valueOf(displayPercentage);
   }
 
   /**

@@ -193,6 +193,12 @@ public class PulseServerApiClient {
         notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
 
     // Build params for template placeholders ({{projectName}}, {{threshold}}, etc.)
+    String eventsDisplay = notification.getEventsPercentageDisplay() != null
+        ? notification.getEventsPercentageDisplay()
+        : String.valueOf(notification.getEventsPercentage() != null ? notification.getEventsPercentage() : 0);
+    String sessionsDisplay = notification.getSessionsPercentageDisplay() != null
+        ? notification.getSessionsPercentageDisplay()
+        : String.valueOf(notification.getSessionsPercentage() != null ? notification.getSessionsPercentage() : 0);
     JsonObject params = new JsonObject()
         .put("projectId", notification.getProjectId())
         .put("projectName", notification.getProjectName() != null ? notification.getProjectName() : notification.getProjectId())
@@ -200,6 +206,8 @@ public class PulseServerApiClient {
         .put("notifyFor", notification.getNotifyFor())
         .put("eventsPercentage", notification.getEventsPercentage())
         .put("sessionsPercentage", notification.getSessionsPercentage())
+        .put("eventsPercentageDisplay", eventsDisplay)
+        .put("sessionsPercentageDisplay", sessionsDisplay)
         .put("dashboardUrl", DEFAULT_DASHBOARD_URL);
 
     JsonObject body = new JsonObject()

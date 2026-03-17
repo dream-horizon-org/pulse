@@ -192,6 +192,8 @@ public abstract class UsageLimitMapper {
         .eventsOverage(notification.getEventsOverage())
         .eventsBlocked(notification.getEventsBlocked())
         .eventsAtLimit(notification.getEventsAtLimit())
+        .eventsPercentageDisplay(notification.getEventsPercentageDisplay())
+        .sessionsPercentageDisplay(notification.getSessionsPercentageDisplay())
         .build();
   }
 }

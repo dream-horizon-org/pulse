@@ -66,4 +66,10 @@ public class UsageNotificationRestDto {
   
   @JsonProperty("eventsAtLimit")
   private Boolean eventsAtLimit;
+
+  @JsonProperty("eventsPercentageDisplay")
+  private String eventsPercentageDisplay;
+
+  @JsonProperty("sessionsPercentageDisplay")
+  private String sessionsPercentageDisplay;
 }

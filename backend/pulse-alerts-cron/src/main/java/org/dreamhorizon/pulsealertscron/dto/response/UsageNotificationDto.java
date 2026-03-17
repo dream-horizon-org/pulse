@@ -35,4 +35,8 @@ public class UsageNotificationDto {
   private Integer eventsOverage;
   private Boolean eventsBlocked;
   private Boolean eventsAtLimit;
+
+  /** Display string for template: "&lt;1" when used>0 but percentage rounds to 0, else numeric value */
+  private String eventsPercentageDisplay;
+  private String sessionsPercentageDisplay;
 }
