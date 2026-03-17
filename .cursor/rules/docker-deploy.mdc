@@ -50,6 +50,10 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `CUSTOM_EVENT_COLLECTOR_URL` — Custom event collector endpoint (default: `http://localhost:4318/v1/logs`)
 - `INTERACTION_CONFIG_URL` — Interaction config URL (default: `http://localhost:4318/v1/traces`)
 
+**Dev Mode Configuration:**
+- `GOOGLE_OAUTH_ENABLED` — Enable/disable Google OAuth login (default: `false` for dev mode)
+- `DEV_MODE_API_KEY` — Hardcoded API key for default-project when OAuth is disabled (default: `default-project_devkey01`). Format: `{projectId}_{suffix}` (single underscore for project ID extraction).
+
 Credentials (defined in docker-compose, overridable via `.env`):
 - MySQL: `MYSQL_USER` / `MYSQL_PASSWORD` (defaults: `pulse_user` / `pulse_password`)
 - ClickHouse: `OTEL_CLICKHOUSE_USER` / `OTEL_CLICKHOUSE_PASSWORD` (defaults: `pulse_user` / `pulse_password`)

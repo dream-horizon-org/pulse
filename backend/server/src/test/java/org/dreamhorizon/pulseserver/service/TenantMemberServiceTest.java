@@ -12,6 +12,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.model.User;
@@ -90,6 +91,8 @@ class TenantMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
+      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.assignTenantRole(USER_ID, TENANT_ID, "member")).thenReturn(Completable.complete());
 
       User result = tenantMemberService.addUserToTenant(TENANT_ID, EMAIL, "member", ADMIN_ID).blockingGet();

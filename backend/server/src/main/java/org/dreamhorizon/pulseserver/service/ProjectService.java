@@ -13,6 +13,7 @@ import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.ProjectQueries;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
@@ -317,6 +318,10 @@ public class ProjectService {
         .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)));
   }
 
+  public Single<Boolean> projectExists(String projectId) {
+    return projectDao.projectExists(projectId);
+  }
+
   @Deprecated
   public Single<Project> getProjectByApiKey(String apiKey) {
     return Single.error(new RuntimeException("API key lookup not implemented - use ProjectApiKeyService instead"));
@@ -351,17 +356,12 @@ public class ProjectService {
   }
 
   public Single<Boolean> hasEventFlowStarted(String projectId) {
-    String query = """
-        SELECT sum(event_count) > 0 AS has_events
-        FROM otel.project_monthly_usage
-        WHERE project_id = :projectId
-          AND month = toStartOfMonth(now())
-        """;
-  
     return Single.fromPublisher(clickhouseReadClient.getPool().create())
         .flatMap(conn -> {
           Single<Boolean> results = Single.fromPublisher(
-              conn.createStatement(query).bind("projectId", projectId).execute())
+              conn.createStatement(ProjectQueries.HAS_EVENT_FLOW_STARTED)
+                  .bind("projectId", projectId)
+                  .execute())
               .flatMap(result -> Single.fromPublisher(result.map((row, md) -> {
                   Object value = row.get("has_events");
                   
