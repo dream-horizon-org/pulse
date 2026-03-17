@@ -1,6 +1,5 @@
 package com.pulse.android.sdk.replay.remote
 
-import android.util.Log
 import com.pulse.android.sdk.replay.internal.ReplayLog
 import com.pulse.utils.PulseNetworkingUtils
 import okhttp3.MediaType.Companion.toMediaType
@@ -73,11 +72,11 @@ public class SessionReplayApiClient(
         okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val responseBody = response.body?.string()?.take(MAX_ERROR_BODY_LOG) ?: ""
-                Log.e(ReplayLog.TAG, "Session replay API error: ${response.code} ${response.message}. Body: $responseBody")
+                ReplayLog.e("Session replay API error: ${response.code} ${response.message}. Body: $responseBody")
                 if (body.length <= MAX_REQUEST_LOG) {
-                    Log.e(ReplayLog.TAG, "Request payload: $body")
+                    ReplayLog.e("Request payload: $body")
                 } else {
-                    Log.e(ReplayLog.TAG, "Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...")
+                    ReplayLog.e("Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...")
                 }
                 throw HttpException(response.code, response.message, responseBody)
             }

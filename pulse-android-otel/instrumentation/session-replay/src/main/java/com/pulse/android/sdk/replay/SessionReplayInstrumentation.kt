@@ -1,6 +1,5 @@
 package com.pulse.android.sdk.replay
 
-import android.util.Log
 import com.google.auto.service.AutoService
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.internal.ReplayEnvelopeBuilder
@@ -42,8 +41,8 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 replayApiClient.sendBatch(payload).also { result ->
                     val sessionIdsLog = ReplayEnvelopeBuilder.getSessionIdsForLog(payload)
                     val suffix = if (sessionIdsLog != null) " — $sessionIdsLog" else ""
-                    result.onSuccess { Log.i(ReplayLog.TAG, "Session replay upload succeeded$suffix") }
-                    result.onFailure { t -> Log.e(ReplayLog.TAG, "Session replay upload failed$suffix", t) }
+                    result.onSuccess { ReplayLog.i("Session replay upload succeeded$suffix") }
+                    result.onFailure { t -> ReplayLog.e("Session replay upload failed$suffix", t) }
                 }
             } else {
                 logPayloadNoApiUrl(payload)
@@ -94,24 +93,23 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 sessionIdsLog?.let { add("— $it") }
                 eventTypesSummary?.let { add("— event types: $it") }
             }
-        Log.d(ReplayLog.TAG, "[Replay flow] Sending to backend: ${parts.joinToString(" ")}")
+        ReplayLog.d("[Replay flow] Sending to backend: ${parts.joinToString(" ")}")
     }
 
     private fun logPayloadNoApiUrl(payload: String) {
         val payloadSizeKb = payload.length / 1024
         val sessionIdsLog = ReplayEnvelopeBuilder.getSessionIdsForLog(payload)
-        Log.d(
-            ReplayLog.TAG,
+        ReplayLog.d(
             "Session replay payload (no API URL): $payloadSizeKb KB (${payload.length} bytes)${if (sessionIdsLog != null) " — $sessionIdsLog" else ""}",
         )
         if (payload.length <= MAX_LOG_LEN) {
-            Log.d(ReplayLog.TAG, "Replay payload: $payload")
+            ReplayLog.d("Replay payload: $payload")
         } else {
             var offset = 0
             var part = 0
             while (offset < payload.length) {
                 val chunk = payload.substring(offset, (offset + MAX_LOG_LEN).coerceAtMost(payload.length))
-                Log.d(ReplayLog.TAG, "Replay payload part ${++part}: $chunk")
+                ReplayLog.d("Replay payload part ${++part}: $chunk")
                 offset += MAX_LOG_LEN
             }
         }
