@@ -18,6 +18,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
 import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
@@ -113,6 +114,11 @@ public class MainModule extends VertxAbstractModule {
             .build();
       }
       return config;
+    }).in(Singleton.class);
+
+    bind(RootCauseConfig.class).toProvider(() -> {
+      RootCauseConfig config = SharedDataUtils.get(vertx, RootCauseConfig.class);
+      return RootCauseConfig.withDefaults(config);
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {

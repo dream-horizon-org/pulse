@@ -1,0 +1,62 @@
+.container {
+  padding: var(--mantine-spacing-md) 0;
+}
+
+.skeletonWrapper {
+  padding: var(--mantine-spacing-lg);
+}
+
+.segmentCard {
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.segmentLabel {
+  font-weight: 600;
+  margin-bottom: var(--mantine-spacing-sm);
+  color: var(--mantine-color-gray-8);
+}
+
+.cachedAt {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-gray-6);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.metricsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.metricsTable th,
+.metricsTable td {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.metricsTable th {
+  font-weight: 600;
+  color: var(--mantine-color-gray-7);
+}
+
+.deltaPositive {
+  color: var(--mantine-color-red-7);
+}
+
+.deltaNegative {
+  color: var(--mantine-color-teal-7);
+}
+
+.stateMessage {
+  text-align: center;
+  padding: var(--mantine-spacing-xl);
+  color: var(--mantine-color-gray-7);
+}
+
+.errorState {
+  color: var(--mantine-color-red-7);
+}
+
+.retryButton {
+  margin-top: var(--mantine-spacing-md);
+}

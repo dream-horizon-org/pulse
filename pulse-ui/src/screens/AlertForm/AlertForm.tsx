@@ -63,7 +63,11 @@ export const AlertForm = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
   const [stepperActiveState, setStepperActiveStep] = useState<number>(0);
-  let alertId = useParams()["*"];
+  const { projectId, "*": wildcardParam } = useParams<{
+    projectId: string;
+    "*": string;
+  }>();
+  let alertId = wildcardParam;
   if (isInteractionDetailsFlow && interactionAlertId) {
     alertId = interactionAlertId.toString();
   }
@@ -86,15 +90,19 @@ export const AlertForm = ({
   const { data: scopesData, isLoading: isScopesLoading } = useGetAlertScopes();
 
   // Fetch metrics based on selected scope
-  const { data: metricsData, isLoading: isMetricsLoading } = useGetAlertMetrics({
-    scope: selectedScope,
-  });
+  const { data: metricsData, isLoading: isMetricsLoading } = useGetAlertMetrics(
+    {
+      scope: selectedScope,
+    },
+  );
 
   // Fetch severities
-  const { data: severitiesData, isLoading: isSeveritiesLoading } = useGetAlertSeverities();
+  const { data: severitiesData, isLoading: isSeveritiesLoading } =
+    useGetAlertSeverities();
 
   // Fetch notification channels
-  const { data: channelsData, isLoading: isChannelsLoading } = useGetAlertNotificationChannels();
+  const { data: channelsData, isLoading: isChannelsLoading } =
+    useGetAlertNotificationChannels();
 
   const {
     data: response,
@@ -156,7 +164,9 @@ export const AlertForm = ({
       if (isInteractionDetailsFlow) {
         onBackButtonClick?.();
       } else {
-        navigate(`${ROUTES["ALERTS"].basePath}`);
+        navigate(
+          ROUTES.PROJECT_ALERTS.basePath.replace(":projectId", projectId || ""),
+        );
       }
     }, 2000);
   };
@@ -338,16 +348,22 @@ export const AlertForm = ({
   };
 
   // Map severity level (number) to display label
-  const severityLevelLabels: Record<number, string> = { 1: "Critical", 2: "Warning", 3: "Info" };
-  
+  const severityLevelLabels: Record<number, string> = {
+    1: "Critical",
+    2: "Warning",
+    3: "Info",
+  };
+
   const getSeverityOptions = () => {
     // Backend returns List<AlertSeverityResponseDto> directly
     const severities = severitiesData?.data;
     if (severities && Array.isArray(severities)) {
-      return severities.map((s: { severity_id: number; name: number; description: string }) => ({
-        value: s.severity_id.toString(),
-        label: `${severityLevelLabels[s.name] || `Level ${s.name}`} - ${s.description}`,
-      }));
+      return severities.map(
+        (s: { severity_id: number; name: number; description: string }) => ({
+          value: s.severity_id.toString(),
+          label: `${severityLevelLabels[s.name] || `Level ${s.name}`} - ${s.description}`,
+        }),
+      );
     }
     return [];
   };
@@ -423,7 +439,9 @@ export const AlertForm = ({
                   <Select
                     {...field}
                     label={ALERT_FORM_CONSTANTS.ALERT_SCOPE_LABEL}
-                    placeholder={isScopesLoading ? "Loading scopes..." : "Select scope"}
+                    placeholder={
+                      isScopesLoading ? "Loading scopes..." : "Select scope"
+                    }
                     description={ALERT_FORM_CONSTANTS.ALERT_SCOPE_LABEL_INFO}
                     data={getScopeOptions()}
                     error={fieldState.error?.message}
@@ -557,7 +575,9 @@ export const AlertForm = ({
       case 2:
         return (
           <Box className={classes.formSection}>
-            <Text className={classes.formSectionTitle}>Evaluation Settings</Text>
+            <Text className={classes.formSectionTitle}>
+              Evaluation Settings
+            </Text>
             <Box className={classes.inputGroup}>
               <Controller
                 name="evaluation_period"
@@ -619,7 +639,11 @@ export const AlertForm = ({
                     onChange={(val) => field.onChange(Number(val))}
                     label={ALERT_FORM_CONSTANTS.ALERT_SEVERITY_LABEL}
                     description={ALERT_FORM_CONSTANTS.ALERT_SEVERITY_LABEL_INFO}
-                    placeholder={isSeveritiesLoading ? "Loading severities..." : "Select severity"}
+                    placeholder={
+                      isSeveritiesLoading
+                        ? "Loading severities..."
+                        : "Select severity"
+                    }
                     data={getSeverityOptions()}
                     error={fieldState.error?.message}
                     disabled={isSeveritiesLoading}
@@ -638,7 +662,11 @@ export const AlertForm = ({
                     onChange={(val) => field.onChange(Number(val))}
                     label="Notification Channel"
                     description="Select the channel for alert notifications"
-                    placeholder={isChannelsLoading ? "Loading channels..." : "Select channel"}
+                    placeholder={
+                      isChannelsLoading
+                        ? "Loading channels..."
+                        : "Select channel"
+                    }
                     data={getChannelOptions()}
                     error={fieldState.error?.message}
                     disabled={isChannelsLoading}
@@ -699,7 +727,12 @@ export const AlertForm = ({
                 if (isInteractionDetailsFlow) {
                   onBackButtonClick?.();
                 } else {
-                  navigate(`${ROUTES["ALERTS"].basePath}`);
+                  navigate(
+                    ROUTES.PROJECT_ALERTS.basePath.replace(
+                      ":projectId",
+                      projectId || "",
+                    ),
+                  );
                 }
               }}
               size="sm"
@@ -736,8 +769,17 @@ export const AlertForm = ({
                     background: "rgba(14, 201, 194, 0.02)",
                     overflow: "auto",
                   },
-                  stepBody: { flexGrow: 1, width: "100%", alignContent: "center", justifyContent: "center" },
-                  step: { paddingRight: "15%", width: "350px", padding: "var(--mantine-spacing-md)" },
+                  stepBody: {
+                    flexGrow: 1,
+                    width: "100%",
+                    alignContent: "center",
+                    justifyContent: "center",
+                  },
+                  step: {
+                    paddingRight: "15%",
+                    width: "350px",
+                    padding: "var(--mantine-spacing-md)",
+                  },
                   stepIcon: { borderColor: "#0ec9c2" },
                 }}
               >
@@ -853,4 +895,3 @@ export const AlertForm = ({
 };
 
 export default AlertForm;
-

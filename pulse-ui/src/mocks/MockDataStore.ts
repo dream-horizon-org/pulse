@@ -8,10 +8,10 @@
 import { MockDataStore as IMockDataStore } from "./types";
 
 // SDK Config types matching the PulseConfig schema
-type SdkEnum = 'android_native' | 'android_rn' | 'ios_native' | 'ios_rn';
-type ScopeEnum = 'logs' | 'traces' | 'metrics' | 'baggage';
-type FilterMode = 'blacklist' | 'whitelist';
-type SamplingMatchType = 'app_version_min' | 'app_version_max';
+type SdkEnum = "android_native" | "android_rn" | "ios_native" | "ios_rn";
+type ScopeEnum = "logs" | "traces" | "metrics" | "baggage";
+type FilterMode = "blacklist" | "whitelist";
+type SamplingMatchType = "app_version_min" | "app_version_max";
 
 interface EventPropMatch {
   name: string;
@@ -101,11 +101,105 @@ interface PulseConfigWithMeta extends PulseConfig {
   _meta: ConfigVersionMeta;
 }
 
+// Auth/tenant types for mock server
+export interface MockProjectSummary {
+  projectId: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  role: "admin" | "editor" | "viewer";
+}
+
+export interface MockTenantContext {
+  tenantId: string;
+  tenantName: string;
+  projects: MockProjectSummary[];
+}
+
+// Member types for tenant/project member management
+export interface MockMember {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  status: "active" | "pending" | "inactive";
+  lastLoginAt: string | null;
+}
+
+// Full project details (for GET /v1/projects/:projectId)
+export interface MockProjectDetails {
+  projectId: string;
+  name: string;
+  description: string;
+  tenantId: string;
+  apiKey?: string;
+  isActive: boolean;
+  createdAt: string;
+  createdBy: string;
+}
+
+// Tenant details (for GET /v1/tenants/:tenantId)
+export interface MockTenantDetails {
+  tenantId: string;
+  name: string;
+  description: string;
+  tier: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// API key for project (matches ApiKeyRestResponse)
+export interface MockApiKey {
+  apiKeyId: number;
+  projectId: string;
+  displayName: string;
+  apiKey: string;
+  isActive: boolean;
+  expiresAt: string | null;
+  gracePeriodEndsAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  deactivatedAt: string | null;
+  deactivatedBy: string | null;
+  deactivationReason: string | null;
+}
+
+// Project settings (mock structure)
+export interface MockProjectSettings {
+  retentionDays?: number;
+  samplingRate?: number;
+  [key: string]: unknown;
+}
+
 export class MockDataStore {
   private static instance: MockDataStore;
   private data: IMockDataStore;
   private sdkConfig: PulseConfig;
   private configHistory: PulseConfigWithMeta[];
+
+  /** Current tenant context - set by login (dev-id-token) or onboarding complete */
+  private currentTenant: MockTenantContext | null = null;
+
+  /** Tenant members: tenantId -> members[] */
+  private mockTenantMembers: Map<string, MockMember[]> = new Map();
+
+  /** Project members: projectId -> members[] */
+  private mockProjectMembers: Map<string, MockMember[]> = new Map();
+
+  /** Full project details: projectId -> project (includes apiKey for newly created) */
+  private mockProjects: Map<string, MockProjectDetails> = new Map();
+
+  /** Tenant details: tenantId -> tenant */
+  private mockTenants: Map<string, MockTenantDetails> = new Map();
+
+  /** Project API keys: projectId -> MockApiKey[] */
+  private mockProjectApiKeys: Map<string, MockApiKey[]> = new Map();
+
+  /** Project settings: projectId -> settings */
+  private mockProjectSettings: Map<string, MockProjectSettings> = new Map();
+
+  /** Next API key ID for mock generation */
+  private nextApiKeyId = 1000;
 
   private constructor() {
     this.data = {
@@ -123,34 +217,34 @@ export class MockDataStore {
 
   private getDefaultSdkConfig(): PulseConfig {
     const generateId = () => Math.random().toString(36).substring(2, 11);
-    
+
     return {
       version: 1,
       filtersConfig: {
-        mode: 'blacklist',
+        mode: "blacklist",
         whitelist: [
           {
             id: generateId(),
-            name: 'test_event',
-            props: [{ name: 'user_id', value: '.*test.*' }],
-            scope: ['logs', 'traces'],
-            sdks: ['android_native', 'ios_native'],
+            name: "test_event",
+            props: [{ name: "user_id", value: ".*test.*" }],
+            scope: ["logs", "traces"],
+            sdks: ["android_native", "ios_native"],
           },
         ],
         blacklist: [
           {
             id: generateId(),
-            name: 'sensitive_event',
-            props: [{ name: 'contains_pii', value: 'true' }],
-            scope: ['logs', 'traces', 'metrics'],
-            sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+            name: "sensitive_event",
+            props: [{ name: "contains_pii", value: "true" }],
+            scope: ["logs", "traces", "metrics"],
+            sdks: ["android_native", "android_rn", "ios_native", "ios_rn"],
           },
           {
             id: generateId(),
-            name: 'debug_log',
-            props: [{ name: 'level', value: 'debug' }],
-            scope: ['logs'],
-            sdks: ['android_native', 'ios_native'],
+            name: "debug_log",
+            props: [{ name: "level", value: "debug" }],
+            scope: ["logs"],
+            sdks: ["android_native", "ios_native"],
           },
         ],
       },
@@ -159,21 +253,21 @@ export class MockDataStore {
         rules: [
           {
             id: generateId(),
-            name: 'high_value_users',
+            name: "high_value_users",
             match: {
-              type: 'app_version_min',
-              sdks: ['android_native', 'ios_native'],
-              app_version_min_inclusive: '2.0.0',
+              type: "app_version_min",
+              sdks: ["android_native", "ios_native"],
+              app_version_min_inclusive: "2.0.0",
             },
             session_sample_rate: 1.0,
           },
           {
             id: generateId(),
-            name: 'legacy_users',
+            name: "legacy_users",
             match: {
-              type: 'app_version_max',
-              sdks: ['android_native', 'android_rn'],
-              app_version_max_inclusive: '1.5.0',
+              type: "app_version_max",
+              sdks: ["android_native", "android_rn"],
+              app_version_max_inclusive: "1.5.0",
             },
             session_sample_rate: 0.1,
           },
@@ -182,59 +276,59 @@ export class MockDataStore {
           alwaysSend: [
             {
               id: generateId(),
-              name: 'crash',
-              props: [{ name: 'severity', value: 'critical' }],
-              scope: ['traces', 'logs'],
+              name: "crash",
+              props: [{ name: "severity", value: "critical" }],
+              scope: ["traces", "logs"],
             },
             {
               id: generateId(),
-              name: 'payment_error',
-              props: [{ name: 'error_type', value: 'payment.*' }],
-              scope: ['traces'],
+              name: "payment_error",
+              props: [{ name: "error_type", value: "payment.*" }],
+              scope: ["traces"],
             },
             {
               id: generateId(),
-              name: 'auth_failure',
-              props: [{ name: 'error_code', value: '401|403' }],
-              scope: ['traces', 'logs'],
+              name: "auth_failure",
+              props: [{ name: "error_code", value: "401|403" }],
+              scope: ["traces", "logs"],
             },
           ],
         },
       },
       signals: {
         scheduleDurationMs: 5000,
-        collectorUrl: 'https://collector.pulse.io/v1/traces',
-        attributesToDrop: ['password', 'credit_card', 'ssn', 'auth_token'],
+        collectorUrl: "https://collector.pulse.io/v1/traces",
+        attributesToDrop: ["password", "credit_card", "ssn", "auth_token"],
       },
       interaction: {
-        collectorUrl: 'https://collector.pulse.io/v1/interactions',
-        configUrl: 'https://config.pulse.io/v1/configs/latest',
+        collectorUrl: "https://collector.pulse.io/v1/interactions",
+        configUrl: "https://config.pulse.io/v1/configs/latest",
         beforeInitQueueSize: 100,
       },
       featureConfigs: [
         {
           id: generateId(),
-          featureName: 'crash_reporting',
+          featureName: "crash_reporting",
           session_sample_rate: 1.0,
-          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+          sdks: ["android_native", "android_rn", "ios_native", "ios_rn"],
         },
         {
           id: generateId(),
-          featureName: 'network_monitoring',
+          featureName: "network_monitoring",
           session_sample_rate: 0.8,
-          sdks: ['android_native', 'android_rn', 'ios_native', 'ios_rn'],
+          sdks: ["android_native", "android_rn", "ios_native", "ios_rn"],
         },
         {
           id: generateId(),
-          featureName: 'performance_monitoring',
+          featureName: "performance_monitoring",
           session_sample_rate: 0.6,
-          sdks: ['android_native', 'ios_native'],
+          sdks: ["android_native", "ios_native"],
         },
         {
           id: generateId(),
-          featureName: 'user_interaction_tracking',
+          featureName: "user_interaction_tracking",
           session_sample_rate: 0.0,
-          sdks: ['android_native', 'ios_native'],
+          sdks: ["android_native", "ios_native"],
         },
       ],
     };
@@ -253,6 +347,184 @@ export class MockDataStore {
     this.initializeAlerts();
     this.initializeAnalytics();
     this.initializeEvents();
+    this.initializeMembersAndTenants();
+  }
+
+  private initializeMembersAndTenants(): void {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    // Default tenant details
+    const defaultTenantId = "tenant-mock-1";
+    this.mockTenants.set(defaultTenantId, {
+      tenantId: defaultTenantId,
+      name: "Acme Corp",
+      description: "Mobile observability platform",
+      tier: "enterprise",
+      isActive: true,
+      createdAt: new Date(now - 90 * oneDay).toISOString(),
+    });
+
+    // Tenant members (3-4 with admin/member roles)
+    this.mockTenantMembers.set(defaultTenantId, [
+      {
+        userId: "user-rahul-1",
+        email: "rahul.sharma@example.com",
+        name: "Rahul Sharma",
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - 2 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-priya-2",
+        email: "priya.patel@example.com",
+        name: "Priya Patel",
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-amit-3",
+        email: "amit.kumar@example.com",
+        name: "Amit Kumar",
+        role: "member",
+        status: "active",
+        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
+      },
+      {
+        userId: "user-neha-4",
+        email: "neha.singh@example.com",
+        name: "Neha Singh",
+        role: "member",
+        status: "pending",
+        lastLoginAt: null,
+      },
+    ]);
+
+    // Project members for default projects (2-3 per project with admin/editor/viewer)
+    const proj1Members: MockMember[] = [
+      {
+        userId: "user-rahul-1",
+        email: "rahul.sharma@example.com",
+        name: "Rahul Sharma",
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - 2 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-priya-2",
+        email: "priya.patel@example.com",
+        name: "Priya Patel",
+        role: "editor",
+        status: "active",
+        lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-amit-3",
+        email: "amit.kumar@example.com",
+        name: "Amit Kumar",
+        role: "viewer",
+        status: "active",
+        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
+      },
+    ];
+    this.mockProjectMembers.set("proj-mock-1", proj1Members);
+
+    const proj2Members: MockMember[] = [
+      {
+        userId: "user-rahul-1",
+        email: "rahul.sharma@example.com",
+        name: "Rahul Sharma",
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - 2 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-neha-4",
+        email: "neha.singh@example.com",
+        name: "Neha Singh",
+        role: "editor",
+        status: "pending",
+        lastLoginAt: null,
+      },
+    ];
+    this.mockProjectMembers.set("proj-mock-2", proj2Members);
+
+    const proj3Members: MockMember[] = [
+      {
+        userId: "user-priya-2",
+        email: "priya.patel@example.com",
+        name: "Priya Patel",
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-amit-3",
+        email: "amit.kumar@example.com",
+        name: "Amit Kumar",
+        role: "viewer",
+        status: "active",
+        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
+      },
+    ];
+    this.mockProjectMembers.set("proj-mock-3", proj3Members);
+
+    // Default project details
+    this.mockProjects.set("proj-mock-1", {
+      projectId: "proj-mock-1",
+      name: "Mobile App",
+      description: "Main mobile application",
+      tenantId: defaultTenantId,
+      isActive: true,
+      createdAt: new Date(now - 60 * oneDay).toISOString(),
+      createdBy: "rahul.sharma@example.com",
+    });
+    this.mockProjects.set("proj-mock-2", {
+      projectId: "proj-mock-2",
+      name: "Web Dashboard",
+      description: "Web analytics dashboard",
+      tenantId: defaultTenantId,
+      isActive: true,
+      createdAt: new Date(now - 45 * oneDay).toISOString(),
+      createdBy: "priya.patel@example.com",
+    });
+    this.mockProjects.set("proj-mock-3", {
+      projectId: "proj-mock-3",
+      name: "API Services",
+      description: "Backend API monitoring",
+      tenantId: defaultTenantId,
+      isActive: false,
+      createdAt: new Date(now - 30 * oneDay).toISOString(),
+      createdBy: "amit.kumar@example.com",
+    });
+
+    // Initialize API keys for default projects
+    this.initializeProjectApiKeys(defaultTenantId, now);
+  }
+
+  private initializeProjectApiKeys(tenantId: string, now: number): void {
+    const projects = ["proj-mock-1", "proj-mock-2", "proj-mock-3"];
+    for (const projectId of projects) {
+      const keys: MockApiKey[] = [
+        {
+          apiKeyId: this.nextApiKeyId++,
+          projectId,
+          displayName: "Production",
+          apiKey: `pk_mock_${projectId}_${Math.random().toString(36).slice(2, 18)}`,
+          isActive: true,
+          expiresAt: null,
+          gracePeriodEndsAt: null,
+          createdBy: "rahul.sharma@example.com",
+          createdAt: new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString(),
+          deactivatedAt: null,
+          deactivatedBy: null,
+          deactivationReason: null,
+        },
+      ];
+      this.mockProjectApiKeys.set(projectId, keys);
+    }
   }
 
   private initializeUsers(): void {
@@ -299,18 +571,19 @@ export class MockDataStore {
   private initializeJobs(): void {
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
-    
+
     // Interactions are atomic user actions - single operations with start/end events
     this.data.jobs = [
       {
         id: 1,
         interactionName: "JoinContestButtonClick",
-        description: "Tracks the time from when user taps the 'Join Contest' button until the contest join API responds successfully. Measures backend latency for contest participation.",
+        description:
+          "Tracks the time from when user taps the 'Join Contest' button until the contest join API responds successfully. Measures backend latency for contest participation.",
         status: "RUNNING",
         createdBy: "rahul.sharma@example.com",
         updatedBy: "rahul.sharma@example.com",
-        createdAt: now - (5 * oneDay),
-        updatedAt: now - (2 * oneDay),
+        createdAt: now - 5 * oneDay,
+        updatedAt: now - 2 * oneDay,
         uptimeLowerLimit: 100,
         uptimeUpperLimit: 800,
         uptimeMidLimit: 400,
@@ -319,15 +592,27 @@ export class MockDataStore {
           {
             eventName: "join_contest_click",
             props: [
-              { propName: "contest_id", propValue: "string", operator: "EQUALS" },
-              { propName: "entry_fee", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "contest_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
+              {
+                propName: "entry_fee",
+                propValue: "number",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "join_contest_response",
             props: [
-              { propName: "contest_id", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "contest_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -338,12 +623,13 @@ export class MockDataStore {
       {
         id: 2,
         interactionName: "SaveTeamButtonClick",
-        description: "Measures the time from 'Save Team' button tap to successful team save API response. Critical for team creation experience.",
+        description:
+          "Measures the time from 'Save Team' button tap to successful team save API response. Critical for team creation experience.",
         status: "RUNNING",
         createdBy: "priya.patel@example.com",
         updatedBy: "priya.patel@example.com",
-        createdAt: now - (4 * oneDay),
-        updatedAt: now - (1 * oneDay),
+        createdAt: now - 4 * oneDay,
+        updatedAt: now - 1 * oneDay,
         uptimeLowerLimit: 150,
         uptimeUpperLimit: 1200,
         uptimeMidLimit: 600,
@@ -370,7 +656,11 @@ export class MockDataStore {
           {
             eventName: "save_team_error",
             props: [
-              { propName: "error_type", propValue: "validation_error", operator: "EQUALS" },
+              {
+                propName: "error_type",
+                propValue: "validation_error",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: true,
           },
@@ -379,12 +669,13 @@ export class MockDataStore {
       {
         id: 3,
         interactionName: "PlayerSelectTap",
-        description: "Time from player card tap to player added/removed confirmation. Ensures smooth player selection experience in team creation.",
+        description:
+          "Time from player card tap to player added/removed confirmation. Ensures smooth player selection experience in team creation.",
         status: "RUNNING",
         createdBy: "rahul.sharma@example.com",
         updatedBy: "rahul.sharma@example.com",
-        createdAt: now - (6 * oneDay),
-        updatedAt: now - (3 * oneDay),
+        createdAt: now - 6 * oneDay,
+        updatedAt: now - 3 * oneDay,
         uptimeLowerLimit: 30,
         uptimeUpperLimit: 200,
         uptimeMidLimit: 100,
@@ -393,7 +684,11 @@ export class MockDataStore {
           {
             eventName: "player_tap",
             props: [
-              { propName: "player_id", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "player_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
               { propName: "action", propValue: "select", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -401,7 +696,11 @@ export class MockDataStore {
           {
             eventName: "player_selection_complete",
             props: [
-              { propName: "player_id", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "player_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
               { propName: "selected", propValue: "true", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -412,12 +711,13 @@ export class MockDataStore {
       {
         id: 4,
         interactionName: "ContestListAPIFetch",
-        description: "API call duration for fetching available contests list. Measures backend performance for contest discovery.",
+        description:
+          "API call duration for fetching available contests list. Measures backend performance for contest discovery.",
         status: "RUNNING",
         createdBy: "amit.kumar@example.com",
         updatedBy: "amit.kumar@example.com",
-        createdAt: now - (7 * oneDay),
-        updatedAt: now - (2 * oneDay),
+        createdAt: now - 7 * oneDay,
+        updatedAt: now - 2 * oneDay,
         uptimeLowerLimit: 80,
         uptimeUpperLimit: 600,
         uptimeMidLimit: 300,
@@ -427,14 +727,22 @@ export class MockDataStore {
             eventName: "contest_list_request",
             props: [
               { propName: "match_id", propValue: "string", operator: "EQUALS" },
-              { propName: "filter_type", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "filter_type",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "contest_list_response",
             props: [
-              { propName: "contest_count", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "contest_count",
+                propValue: "number",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -445,12 +753,13 @@ export class MockDataStore {
       {
         id: 5,
         interactionName: "PaymentSubmitClick",
-        description: "Time from payment submit button tap to payment gateway response. Critical for revenue and user trust.",
+        description:
+          "Time from payment submit button tap to payment gateway response. Critical for revenue and user trust.",
         status: "RUNNING",
         createdBy: "priya.patel@example.com",
         updatedBy: "priya.patel@example.com",
-        createdAt: now - (8 * oneDay),
-        updatedAt: now - (4 * oneDay),
+        createdAt: now - 8 * oneDay,
+        updatedAt: now - 4 * oneDay,
         uptimeLowerLimit: 200,
         uptimeUpperLimit: 2000,
         uptimeMidLimit: 1000,
@@ -460,14 +769,22 @@ export class MockDataStore {
             eventName: "payment_submit_click",
             props: [
               { propName: "amount", propValue: "number", operator: "EQUALS" },
-              { propName: "payment_method", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "payment_method",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "payment_gateway_response",
             props: [
-              { propName: "transaction_id", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "transaction_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -477,7 +794,11 @@ export class MockDataStore {
           {
             eventName: "payment_failed",
             props: [
-              { propName: "error_code", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "error_code",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: true,
           },
@@ -486,12 +807,13 @@ export class MockDataStore {
       {
         id: 6,
         interactionName: "WalletBalanceFetch",
-        description: "API call to fetch user's current wallet balance. Frequently called action that impacts overall app responsiveness.",
+        description:
+          "API call to fetch user's current wallet balance. Frequently called action that impacts overall app responsiveness.",
         status: "RUNNING",
         createdBy: "rahul.sharma@example.com",
         updatedBy: "rahul.sharma@example.com",
-        createdAt: now - (9 * oneDay),
-        updatedAt: now - (5 * oneDay),
+        createdAt: now - 9 * oneDay,
+        updatedAt: now - 5 * oneDay,
         uptimeLowerLimit: 50,
         uptimeUpperLimit: 400,
         uptimeMidLimit: 200,
@@ -518,12 +840,13 @@ export class MockDataStore {
       {
         id: 7,
         interactionName: "MatchScheduleAPICall",
-        description: "Fetches upcoming match schedule from backend. Core API for match discovery and contest browsing.",
+        description:
+          "Fetches upcoming match schedule from backend. Core API for match discovery and contest browsing.",
         status: "RUNNING",
         createdBy: "priya.patel@example.com",
         updatedBy: "priya.patel@example.com",
-        createdAt: now - (10 * oneDay),
-        updatedAt: now - (6 * oneDay),
+        createdAt: now - 10 * oneDay,
+        updatedAt: now - 6 * oneDay,
         uptimeLowerLimit: 100,
         uptimeUpperLimit: 800,
         uptimeMidLimit: 400,
@@ -532,15 +855,27 @@ export class MockDataStore {
           {
             eventName: "match_schedule_request",
             props: [
-              { propName: "sport_type", propValue: "string", operator: "EQUALS" },
-              { propName: "date_range", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "sport_type",
+                propValue: "string",
+                operator: "EQUALS",
+              },
+              {
+                propName: "date_range",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "match_schedule_response",
             props: [
-              { propName: "match_count", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "match_count",
+                propValue: "number",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -550,7 +885,11 @@ export class MockDataStore {
           {
             eventName: "api_timeout",
             props: [
-              { propName: "timeout_ms", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "timeout_ms",
+                propValue: "number",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: true,
           },
@@ -559,12 +898,13 @@ export class MockDataStore {
       {
         id: 8,
         interactionName: "LeaderboardRefreshTap",
-        description: "Time to refresh and display updated leaderboard data when user pulls to refresh or taps refresh.",
+        description:
+          "Time to refresh and display updated leaderboard data when user pulls to refresh or taps refresh.",
         status: "RUNNING",
         createdBy: "amit.kumar@example.com",
         updatedBy: "amit.kumar@example.com",
-        createdAt: now - (11 * oneDay),
-        updatedAt: now - (7 * oneDay),
+        createdAt: now - 11 * oneDay,
+        updatedAt: now - 7 * oneDay,
         uptimeLowerLimit: 80,
         uptimeUpperLimit: 600,
         uptimeMidLimit: 300,
@@ -573,14 +913,22 @@ export class MockDataStore {
           {
             eventName: "leaderboard_refresh_tap",
             props: [
-              { propName: "contest_id", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "contest_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "leaderboard_data_loaded",
             props: [
-              { propName: "rank_count", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "rank_count",
+                propValue: "number",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -591,12 +939,13 @@ export class MockDataStore {
       {
         id: 9,
         interactionName: "ProfileSaveClick",
-        description: "Time from profile save button click to successful profile update confirmation.",
+        description:
+          "Time from profile save button click to successful profile update confirmation.",
         status: "RUNNING",
         createdBy: "rahul.sharma@example.com",
         updatedBy: "rahul.sharma@example.com",
-        createdAt: now - (12 * oneDay),
-        updatedAt: now - (8 * oneDay),
+        createdAt: now - 12 * oneDay,
+        updatedAt: now - 8 * oneDay,
         uptimeLowerLimit: 100,
         uptimeUpperLimit: 800,
         uptimeMidLimit: 400,
@@ -606,7 +955,11 @@ export class MockDataStore {
             eventName: "profile_save_click",
             props: [
               { propName: "user_id", propValue: "string", operator: "EQUALS" },
-              { propName: "fields_updated", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "fields_updated",
+                propValue: "number",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
@@ -624,12 +977,13 @@ export class MockDataStore {
       {
         id: 10,
         interactionName: "NotificationTap",
-        description: "Time from notification tap to destination screen fully loaded. Measures deep link navigation performance.",
+        description:
+          "Time from notification tap to destination screen fully loaded. Measures deep link navigation performance.",
         status: "RUNNING",
         createdBy: "priya.patel@example.com",
         updatedBy: "priya.patel@example.com",
-        createdAt: now - (13 * oneDay),
-        updatedAt: now - (9 * oneDay),
+        createdAt: now - 13 * oneDay,
+        updatedAt: now - 9 * oneDay,
         uptimeLowerLimit: 150,
         uptimeUpperLimit: 1200,
         uptimeMidLimit: 600,
@@ -638,16 +992,32 @@ export class MockDataStore {
           {
             eventName: "notification_tap",
             props: [
-              { propName: "notification_id", propValue: "string", operator: "EQUALS" },
-              { propName: "notification_type", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "notification_id",
+                propValue: "string",
+                operator: "EQUALS",
+              },
+              {
+                propName: "notification_type",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "destination_screen_loaded",
             props: [
-              { propName: "screen_name", propValue: "string", operator: "EQUALS" },
-              { propName: "load_complete", propValue: "true", operator: "EQUALS" },
+              {
+                propName: "screen_name",
+                propValue: "string",
+                operator: "EQUALS",
+              },
+              {
+                propName: "load_complete",
+                propValue: "true",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
@@ -657,12 +1027,13 @@ export class MockDataStore {
       {
         id: 11,
         interactionName: "FilterApplyTap",
-        description: "Time from filter apply button tap to filtered results displayed. Measures filter query performance.",
+        description:
+          "Time from filter apply button tap to filtered results displayed. Measures filter query performance.",
         status: "RUNNING",
         createdBy: "amit.kumar@example.com",
         updatedBy: "amit.kumar@example.com",
-        createdAt: now - (14 * oneDay),
-        updatedAt: now - (10 * oneDay),
+        createdAt: now - 14 * oneDay,
+        updatedAt: now - 10 * oneDay,
         uptimeLowerLimit: 60,
         uptimeUpperLimit: 500,
         uptimeMidLimit: 250,
@@ -671,15 +1042,27 @@ export class MockDataStore {
           {
             eventName: "filter_apply_tap",
             props: [
-              { propName: "filter_type", propValue: "string", operator: "EQUALS" },
-              { propName: "filter_values", propValue: "string", operator: "EQUALS" },
+              {
+                propName: "filter_type",
+                propValue: "string",
+                operator: "EQUALS",
+              },
+              {
+                propName: "filter_values",
+                propValue: "string",
+                operator: "EQUALS",
+              },
             ],
             isBlacklisted: false,
           },
           {
             eventName: "filtered_results_displayed",
             props: [
-              { propName: "result_count", propValue: "number", operator: "EQUALS" },
+              {
+                propName: "result_count",
+                propValue: "number",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -690,12 +1073,13 @@ export class MockDataStore {
       {
         id: 12,
         interactionName: "LiveScoreRefresh",
-        description: "API call to fetch real-time match scores during live matches. High-frequency call during peak hours.",
+        description:
+          "API call to fetch real-time match scores during live matches. High-frequency call during peak hours.",
         status: "RUNNING",
         createdBy: "neha.singh@example.com",
         updatedBy: "neha.singh@example.com",
-        createdAt: now - (15 * oneDay),
-        updatedAt: now - (11 * oneDay),
+        createdAt: now - 15 * oneDay,
+        updatedAt: now - 11 * oneDay,
         uptimeLowerLimit: 40,
         uptimeUpperLimit: 300,
         uptimeMidLimit: 150,
@@ -711,7 +1095,11 @@ export class MockDataStore {
           {
             eventName: "live_score_response",
             props: [
-              { propName: "score_data", propValue: "object", operator: "EQUALS" },
+              {
+                propName: "score_data",
+                propValue: "object",
+                operator: "EQUALS",
+              },
               { propName: "status", propValue: "success", operator: "EQUALS" },
             ],
             isBlacklisted: false,
@@ -732,7 +1120,7 @@ export class MockDataStore {
 
   private initializeAlerts(): void {
     const now = Date.now();
-    
+
     // Alert data matching backend AlertDetailsResponseDto structure
     this.data.alerts = [
       {
@@ -742,7 +1130,16 @@ export class MockDataStore {
         scope: "interaction",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "PaymentSubmit": 4000, "PaymentConfirm": 3500, "PaymentOTP": 3000 } },
+          {
+            alias: "A",
+            metric: "DURATION_P99",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              PaymentSubmit: 4000,
+              PaymentConfirm: 3500,
+              PaymentOTP: 3000,
+            },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -769,9 +1166,32 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.05, "post_https://api.fancode.com/v1/checkout/confirm": 0.03 } },
-          { alias: "B", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 3000, "post_https://api.fancode.com/v1/checkout/confirm": 2500 } },
-          { alias: "C", metric: "NET_5XX_RATE", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/checkout/initiate": 0.01 } },
+          {
+            alias: "A",
+            metric: "ERROR_RATE",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              "post_https://api.fancode.com/v1/checkout/initiate": 0.05,
+              "post_https://api.fancode.com/v1/checkout/confirm": 0.03,
+            },
+          },
+          {
+            alias: "B",
+            metric: "DURATION_P99",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              "post_https://api.fancode.com/v1/checkout/initiate": 3000,
+              "post_https://api.fancode.com/v1/checkout/confirm": 2500,
+            },
+          },
+          {
+            alias: "C",
+            metric: "NET_5XX_RATE",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              "post_https://api.fancode.com/v1/checkout/initiate": 0.01,
+            },
+          },
         ],
         condition_expression: "A && B || C",
         evaluation_period: 900,
@@ -798,7 +1218,12 @@ export class MockDataStore {
         scope: "app_vitals",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "CRASH_RATE", metric_operator: "GREATER_THAN", threshold: { "Android": 0.02, "iOS": 0.015 } },
+          {
+            alias: "A",
+            metric: "CRASH_RATE",
+            metric_operator: "GREATER_THAN",
+            threshold: { Android: 0.02, iOS: 0.015 },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 1800,
@@ -825,7 +1250,16 @@ export class MockDataStore {
         scope: "screen",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "SCREEN_LOAD_TIME_P95", metric_operator: "GREATER_THAN", threshold: { "HomeScreen": 3000, "ProductListScreen": 2500, "CategoryScreen": 2000 } },
+          {
+            alias: "A",
+            metric: "SCREEN_LOAD_TIME_P95",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              HomeScreen: 3000,
+              ProductListScreen: 2500,
+              CategoryScreen: 2000,
+            },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -852,7 +1286,12 @@ export class MockDataStore {
         scope: "interaction",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "INTERACTION_ERROR_COUNT", metric_operator: "GREATER_THAN", threshold: { "LoginSubmit": 100, "OTPVerify": 50, "BiometricAuth": 30 } },
+          {
+            alias: "A",
+            metric: "INTERACTION_ERROR_COUNT",
+            metric_operator: "GREATER_THAN",
+            threshold: { LoginSubmit: 100, OTPVerify: 50, BiometricAuth: 30 },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 300,
@@ -879,7 +1318,15 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v1/search/products": 2000, "get_https://api.fancode.com/v1/search/suggest": 500 } },
+          {
+            alias: "A",
+            metric: "DURATION_P99",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              "get_https://api.fancode.com/v1/search/products": 2000,
+              "get_https://api.fancode.com/v1/search/suggest": 500,
+            },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -906,7 +1353,12 @@ export class MockDataStore {
         scope: "app_vitals",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ANR_RATE", metric_operator: "GREATER_THAN", threshold: { "Android": 0.01, "iOS": 0.005 } },
+          {
+            alias: "A",
+            metric: "ANR_RATE",
+            metric_operator: "GREATER_THAN",
+            threshold: { Android: 0.01, iOS: 0.005 },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 1200,
@@ -933,7 +1385,16 @@ export class MockDataStore {
         scope: "interaction",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "APDEX", metric_operator: "LESS_THAN", threshold: { "AddToCart": 0.85, "UpdateCart": 0.90, "RemoveFromCart": 0.88 } },
+          {
+            alias: "A",
+            metric: "APDEX",
+            metric_operator: "LESS_THAN",
+            threshold: {
+              AddToCart: 0.85,
+              UpdateCart: 0.9,
+              RemoveFromCart: 0.88,
+            },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -960,7 +1421,15 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "DURATION_P99", metric_operator: "GREATER_THAN", threshold: { "post_https://api.fancode.com/v1/payment/process": 5000, "post_https://api.fancode.com/v1/payment/verify": 3000 } },
+          {
+            alias: "A",
+            metric: "DURATION_P99",
+            metric_operator: "GREATER_THAN",
+            threshold: {
+              "post_https://api.fancode.com/v1/payment/process": 5000,
+              "post_https://api.fancode.com/v1/payment/verify": 3000,
+            },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -987,7 +1456,12 @@ export class MockDataStore {
         scope: "interaction",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "INTERACTION_COUNT", metric_operator: "LESS_THAN", threshold: { "NewFeatureButton": 10 } },
+          {
+            alias: "A",
+            metric: "INTERACTION_COUNT",
+            metric_operator: "LESS_THAN",
+            threshold: { NewFeatureButton: 10 },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 1800,
@@ -1014,7 +1488,12 @@ export class MockDataStore {
         scope: "screen",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "SCREEN_LOAD_TIME_P95", metric_operator: "GREATER_THAN", threshold: { "ProfileScreen": 4000 } },
+          {
+            alias: "A",
+            metric: "SCREEN_LOAD_TIME_P95",
+            metric_operator: "GREATER_THAN",
+            threshold: { ProfileScreen: 4000 },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 600,
@@ -1041,7 +1520,12 @@ export class MockDataStore {
         scope: "network_api",
         dimension_filter: null,
         alerts: [
-          { alias: "A", metric: "ERROR_RATE", metric_operator: "GREATER_THAN", threshold: { "get_https://api.fancode.com/v2/experimental": 0.01 } },
+          {
+            alias: "A",
+            metric: "ERROR_RATE",
+            metric_operator: "GREATER_THAN",
+            threshold: { "get_https://api.fancode.com/v2/experimental": 0.01 },
+          },
         ],
         condition_expression: "A",
         evaluation_period: 900,
@@ -1126,6 +1610,389 @@ export class MockDataStore {
     return this.data.events;
   }
 
+  // ============================================================================
+  // Auth / Tenant / Onboarding (for mock server Phase 1)
+  // ============================================================================
+
+  getCurrentTenant(): MockTenantContext | null {
+    return this.currentTenant;
+  }
+
+  setCurrentTenant(tenant: MockTenantContext | null): void {
+    this.currentTenant = tenant;
+  }
+
+  // ============================================================================
+  // Tenant / Project / Member operations (Phase 2 mock endpoints)
+  // ============================================================================
+
+  getTenant(tenantId: string): MockTenantDetails | null {
+    const stored = this.mockTenants.get(tenantId);
+    if (stored) return stored;
+    // Derive from current tenant (e.g. onboarding-created)
+    const tenant = this.currentTenant;
+    if (tenant && tenant.tenantId === tenantId) {
+      return {
+        tenantId,
+        name: tenant.tenantName,
+        description: "",
+        tier: "enterprise",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+    }
+    return null;
+  }
+
+  ensureTenantExists(tenantId: string, name: string): void {
+    if (!this.mockTenants.has(tenantId)) {
+      this.mockTenants.set(tenantId, {
+        tenantId,
+        name,
+        description: "",
+        tier: "free",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+      this.mockTenantMembers.set(tenantId, []);
+    }
+  }
+
+  getTenantMembers(tenantId: string): MockMember[] {
+    return this.mockTenantMembers.get(tenantId) ?? [];
+  }
+
+  getProject(projectId: string): MockProjectDetails | null {
+    const stored = this.mockProjects.get(projectId);
+    if (stored) return stored;
+    // Derive from current tenant (e.g. onboarding-created)
+    const tenant = this.currentTenant;
+    if (tenant) {
+      const proj = tenant.projects.find((p) => p.projectId === projectId);
+      if (proj) {
+        return {
+          projectId: proj.projectId,
+          name: proj.name,
+          description: proj.description,
+          tenantId: tenant.tenantId,
+          isActive: proj.isActive,
+          createdAt: new Date().toISOString(),
+          createdBy: "unknown",
+        };
+      }
+    }
+    return null;
+  }
+
+  getProjectMembers(projectId: string): MockMember[] {
+    return this.mockProjectMembers.get(projectId) ?? [];
+  }
+
+  createProject(
+    tenantId: string,
+    name: string,
+    description: string,
+    createdBy: string,
+  ): MockProjectDetails & { apiKey: string } {
+    const projectId = "proj-" + Math.random().toString(36).slice(2, 11);
+    const apiKey = "pk_mock_" + Math.random().toString(36).slice(2, 18);
+    const now = new Date().toISOString();
+
+    const project: MockProjectDetails & { apiKey: string } = {
+      projectId,
+      name,
+      description: description ?? "",
+      tenantId,
+      apiKey,
+      isActive: true,
+      createdAt: now,
+      createdBy,
+    };
+
+    this.mockProjects.set(projectId, { ...project });
+    this.mockProjectApiKeys.set(projectId, [
+      {
+        apiKeyId: this.nextApiKeyId++,
+        projectId,
+        displayName: "Default",
+        apiKey,
+        isActive: true,
+        expiresAt: null,
+        gracePeriodEndsAt: null,
+        createdBy,
+        createdAt: now,
+        deactivatedAt: null,
+        deactivatedBy: null,
+        deactivationReason: null,
+      },
+    ]);
+    this.mockProjectMembers.set(projectId, [
+      {
+        userId: "user-" + createdBy.replace(/[^a-z0-9]/gi, "-"),
+        email: createdBy,
+        name: createdBy.split("@")[0].replace(/\./g, " "),
+        role: "admin",
+        status: "active",
+        lastLoginAt: now,
+      },
+    ]);
+
+    // Add to current tenant's projects if it matches
+    const tenant = this.currentTenant;
+    if (tenant && tenant.tenantId === tenantId) {
+      tenant.projects.push({
+        projectId,
+        name,
+        description: description ?? "",
+        isActive: true,
+        role: "admin",
+      });
+    }
+
+    // Ensure tenant exists in mockTenants
+    if (!this.mockTenants.has(tenantId)) {
+      const tenantName =
+        tenant?.tenantName ?? "Organization " + tenantId.slice(-6);
+      this.mockTenants.set(tenantId, {
+        tenantId,
+        name: tenantName,
+        description: "",
+        tier: "enterprise",
+        isActive: true,
+        createdAt: now,
+      });
+      this.mockTenantMembers.set(tenantId, []);
+    }
+
+    return project;
+  }
+
+  addTenantMember(
+    tenantId: string,
+    email: string,
+    role: "admin" | "member",
+    name?: string,
+  ): MockMember {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    const userId = "user-" + Math.random().toString(36).slice(2, 11);
+    const member: MockMember = {
+      userId,
+      email,
+      name: name ?? email.split("@")[0].replace(/\./g, " "),
+      role,
+      status: "pending",
+      lastLoginAt: null,
+    };
+    members.push(member);
+    this.mockTenantMembers.set(tenantId, members);
+    return member;
+  }
+
+  addProjectMember(
+    projectId: string,
+    email: string,
+    role: "admin" | "editor" | "viewer",
+    name?: string,
+  ): MockMember {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    const userId = "user-" + Math.random().toString(36).slice(2, 11);
+    const member: MockMember = {
+      userId,
+      email,
+      name: name ?? email.split("@")[0].replace(/\./g, " "),
+      role,
+      status: "pending",
+      lastLoginAt: null,
+    };
+    members.push(member);
+    this.mockProjectMembers.set(projectId, members);
+    return member;
+  }
+
+  hasTenantMember(tenantId: string, email: string): boolean {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
+  hasProjectMember(projectId: string, email: string): boolean {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
+  removeTenantMember(tenantId: string, userId: string): boolean {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    const idx = members.findIndex((m) => m.userId === userId);
+    if (idx === -1) return false;
+    members.splice(idx, 1);
+    this.mockTenantMembers.set(tenantId, members);
+    return true;
+  }
+
+  removeProjectMember(projectId: string, userId: string): boolean {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    const idx = members.findIndex((m) => m.userId === userId);
+    if (idx === -1) return false;
+    members.splice(idx, 1);
+    this.mockProjectMembers.set(projectId, members);
+    return true;
+  }
+
+  updateTenantMemberRole(
+    tenantId: string,
+    userId: string,
+    newRole: string,
+  ): MockMember | null {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    const member = members.find((m) => m.userId === userId);
+    if (!member) return null;
+    member.role = newRole;
+    return member;
+  }
+
+  updateProjectMemberRole(
+    projectId: string,
+    userId: string,
+    newRole: string,
+  ): MockMember | null {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    const member = members.find((m) => m.userId === userId);
+    if (!member) return null;
+    member.role = newRole;
+    return member;
+  }
+
+  updateProject(
+    projectId: string,
+    updates: { name?: string; description?: string; isActive?: boolean },
+  ): MockProjectDetails | null {
+    const project = this.mockProjects.get(projectId);
+    if (!project) return null;
+    if (updates.name !== undefined) project.name = updates.name;
+    if (updates.description !== undefined)
+      project.description = updates.description;
+    if (updates.isActive !== undefined) project.isActive = updates.isActive;
+    return project;
+  }
+
+  updateTenant(
+    tenantId: string,
+    updates: { name?: string; description?: string },
+  ): MockTenantDetails | null {
+    const tenant = this.mockTenants.get(tenantId);
+    if (!tenant) return null;
+    if (updates.name !== undefined) tenant.name = updates.name;
+    if (updates.description !== undefined)
+      tenant.description = updates.description;
+    return tenant;
+  }
+
+  getProjectApiKeys(projectId: string): MockApiKey[] {
+    const keys = this.mockProjectApiKeys.get(projectId) ?? [];
+    return keys.filter((k) => k.isActive);
+  }
+
+  addProjectApiKey(
+    projectId: string,
+    displayName: string,
+    createdBy: string,
+  ): MockApiKey & { rawKey: string } {
+    const rawKey =
+      "pk_mock_" + projectId + "_" + Math.random().toString(36).slice(2, 18);
+    const key: MockApiKey = {
+      apiKeyId: this.nextApiKeyId++,
+      projectId,
+      displayName,
+      apiKey: rawKey,
+      isActive: true,
+      expiresAt: null,
+      gracePeriodEndsAt: null,
+      createdBy,
+      createdAt: new Date().toISOString(),
+      deactivatedAt: null,
+      deactivatedBy: null,
+      deactivationReason: null,
+    };
+    const keys = this.mockProjectApiKeys.get(projectId) ?? [];
+    keys.push(key);
+    this.mockProjectApiKeys.set(projectId, keys);
+    return { ...key, rawKey };
+  }
+
+  revokeProjectApiKey(
+    projectId: string,
+    apiKeyId: number,
+    revokedBy: string,
+  ): boolean {
+    const keys = this.mockProjectApiKeys.get(projectId) ?? [];
+    const key = keys.find((k) => k.apiKeyId === apiKeyId);
+    if (!key || !key.isActive) return false;
+    key.isActive = false;
+    key.deactivatedAt = new Date().toISOString();
+    key.deactivatedBy = revokedBy;
+    key.deactivationReason = "Revoked by user";
+    return true;
+  }
+
+  getProjectSettings(projectId: string): MockProjectSettings {
+    const stored = this.mockProjectSettings.get(projectId);
+    if (stored) return stored;
+    return {
+      retentionDays: 90,
+      samplingRate: 0.5,
+    };
+  }
+
+  updateProjectSettings(
+    projectId: string,
+    settings: Partial<MockProjectSettings>,
+  ): MockProjectSettings {
+    const current = this.getProjectSettings(projectId);
+    const updated = { ...current, ...settings };
+    this.mockProjectSettings.set(projectId, updated);
+    return updated;
+  }
+
+  lookupTenantByDomain(domain: string): MockTenantDetails | null {
+    const defaultTenant = this.mockTenants.get("tenant-mock-1");
+    if (!defaultTenant) return null;
+    return {
+      ...defaultTenant,
+      tenantId: defaultTenant.tenantId,
+      name: defaultTenant.name,
+    };
+  }
+
+  /** Default mock tenant for dev-id-token login */
+  getDefaultMockTenant(): MockTenantContext {
+    return {
+      tenantId: "tenant-mock-1",
+      tenantName: "Acme Corp",
+      projects: [
+        {
+          projectId: "proj-mock-1",
+          name: "Mobile App",
+          description: "Main mobile application",
+          isActive: true,
+          role: "admin",
+        },
+        {
+          projectId: "proj-mock-2",
+          name: "Web Dashboard",
+          description: "Web analytics dashboard",
+          isActive: true,
+          role: "admin",
+        },
+        {
+          projectId: "proj-mock-3",
+          name: "API Services",
+          description: "Backend API monitoring",
+          isActive: false,
+          role: "admin",
+        },
+      ],
+    };
+  }
+
   addUser(user: any): void {
     this.data.users.push(user);
   }
@@ -1161,7 +2028,9 @@ export class MockDataStore {
   }
 
   findJobByName(interactionName: string): any | undefined {
-    return this.data.jobs.find((job) => job.interactionName === interactionName);
+    return this.data.jobs.find(
+      (job) => job.interactionName === interactionName,
+    );
   }
 
   addAlert(alert: any): void {
@@ -1190,7 +2059,7 @@ export class MockDataStore {
   private initializeConfigHistory(): PulseConfigWithMeta[] {
     const now = Date.now();
     const baseConfig = this.getDefaultSdkConfig();
-    
+
     // Create historical versions
     const history: PulseConfigWithMeta[] = [
       {
@@ -1199,8 +2068,8 @@ export class MockDataStore {
         _meta: {
           version: 1,
           createdAt: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
-          createdBy: 'admin@example.com',
-          description: 'Initial configuration',
+          createdBy: "admin@example.com",
+          description: "Initial configuration",
           isActive: false,
         },
       },
@@ -1214,8 +2083,8 @@ export class MockDataStore {
         _meta: {
           version: 2,
           createdAt: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          createdBy: 'admin@example.com',
-          description: 'Added blacklist filters for sensitive data',
+          createdBy: "admin@example.com",
+          description: "Added blacklist filters for sensitive data",
           isActive: false,
         },
       },
@@ -1229,8 +2098,8 @@ export class MockDataStore {
         _meta: {
           version: 3,
           createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          createdBy: 'john.doe@example.com',
-          description: 'Reduced default sample rate to 50%',
+          createdBy: "john.doe@example.com",
+          description: "Reduced default sample rate to 50%",
           isActive: false,
         },
       },
@@ -1240,8 +2109,8 @@ export class MockDataStore {
         _meta: {
           version: 4,
           createdAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
-          createdBy: 'jane.smith@example.com',
-          description: 'Added payment_error to critical events',
+          createdBy: "jane.smith@example.com",
+          description: "Added payment_error to critical events",
           isActive: false,
         },
       },
@@ -1251,20 +2120,20 @@ export class MockDataStore {
         _meta: {
           version: 5,
           createdAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
-          createdBy: 'john.doe@example.com',
-          description: 'Increased crash reporting sample rate',
+          createdBy: "john.doe@example.com",
+          description: "Increased crash reporting sample rate",
           isActive: true,
         },
       },
     ];
-    
+
     return history;
   }
 
   // SDK Configuration methods
   getSdkConfig(): PulseConfig {
     // Return the active version
-    const activeConfig = this.configHistory.find(c => c._meta.isActive);
+    const activeConfig = this.configHistory.find((c) => c._meta.isActive);
     if (activeConfig) {
       const { _meta, ...config } = activeConfig;
       return JSON.parse(JSON.stringify(config));
@@ -1274,12 +2143,12 @@ export class MockDataStore {
 
   getSdkConfigVersions(): ConfigVersionMeta[] {
     return this.configHistory
-      .map(c => c._meta)
+      .map((c) => c._meta)
       .sort((a, b) => b.version - a.version);
   }
 
   getSdkConfigByVersion(version: number): PulseConfig | null {
-    const config = this.configHistory.find(c => c.version === version);
+    const config = this.configHistory.find((c) => c.version === version);
     if (config) {
       const { _meta, ...configWithoutMeta } = config;
       return JSON.parse(JSON.stringify(configWithoutMeta));
@@ -1289,14 +2158,14 @@ export class MockDataStore {
 
   updateSdkConfig(updates: Partial<PulseConfig>): PulseConfig {
     // Deactivate current active version
-    this.configHistory.forEach(c => {
+    this.configHistory.forEach((c) => {
       c._meta.isActive = false;
     });
-    
+
     // Calculate new version number
-    const maxVersion = Math.max(...this.configHistory.map(c => c.version));
+    const maxVersion = Math.max(...this.configHistory.map((c) => c.version));
     const newVersion = maxVersion + 1;
-    
+
     // Create new config
     const newConfig: PulseConfigWithMeta = {
       ...this.sdkConfig,
@@ -1305,19 +2174,20 @@ export class MockDataStore {
       _meta: {
         version: newVersion,
         createdAt: new Date().toISOString(),
-        createdBy: 'current.user@example.com',
-        description: (updates as any).description || `Configuration v${newVersion}`,
+        createdBy: "current.user@example.com",
+        description:
+          (updates as any).description || `Configuration v${newVersion}`,
         isActive: true,
       },
     };
-    
+
     // Add to history
     this.configHistory.push(newConfig);
-    
+
     // Update current config
     const { _meta, ...configWithoutMeta } = newConfig;
     this.sdkConfig = configWithoutMeta;
-    
+
     return JSON.parse(JSON.stringify(this.sdkConfig));
   }
 
@@ -1328,19 +2198,21 @@ export class MockDataStore {
       ...config,
       version: 1,
     };
-    
+
     // Clear history and start fresh
-    this.configHistory = [{
-      ...newConfig,
-      _meta: {
-        version: 1,
-        createdAt: new Date().toISOString(),
-        createdBy: 'current.user@example.com',
-        description: 'New configuration',
-        isActive: true,
+    this.configHistory = [
+      {
+        ...newConfig,
+        _meta: {
+          version: 1,
+          createdAt: new Date().toISOString(),
+          createdBy: "current.user@example.com",
+          description: "New configuration",
+          isActive: true,
+        },
       },
-    }];
-    
+    ];
+
     this.sdkConfig = newConfig;
     return JSON.parse(JSON.stringify(this.sdkConfig));
   }
@@ -1353,18 +2225,18 @@ export class MockDataStore {
 
   private getDefaultConfigV1(): PulseConfigV1 {
     const generateId = () => Math.random().toString(36).substring(2, 11);
-    
+
     return {
       version: 1,
-      description: 'Default SDK configuration',
+      description: "Default SDK configuration",
       sampling: {
         default: { sessionSampleRate: 0.5 },
         rules: [
           {
             id: generateId(),
-            name: 'app_version',
-            sdks: ['android_java', 'ios_native'],
-            value: '^2\\..*',
+            name: "app_version",
+            sdks: ["android_java", "ios_native"],
+            value: "^2\\..*",
             sessionSampleRate: 1.0,
           },
         ],
@@ -1372,17 +2244,17 @@ export class MockDataStore {
           alwaysSend: [
             {
               id: generateId(),
-              name: 'crash',
-              props: [{ name: 'severity', value: 'critical' }],
-              scopes: ['traces', 'logs'],
-              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+              name: "crash",
+              props: [{ name: "severity", value: "critical" }],
+              scopes: ["traces", "logs"],
+              sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
             },
             {
               id: generateId(),
-              name: 'payment_error',
-              props: [{ name: 'error_type', value: '^payment.*' }],
-              scopes: ['traces'],
-              sdks: ['android_java', 'ios_native'],
+              name: "payment_error",
+              props: [{ name: "error_type", value: "^payment.*" }],
+              scopes: ["traces"],
+              sdks: ["android_java", "ios_native"],
             },
           ],
         },
@@ -1392,93 +2264,93 @@ export class MockDataStore {
       },
       signals: {
         filters: {
-          mode: 'blacklist',
+          mode: "blacklist",
           values: [
             {
               id: generateId(),
-              name: '^debug_.*',
-              props: [{ name: 'level', value: 'debug' }],
-              scopes: ['logs'],
-              sdks: ['android_java', 'ios_native'],
+              name: "^debug_.*",
+              props: [{ name: "level", value: "debug" }],
+              scopes: ["logs"],
+              sdks: ["android_java", "ios_native"],
             },
           ],
         },
         scheduleDurationMs: 5000,
-        logsCollectorUrl: 'http://10.0.2.2:4318/v1/logs',
-        metricCollectorUrl: 'http://10.0.2.2:4318/v1/metrics',
-        spanCollectorUrl: 'http://10.0.2.2:4318/v1/traces',
-        customEventCollectorUrl: 'http://10.0.2.2:4318/v1/events',
+        logsCollectorUrl: "http://10.0.2.2:4318/v1/logs",
+        metricCollectorUrl: "http://10.0.2.2:4318/v1/metrics",
+        spanCollectorUrl: "http://10.0.2.2:4318/v1/traces",
+        customEventCollectorUrl: "http://10.0.2.2:4318/v1/events",
         attributesToDrop: [
           {
             id: generateId(),
-            values: ['user.email', 'auth_token', 'credit_card'],
+            values: ["user.email", "auth_token", "credit_card"],
             condition: {
-              name: '',
+              name: "",
               props: [],
-              scopes: ['logs', 'traces'],
-              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+              scopes: ["logs", "traces"],
+              sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
             },
           },
           {
             id: generateId(),
-            values: ['ssn', 'password'],
+            values: ["ssn", "password"],
             condition: {
-              name: '^http\\.request$',
+              name: "^http\\.request$",
               props: [],
-              scopes: ['logs', 'traces', 'metrics'],
-              sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+              scopes: ["logs", "traces", "metrics"],
+              sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
             },
           },
         ],
         attributesToAdd: [],
       },
       interaction: {
-        collectorUrl: 'http://10.0.2.2:4318/v1/interactions/',
-        configUrl: 'http://10.0.2.2:8080/v1/interaction-configs/',
+        collectorUrl: "http://10.0.2.2:4318/v1/interactions/",
+        configUrl: "http://10.0.2.2:8080/v1/interaction-configs/",
         beforeInitQueueSize: 100,
       },
       features: [
         {
           id: generateId(),
-          featureName: 'interaction',
+          featureName: "interaction",
           sessionSampleRate: 1,
-          sdks: ['android_java', 'android_rn', 'ios_native', 'ios_rn'],
+          sdks: ["android_java", "android_rn", "ios_native", "ios_rn"],
         },
         {
           id: generateId(),
-          featureName: 'java_crash',
+          featureName: "java_crash",
           sessionSampleRate: 1,
-          sdks: ['android_java', 'android_rn'],
+          sdks: ["android_java", "android_rn"],
         },
         {
           id: generateId(),
-          featureName: 'js_crash',
+          featureName: "js_crash",
           sessionSampleRate: 1,
-          sdks: ['android_rn', 'ios_rn'],
+          sdks: ["android_rn", "ios_rn"],
         },
         {
           id: generateId(),
-          featureName: 'network_instrumentation',
+          featureName: "network_instrumentation",
           sessionSampleRate: 1,
-          sdks: ['android_java', 'ios_native'],
+          sdks: ["android_java", "ios_native"],
         },
         {
           id: generateId(),
-          featureName: 'screen_session',
+          featureName: "screen_session",
           sessionSampleRate: 0,
-          sdks: ['android_java', 'ios_native'],
+          sdks: ["android_java", "ios_native"],
         },
         {
           id: generateId(),
-          featureName: 'rn_screen_load',
+          featureName: "rn_screen_load",
           sessionSampleRate: 0,
-          sdks: ['android_rn', 'ios_rn'],
+          sdks: ["android_rn", "ios_rn"],
         },
         {
           id: generateId(),
-          featureName: 'rn_screen_interactive',
+          featureName: "rn_screen_interactive",
           sessionSampleRate: 0,
-          sdks: ['android_rn', 'ios_rn'],
+          sdks: ["android_rn", "ios_rn"],
         },
       ],
     };
@@ -1486,7 +2358,7 @@ export class MockDataStore {
 
   private initializeConfigHistoryV1(): void {
     if (this.configHistoryV1.length > 0) return;
-    
+
     const defaultConfig = this.getDefaultConfigV1();
     this.configHistoryV1 = [
       {
@@ -1495,15 +2367,17 @@ export class MockDataStore {
         _meta: {
           version: 1,
           isactive: false,
-          description: 'Initial SDK configuration',
-          createdBy: 'admin@example.com',
-          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          description: "Initial SDK configuration",
+          createdBy: "admin@example.com",
+          createdAt: new Date(
+            Date.now() - 7 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
         },
       },
       {
         ...defaultConfig,
         version: 2,
-        description: 'Updated sampling rates',
+        description: "Updated sampling rates",
         sampling: {
           ...defaultConfig.sampling,
           default: { sessionSampleRate: 0.75 },
@@ -1511,21 +2385,25 @@ export class MockDataStore {
         _meta: {
           version: 2,
           isactive: false,
-          description: 'Updated sampling rates',
-          createdBy: 'dev@example.com',
-          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          description: "Updated sampling rates",
+          createdBy: "dev@example.com",
+          createdAt: new Date(
+            Date.now() - 3 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
         },
       },
       {
         ...defaultConfig,
         version: 3,
-        description: 'Added new filter rules',
+        description: "Added new filter rules",
         _meta: {
           version: 3,
           isactive: true,
-          description: 'Added new filter rules',
-          createdBy: 'dev@example.com',
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          description: "Added new filter rules",
+          createdBy: "dev@example.com",
+          createdAt: new Date(
+            Date.now() - 1 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
         },
       },
     ];
@@ -1533,7 +2411,7 @@ export class MockDataStore {
 
   getActiveConfigV1(): PulseConfigV1 | null {
     this.initializeConfigHistoryV1();
-    const active = this.configHistoryV1.find(c => c._meta.isactive);
+    const active = this.configHistoryV1.find((c) => c._meta.isactive);
     if (active) {
       const { _meta, ...config } = active;
       return JSON.parse(JSON.stringify(config));
@@ -1543,7 +2421,7 @@ export class MockDataStore {
 
   getConfigByVersionV1(version: number): PulseConfigV1 | null {
     this.initializeConfigHistoryV1();
-    const config = this.configHistoryV1.find(c => c.version === version);
+    const config = this.configHistoryV1.find((c) => c.version === version);
     if (config) {
       const { _meta, ...configWithoutMeta } = config;
       return JSON.parse(JSON.stringify(configWithoutMeta));
@@ -1554,24 +2432,25 @@ export class MockDataStore {
   getAllConfigsV1(): ConfigVersionMetaV1[] {
     this.initializeConfigHistoryV1();
     return this.configHistoryV1
-      .map(c => c._meta)
+      .map((c) => c._meta)
       .sort((a, b) => b.version - a.version);
   }
 
   createConfigV1(config: Partial<PulseConfigV1>, userEmail: string): number {
     this.initializeConfigHistoryV1();
-    
+
     // Deactivate all existing configs
-    this.configHistoryV1.forEach(c => {
+    this.configHistoryV1.forEach((c) => {
       c._meta.isactive = false;
     });
-    
+
     // Calculate new version
-    const maxVersion = this.configHistoryV1.length > 0 
-      ? Math.max(...this.configHistoryV1.map(c => c.version || 0))
-      : 0;
+    const maxVersion =
+      this.configHistoryV1.length > 0
+        ? Math.max(...this.configHistoryV1.map((c) => c.version || 0))
+        : 0;
     const newVersion = maxVersion + 1;
-    
+
     // Create new config
     const defaultConfig = this.getDefaultConfigV1();
     const newConfig: PulseConfigV1WithMeta = {
@@ -1586,7 +2465,7 @@ export class MockDataStore {
         createdAt: new Date().toISOString(),
       },
     };
-    
+
     this.configHistoryV1.push(newConfig);
     return newVersion;
   }
@@ -1596,11 +2475,28 @@ export class MockDataStore {
 // V1 Config Types (matching new backend PulseConfig schema)
 // ============================================================================
 
-type SdkEnumV1 = 'android_java' | 'android_rn' | 'ios_native' | 'ios_rn';
-type ScopeEnumV1 = 'logs' | 'traces' | 'metrics' | 'baggage';
-type FilterModeV1 = 'blacklist' | 'whitelist';
-type SamplingRuleNameV1 = 'os_version' | 'app_version' | 'country' | 'platform' | 'state' | 'device' | 'network';
-type FeatureNameV1 = 'interaction' | 'java_crash' | 'js_crash' | 'java_anr' | 'network_change' | 'network_instrumentation' | 'screen_session' | 'custom_events' | 'rn_screen_load' | 'rn_screen_interactive';
+type SdkEnumV1 = "android_java" | "android_rn" | "ios_native" | "ios_rn";
+type ScopeEnumV1 = "logs" | "traces" | "metrics" | "baggage";
+type FilterModeV1 = "blacklist" | "whitelist";
+type SamplingRuleNameV1 =
+  | "os_version"
+  | "app_version"
+  | "country"
+  | "platform"
+  | "state"
+  | "device"
+  | "network";
+type FeatureNameV1 =
+  | "interaction"
+  | "java_crash"
+  | "js_crash"
+  | "java_anr"
+  | "network_change"
+  | "network_instrumentation"
+  | "screen_session"
+  | "custom_events"
+  | "rn_screen_load"
+  | "rn_screen_interactive";
 
 interface EventPropMatchV1 {
   name: string;

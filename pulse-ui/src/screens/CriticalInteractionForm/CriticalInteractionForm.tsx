@@ -56,7 +56,11 @@ import { logEvent } from "../../helpers/googleAnalytics";
 export function CriticalInteractionForm() {
   const theme = useMantineTheme();
   const navigate = useNavigate();
-  const useCaseName = useParams()["*"];
+  const { projectId, "*": wildcardParam } = useParams<{
+    projectId: string;
+    "*": string;
+  }>();
+  const useCaseName = wildcardParam;
   const isUpdateFlow = !!(useCaseName && useCaseName !== "*");
   const [jobId, setJobId] = useState<number>(0);
 
@@ -298,14 +302,19 @@ export function CriticalInteractionForm() {
 
   const navigateToCriticalInteractionListingPage = () => {
     setTimeout(() => {
-      navigate(`${ROUTES["CRITICAL_INTERACTIONS"].basePath}`);
+      navigate(
+        ROUTES.PROJECT_INTERACTIONS.basePath.replace(
+          ":projectId",
+          projectId || "",
+        ),
+      );
     }, 3000);
   };
 
   const createJob = async (
     formData: CriticalInteractionFormRequestBodyParams,
   ) => {
-    logEvent("Create interaction", ROUTES.CRITICAL_INTERACTION_FORM.key);
+    logEvent("Create interaction", ROUTES.PROJECT_INTERACTION_FORM.key);
     const { error } = await createStreamverseJob(formData);
     setShowLoader(false);
 
@@ -329,7 +338,7 @@ export function CriticalInteractionForm() {
   };
 
   const updateJob = (formData: CriticalInteractionFormRequestBodyParams) => {
-    logEvent("Update interaction", ROUTES.CRITICAL_INTERACTION_FORM.key);
+    logEvent("Update interaction", ROUTES.PROJECT_INTERACTION_FORM.key);
     updateJobMutation.mutate({
       useCaseID: `${useCaseName}`,
       jobDetails: {

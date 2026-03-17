@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(SpanAttributes['user.id'], ''), 
+    `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
@@ -46,6 +46,24 @@ PARTITION BY toYYYYMMDD(Timestamp)
 -- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
+
+-- ---------------------------------------------------------------------------
+-- Root Cause Analysis (RCA) – otel_traces usage
+-- ---------------------------------------------------------------------------
+-- Dimensions (materialized): Platform, OsVersion, AppVersion, DeviceModel,
+--   NetworkProvider, GeoState. Filter: PulseType = 'interaction',
+--   SpanName = <interaction_name>, ProjectId = <project_id>.
+-- Metrics: StatusCode, Duration, Events.Name; SpanAttributes:
+--   pulse.interaction.apdex_score, pulse.interaction.user_category,
+--   app.interaction.frozen_frame_count, app.interaction.slow_frame_count,
+--   app.interaction.analysed_frame_count (and unanalysed for rates).
+--
+-- Problematic count (error OR poor) for RCA segment selection:
+--   countIf(StatusCode = 'Error' OR ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')
+-- Union = sum: a span is either error or poor, so distinct by SpanId is not
+-- required; countIf over rows is correct. If distinct were needed:
+--   uniqExactIf(SpanId, StatusCode = 'Error' OR ... = 'Poor')
+-- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS otel.otel_logs
 (
@@ -75,7 +93,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(LogAttributes['user.id'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(LogAttributes['user.id'], ''), ifNull(LogAttributes['app.installation.id'], '')),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `EventName` LowCardinality(String) CODEC(ZSTD(1)),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
@@ -115,7 +133,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(Attributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(Attributes['network.carrier.name'], ''),
-    `UserId` String MATERIALIZED ifNull(Attributes['user.id'], ''),
+    `UserId` String MATERIALIZED ifNull(nullIf(Attributes['user.id'], ''), ifNull(Attributes['app.installation.id'], '')),
     `Exemplars.FilteredAttributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
     `Exemplars.TimeUnix` Array(DateTime64(9)) CODEC(ZSTD(1)),
     `Exemplars.Value` Array(Float64) CODEC(ZSTD(1)),
@@ -176,4 +194,42 @@ ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
 -- CHANGED: ORDER BY now starts with ProjectId instead of TenantId
 ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
+SETTINGS index_granularity = 8192;
+
+-- ---------------------------------------------------------------------------
+-- Root Cause Analysis cache (read-through; TTL enforced in API)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache
+(
+    `project_id` String CODEC(ZSTD(1)),
+    `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
+    `date` Date CODEC(ZSTD(1)),
+    `mode` LowCardinality(String) CODEC(ZSTD(1)),
+    `baseline` String CODEC(ZSTD(1)),
+    `segments` String CODEC(ZSTD(1)),
+    `cached_at` DateTime64(3, 'UTC') CODEC(ZSTD(1))
+)
+ENGINE = ReplacingMergeTree(cached_at)
+PARTITION BY toYYYYMM(date)
+ORDER BY (project_id, interaction_name, date)
+SETTINGS index_granularity = 8192;
+
+-- ---------------------------------------------------------------------------
+-- Root Cause Analysis cache (on-demand read-through)
+-- Cache key: (project_id, interaction_name, date). Main branch uses ProjectId
+-- for isolation; plan referenced tenant_id — use project_id only here.
+-- No table TTL; API enforces expiry (e.g. serve only if cached_at within 24h).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS otel.root_cause_cache
+(
+    `project_id`       LowCardinality(String),
+    `interaction_name` String,
+    `date`             Date,
+    `mode`             LowCardinality(String) COMMENT 'hierarchical | flat',
+    `baseline`         String COMMENT 'JSON',
+    `segments`         String COMMENT 'JSON',
+    `cached_at`        DateTime64(3, 'UTC')
+)
+ENGINE = ReplacingMergeTree(cached_at)
+ORDER BY (project_id, interaction_name, date)
 SETTINGS index_granularity = 8192;

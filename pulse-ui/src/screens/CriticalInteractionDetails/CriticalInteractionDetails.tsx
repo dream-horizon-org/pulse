@@ -1,9 +1,18 @@
 import classes from "./CriticalInteractionDetails.module.css";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Badge, Box, Grid, Tabs, Title, Tooltip, useMantineTheme } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Grid,
+  Tabs,
+  Title,
+  Tooltip,
+  useMantineTheme,
+} from "@mantine/core";
+import dayjs from "dayjs";
 import {
   CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS,
-  NAVBAR_ROUTES,
+  ROUTES,
 } from "../../constants";
 import { AllInteractionDetails } from "./AllInteractionDetails";
 import { useEffect, useState } from "react";
@@ -16,7 +25,10 @@ import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
+import { RootCause } from "./components/RootCause";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,7 +44,9 @@ export function CiritcalInteractionDetails() {
   } = useFilterStore();
 
   const navigate = useNavigate();
-  const routeParams = useParams()["*"];
+  const params = useParams<{ projectId: string; "*": string }>();
+  const projectId = params.projectId;
+  const routeParams = params["*"];
   const theme = useMantineTheme();
 
   const routeParamsArray = routeParams?.split("/") ?? [];
@@ -48,15 +62,31 @@ export function CiritcalInteractionDetails() {
     },
   });
 
-  const VALID_TABS = ["overview", "analysis", "sessions"];
+  const VALID_TABS = [
+    "overview",
+    "analysis",
+    "sessions",
+    ...(isRootCauseEnabled ? (["root-cause"] as const) : []),
+  ];
   const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")
     : "overview";
   const [activeTab, setActiveTab] = useState<string | null>(initialTab);
 
+  const rootCauseDateRaw =
+    endTime != null && endTime !== ""
+      ? dayjs(typeof endTime === "string" ? Number(endTime) : endTime).format(
+          "YYYY-MM-DD",
+        )
+      : undefined;
+  const rootCauseDate =
+    rootCauseDateRaw && rootCauseDateRaw !== "Invalid Date"
+      ? rootCauseDateRaw
+      : undefined;
+
   useEffect(() => {
     initializeFromUrlParams(searchParams);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Show skeleton loading state while fetching interaction details
@@ -78,27 +108,39 @@ export function CiritcalInteractionDetails() {
             <SkeletonLoader height={32} width={150} radius="md" />
           </div>
         </div>
-        
+
         {/* Tab skeleton */}
         <div className={classes.tabsSkeleton}>
           <SkeletonLoader height={36} width={100} radius="sm" />
           <SkeletonLoader height={36} width={80} radius="sm" />
           <SkeletonLoader height={36} width={100} radius="sm" />
         </div>
-        
+
         {/* Content skeleton - graphs layout */}
         <Grid mt="md">
           <Grid.Col span={8.5}>
-            <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--mantine-spacing-md)' }}>
+            <Box
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: "var(--mantine-spacing-md)",
+              }}
+            >
               <GraphCardSkeleton chartHeight={200} metricsCount={3} />
               <GraphCardSkeleton chartHeight={200} metricsCount={3} />
-              <Box style={{ gridColumn: '1 / span 2' }}>
+              <Box style={{ gridColumn: "1 / span 2" }}>
                 <GraphCardSkeleton chartHeight={200} metricsCount={3} />
               </Box>
             </Box>
           </Grid.Col>
           <Grid.Col span={3.5}>
-            <Box style={{ display: 'flex', flexDirection: 'column', gap: 'var(--mantine-spacing-sm)' }}>
+            <Box
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--mantine-spacing-sm)",
+              }}
+            >
               <SkeletonLoader height={60} width="100%" radius="md" />
               <SkeletonLoader height={60} width="100%" radius="md" />
               <SkeletonLoader height={60} width="100%" radius="md" />
@@ -118,13 +160,21 @@ export function CiritcalInteractionDetails() {
   }
 
   const handBackToListingPage = () => {
-    navigate(NAVBAR_ROUTES.CRITICAL_INTERACTIONS);
+    navigate(
+      ROUTES.PROJECT_INTERACTIONS.basePath.replace(
+        ":projectId",
+        projectId || "",
+      ),
+    );
   };
 
   const handleTabChange = (value: string | null) => {
     if (value) {
       setActiveTab(value);
-      setSearchParams({ ...Object.fromEntries(searchParams.entries()), tab: value }, { replace: true });
+      setSearchParams(
+        { ...Object.fromEntries(searchParams.entries()), tab: value },
+        { replace: true },
+      );
     }
   };
   return (
@@ -194,13 +244,22 @@ export function CiritcalInteractionDetails() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="analysis">Analysis</Tabs.Tab>
           <Tabs.Tab value="sessions">Interactions</Tabs.Tab>
+          {isRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="overview">
           {!startTime || !endTime ? (
             <Grid mt="md">
               <Grid.Col span={8.5}>
-                <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--mantine-spacing-md)' }}>
+                <Box
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "var(--mantine-spacing-md)",
+                  }}
+                >
                   <GraphCardSkeleton chartHeight={200} metricsCount={3} />
                   <GraphCardSkeleton chartHeight={200} metricsCount={3} />
                 </Box>
@@ -249,6 +308,14 @@ export function CiritcalInteractionDetails() {
             />
           )}
         </Tabs.Panel>
+        {isRootCauseEnabled && (
+          <Tabs.Panel value="root-cause">
+            <RootCause
+              interactionName={interactionName ?? null}
+              date={rootCauseDate}
+            />
+          </Tabs.Panel>
+        )}
       </div>
     </Tabs>
   );

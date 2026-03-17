@@ -10,6 +10,7 @@ public class ClickhouseConstants {
   public final String CH_ANR_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.anr'))";
   public final String CH_CRASH_SELECT_CLAUSE = "countIf(has(Events.Name, 'device.crash'))";
   public final String CH_FROZEN_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))";
+  public final String CH_SLOW_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.slow_frame_count']))";
   public final String CH_ANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count']))";
   public final String CH_UNANALYSED_FRAME_SELECT_CLAUSE = "sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count ']))";
   public final String CH_DURATION_P99_SELECT_CLAUSE = "quantileTDigestIf(0.99)(Duration / 1e6, StatusCode != 'Error')";
@@ -19,11 +20,14 @@ public class ClickhouseConstants {
 
   public final String SUC_IN_CNT = "countIf(StatusCode != 'Error')";
   public final String ERR_IN_CNT = "countIf(StatusCode = 'Error')";
-  public final String ERR_DIST_USERS = "uniqExactIf(nullIf(UserId, ''), StatusCode = 'Error')";
+  public final String ERR_DIST_USERS = "uniqCombined64If(nullIf(UserId, ''), StatusCode = 'Error')";
   public final String EXCELLENT_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Excellent')";
   public final String GOOD_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Good')";
   public final String AVERAGE_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Average')";
   public final String POOR_CAT = "countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
+  /** Count of spans that are error OR poor (union); used for root cause segment selection. */
+  public final String PROBLEMATIC_COUNT =
+      "countIf(StatusCode = 'Error' OR ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')";
 
   // Network metrics for interactions flow (uses Events.Name)
   public final String NET_0 = "sum(arrayCount(x -> x = 'network.0', Events.Name))";
@@ -45,6 +49,8 @@ public class ClickhouseConstants {
   public final String ANR_RATE = "if(count() = 0, NULL, (countIf(has(Events.Name, 'device.anr'))/count()) * 100)";
   public final String FROZEN_FRAME_RATE =
       "if((sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))) = 0, NULL, (sum(toFloat64OrZero(SpanAttributes['app.interaction.frozen_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100)";
+  public final String SLOW_FRAME_RATE =
+      "if((sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count']))) = 0, NULL, (sum(toFloat64OrZero(SpanAttributes['app.interaction.slow_frame_count']))/(sum(toFloat64OrZero(SpanAttributes['app.interaction.analysed_frame_count'])) + sum(toFloat64OrZero(SpanAttributes['app.interaction.unanalysed_frame_count'])))) * 100)";
   public final String ERROR_RATE = "if(count() = 0, NULL, (countIf(StatusCode = 'Error')/count()) * 100)";
   public final String POOR_USER_RATE =
       "if(countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '') = 0, NULL, (countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')/countIf(ifNull(SpanAttributes['pulse.interaction.user_category'], '') != '')) * 100)";
@@ -59,36 +65,36 @@ public class ClickhouseConstants {
   public final String SCREEN_TIME =
       "if(countIf(PulseType = 'screen_session') = 0, NULL, sumIf(Duration / 1e9, PulseType = 'screen_session')/countIf(PulseType = 'screen_session'))";
   public final String SCREEN_DAILY_USERS =
-      "uniqCombined(UserId)";
+      "uniqCombined64(nullIf(UserId, ''))";
   public final String NET_4XX_RATE =
       "if(countIf(PulseType LIKE 'network.%') = 0, NULL, (countIf(PulseType LIKE 'network.4%')/countIf(PulseType LIKE 'network.%')) * 100)";
   public final String NET_5XX_RATE =
       "if(countIf(PulseType LIKE 'network.%') = 0, NULL, (countIf(PulseType LIKE 'network.5%')/countIf(PulseType LIKE 'network.%')) * 100)";
   public final String ARR_TO_STR = "arrayStringConcat(arrayMap(x -> toString(x), %s), ',')";
 
-  public final String CRASH_USERS = "uniqCombinedIf(UserId, PulseType = 'device.crash')";
-  public final String CRASH_SESSIONS = "uniqCombinedIf(SessionId, PulseType = 'device.crash')";
-  public final String ALL_USERS = "uniqCombined(UserId)";
-  public final String ALL_SESSIONS = "uniqCombined(SessionId)";
+  public final String CRASH_USERS = "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.crash')";
+  public final String CRASH_SESSIONS = "uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.crash')";
+  public final String ALL_USERS = "uniqCombined64(nullIf(UserId, ''))";
+  public final String ALL_SESSIONS = "uniqCombined64(nullIf(SessionId, ''))";
 
   public final String CRASH_FREE_USERS_PERCENTAGE =
-      "if(uniqCombined(UserId) = 0, NULL, ((uniqCombined(UserId) - uniqCombinedIf(UserId, PulseType = 'device.crash')) / uniqCombined(UserId)) * 100)";
+      "if(uniqCombined64(nullIf(UserId, '')) = 0, NULL, ((uniqCombined64(nullIf(UserId, '')) - uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.crash')) / uniqCombined64(nullIf(UserId, ''))) * 100)";
   public final String CRASH_FREE_SESSIONS_PERCENTAGE =
-      "if(uniqCombined(SessionId) = 0, NULL, ((uniqCombined(SessionId) - uniqCombinedIf(SessionId, PulseType = 'device.crash')) / uniqCombined(SessionId)) * 100)";
+      "if(uniqCombined64(nullIf(SessionId, '')) = 0, NULL, ((uniqCombined64(nullIf(SessionId, '')) - uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.crash')) / uniqCombined64(nullIf(SessionId, ''))) * 100)";
 
-  public final String ANR_USERS = "uniqCombinedIf(UserId, PulseType = 'device.anr')";
-  public final String ANR_SESSIONS = "uniqCombinedIf(SessionId, PulseType = 'device.anr')";
+  public final String ANR_USERS = "uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.anr')";
+  public final String ANR_SESSIONS = "uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.anr')";
 
   public final String ANR_FREE_USERS_PERCENTAGE =
-      "if(uniqCombined(UserId) = 0, NULL, ((uniqCombined(UserId) - uniqCombinedIf(UserId, PulseType = 'device.anr')) / uniqCombined(UserId)) * 100)";
+      "if(uniqCombined64(nullIf(UserId, '')) = 0, NULL, ((uniqCombined64(nullIf(UserId, '')) - uniqCombined64If(nullIf(UserId, ''), PulseType = 'device.anr')) / uniqCombined64(nullIf(UserId, ''))) * 100)";
   public final String ANR_FREE_SESSIONS_PERCENTAGE =
-      "if(uniqCombined(SessionId) = 0, NULL, ((uniqCombined(SessionId) - uniqCombinedIf(SessionId, PulseType = 'device.anr')) / uniqCombined(SessionId)) * 100)";
+      "if(uniqCombined64(nullIf(SessionId, '')) = 0, NULL, ((uniqCombined64(nullIf(SessionId, '')) - uniqCombined64If(nullIf(SessionId, ''), PulseType = 'device.anr')) / uniqCombined64(nullIf(SessionId, ''))) * 100)";
 
-  public final String NON_FATAL_USERS = "uniqCombinedIf(UserId, PulseType = 'non_fatal')";
-  public final String NON_FATAL_SESSIONS = "uniqCombinedIf(SessionId, PulseType = 'non_fatal')";
+  public final String NON_FATAL_USERS = "uniqCombined64If(nullIf(UserId, ''), PulseType = 'non_fatal')";
+  public final String NON_FATAL_SESSIONS = "uniqCombined64If(nullIf(SessionId, ''), PulseType = 'non_fatal')";
 
   public final String NON_FATAL_FREE_USERS_PERCENTAGE =
-      "if(uniqCombined(UserId) = 0, NULL, ((uniqCombined(UserId) - uniqCombinedIf(UserId, PulseType = 'non_fatal')) / uniqCombined(UserId)) * 100)";
+      "if(uniqCombined64(nullIf(UserId, '')) = 0, NULL, ((uniqCombined64(nullIf(UserId, '')) - uniqCombined64If(nullIf(UserId, ''), PulseType = 'non_fatal')) / uniqCombined64(nullIf(UserId, ''))) * 100)";
   public final String NON_FATAL_FREE_SESSIONS_PERCENTAGE =
-      "if(uniqCombined(SessionId) = 0, NULL, ((uniqCombined(SessionId) - uniqCombinedIf(SessionId, PulseType = 'non_fatal')) / uniqCombined(SessionId)) * 100)";
+      "if(uniqCombined64(nullIf(SessionId, '')) = 0, NULL, ((uniqCombined64(nullIf(SessionId, '')) - uniqCombined64If(nullIf(SessionId, ''), PulseType = 'non_fatal')) / uniqCombined64(nullIf(SessionId, ''))) * 100)";
 }

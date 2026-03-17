@@ -38,6 +38,8 @@ public class ClickhouseProjectService {
       "otel.stack_trace_events"
   );
 
+  private static final String ROOT_CAUSE_CACHE_TABLE = "otel.root_cause_cache";
+
   // ==================== CREDENTIAL GENERATION (Pure, no I/O) ====================
 
   public String generateUsername(String projectId) {
@@ -105,6 +107,21 @@ public class ClickhouseProjectService {
           String grantSQL = String.format("GRANT SELECT ON otel.* TO %s", username);
           executeSQL(adminPool, grantSQL);
           log.info("Granted SELECT permissions to: {}", username);
+
+          // Step 4: Row policy for root_cause_cache (uses project_id, not ProjectId)
+          String projectIdEscaped = projectId.replace("'", "''");
+          String rootCausePolicyName = generatePolicyName(projectId, ROOT_CAUSE_CACHE_TABLE);
+          String rootCausePolicySQL = String.format(
+              "CREATE ROW POLICY IF NOT EXISTS %s ON %s FOR SELECT USING project_id = '%s' TO %s",
+              rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE, projectIdEscaped, username
+          );
+          executeSQL(adminPool, rootCausePolicySQL);
+          log.debug("Created row policy: {} for table: {}", rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE);
+
+          // Step 5: Grant INSERT on root_cause_cache for cache upsert
+          String grantInsertSQL = String.format("GRANT INSERT ON %s TO %s", ROOT_CAUSE_CACHE_TABLE, username);
+          executeSQL(adminPool, grantInsertSQL);
+          log.info("Granted INSERT on {} to: {}", ROOT_CAUSE_CACHE_TABLE, username);
         })
         .doOnComplete(() ->
             log.info("Successfully created ClickHouse user and policies for project: {}", projectId)
@@ -165,6 +182,11 @@ public class ClickhouseProjectService {
                 );
                 executeSQL(adminPool, dropPolicySQL);
             }
+            String rootCausePolicyName = generatePolicyName(projectId, ROOT_CAUSE_CACHE_TABLE);
+            executeSQL(adminPool, String.format(
+                "DROP ROW POLICY IF EXISTS %s ON %s",
+                rootCausePolicyName, ROOT_CAUSE_CACHE_TABLE
+            ));
 
             // Drop user
             String dropUserSQL = String.format("DROP USER IF EXISTS %s", username);
