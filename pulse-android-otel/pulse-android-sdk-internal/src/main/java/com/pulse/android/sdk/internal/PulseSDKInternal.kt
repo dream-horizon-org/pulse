@@ -313,7 +313,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
-            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig)
+            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
             pulseSamplingProcessors?.run {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
                 val flagResult = PulseFeatureFlagUtils.apply(config, this)
@@ -393,6 +393,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private fun resolveSessionReplayConfig(
         sdkConfig: PulseSdkConfig?,
         localConfig: SessionReplayConfig?,
+        endpointBaseUrl: String,
     ): SessionReplayConfig? {
         if (sdkConfig == null) {
             PulseOtelUtils.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
@@ -449,7 +450,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
             flushAt = featureConfig.flushAt ?: base.flushAt,
             maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
-            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl,
+            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl ?: endpointBaseUrl,
         )
     }
 
