@@ -10,6 +10,13 @@ public typealias SamplingRate = Float
 
 @Keep
 @Serializable
+public class PulseSignalsToSampleEntry internal constructor(
+    @SerialName("condition") public val condition: PulseSignalMatchCondition,
+    @SerialName("sampleRate") public val sampleRate: SamplingRate,
+)
+
+@Keep
+@Serializable
 public class PulseSamplingConfig internal constructor(
     @SerialName("default")
     public val default: PulseDefaultSamplingConfig = PulseDefaultSamplingConfig(),
@@ -22,6 +29,8 @@ public class PulseSamplingConfig internal constructor(
     public val criticalEventPolicies: PulseCriticalEventPolicies? = null,
     @SerialName("criticalSessionPolicies")
     public val criticalSessionPolicies: PulseCriticalEventPolicies? = null,
+    @SerialName("signalsToSample")
+    public val signalsToSample: List<PulseSignalsToSampleEntry> = emptyList(),
 )
 
 @Keep

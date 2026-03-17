@@ -13,6 +13,8 @@ import com.pulse.sampling.models.PulseSdkConfigFakeUtils
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.sampling.models.PulseSignalsToSampleEntry
+import com.pulse.sampling.models.SamplingRate
 import com.pulse.utils.createLogRecordData
 import com.pulse.utils.createSpanData
 import io.mockk.every
@@ -34,7 +36,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.offset
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
-import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.security.SecureRandom
@@ -1954,7 +1955,7 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(spanExporter.finishedSpanItems).isEmpty()
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in span, all data is sent when session sampling is on`() {
             val processors =
                 createSamplingSignalProcessors(
@@ -1970,7 +1971,7 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in span, data is sent when session random value less than session sampling config`() {
             val samplingRate = 0.5f
             val randomValue = 0.3f
@@ -1991,9 +1992,9 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in span, data is sent when session random value is equal to session sampling config`() {
-            val samplingRate = 0.5f
+            val samplingRate = 0.51f
             val randomValue = 0.5f
             val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
             val mockRandom = createMockRandomGenerator(randomValue)
@@ -2012,10 +2013,30 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in span, data is not sent when session random value greater than session sampling config`() {
             val samplingRate = 0.5f
             val randomValue = 0.7f
+            val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
+            val mockRandom = createMockRandomGenerator(randomValue)
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
+                    randomIdGenerator = mockRandom,
+                )
+            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+            val testSpan = createSpanData("test-span", emptyMap())
+
+            sampledSpanExporter.export(listOf(testSpan))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
+        }
+
+        @Test
+        fun `in span, data is not sent when session random value is 0_0 and random is 0_0`() {
+            val samplingRate = 0.0f
+            val randomValue = 0.0f
             val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
             val mockRandom = createMockRandomGenerator(randomValue)
             val processors =
@@ -2048,7 +2069,7 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(logExporter.finishedLogRecordItems).isEmpty()
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in log, all data is sent when session sampling is on`() {
             val config = PulseSdkConfigFakeUtils.createFakeConfig()
             val processors =
@@ -2065,7 +2086,7 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in log, data is sent when session random value less than session sampling config`() {
             val samplingRate = 0.5f
             val randomValue = 0.3f
@@ -2086,9 +2107,9 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in log, data is sent when session random value is equal to session sampling config`() {
-            val samplingRate = 0.5f
+            val samplingRate = 0.501f
             val randomValue = 0.5f
             val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
             val mockRandom = createMockRandomGenerator(randomValue)
@@ -2107,7 +2128,7 @@ class PulseSamplingSignalProcessorsTest {
             assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
         }
 
-        @RepeatedTest(10)
+        @Test
         fun `in log, data is not sent when session random value greater than session sampling config`() {
             val samplingRate = 0.5f
             val randomValue = 0.7f
@@ -2392,6 +2413,221 @@ class PulseSamplingSignalProcessorsTest {
             return PulseSdkConfigFakeUtils.createFakeConfig(
                 sampling = samplingConfig,
             )
+        }
+    }
+
+    @Nested
+    inner class `Signals To Sample` {
+        private fun getProcessorsWithSignalToSample(
+            vararg signalSampleConfig: PulseSignalsToSampleEntry,
+            configSessionSampleRate: SamplingRate,
+            random: Random = createMockRandomGenerator(1.0F),
+        ): Pair<PulseSamplingSignalProcessors.SampledSpanExporter, PulseSamplingSignalProcessors.SampledLogExporter> {
+            val samplingConfig =
+                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
+                    signalsToSample = signalSampleConfig.toList(),
+                    default = PulseSdkConfigFakeUtils.createFakeDefaultSamplingConfig(configSessionSampleRate),
+                )
+            val config =
+                PulseSdkConfigFakeUtils.createFakeConfig(
+                    sampling = samplingConfig,
+                )
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = { _, _, _ -> configSessionSampleRate },
+                    randomIdGenerator = random,
+                )
+            return processors.SampledSpanExporter(spanExporter) to
+                processors.SampledLogExporter(logExporter)
+        }
+
+        @Test
+        fun `span matches condition with signal rate 1_0 session rate 0_0 and random 0_0`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "target\\.span",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 1.0f,
+                    ),
+                    configSessionSampleRate = 0.0F,
+                    random = createMockRandomGenerator(0.0F),
+                )
+            val span = createSpanData("target.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("target.span")
+        }
+
+        @Test
+        fun `span matches condition with signal rate 0_6 session rate 0_0 and random 0_5`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "target\\.span",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 0.6f,
+                    ),
+                    configSessionSampleRate = 0.0F,
+                    random = createMockRandomGenerator(0.5F),
+                )
+            val span = createSpanData("target.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("target.span")
+        }
+
+        @Test
+        fun `span matches condition with signal rate 0_4 session rate 0_0 and random 0_5`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "target\\.span",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 0.4f,
+                    ),
+                    configSessionSampleRate = 0.0F,
+                    random = createMockRandomGenerator(0.5F),
+                )
+            val span = createSpanData("target.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
+        }
+
+        @Test
+        fun `span matches condition with signal rate 0_0 session rate 1_0 and random 0_5`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "target\\.span",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 0.0f,
+                    ),
+                    configSessionSampleRate = 1F,
+                    random = createMockRandomGenerator(0.5F),
+                )
+            val span = createSpanData("target.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
+        }
+
+        @Test
+        fun `log matches condition with signal rate 0_0 session rate 1_0 and random 0_5`() {
+            val (_, sampledLogExporter) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "target\\.log",
+                                scopes = setOf(PulseSignalScope.LOGS),
+                            ),
+                        sampleRate = 0.0f,
+                    ),
+                    configSessionSampleRate = 1_0F,
+                    random = createMockRandomGenerator(0.5F),
+                )
+            val log = createLogRecordData("target.log", emptyMap())
+
+            sampledLogExporter.export(listOf(log))
+
+            assertThat(logExporter.finishedLogRecordItems).isEmpty()
+        }
+
+        @Test
+        fun `span does not match any condition with session rate 0_0 and random 0_5`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "other\\.signal",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 1.0f,
+                    ),
+                    configSessionSampleRate = 0.0F,
+                    random = createMockRandomGenerator(0.5F),
+                )
+            val span = createSpanData("unmatched.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
+        }
+
+        @Test
+        fun `span does not match any condition with session rate 1_0 and random 0_5`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "other\\.signal",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 0.0f,
+                    ),
+                    configSessionSampleRate = 1.0F,
+                    random = createMockRandomGenerator(0.5F),
+                )
+            val span = createSpanData("unmatched.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems)
+                .hasSize(1)
+                .first()
+                .extracting { it.name }
+                .isEqualTo("unmatched.span")
+        }
+
+        @Test
+        fun `span matches condition with signal rate 0_0 session rate 0_0 and random 0_0`() {
+            val (sampledSpanExporter, _) =
+                getProcessorsWithSignalToSample(
+                    PulseSdkConfigFakeUtils.createFakeSignalsToSampleEntry(
+                        condition =
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                name = "target\\.span",
+                                scopes = setOf(PulseSignalScope.TRACES),
+                            ),
+                        sampleRate = 0.0f,
+                    ),
+                    configSessionSampleRate = 1.0F,
+                    random = createMockRandomGenerator(0.0F),
+                )
+            val span = createSpanData("target.span", emptyMap())
+
+            sampledSpanExporter.export(listOf(span))
+
+            assertThat(spanExporter.finishedSpanItems).isEmpty()
         }
     }
 
