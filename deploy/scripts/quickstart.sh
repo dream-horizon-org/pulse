@@ -148,6 +148,12 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-otel-schema.sql" ]; then
 fi
 print_success "ClickHouse schema found"
 
+if [ ! -f "$ROOT_DIR/backend/ingestion/session-summary-mv.sql" ]; then
+    print_error "ClickHouse session summary MV schema not found"
+    exit 1
+fi
+print_success "ClickHouse session summary MV schema found"
+
 load_env
 
 # ============================================================================

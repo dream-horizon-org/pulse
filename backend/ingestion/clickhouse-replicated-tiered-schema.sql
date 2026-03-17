@@ -91,6 +91,7 @@ ON CLUSTER `pulse-clickhouse`
     `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
     `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['metering.session.id'], ''),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_user_id UserId TYPE bloom_filter(0.001) GRANULARITY 1,
     INDEX idx_project_id ProjectId TYPE bloom_filter(0.01) GRANULARITY 1
 )
