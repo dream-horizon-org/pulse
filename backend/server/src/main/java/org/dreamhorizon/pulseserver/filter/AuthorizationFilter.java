@@ -111,13 +111,13 @@ public class AuthorizationFilter implements ContainerRequestFilter {
     String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
 
     return normalizedPath.equals(HEALTHCHECK_PATH)
-        || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
-        || normalizedPath.startsWith(AUTH_PATH_PREFIX)
-        || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
-        || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
-        || normalizedPath.startsWith(CONFIG_PATH)
-        || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
-        || normalizedPath.startsWith(SYMBOL_UPLOAD_PREFIX)
+      || normalizedPath.startsWith(HEALTHCHECK_PATH + "/")
+      || normalizedPath.startsWith(AUTH_PATH_PREFIX)
+      || normalizedPath.startsWith(ONBOARDING_PATH_PREFIX)
+      || normalizedPath.startsWith(TNC_DOCUMENTS_PATH)
+      || normalizedPath.startsWith(CONFIG_PATH)
+      || normalizedPath.startsWith(ALERTS_PATH_PREFIX)
+      || normalizedPath.startsWith(SYMBOL_UPLOAD_PREFIX)
         || normalizedPath.startsWith(CONFIG_PATH)
         || normalizedPath.startsWith(SESSION_REPLAYS_PATH);  // E2E / SDK: auth via X-Project-ID + X-Tenant-ID or API key
   }

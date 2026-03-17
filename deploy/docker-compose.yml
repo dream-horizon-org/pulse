@@ -445,6 +445,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+      openfga-init:
+        condition: service_completed_successfully
       openfga:
         condition: service_started  # OpenFGA distroless image has no healthcheck
       minio-init:

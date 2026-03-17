@@ -5,16 +5,16 @@ import {
   ComboboxItem,
 } from "@mantine/core";
 import {
-  IconBell,
-  IconListDetails,
-  IconHome,
   IconActivityHeartbeat,
+  IconBell,
+  IconCalendarEvent,
+  IconDatabaseSearch,
   IconDeviceDesktop,
+  IconHome,
+  IconListDetails,
   IconNetwork,
   IconUsers,
-  IconDatabaseSearch,
   IconVideo,
-  IconCalendarEvent,
 } from "@tabler/icons-react";
 import {
   CriticalInteractionDetailsFilterValues,
