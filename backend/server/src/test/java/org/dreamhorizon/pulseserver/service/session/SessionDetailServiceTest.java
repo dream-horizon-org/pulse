@@ -285,5 +285,164 @@ class SessionDetailServiceTest {
       assertThat(result.getQuality()).isEqualTo(0);
       assertThat(result.isAnonymous()).isTrue();
     }
+
+    @Test
+    void shouldParseJourneyJsonWhenCoreHasJourney() {
+      SessionCoreRow core = SessionCoreRow.builder()
+          .sessionId(SESSION_ID)
+          .qualityScore(0)
+          .journey("[\"screen_a\",\"screen_b\",\"screen_c\"]")
+          .build();
+      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
+
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+
+      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+
+      assertThat(result.getJourney()).containsExactly("screen_a", "screen_b", "screen_c");
+    }
+
+    @Test
+    void shouldReturnEmptyJourneyWhenJourneyJsonInvalid() {
+      SessionCoreRow core = SessionCoreRow.builder()
+          .sessionId(SESSION_ID)
+          .qualityScore(0)
+          .journey("{invalid json not array")
+          .build();
+      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
+
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+
+      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+
+      assertThat(result.getJourney()).isEmpty();
+    }
+
+    @Test
+    void shouldHandleNullRowsFromDao() {
+      QueryResultResponse<SessionCoreRow> coreWithNullRows = QueryResultResponse.<SessionCoreRow>builder().build();
+      QueryResultResponse<SessionTimingRow> timingWithNullRows = QueryResultResponse.<SessionTimingRow>builder().build();
+      QueryResultResponse<InteractionRow> interactionWithNullRows = QueryResultResponse.<InteractionRow>builder().build();
+      QueryResultResponse<NetworkRequestRow> networkWithNullRows = QueryResultResponse.<NetworkRequestRow>builder().build();
+
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreWithNullRows));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingWithNullRows));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionWithNullRows));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkWithNullRows));
+
+      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of()).blockingGet();
+
+      assertThat(result.getSessionId()).isEqualTo(SESSION_ID);
+      assertThat(result.getInteractions()).isEmpty();
+      assertThat(result.getNetworkRequests()).isEmpty();
+    }
+
+    @Test
+    void shouldMergeAndSortEventsByTimestampWhenIncludeEvents() {
+      SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
+      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
+      SessionSpanRow span = SessionSpanRow.builder()
+          .timestamp("2024-01-15T10:02:00Z")
+          .eventType("navigation")
+          .description("Screen B")
+          .durationNs(0)
+          .traceId("t2")
+          .spanId("s2")
+          .build();
+      NetworkRequestRow network = NetworkRequestRow.builder()
+          .timestamp("2024-01-15T10:01:00Z")
+          .durationNs(100L)
+          .description("GET /api")
+          .traceId("t1")
+          .spanId("s1")
+          .build();
+      SessionExceptionRow exception = SessionExceptionRow.builder()
+          .timestamp("2024-01-15T10:03:00Z")
+          .pulseType("crash")
+          .title("Error")
+          .traceId("t3")
+          .spanId("s3")
+          .build();
+
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(List.of(network))));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(List.of(exception))));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(List.of(span))));
+
+      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events")).blockingGet();
+
+      assertThat(result.getEvents()).hasSize(3);
+      assertThat(result.getEvents().get(0).getTimestamp()).isEqualTo("2024-01-15T10:01:00Z");
+      assertThat(result.getEvents().get(0).getEventType().getValue()).isEqualTo("api_call");
+      assertThat(result.getEvents().get(1).getTimestamp()).isEqualTo("2024-01-15T10:02:00Z");
+      assertThat(result.getEvents().get(1).getDescription()).isEqualTo("Screen B");
+      assertThat(result.getEvents().get(2).getTimestamp()).isEqualTo("2024-01-15T10:03:00Z");
+      assertThat(result.getEvents().get(2).getDescription()).isEqualTo("Error");
+    }
+
+    @Test
+    void shouldIncludeBothEventsAndExceptionsSectionsWhenBothRequested() {
+      SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
+      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
+      SessionExceptionRow exception = SessionExceptionRow.builder()
+          .timestamp("2024-01-15T10:00:00Z")
+          .pulseType("anr")
+          .title("ANR detected")
+          .exceptionStackTrace("at android.app.ActivityThread")
+          .traceId("tr")
+          .spanId("sp")
+          .build();
+
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(List.of(exception))));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(Collections.emptyList())));
+
+      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events", "exceptions")).blockingGet();
+
+      assertThat(result.getExceptions()).hasSize(1);
+      assertThat(result.getExceptions().get(0).getPulseType()).isEqualTo("anr");
+      assertThat(result.getExceptions().get(0).getTitle()).isEqualTo("ANR detected");
+      assertThat(result.getEvents()).hasSize(1);
+      assertThat(result.getEvents().get(0).getEventType().getValue()).isEqualTo("anr");
+      assertThat(result.getEvents().get(0).getDescription()).isEqualTo("ANR detected");
+    }
+
+    @Test
+    void shouldMapSpanWithUnknownEventTypeToNullEventType() {
+      SessionCoreRow core = SessionCoreRow.builder().sessionId(SESSION_ID).qualityScore(0).build();
+      SessionTimingRow timing = SessionTimingRow.builder().sessionId(SESSION_ID).durationMs(0).build();
+      SessionSpanRow span = SessionSpanRow.builder()
+          .timestamp("2024-01-15T10:00:00Z")
+          .eventType("unknown_type")
+          .description("Custom")
+          .durationNs(0)
+          .traceId("t")
+          .spanId("s")
+          .build();
+
+      when(sessionDetailDao.getSessionCore(eq(SESSION_ID))).thenReturn(Single.just(coreResponse(List.of(core))));
+      when(sessionDetailDao.getSessionTiming(eq(SESSION_ID))).thenReturn(Single.just(timingResponse(List.of(timing))));
+      when(sessionDetailDao.getInteractions(eq(SESSION_ID))).thenReturn(Single.just(interactionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getNetworkRequests(eq(SESSION_ID))).thenReturn(Single.just(networkResponse(Collections.emptyList())));
+      when(sessionDetailDao.getExceptions(eq(SESSION_ID))).thenReturn(Single.just(exceptionResponse(Collections.emptyList())));
+      when(sessionDetailDao.getEventSpans(eq(SESSION_ID))).thenReturn(Single.just(spanResponse(List.of(span))));
+
+      SessionDetailResponse result = sessionDetailService.getSessionDetail(SESSION_ID, Set.of("events")).blockingGet();
+
+      assertThat(result.getEvents()).hasSize(1);
+      assertThat(result.getEvents().get(0).getEventType()).isNull();
+      assertThat(result.getEvents().get(0).getDescription()).isEqualTo("Custom");
+    }
   }
 }

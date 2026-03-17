@@ -66,7 +66,7 @@ class SessionDetailResourceTest {
             assertThat(resp.getData().getSessionId()).isEqualTo(SESSION_ID);
             assertThat(resp.getData().getUserId()).isEqualTo("user-1");
             assertThat(resp.getData().getDuration()).isEqualTo(5000L);
-            verify(sessionDetailService).getSessionDetail(SESSION_ID, Collections.emptySet());
+            verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), eq(Collections.emptySet()));
           });
           testContext.completeNow();
         });
@@ -112,7 +112,7 @@ class SessionDetailResourceTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertThat(err).isNull();
-            verify(sessionDetailService).getSessionDetail(SESSION_ID, Set.of("events", "exceptions"));
+            verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), eq(Set.of("events", "exceptions")));
           });
           testContext.completeNow();
         });
@@ -131,7 +131,7 @@ class SessionDetailResourceTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertThat(err).isNull();
-            verify(sessionDetailService).getSessionDetail(SESSION_ID, Set.of("events"));
+            verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), eq(Set.of("events")));
           });
           testContext.completeNow();
         });
@@ -149,7 +149,7 @@ class SessionDetailResourceTest {
         result.whenComplete((resp, err) -> {
           testContext.verify(() -> {
             assertThat(err).isNull();
-            verify(sessionDetailService).getSessionDetail(SESSION_ID, Collections.emptySet());
+            verify(sessionDetailService).getSessionDetail(eq(SESSION_ID), eq(Collections.emptySet()));
           });
           testContext.completeNow();
         });
