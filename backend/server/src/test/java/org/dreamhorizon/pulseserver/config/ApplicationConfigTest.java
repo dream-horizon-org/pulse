@@ -88,7 +88,8 @@ class ApplicationConfigTest {
         "interactionPath",
         "interactionAsset",
         "key",
-        "tncS3Bucket"
+        "tncS3Bucket",
+        "dev-api-key"
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());
