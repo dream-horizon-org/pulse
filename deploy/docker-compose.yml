@@ -299,6 +299,9 @@ services:
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
 
+      # AI Proxy Configuration 
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://pulse-ai-agent:8000}
+      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-}
       # Notification Service Configuration
       - AWS_REGION=${AWS_REGION:-ap-south-1}
       - NOTIFICATION_QUEUE_URL=${NOTIFICATION_QUEUE_URL:-}

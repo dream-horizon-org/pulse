@@ -1,7 +1,8 @@
 // TODO: Replace raw fetch with makeRequest helper once AI backend is behind the shared API gateway
 import { useMutation } from "@tanstack/react-query";
-import { AI_BASE_URL, COOKIES_KEY } from "../../../../constants";
+import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
+import { buildAuthHeaders } from "../../../../helpers/makeRequestToServer";
 import {
   CreateSessionInput,
   OnSettled,
@@ -23,9 +24,11 @@ export const useCreateUserAiSession = (onSettled: OnSettled) => {
         session_id: input.sessionId,
       });
 
+      const authHeaders = buildAuthHeaders();
+
       const response = await fetch(
-        `${AI_BASE_URL}${AI_API_PATHS.SESSIONS}?${params.toString()}`,
-        { method: "POST" },
+        `${API_BASE_URL}${AI_API_PATHS.SESSIONS}?${params.toString()}`,
+        { method: "POST", headers: authHeaders },
       );
 
       if (!response.ok) {

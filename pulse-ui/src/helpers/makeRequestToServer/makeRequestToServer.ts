@@ -18,7 +18,7 @@ const getMockServer = async () => {
  * Builds authentication headers for API requests.
  * Uses the backend-generated access token stored in cookies after successful authentication.
  */
-function buildAuthHeaders(): Record<string, string> {
+export function buildAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   
   // Only add Authorization header if access token exists (user is logged in)

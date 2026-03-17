@@ -34,8 +34,8 @@ export const SUGGESTED_QUERIES = [
 ];
 
 export const AI_API_PATHS = {
-  RUN_SSE: "/run_sse",
-  SESSIONS: "/sessions",
+  RUN_SSE: "/v1/ai/run_sse",
+  SESSIONS: "/v1/ai/sessions",
 } as const;
 
 export const AI_CHAT_LIMITS = {

@@ -251,8 +251,8 @@ export const ROUTES: Routes = {
     ? {
         AI_CHAT: {
           key: "AI_CHAT",
-          basePath: "/ai-chat",
-          path: "/ai-chat",
+          basePath: "/projects/:projectId/ai-chat",
+          path: "/projects/:projectId/ai-chat",
           element: AiChat,
         },
       }
@@ -270,6 +270,7 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
+  AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
 } as const;
 
@@ -344,8 +345,8 @@ export const NAVBAR_ITEMS: NavbarItems = [
         {
           tabName: "AI Chat",
           icon: IconRobot,
-          routeTo: ROUTES.AI_CHAT.basePath,
-          path: ROUTES.AI_CHAT.path,
+          routeTo: NAVBAR_ROUTES.AI_CHAT,
+          path: NAVBAR_ROUTES.AI_CHAT,
           iconSize: 25,
         },
       ]
