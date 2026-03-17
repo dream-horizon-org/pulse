@@ -18,6 +18,7 @@ public class NotificationConfig {
   private RetryConfig retry;
   private WorkerConfig worker;
   private SlackOAuthConfig slackOAuth;
+  private IncidentConfig incident;
 
   @Data
   @NoArgsConstructor
@@ -94,6 +95,17 @@ public class NotificationConfig {
 
   public SlackOAuthConfig getSlackOAuthConfig() {
     return slackOAuth != null ? slackOAuth : new SlackOAuthConfig();
+  }
+
+  public IncidentConfig getIncidentConfig() {
+    return incident != null ? incident : new IncidentConfig();
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class IncidentConfig {
+    private String defaultSlackChannelId;
   }
 
   @Data

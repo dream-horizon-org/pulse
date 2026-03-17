@@ -31,6 +31,8 @@ import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.incident.IncidentService;
+import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -107,17 +109,20 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {
-      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-      if (config != null && config.isEnabled()) {
-        try {
-          return new OpenFgaService(config);
-        } catch (Exception e) {
-          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-          return null;
+        OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+        if (config != null && config.isEnabled()) {
+            try {
+                return new OpenFgaService(config);
+            } catch (Exception e) {
+                log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
+                return null;
+            }
         }
-      }
-      return null;
+          return null;
     }).in(Singleton.class);
+
+    bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
     bindNotificationFeature();
   }
 
