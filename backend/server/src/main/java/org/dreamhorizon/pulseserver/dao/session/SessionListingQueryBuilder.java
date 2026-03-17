@@ -160,6 +160,28 @@ public final class SessionListingQueryBuilder {
                 + "GROUP BY SessionId";
     }
 
+    /**
+     * Builds the impacted interactions query for a given set of session IDs.
+     * Queries {@code otel.otel_traces} for interaction spans that had error, slow (Poor), or frozen frames;
+     * returns unique interaction names per session.
+     */
+    public String buildImpactedInteractionsQuery(List<String> sessionIds) {
+        if (sessionIds == null || sessionIds.isEmpty()) {
+            throw new IllegalArgumentException("sessionIds must not be empty for impacted interactions query");
+        }
+        validate();
+
+        String idList = buildIdList(sessionIds);
+
+        return IMPACTED_INTERACTIONS_SELECT + '\n'
+                + "WHERE ProjectId = " + quote(projectId) + '\n'
+                + "  AND SessionId IN (" + idList + ")\n"
+                + "  AND Timestamp >= " + toDateTime64(startTime) + '\n'
+                + "  AND Timestamp <= " + toDateTime64(endTime) + '\n'
+                + "  AND PulseType = 'interaction'\n"
+                + "GROUP BY SessionId";
+    }
+
     // -------------------------------------------------------------------------
     // Internal SQL assembly
     // -------------------------------------------------------------------------
