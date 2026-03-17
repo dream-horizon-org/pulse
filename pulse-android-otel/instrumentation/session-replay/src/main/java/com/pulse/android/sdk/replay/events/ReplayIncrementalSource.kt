@@ -1,6 +1,8 @@
 package com.pulse.android.sdk.replay.events
 
-public enum class ReplayIncrementalSource(public val value: Int) {
+public enum class ReplayIncrementalSource(
+    public val value: Int,
+) {
     Mutation(0),
     MouseMove(1),
     MouseInteraction(2),

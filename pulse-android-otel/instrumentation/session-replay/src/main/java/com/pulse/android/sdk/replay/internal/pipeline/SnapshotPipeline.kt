@@ -20,7 +20,6 @@ import com.pulse.android.sdk.replay.internal.util.DateProvider
  * Builds replay events from a captured wireframe and current status; computes full vs incremental.
  */
 internal object SnapshotPipeline {
-
     fun generateEvents(
         wireframe: ReplayWireframe,
         status: ViewTreeSnapshotStatus,
@@ -52,10 +51,11 @@ internal object SnapshotPipeline {
         } else {
             val lastSnapshot = status.lastSnapshot
             val lastList = if (lastSnapshot != null) listOf(lastSnapshot) else emptyList()
-            val (added, removed, updated) = findAddedRemovedUpdated(
-                lastList.flattenChildren(),
-                listOf(wireframe).flattenChildren(),
-            )
+            val (added, removed, updated) =
+                findAddedRemovedUpdated(
+                    lastList.flattenChildren(),
+                    listOf(wireframe).flattenChildren(),
+                )
             if (added.isNotEmpty() || removed.isNotEmpty() || updated.isNotEmpty()) {
                 val adds = added.map { ReplayMutatedNode(it, it.parentId) }
                 val removes = removed.map { ReplayRemovedNode(it.id, it.parentId) }
@@ -123,6 +123,5 @@ internal object SnapshotPipeline {
         return Triple(added, removed, updated)
     }
 
-    private fun View.getScreenTitle(): String =
-        (context as? android.app.Activity)?.title?.toString()?.substringAfter("/") ?: ""
+    private fun View.getScreenTitle(): String = (context as? android.app.Activity)?.title?.toString()?.substringAfter("/") ?: ""
 }

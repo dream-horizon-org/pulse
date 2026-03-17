@@ -5,5 +5,6 @@ package com.pulse.android.sdk.replay
  */
 internal class IdentityReplayStorageEncryption : ReplayStorageEncryption {
     override fun encrypt(plaintext: ByteArray): ByteArray = plaintext
+
     override fun decrypt(ciphertext: ByteArray): ByteArray = ciphertext
 }

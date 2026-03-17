@@ -19,8 +19,10 @@ public class LoggingReplayEventEmitter(
     private val tag: String = "PulseReplay",
     private val minLogLevel: Int = Log.DEBUG,
 ) : ReplayEventEmitter {
-
-    override fun emit(sessionId: String, events: List<ReplayEvent>) {
+    override fun emit(
+        sessionId: String,
+        events: List<ReplayEvent>,
+    ) {
         if (events.isEmpty()) return
         if (Log.isLoggable(tag, minLogLevel)) {
             Log.println(minLogLevel, tag, "Emitted sessionId=$sessionId ${events.size} events: ${events.map { it.type.name }}")

@@ -30,6 +30,8 @@ import android.widget.RatingBar
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
+import androidx.core.graphics.createBitmap
+import androidx.core.view.isNotEmpty
 import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.android.sdk.replay.SessionReplayConfig
@@ -48,22 +50,21 @@ import com.pulse.android.sdk.replay.ui.hasPrivacyUnmaskTag
  * Masking logic is aligned with [MaskingCollector] (same priority system).
  */
 internal object WireframeCapture {
-
     fun toWireframe(
         view: View,
         config: SessionReplayConfig,
         displayMetrics: android.util.DisplayMetrics,
         logger: (String) -> Unit,
-    ): ReplayWireframe? {
-        return view.toWireframeInternal(null, config, displayMetrics, logger)
-    }
+    ): ReplayWireframe? = view.toWireframeInternal(null, config, displayMetrics, logger)
 
     fun themeToRGBColor(theme: android.content.res.Resources.Theme): String? {
         val value = TypedValue()
         theme.resolveAttribute(android.R.attr.windowBackground, value, true)
         return if (value.type in TypedValue.TYPE_FIRST_COLOR_INT..TypedValue.TYPE_LAST_COLOR_INT) {
             value.data.toRGBColor()
-        } else null
+        } else {
+            null
+        }
     }
 
     @Suppress("LongMethod", "CyclomaticComplexMethod")
@@ -76,10 +77,13 @@ internal object WireframeCapture {
         if (!ScreenshotCapture.isVisible(this, logger)) return null
         val viewId = System.identityHashCode(this)
         val coordinates = IntArray(2)
-        coordinates[0] = if (ScreenshotCapture.isViewStateStable(this, logger)) {
-            getLocationOnScreen(coordinates)
-            coordinates[0]
-        } else 0
+        coordinates[0] =
+            if (ScreenshotCapture.isViewStateStable(this, logger)) {
+                getLocationOnScreen(coordinates)
+                coordinates[0]
+            } else {
+                0
+            }
         coordinates[1] = if (ScreenshotCapture.isViewStateStable(this, logger)) coordinates[1] else 0
         val dpX = (coordinates[0] / displayMetrics.density).toInt()
         val dpY = (coordinates[1] / displayMetrics.density).toInt()
@@ -111,13 +115,14 @@ internal object WireframeCapture {
             }
             type = WireframeType.TEXT
 
-            val fontFamilyStr = when (typeface) {
-                Typeface.DEFAULT -> "sans-serif"
-                Typeface.DEFAULT_BOLD -> "sans-serif-bold"
-                Typeface.MONOSPACE -> "monospace"
-                Typeface.SERIF -> "serif"
-                else -> null
-            }
+            val fontFamilyStr =
+                when (typeface) {
+                    Typeface.DEFAULT -> "sans-serif"
+                    Typeface.DEFAULT_BOLD -> "sans-serif-bold"
+                    Typeface.MONOSPACE -> "monospace"
+                    Typeface.SERIF -> "serif"
+                    else -> null
+                }
             val fontSizeVal = (textSize / displayMetrics.density).toInt()
 
             val alignment = resolveAlignment()
@@ -125,19 +130,20 @@ internal object WireframeCapture {
             val iconLeft = compoundDrawables.getOrNull(0)?.base64(this.width, this.height, config, displayMetrics)
             val iconRight = compoundDrawables.getOrNull(2)?.base64(this.width, this.height, config, displayMetrics)
 
-            style = style.copy(
-                color = currentTextColor.toRGBColor(),
-                fontFamily = fontFamilyStr,
-                fontSize = fontSizeVal,
-                horizontalAlign = alignment.first,
-                verticalAlign = alignment.second,
-                paddingTop = if (alignment.second != "center") (totalPaddingTop / displayMetrics.density).toInt() else null,
-                paddingBottom = if (alignment.second != "center") (totalPaddingBottom / displayMetrics.density).toInt() else null,
-                paddingLeft = if (alignment.first != "center") (totalPaddingLeft / displayMetrics.density).toInt() else null,
-                paddingRight = if (alignment.first != "center") (totalPaddingRight / displayMetrics.density).toInt() else null,
-                iconLeft = iconLeft,
-                iconRight = iconRight,
-            )
+            style =
+                style.copy(
+                    color = currentTextColor.toRGBColor(),
+                    fontFamily = fontFamilyStr,
+                    fontSize = fontSizeVal,
+                    horizontalAlign = alignment.first,
+                    verticalAlign = alignment.second,
+                    paddingTop = if (alignment.second != "center") (totalPaddingTop / displayMetrics.density).toInt() else null,
+                    paddingBottom = if (alignment.second != "center") (totalPaddingBottom / displayMetrics.density).toInt() else null,
+                    paddingLeft = if (alignment.first != "center") (totalPaddingLeft / displayMetrics.density).toInt() else null,
+                    paddingRight = if (alignment.first != "center") (totalPaddingRight / displayMetrics.density).toInt() else null,
+                    iconLeft = iconLeft,
+                    iconRight = iconRight,
+                )
 
             if (this is Button && this !is CompoundButton) {
                 style = style.copy(borderWidth = 1, borderColor = "#000000")
@@ -221,7 +227,7 @@ internal object WireframeCapture {
         if (this is WebView) type = WireframeType.WEB_VIEW
 
         val children = mutableListOf<ReplayWireframe>()
-        if (this is ViewGroup && childCount > 0) {
+        if (this is ViewGroup && isNotEmpty()) {
             for (i in 0 until childCount) {
                 getChildAt(i)?.toWireframeInternal(viewId, config, displayMetrics, logger)?.let { children.add(it) }
             }
@@ -248,29 +254,30 @@ internal object WireframeCapture {
         )
     }
 
-    private fun TextView.resolveAlignment(): Pair<String, String> {
-        return when (textAlignment) {
+    private fun TextView.resolveAlignment(): Pair<String, String> =
+        when (textAlignment) {
             View.TEXT_ALIGNMENT_CENTER -> "center" to "center"
             View.TEXT_ALIGNMENT_TEXT_END, View.TEXT_ALIGNMENT_VIEW_END -> "right" to "center"
             View.TEXT_ALIGNMENT_TEXT_START, View.TEXT_ALIGNMENT_VIEW_START -> "left" to "center"
             View.TEXT_ALIGNMENT_GRAVITY -> {
-                val h = when (gravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
-                    Gravity.START, Gravity.LEFT -> "left"
-                    Gravity.END, Gravity.RIGHT -> "right"
-                    Gravity.CENTER, Gravity.CENTER_HORIZONTAL -> "center"
-                    else -> "left"
-                }
-                val v = when (gravity and Gravity.VERTICAL_GRAVITY_MASK) {
-                    Gravity.TOP -> "top"
-                    Gravity.BOTTOM -> "bottom"
-                    Gravity.CENTER_VERTICAL, Gravity.CENTER -> "center"
-                    else -> "center"
-                }
+                val h =
+                    when (gravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
+                        Gravity.START, Gravity.LEFT -> "left"
+                        Gravity.END, Gravity.RIGHT -> "right"
+                        Gravity.CENTER, Gravity.CENTER_HORIZONTAL -> "center"
+                        else -> "left"
+                    }
+                val v =
+                    when (gravity and Gravity.VERTICAL_GRAVITY_MASK) {
+                        Gravity.TOP -> "top"
+                        Gravity.BOTTOM -> "bottom"
+                        Gravity.CENTER_VERTICAL, Gravity.CENTER -> "center"
+                        else -> "center"
+                    }
                 h to v
             }
             else -> "left" to "center"
         }
-    }
 
     // --- Masking decisions (aligned with MaskingCollector) ---
 
@@ -320,34 +327,48 @@ internal object WireframeCapture {
         }
     }
 
-    private fun ImageView.shouldMaskImage(config: SessionReplayConfig, dm: android.util.DisplayMetrics): Boolean {
+    private fun ImageView.shouldMaskImage(
+        config: SessionReplayConfig,
+        dm: android.util.DisplayMetrics,
+    ): Boolean {
         if (isExplicitlyUnmasked()) return false
         if (isExplicitlyMasked()) return true
         return config.imagePrivacy == ImagePrivacy.MASK_ALL && drawable?.shouldMaskDrawable(dm) == true
     }
 
     @Suppress("UNUSED_PARAMETER")
-    private fun Drawable.shouldMaskDrawable(dm: android.util.DisplayMetrics): Boolean = when (this) {
-        is InsetDrawable, is ColorDrawable, is VectorDrawable, is GradientDrawable, is LayerDrawable -> false
-        is BitmapDrawable -> bitmap.isValid()
-        else -> true
-    }
+    private fun Drawable.shouldMaskDrawable(dm: android.util.DisplayMetrics): Boolean =
+        when (this) {
+            is InsetDrawable, is ColorDrawable, is VectorDrawable, is GradientDrawable, is LayerDrawable -> false
+            is BitmapDrawable -> bitmap.isValid()
+            else -> true
+        }
 
-    private fun isPasswordInputType(inputType: Int): Boolean =
-        InputTypeClassifier.isPasswordInputType(inputType)
+    private fun isPasswordInputType(inputType: Int): Boolean = InputTypeClassifier.isPasswordInputType(inputType)
 
-    private fun isSensitiveInputType(inputType: Int): Boolean =
-        InputTypeClassifier.isSensitiveInputType(inputType)
+    private fun isSensitiveInputType(inputType: Int): Boolean = InputTypeClassifier.isSensitiveInputType(inputType)
 
     // --- Drawing helpers ---
 
-    private fun Drawable.toRGBColor(): String? = when (this) {
-        is ColorDrawable -> color.toRGBColor()
-        is RippleDrawable -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) try { (this as RippleDrawable).getDrawable(0)?.toRGBColor() } catch (_: Throwable) { null } else null
-        is InsetDrawable -> drawable?.toRGBColor()
-        is GradientDrawable -> null
-        else -> null
-    }
+    private fun Drawable.toRGBColor(): String? =
+        when (this) {
+            is ColorDrawable -> color.toRGBColor()
+            is RippleDrawable ->
+                if (Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.M
+                ) {
+                    try {
+                        (this as RippleDrawable).getDrawable(0)?.toRGBColor()
+                    } catch (_: Throwable) {
+                        null
+                    }
+                } else {
+                    null
+                }
+            is InsetDrawable -> drawable?.toRGBColor()
+            is GradientDrawable -> null
+            else -> null
+        }
 
     private fun Drawable.base64(
         width: Int,
@@ -360,17 +381,22 @@ internal object WireframeCapture {
         val clonedDrawable = if (cloned) this else copy() ?: return null
         when (clonedDrawable) {
             is BitmapDrawable -> return clonedDrawable.bitmap.webpBase64()
-            is LayerDrawable -> return (0 until clonedDrawable.numberOfLayers).firstOrNull { clonedDrawable.getDrawable(it) != null }?.let { clonedDrawable.getDrawable(it)?.base64(width, height, config, displayMetrics) }
+            is LayerDrawable -> return (0 until clonedDrawable.numberOfLayers)
+                .firstOrNull {
+                    clonedDrawable.getDrawable(it) != null
+                }?.let { clonedDrawable.getDrawable(it)?.base64(width, height, config, displayMetrics) }
             is InsetDrawable -> return clonedDrawable.drawable?.base64(width, height, config, displayMetrics)
         }
         return try {
-            val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.MULTIPLY)
             clonedDrawable.setBounds(0, 0, width, height)
             clonedDrawable.draw(canvas)
             bitmap.webpBase64().also { bitmap.recycle() }
-        } catch (_: Throwable) { null }
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     private fun Drawable.copy(): Drawable? = constantState?.newDrawable()

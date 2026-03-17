@@ -26,8 +26,9 @@ public final class com/pulse/android/sdk/replay/PersistingReplayEmitter : com/pu
 	public fun <init> (Ljava/io/File;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;IIILcom/pulse/android/sdk/replay/ReplayStorageEncryption;Lkotlin/jvm/functions/Function1;)V
 	public synthetic fun <init> (Ljava/io/File;Lkotlin/jvm/functions/Function2;Lkotlin/jvm/functions/Function1;IIILcom/pulse/android/sdk/replay/ReplayStorageEncryption;Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun emit (Ljava/lang/String;Ljava/util/List;)V
-	public final fun flush ()V
+	public fun flush ()V
 	public final fun sendCachedEvents ()V
+	public final fun shutdown ()V
 }
 
 public final class com/pulse/android/sdk/replay/ReplayConstants {
@@ -38,6 +39,7 @@ public final class com/pulse/android/sdk/replay/ReplayConstants {
 
 public abstract interface class com/pulse/android/sdk/replay/ReplayEventEmitter {
 	public abstract fun emit (Ljava/lang/String;Ljava/util/List;)V
+	public fun flush ()V
 }
 
 public abstract interface class com/pulse/android/sdk/replay/ReplayStorageEncryption {
@@ -82,6 +84,12 @@ public final class com/pulse/android/sdk/replay/SessionReplayConfig {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCaptureLogcat ()Z
 	public final fun getDrawableConverter ()Lcom/pulse/android/sdk/replay/DrawableConverter;
+	public final fun getEffectiveFlushAt ()I
+	public final fun getEffectiveFlushIntervalSeconds ()I
+	public final fun getEffectiveMaxBatchSize ()I
+	public final fun getEffectiveScreenshotQuality ()I
+	public final fun getEffectiveScreenshotScale ()F
+	public final fun getEffectiveThrottleDelayMs ()J
 	public final fun getFlushAt ()I
 	public final fun getFlushIntervalSeconds ()I
 	public final fun getImagePrivacy ()Lcom/pulse/android/sdk/replay/ImagePrivacy;

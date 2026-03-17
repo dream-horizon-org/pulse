@@ -11,6 +11,8 @@ import android.view.PixelCopy
 import android.view.View
 import android.view.Window
 import androidx.annotation.RequiresApi
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.WireframeType
@@ -41,12 +43,7 @@ internal object ScreenshotCapture {
     internal fun shutdown() {
         if (shutDown) return
         shutDown = true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            pixelCopyThread.quitSafely()
-        } else {
-            @Suppress("DEPRECATION")
-            pixelCopyThread.quit()
-        }
+        pixelCopyThread.quitSafely()
         try {
             pixelCopyThread.join(2000)
         } catch (_: InterruptedException) {
@@ -83,7 +80,6 @@ internal object ScreenshotCapture {
         screenshotQuality: Int = 30,
     ): ReplayWireframe? {
         if (shutDown) return null
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
         if (!isVisible(view, logger)) return null
         if (view.width <= 0 || view.height <= 0) return null
 
@@ -104,7 +100,7 @@ internal object ScreenshotCapture {
 
         val maskableWidgets = maskRects
 
-        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val latch = CountDownLatch(1)
         var success = true
 
@@ -168,7 +164,7 @@ internal object ScreenshotCapture {
                 if (scale < 1f && bitmap.isValid()) {
                     val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
                     val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
-                    val scaled = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                    val scaled = bitmap.scale(w, h, true)
                     if (scaled !== bitmap) {
                         bitmap.recycle()
                         bitmapRecycled = true
@@ -221,10 +217,6 @@ internal object ScreenshotCapture {
             onDone(null)
             return
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            onDone(null)
-            return
-        }
         if (!isVisible(view, logger) || view.width <= 0 || view.height <= 0) {
             onDone(null)
             return
@@ -248,7 +240,7 @@ internal object ScreenshotCapture {
         val scale = screenshotScale.coerceIn(0.01f, 1f)
         val quality = screenshotQuality.coerceIn(0, 100)
 
-        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         try {
             PixelCopy.request(window, bitmap, { copyResult ->
                 try {
@@ -295,7 +287,7 @@ internal object ScreenshotCapture {
                             if (scale < 1f && bitmap.isValid()) {
                                 val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
                                 val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
-                                val scaled = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                                val scaled = bitmap.scale(w, h, true)
                                 if (scaled !== bitmap) bitmap.recycle()
                                 scaled
                             } else {
@@ -303,16 +295,17 @@ internal object ScreenshotCapture {
                             }
                         val base64 = if (success) toEncode.webpBase64(quality) else null
                         if (toEncode.isValid()) toEncode.recycle()
-                        val wireframe = ReplayWireframe(
-                            id = viewId,
-                            x = x,
-                            y = y,
-                            width = width,
-                            height = height,
-                            type = WireframeType.SCREENSHOT,
-                            base64 = base64,
-                            style = ReplayStyle(),
-                        )
+                        val wireframe =
+                            ReplayWireframe(
+                                id = viewId,
+                                x = x,
+                                y = y,
+                                width = width,
+                                height = height,
+                                type = WireframeType.SCREENSHOT,
+                                base64 = base64,
+                                style = ReplayStyle(),
+                            )
                         onDone(wireframe)
                     } else {
                         bitmap.recycle()
@@ -350,7 +343,7 @@ private fun View.isVisibleInternal(logger: (String) -> Unit): Boolean {
         var current: Any? = this
         while (current is View) {
             val v = current
-            val transitionAlpha = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) v.transitionAlpha else 1f
+            val transitionAlpha = v.transitionAlpha
             if (v.alpha <= 0 || transitionAlpha <= 0 || v.visibility != View.VISIBLE) return false
             current = v.parent
         }

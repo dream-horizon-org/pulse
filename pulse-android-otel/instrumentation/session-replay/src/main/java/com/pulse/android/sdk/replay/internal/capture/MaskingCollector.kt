@@ -31,7 +31,6 @@ import com.pulse.android.sdk.replay.ui.hasPrivacyUnmaskTag
  * ViewGroup propagation: a force-masked parent masks all children unless a child has an explicit unmask override.
  */
 internal object MaskingCollector {
-
     private val MASK_TAG = ReplayConstants.MASK_TAG
     private val UNMASK_TAG = ReplayConstants.UNMASK_TAG
 
@@ -59,7 +58,16 @@ internal object MaskingCollector {
 
         if (view.isComposeView(logger)) {
             findMaskableComposeWidgets(view, config, maskableWidgets, logger)
-            return walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask = false, screenToWindowOffset)
+            return walkChildren(
+                view,
+                config,
+                maskableWidgets,
+                visitedViews,
+                onDrawCalled,
+                logger,
+                parentForcedMask = false,
+                screenToWindowOffset,
+            )
         }
 
         val instanceDecision = view.resolveInstanceDecision()
@@ -106,7 +114,17 @@ internal object MaskingCollector {
             }
             val child = view.getChildAt(i) ?: continue
             if (!child.isVisible(logger)) continue
-            if (!findMaskableWidgets(child, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask, screenToWindowOffset)) {
+            if (!findMaskableWidgets(
+                    child,
+                    config,
+                    maskableWidgets,
+                    visitedViews,
+                    onDrawCalled,
+                    logger,
+                    parentForcedMask,
+                    screenToWindowOffset,
+                )
+            ) {
                 return false
             }
         }
@@ -195,7 +213,10 @@ internal object MaskingCollector {
         }
     }
 
-    private fun shouldMaskEditText(view: EditText, config: SessionReplayConfig): Boolean {
+    private fun shouldMaskEditText(
+        view: EditText,
+        config: SessionReplayConfig,
+    ): Boolean {
         if (isPasswordInputType(view.inputType)) return true
         return when (config.textAndInputPrivacy) {
             TextAndInputPrivacy.MASK_ALL -> true
@@ -204,7 +225,10 @@ internal object MaskingCollector {
         }
     }
 
-    private fun shouldMaskTextView(view: TextView, config: SessionReplayConfig): Boolean {
+    private fun shouldMaskTextView(
+        view: TextView,
+        config: SessionReplayConfig,
+    ): Boolean {
         if (isPasswordInputType(view.inputType)) return true
         return when (config.textAndInputPrivacy) {
             TextAndInputPrivacy.MASK_ALL -> true
@@ -223,8 +247,10 @@ internal object MaskingCollector {
             TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> false
         }
 
-    private fun shouldMaskImage(view: ImageView, config: SessionReplayConfig): Boolean =
-        config.imagePrivacy == ImagePrivacy.MASK_ALL && view.drawable != null
+    private fun shouldMaskImage(
+        view: ImageView,
+        config: SessionReplayConfig,
+    ): Boolean = config.imagePrivacy == ImagePrivacy.MASK_ALL && view.drawable != null
 
     private fun shouldMaskWebView(config: SessionReplayConfig): Boolean =
         config.textAndInputPrivacy != TextAndInputPrivacy.MASK_SENSITIVE_INPUTS ||
@@ -232,11 +258,9 @@ internal object MaskingCollector {
 
     // --- Input type classification (delegated to shared utility) ---
 
-    private fun isPasswordInputType(inputType: Int): Boolean =
-        InputTypeClassifier.isPasswordInputType(inputType)
+    private fun isPasswordInputType(inputType: Int): Boolean = InputTypeClassifier.isPasswordInputType(inputType)
 
-    private fun isSensitiveInputType(inputType: Int): Boolean =
-        InputTypeClassifier.isSensitiveInputType(inputType)
+    private fun isSensitiveInputType(inputType: Int): Boolean = InputTypeClassifier.isSensitiveInputType(inputType)
 
     // --- Rect helpers ---
 
@@ -262,7 +286,10 @@ internal object MaskingCollector {
      * dropped — an approximate mask is safer than no mask at all.
      */
     @Suppress("UNUSED_PARAMETER")
-    private fun View.windowVisibleRectSafe(offset: IntArray, logger: (String) -> Unit): Rect? {
+    private fun View.windowVisibleRectSafe(
+        offset: IntArray,
+        logger: (String) -> Unit,
+    ): Rect? {
         return try {
             val rect = Rect()
             if (!getGlobalVisibleRect(rect, null)) return null
@@ -274,7 +301,10 @@ internal object MaskingCollector {
         }
     }
 
-    private fun TextView.getTextAreaWindowRect(offset: IntArray, logger: (String) -> Unit): Rect? {
+    private fun TextView.getTextAreaWindowRect(
+        offset: IntArray,
+        logger: (String) -> Unit,
+    ): Rect? {
         val fullRect = windowVisibleRectSafe(offset, logger) ?: return null
         val shouldAdjust = this is EditText || this is android.widget.Button
         if (!shouldAdjust) return fullRect
@@ -329,10 +359,11 @@ internal object MaskingCollector {
         logger: (String) -> Unit,
     ) {
         try {
-            val semanticsOwner = (view as? androidx.compose.ui.node.RootForTest)?.semanticsOwner ?: run {
-                logger("View is not a RootForTest: $view")
-                return
-            }
+            val semanticsOwner =
+                (view as? androidx.compose.ui.node.RootForTest)?.semanticsOwner ?: run {
+                    logger("View is not a RootForTest: $view")
+                    return
+                }
             val semanticsNodes = semanticsOwner.getAllSemanticsNodes(mergingEnabled = false)
             val maskKey = PulseReplayMaskKey
             for (node in semanticsNodes) {
@@ -399,5 +430,4 @@ internal object MaskingCollector {
     private enum class MaskDecision { MASK, UNMASK, UNDECIDED }
 }
 
-private fun androidx.compose.ui.geometry.Rect.toAndroidRect(): Rect =
-    Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+private fun androidx.compose.ui.geometry.Rect.toAndroidRect(): Rect = Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())

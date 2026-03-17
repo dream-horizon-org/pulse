@@ -13,7 +13,6 @@ import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
 import com.pulse.android.sdk.replay.ImagePrivacy
 import com.pulse.android.sdk.replay.SessionReplayBootstrap
 import com.pulse.android.sdk.replay.SessionReplayConfig
-import com.pulse.android.sdk.replay.SessionReplayInstrumentation
 import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
@@ -23,12 +22,12 @@ import com.pulse.sampling.models.PulseProp
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalScope
-import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
 import com.pulse.utils.PulseOtelUtils
+import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
@@ -400,8 +399,9 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             return null
         }
 
-        val backendFeature = sdkConfig.features
-            .firstOrNull { it.featureName == PulseFeatureName.SESSION_REPLAY }
+        val backendFeature =
+            sdkConfig.features
+                .firstOrNull { it.featureName == PulseFeatureName.SESSION_REPLAY }
 
         if (backendFeature == null) {
             PulseOtelUtils.logDebug(TAG) { "Session replay disabled: feature absent from backend config" }
@@ -417,29 +417,32 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         val base = localConfig ?: SessionReplayConfig()
 
-        val featureConfig = backendFeature.config?.let { jsonObj ->
-            runCatching {
-                PulseSerialisationUtils.jsonConfigForSerialisation
-                    .decodeFromJsonElement(PulseSessionReplayFeatureConfig.serializer(), jsonObj)
-            }.onFailure {
-                PulseOtelUtils.logDebug(TAG) { "Failed to parse session_replay feature config: ${it.message}" }
-            }.getOrNull()
-        }
+        val featureConfig =
+            backendFeature.config?.let { jsonObj ->
+                runCatching {
+                    PulseSerialisationUtils.jsonConfigForSerialisation
+                        .decodeFromJsonElement(PulseSessionReplayFeatureConfig.serializer(), jsonObj)
+                }.onFailure {
+                    PulseOtelUtils.logDebug(TAG) { "Failed to parse session_replay feature config: ${it.message.orEmpty()}" }
+                }.getOrNull()
+            }
 
         if (featureConfig == null) return base
 
         PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config" }
 
-        val resolvedTextPrivacy = featureConfig.textAndInputPrivacy?.let { value ->
-            runCatching { TextAndInputPrivacy.valueOf(value) }
-                .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
-                .getOrNull()
-        }
-        val resolvedImagePrivacy = featureConfig.imagePrivacy?.let { value ->
-            runCatching { ImagePrivacy.valueOf(value) }
-                .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
-                .getOrNull()
-        }
+        val resolvedTextPrivacy =
+            featureConfig.textAndInputPrivacy?.let { value ->
+                runCatching { TextAndInputPrivacy.valueOf(value) }
+                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
+                    .getOrNull()
+            }
+        val resolvedImagePrivacy =
+            featureConfig.imagePrivacy?.let { value ->
+                runCatching { ImagePrivacy.valueOf(value) }
+                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
+                    .getOrNull()
+            }
 
         return base.copy(
             textAndInputPrivacy = resolvedTextPrivacy ?: base.textAndInputPrivacy,

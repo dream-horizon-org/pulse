@@ -17,7 +17,6 @@ internal class NextDrawListener(
     private val onDrawCallback: () -> Unit,
     private val onDrawThrottlerCallback: () -> Unit,
 ) : ViewTreeObserver.OnDrawListener {
-
     private val throttler = Throttler(mainHandler, dateProvider, throttleDelayMs)
 
     override fun onDraw() {
@@ -43,22 +42,21 @@ internal class NextDrawListener(
             onDrawCallback: () -> Unit,
             onDrawThrottlerCallback: () -> Unit,
         ): NextDrawListener {
-            val listener = NextDrawListener(
-                this,
-                mainHandler,
-                dateProvider,
-                throttleDelayMs,
-                onDrawCallback,
-                onDrawThrottlerCallback,
-            )
+            val listener =
+                NextDrawListener(
+                    this,
+                    mainHandler,
+                    dateProvider,
+                    throttleDelayMs,
+                    onDrawCallback,
+                    onDrawThrottlerCallback,
+                )
             listener.safelyRegisterForNextDraw()
             return listener
         }
     }
 }
 
-internal fun View.isAliveAndAttachedToWindow(): Boolean =
-    isAlive() && isAttachedToWindow
+internal fun View.isAliveAndAttachedToWindow(): Boolean = isAlive() && isAttachedToWindow
 
-internal fun View.isAlive(): Boolean =
-    viewTreeObserver?.isAlive == true
+internal fun View.isAlive(): Boolean = viewTreeObserver?.isAlive == true

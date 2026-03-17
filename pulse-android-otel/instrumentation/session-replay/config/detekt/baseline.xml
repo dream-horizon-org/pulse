@@ -1,0 +1,116 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>BooleanPropertyNaming:MaskRectCache.kt:MaskRectCache$@Volatile var valid: Boolean = false private set</ID>
+    <ID>BooleanPropertyNaming:MaskRectCache.kt:MaskRectCache$val masksValid = MaskingCollector.findMaskableWidgets( view, config, collected, onDrawCalled = onDrawCalled, logger = logger, )</ID>
+    <ID>BooleanPropertyNaming:MaskingCollector.kt:MaskingCollector$var forceMaskChildren = parentForcedMask</ID>
+    <ID>BooleanPropertyNaming:ReplayLog.kt:ReplayLog$private val enabled: Boolean get() = BuildConfig.DEBUG</ID>
+    <ID>BooleanPropertyNaming:ReplayWireframe.kt:ReplayWireframe$public val checked: Boolean? = null</ID>
+    <ID>BooleanPropertyNaming:ReplayWireframe.kt:ReplayWireframe$public val disabled: Boolean? = null</ID>
+    <ID>BooleanPropertyNaming:ScreenshotCapture.kt:ScreenshotCapture$@Suppress("KotlinConstantConditions") var bitmapRecycled = false</ID>
+    <ID>BooleanPropertyNaming:ScreenshotCapture.kt:ScreenshotCapture$@Volatile private var shutDown = false</ID>
+    <ID>BooleanPropertyNaming:ScreenshotCapture.kt:ScreenshotCapture$var success = true</ID>
+    <ID>BooleanPropertyNaming:SessionReplayConfig.kt:SessionReplayConfig$/** Screenshot capture is always enabled (PixelCopy mode). */ val screenshot: Boolean = true</ID>
+    <ID>BooleanPropertyNaming:SessionReplayConfig.kt:SessionReplayConfig$val captureLogcat: Boolean = false</ID>
+    <ID>BooleanPropertyNaming:SessionReplayConfiguration.kt:SessionReplayConfiguration$internal var configured: Boolean = false private set</ID>
+    <ID>BooleanPropertyNaming:SessionReplayIntegration.kt:SessionReplayIntegration$val snapshotMasksValid = viewMaskCache.valid</ID>
+    <ID>BooleanPropertyNaming:SnapshotPipeline.kt:SnapshotPipeline$val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())</ID>
+    <ID>BooleanPropertyNaming:ViewTreeSnapshotStatus.kt:ViewTreeSnapshotStatus$var keyboardVisible: Boolean = false</ID>
+    <ID>BooleanPropertyNaming:ViewTreeSnapshotStatus.kt:ViewTreeSnapshotStatus$var sentFullSnapshot: Boolean = false</ID>
+    <ID>BooleanPropertyNaming:ViewTreeSnapshotStatus.kt:ViewTreeSnapshotStatus$var sentMetaEvent: Boolean = false</ID>
+    <ID>BooleanPropertyNaming:WireframeCapture.kt:WireframeCapture$val mask = shouldMaskSpinner(config)</ID>
+    <ID>BooleanPropertyNaming:WireframeCapture.kt:WireframeCapture$var checked: Boolean? = null</ID>
+    <ID>BracesOnWhenStatements:MaskingCollector.kt:MaskingCollector$-&gt;</ID>
+    <ID>BracesOnWhenStatements:ReplayEnvelopeBuilder.kt:ReplayEnvelopeBuilder$-&gt;</ID>
+    <ID>BracesOnWhenStatements:ReplayEventPayloadEncoder.kt:ReplayEventPayloadEncoder$-&gt;</ID>
+    <ID>BracesOnWhenStatements:SessionReplayIntegration.kt:SessionReplayIntegration$-&gt;</ID>
+    <ID>BracesOnWhenStatements:WireframeCapture.kt:WireframeCapture$-&gt;</ID>
+    <ID>CognitiveComplexMethod:ScreenshotCapture.kt:ScreenshotCapture$@RequiresApi(Build.VERSION_CODES.O) fun capture: ReplayWireframe?</ID>
+    <ID>CognitiveComplexMethod:ScreenshotCapture.kt:ScreenshotCapture$@Suppress("LongMethod", "ComplexMethod") @RequiresApi(Build.VERSION_CODES.O) fun captureAsync</ID>
+    <ID>CognitiveComplexMethod:SessionReplayIntegration.kt:SessionReplayIntegration$private fun addView</ID>
+    <ID>CognitiveComplexMethod:WireframeCapture.kt:WireframeCapture$@Suppress("LongMethod", "CyclomaticComplexMethod") private fun View.toWireframeInternal: ReplayWireframe?</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$Custom : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$DomContentLoaded : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$FullSnapshot : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$IncrementalSnapshot : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$Load : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$Meta : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayEventType.kt:ReplayEventType$Plugin : ReplayEventType</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$AdoptedStyleSheet : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$CanvasMutation : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$CustomElement : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Drag : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Font : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Input : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Log : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$MediaInteraction : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$MouseInteraction : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$MouseMove : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Mutation : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Scroll : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$Selection : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$StyleDeclaration : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$StyleSheetRule : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$TouchMove : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayIncrementalSource.kt:ReplayIncrementalSource$ViewportResize : ReplayIncrementalSource</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$Blur : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$Click : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$ContextMenu : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$DblClick : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$Focus : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$MouseDown : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$MouseUp : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$TouchCancel : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$TouchEnd : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$TouchMoveDeparted : ReplayMouseInteraction</ID>
+    <ID>EnumNaming:ReplayMouseInteraction.kt:ReplayMouseInteraction$TouchStart : ReplayMouseInteraction</ID>
+    <ID>ForbiddenImport:ReplayEnvelopeBuilder.kt:import org.json.JSONArray</ID>
+    <ID>ForbiddenImport:ReplayEnvelopeBuilder.kt:import org.json.JSONObject</ID>
+    <ID>ForbiddenImport:ReplayEventPayloadEncoder.kt:import org.json.JSONArray</ID>
+    <ID>ForbiddenImport:ReplayEventPayloadEncoder.kt:import org.json.JSONObject</ID>
+    <ID>ForbiddenMethodCall:MaskingCollector.kt:MaskingCollector$isNullOrEmpty()</ID>
+    <ID>ForbiddenMethodCall:WireframeCapture.kt:WireframeCapture$isNullOrEmpty()</ID>
+    <ID>FunctionNameMinLength:ReplayLog.kt:ReplayLog$fun d</ID>
+    <ID>FunctionNameMinLength:ReplayLog.kt:ReplayLog$fun e</ID>
+    <ID>FunctionNameMinLength:ReplayLog.kt:ReplayLog$fun i</ID>
+    <ID>FunctionNameMinLength:ReplayLog.kt:ReplayLog$fun w</ID>
+    <ID>ImplicitDefaultLocale:WireframeCapture.kt:WireframeCapture$String.format("#%06X", 0xFFFFFF and this)</ID>
+    <ID>LongMethod:ScreenshotCapture.kt:ScreenshotCapture$@RequiresApi(Build.VERSION_CODES.O) fun capture: ReplayWireframe?</ID>
+    <ID>LoopWithTooManyJumpStatements:MaskingCollector.kt:MaskingCollector$for</ID>
+    <ID>LoopWithTooManyJumpStatements:ReplayEnvelopeBuilder.kt:ReplayEnvelopeBuilder$for</ID>
+    <ID>LoopWithTooManyJumpStatements:SnapshotPipeline.kt:SnapshotPipeline$for</ID>
+    <ID>MapGetWithNotNullAssertionOperator:SnapshotPipeline.kt:SnapshotPipeline$newMap[id]!!</ID>
+    <ID>MaxLineLength:SessionReplayInstrumentation.kt:SessionReplayInstrumentation$"Session replay payload (no API URL): $payloadSizeKb KB (${payload.length} bytes)${if (sessionIdsLog != null) " — $sessionIdsLog" else ""}"</ID>
+    <ID>NamedArguments:MaskingCollector.kt:MaskingCollector$findMaskableWidgets( child, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask, screenToWindowOffset, )</ID>
+    <ID>NamedArguments:MaskingCollector.kt:MaskingCollector$walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, forceMaskChildren, screenToWindowOffset)</ID>
+    <ID>NoNameShadowing:PersistingReplayEmitter.kt:PersistingReplayEmitter${ toSend.add(it) }</ID>
+    <ID>NullableToStringCall:LoggingReplayEventEmitter.kt:LoggingReplayEventEmitter$${e.data?.javaClass?.simpleName}</ID>
+    <ID>NullableToStringCall:PersistingReplayEmitter.kt:PersistingReplayEmitter$${t.message}</ID>
+    <ID>NullableToStringCall:SessionReplayApiClient.kt:SessionReplayApiClient.HttpException$$message</ID>
+    <ID>ReplaceSafeCallChainWithRun:LoggingReplayEventEmitter.kt:LoggingReplayEventEmitter$e.data?.javaClass?.simpleName</ID>
+    <ID>ReplaceSafeCallChainWithRun:MaskingCollector.kt:MaskingCollector$contentDescription?.toString()?.lowercase()</ID>
+    <ID>ReplaceSafeCallChainWithRun:PersistingReplayEmitter.kt:PersistingReplayEmitter$storageDir.listFiles()?.filter { it.isFile &amp;&amp; it.name.endsWith(".replay") }?.sortedBy { it.lastModified() }</ID>
+    <ID>ReplaceSafeCallChainWithRun:SessionReplayApiClient.kt:SessionReplayApiClient$response.body?.string()?.take(MAX_ERROR_BODY_LOG)</ID>
+    <ID>ReplaceSafeCallChainWithRun:SnapshotPipeline.kt:SnapshotPipeline$(context as? android.app.Activity)?.title?.toString()?.substringAfter("/")</ID>
+    <ID>ReplaceSafeCallChainWithRun:WireframeCapture.kt:WireframeCapture$adapter.getItem(i)?.toString()?.let { item -&gt; items.add(if (!mask) item else item.mask()) }</ID>
+    <ID>ReplaceSafeCallChainWithRun:WireframeCapture.kt:WireframeCapture$contentDescription?.toString()?.lowercase()</ID>
+    <ID>ReturnCount:WireframeCapture.kt:WireframeCapture$private fun Drawable.base64: String?</ID>
+    <ID>StringLiteralDuplication:ReplayEnvelopeBuilder.kt:ReplayEnvelopeBuilder$"properties"</ID>
+    <ID>StringLiteralDuplication:ReplayEventPayloadEncoder.kt:ReplayEventPayloadEncoder$"parentId"</ID>
+    <ID>StringLiteralDuplication:WireframeCapture.kt:WireframeCapture$"center"</ID>
+    <ID>SwallowedException:ScreenshotCapture.kt:ScreenshotCapture$e: Throwable</ID>
+    <ID>UnnecessarySafeCall:SessionReplayApiClient.kt:SessionReplayApiClient$response.body?.string()</ID>
+    <ID>UnsafeCallOnNullableType:SnapshotPipeline.kt:SnapshotPipeline$newMap[id]!!</ID>
+    <ID>UnusedImport:SessionReplayIntegration.kt:import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener</ID>
+    <ID>UnusedImport:SessionReplayIntegration.kt:import curtains.touchEventInterceptors</ID>
+    <ID>UnusedParameter:SnapshotPipeline.kt:SnapshotPipeline$config: SessionReplayConfig</ID>
+    <ID>UnusedParameter:SnapshotPipeline.kt:SnapshotPipeline$dateProvider: DateProvider</ID>
+    <ID>UnusedPrivateFunction:SnapshotPipeline.kt:SnapshotPipeline$private fun detectKeyboardVisibility: Pair&lt;Boolean, ReplayCustomEvent?&gt;</ID>
+    <ID>UnusedPrivateProperty:SessionReplayIntegration.kt:SessionReplayIntegration$/** Used when touch/mouse capture is re-enabled (see commented registration in addView). */ private val onTouchEventListener = TouchEventInterceptor { motionEvent, dispatch -&gt; val timestamp = dateProvider.currentTimeMillis() try { val state = dispatch(motionEvent) try { val safeMotionEvent = MotionEvent.obtain(motionEvent) executor.submit { try { if (!isActive()) return@submit when (safeMotionEvent.action and MotionEvent.ACTION_MASK) { MotionEvent.ACTION_DOWN -&gt; generateMouseInteractions(timestamp, safeMotionEvent, ReplayMouseInteraction.TouchStart) MotionEvent.ACTION_UP -&gt; generateMouseInteractions(timestamp, safeMotionEvent, ReplayMouseInteraction.TouchEnd) } } catch (e: Throwable) { logger("Executor#OnTouchEventListener $safeMotionEvent failed: $e") } finally { safeMotionEvent.recycle() } } state } catch (_: Throwable) { state } } catch (e: Throwable) { logger("TouchEventInterceptor $motionEvent failed: $e") throw e } }</ID>
+    <ID>UnusedVariable:SessionReplayIntegration.kt:SessionReplayIntegration$val status = decorViews[view] ?: return</ID>
+    <ID>UseOrEmpty:PersistingReplayEmitter.kt:PersistingReplayEmitter$storageDir.listFiles()?.filter { it.isFile &amp;&amp; it.name.endsWith(".replay") }?.sortedBy { it.lastModified() } ?: emptyList()</ID>
+    <ID>UseOrEmpty:SessionReplayApiClient.kt:SessionReplayApiClient$response.body?.string()?.take(MAX_ERROR_BODY_LOG) ?: ""</ID>
+    <ID>UseOrEmpty:SnapshotPipeline.kt:SnapshotPipeline$(context as? android.app.Activity)?.title?.toString()?.substringAfter("/") ?: ""</ID>
+  </CurrentIssues>
+</SmellBaseline>

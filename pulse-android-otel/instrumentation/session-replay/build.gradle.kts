@@ -32,7 +32,7 @@ dependencies {
     implementation(projects.session)
     implementation(projects.pulseUtils)
     implementation(libs.findLibrary("androidx-core").get())
-    implementation("com.squareup.curtains:curtains:1.2.5")
+    implementation(libs.findLibrary("curtains").get())
     implementation(libs.findLibrary("findbugs-jsr305").get())
     implementation(libs.findLibrary("androidx-annotation").get())
     compileOnly(libs.findLibrary("compose").get())
@@ -42,5 +42,5 @@ dependencies {
     testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
     testImplementation(libs.findLibrary("robolectric").get())
     testImplementation(libs.findLibrary("okhttp-mockwebserver").get())
-    testImplementation("org.json:json:20231013")
+    testImplementation(libs.findLibrary("json").get())
 }

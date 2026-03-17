@@ -26,7 +26,10 @@ internal object ReplayLog {
         if (enabled) Log.w(TAG, message)
     }
 
-    fun w(message: String, throwable: Throwable?) {
+    fun w(
+        message: String,
+        throwable: Throwable?,
+    ) {
         if (enabled) Log.w(TAG, message, throwable)
     }
 
@@ -34,7 +37,10 @@ internal object ReplayLog {
         if (enabled) Log.e(TAG, message)
     }
 
-    fun e(message: String, throwable: Throwable?) {
+    fun e(
+        message: String,
+        throwable: Throwable?,
+    ) {
         if (enabled) Log.e(TAG, message, throwable)
     }
 }

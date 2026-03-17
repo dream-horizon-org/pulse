@@ -25,4 +25,5 @@ dependencies {
     implementation(libs.kotlin.serialisation)
     implementation(projects.pulseUtils)
     testImplementation(libs.bundles.junit)
+    testFixturesImplementation(libs.kotlin.serialisation)
 }

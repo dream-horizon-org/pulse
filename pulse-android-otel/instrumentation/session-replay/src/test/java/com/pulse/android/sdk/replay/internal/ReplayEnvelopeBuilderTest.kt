@@ -5,15 +5,15 @@ import org.json.JSONObject
 import org.junit.jupiter.api.Test
 
 class ReplayEnvelopeBuilderTest {
-
     @Test
     fun `buildEnvelope produces valid JSON with session_id and snapshot_source`() {
-        val json = ReplayEnvelopeBuilder.buildEnvelope(
-            sessionId = "sid-123",
-            events = emptyList(),
-            projectId = "proj-1",
-            userId = "user-1",
-        )
+        val json =
+            ReplayEnvelopeBuilder.buildEnvelope(
+                sessionId = "sid-123",
+                events = emptyList(),
+                projectId = "proj-1",
+                userId = "user-1",
+            )
         assertThat(json).contains("snapshot")
         assertThat(json).contains("sid-123")
         assertThat(json).contains("proj-1")
@@ -27,12 +27,13 @@ class ReplayEnvelopeBuilderTest {
 
     @Test
     fun `buildEnvelope uses anonymous when userId is empty`() {
-        val json = ReplayEnvelopeBuilder.buildEnvelope(
-            sessionId = "s",
-            events = emptyList(),
-            projectId = "p",
-            userId = "",
-        )
+        val json =
+            ReplayEnvelopeBuilder.buildEnvelope(
+                sessionId = "s",
+                events = emptyList(),
+                projectId = "p",
+                userId = "",
+            )
         assertThat(JSONObject(json).getString("user_id")).isEqualTo("anonymous")
     }
 

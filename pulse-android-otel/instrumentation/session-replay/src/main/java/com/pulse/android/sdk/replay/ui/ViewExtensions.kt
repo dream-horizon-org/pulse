@@ -23,8 +23,7 @@ public fun View.pulseReplayUnmask() {
     setTag(R.id.pulse_replay_privacy, PRIVACY_UNMASK)
 }
 
-internal fun View.getPrivacyTagValue(): String? =
-    getTag(R.id.pulse_replay_privacy) as? String
+internal fun View.getPrivacyTagValue(): String? = getTag(R.id.pulse_replay_privacy) as? String
 
 internal fun View.hasPrivacyMaskTag(): Boolean = getPrivacyTagValue() == PRIVACY_MASK
 

@@ -23,7 +23,6 @@ public class SessionReplayApiClient(
     private val maxRetries: Int = 2,
     private val retryDelayMs: Long = 1_000L,
 ) {
-
     private val okHttpClient: OkHttpClient
         get() = PulseNetworkingUtils.okHttpClient
 
@@ -64,24 +63,27 @@ public class SessionReplayApiClient(
         return false
     }
 
-    private fun executePost(body: String): Result<Unit> = runCatching {
-        val request = Request.Builder()
-            .url(uploadUrl)
-            .post(body.toRequestBody(JSON_MEDIA_TYPE))
-            .build()
-        okHttpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                val responseBody = response.body?.string()?.take(MAX_ERROR_BODY_LOG) ?: ""
-                ReplayLog.e("Session replay API error: ${response.code} ${response.message}. Body: $responseBody")
-                if (body.length <= MAX_REQUEST_LOG) {
-                    ReplayLog.e("Request payload: $body")
-                } else {
-                    ReplayLog.e("Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...")
+    private fun executePost(body: String): Result<Unit> =
+        runCatching {
+            val request =
+                Request
+                    .Builder()
+                    .url(uploadUrl)
+                    .post(body.toRequestBody(JSON_MEDIA_TYPE))
+                    .build()
+            okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val responseBody = response.body?.string()?.take(MAX_ERROR_BODY_LOG) ?: ""
+                    ReplayLog.e("Session replay API error: ${response.code} ${response.message}. Body: $responseBody")
+                    if (body.length <= MAX_REQUEST_LOG) {
+                        ReplayLog.e("Request payload: $body")
+                    } else {
+                        ReplayLog.e("Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...")
+                    }
+                    throw HttpException(response.code, response.message, responseBody)
                 }
-                throw HttpException(response.code, response.message, responseBody)
             }
         }
-    }
 
     private class HttpException(
         val code: Int,

@@ -8,7 +8,7 @@ public class ReplayCustomEvent(
     payload: Map<String, Any>,
     timestamp: Long,
 ) : ReplayEvent(
-    type = ReplayEventType.Custom,
-    timestamp = timestamp,
-    data = ReplayCustomEventData(tag = tag, payload = payload),
-)
+        type = ReplayEventType.Custom,
+        timestamp = timestamp,
+        data = ReplayCustomEventData(tag = tag, payload = payload),
+    )

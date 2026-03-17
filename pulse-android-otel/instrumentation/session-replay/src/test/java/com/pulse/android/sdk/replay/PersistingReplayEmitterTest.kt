@@ -247,7 +247,10 @@ class PersistingReplayEmitterTest {
             PersistingReplayEmitter(
                 storageDir = tempDir,
                 buildEnvelope = { _, _ -> """{"event":"snapshot"}""" },
-                realSend = { payload -> sent.set(payload); Result.success(Unit) },
+                realSend = { payload ->
+                    sent.set(payload)
+                    Result.success(Unit)
+                },
                 flushIntervalSeconds = 60,
                 flushAt = 10,
                 maxBatchSize = 50,

@@ -221,7 +221,7 @@ public class PersistingReplayEmitter(
                             if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                         }
                     },
-                        onFailure = { t ->
+                    onFailure = { t ->
                         ReplayLog.w(
                             "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry",
                             t,
@@ -263,7 +263,7 @@ public class PersistingReplayEmitter(
         if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
 
     private fun scheduleFlush(): ScheduledFuture<*> =
-        executor.scheduleAtFixedRate(
+        executor.scheduleWithFixedDelay(
             { flushIfNeeded() },
             flushIntervalSeconds.toLong(),
             flushIntervalSeconds.toLong(),
