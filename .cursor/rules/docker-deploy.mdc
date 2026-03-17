@@ -36,6 +36,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 - `APP_ENVIRONMENT` — **Required.** Application environment (`dev`, `stag`, `uat`, `prod`). Validated at startup.
 - `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `CONFIG_REPLAY_API_BASE_URL` — session replay API base URL (e.g. `http://localhost:3400`); used in default SDK config
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
 - `REACT_APP_*` — frontend build-time config
