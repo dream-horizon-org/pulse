@@ -343,6 +343,144 @@ class SessionListingServiceTest {
 
       assertThat(result.getPage().getLimit()).isEqualTo(25);
     }
+
+    @Test
+    void shouldUseDefaultPageSizeWhenLimitZero() {
+      SessionListingRequest request = SessionListingRequest.builder()
+          .timeRange(TimeRangeRequest.builder().from("2024-01-01T00:00:00Z").to("2024-01-01T23:59:59Z").build())
+          .page(PageRequest.builder().limit(0).build())
+          .build();
+      QueryResultResponse<SessionRow> empty =
+          QueryResultResponse.<SessionRow>builder().rows(Collections.emptyList()).jobComplete(true).build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
+          .thenReturn(Single.just(empty));
+
+      SessionListingResponse result = sessionListingService.getSessionListing(request).blockingGet();
+
+      assertThat(result.getPage().getLimit()).isEqualTo(10);
+    }
+
+    @Test
+    void shouldCapPageLimitAtMax() {
+      SessionListingRequest request = SessionListingRequest.builder()
+          .timeRange(TimeRangeRequest.builder().from("2024-01-01T00:00:00Z").to("2024-01-01T23:59:59Z").build())
+          .page(PageRequest.builder().limit(150).build())
+          .build();
+      QueryResultResponse<SessionRow> empty =
+          QueryResultResponse.<SessionRow>builder().rows(Collections.emptyList()).jobComplete(true).build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
+          .thenReturn(Single.just(empty));
+
+      SessionListingResponse result = sessionListingService.getSessionListing(request).blockingGet();
+
+      assertThat(result.getPage().getLimit()).isEqualTo(100);
+    }
+
+    @Test
+    void shouldHandleNullRowsInQueryResult() {
+      SessionListingRequest request = minimalRequest();
+      QueryResultResponse<SessionRow> listingWithNullRows =
+          QueryResultResponse.<SessionRow>builder().rows(null).jobComplete(true).build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
+          .thenReturn(Single.just(listingWithNullRows));
+
+      SessionListingResponse result = sessionListingService.getSessionListing(request).blockingGet();
+
+      assertThat(result.getSessions()).isEmpty();
+      assertThat(result.getPage().isHasMore()).isFalse();
+    }
+
+    @Test
+    void shouldReturnSessionWithIssuesAndAnrScreensOnly() {
+      SessionListingRequest request = minimalRequest();
+      SessionRow row = SessionRow.builder()
+          .sessionId("s1")
+          .startTime("2024-01-01T12:00:00Z")
+          .durationMs(5000L)
+          .user("u1")
+          .qualityScore(0.5)
+          .platform("iOS")
+          .spanCount(50L)
+          .crashCount(1L)
+          .anrCount(1L)
+          .networkErrors(2L)
+          .nonFatal(1L)
+          .interactionErrors(1L)
+          .slowInteractionCount(1L)
+          .frozenFrameCount(1.5)
+          .build();
+      ImpactedScreensRow screensRow = ImpactedScreensRow.builder()
+          .sessionId("s1")
+          .crashScreens("")
+          .anrScreens("AnrScreen1")
+          .nonFatalScreens("")
+          .build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
+          .thenReturn(Single.just(QueryResultResponse.<SessionRow>builder().rows(List.of(row)).jobComplete(true).build()));
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(JourneyRow.class)))
+          .thenReturn(Single.just(QueryResultResponse.<JourneyRow>builder()
+              .rows(List.of(JourneyRow.builder().sessionId("s1").journey("").build())).jobComplete(true).build()));
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedScreensRow.class)))
+          .thenReturn(Single.just(QueryResultResponse.<ImpactedScreensRow>builder()
+              .rows(List.of(screensRow)).jobComplete(true).build()));
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(ImpactedInteractionsRow.class)))
+          .thenReturn(Single.just(QueryResultResponse.<ImpactedInteractionsRow>builder()
+              .rows(Collections.emptyList()).jobComplete(true).build()));
+
+      SessionListingResponse result = sessionListingService.getSessionListing(request).blockingGet();
+
+      assertThat(result.getSessions()).hasSize(1);
+      SessionListingResponse.SessionItem item = result.getSessions().get(0);
+      assertThat(item.getIssues()).isNotEmpty();
+      assertThat(item.getIssues()).extracting("type").contains("CRASH", "ANR", "NETWORK_ERROR", "NON_FATAL", "INTERACTION_ERROR", "SLOW_INTERACTION", "FROZEN_FRAME");
+      assertThat(item.getImpactedScreens()).containsOnlyKeys("anrs");
+      assertThat(item.getImpactedScreens().get("anrs")).containsExactly("AnrScreen1");
+      assertThat(item.getJourney()).isEmpty();
+    }
+
+    @Test
+    void shouldApplyAdvancedFilterWithOrOp() {
+      SessionListingRequest request = SessionListingRequest.builder()
+          .timeRange(TimeRangeRequest.builder().from("2024-01-01T00:00:00Z").to("2024-01-01T23:59:59Z").build())
+          .filters(FiltersRequest.builder()
+              .advanced(AdvancedFilterGroup.builder()
+                  .op("OR")
+                  .children(List.of(FilterConditionRequest.builder()
+                      .field("PLATFORM")
+                      .operator("EQ")
+                      .value("Android")
+                      .build()))
+                  .build())
+              .build())
+          .build();
+      QueryResultResponse<SessionRow> empty =
+          QueryResultResponse.<SessionRow>builder().rows(Collections.emptyList()).jobComplete(true).build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
+          .thenReturn(Single.just(empty));
+
+      SessionListingResponse result = sessionListingService.getSessionListing(request).blockingGet();
+
+      assertThat(result.getSessions()).isEmpty();
+      verify(clickhouseQueryService).executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class));
+    }
+
+    @Test
+    void shouldApplySortByAndSortDirection() {
+      SessionListingRequest request = SessionListingRequest.builder()
+          .timeRange(TimeRangeRequest.builder().from("2024-01-01T00:00:00Z").to("2024-01-01T23:59:59Z").build())
+          .sortBy("DURATION")
+          .sortDirection("ASC")
+          .build();
+      QueryResultResponse<SessionRow> empty =
+          QueryResultResponse.<SessionRow>builder().rows(Collections.emptyList()).jobComplete(true).build();
+      when(clickhouseQueryService.executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class)))
+          .thenReturn(Single.just(empty));
+
+      SessionListingResponse result = sessionListingService.getSessionListing(request).blockingGet();
+
+      assertThat(result.getSessions()).isEmpty();
+      verify(clickhouseQueryService).executeQueryOrCreateJob(any(QueryConfiguration.class), eq(SessionRow.class));
+    }
   }
 
   @Nested
