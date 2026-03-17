@@ -19,6 +19,7 @@ import {
 import { useDebouncedCallback } from "@mantine/hooks";
 import {
   IconAlertCircle,
+  IconArchive,
   IconPlus,
   IconUpload,
   IconSearch,
@@ -337,12 +338,13 @@ export function EventCatalog() {
           setDeleteConfirmId(null);
           setDeleteError(null);
         }}
-        title="Confirm Archive"
         size="sm"
         centered
+        withCloseButton={false}
       >
-        <Stack gap="md" className={classes.confirmModalBody}>
-          <Text size="sm">
+        <Stack gap="md" align="center">
+          <IconArchive size={40} color="var(--mantine-color-red-6)" />
+          <Text size="sm" ta="center" c="dimmed">
             Are you sure you want to archive this event definition? It will no
             longer appear in suggestions.
           </Text>
@@ -361,10 +363,7 @@ export function EventCatalog() {
               {deleteError}
             </Alert>
           )}
-          <Group
-            justify="flex-end"
-            className={classes.confirmModalActions}
-          >
+          <Group justify="center" gap="sm" w="100%">
             <Button
               variant="outline"
               size="sm"
