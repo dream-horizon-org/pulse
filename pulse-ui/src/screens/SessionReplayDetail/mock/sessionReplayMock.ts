@@ -9,6 +9,7 @@ import type {
   SessionListingResponse,
   SessionItem,
   SessionDetailApiResponse,
+  FilterConfigResponse,
 } from "../../../services/sessionReplay/types";
 import type { SnapshotsDataResponse } from "../../../services/sessionReplay/sessionReplaySnapshotTypes";
 import { generateSessionDetailApiResponse } from "../../../mocks/responses/sessionReplayResponses";
@@ -138,6 +139,154 @@ export function getMockSessionListingResponse(
   return {
     sessions,
     page: { limit, nextCursor, hasMore },
+  };
+}
+
+export function getMockSessionsFiltersResponse(): FilterConfigResponse {
+  const numberOperators = [
+    { key: "equals", label: "equals", valueType: "single" as const },
+    {
+      key: "not_equals",
+      label: "does not equal",
+      valueType: "single" as const,
+    },
+    {
+      key: "greater_than",
+      label: "greater than",
+      valueType: "single" as const,
+    },
+    { key: "less_than", label: "less than", valueType: "single" as const },
+    {
+      key: "greater_than_or_equal",
+      label: "greater than or equal to",
+      valueType: "single" as const,
+    },
+    {
+      key: "less_than_or_equal",
+      label: "less than or equal to",
+      valueType: "single" as const,
+    },
+  ];
+  const stringOperators = [
+    { key: "equals", label: "equals", valueType: "single" as const },
+    {
+      key: "not_equals",
+      label: "does not equal",
+      valueType: "single" as const,
+    },
+    { key: "contains", label: "contains", valueType: "single" as const },
+    {
+      key: "not_contains",
+      label: "does not contain",
+      valueType: "single" as const,
+    },
+  ];
+
+  return {
+    quick: [
+      {
+        key: "has_errors",
+        displayName: "Has errors",
+        description: "Sessions with errors",
+      },
+      {
+        key: "has_crashes",
+        displayName: "Has crashes",
+        description: "Sessions with crashes",
+      },
+    ],
+    advanced: [
+      {
+        categoryKey: "session_property",
+        displayName: "Session",
+        fields: [
+          {
+            key: "session.duration_ms",
+            displayName: "Duration (ms)",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "session.error_count",
+            displayName: "Error Count",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "session.page_count",
+            displayName: "Page Count",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "session.journey",
+            displayName: "Journey Path",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+        ],
+      },
+      {
+        categoryKey: "device",
+        displayName: "Device",
+        fields: [
+          {
+            key: "device.type",
+            displayName: "Device Type",
+            dataType: "string",
+            allowedOperators: [
+              { key: "equals", label: "equals", valueType: "single" as const },
+              {
+                key: "not_equals",
+                label: "does not equal",
+                valueType: "single" as const,
+              },
+              { key: "in", label: "is one of", valueType: "array" as const },
+              {
+                key: "not_in",
+                label: "is not one of",
+                valueType: "array" as const,
+              },
+            ],
+          },
+          {
+            key: "device.os_version",
+            displayName: "OS Version",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+        ],
+      },
+      {
+        categoryKey: "ui_interaction",
+        displayName: "UI Interaction",
+        fields: [
+          {
+            key: "critical_interaction.name",
+            displayName: "Critical Interaction",
+            dataType: "string",
+            allowedOperators: [
+              { key: "equals", label: "equals", valueType: "single" as const },
+              {
+                key: "not_equals",
+                label: "does not equal",
+                valueType: "single" as const,
+              },
+              {
+                key: "contains",
+                label: "contains",
+                valueType: "single" as const,
+              },
+              {
+                key: "not_contains",
+                label: "does not contain",
+                valueType: "single" as const,
+              },
+            ],
+          },
+        ],
+      },
+    ],
   };
 }
 

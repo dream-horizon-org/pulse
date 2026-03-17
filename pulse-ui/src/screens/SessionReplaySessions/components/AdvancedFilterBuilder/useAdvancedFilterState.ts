@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type {
   FilterCondition,
@@ -17,6 +17,7 @@ import type { AdaptedSchema } from "./adapters";
 export interface UseAdvancedFilterStateParams {
   initialFilters: FilterGroup | undefined;
   effectiveSchema: AdaptedSchema | null;
+  opened: boolean;
 }
 
 export interface UseAdvancedFilterStateResult {
@@ -33,17 +34,29 @@ export interface UseAdvancedFilterStateResult {
   categoryOptions: Array<{ value: string; label: string }>;
 }
 
+const emptyFilterGroup = (): FilterGroup => ({
+  id: uuidv4(),
+  operator: "AND",
+  conditions: [],
+});
+
 export function useAdvancedFilterState({
   initialFilters,
   effectiveSchema,
+  opened,
 }: UseAdvancedFilterStateParams): UseAdvancedFilterStateResult {
   const [filterGroup, setFilterGroup] = useState<FilterGroup>(
-    initialFilters ?? {
-      id: uuidv4(),
-      operator: "AND",
-      conditions: [],
-    },
+    () => initialFilters ?? emptyFilterGroup(),
   );
+  const prevOpenedRef = useRef(false);
+
+  useEffect(() => {
+    const justOpened = opened && !prevOpenedRef.current;
+    prevOpenedRef.current = opened;
+    if (opened && justOpened) {
+      setFilterGroup(initialFilters ?? emptyFilterGroup());
+    }
+  }, [opened, initialFilters]);
 
   const getFieldsByCategory = useCallback(
     (category: FilterCategory): FilterFieldDefinition[] => {

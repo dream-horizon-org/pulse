@@ -72,7 +72,11 @@ export function AdvancedFilterBuilder({
     getFieldsByCategory,
     getFieldDefinition,
     categoryOptions,
-  } = useAdvancedFilterState({ initialFilters, effectiveSchema });
+  } = useAdvancedFilterState({
+    initialFilters,
+    effectiveSchema,
+    opened,
+  });
 
   const operatorLabels = useMemo(
     () => buildOperatorLabelsFromConfig(sessionsFilterConfig ?? undefined),

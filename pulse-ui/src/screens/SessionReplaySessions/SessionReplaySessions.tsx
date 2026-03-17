@@ -1,17 +1,21 @@
 import { Alert, Paper } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
 import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
-import { FilterGroup } from "../../services/sessionReplay/filterConfig";
+import type {
+  FilterGroup,
+  FilterCategory,
+} from "../../services/sessionReplay/filterConfig";
 import {
   SESSION_LIST_LABELS,
   DEFAULT_DATE_PRESET,
 } from "./constants/sessionList.constants";
 import { useSessionsFilters } from "./hooks/useSessionsFilters";
 import { useSessionListData } from "./hooks/useSessionListData";
+import { getInteractionFilterFieldFromConfig } from "./utils/getInteractionFilterField";
 import type { SortField } from "../../services/sessionReplay";
 import classes from "./SessionReplaySessions.module.css";
 import { SessionListHeader } from "./components/SessionListHeader";
@@ -41,6 +45,53 @@ export function SessionReplaySessions() {
       sortBy,
       sortDirection,
     });
+
+  const interactionField = getInteractionFilterFieldFromConfig(filtersConfig);
+  const hasSyncedInteractionDrillDownRef = useRef(false);
+
+ 
+  useEffect(() => {
+    if (
+      hasSyncedInteractionDrillDownRef.current ||
+      !interactionField ||
+      filterState.drillDown.type !== "interaction" ||
+      !filterState.drillDown.value
+    ) {
+      return;
+    }
+    const interactionName =
+      typeof filterState.drillDown.value === "string"
+        ? filterState.drillDown.value
+        : null;
+    if (!interactionName) return;
+    const hasInteractionCondition =
+      filterState.advancedFilters?.conditions?.some(
+        (c) => c.field === interactionField.fieldKey,
+      );
+    if (!hasInteractionCondition) {
+      hasSyncedInteractionDrillDownRef.current = true;
+      filterActions.setAdvancedFilters({
+        id: `critical-interaction-${interactionName}`,
+        operator: "AND",
+        conditions: [
+          {
+            id: `ci-name-${interactionName}`,
+            category: interactionField.categoryKey as FilterCategory,
+            field: interactionField.fieldKey,
+            operator: "equals",
+            value: interactionName,
+          },
+        ],
+      });
+    }
+  }, [
+    interactionField?.fieldKey,
+    interactionField?.categoryKey,
+    filterState.drillDown.type,
+    filterState.drillDown.value,
+    filterState.advancedFilters?.conditions,
+    filterActions,
+  ]);
 
   const handleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -95,12 +146,27 @@ export function SessionReplaySessions() {
   };
 
   const handleApplyAdvancedFilters = (filterGroup: FilterGroup) => {
-    filterActions.setAdvancedFilters(filterGroup);
+    const isEmpty =
+      !filterGroup.conditions?.length || filterGroup.conditions.length === 0;
+    filterActions.setAdvancedFilters(isEmpty ? null : filterGroup);
+
+    const hasInteractionCondition =
+      interactionField &&
+      filterGroup.conditions?.some(
+        (c) => c.field === interactionField.fieldKey,
+      );
+    if (
+      filterState.drillDown.type === "interaction" &&
+      !hasInteractionCondition
+    ) {
+      filterActions.clearDrillDown();
+    }
   };
 
   const removeAdvancedFilter = (conditionId: string) => {
     const af = filterState.advancedFilters;
     if (!af || !Array.isArray(af.conditions)) return;
+    const removedCondition = af.conditions.find((c) => c.id === conditionId);
     const updated = af.conditions.filter(
       (c: { id: string }) => c.id !== conditionId,
     );
@@ -108,6 +174,14 @@ export function SessionReplaySessions() {
       filterActions.setAdvancedFilters(null);
     } else {
       filterActions.setAdvancedFilters({ ...af, conditions: updated });
+    }
+
+    if (
+      removedCondition &&
+      interactionField &&
+      removedCondition.field === interactionField.fieldKey
+    ) {
+      filterActions.clearDrillDown();
     }
   };
 
@@ -119,7 +193,9 @@ export function SessionReplaySessions() {
     Object.values(filterState.quickFilters).filter(Boolean).length +
     (filterState.searchQuery ? 1 : 0) +
     (advancedConditionsLength > 0 ? advancedConditionsLength : 0) +
-    (filterState.drillDown.type ? 1 : 0) +
+    (filterState.drillDown.type && filterState.drillDown.type !== "interaction"
+      ? 1
+      : 0) +
     (isNonDefaultDateRange ? 1 : 0);
 
   const sessionReplayBase = projectId
@@ -154,19 +230,21 @@ export function SessionReplaySessions() {
     <div className={classes.container}>
       <SessionListHeader />
 
-      {filterState.drillDown.type && filterState.drillDown.label && (
-        <Alert
-          icon={<IconInfoCircle size={16} />}
-          title={SESSION_LIST_LABELS.filteredViewTitle}
-          color="teal"
-          withCloseButton
-          onClose={() => filterActions.clearDrillDown()}
-          mb="lg"
-        >
-          {SESSION_LIST_LABELS.filteredViewMessage}{" "}
-          <strong>{filterState.drillDown.label}</strong>
-        </Alert>
-      )}
+      {filterState.drillDown.type &&
+        filterState.drillDown.label &&
+        filterState.drillDown.type !== "interaction" && (
+          <Alert
+            icon={<IconInfoCircle size={16} />}
+            title={SESSION_LIST_LABELS.filteredViewTitle}
+            color="teal"
+            withCloseButton
+            onClose={() => filterActions.clearDrillDown()}
+            mb="lg"
+          >
+            {SESSION_LIST_LABELS.filteredViewMessage}{" "}
+            <strong>{filterState.drillDown.label}</strong>
+          </Alert>
+        )}
 
       <AdvancedFilterBuilder
         opened={advancedFilterOpen}
