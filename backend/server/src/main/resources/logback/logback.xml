@@ -15,7 +15,11 @@
     <logger name="org.apache" level="info"/>
      <!-- Prevent LoggerFilter from logging request bodies (prevents OOM on large file uploads) -->
     <logger name="com.dream11.rest.filter.LoggerFilter" level="info"/>
-    
+
+    <!-- Suppress AWS SDK polling noise — only errors/warnings -->
+    <logger name="software.amazon.awssdk" level="WARN"/>
+    <logger name="software.amazon.awssdk.request" level="WARN"/>
+
     <root level="debug">
         <appender-ref ref="STDOUT"/>
     </root>

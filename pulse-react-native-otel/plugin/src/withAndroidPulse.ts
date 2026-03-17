@@ -18,7 +18,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
     try {
       const {
         endpointBaseUrl,
-        projectId,
+        apiKey,
         dataCollectionState,
         endpointHeaders,
         configEndpointUrl,
@@ -58,7 +58,7 @@ export const withAndroidPulse: ConfigPlugin<PulsePluginProps> = (
 
       const initCode = buildPulseInitializationCode({
         endpointBaseUrl,
-        projectId,
+        apiKey,
         dataCollectionState,
         endpointHeaders,
         configEndpointUrl,

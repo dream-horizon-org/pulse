@@ -27,6 +27,9 @@ public class OnboardingResponse {
     @JsonProperty("tenantName")
     private String tenantName;
     
+    @JsonProperty("tenantRole")
+    private String tenantRole;  // Always "admin" for new tenants (user is creating the org)
+    
     @JsonProperty("tier")
     private String tier;  // Always "free" for new tenants
     

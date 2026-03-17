@@ -8,6 +8,7 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.SignedJWT;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.net.URL;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
@@ -623,7 +625,7 @@ public class AuthService {
               .build();
         }
 
-        boolean isValid = jwtService.isAccessToken(token);
+        boolean isValid = jwtService.isAccessToken(token) && !jwtService.isTokenExpired(token);
 
         return VerifyAuthTokenResponseDto.builder()
             .isAuthTokenValid(isValid)
@@ -643,40 +645,41 @@ public class AuthService {
       GetAccessTokenFromRefreshTokenRequestDto request) {
 
     return Single.fromCallable(() -> {
-      try {
-        String refreshToken = request.getRefreshToken();
+      String refreshToken = request.getRefreshToken();
 
-        if (refreshToken == null || refreshToken.trim().isEmpty()) {
-          throw new IllegalArgumentException("Refresh token is required");
-        }
-
-        if (!jwtService.isRefreshToken(refreshToken)) {
-          log.error("Invalid token type. Expected refresh token.");
-          throw new IllegalArgumentException("Invalid token type. Expected refresh token.");
-        }
-
-
-        Claims claims = jwtService.verifyToken(refreshToken);
-        String userId = claims.getSubject();
-        String email = claims.get(CLAIM_EMAIL, String.class);
-        String name = claims.get(CLAIM_NAME, String.class);
-        String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
-
-        String newAccessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
-
-        log.info("Successfully refreshed access token for user: {}", userId);
-
-        return GetAccessTokenFromRefreshTokenResponseDto.builder()
-            .accessToken(newAccessToken)
-            .refreshToken(refreshToken)
-            .tokenType(TOKEN_TYPE_BEARER)
-            .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
-            .build();
-
-      } catch (Exception e) {
-        log.error("Error refreshing access token: {}", e.getMessage());
-        throw new RuntimeException("Failed to refresh access token", e);
+      if (refreshToken == null || refreshToken.trim().isEmpty()) {
+        throw ServiceError.AUTHENTICATION_BAD_REQUEST
+            .getCustomException("Refresh token is required");
       }
+
+      if (!jwtService.isRefreshToken(refreshToken)) {
+        log.error("Invalid token type. Expected refresh token.");
+        throw ServiceError.AUTHENTICATION_BAD_REQUEST
+            .getCustomException("Invalid token type. Expected refresh token.");
+      }
+
+      if (jwtService.isTokenExpired(refreshToken)) {
+        log.info("Refresh token has expired");
+        throw ServiceError.UNAUTHORISED
+            .getCustomException("Refresh token has expired. Please log in again.");
+      }
+
+      Claims claims = jwtService.verifyToken(refreshToken);
+      String userId = claims.getSubject();
+      String email = claims.get(CLAIM_EMAIL, String.class);
+      String name = claims.get(CLAIM_NAME, String.class);
+      String tenantId = claims.get(CLAIM_TENANT_ID, String.class);
+
+      String newAccessToken = jwtService.generateAccessToken(userId, email, name, tenantId);
+
+      log.info("Successfully refreshed access token for user: {}", userId);
+
+      return GetAccessTokenFromRefreshTokenResponseDto.builder()
+          .accessToken(newAccessToken)
+          .refreshToken(refreshToken)
+          .tokenType(TOKEN_TYPE_BEARER)
+          .expiresIn(JwtService.ACCESS_TOKEN_VALIDITY_SECONDS)
+          .build();
     });
   }
 

@@ -109,7 +109,7 @@ export function useGetScreenActiveUsers({
     return filterArray;
   }, [screenName, appVersion, osVersion, device]);
 
-  // Fetch DAU (last 1 day)
+  // DAU: single aggregate over last 1 day (no bucketing)
   const {
     data: dauData,
     isLoading: isLoadingDau,
@@ -123,24 +123,17 @@ export function useGetScreenActiveUsers({
       },
       select: [
         {
-          function: "TIME_BUCKET" as const,
-          param: { bucket: "1d", field: "Timestamp" },
-          alias: "t1",
-        },
-        {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
       ],
       filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" as const }],
     },
     enabled: !!screenName && !!dailyStartDate && !!dailyEndDate,
   });
 
-  // Fetch WAU (last 7 days)
+  // WAU: single aggregate over last 7 days (no bucketing)
   const {
     data: wauData,
     isLoading: isLoadingWau,
@@ -154,24 +147,17 @@ export function useGetScreenActiveUsers({
       },
       select: [
         {
-          function: "TIME_BUCKET" as const,
-          param: { bucket: "1w", field: "Timestamp" },
-          alias: "t1",
-        },
-        {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
       ],
       filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" as const }],
     },
     enabled: !!screenName && !!weeklyStartDate && !!weeklyEndDate,
   });
 
-  // Fetch MAU (last 30 days)
+  // MAU: single aggregate over last 30 days (no bucketing)
   const {
     data: mauData,
     isLoading: isLoadingMau,
@@ -185,24 +171,17 @@ export function useGetScreenActiveUsers({
       },
       select: [
         {
-          function: "TIME_BUCKET" as const,
-          param: { bucket: "1M", field: "Timestamp" },
-          alias: "t1",
-        },
-        {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
       ],
       filters: buildFilters,
-      groupBy: ["t1"],
-      orderBy: [{ field: "t1", direction: "ASC" as const }],
     },
     enabled: !!screenName && !!monthlyStartDate && !!monthlyEndDate,
   });
 
-  // Fetch daily trend for graph (last 7 days)
+  // Daily trend for graph (last 7 days, bucketed by day)
   const {
     data: dailyTrendData,
     isLoading: isLoadingTrend,
@@ -222,7 +201,7 @@ export function useGetScreenActiveUsers({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
       ],
@@ -233,45 +212,20 @@ export function useGetScreenActiveUsers({
     enabled: !!screenName && !!weeklyStartDate && !!weeklyEndDate,
   });
 
-  // Transform data
+  // Transform data: read single aggregate values for DAU/WAU/MAU
   const transformedData = useMemo<ActiveUsersData | null>(() => {
-    // Calculate DAU
-    const dauResponse = dauData?.data;
-    let dau = 0;
-    if (dauResponse && dauResponse.rows && dauResponse.rows.length > 0) {
-      const userCountIndex = dauResponse.fields.indexOf("user_count");
-      const total = dauResponse.rows.reduce(
-        (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-        0,
-      );
-      dau = Math.round(total / dauResponse.rows.length);
-    }
+    const readSingleValue = (response: typeof dauData): number => {
+      const responseData = response?.data;
+      if (!responseData?.rows || responseData.rows.length === 0) return 0;
+      const idx = responseData.fields.indexOf("user_count");
+      return Math.round(parseFloat(responseData.rows[0][idx]) || 0);
+    };
 
-    // Calculate WAU
-    const wauResponse = wauData?.data;
-    let wau = 0;
-    if (wauResponse && wauResponse.rows && wauResponse.rows.length > 0) {
-      const userCountIndex = wauResponse.fields.indexOf("user_count");
-      const total = wauResponse.rows.reduce(
-        (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-        0,
-      );
-      wau = Math.round(total / wauResponse.rows.length);
-    }
+    const dau = readSingleValue(dauData);
+    const wau = readSingleValue(wauData);
+    const mau = readSingleValue(mauData);
 
-    // Calculate MAU
-    const mauResponse = mauData?.data;
-    let mau = 0;
-    if (mauResponse && mauResponse.rows && mauResponse.rows.length > 0) {
-      const userCountIndex = mauResponse.fields.indexOf("user_count");
-      const total = mauResponse.rows.reduce(
-        (sum, row) => sum + (parseFloat(row[userCountIndex]) || 0),
-        0,
-      );
-      mau = Math.round(total / mauResponse.rows.length);
-    }
-
-    // Build trend data
+    // Build trend data from daily bucketed query
     const trendResponse = dailyTrendData?.data;
     const trendData: Array<{
       timestamp: number;
@@ -280,21 +234,19 @@ export function useGetScreenActiveUsers({
       mau: number;
     }> = [];
 
-    if (trendResponse && trendResponse.rows && trendResponse.rows.length > 0) {
+    if (trendResponse?.rows && trendResponse.rows.length > 0) {
       const t1Index = trendResponse.fields.indexOf("t1");
       const userCountIndex = trendResponse.fields.indexOf("user_count");
 
       trendResponse.rows.forEach((row) => {
         const timestamp = dayjs(row[t1Index]).valueOf();
-        const userCount = parseFloat(row[userCountIndex]) || 0;
+        const userCount = Math.round(parseFloat(row[userCountIndex]) || 0);
 
-        // For trend, we use the daily user count for all three metrics
-        // In a real implementation, you might want to calculate rolling averages
         trendData.push({
           timestamp,
-          dau: Math.round(userCount),
-          wau: Math.round(userCount * 1.2), // Approximate WAU from DAU
-          mau: Math.round(userCount * 1.5), // Approximate MAU from DAU
+          dau: userCount,
+          wau,
+          mau,
         });
       });
     }
