@@ -2,24 +2,21 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem,
+  ComboboxItem
 } from "@mantine/core";
 import {
-  IconBell,
-  IconListDetails,
-  IconHome,
   IconActivityHeartbeat,
   IconDeviceDesktop,
   IconNetwork,
   IconUsers,
   IconDatabaseSearch,
   IconRobot,
+  IconBell,
   IconCalendarEvent,
+  IconHome,
+  IconListDetails,
 } from "@tabler/icons-react";
-import {
-  CriticalInteractionDetailsFilterValues,
-  TimeFilter,
-} from "../screens/CriticalInteractionDetails";
+import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -28,10 +25,12 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps,
+  FormSteps
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
+import { SupportQueries } from "../screens/SupportQueries";
+
 export const APP_NAME: string = "Pulse";
 
 export const HELP_BAR_TEXT: string = "About Critical Interaction";
@@ -221,7 +220,6 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/event-catalog",
     path: "/projects/:projectId/event-catalog",
   },
-
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -257,6 +255,12 @@ export const ROUTES: Routes = {
         },
       }
     : {}),
+  SUPPORT_QUERIES: {
+    key: "SUPPORT_QUERIES",
+    basePath: "/support-queries",
+    path: "/support-queries",
+    element: SupportQueries,
+  },
 };
 
 // Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
