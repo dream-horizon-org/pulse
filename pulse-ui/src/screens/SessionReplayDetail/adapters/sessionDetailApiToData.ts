@@ -242,3 +242,35 @@ function buildExceptionsFromApi(
   });
   return { fields: EXCEPTION_FIELDS, rows };
 }
+
+/**
+ * Returns minimal SessionDetailData when the API returns no data and mock is disabled.
+ * Use this so the detail page still renders (empty timeline, no journey) instead of mock data.
+ */
+export function getEmptySessionDetail(sessionId: string): SessionDetailData {
+  const baseMs = Date.now();
+  return {
+    sessionId,
+    userId: "",
+    isAnonymous: true,
+    startTime: new Date(baseMs).toISOString(),
+    duration: 0,
+    platform: "iOS",
+    device: "",
+    os: "",
+    appVersion: undefined,
+    geography: undefined,
+    interactionQuality: null,
+    sessionType: "exploration",
+    detectedIssues: [],
+    criticalInteractions: [],
+    journey: [],
+    traces: buildTracesFromEvents([], baseMs),
+    logs: buildEmptyLogs(),
+    exceptions: buildExceptionsFromApi([], baseMs),
+    events: [],
+    consoleLogs: [],
+    networkRequests: [],
+    performance: { interactionMetrics: [] },
+  };
+}

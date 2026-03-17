@@ -106,7 +106,7 @@ public class DefaultSdkConfigTemplate {
                 .flushAt(10)
                 .maxBatchSize(50)
                 .replayApiBaseUrl(
-                        System.getenv().getOrDefault("REPLAY_API_BASE_URL", "http://localhost:3400/s/"))
+                        System.getenv().getOrDefault("CONFIG_REPLAY_API_BASE_URL", "http://localhost:3400"))
                 .build();
 
         return FeatureConfig.builder()
