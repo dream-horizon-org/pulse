@@ -12,16 +12,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class SessionCoreRow {
-  @JsonProperty("session_id")
-  private String sessionId;
-  @JsonProperty("user_id")
-  private String userId;
-  private String platform;
-  private String device;
-  private String osVersion;
-  private String appVersion;
-  private String geography;
-  private double qualityScore;
-  private String journey;
+public class SessionTimingRow {
+    @JsonProperty("session_id")
+    private String sessionId;
+    @JsonProperty("session_start")
+    private String sessionStart;
+    @JsonProperty("session_end")
+    private String sessionEnd;
+    @JsonProperty("durationMs")
+    private long durationMs;
 }

@@ -5,6 +5,19 @@ public final class SessionDetailQueries {
   private SessionDetailQueries() {
   }
 
+    public static final String GET_SESSION_TIMING = """
+      SELECT
+        sessionId                                             AS session_id,
+        toString(min(startTime))                              AS session_start,
+        toString(max(endTime))                                AS session_end,
+        toUInt64(dateDiff('millisecond', min(startTime), max(endTime)))
+                                                              AS durationMs
+      FROM otel.session_summary
+      WHERE sessionId = '${session_id}'
+      GROUP BY sessionId
+      LIMIT 1
+      """;
+
   public static final String GET_SESSION_CORE = """
       SELECT
         any(SessionId)                                    AS session_id,
@@ -13,11 +26,6 @@ public final class SessionDetailQueries {
         any(DeviceModel)                                  AS device,
         any(OsVersion)                                    AS osVersion,
         any(AppVersion)                                   AS appVersion,
-        min(Timestamp)                                    AS session_start,
-        max(Timestamp)                                    AS session_end,
-        toUInt64(
-          dateDiff('millisecond', min(Timestamp), max(Timestamp))
-        )                                                 AS durationMs,
         any(GeoState)                                     AS geography,
         coalesce(
           round(

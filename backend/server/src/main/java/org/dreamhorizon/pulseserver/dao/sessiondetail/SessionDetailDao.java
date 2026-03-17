@@ -7,11 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.StringSubstitutor;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
-import org.dreamhorizon.pulseserver.dao.sessiondetail.models.InteractionRow;
-import org.dreamhorizon.pulseserver.dao.sessiondetail.models.NetworkRequestRow;
-import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionCoreRow;
-import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionExceptionRow;
-import org.dreamhorizon.pulseserver.dao.sessiondetail.models.SessionSpanRow;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
+import org.dreamhorizon.pulseserver.dao.sessiondetail.models.*;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
@@ -23,6 +20,12 @@ public class SessionDetailDao {
   private static final int DEFAULT_TIMEOUT_MS = 5000;
 
   private final ClickhouseQueryService clickhouseQueryService;
+
+    public Single<QueryResultResponse<SessionTimingRow>> getSessionTiming(String sessionId) {
+        return executeQuery(
+                SessionDetailQueries.GET_SESSION_TIMING, sessionId, SessionTimingRow.class
+        );
+    }
 
   public Single<QueryResultResponse<SessionCoreRow>> getSessionCore(String sessionId) {
     return executeQuery(
@@ -59,11 +62,12 @@ public class SessionDetailDao {
   ) {
     Map<String, Object> params = Map.of("session_id", sessionId);
     String query = new StringSubstitutor(params).replace(queryTemplate);
+    String projectId = ProjectContext.requireProjectId();
 
     QueryConfiguration config = QueryConfiguration
         .newQuery(query)
         .timeoutMs(DEFAULT_TIMEOUT_MS)
-        .tenantId(TenantContext.requireTenantId())
+            .tenantId(projectId).projectId(projectId)
         .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(config, clazz);
