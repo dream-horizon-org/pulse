@@ -167,7 +167,7 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
-        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL}
+        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL:-http://localhost:8080}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
@@ -197,34 +197,34 @@ services:
       start_period: 10s
 
   # Vector Service (Data Collector)
-  vector:
-    build:
-      context: ../vector
-      dockerfile: Dockerfile
-      args:
-        VECTOR_REPO: https://github.com/parth-modh/vector
-        VECTOR_REF: forked/multi-bucket
-        DEBIAN_VERSION: "12"
-    container_name: vector
-    command: [ ]
-    environment:
-      - VECTOR_LOG=debug
-    volumes:
-      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-      - vector-data:/var/lib/vector
-    networks:
-      - pulse-network
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    ports:
-      - "8686:8686"
-      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+  # vector:
+  #   build:
+  #     context: ../vector
+  #     dockerfile: Dockerfile
+  #     args:
+  #       VECTOR_REPO: https://github.com/parth-modh/vector
+  #       VECTOR_REF: forked/multi-bucket
+  #       DEBIAN_VERSION: "12"
+  #   container_name: vector
+  #   command: [ ]
+  #   environment:
+  #     - VECTOR_LOG=debug
+  #   volumes:
+  #     - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+  #     - vector-data:/var/lib/vector
+  #   networks:
+  #     - pulse-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 15s
+  #   ports:
+  #     - "8686:8686"
+  #     - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+  #     - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -235,7 +235,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # AWS Credentials for S3/Athena access
+      # AWS Credentials for S3/Athena access (required in .env; use empty for local if unused)
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
@@ -282,12 +282,12 @@ services:
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
       - INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH:-/config/interaction-config.json}
 
-      # OpenTelemetry Configuration
-      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL}
-      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL}
-      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
-      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
-      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
+      # OpenTelemetry Configuration (defaults for local dev)
+      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL:-http://localhost:4318/v1/traces}
+      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL:-http://localhost:4318/v1/logs}
+      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL:-http://localhost:4318/v1/metrics}
+      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL:-http://localhost:4318/v1/traces}
+      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL:-http://localhost:4318/v1/logs}
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
       # Athena Configuration (only used when QUERY_ENGINE=athena)

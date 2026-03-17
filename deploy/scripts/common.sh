@@ -256,9 +256,10 @@ load_env() {
 }
 
 # ---------------------------------------------------------------------------
-# validate_env_against_example_and_compose -- Validate .env against docker-compose.yml
-#   only (fail if compose var missing in .env). If a required key is missing but
-#   present in .env.example, copy it to .env and re-run validation once.
+# validate_env_against_example_and_compose -- Validate .env against docker-compose.yml.
+#   Required = vars in compose with NO default (${VAR}); must be in .env → error if missing.
+#   Optional = vars in compose WITH default (${VAR:-...}); missing in .env → warning (compose uses default).
+#   Do NOT copy from .env.example; only error for required keys missing.
 #   Warn for keys in .env.example that are missing in .env (do not fail).
 #   Call after load_env so we validate the merged state.
 # ---------------------------------------------------------------------------
@@ -267,7 +268,6 @@ validate_env_against_example_and_compose() {
     local example_file="$DEPLOY_DIR/.env.example"
     local compose_file="$DEPLOY_DIR/docker-compose.yml"
     local failed=0
-    local copied_any=0
 
     if [ ! -f "$compose_file" ]; then
         print_warning "validate_env: docker-compose.yml not found, skipping compose var check"
@@ -292,93 +292,68 @@ validate_env_against_example_and_compose() {
         echo "$keys"
     }
 
-    _validate_env_check_missing() {
-        local compose_vars="$1"
-        local env_keys="$2"
-        local missing=""
-        while IFS= read -r key; do
-            [ -z "$key" ] && continue
-            local present=false
-            for k in $env_keys; do
-                [ "$k" = "$key" ] && present=true && break
-            done
-            if [ "$present" = false ]; then
-                echo "$key"
-            fi
-        done << EOF
-$compose_vars
-EOF
-    }
-
-    # Collect variable names from docker-compose.yml (${VAR} or ${VAR:-default}) — required
-    local compose_vars
-    compose_vars=$(grep -oE '\$\{[A-Za-z0-9_]+' "$compose_file" 2>/dev/null | sed 's/^\${//' | sort -u || true)
+    # Optional = vars that appear with a default in compose (${VAR:-...}). Skip commented lines.
+    local optional_vars
+    optional_vars=$(grep -v '^[[:space:]]*#' "$compose_file" 2>/dev/null | grep -oE '\$\{[A-Za-z0-9_]+:-' | sed 's/^\${//;s/:-$//' | sort -u || true)
+    # All vars referenced in compose (skip commented lines)
+    local all_vars
+    all_vars=$(grep -v '^[[:space:]]*#' "$compose_file" 2>/dev/null | grep -oE '\$\{[A-Za-z0-9_]+' | sed 's/^\${//' | sort -u || true)
+    # Required = vars that have no default in compose (must be present in .env)
+    local required_vars
+    required_vars=$(comm -23 <(echo "$all_vars") <(echo "$optional_vars") || true)
 
     local env_keys
     env_keys=$(_validate_env_collect_env_keys "$env_file")
-    local missing_keys
-    missing_keys=$(_validate_env_check_missing "$compose_vars" "$env_keys")
 
-    # If we have .env.example and there are missing keys, copy from example (exact or alias)
-    # Aliases: compose var name -> .env.example key name (compose uses different name)
-    if [ -n "$missing_keys" ] && [ -f "$example_file" ]; then
-        while IFS= read -r key; do
-            [ -z "$key" ] && continue
-            local line
-            line=$(grep -E "^${key}=" "$example_file" 2>/dev/null | head -1)
-            if [ -n "$line" ]; then
-                echo "$line" >> "$env_file"
-                print_info "Copied from .env.example to .env: $key"
-                copied_any=1
-            else
-                # Known aliases: compose key <- .env.example key
-                local alias_key=""
-                case "$key" in
-                    CONFIG_S3_BUCKET_NAME) alias_key="S3_BUCKET_NAME" ;;
-                    CONFIG_CLOUDFRONT_DISTRIBUTION_ID) alias_key="CLOUDFRONT_DISTRIBUTION_ID" ;;
-                esac
-                if [ -n "$alias_key" ]; then
-                    line=$(grep -E "^${alias_key}=" "$example_file" 2>/dev/null | head -1)
-                    if [ -n "$line" ]; then
-                        local val="${line#*=}"
-                        echo "${key}=${val}" >> "$env_file"
-                        print_info "Copied from .env.example to .env: $key (from $alias_key)"
-                        copied_any=1
-                    fi
-                fi
-            fi
-        done << EOF
-$missing_keys
+    # Check only required vars: missing → error (do not copy from .env.example)
+    local missing_required=""
+    local newline=$'\n'
+    while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        local present=false
+        for k in $env_keys; do
+            [ "$k" = "$key" ] && present=true && break
+        done
+        if [ "$present" = false ]; then
+            missing_required="$missing_required$key$newline"
+        fi
+    done << EOF
+$required_vars
 EOF
-    fi
 
-    # If we copied any, re-read .env and re-check so we only fail on still-missing keys
-    if [ "$copied_any" -eq 1 ]; then
-        print_info "Re-running env validation after copying from .env.example..."
-        env_keys=$(_validate_env_collect_env_keys "$env_file")
-        missing_keys=$(_validate_env_check_missing "$compose_vars" "$env_keys")
-    fi
-
-    # Fail for any compose-required key still missing
-    if [ -n "$missing_keys" ]; then
+    if [ -n "$missing_required" ]; then
         while IFS= read -r key; do
             [ -z "$key" ] && continue
-            print_error "Missing in .env (required by docker-compose.yml): $key"
+            print_error "Missing in .env (required by docker-compose.yml, no default): $key"
             failed=1
         done << EOF
-$missing_keys
+$missing_required
 EOF
     fi
+
+    # Warn for optional vars (have default in compose) that are missing in .env
+    while IFS= read -r key; do
+        [ -z "$key" ] && continue
+        local present=false
+        for k in $env_keys; do
+            [ "$k" = "$key" ] && present=true && break
+        done
+        if [ "$present" = false ]; then
+            print_warning "Missing in .env (optional, docker-compose has default): $key"
+        fi
+    done << EOF
+$optional_vars
+EOF
 
     # Warn for keys in .env.example that are missing in .env (do not fail)
     if [ -f "$example_file" ]; then
         local example_keys
         example_keys=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$example_file" 2>/dev/null | cut -d= -f1 | sort -u || true)
-        local compose_set
-        compose_set=$(echo "$compose_vars" | tr '\n' ' ')
+        local all_set
+        all_set=$(echo "$all_vars" | tr '\n' ' ')
         while IFS= read -r key; do
             [ -z "$key" ] && continue
-            case " $compose_set " in *" $key "*) continue ;; esac
+            case " $all_set " in *" $key "*) continue ;; esac
             local present=false
             for k in $env_keys; do
                 [ "$k" = "$key" ] && present=true && break
@@ -393,8 +368,8 @@ EOF
 
     if [ "$failed" -eq 1 ]; then
         echo ""
-        print_info "Add the missing variables to .env (see .env.example for names)."
-        print_info "Some compose variable names differ from .env.example (e.g. CONFIG_S3_BUCKET_NAME vs S3_BUCKET_NAME)."
+        print_info "Add the missing required variables to .env (see .env.example)."
+        print_info "Variables without a default in docker-compose.yml must be set."
         return 1
     fi
     return 0

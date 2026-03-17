@@ -72,6 +72,8 @@ Credentials (defined in docker-compose, overridable via `.env`):
 | `reset-databases.sh` | drops volumes and reinitializes |
 | `init-clickhouse.sh` | creates ClickHouse tables from schema SQL |
 
-**Env validation:** `quickstart.sh` and `start.sh` validate `.env` against `.env.example` and `docker-compose.yml` (report missing vars) and require collector/config URL vars to be valid `http://` or `https://` URLs. Use `--skip-env-check` to skip.
+**Env validation:** `quickstart.sh` and `start.sh` validate `.env` against `docker-compose.yml`: **required** = variables in compose with no default (`${VAR}`); missing in `.env` → error. **Optional** = variables with a default in compose (`${VAR:-...}`); missing in `.env` → warning (compose uses default). No auto-copy from `.env.example`; only required keys must be set. Collector/config URL vars must be valid `http://` or `https://` URLs. Use `--skip-env-check` to skip.
 
-**Cursor config audit:** Service list above matches `deploy/docker-compose.yml`. Vector is commented out in compose (entire `vector:` block).
+**Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
+
+**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is commented out in compose (entire `vector:` block).
