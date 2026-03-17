@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::api::CaptureError;
 use crate::sinks;
+use std::time::Instant;
 
 /// Raw recording event from the mobile SDK.
 #[derive(Debug, Deserialize)]
