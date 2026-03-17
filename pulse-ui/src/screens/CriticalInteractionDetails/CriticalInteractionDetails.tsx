@@ -170,10 +170,7 @@ export function CiritcalInteractionDetails() {
       ":projectId",
       projectId || "",
     );
-    const url = interactionName
-      ? `${basePath}?drillDownType=interaction&drillDownValue=${encodeURIComponent(interactionName)}`
-      : basePath;
-    navigate(url);
+    navigate(basePath);
   };
 
   const handleTabChange = (value: string | null) => {

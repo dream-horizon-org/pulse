@@ -49,7 +49,6 @@ export function SessionReplaySessions() {
   const interactionField = getInteractionFilterFieldFromConfig(filtersConfig);
   const hasSyncedInteractionDrillDownRef = useRef(false);
 
- 
   useEffect(() => {
     if (
       hasSyncedInteractionDrillDownRef.current ||
