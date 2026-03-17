@@ -2,6 +2,7 @@
 export { usePermissions } from "./usePermissions";
 export { useTierLimits } from "./useTierLimits";
 export type { TierLimits } from "./useTierLimits.interface";
+export { useProjectQueryEnabled } from "./useProjectQueryEnabled";
 
 // AI hooks
 export * from "./useAiQuery";
@@ -43,6 +44,7 @@ export * from "./useGetInteractionListFilters";
 export * from "./useGetInteractionTime";
 export * from "./useGetInteractions";
 export * from "./useGetJobStatus";
+export * from "./useGetProject";
 export * from "./useGetNotificationChannelById";
 export * from "./useGetProblematicInteractions";
 export * from "./useGetProblematicInteractionsStats";

@@ -1,19 +1,22 @@
-import { Modal, Stack, Text, Group, Button } from '@mantine/core';
-import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
-import { ConfirmationModalProps } from './ConfirmationModal.interface';
-import classes from './ConfirmationModal.module.css';
+import { Modal, Stack, Text, Group, Button } from "@mantine/core";
+import {
+  IconAlertCircle,
+  IconInfoCircle,
+  IconTrash,
+} from "@tabler/icons-react";
+import { ConfirmationModalProps } from "./ConfirmationModal.interface";
+import classes from "./ConfirmationModal.module.css";
 
 export function ConfirmationModal({
   opened,
   onClose,
   onConfirm,
-  title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
-  confirmColor = 'red',
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  confirmColor = "red",
   loading = false,
-  severity = 'warning',
+  severity = "warning",
 }: ConfirmationModalProps) {
   const handleConfirm = async () => {
     await onConfirm();
@@ -21,14 +24,14 @@ export function ConfirmationModal({
 
   const getSeverityIcon = () => {
     switch (severity) {
-      case 'danger':
-        return <IconAlertTriangle size={48} className={classes.iconDanger} />;
-      case 'warning':
-        return <IconAlertTriangle size={48} className={classes.iconWarning} />;
-      case 'info':
-        return <IconInfoCircle size={48} className={classes.iconInfo} />;
+      case "danger":
+        return <IconTrash size={40} className={classes.iconDanger} />;
+      case "warning":
+        return <IconAlertCircle size={40} className={classes.iconWarning} />;
+      case "info":
+        return <IconInfoCircle size={40} className={classes.iconInfo} />;
       default:
-        return <IconAlertTriangle size={48} className={classes.iconWarning} />;
+        return <IconAlertCircle size={40} className={classes.iconWarning} />;
     }
   };
 
@@ -36,28 +39,19 @@ export function ConfirmationModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={title}
       centered
       size="md"
       closeOnClickOutside={!loading}
       closeOnEscape={!loading}
-      withCloseButton={!loading}
+      withCloseButton={false}
     >
-      <Stack gap="lg">
-        <div className={classes.iconContainer}>
-          {getSeverityIcon()}
-        </div>
-
+      <Stack gap="md" align="center">
+        {getSeverityIcon()}
         <Text size="sm" c="dimmed" ta="center">
           {message}
         </Text>
-
-        <Group justify="center" gap="sm" mt="md">
-          <Button
-            variant="default"
-            onClick={onClose}
-            disabled={loading}
-          >
+        <Group justify="center" gap="sm" w="100%">
+          <Button variant="default" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button

@@ -9,9 +9,11 @@ import java.util.Map;
 import java.util.UUID;
 
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.ProjectQueries;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
@@ -42,6 +44,7 @@ public class ProjectService {
   private final UsageLimitService usageLimitService;
   private final UploadConfigDetailService uploadConfigDetailService;
   private final NotificationService notificationService;
+  private final ClickhouseReadClient clickhouseReadClient;
 
   @Inject
   public ProjectService(
@@ -53,7 +56,8 @@ public class ProjectService {
       ConfigService configService,
       UsageLimitService usageLimitService,
       UploadConfigDetailService uploadConfigDetailService,
-      NotificationService notificationService) {
+      NotificationService notificationService,
+      ClickhouseReadClient clickhouseReadClient) {
     this.mysqlClient = mysqlClient;
     this.projectDao = projectDao;
     this.openFgaService = openFgaService;
@@ -63,6 +67,7 @@ public class ProjectService {
     this.usageLimitService = usageLimitService;
     this.uploadConfigDetailService = uploadConfigDetailService;
     this.notificationService = notificationService;
+    this.clickhouseReadClient = clickhouseReadClient;
   }
 
   public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, ReqUserInfo userInfo) {
@@ -313,6 +318,10 @@ public class ProjectService {
         .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)));
   }
 
+  public Single<Boolean> projectExists(String projectId) {
+    return projectDao.projectExists(projectId);
+  }
+
   @Deprecated
   public Single<Project> getProjectByApiKey(String apiKey) {
     return Single.error(new RuntimeException("API key lookup not implemented - use ProjectApiKeyService instead"));
@@ -344,5 +353,46 @@ public class ProjectService {
 
   public Single<Integer> getActiveProjectCount(String tenantId) {
     return projectDao.getActiveProjectCount(tenantId);
+  }
+
+  public Single<Boolean> hasEventFlowStarted(String projectId) {
+    return Single.fromPublisher(clickhouseReadClient.getPool().create())
+        .flatMap(conn -> {
+          Single<Boolean> results = Single.fromPublisher(
+              conn.createStatement(ProjectQueries.HAS_EVENT_FLOW_STARTED)
+                  .bind("projectId", projectId)
+                  .execute())
+              .flatMap(result -> Single.fromPublisher(result.map((row, md) -> {
+                  Object value = row.get("has_events");
+                  
+                  if (value instanceof Number) {
+                    return ((Number) value).intValue() > 0;
+                  }
+                  return Boolean.TRUE.equals(value);
+              })));
+          return results.doFinally(() -> 
+              Single.fromPublisher(conn.close())
+                  .onErrorComplete()
+                  .subscribe()
+          );
+        })
+        .doOnError(error -> log.error("Error checking event flow for project {}: {}", 
+            projectId, error.getMessage()))
+        .onErrorReturnItem(false);
+  }
+
+  /**
+   * Get user's role in a project.
+   * 
+   * @param userId User ID
+   * @param projectId Project ID
+   * @return Optional role (admin/editor/viewer) or empty if no access
+   */
+  public Single<java.util.Optional<String>> getUserRoleInProject(String userId, String projectId) {
+    return openFgaService.getUserRoleInProject(userId, projectId)
+        .doOnSuccess(role ->
+            log.debug("Retrieved user role: userId={}, projectId={}, role={}",
+                userId, projectId, role.orElse("none"))
+        );
   }
 }
