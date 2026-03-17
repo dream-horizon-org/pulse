@@ -3,7 +3,9 @@ package org.dreamhorizon.pulseserver.service.devmode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -91,9 +93,9 @@ class DevModeInitServiceTest {
             mysqlClient
         );
         
-        // Setup common mock for database connection
-        when(mysqlClient.getWriterPool()).thenReturn(writerPool);
-        when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+        // Setup common mock for database connection (lenient: only used when full init runs)
+        lenient().when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+        lenient().when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
     }
 
     @Nested
@@ -195,8 +197,8 @@ class DevModeInitServiceTest {
                 .test()
                 .assertComplete();
 
-            // Then
-            verify(projectService).projectExists(DEFAULT_PROJECT_ID);
+            // Then - projectExists is called once per step (5 steps when project missing)
+            verify(projectService, times(5)).projectExists(DEFAULT_PROJECT_ID);
             verify(apiKeyDao, never()).getApiKeyByDigest(any());
             verify(apiKeyDao, never()).createApiKey(any(), any(), any(), any(), any(), any(), any());
         }
@@ -294,8 +296,8 @@ class DevModeInitServiceTest {
                 .assertError(RuntimeException.class)
                 .assertError(error -> error.getMessage().equals("Config creation failed"));
 
-            // Then
-            verify(configService).createInitialConfig(isNull(), eq(DEFAULT_PROJECT_ID), eq("system"));
+            // Then - createInitialConfig receives the connection from rxGetConnection()
+            verify(configService).createInitialConfig(any(), eq(DEFAULT_PROJECT_ID), eq("system"));
         }
 
         @Test
