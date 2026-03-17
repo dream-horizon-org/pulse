@@ -28,6 +28,7 @@ import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
+import org.dreamhorizon.pulseserver.config.StartupConfigValidator;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
@@ -104,6 +105,12 @@ public class MainVerticle extends AbstractVerticle {
 
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
+
+          // Validate startup configuration after all configs are loaded
+          ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
+          ClickhouseConfig loadedChConfig = SharedDataUtils.get(vertx.getDelegate(), ClickhouseConfig.class);
+          StartupConfigValidator.validate(loadedAppConfig, loadedChConfig);
+
           return config;
         })
         .ignoreElement()

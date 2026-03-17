@@ -19,11 +19,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
-import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
-import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
-import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
-import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
+import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
@@ -35,16 +31,13 @@ import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.incident.IncidentService;
+import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
 import org.dreamhorizon.pulseserver.service.notification.oauth.SlackOAuthService;
-import org.dreamhorizon.pulseserver.service.notification.provider.EmailNotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
-import org.dreamhorizon.pulseserver.service.notification.provider.SlackNotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.SlackWebhookNotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.TeamsNotificationProvider;
+import org.dreamhorizon.pulseserver.service.notification.provider.*;
 import org.dreamhorizon.pulseserver.service.notification.queue.DlqHandler;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetryPolicy;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
@@ -116,17 +109,20 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {
-      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-      if (config != null && config.isEnabled()) {
-        try {
-          return new OpenFgaService(config);
-        } catch (Exception e) {
-          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-          return null;
+        OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+        if (config != null && config.isEnabled()) {
+            try {
+                return new OpenFgaService(config);
+            } catch (Exception e) {
+                log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
+                return null;
+            }
         }
-      }
-      return null;
+          return null;
     }).in(Singleton.class);
+
+    bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
     bindNotificationFeature();
   }
 
