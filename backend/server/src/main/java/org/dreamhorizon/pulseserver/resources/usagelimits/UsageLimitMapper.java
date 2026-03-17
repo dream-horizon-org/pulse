@@ -24,7 +24,6 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -177,11 +176,21 @@ public abstract class UsageLimitMapper {
     }
     return UsageNotificationRestDto.builder()
         .projectId(notification.getProjectId())
-        .metricType(notification.getMetricType())
         .threshold(notification.getThreshold())
-        .percentage(notification.getPercentage())
-        .currentUsage(notification.getCurrentUsage())
-        .limit(notification.getLimit())
+        .notifyFor(notification.getNotifyFor())
+        .templateName(notification.getTemplateName())
+        .sessionsUsed(notification.getSessionsUsed())
+        .sessionsLimit(notification.getSessionsLimit())
+        .sessionsPercentage(notification.getSessionsPercentage())
+        .sessionsOverage(notification.getSessionsOverage())
+        .sessionsBlocked(notification.getSessionsBlocked())
+        .sessionsAtLimit(notification.getSessionsAtLimit())
+        .eventsUsed(notification.getEventsUsed())
+        .eventsLimit(notification.getEventsLimit())
+        .eventsPercentage(notification.getEventsPercentage())
+        .eventsOverage(notification.getEventsOverage())
+        .eventsBlocked(notification.getEventsBlocked())
+        .eventsAtLimit(notification.getEventsAtLimit())
         .build();
   }
 }

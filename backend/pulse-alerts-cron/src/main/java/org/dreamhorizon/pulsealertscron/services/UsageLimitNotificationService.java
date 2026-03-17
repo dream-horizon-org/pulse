@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulsealertscron.services;
 
-import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Completable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +78,7 @@ public class UsageLimitNotificationService {
   private Completable sendAndMarkNotification(UsageNotificationDto notification) {
     log.info("📧 Processing notification: {} - {} at {}%",
         notification.getProjectId(),
-        notification.getMetricType(),
+        notification.getNotifyFor(),
         notification.getThreshold());
 
     return apiClient.sendUsageLimitNotification(notification)
@@ -92,13 +91,13 @@ public class UsageLimitNotificationService {
         .doOnComplete(() ->
             log.info("✅ Notification sent and marked: {} - {} at {}%",
                 notification.getProjectId(),
-                notification.getMetricType(),
+                notification.getNotifyFor(),
                 notification.getThreshold())
         )
         .doOnError(error ->
             log.error("❌ Failed to process notification: {} - {} at {}%",
                 notification.getProjectId(),
-                notification.getMetricType(),
+                notification.getNotifyFor(),
                 notification.getThreshold(),
                 error)
         );

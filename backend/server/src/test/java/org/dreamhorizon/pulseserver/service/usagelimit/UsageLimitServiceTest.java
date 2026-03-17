@@ -27,6 +27,7 @@ import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.dao.tier.TierDao;
 import org.dreamhorizon.pulseserver.dao.tier.models.Tier;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
@@ -63,6 +64,9 @@ class UsageLimitServiceTest {
   TierService tierService;
 
   @Mock
+  ClickhouseQueryService clickhouseQueryService;
+
+  @Mock
   SqlConnection sqlConnection;
 
   ObjectMapper objectMapper;
@@ -71,7 +75,7 @@ class UsageLimitServiceTest {
   @BeforeEach
   void setup() {
     objectMapper = new ObjectMapper();
-    usageLimitService = new UsageLimitService(usageLimitDao, projectDao, tenantDao, tierDao, tierService, objectMapper);
+    usageLimitService = new UsageLimitService(usageLimitDao, projectDao, tenantDao, tierDao, tierService, objectMapper, clickhouseQueryService);
   }
 
   private ProjectUsageLimit createMockUsageLimit() throws Exception {

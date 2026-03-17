@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * REST DTO for a single usage notification.
+ * Contains details for both sessions and events metrics.
  */
 @Data
 @Builder
@@ -18,18 +19,48 @@ public class UsageNotificationRestDto {
   @JsonProperty("projectId")
   private String projectId;
   
-  @JsonProperty("metricType")
-  private String metricType;
-  
   @JsonProperty("threshold")
   private Integer threshold;
   
-  @JsonProperty("percentage")
-  private Integer percentage;
+  @JsonProperty("notifyFor")
+  private String notifyFor;
   
-  @JsonProperty("currentUsage")
-  private Long currentUsage;
+  @JsonProperty("templateName")
+  private String templateName;
   
-  @JsonProperty("limit")
-  private Long limit;
+  @JsonProperty("sessionsUsed")
+  private Long sessionsUsed;
+  
+  @JsonProperty("sessionsLimit")
+  private Long sessionsLimit;
+  
+  @JsonProperty("sessionsPercentage")
+  private Integer sessionsPercentage;
+  
+  @JsonProperty("sessionsOverage")
+  private Integer sessionsOverage;
+  
+  @JsonProperty("sessionsBlocked")
+  private Boolean sessionsBlocked;
+  
+  @JsonProperty("sessionsAtLimit")
+  private Boolean sessionsAtLimit;
+  
+  @JsonProperty("eventsUsed")
+  private Long eventsUsed;
+  
+  @JsonProperty("eventsLimit")
+  private Long eventsLimit;
+  
+  @JsonProperty("eventsPercentage")
+  private Integer eventsPercentage;
+  
+  @JsonProperty("eventsOverage")
+  private Integer eventsOverage;
+  
+  @JsonProperty("eventsBlocked")
+  private Boolean eventsBlocked;
+  
+  @JsonProperty("eventsAtLimit")
+  private Boolean eventsAtLimit;
 }

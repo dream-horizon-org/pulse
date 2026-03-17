@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Represents a usage notification that needs to be sent.
- * Contains information about which threshold was crossed for which metric.
+ * Contains information about which threshold was crossed and details for both metrics.
  */
 @Data
 @Builder
@@ -15,9 +15,23 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UsageNotification {
   private String projectId;
-  private String metricType;  // "sessions" or "events"
-  private Integer threshold;   // 50, 75, 90, 100
-  private Integer percentage;  // actual percentage used
-  private Long currentUsage;
-  private Long limit;
+  private Integer threshold;      // 50, 75, 90, 100
+  private String notifyFor;       // "sessions" or "events" - which metric triggered notification
+  private String templateName;    // Template to use: USAGE_LIMIT_THRESHOLD, USAGE_LIMIT_REACHED, or USAGE_LIMIT_BLOCKED
+  
+  // Sessions details (always included, percentages capped for display)
+  private Long sessionsUsed;
+  private Long sessionsLimit;
+  private Integer sessionsPercentage;
+  private Integer sessionsOverage;
+  private Boolean sessionsBlocked;
+  private Boolean sessionsAtLimit;
+  
+  // Events details (always included, percentages capped for display)
+  private Long eventsUsed;
+  private Long eventsLimit;
+  private Integer eventsPercentage;
+  private Integer eventsOverage;
+  private Boolean eventsBlocked;
+  private Boolean eventsAtLimit;
 }

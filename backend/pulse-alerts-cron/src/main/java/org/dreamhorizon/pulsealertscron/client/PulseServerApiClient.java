@@ -25,7 +25,7 @@ public class PulseServerApiClient {
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
-  private static final String SEND_NOTIFICATION_PATH = "/internal/v1/notifications/send";
+  private static final String SEND_NOTIFICATION_PATH = "/v1/notifications/send";
   private static final long REQUEST_TIMEOUT_MS = 30000;
 
   @Inject
@@ -183,41 +183,49 @@ public class PulseServerApiClient {
 
   /**
    * Send usage limit notification via pulse-server notification API.
+   * Template selection and display logic is handled server-side.
    */
   public Completable sendUsageLimitNotification(UsageNotificationDto notification) {
-    log.info("Sending usage limit notification for project: {} - {}% threshold",
-        notification.getProjectId(), notification.getThreshold());
+    log.info("Sending usage limit notification for project: {} - {}% threshold ({}) using template {}",
+        notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
     
-    String message = String.format(
-        "Your %s usage has reached %d%% (%,d / %,d). Please review your usage or upgrade your plan.",
-        notification.getMetricType(),
-        notification.getThreshold(),
-        notification.getCurrentUsage(),
-        notification.getLimit()
-    );
+    // Calculate overage limit for metadata
+    Integer eventsOverage = notification.getEventsOverage() != null ? notification.getEventsOverage() : 0;
+    Integer sessionsOverage = notification.getSessionsOverage() != null ? notification.getSessionsOverage() : 0;
+    int maxOverage = Math.max(eventsOverage, sessionsOverage);
+    int overageLimit = 100 + maxOverage;
     
-    String title = String.format("Usage Alert: %d%% %s limit reached",
-        notification.getThreshold(),
-        notification.getMetricType());
+    // Build metadata with all details from server (percentages already capped for display)
+    JsonObject metadata = new JsonObject()
+        .put("projectId", notification.getProjectId())
+        .put("notifyFor", notification.getNotifyFor())
+        .put("threshold", notification.getThreshold())
+        .put("sessionsUsed", notification.getSessionsUsed())
+        .put("sessionsLimit", notification.getSessionsLimit())
+        .put("sessionsPercentage", notification.getSessionsPercentage())
+        .put("sessionsOverage", sessionsOverage)
+        .put("sessionsBlocked", notification.getSessionsBlocked() != null ? notification.getSessionsBlocked() : false)
+        .put("sessionsAtLimit", notification.getSessionsAtLimit() != null ? notification.getSessionsAtLimit() : false)
+        .put("eventsUsed", notification.getEventsUsed())
+        .put("eventsLimit", notification.getEventsLimit())
+        .put("eventsPercentage", notification.getEventsPercentage())
+        .put("eventsOverage", eventsOverage)
+        .put("eventsBlocked", notification.getEventsBlocked() != null ? notification.getEventsBlocked() : false)
+        .put("eventsAtLimit", notification.getEventsAtLimit() != null ? notification.getEventsAtLimit() : false)
+        .put("overageLimit", overageLimit)
+        .put("hasOverage", maxOverage > 0);
     
     JsonObject body = new JsonObject()
-        .put("projectId", notification.getProjectId())
-        .put("type", "USAGE_LIMIT_THRESHOLD")
-        .put("title", title)
-        .put("message", message)
-        .put("metadata", new JsonObject()
-            .put("metricType", notification.getMetricType())
-            .put("threshold", notification.getThreshold())
-            .put("percentage", notification.getPercentage())
-            .put("currentUsage", notification.getCurrentUsage())
-            .put("limit", notification.getLimit())
-        );
+        .put("eventName", notification.getTemplateName())
+        .put("channelTypes", new JsonArray().add("EMAIL"))
+        .put("metadata", metadata);
     
     return Single.defer(() ->
         webClient
             .postAbs(apiBaseUrl + SEND_NOTIFICATION_PATH)
             .putHeader("Authorization", "Bearer " + serviceJwt)
             .putHeader("Content-Type", "application/json")
+            .putHeader("X-Project-Id", notification.getProjectId())
             .timeout(REQUEST_TIMEOUT_MS)
             .rxSendJsonObject(body)
             .map(response -> {
@@ -229,8 +237,8 @@ public class PulseServerApiClient {
                 throw new RuntimeException("Failed to send notification");
               }
               
-              log.info("✅ Notification sent successfully for project {} - {}%",
-                  notification.getProjectId(), notification.getThreshold());
+              log.info("✅ Notification sent successfully for project {} - {}% ({}) using template {}",
+                  notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
               return response;
             })
     ).ignoreElement();

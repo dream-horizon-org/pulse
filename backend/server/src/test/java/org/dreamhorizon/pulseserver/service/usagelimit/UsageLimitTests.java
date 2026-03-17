@@ -20,6 +20,7 @@ import java.util.Map;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tier.TierDao;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
@@ -61,6 +62,9 @@ class UsageLimitTests {
   TierService tierService;
 
   @Mock
+  ClickhouseQueryService clickhouseQueryService;
+
+  @Mock
   SqlConnection sqlConnection;
 
   ObjectMapper objectMapper;
@@ -100,7 +104,7 @@ class UsageLimitTests {
   void setup() {
     objectMapper = new ObjectMapper();
     usageLimitService = new UsageLimitService(
-        usageLimitDao, projectDao, tenantDao, tierDao, tierService, objectMapper);
+        usageLimitDao, projectDao, tenantDao, tierDao, tierService, objectMapper, clickhouseQueryService);
   }
 
   @Nested

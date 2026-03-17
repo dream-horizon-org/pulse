@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mysqlclient.MySQLException;
@@ -67,11 +68,13 @@ class ProjectUsageLimitDaoTest {
   @Mock
   Row row;
 
+  ObjectMapper objectMapper;
   ProjectUsageLimitDao projectUsageLimitDao;
 
   @BeforeEach
   void setup() {
-    projectUsageLimitDao = new ProjectUsageLimitDao(mysqlClient);
+    objectMapper = new ObjectMapper();
+    projectUsageLimitDao = new ProjectUsageLimitDao(mysqlClient, objectMapper);
   }
 
   private void setupWriterPool() {
