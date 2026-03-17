@@ -299,6 +299,9 @@ services:
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
 
+      # Incident Configuration
+      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${#test-incident-channel:-}
+
       # Notification Service Configuration
       - AWS_REGION=${AWS_REGION:-ap-south-1}
       - NOTIFICATION_QUEUE_URL=${NOTIFICATION_QUEUE_URL:-}
