@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.service;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -109,9 +110,33 @@ public class JwtService {
         .getPayload();
   }
 
+  /**
+   * Parse claims from a token even if it is expired.
+   * Signature is still verified; only expiration is tolerated.
+   * Throws for malformed or tampered tokens.
+   */
+  public Claims parseClaimsAllowingExpired(String token) {
+    try {
+      return verifyToken(token);
+    } catch (ExpiredJwtException e) {
+      return e.getClaims();
+    }
+  }
+
+  public boolean isTokenExpired(String token) {
+    try {
+      verifyToken(token);
+      return false;
+    } catch (ExpiredJwtException e) {
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   public boolean isAccessToken(String token) {
     try {
-      Claims claims = verifyToken(token);
+      Claims claims = parseClaimsAllowingExpired(token);
       return TOKEN_TYPE_ACCESS.equals(claims.get(CLAIM_TYPE, String.class));
     } catch (Exception e) {
       return false;
@@ -120,7 +145,7 @@ public class JwtService {
 
   public boolean isRefreshToken(String token) {
     try {
-      Claims claims = verifyToken(token);
+      Claims claims = parseClaimsAllowingExpired(token);
       return TOKEN_TYPE_REFRESH.equals(claims.get(CLAIM_TYPE, String.class));
     } catch (Exception e) {
       return false;

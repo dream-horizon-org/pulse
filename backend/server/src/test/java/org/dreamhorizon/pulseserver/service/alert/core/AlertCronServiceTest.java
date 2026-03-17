@@ -405,6 +405,7 @@ class AlertCronServiceTest {
     @Test
     void shouldCreateApplicationConfigWithAllArgs() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -431,6 +432,7 @@ class AlertCronServiceTest {
           "ai-key"
       );
 
+      assertEquals("dev", config.getAppEnvironment());
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://service.url", config.getServiceUrl());
       assertEquals(30, config.getShutdownGracePeriod());
@@ -504,6 +506,7 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectToStringForApplicationConfig() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -538,21 +541,21 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
           "key", "tnc-bucket", "http://ai:8000", "ai-key"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
           "key", "tnc-bucket", "http://ai:8000", "ai-key"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",

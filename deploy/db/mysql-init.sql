@@ -493,8 +493,7 @@ INSERT INTO alert_metrics (name, label, scope) VALUES
 -- Athena job tracking table (depends on projects table)
 CREATE TABLE IF NOT EXISTS athena_job (
     job_id VARCHAR(255) PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default' COMMENT 'Parent tenant for organizational hierarchy',
-    project_id VARCHAR(64) COMMENT 'Project where query was executed (data isolation)',
+    project_id VARCHAR(64) NOT NULL COMMENT 'Project where query was executed (data isolation)',
     query_string TEXT NOT NULL,
     user_email VARCHAR(255) NOT NULL,
     query_execution_id VARCHAR(255),
@@ -513,10 +512,7 @@ CREATE TABLE IF NOT EXISTS athena_job (
     INDEX idx_created_at (created_at),
     INDEX idx_user_email (user_email),
     INDEX idx_user_email_created_at (user_email, created_at),
-    INDEX idx_athena_job_tenant (tenant_id),
     INDEX idx_athena_job_project (project_id),
-    INDEX idx_athena_job_tenant_project (tenant_id, project_id),
-    CONSTRAINT fk_athena_job_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
     CONSTRAINT fk_athena_job_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
@@ -712,6 +708,26 @@ INSERT INTO notification_templates (event_name, channel_type, version, body) VAL
 ))
 ON DUPLICATE KEY UPDATE body = body;
 
+-- Insert contact support email template (free-tier user interested in Enterprise)
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('contact_support', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Enterprise Inquiry from {{userEmail}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;"><div style="background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"><h1 style="color: #00BFA5; margin: 0; font-size: 28px;">Enterprise Plan Inquiry</h1></div><div style="background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"><p style="font-size: 16px;">A free-tier user is interested in upgrading to the <strong style="color: #00BFA5;">Enterprise</strong> plan.</p><table style="width: 100%; border-collapse: collapse; margin: 20px 0;"><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; width: 130px;">User Email</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;"><a href="mailto:{{userEmail}}" style="color: #00BFA5; text-decoration: none;">{{userEmail}}</a></td></tr><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee;">Tenant Name</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;">{{tenantName}}</td></tr></table><div style="background: #f8f9fa; border-left: 4px solid #00BFA5; padding: 15px 20px; border-radius: 4px; margin: 20px 0;"><p style="font-size: 14px; font-weight: 600; color: #555; margin: 0 0 8px 0;">Message from User</p><p style="font-size: 14px; color: #333; margin: 0; white-space: pre-wrap;">{{message}}</p></div><p style="font-size: 14px; color: #666;">Please follow up with this user regarding Enterprise pricing and onboarding.</p><hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;"><p style="color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;">-- Pulse Platform Notification</p></div></body></html>',
+    'text', '[Pulse] Enterprise Plan Inquiry\n\nA free-tier user is interested in upgrading to the Enterprise plan.\n\nUser Email: {{userEmail}}\nTenant Name: {{tenantName}}\n\nMessage from User:\n{{message}}\n\nPlease follow up with this user regarding Enterprise pricing and onboarding.\n\n-- Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
+-- Insert contact us email template (free-tier user requesting support)
+INSERT INTO notification_templates (event_name, channel_type, version, body) VALUES
+('contact_us', 'EMAIL', 1, JSON_OBJECT(
+    'type', 'EMAIL',
+    'subject', '[Pulse] Support Request from {{userEmail}}',
+    'html', '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;"><div style="background: #1a1a2e; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"><h1 style="color: #00BFA5; margin: 0; font-size: 28px;">New Support Request</h1></div><div style="background: #ffffff; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"><p style="font-size: 16px;">A user has submitted a <strong>support request</strong>.</p><table style="width: 100%; border-collapse: collapse; margin: 20px 0;"><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; width: 130px;">User Email</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;"><a href="mailto:{{userEmail}}" style="color: #00BFA5; text-decoration: none;">{{userEmail}}</a></td></tr><tr><td style="padding: 10px 15px; font-weight: 600; color: #555; border-bottom: 1px solid #eee;">Tenant Name</td><td style="padding: 10px 15px; border-bottom: 1px solid #eee;">{{tenantName}}</td></tr></table><div style="background: #f8f9fa; border-left: 4px solid #00BFA5; padding: 15px 20px; border-radius: 4px; margin: 20px 0;"><p style="font-size: 14px; font-weight: 600; color: #555; margin: 0 0 8px 0;">Message from User</p><p style="font-size: 14px; color: #333; margin: 0; white-space: pre-wrap;">{{message}}</p></div><p style="font-size: 14px; color: #666;">Please respond to this support request at your earliest convenience.</p><hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;"><p style="color: #aaa; font-size: 12px; text-align: center; margin-top: 20px;">-- Pulse Platform Notification</p></div></body></html>',
+    'text', '[Pulse] Support Request\n\nA user has submitted a support request.\n\nUser Email: {{userEmail}}\nTenant Name: {{tenantName}}\n\nMessage from User:\n{{message}}\n\nPlease respond to this support request at your earliest convenience.\n\n-- Pulse Platform'
+))
+ON DUPLICATE KEY UPDATE body = body;
+
 CREATE TABLE IF NOT EXISTS channel_event_mapping (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
@@ -727,6 +743,12 @@ CREATE TABLE IF NOT EXISTS channel_event_mapping (
     UNIQUE KEY unique_mapping (channel_id, event_name, recipient_name),
     INDEX idx_mapping_project_event (project_id, event_name, is_active)
 );
+
+-- Contact channel mappings (uses NOTIFICATION_DEFAULT_PROJECT from NotificationConstants.java)
+INSERT INTO channel_event_mapping (project_id, channel_id, event_name, recipient, is_active) VALUES
+('default-project', 1, 'contact_us', 'contact@pulse-ux.com', TRUE),
+('default-project', 1, 'contact_support', 'support@pulse-ux.com', TRUE)
+ON DUPLICATE KEY UPDATE is_active = is_active;
 
 CREATE TABLE IF NOT EXISTS notification_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -764,6 +786,37 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
     CONSTRAINT fk_suppression_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
     UNIQUE KEY unique_project_email_suppression (project_id, email),
     INDEX idx_suppression_email (email)
+);
+
+-- Event Definitions catalog (project-scoped)
+CREATE TABLE IF NOT EXISTS event_definitions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id VARCHAR(64) NOT NULL,
+    event_name VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255),
+    description TEXT,
+    category VARCHAR(64),
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by VARCHAR(255) NOT NULL,
+    updated_by VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_project_event (project_id, event_name),
+    INDEX idx_event_def_project (project_id),
+    INDEX idx_event_def_search (project_id, is_archived, event_name)
+);
+
+CREATE TABLE IF NOT EXISTS event_attribute_definitions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_definition_id BIGINT NOT NULL,
+    attribute_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    data_type VARCHAR(32) NOT NULL DEFAULT 'string',
+    is_required BOOLEAN NOT NULL DEFAULT FALSE,
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE KEY uk_event_attr (event_definition_id, attribute_name),
+    CONSTRAINT fk_attr_event FOREIGN KEY (event_definition_id)
+        REFERENCES event_definitions(id) ON DELETE CASCADE
 );
 
 -- Display summary
