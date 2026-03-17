@@ -232,9 +232,13 @@ public class ProjectUsageLimitDao {
       }
     }
     
+    String projectName = row.getColumnIndex("project_name") >= 0
+        ? row.getString("project_name") : null;
+
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
         .projectId(row.getString("project_id"))
+        .projectName(projectName)
         .usageLimits(usageLimitsJson)
         .isActive(row.getBoolean("is_active"))
         .createdAt(row.getLocalDateTime("created_at") != null

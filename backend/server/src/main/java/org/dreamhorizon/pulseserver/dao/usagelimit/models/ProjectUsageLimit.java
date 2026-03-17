@@ -14,6 +14,7 @@ import java.time.Instant;
 public class ProjectUsageLimit {
   private Long projectUsageLimitId;
   private String projectId;
+  private String projectName;
   private String usageLimits; // JSON string
   private Boolean isActive;
   private Instant createdAt;

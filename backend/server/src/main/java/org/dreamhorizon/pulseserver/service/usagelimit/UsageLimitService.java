@@ -308,6 +308,7 @@ public class UsageLimitService {
     return ProjectUsageLimitInfo.builder()
         .projectUsageLimitId(limit.getProjectUsageLimitId())
         .projectId(limit.getProjectId())
+        .projectName(limit.getProjectName())
         .usageLimits(usageLimits)
         .isActive(limit.getIsActive())
         .createdAt(limit.getCreatedAt())
@@ -513,8 +514,10 @@ public class UsageLimitService {
                       // Show actual percentages (under 100%)
                     }
                     
+                    String projectName = limit.getProjectName() != null ? limit.getProjectName() : projectId;
                     UsageNotification notification = UsageNotification.builder()
                         .projectId(projectId)
+                        .projectName(projectName)
                         .threshold(threshold)
                         .notifyFor(notifyFor)
                         .templateName(templateName)

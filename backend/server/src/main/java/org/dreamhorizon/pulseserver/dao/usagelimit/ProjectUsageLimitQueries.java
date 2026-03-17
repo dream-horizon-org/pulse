@@ -9,12 +9,16 @@ public class ProjectUsageLimitQueries {
       "pul.project_usage_limit_id, pul.project_id, pul.usage_limits, pul.is_active, "
           + "pul.created_at, pul.disabled_at, pul.disabled_by, pul.disabled_reason, pul.created_by, "
           + "COALESCE(uln.thresholds_notified, '{}') as thresholds_notified, "
-          + "uln.created_at as notification_created_at";
+          + "uln.created_at as notification_created_at, "
+          + "COALESCE(p.name, pul.project_id) as project_name";
 
   private static final String NOTIFICATION_JOIN =
       " LEFT JOIN usage_limit_notifications uln "
           + "ON pul.project_id = uln.project_id "
           + "AND DATE_FORMAT(uln.created_at, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')";
+
+  private static final String PROJECT_JOIN =
+      " LEFT JOIN projects p ON pul.project_id = p.project_id";
 
   public static final String INSERT_USAGE_LIMIT =
       "INSERT INTO project_usage_limits (project_id, usage_limits, is_active, created_by) "
@@ -23,6 +27,7 @@ public class ProjectUsageLimitQueries {
   public static final String GET_ACTIVE_LIMIT_BY_PROJECT_ID =
       "SELECT " + LIMIT_COLUMNS_WITH_NOTIFICATIONS
           + " FROM project_usage_limits pul"
+          + PROJECT_JOIN
           + NOTIFICATION_JOIN
           + " WHERE pul.project_id = ? AND pul.is_active = TRUE";
 
@@ -49,6 +54,7 @@ public class ProjectUsageLimitQueries {
   public static final String GET_ALL_ACTIVE_LIMITS =
       "SELECT " + LIMIT_COLUMNS_WITH_NOTIFICATIONS
           + " FROM project_usage_limits pul"
+          + PROJECT_JOIN
           + NOTIFICATION_JOIN
           + " WHERE pul.is_active = TRUE"
           + " ORDER BY pul.project_id";

@@ -20,7 +20,7 @@ public class PulseServerApiClient {
   private final WebClient webClient;
   private final String apiBaseUrl;
   private final String serviceJwt;
-  
+
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
   private static final String USAGE_NOTIFICATIONS_PATH = "/internal/v1/projects/limits/notifications-due";
@@ -181,44 +181,31 @@ public class PulseServerApiClient {
     ).ignoreElement();
   }
 
+  private static final String DEFAULT_DASHBOARD_URL = "https://pulse-ux.com";
+
   /**
    * Send usage limit notification via pulse-server notification API.
    * Template selection and display logic is handled server-side.
+   * Sends params for template placeholder replacement (projectName, threshold, etc.).
    */
   public Completable sendUsageLimitNotification(UsageNotificationDto notification) {
     log.info("Sending usage limit notification for project: {} - {}% threshold ({}) using template {}",
         notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
-    
-    // Calculate overage limit for metadata
-    Integer eventsOverage = notification.getEventsOverage() != null ? notification.getEventsOverage() : 0;
-    Integer sessionsOverage = notification.getSessionsOverage() != null ? notification.getSessionsOverage() : 0;
-    int maxOverage = Math.max(eventsOverage, sessionsOverage);
-    int overageLimit = 100 + maxOverage;
-    
-    // Build metadata with all details from server (percentages already capped for display)
-    JsonObject metadata = new JsonObject()
+
+    // Build params for template placeholders ({{projectName}}, {{threshold}}, etc.)
+    JsonObject params = new JsonObject()
         .put("projectId", notification.getProjectId())
-        .put("notifyFor", notification.getNotifyFor())
+        .put("projectName", notification.getProjectName() != null ? notification.getProjectName() : notification.getProjectId())
         .put("threshold", notification.getThreshold())
-        .put("sessionsUsed", notification.getSessionsUsed())
-        .put("sessionsLimit", notification.getSessionsLimit())
-        .put("sessionsPercentage", notification.getSessionsPercentage())
-        .put("sessionsOverage", sessionsOverage)
-        .put("sessionsBlocked", notification.getSessionsBlocked() != null ? notification.getSessionsBlocked() : false)
-        .put("sessionsAtLimit", notification.getSessionsAtLimit() != null ? notification.getSessionsAtLimit() : false)
-        .put("eventsUsed", notification.getEventsUsed())
-        .put("eventsLimit", notification.getEventsLimit())
+        .put("notifyFor", notification.getNotifyFor())
         .put("eventsPercentage", notification.getEventsPercentage())
-        .put("eventsOverage", eventsOverage)
-        .put("eventsBlocked", notification.getEventsBlocked() != null ? notification.getEventsBlocked() : false)
-        .put("eventsAtLimit", notification.getEventsAtLimit() != null ? notification.getEventsAtLimit() : false)
-        .put("overageLimit", overageLimit)
-        .put("hasOverage", maxOverage > 0);
-    
+        .put("sessionsPercentage", notification.getSessionsPercentage())
+        .put("dashboardUrl", DEFAULT_DASHBOARD_URL);
+
     JsonObject body = new JsonObject()
         .put("eventName", notification.getTemplateName())
         .put("channelTypes", new JsonArray().add("EMAIL"))
-        .put("metadata", metadata);
+        .put("params", params);
     
     return Single.defer(() ->
         webClient

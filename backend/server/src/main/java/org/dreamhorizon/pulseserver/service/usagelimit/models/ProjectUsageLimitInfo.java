@@ -19,6 +19,7 @@ import java.util.Map;
 public class ProjectUsageLimitInfo {
   private Long projectUsageLimitId;
   private String projectId;
+  private String projectName;
   private Map<String, UsageLimitValue> usageLimits;
   private Boolean isActive;
   private Instant createdAt;

@@ -176,6 +176,7 @@ public abstract class UsageLimitMapper {
     }
     return UsageNotificationRestDto.builder()
         .projectId(notification.getProjectId())
+        .projectName(notification.getProjectName())
         .threshold(notification.getThreshold())
         .notifyFor(notification.getNotifyFor())
         .templateName(notification.getTemplateName())

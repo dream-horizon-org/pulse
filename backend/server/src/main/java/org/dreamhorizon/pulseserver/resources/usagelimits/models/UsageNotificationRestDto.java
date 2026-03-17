@@ -18,7 +18,10 @@ public class UsageNotificationRestDto {
   
   @JsonProperty("projectId")
   private String projectId;
-  
+
+  @JsonProperty("projectName")
+  private String projectName;
+
   @JsonProperty("threshold")
   private Integer threshold;
   

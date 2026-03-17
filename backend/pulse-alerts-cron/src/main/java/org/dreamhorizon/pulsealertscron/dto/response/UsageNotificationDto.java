@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UsageNotificationDto {
   private String projectId;
+  private String projectName;
   private Integer threshold;      // 50, 75, 90, 100
   private String notifyFor;       // "sessions" or "events" - which metric triggered notification
   private String templateName;    // Template to use: USAGE_LIMIT_THRESHOLD, USAGE_LIMIT_REACHED, or USAGE_LIMIT_BLOCKED
