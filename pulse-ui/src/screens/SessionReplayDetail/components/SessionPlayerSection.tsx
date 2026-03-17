@@ -16,6 +16,8 @@ interface SessionPlayerSectionProps {
   playbackSpeed: number;
   selectedSpan: FlameChartNode | null;
   compact?: boolean;
+  /** Override for player duration (ms). Falls back to sessionData.duration. */
+  duration?: number;
   onTimeUpdate?: (time: number) => void;
   onTimelineChange: (value: number) => void;
   onPlayPause: () => void;
@@ -31,6 +33,7 @@ export function SessionPlayerSection({
   playbackSpeed,
   selectedSpan,
   compact,
+  duration,
   onTimeUpdate,
   onTimelineChange,
   onPlayPause,
@@ -54,7 +57,7 @@ export function SessionPlayerSection({
       />
       <PlayerControls
         currentTime={currentTime}
-        duration={sessionData.duration}
+        duration={duration ?? sessionData.duration}
         isPlaying={isPlaying}
         playbackSpeed={playbackSpeed}
         criticalInteractions={sessionData.criticalInteractions}

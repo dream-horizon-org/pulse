@@ -20,8 +20,11 @@ export const QUALITY_THRESHOLDS = {
   MEDIUM: 0.6,
 } as const;
 
-/** Max journey segments shown in table before truncation */
+/** Max journey segments shown in table before truncation (legacy) */
 export const JOURNEY_DISPLAY_LIMIT = 3;
+
+/** Max impacted screen names shown in table before truncation */
+export const IMPACTED_SCREENS_DISPLAY_LIMIT = 3;
 
 export const SESSION_LIST_LABELS = {
   backToInsights: "Back to Insights",
@@ -35,6 +38,7 @@ export const SESSION_LIST_LABELS = {
   emptyStateDescriptionDefault:
     "Session replay data will appear here once your app starts sending telemetry.",
   clearAllFilters: "Clear All Filters",
+  removeLastFilter: "Remove Last Filter",
   timeRangeLabel: "Time range:",
   timeRangePlaceholder: "Select range",
   fromDatePlaceholder: "From date",
@@ -51,7 +55,7 @@ export const SESSION_LIST_LABELS = {
   loading: "Loading sessions...",
   moreAvailable: "(more available)",
   anonymousUser: "Anonymous",
-  noQuality: "—",
+  noQuality: "NA",
   watchSession: "Watch session",
   openInNewTab: "Open in new tab",
   clean: "Clean",
@@ -73,7 +77,7 @@ export const TABLE_COLUMN_LABELS = {
   quality: "Quality",
   issues: "Issues",
   platform: "Platform",
-  journey: "Journey",
+  impactedScreens: "Impacted Screens",
   actions: "Actions",
 } as const;
 

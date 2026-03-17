@@ -3,6 +3,10 @@
  * Uses GET /v1/sessions/{sessionId}/snapshots-source and
  * GET /v1/sessions/{sessionId}/snapshots-data?start_blob_key=&end_blob_key=
  * with IndexedDB cache (max 20 blobs per request).
+ *
+ * The manifest (snapshots-source) is fetched once per session and cached
+ * in-memory so that loadInitialSnapshots / loadSnapshotsForTime never
+ * duplicate the call.
  */
 
 import { sessionReplayService } from "./SessionReplayService";
@@ -18,12 +22,96 @@ import type { SessionReplayImage } from "./sessionReplayImages";
 
 const MAX_BLOBS_PER_REQUEST = 20;
 
+export function parseTimestamp(ts: string): number {
+  const normalized = ts.includes("T") ? ts : ts.replace(" ", "T") + "Z";
+  return new Date(normalized).getTime();
+}
+
+/* ── manifest cache (one entry per session, lives for the tab lifetime) ── */
+
+interface CachedManifest {
+  sources: SnapshotsSourceBlob[];
+  durationMs: number;
+  sessionStartMs: number;
+}
+
+const manifestCache = new Map<string, CachedManifest>();
+const inflightManifest = new Map<string, Promise<CachedManifest>>();
+
+export function clearManifestCache(sessionId?: string): void {
+  if (sessionId) {
+    manifestCache.delete(sessionId);
+    inflightManifest.delete(sessionId);
+  } else {
+    manifestCache.clear();
+    inflightManifest.clear();
+  }
+}
+
+async function getOrFetchManifest(sessionId: string): Promise<CachedManifest> {
+  const cached = manifestCache.get(sessionId);
+  if (cached) return cached;
+
+  // Deduplicate concurrent requests (e.g. React Strict Mode double-effect)
+  const inflight = inflightManifest.get(sessionId);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const response = await sessionReplayService.getSnapshotsSource(sessionId);
+    const sources = response.sources ?? [];
+    const durationMs = computeSnapshotDurationMs(sources);
+    const sessionStartMs =
+      sources.length > 0 ? parseTimestamp(sources[0].startTimestamp) : 0;
+
+    const entry: CachedManifest = { sources, durationMs, sessionStartMs };
+    manifestCache.set(sessionId, entry);
+    inflightManifest.delete(sessionId);
+    return entry;
+  })();
+
+  inflightManifest.set(sessionId, promise);
+  return promise;
+}
+
 /** Type 4 = image frame with href in data */
 const IMAGE_FRAME_TYPE = 4;
+/** Type 3 = incremental snapshot with updates[].wireframe (may have base64) */
+const INCREMENTAL_SNAPSHOT_TYPE = 3;
+
+/**
+ * Decode raw base64 string to a blob: URL.
+ * Detects MIME from the binary header (RIFF → webp, PNG → png, JFIF/Exif → jpeg, fallback octet-stream).
+ */
+function base64ToBlobUrl(raw: string): string | null {
+  try {
+    const cleaned = raw.replace(/\s/g, "");
+    const binary = atob(cleaned);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    let mime = "application/octet-stream";
+    const header = binary.slice(0, 16);
+    if (header.startsWith("RIFF") && header.includes("WEBP")) {
+      mime = "image/webp";
+    } else if (binary.charCodeAt(0) === 0x89 && header.includes("PNG")) {
+      mime = "image/png";
+    } else if (binary.charCodeAt(0) === 0xff && binary.charCodeAt(1) === 0xd8) {
+      mime = "image/jpeg";
+    }
+
+    const blob = new Blob([bytes], { type: mime });
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Convert API snapshot events to player images.
- * Uses type 4 events (image frame) with data.href; others are skipped for display.
+ * Uses type 4 events (image frame) with data.href, or type 3 with data.updates[].wireframe.base64.
+ * Base64 payloads are decoded to blob: URLs for reliable <img> rendering.
  */
 export function snapshotEventsToImages(
   events: SnapshotEvent[],
@@ -32,13 +120,35 @@ export function snapshotEventsToImages(
 ): SessionReplayImage[] {
   const images: SessionReplayImage[] = [];
   for (const event of events) {
+    const timestampMs = Math.max(0, event.timestamp - sessionStartMs);
     if (event.type === IMAGE_FRAME_TYPE && event.data?.href) {
-      const timestampMs = Math.max(0, event.timestamp - sessionStartMs);
       images.push({
         timestamp: timestampMs,
         imageUrl: event.data.href,
         blobKey,
       });
+      continue;
+    }
+    const updates = event.data?.updates;
+    if (
+      event.type === INCREMENTAL_SNAPSHOT_TYPE &&
+      Array.isArray(updates) &&
+      updates.length > 0
+    ) {
+      for (const u of updates as Array<{ wireframe?: { base64?: string } }>) {
+        const w = u.wireframe;
+        if (w?.base64) {
+          const blobUrl = base64ToBlobUrl(w.base64);
+          if (blobUrl) {
+            images.push({
+              timestamp: timestampMs,
+              imageUrl: blobUrl,
+              blobKey,
+            });
+          }
+          break;
+        }
+      }
     }
   }
   return images;
@@ -76,12 +186,12 @@ function findBlobIndexForTime(
 ): number {
   const absoluteMs = sessionStartMs + currentTimeMs;
   for (let i = 0; i < sources.length; i++) {
-    const start = new Date(sources[i].startTimestamp).getTime();
-    const end = new Date(sources[i].endTimestamp).getTime();
+    const start = parseTimestamp(sources[i].startTimestamp);
+    const end = parseTimestamp(sources[i].endTimestamp);
     if (absoluteMs >= start && absoluteMs <= end) return i;
   }
   if (sources.length === 0) return -1;
-  if (absoluteMs < new Date(sources[0].startTimestamp).getTime()) return 0;
+  if (absoluteMs < parseTimestamp(sources[0].startTimestamp)) return 0;
   return sources.length - 1;
 }
 
@@ -103,6 +213,30 @@ function getBlobRangeToLoad(
   return { startIndex, endIndex };
 }
 
+/**
+ * Compute total snapshot duration (ms) from the manifest:
+ * last blob endTimestamp − first blob startTimestamp.
+ */
+export function computeSnapshotDurationMs(
+  sources: SnapshotsSourceBlob[],
+): number {
+  if (sources.length === 0) return 0;
+  const first = parseTimestamp(sources[0].startTimestamp);
+  const last = parseTimestamp(sources[sources.length - 1].endTimestamp);
+  return Math.max(0, last - first);
+}
+
+/**
+ * Fetch the snapshot source manifest for a session.
+ * Returns the sources array, computed total duration, and session start time.
+ * Uses the in-memory cache so the network call happens at most once per session.
+ */
+export async function fetchSnapshotManifest(
+  sessionId: string,
+): Promise<CachedManifest> {
+  return getOrFetchManifest(sessionId);
+}
+
 export interface LoadSnapshotsOptions {
   sessionId: string;
   sessionStartMs: number;
@@ -118,7 +252,8 @@ export interface LoadSnapshotsResult {
 
 /**
  * Load snapshot images for the current time window (and buffer).
- * Uses manifest to determine blob range, then cache/API. Merges with already-loaded ranges.
+ * Uses cached manifest to determine blob range, then cache/API.
+ * Merges with already-loaded ranges.
  */
 export async function loadSnapshotsForTime(
   options: LoadSnapshotsOptions,
@@ -127,8 +262,8 @@ export async function loadSnapshotsForTime(
 
   await touchSession(sessionId);
 
-  const manifest = await sessionReplayService.getSnapshotsSource(sessionId);
-  const sources = manifest.sources ?? [];
+  const manifest = await getOrFetchManifest(sessionId);
+  const sources = manifest.sources;
   if (sources.length === 0) {
     return { images: [], loadedRanges: new Set(loadedRanges) };
   }
@@ -204,7 +339,8 @@ async function buildImagesFromLoadedRanges(
 }
 
 /**
- * Initial load: cleanup stale cache, then load first window of snapshots (start of session).
+ * Initial load: cleanup stale cache, then load first window of snapshots
+ * (start of session). Uses the cached manifest — no extra network call.
  */
 export async function loadInitialSnapshots(
   sessionId: string,
@@ -213,8 +349,8 @@ export async function loadInitialSnapshots(
   await cleanupStaleSessions();
   await touchSession(sessionId);
 
-  const manifest = await sessionReplayService.getSnapshotsSource(sessionId);
-  const sources = manifest.sources ?? [];
+  const manifest = await getOrFetchManifest(sessionId);
+  const sources = manifest.sources;
   if (sources.length === 0) {
     return { images: [], loadedRanges: new Set() };
   }

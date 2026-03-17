@@ -28,6 +28,10 @@ export interface UnifiedEvent {
   color: string;
   /** Display label for chip (e.g. Interaction, Network, Event) */
   categoryLabel: string;
+  traceId?: string;
+  spanId?: string;
+  durationMs?: number;
+  interactionName?: string;
 }
 
 export function createUnifiedEvents(
@@ -67,6 +71,8 @@ export function createUnifiedEvents(
     let content = sanitizeDisplayText(descRaw);
     let status = NA;
 
+    let interactionName: string | undefined;
+
     if (event.type === "click") {
       type = EVENT_TYPES.INTERACTION_TAP;
       category = CAT.INTERACTION;
@@ -74,6 +80,7 @@ export function createUnifiedEvents(
         /(?:Click|Tap|Interaction)\s+(?:on\s+)?(.+)/i,
       );
       content = sanitizeDisplayText(match ? match[1].trim() : descRaw);
+      interactionName = content;
     } else if (event.type === "navigation") {
       type = EVENT_TYPES.SCREEN_LOAD;
       category = CAT.EVENT;
@@ -104,6 +111,12 @@ export function createUnifiedEvents(
       description: `${category.label}: ${content}: ${status}`,
       color: category.color,
       categoryLabel: category.label,
+      traceId: event.traceId,
+      spanId: event.spanId,
+      durationMs: event.durationNs
+        ? Math.round(event.durationNs / 1_000_000)
+        : undefined,
+      interactionName,
     });
   });
 
@@ -121,6 +134,7 @@ export function createUnifiedEvents(
         description: `${CAT.INTERACTION.label}: ${safeName} CII: ${statusText}`,
         color: CAT.INTERACTION.color,
         categoryLabel: CAT.INTERACTION.label,
+        interactionName: interaction.displayName,
       });
     }
   });

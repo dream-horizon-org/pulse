@@ -1,6 +1,11 @@
 import { AppShell } from "@mantine/core";
 import { LayoutProps } from "./Layout.interface";
-import { COOKIES_KEY, HEADER_CONFIG, LAYOUT_PAGE_CONSTANTS, ROUTES } from "../../constants";
+import {
+  COOKIES_KEY,
+  HEADER_CONFIG,
+  LAYOUT_PAGE_CONSTANTS,
+  ROUTES,
+} from "../../constants";
 import { useDisclosure } from "@mantine/hooks";
 import { Header } from "../Header";
 import { Navbar } from "../Navbar";
@@ -14,6 +19,8 @@ import { ProjectGuard } from "../ProjectGuard";
 import { useTenantContext } from "../../contexts";
 import { useGetTncStatus } from "../../hooks/useGetTncStatus";
 import { TncAcceptance } from "../../screens/TncAcceptance";
+import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
+import { TIERS, TierType } from "../../constants/Tiers";
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
@@ -25,9 +32,9 @@ export function Layout({ children }: LayoutProps) {
     LAYOUT_PAGE_CONSTANTS.CHECKING_CREDENTIALS,
   );
 
-//   const isProjectRoute = pathname.startsWith('/projects/');
-//   const isOrganizationRoute = pathname.startsWith('/organization/');
-//   const shouldShowHeader = isProjectRoute || isOrganizationRoute;
+  //   const isProjectRoute = pathname.startsWith('/projects/');
+  //   const isOrganizationRoute = pathname.startsWith('/organization/');
+  //   const shouldShowHeader = isProjectRoute || isOrganizationRoute;
 
   // Show header on all authenticated pages except login and initial onboarding
   // This includes: project routes, organization routes (/:orgId/projects, /:orgId/members
@@ -50,18 +57,19 @@ export function Layout({ children }: LayoutProps) {
       // Initialize tenant context if tenantId exists in cookies but not in context
       const cookieTenantId = getCookies(COOKIES_KEY.TENANT_ID);
       const cookieTenantName = getCookies(COOKIES_KEY.TENANT_NAME);
+      const cookieTenantRole = getCookies(COOKIES_KEY.TENANT_ROLE);
       const cookieTier = getCookies(COOKIES_KEY.TIER);
-      if (cookieTenantId && cookieTenantId !== 'undefined' && !tenantId) {
+      if (cookieTenantId && cookieTenantId !== "undefined" && !tenantId) {
         try {
           // Set tenant info (which will automatically trigger project fetch)
           setTenantInfo({
             tenantId: cookieTenantId,
-            tenantName: cookieTenantName || '', // Get tenantName from cookie
-            userRole: 'member', // Default role, will be updated from projects API
-            tier: (cookieTier as 'free' | 'enterprise') || 'free', // Get tier from cookie
+            tenantName: cookieTenantName || "",
+            userRole: (cookieTenantRole as TenantRole) || TENANT_ROLES.MEMBER,
+            tier: (cookieTier as TierType) || TIERS.FREE,
           });
         } catch (error) {
-          console.error('[Layout] Failed to initialize tenant context:', error);
+          console.error("[Layout] Failed to initialize tenant context:", error);
         }
       }
 
@@ -72,7 +80,8 @@ export function Layout({ children }: LayoutProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  const tncEnabled = !!tenantId && userRole === 'admin' && !isLoginPage && !isOnboardingPage;
+  const tncEnabled =
+    !!tenantId && userRole === "admin" && !isLoginPage && !isOnboardingPage;
   const { data: tncData, isLoading: tncLoading } = useGetTncStatus(tncEnabled);
 
   if (checkingCredentials) {
@@ -98,6 +107,10 @@ export function Layout({ children }: LayoutProps) {
     return (
       <TncAcceptance
         tncStatus={tncStatus}
+        onAccepted={() => {
+          const redirectPath = tenantId ? `/${tenantId}/projects` : "/";
+          navigate(redirectPath);
+        }}
       />
     );
   }
@@ -113,23 +126,23 @@ export function Layout({ children }: LayoutProps) {
       padding={0}
       styles={{
         navbar: {
-          height: '100vh',
+          height: "100vh",
           top: 0,
           zIndex: 0,
         },
-        header: shouldShowHeader ? {
-          left: navbarWidth,
-          width: `calc(100% - ${navbarWidth}px)`,
-          zIndex: 100,
-        } : undefined
+        header: shouldShowHeader
+          ? {
+              left: navbarWidth,
+              width: `calc(100% - ${navbarWidth}px)`,
+              zIndex: 100,
+            }
+          : undefined,
       }}
     >
       {shouldShowHeader && <Header toggle={toggle} opened={opened} />}
       <Navbar toggle={toggle} opened={opened} />
       <Main>
-        <ProjectGuard>
-          {children}
-        </ProjectGuard>
+        <ProjectGuard>{children}</ProjectGuard>
       </Main>
     </AppShell>
   );

@@ -1,4 +1,12 @@
-import { Box, Group, Text, Slider, ActionIcon, Button } from "@mantine/core";
+import {
+  Box,
+  Group,
+  Text,
+  Slider,
+  ActionIcon,
+  Button,
+  Tooltip,
+} from "@mantine/core";
 import {
   IconPlayerPlay,
   IconPlayerPause,
@@ -10,6 +18,8 @@ import type { SessionDetailData } from "../../../services/sessionReplay/mockSess
 import { formatPlayerTime } from "../utils/sessionUtils";
 import { LABELS } from "../constants/strings";
 import classes from "./PlayerControls.module.css";
+
+const SKIP_MS = 10_000;
 
 interface PlayerControlsProps {
   currentTime: number;
@@ -32,6 +42,13 @@ export function PlayerControls({
   onPlayPause,
   onSpeedChange,
 }: PlayerControlsProps) {
+  const handleSkipBack = () => {
+    onTimelineChange(Math.max(0, currentTime - SKIP_MS));
+  };
+
+  const handleSkipForward = () => {
+    onTimelineChange(Math.min(duration, currentTime + SKIP_MS));
+  };
   return (
     <Box className={classes.playerControls}>
       {/* Timeline Scrubber */}
@@ -84,12 +101,28 @@ export function PlayerControls({
               <IconPlayerPlay size={18} />
             )}
           </ActionIcon>
-          <ActionIcon size="md" variant="subtle" color="gray">
-            <IconPlayerSkipBack size={16} />
-          </ActionIcon>
-          <ActionIcon size="md" variant="subtle" color="gray">
-            <IconPlayerSkipForward size={16} />
-          </ActionIcon>
+          <Tooltip label="Back 10s">
+            <ActionIcon
+              size="md"
+              variant="subtle"
+              color="gray"
+              onClick={handleSkipBack}
+              disabled={currentTime === 0}
+            >
+              <IconPlayerSkipBack size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Forward 10s">
+            <ActionIcon
+              size="md"
+              variant="subtle"
+              color="gray"
+              onClick={handleSkipForward}
+              disabled={currentTime >= duration}
+            >
+              <IconPlayerSkipForward size={16} />
+            </ActionIcon>
+          </Tooltip>
         </Group>
 
         <Group gap="md">

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Box, Stack, Loader, Text, Center } from "@mantine/core";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
 import {
@@ -15,16 +15,16 @@ import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
 import { SessionTimelineSection } from "./components/SessionTimelineSection";
-import { getSessionReplayImages } from "../../services/sessionReplay/sessionReplayImages";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
 import classes from "./SessionReplayDetail.module.css";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 export const SessionReplayDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedSpan, setSelectedSpan] = useState<FlameChartNode | null>(null);
   const [scrollToTimestamp, setScrollToTimestamp] = useState<{
@@ -32,26 +32,15 @@ export const SessionReplayDetail: React.FC = () => {
     t1: number;
   } | null>(null);
 
-  const [eventsViewMode, setEventsViewMode] = useState<"text" | "graph">(
-    "text",
-  );
-  const [consoleViewMode, setConsoleViewMode] = useState<"text" | "graph">(
-    "text",
-  );
   const [networkViewMode, setNetworkViewMode] = useState<"text" | "graph">(
     "text",
   );
-  const [performanceViewMode, setPerformanceViewMode] = useState<
-    "text" | "graph"
-  >("text");
 
   const [activePersona, setActivePersona] = useState<PersonaType>("all");
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const useSnapshotApi =
-    process.env.REACT_APP_USE_MOCK_SESSION_REPLAY !== "true";
 
   const {
     data: apiSessionData,
@@ -68,46 +57,22 @@ export const SessionReplayDetail: React.FC = () => {
     return getMockSessionDetail(sessionId || DEFAULTS.SESSION_ID_UNKNOWN);
   }, [apiSessionData, sessionId]);
 
-  const snapshotSessionStart =
-    sessionData.startTime ?? new Date().toISOString();
-
   const {
     images: snapshotImages,
     loading: snapshotLoading,
     error: snapshotError,
+    snapshotDurationMs,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
-    sessionStartTime: snapshotSessionStart,
     currentTime,
-    enabled: useSnapshotApi && !!sessionId,
+    enabled: !!sessionId,
   });
 
-  const [mockImages, setMockImages] = useState<any[]>([]);
-  const [mockImagesLoading, setMockImagesLoading] = useState(false);
+  const replayImages = snapshotImages;
+  const imagesLoading = snapshotLoading;
 
-  useEffect(() => {
-    if (!useSnapshotApi && sessionId) {
-      const loadImages = async () => {
-        setMockImagesLoading(true);
-        try {
-          const images = await getSessionReplayImages(
-            sessionId,
-            new Date(sessionData.startTime),
-            10,
-          );
-          setMockImages(images);
-        } catch (error) {
-          console.error("Failed to load session replay images:", error);
-        } finally {
-          setMockImagesLoading(false);
-        }
-      };
-      loadImages();
-    }
-  }, [useSnapshotApi, sessionId, sessionData.startTime]);
-
-  const replayImages = useSnapshotApi ? snapshotImages : mockImages;
-  const imagesLoading = useSnapshotApi ? snapshotLoading : mockImagesLoading;
+  const effectiveDuration =
+    snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
 
   const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
     useMemo(() => {
@@ -119,7 +84,11 @@ export const SessionReplayDetail: React.FC = () => {
     }, [sessionData]);
 
   const handleBack = () => {
-    navigate("/session-replay/sessions");
+    const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
+    const base = projectMatch
+      ? `/projects/${projectMatch[1]}/session-replay/sessions`
+      : "/session-replay/sessions";
+    navigate(base);
   };
 
   const handleSpanClick = (item: FlameChartNode) => {
@@ -146,26 +115,35 @@ export const SessionReplayDetail: React.FC = () => {
     }, 500);
   };
 
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-  };
+  const handlePlayPause = useCallback(() => {
+    setIsPlaying((prev) => {
+      if (!prev) {
+        // Starting playback — restart from 0 if we're at (or past) the end
+        setCurrentTime((ct) => (ct >= effectiveDuration ? 0 : ct));
+      }
+      return !prev;
+    });
+  }, [effectiveDuration]);
 
-  const handleTimelineChange = (value: number) => {
+  const handleTimelineChange = useCallback((value: number) => {
     setCurrentTime(value);
-  };
+  }, []);
 
-  const handleTimeUpdate = (time: number) => {
-    if (time <= sessionData.duration) {
-      setCurrentTime(time);
-    } else {
-      setIsPlaying(false);
-      setCurrentTime(sessionData.duration);
-    }
-  };
+  const handleTimeUpdate = useCallback(
+    (time: number) => {
+      if (time <= effectiveDuration) {
+        setCurrentTime(time);
+      } else {
+        setIsPlaying(false);
+        setCurrentTime(effectiveDuration);
+      }
+    },
+    [effectiveDuration],
+  );
 
-  const handleSpeedChange = (speed: number) => {
+  const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
-  };
+  }, []);
 
   if (sessionLoading && !apiSessionData) {
     return (
@@ -182,7 +160,7 @@ export const SessionReplayDetail: React.FC = () => {
 
   return (
     <Box className={classes.container}>
-      <SessionHeader sessionData={sessionData} onBack={handleBack} />
+      <SessionHeader onBack={handleBack} />
 
       {activePersona === "all" && (
         <>
@@ -200,6 +178,7 @@ export const SessionReplayDetail: React.FC = () => {
                 playbackSpeed={playbackSpeed}
                 selectedSpan={selectedSpan}
                 compact
+                duration={effectiveDuration}
                 onTimeUpdate={handleTimeUpdate}
                 onTimelineChange={handleTimelineChange}
                 onPlayPause={handlePlayPause}
@@ -213,22 +192,17 @@ export const SessionReplayDetail: React.FC = () => {
                 currentTime={currentTime}
                 scrollToTimestamp={scrollToTimestamp}
                 onEventClick={handleSpanClick}
-                eventsViewMode={eventsViewMode}
-                consoleViewMode={consoleViewMode}
                 networkViewMode={networkViewMode}
-                performanceViewMode={performanceViewMode}
                 onTabChange={setActiveTab}
                 onCriticalInteractionClick={handleCriticalInteractionClick}
-                onEventsViewModeChange={setEventsViewMode}
-                onConsoleViewModeChange={setConsoleViewMode}
                 onNetworkViewModeChange={setNetworkViewMode}
-                onPerformanceViewModeChange={setPerformanceViewMode}
               />
             </Box>
           </Box>
         </>
       )}
 
+      {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}
         sessionDuration={sessionDuration}
@@ -236,6 +210,7 @@ export const SessionReplayDetail: React.FC = () => {
         totalDepth={totalDepth}
         onItemClick={handleSpanClick}
       />
+      */}
       <DetailsSidebar item={selectedSpan} onClose={handleCloseSidebar} />
     </Box>
   );

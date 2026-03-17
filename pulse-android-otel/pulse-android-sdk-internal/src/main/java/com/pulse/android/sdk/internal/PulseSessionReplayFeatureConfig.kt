@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 @Keep
 @Serializable
 internal class PulseSessionReplayFeatureConfig(
+    @SerialName("featureName")
+    val featureName: String? = null,
     @SerialName("textAndInputPrivacy")
     val textAndInputPrivacy: String? = null,
     @SerialName("imagePrivacy")

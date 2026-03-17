@@ -1,22 +1,21 @@
 package com.pulse.android.sdk.replay.internal.capture
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Build
-import android.view.View
-import android.view.Window
-import android.view.PixelCopy
-import android.graphics.Bitmap
-import androidx.annotation.RequiresApi
 import android.os.Handler
 import android.os.HandlerThread
-
+import android.view.PixelCopy
+import android.view.View
+import android.view.Window
+import androidx.annotation.RequiresApi
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.WireframeType
-import com.pulse.android.sdk.replay.internal.util.webpBase64
 import com.pulse.android.sdk.replay.internal.util.isValid
+import com.pulse.android.sdk.replay.internal.util.webpBase64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -25,7 +24,6 @@ import java.util.concurrent.TimeUnit
  * and returns a [ReplayWireframe] with type "screenshot" and base64 image, or null on failure.
  */
 internal object ScreenshotCapture {
-
     private val maskPaint = Paint().apply { color = android.graphics.Color.BLACK }
 
     private val pixelCopyThread: HandlerThread by lazy {
@@ -34,10 +32,17 @@ internal object ScreenshotCapture {
     private val pixelCopyHandler: Handler by lazy { Handler(pixelCopyThread.looper) }
 
     /**
-     * Capture screenshot. Runs on background. [getMaskRects] is invoked with the view and a list
-     * to fill with mask rects (in window coordinates matching the bitmap); returns false if
-     * capture should be discarded. Mask rects are collected **before** PixelCopy to avoid
-     * timing races with screen changes.
+     * Capture screenshot with pre-collected mask rects.
+     *
+     * Mask rects must be collected on the **main thread** (via [MaskRectCache]) before calling
+     * this method so that view coordinates are read atomically in the same frame. This method
+     * only performs PixelCopy + mask drawing + encoding on the background thread.
+     *
+     * @param maskRects Pre-collected mask rects in window coordinates (from main thread).
+     * @param masksValid false if the mask collection was aborted (e.g. screen changed mid-walk).
+     * @param drawCountAtCollection monotonic counter value captured when masks were collected.
+     * @param currentDrawCount returns the current counter; if it differs from [drawCountAtCollection],
+     *        the screen changed between mask collection and capture — masks are stale.
      * @param screenshotScale Scale factor (0.01, 1.0]. e.g. 0.5 = half dimensions. Reduces payload size.
      * @param screenshotQuality WebP lossy quality 0–100. Lower = smaller size.
      */
@@ -46,15 +51,19 @@ internal object ScreenshotCapture {
         window: Window,
         view: View,
         displayMetrics: android.util.DisplayMetrics,
-        getMaskRects: (View, MutableList<android.graphics.Rect>) -> Boolean,
-        onDrawFlag: () -> Boolean,
-        setOnDrawFlag: (Boolean) -> Unit,
+        maskRects: List<android.graphics.Rect>,
+        masksValid: Boolean,
+        drawCountAtCollection: Long,
+        currentDrawCount: () -> Long,
         logger: (String) -> Unit,
         screenshotScale: Float = 1f,
         screenshotQuality: Int = 30,
     ): ReplayWireframe? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
         if (!isVisible(view, logger)) return null
+        if (view.width <= 0 || view.height <= 0) return null
+
+        fun screenChangedSinceCollection(): Boolean = currentDrawCount() != drawCountAtCollection
 
         val viewId = System.identityHashCode(view)
         val coordinates = IntArray(2)
@@ -69,13 +78,7 @@ internal object ScreenshotCapture {
         val width = view.width.densityValue(displayMetrics.density)
         val height = view.height.densityValue(displayMetrics.density)
 
-        // Reset draw flag, then collect mask rects BEFORE PixelCopy to avoid
-        // timing race: the view hierarchy must be read while it still matches
-        // the screen state that PixelCopy will capture. Collecting inside the
-        // async callback risks reading a stale/changed hierarchy.
-        setOnDrawFlag(false)
-        val maskableWidgets = mutableListOf<android.graphics.Rect>()
-        val masksValid = getMaskRects(view, maskableWidgets)
+        val maskableWidgets = maskRects
 
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         val latch = CountDownLatch(1)
@@ -90,23 +93,24 @@ internal object ScreenshotCapture {
                         success = false
                         return@request
                     }
-                    if (!onDrawFlag() && masksValid) {
+                    if (!screenChangedSinceCollection() && masksValid) {
                         if (!bitmap.isValid()) {
                             bitmap.recycle()
                             logger("Session Replay Bitmap is invalid")
                             success = false
                             return@request
                         }
-                        val canvas = try {
-                            Canvas(bitmap)
-                        } catch (e: Throwable) {
-                            bitmap.recycle()
-                            logger("Session Replay Canvas creation failed: $e")
-                            success = false
-                            return@request
-                        }
+                        val canvas =
+                            try {
+                                Canvas(bitmap)
+                            } catch (e: Throwable) {
+                                bitmap.recycle()
+                                logger("Session Replay Canvas creation failed: $e")
+                                success = false
+                                return@request
+                            }
                         for (rect in maskableWidgets) {
-                            if (onDrawFlag()) {
+                            if (screenChangedSinceCollection()) {
                                 bitmap.recycle()
                                 success = false
                                 return@request
@@ -121,7 +125,6 @@ internal object ScreenshotCapture {
                     bitmap.recycle()
                     logger("Session Replay PixelCopy callback failed: $e")
                 } finally {
-                    setOnDrawFlag(false)
                     latch.countDown()
                 }
             }, pixelCopyHandler)
@@ -131,25 +134,28 @@ internal object ScreenshotCapture {
             latch.countDown()
         }
 
+        @Suppress("KotlinConstantConditions")
         var bitmapRecycled = false
         try {
             latch.await(1000, TimeUnit.MILLISECONDS)
             val scale = screenshotScale.coerceIn(0.01f, 1f)
             val quality = screenshotQuality.coerceIn(0, 100)
-            val toEncode = if (scale < 1f && bitmap.isValid()) {
-                val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
-                val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
-                Bitmap.createScaledBitmap(bitmap, w, h, true).also {
-                    bitmap.recycle()
-                    bitmapRecycled = true
+            val toEncode =
+                if (scale < 1f && bitmap.isValid()) {
+                    val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
+                    val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
+                    val scaled = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                    if (scaled !== bitmap) {
+                        bitmap.recycle()
+                        bitmapRecycled = true
+                    }
+                    scaled
+                } else {
+                    bitmap
                 }
-            } else {
-                bitmap
-            }
             val base64 = if (success) toEncode.webpBase64(quality) else null
-            toEncode.recycle()
-            if (toEncode === bitmap) bitmapRecycled = true
-            setOnDrawFlag(false)
+            if (toEncode.isValid()) toEncode.recycle()
+            bitmapRecycled = true
             return ReplayWireframe(
                 id = viewId,
                 x = x,
@@ -167,8 +173,15 @@ internal object ScreenshotCapture {
         }
     }
 
-    internal fun isVisible(view: View, logger: (String) -> Unit): Boolean = view.isVisibleInternal(logger)
-    internal fun isViewStateStable(view: View, logger: (String) -> Unit): Boolean = view.isViewStateStableInternal(logger)
+    internal fun isVisible(
+        view: View,
+        logger: (String) -> Unit,
+    ): Boolean = view.isVisibleInternal(logger)
+
+    internal fun isViewStateStable(
+        view: View,
+        logger: (String) -> Unit,
+    ): Boolean = view.isViewStateStableInternal(logger)
 }
 
 @RequiresApi(Build.VERSION_CODES.Q)

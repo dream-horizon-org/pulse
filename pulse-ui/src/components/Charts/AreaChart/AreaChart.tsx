@@ -101,7 +101,11 @@ export function AreaChart({
       echarts={echarts}
       style={{ height, width: "100%", ...style }}
       option={mergedOptions}
-      onChartReady={onChartReady}
+      onChartReady={
+        onChartReady as unknown as React.ComponentProps<
+          typeof ReactECharts
+        >["onChartReady"]
+      }
       {...props}
     />
   );

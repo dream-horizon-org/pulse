@@ -9,8 +9,11 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatTimestamp(ms: number, sessionStart: Date): string {
-  const time = new Date(sessionStart.getTime() + ms);
-  return dayjs(time).format("HH:mm:ss.SSS");
+  const startMs = sessionStart.getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(ms)) return "—";
+  const d = dayjs(startMs + ms);
+  if (!d.isValid()) return "—";
+  return d.format("MMM D YYYY, HH:mm:ss");
 }
 
 export function formatPlayerTime(ms: number): string {
