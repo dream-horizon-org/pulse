@@ -201,7 +201,7 @@ class AiProxyResourceTest {
       InputStream body = new ByteArrayInputStream(
           "{\"data\":\"value\"}".getBytes(StandardCharsets.UTF_8));
       Response response = awaitResponse(
-          resource.proxyPut("chat/123", VALID_TOKEN, uriInfo, body));
+          resource.proxyPut("chat/123", VALID_TOKEN, null, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
@@ -215,7 +215,7 @@ class AiProxyResourceTest {
       setupSuccessfulProxy("chat/123", 200, "application/json", "{}");
 
       Response response = awaitResponse(
-          resource.proxyPut("chat/123", VALID_TOKEN, uriInfo, null));
+          resource.proxyPut("chat/123", VALID_TOKEN, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
@@ -229,7 +229,7 @@ class AiProxyResourceTest {
       setupSuccessfulProxy("chat/123", 204, "application/json", "");
 
       Response response = awaitResponse(
-          resource.proxyDelete("chat/123", VALID_TOKEN, uriInfo));
+          resource.proxyDelete("chat/123", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(204);
 
