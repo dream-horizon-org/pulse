@@ -39,6 +39,7 @@ public class AiProxyResource {
 
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
+  private static final String PROJECT_HEADER = "X-Project-ID";
   private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
@@ -78,9 +79,10 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyGet(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     validateAuth(authorization);
-    return executeProxy(buildRequest("GET", path, null, authorization, uriInfo));
+    return executeProxy(buildRequest("GET", path, null, authorization, projectId, uriInfo));
   }
 
   @POST
@@ -88,11 +90,12 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyPost(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
     String body = readBodySafe(bodyStream);
-    return executeProxy(buildRequest("POST", path, body, authorization, uriInfo));
+    return executeProxy(buildRequest("POST", path, body, authorization, projectId, uriInfo));
   }
 
   @PUT
@@ -100,11 +103,12 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyPut(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
     String body = readBodySafe(bodyStream);
-    return executeProxy(buildRequest("PUT", path, body, authorization, uriInfo));
+    return executeProxy(buildRequest("PUT", path, body, authorization, projectId, uriInfo));
   }
 
   @DELETE
@@ -112,9 +116,10 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyDelete(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     validateAuth(authorization);
-    return executeProxy(buildRequest("DELETE", path, null, authorization, uriInfo));
+    return executeProxy(buildRequest("DELETE", path, null, authorization, projectId, uriInfo));
   }
 
   private void validateAuth(String authorization) {
@@ -138,12 +143,16 @@ public class AiProxyResource {
   }
 
   private HttpRequest buildRequest(String method, String path, String body,
-      String authorization, UriInfo uriInfo) {
+      String authorization, String projectId, UriInfo uriInfo) {
     String targetUrl = buildTargetUrl(path, uriInfo);
 
     HttpRequest.Builder builder = HttpRequest.newBuilder()
         .uri(URI.create(targetUrl))
         .header(AUTHORIZATION_HEADER, authorization);
+
+    if (projectId != null && !projectId.isBlank()) {
+      builder.header(PROJECT_HEADER, projectId.trim());
+    }
 
     boolean hasServiceKey = !serviceKey.isEmpty();
     if (hasServiceKey) {

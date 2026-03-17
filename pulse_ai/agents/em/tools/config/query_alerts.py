@@ -4,6 +4,8 @@ Calls REST endpoints directly (GET requests, no QueryRequest needed).
 Supports: list, detail, evaluation_history, available_scopes.
 """
 
+from google.adk.tools import ToolContext
+
 from pulse_ai.client.pulse_client import PulseClient
 from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
@@ -21,6 +23,7 @@ async def query_alerts(
     time_range: str = "last_24h",
     start_time: str = None,
     end_time: str = None,
+    tool_context: ToolContext = None,
 ) -> dict:
     """Read alert configuration and evaluation data.
 
@@ -50,7 +53,9 @@ async def query_alerts(
             "message": f"alert_id is required when scope='{scope}'",
         }
 
-    client = PulseClient()
+    bearer_token = tool_context.state.get("bearer_token") if tool_context else None
+    project_id = tool_context.state.get("project_id") if tool_context else None
+    client = PulseClient(authorization_header=bearer_token, project_id=project_id)
 
     if scope == "list":
         params = {"limit": limit, "offset": offset}

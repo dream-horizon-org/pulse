@@ -28,6 +28,7 @@ import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
 import { EventCatalog } from "../screens/EventCatalog";
+import { AiChat } from "../screens/AiChat";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 
 export const ROUTES = {
@@ -168,4 +169,9 @@ export const ROUTES = {
     ...ROUTE_PATHS.PROJECT_EVENT_CATALOG,
     element: EventCatalog,
   },
+
+  // AI Chat (only when REACT_APP_ENABLE_AI_CHAT=true)
+  ...(ROUTE_PATHS.AI_CHAT
+    ? { AI_CHAT: { ...ROUTE_PATHS.AI_CHAT, element: AiChat } }
+    : {}),
 };

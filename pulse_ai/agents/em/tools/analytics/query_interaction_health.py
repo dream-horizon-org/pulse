@@ -5,6 +5,8 @@ Uses build_health_query template → PulseClient POST → transform response.
 
 import json
 
+from google.adk.tools import ToolContext
+
 from pulse_ai.client.pulse_client import PulseClient
 from pulse_ai.agents.em.templates.interaction_templates import build_health_query
 from pulse_ai.agents.em.transformers.response_transformer import (
@@ -22,6 +24,7 @@ async def query_interaction_health(
     start_time: str = None,
     end_time: str = None,
     filters: str = None,
+    tool_context: ToolContext = None,
 ) -> dict:
     """Get health summary for top interactions — Apdex, errors, P50 latency, user categories.
 
@@ -53,7 +56,9 @@ async def query_interaction_health(
     except ValueError as e:
         return {"status": "error", "message": str(e)}
 
-    client = PulseClient()
+    bearer_token = tool_context.state.get("bearer_token") if tool_context else None
+    project_id = tool_context.state.get("project_id") if tool_context else None
+    client = PulseClient(authorization_header=bearer_token, project_id=project_id)
     response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
 
     # Handle network errors (PulseClient returns dict on connection/timeout)

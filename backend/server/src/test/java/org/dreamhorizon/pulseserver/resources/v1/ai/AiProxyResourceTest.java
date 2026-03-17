@@ -104,7 +104,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenMissingAuthHeader() {
-      assertThatThrownBy(() -> resource.proxyGet("chat", null, uriInfo))
+      assertThatThrownBy(() -> resource.proxyGet("chat", null, null, uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
               .isEqualTo(401));
@@ -112,7 +112,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenInvalidFormat() {
-      assertThatThrownBy(() -> resource.proxyGet("chat", "Basic abc123", uriInfo))
+      assertThatThrownBy(() -> resource.proxyGet("chat", "Basic abc123", null, uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
               .isEqualTo(401));
@@ -120,7 +120,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenEmptyToken() {
-      assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer ", uriInfo))
+      assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer ", null, uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
               .isEqualTo(401));
@@ -128,7 +128,7 @@ class AiProxyResourceTest {
 
     @Test
     void shouldThrow401WhenTokenIsWhitespaceOnly() {
-      assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer   ", uriInfo))
+      assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer   ", null, uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
               .isEqualTo(401));
@@ -139,7 +139,7 @@ class AiProxyResourceTest {
       when(jwtService.verifyToken("bad-token"))
           .thenThrow(new RuntimeException("Token expired"));
 
-      assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer bad-token", uriInfo))
+      assertThatThrownBy(() -> resource.proxyGet("chat", "Bearer bad-token", null, uriInfo))
           .isInstanceOf(WebApplicationException.class)
           .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
               .isEqualTo(401));
@@ -153,7 +153,7 @@ class AiProxyResourceTest {
     void shouldProxyGetRequest() {
       setupSuccessfulProxy("chat", 200, "application/json", "{\"message\":\"hello\"}");
 
-      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("application/json");
@@ -171,7 +171,7 @@ class AiProxyResourceTest {
       InputStream body = new ByteArrayInputStream(
           "{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
       Response response = awaitResponse(
-          resource.proxyPost("chat", VALID_TOKEN, uriInfo, body));
+          resource.proxyPost("chat", VALID_TOKEN, null, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
@@ -185,7 +185,7 @@ class AiProxyResourceTest {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       Response response = awaitResponse(
-          resource.proxyPost("chat", VALID_TOKEN, uriInfo, null));
+          resource.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
@@ -246,7 +246,7 @@ class AiProxyResourceTest {
     void shouldConstructUrlWithPath() {
       setupSuccessfulProxy("chat/messages", 200, "application/json", "{}");
 
-      awaitResponse(resource.proxyGet("chat/messages", VALID_TOKEN, uriInfo));
+      awaitResponse(resource.proxyGet("chat/messages", VALID_TOKEN, null, uriInfo));
 
       ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
       verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
@@ -263,7 +263,7 @@ class AiProxyResourceTest {
       when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
           .thenReturn(CompletableFuture.completedFuture(mockResponse));
 
-      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
       verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
@@ -277,7 +277,7 @@ class AiProxyResourceTest {
       resource = new AiProxyResource(jwtService, httpClient, AI_SERVICE_URL, "secret-service-key");
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
       verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
@@ -289,11 +289,33 @@ class AiProxyResourceTest {
     void shouldNotIncludeServiceKeyHeaderWhenEmpty() {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
       verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
       assertThat(captor.getValue().headers().firstValue("X-Pulse-Service-Key")).isEmpty();
+    }
+
+    @Test
+    void shouldForwardProjectIdHeaderWhenProvided() {
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
+
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, "proj-123", uriInfo));
+
+      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
+      assertThat(captor.getValue().headers().firstValue("X-Project-ID")).contains("proj-123");
+    }
+
+    @Test
+    void shouldNotIncludeProjectIdHeaderWhenNull() {
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
+
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
+
+      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
+      assertThat(captor.getValue().headers().firstValue("X-Project-ID")).isEmpty();
     }
   }
 
@@ -305,7 +327,7 @@ class AiProxyResourceTest {
       String jsonBody = "{\"message\":\"hello world\"}";
       setupSuccessfulProxy("chat", 200, "application/json", jsonBody);
 
-      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("application/json");
@@ -317,7 +339,7 @@ class AiProxyResourceTest {
     void shouldReturnStreamingResponseForSseContentType() {
       setupSuccessfulProxy("chat", 200, "text/event-stream", "data: {\"chunk\":1}\n\n");
 
-      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("text/event-stream");
@@ -328,7 +350,7 @@ class AiProxyResourceTest {
     void shouldPropagateStatusCodeFromUpstream() {
       setupSuccessfulProxy("chat", 404, "application/json", "{\"error\":\"not found\"}");
 
-      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(404);
     }
@@ -345,7 +367,7 @@ class AiProxyResourceTest {
           .thenReturn(CompletableFuture.failedFuture(
               new RuntimeException("Connection refused")));
 
-      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(502);
       assertThat(response.getEntity().toString()).contains("AI service unavailable");
@@ -360,7 +382,7 @@ class AiProxyResourceTest {
       when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
           .thenReturn(future);
 
-      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, uriInfo));
+      Response response = awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(502);
     }
@@ -374,7 +396,7 @@ class AiProxyResourceTest {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
       Response response = awaitResponse(
-          resource.proxyPost("chat", VALID_TOKEN, uriInfo, null));
+          resource.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
     }
@@ -385,7 +407,7 @@ class AiProxyResourceTest {
 
       InputStream emptyBody = new ByteArrayInputStream(new byte[0]);
       Response response = awaitResponse(
-          resource.proxyPost("chat", VALID_TOKEN, uriInfo, emptyBody));
+          resource.proxyPost("chat", VALID_TOKEN, null, uriInfo, emptyBody));
 
       assertThat(response.getStatus()).isEqualTo(200);
     }

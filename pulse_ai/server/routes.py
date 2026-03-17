@@ -9,7 +9,7 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from google.genai.types import Content, Part
 
@@ -25,21 +25,34 @@ logger = logging.getLogger(__name__)
 
 
 @app.post("/run_sse")
-async def run_sse(request: RunSSERequest) -> StreamingResponse:
-    """Run agent with SSE streaming. Streams text deltas and content blocks."""
+async def run_sse(http_request: Request, body: RunSSERequest) -> StreamingResponse:
+    """Run agent with SSE streaming. Streams text deltas and content blocks.
+
+    Passes the request's Authorization header to tools via state_delta so
+    tools can use it when calling the Pulse backend (Bearer token from client).
+    """
     session = await session_service.get_session(
         app_name=APP_NAME,
-        user_id=request.user_id,
-        session_id=request.session_id,
+        user_id=body.user_id,
+        session_id=body.session_id,
     )
     if not session:
         session = await session_service.create_session(
             app_name=APP_NAME,
-            user_id=request.user_id,
-            session_id=request.session_id,
+            user_id=body.user_id,
+            session_id=body.session_id,
         )
 
-    parts = [Part.from_text(text=p.text) for p in request.new_message.parts]
+    authorization = http_request.headers.get("Authorization")
+    project_id = http_request.headers.get("X-Project-ID")
+    state_delta = {}
+    if authorization:
+        state_delta["bearer_token"] = authorization
+    if project_id and project_id.strip():
+        state_delta["project_id"] = project_id.strip()
+    state_delta = state_delta or None
+
+    parts = [Part.from_text(text=p.text) for p in body.new_message.parts]
     new_message = Content(role="user", parts=parts)
 
     async def event_stream():
@@ -48,9 +61,10 @@ async def run_sse(request: RunSSERequest) -> StreamingResponse:
 
         try:
             async for event in runner.run_async(
-                user_id=request.user_id,
-                session_id=request.session_id,
+                user_id=body.user_id,
+                session_id=body.session_id,
                 new_message=new_message,
+                state_delta=state_delta,
             ):
                 if not event.content or not event.content.parts:
                     continue
