@@ -13,6 +13,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.model.User;
@@ -91,6 +92,8 @@ class TenantMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
+      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.assignTenantRole(USER_ID, TENANT_ID, "member")).thenReturn(Completable.complete());
 
       User result = tenantMemberService.addUserToTenant(TENANT_ID, EMAIL, "member", ADMIN_ID).blockingGet();
@@ -306,6 +309,7 @@ class TenantMemberServiceTest {
   }
 
   @Nested
+<<<<<<< HEAD
   class AddUsersToTenant {
 
     @Test
@@ -416,6 +420,58 @@ class TenantMemberServiceTest {
       assertThat(result.getSuccessEmails()).containsExactlyInAnyOrder("user1@test.com", "user2@test.com");
       assertThat(result.getFailedEmails()).hasSize(1);
       assertThat(result.getFailedEmails().get(0)).contains("invalid@test.com").contains("Invalid email");
+=======
+  class AddUserToTenantInternal {
+
+    @Test
+    void shouldAddUserAsMemberWithoutAuthCheck() {
+      Tenant tenant = new Tenant();
+      tenant.setTenantId(TENANT_ID);
+      tenant.setName(TENANT_NAME);
+      User newUser = createUser(USER_ID, EMAIL, "New User");
+
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
+      when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(newUser));
+      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      when(openFgaService.assignTenantRole(USER_ID, TENANT_ID, "member")).thenReturn(Completable.complete());
+
+      User result = tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(openFgaService).assignTenantRole(USER_ID, TENANT_ID, "member");
+      verify(openFgaService, never()).isTenantAdmin(any(), any());
+    }
+
+    @Test
+    void shouldSkipIfUserAlreadyHasTenantRole() {
+      Tenant tenant = new Tenant();
+      tenant.setTenantId(TENANT_ID);
+      tenant.setName(TENANT_NAME);
+      User existingUser = createUser(USER_ID, EMAIL, "Existing User");
+
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.just(tenant));
+      when(userService.getOrCreateUser(EMAIL, EMAIL)).thenReturn(Single.just(existingUser));
+      when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
+          .thenReturn(Single.just(Optional.of("admin")));
+
+      User result = tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getUserId()).isEqualTo(USER_ID);
+      verify(openFgaService, never()).assignTenantRole(any(), any(), any());
+    }
+
+    @Test
+    void shouldFailWhenTenantNotFound() {
+      when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.empty());
+
+      Exception ex = assertThrows(RuntimeException.class, () ->
+          tenantMemberService.addUserToTenantInternal(TENANT_ID, EMAIL).blockingGet());
+
+      assertThat(ex.getMessage()).contains("Tenant not found");
+>>>>>>> f34dcad3e3f09f0d5bfdedff15c24c4dbf0812fe
     }
   }
 }

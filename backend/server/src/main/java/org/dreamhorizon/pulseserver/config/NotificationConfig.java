@@ -18,6 +18,7 @@ public class NotificationConfig {
   private RetryConfig retry;
   private WorkerConfig worker;
   private SlackOAuthConfig slackOAuth;
+  private IncidentConfig incident;
 
   @Data
   @NoArgsConstructor
@@ -96,6 +97,17 @@ public class NotificationConfig {
     return slackOAuth != null ? slackOAuth : new SlackOAuthConfig();
   }
 
+  public IncidentConfig getIncidentConfig() {
+    return incident != null ? incident : new IncidentConfig();
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class IncidentConfig {
+    private String defaultSlackChannelId;
+  }
+
   @Data
   @NoArgsConstructor
   @AllArgsConstructor
@@ -104,7 +116,7 @@ public class NotificationConfig {
     private String clientSecret;
     private String redirectUri;
     private String uiRedirectUrl;
-    private String scopes = "chat:write,chat:write.public,channels:read";
+    private String scopes = "chat:write,channels:read";
 
     public boolean isEnabled() {
       return clientId != null && !clientId.isBlank()

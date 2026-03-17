@@ -15,6 +15,7 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.NotificationLogsResponseDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
@@ -25,6 +26,8 @@ import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
+import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 import org.dreamhorizon.pulseserver.tenant.TenantContext;
 import org.dreamhorizon.pulseserver.util.JwtUtils;
 
@@ -36,6 +39,7 @@ import org.dreamhorizon.pulseserver.util.JwtUtils;
 public class NotificationController {
 
   final NotificationService notificationService;
+  final TenantService tenantService;
 
   @POST
   @Path("/send")
@@ -115,26 +119,28 @@ public class NotificationController {
       String tenantId = TenantContext.getTenantId();
       String token = authorization.substring("Bearer ".length());
       String userEmail = JwtUtils.extractEmail(token);
-      
-      // Build params with message (null if not provided)
-      Map<String, Object> params = new java.util.HashMap<>();
-      params.put("userEmail", userEmail);
-      params.put("tenantId", tenantId);
-      if (request != null && request.getMessage() != null) {
-          params.put("message", request.getMessage());
-      } else {
-          params.put("message", null);
-      }
-              
-      return notificationService.sendNotificationAsync(
-                      "default-project",
-              SendNotificationRequestDto.builder()
-                      .eventName(eventName)
-                      .channelTypes(List.of(ChannelType.EMAIL))
-                      .idempotencyKey(UUID.randomUUID().toString())
-                      .params(params)
-                      .build()
-      ).map(res -> successMessage)
-              .to(RestResponse.jaxrsRestHandler());
+
+      return tenantService.getTenant(tenantId)
+          .map(Tenant::getName)
+          .defaultIfEmpty(tenantId)
+          .flatMap(tenantName -> {
+            Map<String, Object> params = new java.util.HashMap<>();
+            params.put("userEmail", userEmail);
+            params.put("tenantName", tenantName);
+            params.put("message",
+                request != null && request.getMessage() != null ? request.getMessage() : null);
+
+            return notificationService.sendNotificationAsync(
+                NotificationConstants.NOTIFICATION_DEFAULT_PROJECT,
+                SendNotificationRequestDto.builder()
+                    .eventName(eventName)
+                    .channelTypes(List.of(ChannelType.EMAIL))
+                    .idempotencyKey(UUID.randomUUID().toString())
+                    .params(params)
+                    .build()
+            );
+          })
+          .map(res -> successMessage)
+          .to(RestResponse.jaxrsRestHandler());
   }
 }

@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
@@ -99,7 +100,25 @@ public class ProjectMemberService {
             // 3. Get or create user being added
             .flatMap(ctx -> userService.getOrCreateUser(email, email)
                 .map(user -> new AddCompleteContext(ctx.project, ctx.admin, user)))
+<<<<<<< HEAD
             // 4. Ensure user is in parent tenant
+=======
+            // Check if user already has a project role
+            .flatMap(ctx -> openFgaService.getUserProjectRole(ctx.newUser.getUserId(), projectId)
+                .flatMap(existingRole -> {
+                    if (existingRole.isPresent()) {
+                        String message = String.format(
+                            "User %s is already a member of this project with role '%s'",
+                            email, existingRole.get());
+                        String cause = String.format(
+                            "User %s already has role '%s'. To change their role, use the update member role option.",
+                            email, existingRole.get());
+                        return Single.error(ServiceError.MEMBER_ALREADY_EXISTS.getCustomException(message, cause));
+                    }
+                    return Single.just(ctx);
+                }))
+            // Ensure user is in parent tenant
+>>>>>>> f34dcad3e3f09f0d5bfdedff15c24c4dbf0812fe
             .flatMap(ctx -> ensureUserInTenant(ctx.newUser, ctx.project.getTenantId(), addedBy)
                 .andThen(Single.just(ctx)))
             // 5. Assign project role in OpenFGA with rollback awareness
@@ -444,7 +463,8 @@ public class ProjectMemberService {
     
     /**
      * Ensure user is in the parent tenant.
-     * If not, add them as a member automatically.
+     * If not, add them as a member automatically using the internal bypass method.
+     * This allows project admins to add users to projects without needing tenant admin permissions.
      */
     private Completable ensureUserInTenant(User user, String tenantId, String addedBy) {
         return openFgaService.getUserTenantRole(user.getUserId(), tenantId)
@@ -455,11 +475,11 @@ public class ProjectMemberService {
                         user.getUserId(), tenantId, roleOpt.get());
                     return Completable.complete();
                 } else {
-                    // Add user to tenant as member
-                    log.info("Auto-adding user to tenant as member: user={}, tenant={}", 
-                        user.getUserId(), tenantId);
-                    return tenantMemberService.addUserToTenant(
-                        tenantId, user.getEmail(), "member", addedBy
+                    // Add user to tenant as member using internal method (bypasses auth check)
+                    log.info("Auto-adding user to tenant as member: user={}, tenant={}, triggeredBy={}", 
+                        user.getUserId(), tenantId, addedBy);
+                    return tenantMemberService.addUserToTenantInternal(
+                        tenantId, user.getEmail()
                     ).ignoreElement();
                 }
             });
