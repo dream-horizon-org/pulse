@@ -9,6 +9,7 @@ import {
   getMockSessionDetail,
   PersonaType,
 } from "../../services/sessionReplay/mockSessionDetail";
+import { getEmptySessionDetail } from "./adapters/sessionDetailApiToData";
 
 import { SessionHeader } from "./components/SessionHeader";
 import { SessionSummary } from "./components/SessionSummary";
@@ -54,7 +55,11 @@ export const SessionReplayDetail: React.FC = () => {
 
   const sessionData = useMemo(() => {
     if (apiSessionData) return apiSessionData;
-    return getMockSessionDetail(sessionId || DEFAULTS.SESSION_ID_UNKNOWN);
+    const id = sessionId || DEFAULTS.SESSION_ID_UNKNOWN;
+    if (process.env.REACT_APP_USE_MOCK_SESSION_REPLAY === "true") {
+      return getMockSessionDetail(id);
+    }
+    return getEmptySessionDetail(id);
   }, [apiSessionData, sessionId]);
 
   const {
