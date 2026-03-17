@@ -397,6 +397,7 @@ public final class com/pulse/sampling/models/PulseSamplingConfig {
 	public final fun getCriticalSessionPolicies ()Lcom/pulse/sampling/models/PulseCriticalEventPolicies;
 	public final fun getDefault ()Lcom/pulse/sampling/models/PulseDefaultSamplingConfig;
 	public final fun getRules ()Ljava/util/List;
+	public final fun getSignalsToSample ()Ljava/util/List;
 }
 
 public final class com/pulse/sampling/models/PulseSamplingConfig$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
@@ -553,6 +554,26 @@ public final class com/pulse/sampling/models/PulseSignalScope : java/lang/Enum {
 
 public final class com/pulse/sampling/models/PulseSignalScope$Companion {
 	public final fun getAllValuesExceptUnknown ()Ljava/util/Collection;
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/pulse/sampling/models/PulseSignalsToSampleEntry {
+	public static final field Companion Lcom/pulse/sampling/models/PulseSignalsToSampleEntry$Companion;
+	public final fun getCondition ()Lcom/pulse/sampling/models/matchers/PulseSignalMatchCondition;
+	public final fun getSampleRate ()F
+}
+
+public final class com/pulse/sampling/models/PulseSignalsToSampleEntry$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lcom/pulse/sampling/models/PulseSignalsToSampleEntry$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/pulse/sampling/models/PulseSignalsToSampleEntry;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/pulse/sampling/models/PulseSignalsToSampleEntry;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/pulse/sampling/models/PulseSignalsToSampleEntry$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 

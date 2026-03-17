@@ -17,6 +17,8 @@ import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
 import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
+import com.pulse.sampling.models.PulseSignalsToSampleEntry
+import com.pulse.sampling.models.SamplingRate
 import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.utils.PulseOtelUtils
 import com.pulse.utils.filterNot
@@ -67,11 +69,20 @@ public class PulseSamplingSignalProcessors internal constructor(
             .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
             .associateWith { creatMeter(it) }
 
+    private fun getSignalsToSampleConfig(scope: PulseSignalScope): List<PulseSignalsToSampleEntry> =
+        sdkConfig
+            .sampling
+            .signalsToSample
+            .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
+
+    private val sessionRandomValue by lazy { randomIdGenerator.nextFloat() }
+
     private val shouldSampleThisSession by lazy {
         val samplingRate = sessionParser.parses(context, sdkConfig.sampling, currentSdkName)
-        val localRandomValue = randomIdGenerator.nextFloat()
-        localRandomValue <= samplingRate
+        sessionRandomValue < samplingRate
     }
+
+    private fun shouldSampleByRate(rate: SamplingRate): Boolean = sessionRandomValue < rate
 
     public inner class SampledSpanExporter(
         private val delegateExporter: SpanExporter,
@@ -625,25 +636,40 @@ public class PulseSamplingSignalProcessors internal constructor(
     ): CompletableResultCode {
         val modifiedSignals =
             signals.observerAndModifyData(scope, attributesToAdd, attributesToDrop, metricsToAdd, signalValuesProvider, attributesModifier)
+        val signalsToSample = getSignalsToSampleConfig(scope)
         val sampledSignals =
-            if (shouldSampleThisSession) {
-                modifiedSignals
-            } else {
-                sdkConfig.sampling.criticalEventPolicies
-                    ?.run {
-                        modifiedSignals.filter { signal ->
-                            val (name, props) = signal.signalValuesProvider()
-                            alwaysSend.any { matchCondition ->
-                                signalMatcher.matches(
-                                    scope,
-                                    name,
-                                    props,
-                                    matchCondition,
-                                    currentSdkName,
-                                )
-                            }
-                        }
-                    }.orEmpty()
+            modifiedSignals.filter { signal ->
+                val (name, props) = signal.signalValuesProvider()
+                val matchedEntry =
+                    signalsToSample.firstOrNull { entry ->
+                        signalMatcher.matches(
+                            scope,
+                            name,
+                            props,
+                            entry.condition,
+                            currentSdkName,
+                        )
+                    }
+                if (matchedEntry != null) {
+                    shouldSampleByRate(matchedEntry.sampleRate)
+                } else {
+                    if (shouldSampleThisSession) {
+                        true
+                    } else {
+                        sdkConfig.sampling.criticalEventPolicies
+                            ?.run {
+                                alwaysSend.any { matchCondition ->
+                                    signalMatcher.matches(
+                                        scope,
+                                        name,
+                                        props,
+                                        matchCondition,
+                                        currentSdkName,
+                                    )
+                                }
+                            } == true
+                    }
+                }
             }
         return if (sampledSignals.isNotEmpty()) {
             block(sampledSignals)

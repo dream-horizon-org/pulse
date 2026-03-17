@@ -61,12 +61,14 @@ public object PulseSdkConfigFakeUtils {
         rules: List<PulseSessionSamplingRule> = emptyList(),
         criticalEventPolicies: PulseCriticalEventPolicies? = null,
         criticalSessionPolicies: PulseCriticalEventPolicies? = null,
+        signalsToSample: List<PulseSignalsToSampleEntry> = emptyList(),
     ): PulseSamplingConfig =
         PulseSamplingConfig(
             default = default,
             rules = rules,
             criticalEventPolicies = criticalEventPolicies,
             criticalSessionPolicies = criticalSessionPolicies,
+            signalsToSample = signalsToSample,
         )
 
     public fun createFakeDefaultSamplingConfig(sessionSampleRate: SamplingRate = 1.0f): PulseDefaultSamplingConfig =
@@ -156,6 +158,15 @@ public object PulseSdkConfigFakeUtils {
     ): PulseCriticalEventPolicies =
         PulseCriticalEventPolicies(
             alwaysSend = alwaysSend,
+        )
+
+    public fun createFakeSignalsToSampleEntry(
+        condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
+        sampleRate: SamplingRate = 1.0f,
+    ): PulseSignalsToSampleEntry =
+        PulseSignalsToSampleEntry(
+            condition = condition,
+            sampleRate = sampleRate,
         )
 
     public fun createFakeMetricsToAddEntry(
