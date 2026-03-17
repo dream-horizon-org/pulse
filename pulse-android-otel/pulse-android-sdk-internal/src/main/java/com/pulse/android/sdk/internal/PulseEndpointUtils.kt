@@ -71,7 +71,7 @@ internal object PulseEndpointUtils {
         headers: Map<String, String>,
         fallbackHeaders: Map<String, String>,
     ): HttpEndpointConnectivity =
-        if (url != null && url.startsWith("http")) {
+        if (url != null) {
             HttpEndpointConnectivity(url = url, headers = headers)
         } else {
             HttpEndpointConnectivity(url = fallbackUrl, headers = fallbackHeaders + headers)

@@ -313,7 +313,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
             val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
-            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig)
+            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
             pulseSamplingProcessors?.run {
                 PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
                 val flagResult = PulseFeatureFlagUtils.apply(config, this)
@@ -393,6 +393,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private fun resolveSessionReplayConfig(
         sdkConfig: PulseSdkConfig?,
         localConfig: SessionReplayConfig?,
+        endpointBaseUrl: String,
     ): SessionReplayConfig? {
         if (sdkConfig == null) {
             PulseOtelUtils.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
@@ -449,8 +450,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
             flushAt = featureConfig.flushAt ?: base.flushAt,
             maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
-            replayApiBaseUrl = (featureConfig.replayApiBaseUrl?.takeIf { it.isNotBlank() } ?: base.replayApiBaseUrl ?: DEFAULT_REPLAY_API_URL)
-                .replace("://localhost", "://10.0.2.2"),
+            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl ?: endpointBaseUrl,
         )
     }
 
@@ -783,7 +783,6 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
         private const val API_KEY_HEADER = "X-API-KEY"
-        private const val DEFAULT_REPLAY_API_URL = "http://localhost:3400"
         private const val METERING_SESSION_HEADER_KEY = "X-Pulse-Metering-Session-ID"
 
         internal object PrefsName {

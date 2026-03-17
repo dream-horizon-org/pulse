@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class SessionReplayApiClientTest {
-
     private lateinit var mockWebServer: MockWebServer
     private lateinit var client: SessionReplayApiClient
 
