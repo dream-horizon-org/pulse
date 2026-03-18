@@ -19,9 +19,15 @@ export function useGetRootCause({
   interactionName,
   date,
   enabled = true,
+  projectId,
 }: UseGetRootCauseParams) {
   return useQuery({
-    queryKey: [GET_INTERACTION_ROOT_CAUSE_ROUTE.key, interactionName, date],
+    queryKey: [
+      GET_INTERACTION_ROOT_CAUSE_ROUTE.key,
+      interactionName,
+      date,
+      projectId,
+    ],
     queryFn: async (): Promise<ApiResponse<RootCauseResponse>> => {
       if (!interactionName) {
         return {

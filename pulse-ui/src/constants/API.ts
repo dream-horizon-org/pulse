@@ -12,3 +12,9 @@ export const GET_INTERACTION_ROOT_CAUSE_ROUTE = {
   apiPath: "/v1/interactions",
   method: "GET",
 } as const;
+
+export const POST_RCA_REPORT_ROUTE = {
+  key: "POST_RCA_REPORT",
+  apiPath: "/v1/ai/rca/report",
+  method: "POST",
+} as const;

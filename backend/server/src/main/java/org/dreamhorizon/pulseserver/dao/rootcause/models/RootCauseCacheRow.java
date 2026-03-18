@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.dao.rootcause.models;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -14,11 +15,17 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RootCauseCacheRow {
 
+  @JsonProperty("project_id")
   private String projectId;
+
+  @JsonProperty("interaction_name")
   private String interactionName;
+
   private LocalDate date;
   private String mode;
   private String baseline;
   private String segments;
+
+  @JsonProperty("cached_at")
   private LocalDateTime cachedAt;
 }

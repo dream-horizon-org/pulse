@@ -20,6 +20,7 @@ import { IconArrowNarrowLeft } from "@tabler/icons-react";
 import { Manage } from "../CriticalInteractionList/components/Manage";
 import { InteractionDetailsFilters } from "./components/InteractionDetailsFilters";
 import { InteractionDetailsMainContent } from "./components/InteractionDetailsMainContent";
+import { useProjectContext } from "../../contexts";
 import { useGetInteractionDetails } from "../../hooks/useGetInteractionDetails";
 import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
@@ -45,9 +46,10 @@ export function CiritcalInteractionDetails() {
 
   const navigate = useNavigate();
   const params = useParams<{ projectId: string; "*": string }>();
-  const projectId = params.projectId;
+  const projectIdFromUrl = params.projectId;
   const routeParams = params["*"];
   const theme = useMantineTheme();
+  const { projectId: contextProjectId, setProject } = useProjectContext();
 
   const routeParamsArray = routeParams?.split("/") ?? [];
   const [interactionName] = routeParamsArray;
@@ -75,9 +77,11 @@ export function CiritcalInteractionDetails() {
 
   const rootCauseDateRaw =
     endTime != null && endTime !== ""
-      ? dayjs(typeof endTime === "string" ? Number(endTime) : endTime).format(
-          "YYYY-MM-DD",
-        )
+      ? dayjs(
+          typeof endTime === "string" && /^\d+$/.test(endTime)
+            ? Number(endTime)
+            : endTime,
+        ).format("YYYY-MM-DD")
       : undefined;
   const rootCauseDate =
     rootCauseDateRaw && rootCauseDateRaw !== "Invalid Date"
@@ -88,6 +92,17 @@ export function CiritcalInteractionDetails() {
     initializeFromUrlParams(searchParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  useEffect(() => {
+    if (projectIdFromUrl && projectIdFromUrl !== contextProjectId) {
+      setProject({
+        projectId: projectIdFromUrl,
+        projectName: "",
+        userRole: "viewer",
+        isActive: true,
+      });
+    }
+  }, [projectIdFromUrl, contextProjectId, setProject]);
 
   // Show skeleton loading state while fetching interaction details
   if (fetchingInteractionDetails) {
@@ -163,7 +178,7 @@ export function CiritcalInteractionDetails() {
     navigate(
       ROUTES.PROJECT_INTERACTIONS.basePath.replace(
         ":projectId",
-        projectId || "",
+        projectIdFromUrl || "",
       ),
     );
   };
@@ -313,6 +328,7 @@ export function CiritcalInteractionDetails() {
             <RootCause
               interactionName={interactionName ?? null}
               date={rootCauseDate}
+              projectId={contextProjectId ?? projectIdFromUrl ?? null}
             />
           </Tabs.Panel>
         )}

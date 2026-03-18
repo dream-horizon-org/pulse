@@ -2,6 +2,7 @@ import { Box, Button, Card, Skeleton, Stack, Table, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import { useGetRootCause } from "../../../../hooks/useGetRootCause";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
 import type { RootCauseSegment } from "../../../../hooks/useGetRootCause";
+import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
 dayjs.extend(utc);
@@ -100,21 +102,62 @@ function SegmentTable({
   );
 }
 
-export function RootCause({ interactionName, date }: RootCauseProps) {
+function hasReportContent(report: {
+  markdown?: string | null;
+  charts?: unknown[];
+  tables?: unknown[];
+}): boolean {
+  const hasMarkdown =
+    report.markdown != null && String(report.markdown).trim() !== "";
+  const hasCharts = Array.isArray(report.charts) && report.charts.length > 0;
+  const hasTables = Array.isArray(report.tables) && report.tables.length > 0;
+  return hasMarkdown || hasCharts || hasTables;
+}
+
+export function RootCause({
+  interactionName,
+  date,
+  projectId,
+}: RootCauseProps) {
+  const effectiveProjectId = projectId ?? null;
   const {
-    data: response,
-    isLoading,
-    isError,
-    refetch,
-    error,
+    data: reportResponse,
+    isLoading: reportLoading,
+    isError: reportError,
+    refetch: refetchReport,
+    error: reportErrorDetail,
+  } = useGetRcaReport({
+    interactionName,
+    date: date ?? null,
+    enabled: !!interactionName,
+    projectId: effectiveProjectId,
+  });
+
+  const {
+    data: rootCauseResponse,
+    isLoading: rootCauseLoading,
+    isError: rootCauseError,
+    refetch: refetchRootCause,
+    error: rootCauseErrorDetail,
   } = useGetRootCause({
     interactionName,
     date: date ?? null,
     enabled: !!interactionName,
+    projectId: effectiveProjectId,
   });
 
-  const status = response?.status;
-  const payload = response?.data ?? null;
+  const reportPayload = reportResponse?.data ?? null;
+  const hasReportStructure = reportPayload?.report != null;
+  const showReport =
+    reportResponse?.status === 200 &&
+    reportPayload != null &&
+    (hasReportStructure ||
+      (reportPayload?.rca_insights != null &&
+        String(reportPayload.rca_insights).trim() !== ""));
+
+  const isLoading = reportLoading;
+  const status = rootCauseResponse?.status;
+  const payload = rootCauseResponse?.data ?? null;
   const is404 = status === 404;
 
   if (isLoading) {
@@ -130,10 +173,36 @@ export function RootCause({ interactionName, date }: RootCauseProps) {
     );
   }
 
-  if (isError || is404) {
+  if (showReport && reportPayload) {
+    const cachedAtFormatted = reportPayload.cached
+      ? dayjs().format("MMM D, YYYY [at] h:mm A")
+      : null;
+    const report = reportPayload.report ?? {
+      markdown: null,
+      charts: [],
+      tables: [],
+    };
+    return (
+      <RcaReportView
+        report={report}
+        rcaInsights={reportPayload.rca_insights}
+        cached={reportPayload.cached}
+        cachedAt={cachedAtFormatted}
+      />
+    );
+  }
+
+  const refetch = () => {
+    refetchReport();
+    refetchRootCause();
+  };
+
+  if (!rootCauseLoading && (rootCauseError || is404)) {
     const message = is404
       ? ROOT_CAUSE_MESSAGES.FEATURE_OR_NO_DATA
-      : (error?.message ?? response?.error?.message ?? "Something went wrong.");
+      : (rootCauseErrorDetail?.message ??
+        rootCauseResponse?.error?.message ??
+        "Something went wrong.");
     const isTimeout =
       message.toLowerCase().includes("timeout") ||
       message === "Request Timeout";
@@ -156,6 +225,19 @@ export function RootCause({ interactionName, date }: RootCauseProps) {
             Retry
           </Button>
         </Stack>
+      </Box>
+    );
+  }
+
+  if (rootCauseLoading && !showReport) {
+    return (
+      <Box className={classes.container}>
+        <div className={classes.skeletonWrapper}>
+          <Skeleton height={24} width={200} mb="md" />
+          <Skeleton height={120} mb="md" />
+          <Skeleton height={120} mb="md" />
+          <Skeleton height={120} />
+        </div>
       </Box>
     );
   }

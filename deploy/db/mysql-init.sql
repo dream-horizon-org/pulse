@@ -766,6 +766,20 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
     INDEX idx_suppression_email (email)
 );
 
+-- ============================================================================
+-- RCA REPORT CACHE (AI-generated report per project / interaction / date)
+-- TTL enforced in application (e.g. 24h); table stores latest report per key.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS rca_report_cache (
+    project_id VARCHAR(64) NOT NULL,
+    interaction_name VARCHAR(255) NOT NULL,
+    date DATE NOT NULL,
+    report_body LONGTEXT NOT NULL,
+    cached_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (project_id, interaction_name, date),
+    INDEX idx_rca_report_cached_at (cached_at)
+);
+
 -- Display summary
 SELECT 'Database initialization completed successfully (with new RBAC tables)!' AS status;
 SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = 'pulse_db';

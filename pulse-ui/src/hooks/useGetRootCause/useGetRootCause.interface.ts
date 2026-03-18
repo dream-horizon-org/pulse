@@ -27,4 +27,6 @@ export type UseGetRootCauseParams = {
   date?: string | null;
   /** When true, query is enabled */
   enabled?: boolean;
+  /** Included in query key so requests refetch when project context changes (e.g. synced from URL) */
+  projectId?: string | null;
 };

@@ -13,6 +13,7 @@ import jakarta.ws.rs.ext.Provider;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.JwtService;
@@ -36,6 +37,7 @@ import org.dreamhorizon.pulseserver.service.OpenFgaService;
 public class AuthorizationFilter implements ContainerRequestFilter {
 
   private static final String BEARER_PREFIX = "Bearer ";
+  private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String HEALTHCHECK_PATH = "healthcheck";
   private static final String AUTH_PATH_PREFIX = "v1/auth";
   private static final String ONBOARDING_PATH_PREFIX = "v1/onboarding";
@@ -49,6 +51,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
   private OpenFgaService openFgaService;
   private JwtService jwtService;
+  private ApplicationConfig applicationConfig;
 
   @Override
   public void filter(ContainerRequestContext requestContext) throws IOException {
@@ -62,6 +65,11 @@ public class AuthorizationFilter implements ContainerRequestFilter {
     RequiresPermission permission = getRequiresPermission();
     if (permission == null) {
       log.debug("No @RequiresPermission annotation for path: {}, skipping authorization", path);
+      return;
+    }
+
+    if (isValidServiceKeyRequest(requestContext)) {
+      log.debug("Authorized via service key for path: {}", path);
       return;
     }
 
@@ -171,6 +179,24 @@ public class AuthorizationFilter implements ContainerRequestFilter {
     }
   }
 
+  /**
+   * Allows service-to-service calls authenticated by a shared secret
+   * (X-Pulse-Service-Key). Only valid when the configured key is non-blank.
+   */
+  private boolean isValidServiceKeyRequest(ContainerRequestContext requestContext) {
+    String serviceKey = requestContext.getHeaderString(SERVICE_KEY_HEADER);
+    boolean isKeyMissing = serviceKey == null || serviceKey.isBlank();
+    if (isKeyMissing) {
+      return false;
+    }
+    String configuredKey = getApplicationConfig().getAiServiceKey();
+    boolean isConfiguredKeyMissing = configuredKey == null || configuredKey.isBlank();
+    if (isConfiguredKeyMissing) {
+      return false;
+    }
+    return configuredKey.equals(serviceKey);
+  }
+
   private JwtService getJwtService() {
     if (jwtService == null) {
       jwtService = GuiceInjector.getGuiceInjector().getInstance(JwtService.class);
@@ -183,6 +209,13 @@ public class AuthorizationFilter implements ContainerRequestFilter {
       openFgaService = GuiceInjector.getGuiceInjector().getInstance(OpenFgaService.class);
     }
     return openFgaService;
+  }
+
+  private ApplicationConfig getApplicationConfig() {
+    if (applicationConfig == null) {
+      applicationConfig = GuiceInjector.getGuiceInjector().getInstance(ApplicationConfig.class);
+    }
+    return applicationConfig;
   }
 
   private void abortUnauthorized(ContainerRequestContext requestContext, String message) {

@@ -17,7 +17,12 @@ import {
   ROUTES,
 } from "../../constants";
 import { IconFilterEdit } from "@tabler/icons-react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ChangeEvent,
   useCallback,
@@ -51,6 +56,7 @@ import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
+import { useTenantContext } from "../../contexts/TenantContext";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -60,9 +66,13 @@ interface InteractionMetrics {
   poorUserPercentage: number;
 }
 
+const PULSE_PROJECT_CONTEXT_KEY = "pulse_project_context";
+
 export function CriticalInteractionList() {
   const navigate = useNavigate();
-  const { projectId } = useProjectContext();
+  const { projectId, setProject } = useProjectContext();
+  const { projects } = useTenantContext();
+  const paramsProjectId = useParams<{ projectId: string }>().projectId;
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackClick } = useAnalytics("InteractionList");
   const searchFields = Object.fromEntries(searchParams.entries());
@@ -359,7 +369,7 @@ export function CriticalInteractionList() {
     id: number;
     name: string | undefined;
   }) => {
-    trackClick(`Interaction: ${interaction.name || 'unknown'}`);
+    trackClick(`Interaction: ${interaction.name || "unknown"}`);
     navigate(
       `/projects/${projectId}/interaction-details/${interaction.name || ""}`,
     );
@@ -372,11 +382,11 @@ export function CriticalInteractionList() {
         <ScrollArea className={classes.scrollArea}>
           <Box className={classes.criticalInteractionsTableContainer}>
             {Array.from({ length: 8 }).map((_, index) => (
-              <CardSkeleton 
-                key={index} 
-                height={180} 
-                showHeader 
-                contentRows={3} 
+              <CardSkeleton
+                key={index}
+                height={180}
+                showHeader
+                contentRows={3}
               />
             ))}
           </Box>
@@ -413,7 +423,7 @@ export function CriticalInteractionList() {
                 onClick={() =>
                   onInteractionClick({
                     id: item?.id,
-                    name: item?.name
+                    name: item?.name,
                   })
                 }
                 apdexScore={metrics?.apdex}
@@ -486,12 +496,19 @@ export function CriticalInteractionList() {
               <Filters
                 defaultFilters={filters}
                 handleFiltersChange={handleFilterChange}
-                defaultFilterValuesFromServer={filterValuesFromServer || { createdBy: [], statuses: [] }}
+                defaultFilterValuesFromServer={
+                  filterValuesFromServer || { createdBy: [], statuses: [] }
+                }
               />
             </Popover.Dropdown>
           </Popover>
 
-          <Link to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(':projectId', projectId || '')}>
+          <Link
+            to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(
+              ":projectId",
+              projectId || "",
+            )}
+          >
             <Button size="sm" variant="light" className={classes.createButton}>
               {
                 CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.CREATE_USER_EXPERIENCE_BUTTON_TEXT

@@ -8,6 +8,7 @@ from .personas import (
 )
 from .summary import summary_agent
 from .report import report_agent
+from .rca import rca_pipeline_agent
 
 __all__ = [
     "planner_agent",
@@ -18,4 +19,5 @@ __all__ = [
     "business_leaders_agent",
     "summary_agent",
     "report_agent",
+    "rca_pipeline_agent",
 ]

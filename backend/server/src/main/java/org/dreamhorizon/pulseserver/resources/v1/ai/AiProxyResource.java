@@ -1,6 +1,9 @@
 package org.dreamhorizon.pulseserver.resources.v1.ai;
 
 import com.dream11.rest.annotation.Timeout;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -23,10 +26,18 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.service.JwtService;
+import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 
 /**
  * Authenticates requests via JWT and proxies them to the Pulse AI agent service.
@@ -39,37 +50,61 @@ public class AiProxyResource {
 
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
+  private static final String PROJECT_ID_HEADER = "X-Project-ID";
   private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
+  private static final String RCA_REPORT_PATH = "rca/report";
+  private static final String INTERACTION_NAME_FIELD = "interactionName";
+  private static final String DATE_FIELD = "date";
+  private static final String CACHE_SEPARATOR = "::";
+  private static final long RCA_REPORT_CACHE_TTL_SECONDS = 24 * 60 * 60;
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
   private static final int STREAM_BUFFER_SIZE = 1024;
   private static final int HTTP_BAD_GATEWAY = 502;
+  private static final int HTTP_INTERNAL_ERROR = 500;
+  private static final String ERROR_INTERNAL_RCA = "{\"error\":\"Internal error generating RCA report\"}";
+
+  private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
 
   private final JwtService jwtService;
+  private final ObjectMapper objectMapper;
   private final HttpClient httpClient;
   private final String aiServiceUrl;
   private final String serviceKey;
+  private final RootCauseService rootCauseService;
+  private final RcaReportCacheDao rcaReportCacheDao;
+  private final ConcurrentHashMap<String, CachedRcaReport> rcaReportCache = new ConcurrentHashMap<>();
 
   @Inject
-  public AiProxyResource(JwtService jwtService, ApplicationConfig config) {
-    this(jwtService,
+  public AiProxyResource(JwtService jwtService, ObjectMapper objectMapper,
+      ApplicationConfig config, RootCauseService rootCauseService,
+      RcaReportCacheDao rcaReportCacheDao) {
+    this(jwtService, objectMapper,
         HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(CONNECT_TIMEOUT)
             .build(),
         config.getAiServiceUrl(),
-        config.getAiServiceKey());
+        config.getAiServiceKey(),
+        rootCauseService,
+        rcaReportCacheDao);
   }
 
-  AiProxyResource(JwtService jwtService, HttpClient httpClient, String aiServiceUrl,
-      String serviceKey) {
+  AiProxyResource(JwtService jwtService, ObjectMapper objectMapper, HttpClient httpClient,
+      String aiServiceUrl,
+      String serviceKey,
+      RootCauseService rootCauseService,
+      RcaReportCacheDao rcaReportCacheDao) {
     this.jwtService = jwtService;
+    this.objectMapper = objectMapper;
     this.httpClient = httpClient;
     this.aiServiceUrl = aiServiceUrl != null && !aiServiceUrl.isBlank()
         ? aiServiceUrl : DEFAULT_AI_SERVICE_URL;
     this.serviceKey = serviceKey != null ? serviceKey : "";
+    this.rootCauseService = rootCauseService;
+    this.rcaReportCacheDao = rcaReportCacheDao;
     log.info("AI proxy initialized → {}", this.aiServiceUrl);
   }
 
@@ -78,9 +113,10 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyGet(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     validateAuth(authorization);
-    return executeProxy(buildRequest("GET", path, null, authorization, uriInfo));
+    return executeProxy(buildRequest("GET", path, null, authorization, projectId, uriInfo));
   }
 
   @POST
@@ -88,11 +124,16 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyPost(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
     String body = readBodySafe(bodyStream);
-    return executeProxy(buildRequest("POST", path, body, authorization, uriInfo));
+    boolean isRcaReportPath = RCA_REPORT_PATH.equals(path);
+    if (!isRcaReportPath) {
+      return executeProxy(buildRequest("POST", path, body, authorization, projectId, uriInfo));
+    }
+    return proxyRcaReportPost(path, body, authorization, projectId, uriInfo);
   }
 
   @PUT
@@ -100,11 +141,12 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyPut(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
     String body = readBodySafe(bodyStream);
-    return executeProxy(buildRequest("PUT", path, body, authorization, uriInfo));
+    return executeProxy(buildRequest("PUT", path, body, authorization, projectId, uriInfo));
   }
 
   @DELETE
@@ -112,9 +154,213 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyDelete(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     validateAuth(authorization);
-    return executeProxy(buildRequest("DELETE", path, null, authorization, uriInfo));
+    return executeProxy(buildRequest("DELETE", path, null, authorization, projectId, uriInfo));
+  }
+
+  private CompletionStage<Response> proxyRcaReportPost(
+      String path,
+      String body,
+      String authorization,
+      String projectId,
+      UriInfo uriInfo
+  ) {
+    String targetUrl = buildTargetUrl(path, uriInfo);
+    Optional<RcaCacheKeyParts> keyPartsOpt = resolveRcaReportCacheKeyParts(body, projectId);
+    String cacheKey = keyPartsOpt.map(RcaCacheKeyParts::toCacheKey).orElse(null);
+
+    if (cacheKey != null) {
+      CachedRcaReport cached = rcaReportCache.get(cacheKey);
+      boolean isCachePresent = cached != null;
+      if (isCachePresent && !cached.isExpired()) {
+        return withRcaErrorLogging(java.util.concurrent.CompletableFuture.completedFuture(
+            Response.status(cached.statusCode)
+                .type(cached.contentType)
+                .entity(applyCachedFlag(cached.body, true))
+                .build()));
+      }
+      if (isCachePresent) {
+        rcaReportCache.remove(cacheKey);
+      }
+    }
+
+    if (cacheKey != null && keyPartsOpt.isPresent()) {
+      RcaCacheKeyParts keyParts = keyPartsOpt.get();
+      try {
+        CompletionStage<Optional<String>> mysqlStage = maybeToCompletionStage(
+            rcaReportCacheDao.get(keyParts.projectId(), keyParts.interactionName(), keyParts.date()));
+        return withRcaErrorLogging(mysqlStage.thenCompose(maybeBody -> {
+          boolean hasMysqlHit = maybeBody.isPresent() && !maybeBody.get().isBlank();
+          if (hasMysqlHit) {
+            return java.util.concurrent.CompletableFuture.completedFuture(
+                Response.status(200)
+                    .type(CONTENT_TYPE_JSON)
+                    .entity(applyCachedFlag(maybeBody.get(), true))
+                    .build());
+          }
+          return doEnrichAndProxyRca(targetUrl, body, authorization, projectId, cacheKey)
+              .thenApply(response -> {
+                storeRcaReportInMysqlIfSuccess(response, keyParts);
+                return response;
+              });
+        }));
+      } catch (Throwable t) {
+        log.warn("RCA MySQL cache lookup failed, falling back to AI: {}", t.getMessage());
+        return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, body, authorization, projectId, cacheKey));
+      }
+    }
+
+    return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, body, authorization, projectId, cacheKey));
+  }
+
+  private CompletionStage<Response> withRcaErrorLogging(CompletionStage<Response> stage) {
+    return stage.exceptionally(ex -> {
+      log.error("RCA report proxy failed", ex);
+      return Response.status(HTTP_INTERNAL_ERROR)
+          .entity(ERROR_INTERNAL_RCA)
+          .type(CONTENT_TYPE_JSON)
+          .build();
+    });
+  }
+
+  private CompletionStage<Response> doEnrichAndProxyRca(
+      String targetUrl,
+      String body,
+      String authorization,
+      String projectId,
+      String cacheKey
+  ) {
+    log.info("Proxying RCA report to {}", targetUrl);
+    return enrichRcaBodyAsync(body, projectId)
+        .thenCompose(enrichedBody -> {
+          HttpRequest request = buildRequestWithUrl("POST", targetUrl, enrichedBody, authorization, projectId);
+          return executeProxy(request);
+        })
+        .thenApply(response -> {
+          maybeStoreRcaReportCache(response, cacheKey);
+          return response;
+        });
+  }
+
+  private void storeRcaReportInMysqlIfSuccess(Response response, RcaCacheKeyParts keyParts) {
+    boolean isSuccess = response != null && response.getStatus() >= 200 && response.getStatus() < 300;
+    if (!isSuccess) {
+      return;
+    }
+    Object entity = response.getEntity();
+    boolean isStringBody = entity instanceof String;
+    if (!isStringBody) {
+      return;
+    }
+    rcaReportCacheDao.put(keyParts.projectId(), keyParts.interactionName(), keyParts.date(), (String) entity)
+        .subscribe();
+  }
+
+  private static <T> java.util.concurrent.CompletionStage<Optional<T>> maybeToCompletionStage(
+      io.reactivex.rxjava3.core.Maybe<T> maybe) {
+    java.util.concurrent.CompletableFuture<Optional<T>> future = new java.util.concurrent.CompletableFuture<>();
+    maybe.subscribe(
+        value -> future.complete(Optional.of(value)),
+        err -> {
+          future.complete(Optional.empty());
+        },
+        () -> future.complete(Optional.empty())
+    );
+    return future;
+  }
+
+  private record RcaCacheKeyParts(String projectId, String interactionName, LocalDate date) {
+    String toCacheKey() {
+      return String.join(CACHE_SEPARATOR, projectId, interactionName, date.toString());
+    }
+  }
+
+  private Optional<RcaCacheKeyParts> resolveRcaReportCacheKeyParts(String body, String projectId) {
+    boolean isProjectIdMissing = projectId == null || projectId.isBlank();
+    boolean isBodyMissing = body == null || body.isBlank();
+    if (isProjectIdMissing || isBodyMissing) {
+      return Optional.empty();
+    }
+    try {
+      JsonNode root = objectMapper.readTree(body);
+      JsonNode interactionNode = root.get(INTERACTION_NAME_FIELD);
+      boolean isInteractionMissing = interactionNode == null || interactionNode.asText().isBlank();
+      if (isInteractionMissing) {
+        return Optional.empty();
+      }
+      String interactionName = interactionNode.asText();
+      LocalDate date = resolveDateFromNode(root.get(DATE_FIELD));
+      return Optional.of(new RcaCacheKeyParts(projectId, interactionName, date));
+    } catch (Exception e) {
+      log.debug("Unable to parse RCA cache key parts from body: {}", e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Fetches root-cause data via RootCauseService and embeds it into the request
+   * body as {@code rootCausePayload}. Non-blocking: converts RxJava Single to
+   * CompletableFuture so it never blocks the Vert.x event loop.
+   */
+  private CompletionStage<String> enrichRcaBodyAsync(String body, String projectId) {
+    boolean isBodyMissing = body == null || body.isBlank();
+    boolean isProjectMissing = projectId == null || projectId.isBlank();
+    if (isBodyMissing || isProjectMissing) {
+      return java.util.concurrent.CompletableFuture.completedFuture(body);
+    }
+
+    try {
+      ObjectNode root = (ObjectNode) objectMapper.readTree(body);
+      JsonNode interactionNode = root.get(INTERACTION_NAME_FIELD);
+      boolean isInteractionMissing = interactionNode == null || interactionNode.asText().isBlank();
+      if (isInteractionMissing) {
+        return java.util.concurrent.CompletableFuture.completedFuture(body);
+      }
+
+      String interactionName = interactionNode.asText();
+      LocalDate date = resolveDateFromNode(root.get(DATE_FIELD));
+
+      java.util.concurrent.CompletableFuture<String> future = new java.util.concurrent.CompletableFuture<>();
+      rootCauseService.getRootCause(projectId, interactionName, date)
+          .subscribe(
+              result -> {
+                try {
+                  JsonNode resultNode = objectMapper.valueToTree(result);
+                  root.set(ROOT_CAUSE_PAYLOAD_FIELD, resultNode);
+                  future.complete(objectMapper.writeValueAsString(root));
+                } catch (Exception e) {
+                  log.warn("Failed to serialize enriched RCA body: {}", e.getMessage());
+                  future.complete(body);
+                }
+              },
+              error -> {
+                log.warn("Failed to fetch root-cause data for enrichment: {}", error.getMessage());
+                future.complete(body);
+              }
+          );
+      return future;
+    } catch (Exception e) {
+      log.warn("Failed to parse RCA body for enrichment: {}", e.getMessage());
+      return java.util.concurrent.CompletableFuture.completedFuture(body);
+    }
+  }
+
+  private LocalDate resolveDateFromNode(JsonNode dateNode) {
+    if (dateNode == null || dateNode.isNull()) {
+      return LocalDate.now(ZoneOffset.UTC);
+    }
+    String dateValue = dateNode.asText();
+    boolean isDateMissing = dateValue == null || dateValue.isBlank();
+    if (isDateMissing) {
+      return LocalDate.now(ZoneOffset.UTC);
+    }
+    try {
+      return LocalDate.parse(dateValue);
+    } catch (DateTimeParseException e) {
+      return LocalDate.now(ZoneOffset.UTC);
+    }
   }
 
   private void validateAuth(String authorization) {
@@ -138,12 +384,25 @@ public class AiProxyResource {
   }
 
   private HttpRequest buildRequest(String method, String path, String body,
-      String authorization, UriInfo uriInfo) {
+      String authorization, String projectId, UriInfo uriInfo) {
     String targetUrl = buildTargetUrl(path, uriInfo);
+    return buildRequestWithUrl(method, targetUrl, body, authorization, projectId);
+  }
 
+  /**
+   * Builds an HttpRequest using a pre-resolved URL. Use this variant when the
+   * request is built on a background thread where JAX-RS UriInfo is unavailable.
+   */
+  private HttpRequest buildRequestWithUrl(String method, String targetUrl, String body,
+      String authorization, String projectId) {
     HttpRequest.Builder builder = HttpRequest.newBuilder()
         .uri(URI.create(targetUrl))
         .header(AUTHORIZATION_HEADER, authorization);
+
+    boolean hasProjectId = projectId != null && !projectId.isBlank();
+    if (hasProjectId) {
+      builder.header(PROJECT_ID_HEADER, projectId);
+    }
 
     boolean hasServiceKey = !serviceKey.isEmpty();
     if (hasServiceKey) {
@@ -259,6 +518,60 @@ public class AiProxyResource {
     } catch (IOException e) {
       log.debug("Failed to read request body: {}", e.getMessage());
       return null;
+    }
+  }
+
+  private void maybeStoreRcaReportCache(Response response, String cacheKey) {
+    boolean shouldSkip = cacheKey == null || response == null;
+    if (shouldSkip) {
+      return;
+    }
+    boolean isSuccess = response.getStatus() >= 200 && response.getStatus() < 300;
+    boolean isJson = response.getMediaType() != null
+        && response.getMediaType().toString().contains(CONTENT_TYPE_JSON);
+    Object entity = response.getEntity();
+    if (!isSuccess || !isJson || !(entity instanceof String)) {
+      return;
+    }
+
+    String body = (String) entity;
+    CachedRcaReport cacheValue = new CachedRcaReport(
+        response.getStatus(),
+        CONTENT_TYPE_JSON,
+        body,
+        Instant.now()
+    );
+    rcaReportCache.put(cacheKey, cacheValue);
+  }
+
+  private String applyCachedFlag(String body, boolean cached) {
+    try {
+      JsonNode node = objectMapper.readTree(body);
+      if (node instanceof ObjectNode) {
+        ((ObjectNode) node).put("cached", cached);
+      }
+      return objectMapper.writeValueAsString(node);
+    } catch (Exception exception) {
+      return body;
+    }
+  }
+
+  private static final class CachedRcaReport {
+    private final int statusCode;
+    private final String contentType;
+    private final String body;
+    private final Instant cachedAt;
+
+    private CachedRcaReport(int statusCode, String contentType, String body, Instant cachedAt) {
+      this.statusCode = statusCode;
+      this.contentType = contentType;
+      this.body = body;
+      this.cachedAt = cachedAt;
+    }
+
+    private boolean isExpired() {
+      Duration age = Duration.between(cachedAt, Instant.now());
+      return age.getSeconds() > RCA_REPORT_CACHE_TTL_SECONDS;
     }
   }
 }
