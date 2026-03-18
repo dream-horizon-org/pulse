@@ -1,12 +1,33 @@
-import { Box, Button, Skeleton, Stack, Text } from "@mantine/core";
-import { IconRefresh } from "@tabler/icons-react";
+import { Box, Button, Group, Skeleton, Stack, Text } from "@mantine/core";
+import { IconPlayerPlay, IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
+import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
+import { SessionCard } from "./components";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
+
+/** Mock related session replays for the RCA view; replace with API data when available */
+const MOCK_RELATED_SESSIONS = [
+  {
+    sessionId: "s_301",
+    duration: "2:34",
+    relativeTime: "30 min ago",
+    device: "SM-S911B • Android 13",
+    failureSummary:
+      "Payment gateway timeout at 8.2s → app crashed (OOM during retry)",
+  },
+  {
+    sessionId: "s_1422",
+    duration: "1:48",
+    relativeTime: "2 hours ago",
+    device: "iPhone 15 Pro • iOS 17.4",
+    failureSummary:
+      "Payment screen ANR for 6s on Airtel 4G — user force-closed app",
+  },
+];
 
 export const RootCause = ({
   interactionName,
@@ -82,13 +103,49 @@ export const RootCause = ({
       charts: [],
       tables: [],
     };
+    const relatedSessions = MOCK_RELATED_SESSIONS;
     return (
-      <RcaReportView
-        report={report}
-        rcaInsights={reportPayload.rca_insights}
-        cached={reportPayload.cached}
-        cachedAt={cachedAtFormatted}
-      />
+      <>
+        <RcaReportView
+          report={report}
+          rcaInsights={reportPayload.rca_insights}
+          cached={reportPayload.cached}
+          cachedAt={cachedAtFormatted}
+        />
+        {relatedSessions.length > 0 && (
+          <section
+            className={classes.relatedReplaysSection}
+            aria-label="Related session replays"
+          >
+            <Group className={classes.relatedReplaysHeader} gap="xs">
+              <IconPlayerPlay
+                size={18}
+                color="var(--mantine-color-teal-7)"
+                aria-hidden
+              />
+              <Text className={classes.relatedReplaysTitle}>
+                Related Session Replays
+              </Text>
+              <Box component="span" className={classes.relatedReplaysBadge}>
+                {relatedSessions.length}
+              </Box>
+            </Group>
+            <div className={classes.relatedReplaysGrid}>
+              {relatedSessions.map((session) => (
+                <SessionCard
+                  key={session.sessionId}
+                  sessionId={session.sessionId}
+                  duration={session.duration}
+                  relativeTime={session.relativeTime}
+                  device={session.device}
+                  failureSummary={session.failureSummary}
+                  replayUrl={`/projects/${effectiveProjectId}/session-replay/${session.sessionId}`}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </>
     );
   }
 

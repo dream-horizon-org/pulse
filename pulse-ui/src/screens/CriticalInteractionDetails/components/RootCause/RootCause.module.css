@@ -3,6 +3,16 @@
   margin: var(--mantine-spacing-md);
 }
 
+/* Tighter bottom spacing when report is followed by Related Session Replays */
+.reportContainer {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.reportContainer :global(.mantine-Stack-root) > *:last-child {
+  margin-bottom: 0;
+}
+
 .skeletonWrapper {
   padding: var(--mantine-spacing-lg);
 }
@@ -194,4 +204,47 @@
 .chartWrap {
   height: 280px;
   width: 100%;
+}
+
+/* Related Session Replays section */
+.relatedReplaysSection {
+  margin-top: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xl);
+  margin-left: var(--mantine-spacing-md);
+  margin-right: var(--mantine-spacing-md);
+}
+
+.relatedReplaysHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-md);
+}
+
+.relatedReplaysTitle {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mantine-color-teal-7);
+}
+
+.relatedReplaysBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  background-color: var(--mantine-color-teal-1);
+  color: var(--mantine-color-teal-7);
+}
+
+.relatedReplaysGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--mantine-spacing-md);
 }

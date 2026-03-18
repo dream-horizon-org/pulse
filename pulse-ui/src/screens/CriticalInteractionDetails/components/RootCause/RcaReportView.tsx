@@ -117,7 +117,7 @@ export const RcaReportView = ({
 
   if (!hasContent) {
     return (
-      <Box className={classes.container}>
+      <Box className={`${classes.container} ${classes.reportContainer}`}>
         <Text className={classes.stateMessage}>
           No report content available.
         </Text>
@@ -126,7 +126,7 @@ export const RcaReportView = ({
   }
 
   return (
-    <Box className={classes.container}>
+    <Box className={`${classes.container} ${classes.reportContainer}`}>
       {cachedAt != null && cachedAt !== "" && (
         <Text className={classes.cachedAt} size="sm" c="dimmed">
           Report as of {cachedAt}
