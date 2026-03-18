@@ -16,10 +16,16 @@ import { generateSessionDetailApiResponse } from "../../../mocks/responses/sessi
 
 function getMockSessionItems(): SessionItem[] {
   const now = Date.now();
+  /** Staggered start times across ~24h for a realistic “Last 24 hours” table */
+  const t = (hoursAgo: number, minutesOffset = 0) =>
+    new Date(
+      now - hoursAgo * 60 * 60 * 1000 - minutesOffset * 60 * 1000,
+    ).toISOString();
+
   return [
     {
       sessionId: "sess_mock_001",
-      startTime: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      startTime: t(0, 17),
       durationMs: 159000,
       user: "user_3456",
       qualityScore: 0.86,
@@ -29,13 +35,13 @@ function getMockSessionItems(): SessionItem[] {
         { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 1 },
       ],
       platform: "Android",
-      spanCount: 34,
-      journey: ["/home", "/search", "/contest"],
-      impactedScreens: null,
+      spanCount: 187,
+      journey: ["/home", "/search", "/contest", "/checkout"],
+      impactedScreens: { nonFatals: ["/search"] },
     },
     {
       sessionId: "sess_mock_002",
-      startTime: new Date(now - 4 * 60 * 60 * 1000).toISOString(),
+      startTime: t(2, 0),
       durationMs: 92000,
       user: null,
       qualityScore: 0.72,
@@ -44,25 +50,25 @@ function getMockSessionItems(): SessionItem[] {
         { type: "FROZEN_FRAME", label: "Frozen Frames", count: 2 },
       ],
       platform: "iOS",
-      spanCount: 22,
-      journey: ["/login", "/home", "/offers"],
+      spanCount: 94,
+      journey: ["/login", "/home", "/offers", "/cart"],
       impactedScreens: { nonFatals: ["/offers"] },
     },
     {
       sessionId: "sess_mock_003",
-      startTime: new Date(now - 5 * 60 * 60 * 1000).toISOString(),
+      startTime: t(3, 0),
       durationMs: 310000,
       user: "user_1234",
       qualityScore: 0.95,
       issues: [],
       platform: "Web",
-      spanCount: 48,
-      journey: ["/home", "/search", "/contest", "/pay", "/wallet"],
+      spanCount: 256,
+      journey: ["/home", "/search", "/contest", "/pay", "/wallet", "/receipt"],
       impactedScreens: null,
     },
     {
       sessionId: "sess_mock_004",
-      startTime: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+      startTime: t(4, 0),
       durationMs: 45000,
       user: "user_5678",
       qualityScore: null,
@@ -75,16 +81,16 @@ function getMockSessionItems(): SessionItem[] {
         { type: "FROZEN_FRAME", label: "Frozen Frames", count: 1 },
       ],
       platform: "Android",
-      spanCount: 12,
-      journey: ["/home"],
+      spanCount: 61,
+      journey: ["/splash", "/home", "/feed"],
       impactedScreens: {
         crashes: ["/home"],
-        nonFatals: ["/home"],
+        nonFatals: ["/home", "/feed", "/settings"],
       },
     },
     {
       sessionId: "sess_mock_005",
-      startTime: new Date(now - 8 * 60 * 60 * 1000).toISOString(),
+      startTime: t(6, 0),
       durationMs: 210000,
       user: "user_9012",
       qualityScore: 0.68,
@@ -95,11 +101,196 @@ function getMockSessionItems(): SessionItem[] {
         { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 3 },
       ],
       platform: "iOS",
-      spanCount: 41,
-      journey: ["/home", "/profile", "/settings"],
+      spanCount: 203,
+      journey: ["/home", "/profile", "/settings", "/notifications"],
       impactedScreens: { anrs: ["/profile"] },
     },
+    {
+      sessionId: "sess_mock_006",
+      startTime: t(7, 22),
+      durationMs: 428000,
+      user: "user_2840",
+      qualityScore: 0.58,
+      issues: [
+        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 6 },
+        { type: "FROZEN_FRAME", label: "Frozen Frames", count: 4 },
+        { type: "NON_FATAL", label: "Non-Fatals", count: 2 },
+      ],
+      platform: "Android",
+      spanCount: 312,
+      journey: ["/home", "/shop", "/product", "/reviews", "/cart"],
+      impactedScreens: { nonFatals: ["/product", "/reviews"] },
+    },
+    {
+      sessionId: "sess_mock_007",
+      startTime: t(9, 5),
+      durationMs: 78000,
+      user: "vip_user_01",
+      qualityScore: 0.91,
+      issues: [
+        { type: "NETWORK_ERROR", label: "Network Errors", count: 5 },
+        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 1 },
+      ],
+      platform: "Web",
+      spanCount: 142,
+      journey: ["/dashboard", "/reports", "/export"],
+      impactedScreens: null,
+    },
+    {
+      sessionId: "sess_mock_008",
+      startTime: t(11, 40),
+      durationMs: 12000,
+      user: null,
+      qualityScore: null,
+      issues: [{ type: "CRASH", label: "Crashes", count: 1 }],
+      platform: "iOS",
+      spanCount: 18,
+      journey: ["/onboarding", "/permissions"],
+      impactedScreens: { crashes: ["/permissions"] },
+    },
+    {
+      sessionId: "sess_mock_009",
+      startTime: t(14, 12),
+      durationMs: 602000,
+      user: "user_7777",
+      qualityScore: 0.82,
+      issues: [
+        { type: "NON_FATAL", label: "Non-Fatals", count: 4 },
+        { type: "NETWORK_ERROR", label: "Network Errors", count: 1 },
+      ],
+      platform: "Android",
+      spanCount: 445,
+      journey: [
+        "/home",
+        "/live",
+        "/match",
+        "/stats",
+        "/chat",
+        "/wallet",
+        "/withdraw",
+      ],
+      impactedScreens: {
+        nonFatals: ["/withdraw", "/wallet"],
+      },
+    },
+    {
+      sessionId: "sess_mock_010",
+      startTime: t(16, 33),
+      durationMs: 195000,
+      user: "user_1122",
+      qualityScore: 0.44,
+      issues: [
+        { type: "ANR", label: "ANRs", count: 2 },
+        { type: "CRASH", label: "Crashes", count: 1 },
+        { type: "INTERACTION_ERROR", label: "Interaction Errors", count: 3 },
+      ],
+      platform: "Android",
+      spanCount: 88,
+      journey: ["/home", "/video", "/fullscreen"],
+      impactedScreens: {
+        anrs: ["/fullscreen"],
+        crashes: ["/video"],
+      },
+    },
+    {
+      sessionId: "sess_mock_011",
+      startTime: t(18, 50),
+      durationMs: 67000,
+      user: "qa_bot_session",
+      qualityScore: 0.99,
+      issues: [],
+      platform: "Web",
+      spanCount: 72,
+      journey: ["/", "/smoke", "/health"],
+      impactedScreens: null,
+    },
+    {
+      sessionId: "sess_mock_012",
+      startTime: t(22, 8),
+      durationMs: 340000,
+      user: "user_9999",
+      qualityScore: 0.63,
+      issues: [
+        { type: "SLOW_INTERACTION", label: "Slow Interactions", count: 2 },
+        { type: "NETWORK_ERROR", label: "Network Errors", count: 2 },
+        { type: "FROZEN_FRAME", label: "Frozen Frames", count: 1 },
+      ],
+      platform: "iOS",
+      spanCount: 198,
+      journey: ["/tab/home", "/tab/explore", "/tab/profile"],
+      impactedScreens: { nonFatals: ["/tab/explore"] },
+    },
   ];
+}
+
+function sessionMatchesQuickFilters(
+  session: SessionItem,
+  quickKeys: string[] | undefined,
+): boolean {
+  if (!quickKeys?.length) return true;
+  const hasCrash = session.issues.some((i) => i.type === "CRASH");
+  const hasErrors = session.issues.length > 0;
+  return quickKeys.every((key) => {
+    if (key === "has_crashes") return hasCrash;
+    if (key === "has_errors") return hasErrors;
+    return true;
+  });
+}
+
+function sessionMatchesSearch(session: SessionItem, query: string | undefined) {
+  if (!query?.trim()) return true;
+  const q = query.trim().toLowerCase();
+  return (
+    session.sessionId.toLowerCase().includes(q) ||
+    (session.user?.toLowerCase().includes(q) ?? false) ||
+    session.journey.some((p) => p.toLowerCase().includes(q))
+  );
+}
+
+function sortMockSessions(
+  sessions: SessionItem[],
+  sortBy: SessionListingRequest["sortBy"],
+  sortDirection: SessionListingRequest["sortDirection"],
+): SessionItem[] {
+  const dir = sortDirection === "ASC" ? 1 : -1;
+  const copy = [...sessions];
+  const num = (v: number | null) => (v == null ? -1 : v);
+
+  const getIssueSum = (s: SessionItem, type: string) =>
+    s.issues.find((i) => i.type === type)?.count ?? 0;
+
+  copy.sort((a, b) => {
+    switch (sortBy) {
+      case "DURATION":
+        return (a.durationMs - b.durationMs) * dir;
+      case "QUALITY_SCORE":
+        return (num(a.qualityScore) - num(b.qualityScore)) * dir;
+      case "NETWORK_ERRORS":
+        return (
+          (getIssueSum(a, "NETWORK_ERROR") - getIssueSum(b, "NETWORK_ERROR")) *
+          dir
+        );
+      case "CRASHES":
+        return (getIssueSum(a, "CRASH") - getIssueSum(b, "CRASH")) * dir;
+      case "ANRS":
+        return (getIssueSum(a, "ANR") - getIssueSum(b, "ANR")) * dir;
+      case "SLOW_INTERACTIONS":
+        return (
+          (getIssueSum(a, "SLOW_INTERACTION") -
+            getIssueSum(b, "SLOW_INTERACTION")) *
+          dir
+        );
+      case "SPAN_COUNT":
+        return (a.spanCount - b.spanCount) * dir;
+      case "START_TIME":
+      default:
+        return (
+          (new Date(a.startTime).getTime() - new Date(b.startTime).getTime()) *
+          dir
+        );
+    }
+  });
+  return copy;
 }
 
 /**
@@ -111,7 +302,17 @@ export function getMockSessionListingResponse(
   const limit = Math.min(100, Math.max(1, request.page?.limit ?? 10));
   const cursor = request.page?.cursor;
 
-  const allSessions = getMockSessionItems();
+  let allSessions = getMockSessionItems().filter(
+    (s) =>
+      sessionMatchesQuickFilters(s, request.filters?.quick) &&
+      sessionMatchesSearch(s, request.query),
+  );
+  allSessions = sortMockSessions(
+    allSessions,
+    request.sortBy ?? "START_TIME",
+    request.sortDirection ?? "DESC",
+  );
+
   let startIndex = 0;
   if (cursor && typeof atob === "function") {
     try {

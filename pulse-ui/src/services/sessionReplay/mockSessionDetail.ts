@@ -291,6 +291,49 @@ export interface SessionDetailData {
   };
 }
 
+const MOCK_PAYMENT_GATEWAY_STACK = [
+  "com.dream11.payment.PaymentGatewayTimeout: 504 Gateway Timeout",
+  "Caused by: retrofit2.HttpException: HTTP 504 ",
+  "\tat retrofit2.KotlinExtensions$await$2$2.onResponse(KotlinExtensions.kt:53)",
+  "\tat retrofit2.OkHttpCall$1.onResponse(OkHttpCall.java:161)",
+  "\tat okhttp3.internal.connection.RealCall$AsyncCall.run(RealCall.kt:519)",
+  "\tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1156)",
+  "\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:651)",
+  "\tat java.lang.Thread.run(Thread.java:1119)",
+  "Caused by: okhttp3.internal.http2.StreamResetException: stream was reset: NO_ERROR",
+  "\tat okhttp3.internal.http2.Http2Stream.takeHeaders(Http2Stream.kt:148)",
+  "\tat okhttp3.internal.http2.Http2ExchangeCodec.readResponseHeaders(Http2ExchangeCodec.kt:97)",
+  "\tat okhttp3.internal.connection.Exchange.readResponseHeaders(Exchange.kt:110)",
+  "\tat okhttp3.internal.http.CallServerInterceptor.intercept(CallServerInterceptor.kt:93)",
+  "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
+  "\tat com.dream11.network.LoggingInterceptor.intercept(LoggingInterceptor.kt:42)",
+  "\tat com.dream11.network.AuthHeaderInterceptor.intercept(AuthHeaderInterceptor.kt:28)",
+  "--- Request ---",
+  "POST https://api.example.com/api/payment HTTP/2",
+  "X-Request-Id: req_pay_8f2a9c1d",
+  "",
+  "--- Response ---",
+  "HTTP/2 504  upstream payment service did not respond within 30s.",
+].join("\n");
+
+const MOCK_CART_VALIDATION_STACK = [
+  "java.lang.IllegalStateException: Cart line item missing price snapshot",
+  "\tat com.dream11.cart.CartRepository.validateLineItems(CartRepository.kt:214)",
+  "\tat com.dream11.cart.CartRepository.syncCart$lambda$3(CartRepository.kt:98)",
+  "\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)",
+  "\tat android.os.Handler.handleCallback(Handler.java:959)",
+  "\tat android.os.Looper.loopOnce(Looper.java:232)",
+  "\tat android.app.ActivityThread.main(ActivityThread.java:8705)",
+].join("\n");
+
+const MOCK_NETWORK_SLOW_STACK = [
+  "com.dream11.network.SlowResponseWarning: GET /api/products/recs exceeded p95 (245ms > 200ms)",
+  "\tat com.dream11.network.TelemetryInterceptor.intercept(TelemetryInterceptor.kt:71)",
+  "\tat okhttp3.internal.http.RealInterceptorChain.proceed(RealInterceptorChain.kt:109)",
+  "Thread: OkHttp https://api.example.com/...",
+  "DNS: 12ms, TCP connect: 28ms, TLS: 41ms, TTFB: 164ms",
+].join("\n");
+
 export function getMockSessionDetail(sessionId: string): SessionDetailData {
   const now = new Date();
   const sessionStart = new Date(now.getTime() - 154000);
@@ -763,16 +806,40 @@ export function getMockSessionDetail(sessionId: string): SessionDetailData {
       ],
       rows: [
         [
-          new Date(sessionStart.getTime() + 77800).toISOString(),
+          new Date(sessionStart.getTime() + 45200).toISOString(),
+          "error",
+          "PaymentGatewayTimeout",
+          MOCK_PAYMENT_GATEWAY_STACK,
+          "PaymentGatewayTimeout",
+          "CheckoutScreen",
+          `trace_${sessionId}_10`,
+          `span_${sessionId}_10`,
+          "group_payment_504",
+          "error",
+        ],
+        [
+          new Date(sessionStart.getTime() + 22100).toISOString(),
           "non_fatal_exception",
-          "Payment Timeout",
-          "Request timeout after 1.2s",
-          "TimeoutException",
-          "PaymentScreen",
-          "trace_002",
-          "span_006",
-          "group_001",
-          "exception.timeout",
+          "CartValidationError",
+          MOCK_CART_VALIDATION_STACK,
+          "IllegalStateException",
+          "ProductListScreen",
+          `trace_${sessionId}_7`,
+          `span_${sessionId}_7`,
+          "group_cart_validation",
+          "non_fatal",
+        ],
+        [
+          new Date(sessionStart.getTime() + 15300).toISOString(),
+          "non_fatal_exception",
+          "NetworkSlowWarning",
+          MOCK_NETWORK_SLOW_STACK,
+          "SlowResponseWarning",
+          "HomeScreen",
+          `trace_${sessionId}_4`,
+          `span_${sessionId}_4`,
+          "group_network_slow",
+          "non_fatal",
         ],
       ],
     },
