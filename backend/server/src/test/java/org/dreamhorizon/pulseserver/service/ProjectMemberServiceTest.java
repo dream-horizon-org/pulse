@@ -139,6 +139,8 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
           .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
@@ -179,9 +181,11 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
           .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.empty()));
-      when(tenantMemberService.addUserToTenant(TENANT_ID, "newuser@test.com", "member", ADMIN_ID))
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
           .thenReturn(Single.just(newUser));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "editor"))
           .thenReturn(Completable.complete());
@@ -191,7 +195,7 @@ class ProjectMemberServiceTest {
 
       assertThat(result).isNotNull();
       assertThat(result.getUserId()).isEqualTo(USER_ID);
-      verify(tenantMemberService).addUserToTenant(TENANT_ID, "newuser@test.com", "member", ADMIN_ID);
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "newuser@test.com");
       verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "editor");
     }
   }

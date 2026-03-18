@@ -252,6 +252,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHENABLED=${GOOGLE_OAUTH_ENABLED:-false}
       - CONFIG_SERVICE_APPLICATION_JWTSECRET=${CONFIG_SERVICE_APPLICATION_JWTSECRET:-dev-secret-key-at-least-32-characters-long-for-local-testing-only}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
+      - DEV_MODE_API_KEY=${DEV_MODE_API_KEY:-default-project_devkey01}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -263,7 +264,7 @@ services:
       - ENCRYPTION_MASTER_KEY=${VAULT_ENCRYPTION_MASTER_KEY}
 
       # Redis Configuration
-      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_HOST=${REDIS_HOST:-ascend-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
 
       # S3 Configuration
@@ -303,7 +304,7 @@ services:
       - AI_SERVICE_URL=${AI_SERVICE_URL:-http://host.docker.internal:8000}
       - AI_SERVICE_KEY=${AI_SERVICE_KEY:-}
       # Incident Configuration
-      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${#test-incident-channel:-}
+      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 
       # Notification Service Configuration
       - AWS_REGION=${AWS_REGION:-ap-south-1}
@@ -368,7 +369,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEDATABASE=otel
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEUSERNAME=pulse_user
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
-      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-redis}
+      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-ascend-redis}
       - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
     networks:
       - pulse-network

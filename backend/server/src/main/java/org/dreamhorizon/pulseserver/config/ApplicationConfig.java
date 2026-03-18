@@ -37,4 +37,15 @@ public class ApplicationConfig {
   public String tncS3BucketName;
   public String aiServiceUrl;
   public String aiServiceKey;
+  public String devModeApiKey;
+  
+  /**
+   * Get the dev mode API key with a sensible default.
+   * This key is used when GOOGLE_OAUTH_ENABLED=false.
+   */
+  public String getDevModeApiKey() {
+    return devModeApiKey != null && !devModeApiKey.isBlank() 
+        ? devModeApiKey 
+        : "default-project_devkey01";
+  }
 }
