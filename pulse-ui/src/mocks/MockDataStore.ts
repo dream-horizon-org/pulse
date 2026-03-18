@@ -1708,6 +1708,59 @@ export class MockDataStore {
     return this.mockProjectMembers.get(projectId) ?? [];
   }
 
+  /**
+   * Register a project created via onboarding so subsequent API calls
+   * (members, api-keys, regenerate) work. Onboarding only sets currentTenant;
+   * this populates mockProjects, mockProjectMembers, mockProjectApiKeys.
+   */
+  registerOnboardingProject(
+    tenantId: string,
+    projectId: string,
+    projectName: string,
+    projectDescription: string,
+    projectApiKey: string,
+    createdBy: string,
+  ): void {
+    const now = new Date().toISOString();
+    this.mockProjects.set(projectId, {
+      projectId,
+      name: projectName,
+      description: projectDescription,
+      tenantId,
+      apiKey: projectApiKey,
+      isActive: true,
+      createdAt: now,
+      createdBy,
+    });
+    this.mockProjectApiKeys.set(projectId, [
+      {
+        apiKeyId: this.nextApiKeyId++,
+        projectId,
+        displayName: "Default",
+        apiKey: projectApiKey,
+        isActive: true,
+        expiresAt: null,
+        gracePeriodEndsAt: null,
+        createdBy,
+        createdAt: now,
+        deactivatedAt: null,
+        deactivatedBy: null,
+        deactivationReason: null,
+      },
+    ]);
+    const creatorName = createdBy.split("@")[0].replace(/\./g, " ");
+    this.mockProjectMembers.set(projectId, [
+      {
+        userId: "user-" + createdBy.replace(/[^a-z0-9]/gi, "-"),
+        email: createdBy,
+        name: creatorName,
+        role: "admin",
+        status: "active",
+        lastLoginAt: now,
+      },
+    ]);
+  }
+
   createProject(
     tenantId: string,
     name: string,

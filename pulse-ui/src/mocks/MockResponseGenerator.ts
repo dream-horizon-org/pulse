@@ -1105,6 +1105,14 @@ export class MockResponseGenerator {
       };
       this.dataStore.setCurrentTenant(newTenant);
       this.dataStore.ensureTenantExists(tenantId, organizationName);
+      this.dataStore.registerOnboardingProject(
+        tenantId,
+        projectId,
+        projectName,
+        projectDescription,
+        projectApiKey,
+        "dev@example.com",
+      );
 
       return {
         data: {
@@ -1333,10 +1341,15 @@ export class MockResponseGenerator {
     }
 
     const members = this.dataStore.getProjectMembers(projectId);
+    // Ensure each member has a display name (like tenant members)
+    const membersWithName = members.map((m) => ({
+      ...m,
+      name: m.name?.trim() || m.email.split("@")[0].replace(/\./g, " "),
+    }));
     return {
       data: {
-        members,
-        totalCount: members.length,
+        members: membersWithName,
+        totalCount: membersWithName.length,
       },
       status: 200,
     };
@@ -1360,7 +1373,12 @@ export class MockResponseGenerator {
     }
 
     const validRoles = ["admin", "editor", "viewer"];
-    let body: { email?: string; emails?: string[]; role?: string } = {};
+    let body: {
+      email?: string;
+      emails?: string[];
+      role?: string;
+      name?: string;
+    } = {};
     try {
       body = request.body ? JSON.parse(request.body) : {};
     } catch {
@@ -1453,6 +1471,7 @@ export class MockResponseGenerator {
         projectId,
         email,
         role as "admin" | "editor" | "viewer",
+        body.name?.trim() || undefined,
       );
       successEmails.push(email);
       addedMembers.push(member);
