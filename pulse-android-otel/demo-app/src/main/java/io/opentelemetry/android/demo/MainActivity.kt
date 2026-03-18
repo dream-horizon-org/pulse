@@ -117,20 +117,25 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth(),
                         )
 
-                        LauncherButton(
-                            text = "Crash here",
-                            onClick = {
-                                viewModel.performSomeWork()
-                            },
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                        )
-                        LauncherButton(
-                            text = "Trigger ANR",
-                            onClick = {
-                                viewModel.triggerAnr()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LauncherButton(
+                                text = "Crash here",
+                                onClick = {
+                                    viewModel.performSomeWork()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            LauncherButton(
+                                text = "Trigger ANR",
+                                onClick = {
+                                    viewModel.triggerAnr()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                         LauncherButton(
                             text = "Network call",
                             onClick = {

@@ -505,12 +505,12 @@ public final class com/pulse/android/sdk/replay/remote/SessionReplayApiClient {
 }
 
 public final class com/pulse/android/sdk/replay/ui/PulseReplayMaskKt {
-	public static final fun pulseReplayMask (Landroidx/compose/ui/Modifier;Z)Landroidx/compose/ui/Modifier;
-	public static synthetic fun pulseReplayMask$default (Landroidx/compose/ui/Modifier;ZILjava/lang/Object;)Landroidx/compose/ui/Modifier;
+	public static final fun maskForReplay (Landroidx/compose/ui/Modifier;Z)Landroidx/compose/ui/Modifier;
+	public static synthetic fun maskForReplay$default (Landroidx/compose/ui/Modifier;ZILjava/lang/Object;)Landroidx/compose/ui/Modifier;
 }
 
 public final class com/pulse/android/sdk/replay/ui/ViewExtensionsKt {
-	public static final fun pulseReplayMask (Landroid/view/View;)V
-	public static final fun pulseReplayUnmask (Landroid/view/View;)V
+	public static final fun maskForReplay (Landroid/view/View;)V
+	public static final fun unmaskForReplay (Landroid/view/View;)V
 }
 

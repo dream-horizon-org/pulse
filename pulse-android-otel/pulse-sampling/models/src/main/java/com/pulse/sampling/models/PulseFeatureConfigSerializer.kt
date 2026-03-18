@@ -85,7 +85,9 @@ internal object PulseFeatureConfigSerializer : KSerializer<PulseFeatureConfig> {
                             config,
                         )
                     }
-                    is PulseFeatureConfigData.Unknown -> { null }
+                    is PulseFeatureConfigData.Unknown -> {
+                        null
+                    }
                 }
             }
         val obj =
