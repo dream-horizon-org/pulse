@@ -5,11 +5,14 @@ import lombok.Getter;
 import java.util.EnumSet;
 import java.util.Set;
 
-import static org.dreamhorizon.pulseserver.dao.session.FilterCategory.*;
-import static org.dreamhorizon.pulseserver.dao.session.Operator.*;
+import static org.dreamhorizon.pulseserver.dao.session.SessionListingFilterCategory.*;
+import static org.dreamhorizon.pulseserver.dao.session.SessionListingOperator.*;
 
+/**
+ * Filterable dimensions for session listing (session_summary MV and semi-join on otel_traces).
+ */
 @Getter
-public enum FilterField {
+public enum SessionListingFilterField {
 
     // Session Properties
     DURATION("dateDiff('millisecond', min(startTime), max(endTime))", ClauseType.HAVING, true,
@@ -70,12 +73,12 @@ public enum FilterField {
     private final boolean inMV;
     private final String displayName;
     private final String dataType;
-    private final FilterCategory category;
-    private final Set<Operator> allowedOperators;
+    private final SessionListingFilterCategory category;
+    private final Set<SessionListingOperator> allowedOperators;
 
-    FilterField(String expression, ClauseType clauseType, boolean inMV,
-                String displayName, String dataType, FilterCategory category,
-                Set<Operator> allowedOperators) {
+    SessionListingFilterField(String expression, ClauseType clauseType, boolean inMV,
+                String displayName, String dataType, SessionListingFilterCategory category,
+                Set<SessionListingOperator> allowedOperators) {
         this.expression = expression;
         this.clauseType = clauseType;
         this.inMV = inMV;

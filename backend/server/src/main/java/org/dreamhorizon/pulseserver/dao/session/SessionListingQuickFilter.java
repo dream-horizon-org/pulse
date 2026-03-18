@@ -3,9 +3,12 @@ package org.dreamhorizon.pulseserver.dao.session;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Predefined HAVING-clause shortcuts for session listing (quick filters).
+ */
 @Getter
 @RequiredArgsConstructor
-public enum QuickFilter {
+public enum SessionListingQuickFilter {
 
     FAILED_INTERACTIONS("sum(interactionErrors) > 0",
             "Failed Interactions", "Sessions with at least one failed interaction"),

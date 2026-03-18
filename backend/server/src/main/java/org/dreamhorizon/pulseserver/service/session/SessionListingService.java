@@ -6,14 +6,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
-import org.dreamhorizon.pulseserver.dao.session.CursorCodec;
-import org.dreamhorizon.pulseserver.dao.session.FilterField;
-import org.dreamhorizon.pulseserver.dao.session.FilterMode;
-import org.dreamhorizon.pulseserver.dao.session.Operator;
-import org.dreamhorizon.pulseserver.dao.session.QuickFilter;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingCursorCodec;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingFilterField;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingFilterMode;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingOperator;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingQuickFilter;
 import org.dreamhorizon.pulseserver.dao.session.SessionListingQueryBuilder;
-import org.dreamhorizon.pulseserver.dao.session.SortDirection;
-import org.dreamhorizon.pulseserver.dao.session.SortField;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingSortDirection;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingSortField;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.resources.session.models.AdvancedFilterGroup;
@@ -73,7 +73,7 @@ public class SessionListingService {
                         ? request.getFilters().getAdvanced().getChildren().size() : 0,
                 request.getQuery() != null ? "present" : "none");
 
-        SortField activeSortField = resolveSortField(request.getSortBy());
+        SessionListingSortField activeSortField = resolveSortField(request.getSortBy());
 
         SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
                 .projectId(projectId)
@@ -164,9 +164,9 @@ public class SessionListingService {
         }
 
         if (filters.getQuick() != null && !filters.getQuick().isEmpty()) {
-            Set<QuickFilter> qf = filters.getQuick().stream()
-                    .map(name -> safeEnum(QuickFilter.class, name, "quick filter"))
-                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(QuickFilter.class)));
+            Set<SessionListingQuickFilter> qf = filters.getQuick().stream()
+                    .map(name -> safeEnum(SessionListingQuickFilter.class, name, "quick filter"))
+                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(SessionListingQuickFilter.class)));
             builder.quickFilters(qf);
         }
 
@@ -182,7 +182,7 @@ public class SessionListingService {
                         .getCustomException("Invalid filter op: '" + advanced.getOp()
                                 + "'. Must be AND or OR");
             }
-            FilterMode mode = "OR".equals(op) ? FilterMode.MATCH_ANY : FilterMode.MATCH_ALL;
+            SessionListingFilterMode mode = "OR".equals(op) ? SessionListingFilterMode.MATCH_ANY : SessionListingFilterMode.MATCH_ALL;
             builder.filterMode(mode);
         }
 
@@ -196,26 +196,26 @@ public class SessionListingService {
                     throw ServiceError.INVALID_REQUEST_PARAM
                             .getCustomException("Filter condition missing 'operator'");
                 }
-                FilterField field = safeEnum(FilterField.class, fc.getField(), "filter field");
-                Operator operator = safeEnum(Operator.class, fc.getOperator(), "operator");
+                SessionListingFilterField field = safeEnum(SessionListingFilterField.class, fc.getField(), "filter field");
+                SessionListingOperator operator = safeEnum(SessionListingOperator.class, fc.getOperator(), "operator");
                 builder.filter(field, operator, fc.getValue());
             }
         }
     }
 
-    private SortField resolveSortField(String sortBy) {
+    private SessionListingSortField resolveSortField(String sortBy) {
         if (sortBy != null && !sortBy.isBlank()) {
-            return safeEnum(SortField.class, sortBy, "sortBy");
+            return safeEnum(SessionListingSortField.class, sortBy, "sortBy");
         }
-        return SortField.START_TIME;
+        return SessionListingSortField.START_TIME;
     }
 
     private void applySorting(SessionListingQueryBuilder builder, String sortBy, String sortDirection) {
         if (sortBy != null && !sortBy.isBlank()) {
-            SortField field = safeEnum(SortField.class, sortBy, "sortBy");
-            SortDirection dir = SortDirection.DESC;
+            SessionListingSortField field = safeEnum(SessionListingSortField.class, sortBy, "sortBy");
+            SessionListingSortDirection dir = SessionListingSortDirection.DESC;
             if (sortDirection != null && !sortDirection.isBlank()) {
-                dir = safeEnum(SortDirection.class, sortDirection, "sortDirection");
+                dir = safeEnum(SessionListingSortDirection.class, sortDirection, "sortDirection");
             }
             builder.sortBy(field, dir);
         }
@@ -234,7 +234,7 @@ public class SessionListingService {
         String cursor = page.getCursor();
         if (cursor != null && !cursor.isBlank()) {
             try {
-                builder.cursor(CursorCodec.decode(cursor));
+                builder.cursor(SessionListingCursorCodec.decode(cursor));
             } catch (IllegalArgumentException e) {
                 throw ServiceError.INVALID_REQUEST_PARAM
                         .getCustomException("Invalid cursor: " + e.getMessage());
@@ -297,7 +297,7 @@ public class SessionListingService {
             List<ImpactedInteractionsRow> interactionRows,
             boolean hasMore,
             int pageSize,
-            SortField activeSortField
+            SessionListingSortField activeSortField
     ) {
         Map<String, List<String>> journeyMap = journeyRows.stream()
                 .collect(Collectors.toMap(
@@ -340,7 +340,7 @@ public class SessionListingService {
         if (hasMore) {
             SessionRow lastRow = rows.get(rows.size() - 1);
             Object sortValue = activeSortField.getCursorValueExtractor().apply(lastRow);
-            nextCursor = CursorCodec.encode(sortValue, lastRow.getSessionId());
+            nextCursor = SessionListingCursorCodec.encode(sortValue, lastRow.getSessionId());
         }
 
         return SessionListingResponse.builder()

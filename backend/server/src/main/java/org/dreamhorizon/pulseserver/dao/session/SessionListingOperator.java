@@ -5,8 +5,11 @@ import lombok.Getter;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
+/**
+ * Comparison operators for session listing advanced filters (ClickHouse SQL generation).
+ */
 @Getter
-public enum Operator {
+public enum SessionListingOperator {
 
     EQ("equals", ValueType.SINGLE) {
         @Override
@@ -27,7 +30,7 @@ public enum Operator {
                 throw new IllegalArgumentException("IN operator requires a Collection value");
             }
             String list = items.stream()
-                    .map(Operator::quoteValue)
+                    .map(SessionListingOperator::quoteValue)
                     .collect(Collectors.joining(", "));
             return field + " IN (" + list + ")";
         }
@@ -94,7 +97,7 @@ public enum Operator {
     private final String displayName;
     private final ValueType valueType;
 
-    Operator(String displayName, ValueType valueType) {
+    SessionListingOperator(String displayName, ValueType valueType) {
         this.displayName = displayName;
         this.valueType = valueType;
     }

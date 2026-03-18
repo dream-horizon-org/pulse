@@ -6,9 +6,12 @@ import org.dreamhorizon.pulseserver.resources.session.models.SessionRow;
 
 import java.util.function.Function;
 
+/**
+ * Sortable columns for session listing (maps to ORDER BY / cursor encoding).
+ */
 @Getter
 @RequiredArgsConstructor
-public enum SortField {
+public enum SessionListingSortField {
 
     START_TIME("min(startTime)", "startTime", SessionRow::getStartTime, true),
     DURATION("dateDiff('millisecond', min(startTime), max(endTime))", "durationMs", SessionRow::getDurationMs, false),

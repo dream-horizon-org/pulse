@@ -7,9 +7,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Maps a single row from the session_summary listing query.
- * Field names use s_ prefix to avoid ClickHouse alias/column name collisions
- * in AggregatingMergeTree queries.
+ * Maps a single row from the session listing query against {@code otel.session_summary}.
+ * <p>
+ * <b>Why {@code s_} on JSON property names?</b> The listing SQL selects aggregated columns with
+ * explicit aliases (e.g. {@code min(startTime) AS s_startTime}, {@code sum(crashCount) AS s_crashCount}).
+ * Those aliases are what ClickHouse returns in the result set. The {@code s_} prefix:
+ * <ul>
+ *   <li>Matches the query aliases exactly so Jackson can deserialize without a custom row mapper.</li>
+ *   <li>Avoids ambiguity with non-aggregated names (e.g. raw {@code startTime} vs aggregated start time).</li>
+ *   <li>Keeps {@code sessionId} (the grouped key) distinct from the {@code s_*} measure columns.</li>
+ * </ul>
+ * Java field names stay readable ({@code startTime}, {@code crashCount}); only the JSON keys use {@code s_*}.
  */
 @Data
 @Builder

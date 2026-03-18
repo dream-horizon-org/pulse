@@ -3,9 +3,12 @@ package org.dreamhorizon.pulseserver.dao.session;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * UI grouping for session listing filter metadata (filters API).
+ */
 @Getter
 @RequiredArgsConstructor
-public enum FilterCategory {
+public enum SessionListingFilterCategory {
 
     SESSION("Session Properties"),
     USER("User Properties"),

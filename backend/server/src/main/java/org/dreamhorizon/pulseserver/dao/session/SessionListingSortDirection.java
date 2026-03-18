@@ -3,9 +3,12 @@ package org.dreamhorizon.pulseserver.dao.session;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Sort order for session listing queries and cursor pagination.
+ */
 @Getter
 @RequiredArgsConstructor
-public enum SortDirection {
+public enum SessionListingSortDirection {
 
     ASC("ASC", ">"),
     DESC("DESC", "<");

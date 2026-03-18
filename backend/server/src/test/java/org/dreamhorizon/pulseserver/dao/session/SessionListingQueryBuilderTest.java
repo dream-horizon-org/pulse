@@ -54,7 +54,7 @@ class SessionListingQueryBuilderTest {
       SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
           .projectId(PROJECT_ID)
           .timeRange(START, END)
-          .quickFilters(EnumSet.of(QuickFilter.SLOW));
+          .quickFilters(EnumSet.of(SessionListingQuickFilter.SLOW));
 
       String sql = builder.buildListingQuery();
 
@@ -196,7 +196,7 @@ class SessionListingQueryBuilderTest {
       SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
           .projectId(PROJECT_ID)
           .timeRange(START, END)
-          .filter(FilterField.DURATION, Operator.GT, 1000);
+          .filter(SessionListingFilterField.DURATION, SessionListingOperator.GT, 1000);
 
       assertThat(builder.requiresSemiJoin()).isFalse();
     }
@@ -206,7 +206,7 @@ class SessionListingQueryBuilderTest {
       SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
           .projectId(PROJECT_ID)
           .timeRange(START, END)
-          .filter(FilterField.INTERACTION_NAME, Operator.EQ, "Tap");
+          .filter(SessionListingFilterField.INTERACTION_NAME, SessionListingOperator.EQ, "Tap");
 
       assertThat(builder.requiresSemiJoin()).isTrue();
     }
@@ -220,7 +220,7 @@ class SessionListingQueryBuilderTest {
       SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
           .projectId(PROJECT_ID)
           .timeRange(START, END)
-          .cursor(new CursorCodec.CursorValue("2024-01-01T11:00:00Z", "prev-session"));
+          .cursor(new SessionListingCursorCodec.CursorValue("2024-01-01T11:00:00Z", "prev-session"));
 
       String sql = builder.buildListingQuery();
 
@@ -233,7 +233,7 @@ class SessionListingQueryBuilderTest {
       SessionListingQueryBuilder builder = SessionListingQueryBuilder.create()
           .projectId(PROJECT_ID)
           .timeRange(START, END)
-          .sortBy(SortField.DURATION, SortDirection.ASC);
+          .sortBy(SessionListingSortField.DURATION, SessionListingSortDirection.ASC);
 
       String sql = builder.buildListingQuery();
 

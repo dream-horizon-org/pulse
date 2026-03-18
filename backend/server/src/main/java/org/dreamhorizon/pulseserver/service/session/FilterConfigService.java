@@ -2,9 +2,9 @@ package org.dreamhorizon.pulseserver.service.session;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import org.dreamhorizon.pulseserver.dao.session.FilterCategory;
-import org.dreamhorizon.pulseserver.dao.session.FilterField;
-import org.dreamhorizon.pulseserver.dao.session.QuickFilter;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingFilterCategory;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingFilterField;
+import org.dreamhorizon.pulseserver.dao.session.SessionListingQuickFilter;
 import org.dreamhorizon.pulseserver.resources.session.models.FilterConfigResponse;
 import org.dreamhorizon.pulseserver.resources.session.models.FilterConfigResponse.CategoryItem;
 import org.dreamhorizon.pulseserver.resources.session.models.FilterConfigResponse.FieldItem;
@@ -31,7 +31,7 @@ public class FilterConfigService {
     }
 
     private static FilterConfigResponse buildConfig() {
-        List<QuickFilterItem> quick = Arrays.stream(QuickFilter.values())
+        List<QuickFilterItem> quick = Arrays.stream(SessionListingQuickFilter.values())
                 .map(qf -> QuickFilterItem.builder()
                         .key(qf.name())
                         .displayName(qf.getDisplayName())
@@ -39,10 +39,11 @@ public class FilterConfigService {
                         .build())
                 .collect(Collectors.toList());
 
-        Map<FilterCategory, List<FilterField>> fieldsByCategory = Arrays.stream(FilterField.values())
-                .collect(Collectors.groupingBy(FilterField::getCategory));
+        Map<SessionListingFilterCategory, List<SessionListingFilterField>> fieldsByCategory =
+                Arrays.stream(SessionListingFilterField.values())
+                .collect(Collectors.groupingBy(SessionListingFilterField::getCategory));
 
-        List<CategoryItem> advanced = Arrays.stream(FilterCategory.values())
+        List<CategoryItem> advanced = Arrays.stream(SessionListingFilterCategory.values())
                 .filter(fieldsByCategory::containsKey)
                 .map(cat -> CategoryItem.builder()
                         .categoryKey(cat.name())
@@ -59,7 +60,7 @@ public class FilterConfigService {
                 .build();
     }
 
-    private static FieldItem toFieldItem(FilterField field) {
+    private static FieldItem toFieldItem(SessionListingFilterField field) {
         List<OperatorItem> operators = field.getAllowedOperators().stream()
                 .sorted()
                 .map(op -> OperatorItem.builder()

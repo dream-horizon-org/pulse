@@ -21,11 +21,11 @@ public final class SessionListingQueryBuilder {
     private String endTime;
     private final List<FilterCondition> whereFilters = new ArrayList<>();
     private final List<FilterCondition> havingFilters = new ArrayList<>();
-    private Set<QuickFilter> quickFilters = EnumSet.noneOf(QuickFilter.class);
-    private FilterMode filterMode = FilterMode.MATCH_ALL;
-    private SortField sortField = SortField.START_TIME;
-    private SortDirection sortDirection = SortDirection.DESC;
-    private CursorCodec.CursorValue cursor;
+    private Set<SessionListingQuickFilter> quickFilters = EnumSet.noneOf(SessionListingQuickFilter.class);
+    private SessionListingFilterMode filterMode = SessionListingFilterMode.MATCH_ALL;
+    private SessionListingSortField sortField = SessionListingSortField.START_TIME;
+    private SessionListingSortDirection sortDirection = SessionListingSortDirection.DESC;
+    private SessionListingCursorCodec.CursorValue cursor;
     private int limit = 51;
     private String search;
 
@@ -46,9 +46,9 @@ public final class SessionListingQueryBuilder {
         return this;
     }
 
-    public SessionListingQueryBuilder filter(FilterField field, Operator operator, Object value) {
+    public SessionListingQueryBuilder filter(SessionListingFilterField field, SessionListingOperator operator, Object value) {
         FilterCondition condition = new FilterCondition(field, operator, value);
-        if (field.getClauseType() == FilterField.ClauseType.WHERE) {
+        if (field.getClauseType() == SessionListingFilterField.ClauseType.WHERE) {
             whereFilters.add(condition);
         } else {
             havingFilters.add(condition);
@@ -56,23 +56,23 @@ public final class SessionListingQueryBuilder {
         return this;
     }
 
-    public SessionListingQueryBuilder quickFilters(Set<QuickFilter> quickFilters) {
-        this.quickFilters = quickFilters != null ? quickFilters : EnumSet.noneOf(QuickFilter.class);
+    public SessionListingQueryBuilder quickFilters(Set<SessionListingQuickFilter> quickFilters) {
+        this.quickFilters = quickFilters != null ? quickFilters : EnumSet.noneOf(SessionListingQuickFilter.class);
         return this;
     }
 
-    public SessionListingQueryBuilder filterMode(FilterMode filterMode) {
+    public SessionListingQueryBuilder filterMode(SessionListingFilterMode filterMode) {
         this.filterMode = filterMode;
         return this;
     }
 
-    public SessionListingQueryBuilder sortBy(SortField field, SortDirection direction) {
+    public SessionListingQueryBuilder sortBy(SessionListingSortField field, SessionListingSortDirection direction) {
         this.sortField = field;
         this.sortDirection = direction;
         return this;
     }
 
-    public SessionListingQueryBuilder cursor(CursorCodec.CursorValue cursor) {
+    public SessionListingQueryBuilder cursor(SessionListingCursorCodec.CursorValue cursor) {
         this.cursor = cursor;
         return this;
     }
@@ -232,7 +232,7 @@ public final class SessionListingQueryBuilder {
 
         if (!quickFilters.isEmpty()) {
             String quickGroup = quickFilters.stream()
-                    .map(QuickFilter::getHavingCondition)
+                    .map(SessionListingQuickFilter::getHavingCondition)
                     .collect(Collectors.joining(" OR ", "(", ")"));
             conditions.add(quickGroup);
         }
@@ -275,7 +275,7 @@ public final class SessionListingQueryBuilder {
         if (sortField.isTimestampSort()) {
             return toDateTime64(strVal);
         }
-        return Operator.quoteValue(value);
+        return SessionListingOperator.quoteValue(value);
     }
 
     // -------------------------------------------------------------------------
@@ -293,19 +293,19 @@ public final class SessionListingQueryBuilder {
 
     private static String buildIdList(List<String> ids) {
         return ids.stream()
-                .map(id -> "'" + Operator.escapeString(id) + "'")
+                .map(id -> "'" + SessionListingOperator.escapeString(id) + "'")
                 .collect(Collectors.joining(", "));
     }
 
     private static String quote(String value) {
-        return "'" + Operator.escapeString(value) + "'";
+        return "'" + SessionListingOperator.escapeString(value) + "'";
     }
 
     private static String toDateTime64(String value) {
         return "parseDateTime64BestEffort(" + quote(value) + ", 9, 'UTC')";
     }
 
-    private record FilterCondition(FilterField field, Operator operator, Object value) {
+    private record FilterCondition(SessionListingFilterField field, SessionListingOperator operator, Object value) {
         String toSql() {
             return operator.toSql(field.getExpression(), value);
         }

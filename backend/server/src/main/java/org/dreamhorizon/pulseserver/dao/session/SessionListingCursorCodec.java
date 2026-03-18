@@ -7,11 +7,14 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.Base64;
 
-public final class CursorCodec {
+/**
+ * Encodes/decodes opaque session-listing pagination cursors (sort value + sessionId).
+ */
+public final class SessionListingCursorCodec {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private CursorCodec() {}
+    private SessionListingCursorCodec() {}
 
     public static String encode(Object sortValue, String sessionId) {
         try {
