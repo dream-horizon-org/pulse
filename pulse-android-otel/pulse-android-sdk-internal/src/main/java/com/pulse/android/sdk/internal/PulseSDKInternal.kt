@@ -28,7 +28,6 @@ import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
 import com.pulse.utils.PulseOtelUtils
-import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
@@ -420,13 +419,16 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         val featureConfig = backendFeature.config as? PulseFeatureConfigData.SessionReplay
         if (featureConfig == null) {
+            val configType = backendFeature.config?.run { javaClass.simpleName } ?: "null"
             PulseOtelUtils.logDebug(TAG) {
-                "Session replay config missing or failed to parse (config type=${backendFeature.config?.javaClass?.simpleName}), using base with endpointBaseUrl fallback"
+                "Session replay config missing or failed to parse (config type=$configType), " +
+                    "using base with endpointBaseUrl fallback"
             }
             return base.copy(replayApiBaseUrl = base.replayApiBaseUrl ?: endpointBaseUrl)
         }
 
-        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=${featureConfig.replayApiBaseUrl})" }
+        val replayUrl = featureConfig.replayApiBaseUrl ?: "null"
+        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=$replayUrl)" }
 
         val resolvedTextPrivacy =
             featureConfig.textAndInputPrivacy?.let { value ->

@@ -1,6 +1,5 @@
 package com.pulse.android.sdk.replay
 
-import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.android.sdk.replay.events.ReplayCustomEventData
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData

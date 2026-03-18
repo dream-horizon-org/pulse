@@ -1,7 +1,6 @@
 package com.pulse.android.sdk.replay
 
 import com.google.auto.service.AutoService
-import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.internal.ReplayEnvelopeBuilder
 import com.pulse.android.sdk.replay.remote.SessionReplayApiClient

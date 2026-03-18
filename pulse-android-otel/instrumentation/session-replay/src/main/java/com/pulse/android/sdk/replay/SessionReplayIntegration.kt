@@ -75,7 +75,7 @@ public class SessionReplayIntegration(
     ) {
         try {
             val window = view.phoneWindow ?: return
-            val hasDecorView = window.peekDecorView()?.let { decorViews[it] != null } ?: false
+            val hasDecorView = window.peekDecorView()?.let { decorViews[it] != null } == true
             if (added) {
                 if (view.windowAttachCount == 0 || !hasDecorView) {
                     window.onDecorViewReady { decorView ->
