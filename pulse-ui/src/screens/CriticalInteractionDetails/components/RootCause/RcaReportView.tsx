@@ -134,9 +134,7 @@ export const RcaReportView = ({
       <Stack gap="lg">
         {hasInsights && (
           <Card withBorder padding="lg" className={classes.insightsCard}>
-            <Text className={classes.insightsTitle} component="h2">
-              Insights
-            </Text>
+            {/* <h2 className={classes.insightsTitle}>Insights</h2> */}
             <div className={classes.insightsMarkdown}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {insightsTrimmed}
