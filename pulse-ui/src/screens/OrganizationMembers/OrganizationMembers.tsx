@@ -468,9 +468,9 @@ export function OrganizationMembers() {
           <InviteCollaboratorsInput
             value={inviteEmails}
             onChange={setInviteEmails}
-            label="Email Addresses"
+            label="Emails"
             placeholder="Enter email addresses separated by commas (e.g., john@example.com, jane@example.com)"
-            description="You can invite multiple team members at once"
+            description="Add comma separated email addresses to invite multiple team members at once"
           />
           <Select
             label="Role"

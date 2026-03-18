@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Stack,
   Text,
@@ -11,6 +11,7 @@ import {
   Loader,
   ActionIcon,
   Box,
+  Divider,
 } from "@mantine/core";
 import {
   IconUserPlus,
@@ -22,11 +23,14 @@ import {
 } from "@tabler/icons-react";
 import { COOKIES_KEY } from "../../../constants";
 import { usePermissions } from "../../../hooks";
-import { useProjectContext } from "../../../contexts";
+import { useProjectContext, useTenantContext } from "../../../contexts";
 import { showNotification } from "../../../helpers/showNotification";
 import { getCookies } from "../../../helpers/cookies";
 import { ConfirmationModal } from "../../../components/ConfirmationModal";
-import { InviteCollaboratorsInput } from "../../../components";
+import {
+  InviteCollaboratorsInput,
+  TenantMembersNotOnProjectPicker,
+} from "../../../components";
 import {
   useProjectMembers,
   useInviteProjectMember,
@@ -44,6 +48,7 @@ import {
 
 export function CollaboratorManagement() {
   const { projectId } = useProjectContext();
+  const { tenantId } = useTenantContext();
   const { canInviteProjectMembers, canRemoveProjectMembers, projectRole } =
     usePermissions();
 
@@ -54,8 +59,22 @@ export function CollaboratorManagement() {
   const updateRoleMutation = useUpdateProjectMemberRole();
 
   const collaborators = data?.data?.members ?? [];
+  const projectMemberUserIds = useMemo(
+    () => new Set((data?.data?.members ?? []).map((c) => c.userId)),
+    [data?.data?.members],
+  );
   const loading = isLoading;
   const inviting = inviteMutation.isPending;
+
+  const addInviteEmail = useCallback((email: string) => {
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    const lo = trimmed.toLowerCase();
+    setInviteEmails((prev) => {
+      if (prev.some((e) => e.toLowerCase() === lo)) return prev;
+      return [...prev, trimmed];
+    });
+  }, []);
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
@@ -462,12 +481,19 @@ export function CollaboratorManagement() {
         size="lg"
       >
         <Stack gap="md">
+          <TenantMembersNotOnProjectPicker
+            tenantId={tenantId}
+            projectMemberUserIds={projectMemberUserIds}
+            inviteEmails={inviteEmails}
+            onAddEmail={addInviteEmail}
+          />
+          <Divider label="Or invite by email" labelPosition="center" />
           <InviteCollaboratorsInput
             value={inviteEmails}
             onChange={setInviteEmails}
-            label="Email Addresses"
+            label="Emails"
             placeholder="Enter email addresses separated by commas (e.g., john@example.com, jane@example.com)"
-            description="You can invite multiple team members at once"
+            description="Add comma separated email addresses to invite multiple team members at once"
           />
           <Select
             label="Role"

@@ -133,7 +133,8 @@ export function OnboardingSuccess() {
           );
           return;
         }
-      } catch (error) {        // On error, redirect to project dashboard
+      } catch (error) {
+        // On error, redirect to project dashboard
         navigate(
           ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", projectId),
           { replace: true },
@@ -440,9 +441,9 @@ Pulse.initialize({
               <InviteCollaboratorsInput
                 value={inviteEmails}
                 onChange={setInviteEmails}
-                label="Email Addresses"
+                label="Emails"
                 placeholder="Enter email addresses separated by commas (e.g., john@example.com, jane@example.com)"
-                description="You can invite multiple team members at once"
+                description="Add comma separated email addresses to invite multiple team members at once"
               />
               <Group align="flex-end">
                 <Select
