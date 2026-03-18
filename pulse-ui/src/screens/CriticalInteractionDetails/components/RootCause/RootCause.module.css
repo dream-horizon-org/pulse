@@ -10,6 +10,37 @@
   margin-bottom: var(--mantine-spacing-lg);
 }
 
+/* Executive summary / rca_insights — larger type than body markdown below */
+.insightsCard {
+  margin-bottom: var(--mantine-spacing-lg);
+}
+
+.insightsTitle {
+  font-size: var(--mantine-font-size-xl);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--mantine-spacing-md);
+  color: var(--mantine-color-gray-9);
+}
+
+.insightsMarkdown {
+  font-size: var(--mantine-font-size-md);
+  line-height: 1.7;
+  color: var(--mantine-color-gray-8);
+}
+
+.insightsMarkdown p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.insightsMarkdown strong {
+  font-weight: 700;
+  color: var(--mantine-color-gray-9);
+}
+
 .segmentLabel {
   font-weight: 600;
   margin-bottom: var(--mantine-spacing-sm);
@@ -64,6 +95,7 @@
 .markdownBlock {
   font-size: var(--mantine-font-size-sm);
   line-height: 1.6;
+  overflow-x: auto;
 }
 
 .markdownBlock p {
@@ -98,6 +130,64 @@
 .markdownBlock pre code {
   background: none;
   padding: 0;
+}
+
+/* GFM tables (remark-gfm) — align with Mantine Table look */
+.markdownBlock table {
+  width: 100%;
+  min-width: min(100%, 36rem);
+  border-collapse: collapse;
+  margin: var(--mantine-spacing-lg) 0;
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.5;
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-white);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 04%);
+}
+
+.markdownBlock thead {
+  background: var(--mantine-color-gray-0);
+}
+
+.markdownBlock th {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--mantine-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mantine-color-gray-6);
+  border-bottom: 1px solid var(--mantine-color-gray-3);
+  white-space: nowrap;
+}
+
+.markdownBlock td {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  color: var(--mantine-color-gray-8);
+  vertical-align: top;
+}
+
+.markdownBlock tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.markdownBlock tbody tr:nth-child(even) {
+  background: var(--mantine-color-gray-0);
+}
+
+.markdownBlock tbody tr:hover td {
+  background: var(--mantine-color-gray-1);
+}
+
+.markdownBlock tbody tr:nth-child(even):hover td {
+  background: var(--mantine-color-gray-2);
+}
+
+.markdownBlock table strong {
+  font-weight: 700;
+  color: var(--mantine-color-red-7);
 }
 
 .chartWrap {

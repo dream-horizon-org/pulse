@@ -1,6 +1,19 @@
 /**
- * Mock response body for POST /v1/ai/rca/report (local mock server).
+ * Mock POST /v1/ai/rca/report — format: exec summary → 3 segment metric tables → recommendations.
+ * UI order: Insights (exec summary) → Markdown (tables + recs) → charts.
  */
+
+const BL = {
+  vol: "3,287",
+  apdex: "0.60",
+  err: "9.31%",
+  poor: "5.80%",
+  p50: "2,111.25 ms",
+  p95: "4,179.76 ms",
+  crash: "1.22%",
+  anr: "0.49%",
+  frozen: "2.38%",
+} as const;
 
 export const buildMockRcaReportResponseBody = (
   interactionName: string,
@@ -19,51 +32,105 @@ export const buildMockRcaReportResponseBody = (
     tables: Array<{
       type: string;
       title: string;
+      description?: string;
       columns: Array<{ key: string; label: string }>;
       rows: Array<Record<string, string>>;
     }>;
   };
   rca_insights: string;
   cached: boolean;
-} => ({
-  report: {
-    markdown: `## What changed\n\n**${interactionName}** is carrying most of the regression this period. Android **13+** is at **~2.4%** errors vs **~0.5%** tenant baseline; iOS and Web are essentially flat.\n\n## Likely driver\nUplift clusters on **Jio + app 6.2.1**, not on Wi‑Fi or older app builds. ANR rate did not move—so treat this as **downstream / network-timeout** behaviour on cold feed load, not a UI jank issue.\n\n## Suggested check\nSample **20 failing sessions** with carrier **Jio**, compare **6.2.1 vs 6.2.0** trace waterfall for the feed request before cutting a hotfix.`,
-    charts: [
-      {
-        type: "chart",
-        title: "Error rate by platform (selected window)",
-        data: {
-          type: "bar",
-          labels: ["Android 13+", "Android 12", "iOS", "Web"],
-          datasets: [{ label: "Error %", data: [2.4, 1.1, 0.35, 0.12] }],
-        },
-      },
-    ],
-    tables: [
-      {
-        type: "table",
-        title: "Worst slices (volume-weighted)",
-        columns: [
-          { key: "slice", label: "Slice" },
-          { key: "err", label: "Err %" },
-          { key: "vol", label: "Sessions" },
-        ],
-        rows: [
-          { slice: "Android 13+ · Jio · 6.2.1", err: "3.1", vol: "4.2k" },
-          {
-            slice: "Android 13+ · other carriers",
-            err: "1.8",
-            vol: "2.1k",
-          },
-          { slice: "Android 12 · all", err: "1.1", vol: "8.9k" },
-        ],
-      },
-    ],
-  },
-  rca_insights: `**${interactionName}** — Android **13+** is **~5×** the tenant error baseline (**2.4% vs 0.5%**); **iOS/Web unchanged**.
+} => {
+  const name =
+    interactionName.trim() !== ""
+      ? interactionName.trim()
+      : "payment_processing";
 
-- **Where it hurts:** almost all extra errors sit on **Jio + 6.2.1**; same build on **Airtel/Wi‑Fi** looks normal → points to **carrier / edge path**, not a blanket release bug.
-- **Signal:** cold-open window (**first ~90s**) accounts for **~72%** of those failures; ANR flat → prioritize **feed API latency / timeout** over render work.
-- **Next step:** pull **traces** for failing **${interactionName}** sessions (filter **carrier=Jio**, **version=6.2.1**) and diff p95 **TTFB** vs **6.2.0** before the next train.`,
-  cached: false,
-});
+  const executiveSummaryMarkdown = `The **'${name}'** interaction is experiencing **degraded performance**: **P95 duration** exceeds the poor threshold and **error** and **crash** rates are elevated versus tenant baseline. The primary contributors are **Android App Version 4.0.0** especially **OS 13** and **iOS App Version 4.2.0**.`;
+
+  const markdown = `## Top contributing segments
+
+### 1 Android + AppVersion 4.0.0
+
+| Metric | Value | Baseline | Delta |
+| :----- | :---- | :------- | :---- |
+| Volume | 119 | ${BL.vol} | 3.6% of total |
+| APDEX | 0.66 | ${BL.apdex} | +10% |
+| Error rate | **15.13%** | ${BL.err} | +62% |
+| Poor user % | 2.97% | ${BL.poor} | -49% |
+| Duration P50 | 2,001.24 ms | ${BL.p50} | -5% |
+| Duration P95 | 3,507.83 ms | ${BL.p95} | -16% |
+| Crash rate | **2.52%** | ${BL.crash} | +107% |
+| ANR rate | **1.68%** | ${BL.anr} | +243% |
+| Frozen frame rate | — | ${BL.frozen} | — |
+
+*Impact: This segment represents **3.6%** of total volume but accounts for a **disproportionately high** share of errors, crashes, and ANRs.*
+
+---
+
+### 2 Android + AppVersion 4.0.0 + OsVersion 13
+
+| Metric | Value | Baseline | Delta |
+| :----- | :---- | :------- | :---- |
+| Volume | 25 | ${BL.vol} | 0.76% of total |
+| APDEX | 0.73 | ${BL.apdex} | +22% |
+| Error rate | **40.0%** | ${BL.err} | +330% |
+| Poor user % | 6.67% | ${BL.poor} | +15% |
+| Duration P50 | 1,786.29 ms | ${BL.p50} | -15% |
+| Duration P95 | **6,872.52 ms** | ${BL.p95} | +64% |
+| Crash rate | **8.0%** | ${BL.crash} | +556% |
+| ANR rate | **8.0%** | ${BL.anr} | +1,533% |
+| Frozen frame rate | null | ${BL.frozen} | - |
+
+*Impact: Smaller by volume, but **extremely high** error, crash, and ANR rates and a **markedly elevated P95**—severe performance risk for these users.*
+
+---
+
+### 3 iOS + AppVersion 4.2.0
+
+| Metric | Value | Baseline | Delta |
+| :----- | :---- | :------- | :---- |
+| Volume | 412 | ${BL.vol} | 12.5% of total |
+| APDEX | 0.54 | ${BL.apdex} | -10% |
+| Error rate | **11.89%** | ${BL.err} | +28% |
+| Poor user % | 8.01% | ${BL.poor} | +38% |
+| Duration P50 | 2,340.00 ms | ${BL.p50} | +11% |
+| Duration P95 | **5,100.00 ms** | ${BL.p95} | +22% |
+| Crash rate | 0.97% | ${BL.crash} | -21% |
+| ANR rate | — | ${BL.anr} | — |
+| Frozen frame rate | 1.95% | ${BL.frozen} | -18% |
+
+*Impact: Large iOS slice with **rising errors and tail latency** while **crash rate stays flat**—favours **logic / network / backend** investigation over a native crash regression.*
+
+---
+
+## Recommendations
+
+→ **Investigate Android App Version 4.0.0 (especially OS 13):** Prioritize a deep dive into code changes and dependencies in **4.0.0** for Android, focusing on **${name}** flows. Pay particular attention to **OS 13**, where error, crash, and ANR rates are extreme.
+
+→ **Analyze iOS App Version 4.2.0:** Review **4.2.0** release diff to explain **higher error rate and P95**; correlate with **API p95** and client error codes for the same interaction.
+
+→ **Error log analysis:** For the high–error-rate segments above, query \`error_logs\` for specific messages and stack traces to pinpoint failure points.
+
+→ **Crash / ANR event analysis:** For high crash/ANR segments (notably **Android 4.0.0 / OS 13**), query \`rum_events\` for crash/ANR payloads, stack traces, and user context.
+`;
+
+  return {
+    report: {
+      markdown,
+      charts: [
+        {
+          type: "chart",
+          title: "Error rate (%) — top 3 segments vs tenant baseline",
+          data: {
+            type: "bar",
+            labels: ["Tenant", "Andr 4.0.0", "4.0.0+OS13", "iOS 4.2.0"],
+            datasets: [{ label: "Error %", data: [9.31, 15.13, 40.0, 11.89] }],
+          },
+        },
+      ],
+      tables: [],
+    },
+    rca_insights: executiveSummaryMarkdown,
+    cached: true,
+  };
+};
