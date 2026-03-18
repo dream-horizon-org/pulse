@@ -23,8 +23,8 @@ export function NetworkTab({
   onViewModeChange,
 }: NetworkTabProps) {
   return (
-    <Stack gap="xs">
-      <Group justify="flex-end" wrap="nowrap">
+    <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
+      <Group justify="flex-end" wrap="nowrap" flex="0 0 auto">
         <SegmentedControl
           size="xs"
           value={viewMode}
