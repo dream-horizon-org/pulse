@@ -173,6 +173,11 @@ export class MockResponseGenerator {
       return this.handleTenantEndpoints(pathname, method, request);
     }
 
+    // Session Replay sessions/filters endpoint
+    if (pathname.includes("/v1/sessions/filters") && method === "GET") {
+      return this.handleSessionsFiltersEndpoint();
+    }
+
     // User endpoints - removed to avoid conflict with activity tracking endpoints
     // if (pathname.includes('/user')) {
     //   return this.handleUserEndpoints(pathname, method, request);
@@ -908,6 +913,71 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+  private handleSessionsFiltersEndpoint(): MockResponse {
+    return {
+      data: {
+        quick: [
+          { key: "hasCrash", label: "Crashes", type: "boolean" },
+          { key: "hasAnr", label: "ANRs", type: "boolean" },
+          { key: "hasError", label: "Errors", type: "boolean" },
+          { key: "hasSlowRender", label: "Slow Renders", type: "boolean" },
+        ],
+        advanced: [
+          {
+            categoryKey: "session",
+            displayName: "Session",
+            fields: [
+              {
+                key: "duration",
+                displayName: "Duration (ms)",
+                dataType: "integer",
+                allowedOperators: [
+                  { key: "gt", label: "greater than" },
+                  { key: "lt", label: "less than" },
+                  { key: "eq", label: "equals" },
+                ],
+              },
+              {
+                key: "platform",
+                displayName: "Platform",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "neq", label: "not equals" },
+                ],
+              },
+            ],
+          },
+          {
+            categoryKey: "device",
+            displayName: "Device",
+            fields: [
+              {
+                key: "osVersion",
+                displayName: "OS Version",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "contains", label: "contains" },
+                ],
+              },
+              {
+                key: "appVersion",
+                displayName: "App Version",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "neq", label: "not equals" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      status: 200,
+    };
+  }
+
   private handleV1UserEndpoints(
     pathname: string,
     method: string,
@@ -927,7 +997,7 @@ export class MockResponseGenerator {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects: tenant.projects,
+          projects: Array.isArray(tenant.projects) ? tenant.projects : [],
           redirectTo,
         },
         status: 200,
@@ -1319,6 +1389,11 @@ export class MockResponseGenerator {
     for (const email of uniqueEmails) {
       if (!email || !email.includes("@")) {
         failedEmails.push(email);
+        continue;
+      }
+
+      if (this.dataStore.hasProjectMember(projectId, email)) {
+        skippedEmails.push(email);
         continue;
       }
       const existingMember = this.dataStore.getProjectMemberByEmail(
@@ -1953,6 +2028,11 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
+      if (this.dataStore.hasTenantMember(tenantId, email)) {
+        skippedEmails.push(email);
+        continue;
+      }
+
       const existingMember = this.dataStore.getTenantMemberByEmail(
         tenantId,
         email,

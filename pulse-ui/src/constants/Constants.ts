@@ -2,7 +2,7 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem
+  ComboboxItem,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -13,9 +13,13 @@ import {
   IconHome,
   IconListDetails,
   IconNetwork,
-  IconUsers
+  IconUsers,
+  IconVideo,
 } from "@tabler/icons-react";
-import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
+import {
+  CriticalInteractionDetailsFilterValues,
+  TimeFilter,
+} from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -24,10 +28,14 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps
+  FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { SupportQueries } from "../screens/SupportQueries";
+import { SessionReplay } from "../screens/SessionReplay";
+import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import { SessionReplaySessions } from "../screens/SessionReplaySessions";
+import { SessionReplayInsights } from "../screens/SessionReplayInsights/SessionReplayInsights";
 
 export const APP_NAME: string = "Pulse";
 
@@ -207,6 +215,30 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/query-builder",
     path: "/projects/:projectId/query-builder",
   },
+  // PROJECT_SESSION_REPLAY_INSIGHTS: {
+  //   key: "PROJECT_SESSION_REPLAY_INSIGHTS",
+  //   basePath: "/projects/:projectId/session-replay/insights",
+  //   path: "/projects/:projectId/session-replay/insights",
+  //   element: SessionReplayInsights,
+  // },
+  PROJECT_SESSION_REPLAY_SESSIONS: {
+    key: "PROJECT_SESSION_REPLAY_SESSIONS",
+    basePath: "/projects/:projectId/session-replay/sessions",
+    path: "/projects/:projectId/session-replay/sessions",
+    element: SessionReplaySessions,
+  },
+  PROJECT_SESSION_REPLAY_DETAIL: {
+    key: "PROJECT_SESSION_REPLAY_DETAIL",
+    basePath: "/projects/:projectId/session-replay",
+    path: "/projects/:projectId/session-replay/:sessionId",
+    element: SessionReplayDetail,
+  },
+  PROJECT_SESSION_REPLAY: {
+    key: "PROJECT_SESSION_REPLAY",
+    basePath: "/projects/:projectId/session-replay",
+    path: "/projects/:projectId/session-replay",
+    element: SessionReplay,
+  },
   PROJECT_EVENT_CATALOG: {
     key: "PROJECT_EVENT_CATALOG",
     basePath: "/projects/:projectId/event-catalog",
@@ -243,6 +275,30 @@ export const ROUTES: Routes = {
     path: "/support-queries",
     element: SupportQueries,
   },
+  SESSION_REPLAY: {
+    key: "SESSION_REPLAY",
+    basePath: "/session-replay",
+    path: "/session-replay",
+    element: SessionReplay,
+  },
+  SESSION_REPLAY_INSIGHTS: {
+    key: "SESSION_REPLAY_INSIGHTS",
+    basePath: "/session-replay/insights",
+    path: "/session-replay/insights",
+    element: SessionReplayInsights,
+  },
+  SESSION_REPLAY_SESSIONS: {
+    key: "SESSION_REPLAY_SESSIONS",
+    basePath: "/session-replay/sessions",
+    path: "/session-replay/sessions",
+    element: SessionReplaySessions,
+  },
+  SESSION_REPLAY_DETAIL: {
+    key: "SESSION_REPLAY_DETAIL",
+    basePath: "/session-replay",
+    path: "/session-replay/:sessionId",
+    element: SessionReplayDetail,
+  },
 };
 
 // Navbar route paths - These are flat routes that Navbar transforms to project-scoped routes
@@ -254,6 +310,7 @@ export const NAVBAR_ROUTES = {
   APP_VITALS: "/app-vitals",
   SCREENS: "/screens",
   NETWORK_LIST: "/network-apis",
+  SESSION_REPLAY: "/session-replay/sessions",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
   EVENT_CATALOG: "/event-catalog",
@@ -315,6 +372,13 @@ export const NAVBAR_ITEMS: NavbarItems = [
     icon: IconNetwork,
     routeTo: NAVBAR_ROUTES.NETWORK_LIST,
     path: NAVBAR_ROUTES.NETWORK_LIST,
+    iconSize: 25,
+  },
+  {
+    tabName: "Session Replay",
+    icon: IconVideo,
+    routeTo: NAVBAR_ROUTES.SESSION_REPLAY,
+    path: NAVBAR_ROUTES.SESSION_REPLAY,
     iconSize: 25,
   },
 

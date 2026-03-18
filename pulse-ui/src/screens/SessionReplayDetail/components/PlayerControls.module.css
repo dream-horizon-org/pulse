@@ -1,0 +1,5 @@
+.playerControls {
+  padding: var(--mantine-spacing-md);
+  background: var(--mantine-color-gray-0);
+  border-top: 1px solid var(--mantine-color-gray-3);
+}
