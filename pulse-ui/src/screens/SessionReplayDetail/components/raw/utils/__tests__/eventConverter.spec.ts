@@ -42,6 +42,7 @@ describe("eventConverter", () => {
       type: "session_start",
       description: "Session Started",
       color: "#6b7280",
+      categoryLabel: "Session",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.id).toBe("raw_event_1000_session_start");
@@ -58,7 +59,10 @@ describe("eventConverter", () => {
   });
 
   it("maps event types to FlameChartNode types correctly", () => {
-    const types: Array<{ type: UnifiedEvent["type"]; expected: "span" | "log" }> = [
+    const types: Array<{
+      type: UnifiedEvent["type"];
+      expected: "span" | "log";
+    }> = [
       { type: "screen_load", expected: "span" },
       { type: "critical_interaction", expected: "span" },
       { type: "api_call", expected: "span" },
@@ -71,6 +75,7 @@ describe("eventConverter", () => {
         type,
         description: "Test",
         color: "#000",
+        categoryLabel: "Event",
       };
       const result = convertEventToFlameChartNode(event, baseSessionData);
       expect(result.type).toBe(expected);
@@ -83,6 +88,7 @@ describe("eventConverter", () => {
       type: "api_call",
       description: "GET https://api.example.com/users",
       color: "#10b981",
+      categoryLabel: "Network",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.duration).toBe(120);
@@ -99,6 +105,7 @@ describe("eventConverter", () => {
       type: "critical_interaction",
       description: "Checkout",
       color: "#8b5cf6",
+      categoryLabel: "Interaction",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.duration).toBe(80);
@@ -116,6 +123,7 @@ describe("eventConverter", () => {
       type: "console_log",
       description: "Log message",
       color: "#ef4444",
+      categoryLabel: "Error",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.metadata).toBeDefined();
@@ -130,6 +138,7 @@ describe("eventConverter", () => {
       type: "session_start",
       description: "Session Started",
       color: "#6b7280",
+      categoryLabel: "Session",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     const expectedTs = new Date(baseSessionData.startTime).getTime() + 100;

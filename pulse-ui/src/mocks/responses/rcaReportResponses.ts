@@ -105,13 +105,13 @@ export const buildMockRcaReportResponseBody = (
 
 ## Recommendations
 
-→ **Investigate Android App Version 4.0.0 (especially OS 13):** Prioritize a deep dive into code changes and dependencies in **4.0.0** for Android, focusing on **${name}** flows. Pay particular attention to **OS 13**, where error, crash, and ANR rates are extreme.
+→ <span style="color:#0ca678">**Investigate Android App Version 4.0.0 (especially OS 13):**</span> Prioritize a deep dive into code changes and dependencies in <span style="color:#e03131">**4.0.0**</span> for Android, focusing on <span style="color:#e03131">**${name}**</span> flows. Pay particular attention to <span style="color:#e03131">**OS 13**</span>, where error, crash, and ANR rates are extreme.
 
-→ **Analyze iOS App Version 4.2.0:** Review **4.2.0** release diff to explain **higher error rate and P95**; correlate with **API p95** and client error codes for the same interaction.
+→ <span style="color:#0ca678">**Analyze iOS App Version 4.2.0:**</span> Review <span style="color:#e03131">**4.2.0**</span> release diff to explain <span style="color:#e03131">**higher error rate and P95**</span>; correlate with <span style="color:#e03131">**API p95**</span> and client error codes for the same interaction.
 
-→ **Error log analysis:** For the high–error-rate segments above, query \`error_logs\` for specific messages and stack traces to pinpoint failure points.
+→ <span style="color:#0ca678">**Error log analysis:**</span> For the high–error-rate segments above, query \`error_logs\` for specific messages and stack traces to pinpoint failure points.
 
-→ **Crash / ANR event analysis:** For high crash/ANR segments (notably **Android 4.0.0 / OS 13**), query \`rum_events\` for crash/ANR payloads, stack traces, and user context.
+→ <span style="color:#0ca678">**Crash / ANR event analysis:**</span> For high crash/ANR segments (notably <span style="color:#e03131">**Android 4.0.0 / OS 13**</span>), query \`rum_events\` for crash/ANR payloads, stack traces, and user context.
 `;
 
   return {

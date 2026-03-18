@@ -1,6 +1,7 @@
 import { Box, Card, Stack, Table, Text, Title } from "@mantine/core";
 import ReactECharts from "echarts-for-react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import type {
   RcaReportChartBlock,
@@ -116,7 +117,7 @@ export const RcaReportView = ({
 
   if (!hasContent) {
     return (
-      <Box className={classes.container}>
+      <Box className={`${classes.container} ${classes.reportContainer}`}>
         <Text className={classes.stateMessage}>
           No report content available.
         </Text>
@@ -125,7 +126,7 @@ export const RcaReportView = ({
   }
 
   return (
-    <Box className={classes.container}>
+    <Box className={`${classes.container} ${classes.reportContainer}`}>
       {cachedAt != null && cachedAt !== "" && (
         <Text className={classes.cachedAt} size="sm" c="dimmed">
           Report as of {cachedAt}
@@ -145,7 +146,10 @@ export const RcaReportView = ({
         {hasMarkdown && (
           <Card withBorder padding="md" className={classes.segmentCard}>
             <div className={classes.markdownBlock}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+              >
                 {report.markdown ?? ""}
               </ReactMarkdown>
             </div>
