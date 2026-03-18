@@ -293,6 +293,7 @@ class ConfigClassesTest {
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
           "interPath", "interCfPath", "encKey", "tncBucket", "symbolFilesBucket");
+          "interPath", "interCfPath", "encKey", "tncBucket", "dev-api-key");
 
       assertThat(config.getAppEnvironment()).isEqualTo("dev");
       assertThat(config.getCronManagerBaseUrl()).isEqualTo("cron");

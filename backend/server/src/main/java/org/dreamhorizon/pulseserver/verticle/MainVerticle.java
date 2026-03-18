@@ -121,7 +121,8 @@ public class MainVerticle extends AbstractVerticle {
                         new HttpServerOptions().setPort(8080)),
                 new DeploymentOptions().setInstances(getNumOfCores()))
         ).ignoreElement()
-        .doOnComplete(this::startNotificationWorker);
+        .doOnComplete(this::startNotificationWorker)
+        .doOnComplete(this::initializeDevMode);
 
     if (Objects.equals(System.getenv("KAFKA_ENABLED"), "true")) {
       return completable
@@ -145,6 +146,20 @@ public class MainVerticle extends AbstractVerticle {
       log.info("Notification worker started successfully");
     } catch (Exception e) {
       log.warn("Failed to start notification worker: {}", e.getMessage());
+    }
+  }
+
+  private void initializeDevMode() {
+    try {
+      org.dreamhorizon.pulseserver.service.devmode.DevModeInitService devModeService = 
+          GuiceInjector.getGuiceInjector().getInstance(org.dreamhorizon.pulseserver.service.devmode.DevModeInitService.class);
+      devModeService.initializeDevMode()
+          .subscribe(
+              () -> log.info("Dev mode initialization completed"),
+              error -> log.error("Dev mode initialization failed", error)
+          );
+    } catch (Exception e) {
+      log.warn("Failed to initialize dev mode: {}", e.getMessage());
     }
   }
 

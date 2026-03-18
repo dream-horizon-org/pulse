@@ -93,6 +93,7 @@ class ApplicationConfigTest {
         "key",
         "tncS3Bucket",
         "symbolFilesS3Bucket"
+        "dev-api-key"
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());

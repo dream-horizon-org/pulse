@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.service.tenant.TenantService;
 
@@ -76,6 +77,20 @@ public class TenantMemberService {
             // Get or create user being added
             .flatMap(ctx -> userService.getOrCreateUser(email, email)
                 .map(user -> new AddCompleteContext(ctx.tenant, ctx.admin, user)))
+            // Check if user already has a tenant role
+            .flatMap(ctx -> openFgaService.getUserTenantRole(ctx.newUser.getUserId(), tenantId)
+                .flatMap(existingRole -> {
+                    if (existingRole.isPresent()) {
+                        String message = String.format(
+                            "User %s is already a member of this organization with role '%s'",
+                            email, existingRole.get());
+                        String cause = String.format(
+                            "User %s already has role '%s'. To change their role, use the update member role option.",
+                            email, existingRole.get());
+                        return Single.error(ServiceError.MEMBER_ALREADY_EXISTS.getCustomException(message, cause));
+                    }
+                    return Single.just(ctx);
+                }))
             // Assign role in OpenFGA
             .flatMap(ctx -> openFgaService.assignTenantRole(ctx.newUser.getUserId(), tenantId, role)
                 .andThen(Single.just(ctx)))
@@ -267,6 +282,45 @@ public class TenantMemberService {
     }
     
     /**
+     * Internal method to add a user to a tenant without authorization checks.
+     * Used by system flows (e.g., auto-adding when user is added to a project).
+     * 
+     * <p>IMPORTANT: This method bypasses authorization checks and should only be called
+     * by trusted internal services. Always adds users with "member" role.</p>
+     * 
+     * @param tenantId Tenant ID
+     * @param email User's email address
+     * @return Single<User> The user that was added
+     */
+    Single<User> addUserToTenantInternal(String tenantId, String email) {
+        log.info("Internal: Auto-adding user to tenant as member: email={}, tenant={}", email, tenantId);
+        
+        // Fetch tenant and get or create user
+        return tenantService.getTenant(tenantId)
+            .switchIfEmpty(Single.error(new RuntimeException("Tenant not found: " + tenantId)))
+            .flatMap(tenant -> userService.getOrCreateUser(email, email)
+                .map(user -> new InternalAddContext(tenant, user)))
+            // Check if user already has a tenant role
+            .flatMap(ctx -> openFgaService.getUserTenantRole(ctx.user.getUserId(), tenantId)
+                .flatMap(existingRole -> {
+                    if (existingRole.isPresent()) {
+                        log.debug("User already has tenant role '{}', skipping auto-add", existingRole.get());
+                        return Single.just(ctx.user);
+                    }
+                    // Assign member role in OpenFGA
+                    return openFgaService.assignTenantRole(ctx.user.getUserId(), tenantId, "member")
+                        .andThen(Single.just(ctx.user))
+                        .doOnSuccess(user -> {
+                            log.info("User auto-added to tenant successfully: userId={}, tenant={}, role=member", 
+                                user.getUserId(), tenantId);
+                        });
+                }))
+            .doOnError(error -> 
+                log.error("Failed to auto-add user to tenant: email={}, tenant={}", email, tenantId, error)
+            );
+    }
+    
+    /**
      * Validate tenant role
      */
     private boolean isValidTenantRole(String role) {
@@ -299,5 +353,11 @@ public class TenantMemberService {
         Tenant tenant;
         User admin;
         User userToUpdate;
+    }
+    
+    @Value
+    private static class InternalAddContext {
+        Tenant tenant;
+        User user;
     }
 }
