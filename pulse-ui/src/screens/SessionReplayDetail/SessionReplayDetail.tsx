@@ -42,11 +42,7 @@ export const SessionReplayDetail: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-  const {
-    data: apiSessionData,
-    isLoading: sessionLoading,
-    isError: _sessionError,
-  } = useSessionDetail({
+  const { data: apiSessionData, isLoading: sessionLoading } = useSessionDetail({
     sessionId: sessionId ?? undefined,
     includeEvents: true,
     enabled: !!sessionId,
@@ -64,7 +60,6 @@ export const SessionReplayDetail: React.FC = () => {
   const {
     images: snapshotImages,
     loading: snapshotLoading,
-    error: _snapshotError,
     snapshotDurationMs,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
