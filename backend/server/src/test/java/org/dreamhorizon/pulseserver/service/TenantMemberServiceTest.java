@@ -58,6 +58,8 @@ class TenantMemberServiceTest {
         tenantService,
         openFgaService,
         emailService);
+    // Stub so add-user flow can call getUserByEmail(email).isEmpty() without NPE
+    when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
   }
 
   private User createUser(String userId, String email, String name) {

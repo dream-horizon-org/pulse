@@ -68,6 +68,8 @@ class ProjectMemberServiceTest {
     // Stub notification service for fire-and-forget calls in success paths
     when(notificationService.sendNotificationAsync(anyString(), any()))
         .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
+    // Stub so add-member flow can call getUserByEmail(email).isEmpty() without NPE
+    when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
   }
 
   private Project createProject(String projectId, String tenantId, String name) {
@@ -657,7 +659,7 @@ class ProjectMemberServiceTest {
           .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
           .thenReturn(Single.just(Optional.empty()));
-      when(tenantMemberService.addUserToTenant(TENANT_ID, "user1@test.com", "member", ADMIN_ID))
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "user1@test.com"))
           .thenReturn(Single.just(user1));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
           .thenReturn(Completable.complete());
@@ -665,7 +667,7 @@ class ProjectMemberServiceTest {
       var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
 
       assertThat(result.getSuccessCount()).isEqualTo(1);
-      verify(tenantMemberService).addUserToTenant(TENANT_ID, "user1@test.com", "member", ADMIN_ID);
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "user1@test.com");
     }
 
     @Test
