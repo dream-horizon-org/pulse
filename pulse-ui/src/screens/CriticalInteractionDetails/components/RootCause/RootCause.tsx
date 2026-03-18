@@ -1,119 +1,22 @@
-import { Box, Button, Card, Skeleton, Stack, Table, Text } from "@mantine/core";
+import { Box, Button, Skeleton, Stack, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
-import { useGetRootCause } from "../../../../hooks/useGetRootCause";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
-import {
-  ROOT_CAUSE_METRIC_LABELS,
-  ROOT_CAUSE_METRIC_ORDER,
-  ROOT_CAUSE_MESSAGES,
-} from "./RootCause.constants";
+import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
-import type { RootCauseSegment } from "../../../../hooks/useGetRootCause";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
-
-dayjs.extend(utc);
-
-const formatMetricValue = (value: number | string): string => {
-  if (typeof value === "number") {
-    if (Number.isInteger(value)) {
-      return String(value);
-    }
-    return value.toFixed(2);
-  }
-  return String(value);
-};
-
-const orderedMetricKeys = (
-  metrics: Record<string, number | string>,
-): string[] => {
-  const keys = Object.keys(metrics);
-  const ordered: string[] = [];
-  for (const k of ROOT_CAUSE_METRIC_ORDER) {
-    if (keys.includes(k)) {
-      ordered.push(k);
-    }
-  }
-  const rest = keys.filter((k) => !ROOT_CAUSE_METRIC_ORDER.includes(k));
-  return [...ordered, ...rest];
-};
-
-const SegmentTable = ({
-  segment,
-  baseline,
-}: {
-  segment: RootCauseSegment;
-  baseline: Record<string, number | string>;
-}) => {
-  const metricKeys = orderedMetricKeys(segment.metrics);
-  if (metricKeys.length === 0) {
-    return null;
-  }
-
-  return (
-    <Table className={classes.metricsTable} withTableBorder>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Metric</Table.Th>
-          <Table.Th>Value</Table.Th>
-          <Table.Th>Baseline</Table.Th>
-          <Table.Th>Delta</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {metricKeys.map((key) => {
-          const value = segment.metrics[key];
-          const base = baseline[key];
-          const delta = segment.deltas[key];
-          const deltaNum =
-            typeof delta === "number" ? delta : parseFloat(String(delta));
-          const deltaIsNumber = typeof delta === "number";
-          const deltaIsPositive = deltaIsNumber
-            ? delta > 0
-            : typeof delta === "string" &&
-              !Number.isNaN(deltaNum) &&
-              String(delta).trim() !== "" &&
-              deltaNum > 0;
-
-          return (
-            <Table.Tr key={key}>
-              <Table.Td>{ROOT_CAUSE_METRIC_LABELS[key] ?? key}</Table.Td>
-              <Table.Td>{formatMetricValue(value)}</Table.Td>
-              <Table.Td>
-                {base != null ? formatMetricValue(base) : "—"}
-              </Table.Td>
-              <Table.Td>
-                {delta != null && delta !== "" ? (
-                  <span
-                    className={
-                      deltaIsPositive
-                        ? classes.deltaPositive
-                        : classes.deltaNegative
-                    }
-                  >
-                    {formatMetricValue(delta)}
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </Table.Td>
-            </Table.Tr>
-          );
-        })}
-      </Table.Tbody>
-    </Table>
-  );
-};
 
 export const RootCause = ({
   interactionName,
   date,
   projectId,
 }: RootCauseProps) => {
-  const effectiveProjectId = projectId ?? null;
+  const effectiveProjectId = projectId?.trim() ?? "";
+  const hasProjectId = effectiveProjectId !== "";
+  const hasInteractionName = !!interactionName?.trim();
+
   const {
     data: reportResponse,
     isLoading: reportLoading,
@@ -123,21 +26,8 @@ export const RootCause = ({
   } = useGetRcaReport({
     interactionName,
     date: date ?? null,
-    enabled: !!interactionName,
-    projectId: effectiveProjectId,
-  });
-
-  const {
-    data: rootCauseResponse,
-    isLoading: rootCauseLoading,
-    isError: rootCauseError,
-    refetch: refetchRootCause,
-    error: rootCauseErrorDetail,
-  } = useGetRootCause({
-    interactionName,
-    date: date ?? null,
-    enabled: !!interactionName,
-    projectId: effectiveProjectId,
+    enabled: hasInteractionName && hasProjectId,
+    projectId: hasProjectId ? effectiveProjectId : null,
   });
 
   const reportPayload = reportResponse?.data ?? null;
@@ -150,12 +40,27 @@ export const RootCause = ({
     reportPayload != null &&
     (hasReportStructure || hasNonEmptyInsights);
 
-  const isLoading = reportLoading;
-  const status = rootCauseResponse?.status;
-  const payload = rootCauseResponse?.data ?? null;
-  const is404 = status === 404;
+  if (!hasInteractionName) {
+    return (
+      <Box className={classes.container}>
+        <Text className={classes.stateMessage}>
+          {ROOT_CAUSE_MESSAGES.NO_DATA}
+        </Text>
+      </Box>
+    );
+  }
 
-  if (isLoading) {
+  if (!hasProjectId) {
+    return (
+      <Box className={classes.container}>
+        <Text className={classes.stateMessage}>
+          {ROOT_CAUSE_MESSAGES.PROJECT_REQUIRED}
+        </Text>
+      </Box>
+    );
+  }
+
+  if (reportLoading) {
     return (
       <Box className={classes.container}>
         <div className={classes.skeletonWrapper}>
@@ -187,16 +92,66 @@ export const RootCause = ({
     );
   }
 
-  const refetch = () => {
-    refetchReport();
-    refetchRootCause();
-  };
+  const status = reportResponse?.status ?? 0;
+  const is404 = status === 404;
 
-  if (reportError && reportResponse?.status !== 200) {
+  if (reportError || status === 0) {
     const message =
       reportErrorDetail?.message ??
       reportResponse?.error?.message ??
-      "Failed to load RCA report.";
+      ROOT_CAUSE_MESSAGES.REQUEST_FAILED;
+    const messageLower = message.toLowerCase();
+    const isTimeout =
+      messageLower.includes("timeout") || message === "Request Timeout";
+    const displayMessage = isTimeout
+      ? ROOT_CAUSE_MESSAGES.REQUEST_TIMEOUT
+      : message;
+    return (
+      <Box className={classes.container}>
+        <Stack align="center" gap="md" className={classes.stateMessage}>
+          <ErrorAndEmptyState
+            message={displayMessage}
+            classes={[classes.errorState]}
+          />
+          <Button
+            className={classes.retryButton}
+            leftSection={<IconRefresh size={16} />}
+            variant="light"
+            onClick={() => refetchReport()}
+          >
+            Retry
+          </Button>
+        </Stack>
+      </Box>
+    );
+  }
+
+  if (is404) {
+    return (
+      <Box className={classes.container}>
+        <Stack align="center" gap="md" className={classes.stateMessage}>
+          <ErrorAndEmptyState
+            message={ROOT_CAUSE_MESSAGES.FEATURE_OR_NO_DATA}
+            classes={[classes.errorState]}
+          />
+          <Button
+            className={classes.retryButton}
+            leftSection={<IconRefresh size={16} />}
+            variant="light"
+            onClick={() => refetchReport()}
+          >
+            Retry
+          </Button>
+        </Stack>
+      </Box>
+    );
+  }
+
+  const isClientError = status >= 400 && status < 500;
+  const isServerError = status >= 500;
+  if (isClientError || isServerError) {
+    const message =
+      reportResponse?.error?.message ?? ROOT_CAUSE_MESSAGES.REQUEST_FAILED;
     return (
       <Box className={classes.container}>
         <Stack align="center" gap="md" className={classes.stateMessage}>
@@ -217,111 +172,11 @@ export const RootCause = ({
     );
   }
 
-  if (!rootCauseLoading && (rootCauseError || is404)) {
-    const message = is404
-      ? ROOT_CAUSE_MESSAGES.FEATURE_OR_NO_DATA
-      : (rootCauseErrorDetail?.message ??
-        rootCauseResponse?.error?.message ??
-        "Something went wrong.");
-    const messageLower = message.toLowerCase();
-    const isTimeout =
-      messageLower.includes("timeout") || message === "Request Timeout";
-    const displayMessage = isTimeout
-      ? ROOT_CAUSE_MESSAGES.REQUEST_TIMEOUT
-      : message;
-    return (
-      <Box className={classes.container}>
-        <Stack align="center" gap="md" className={classes.stateMessage}>
-          <ErrorAndEmptyState
-            message={displayMessage}
-            classes={[classes.errorState]}
-          />
-          <Button
-            className={classes.retryButton}
-            leftSection={<IconRefresh size={16} />}
-            variant="light"
-            onClick={() => refetch()}
-          >
-            Retry
-          </Button>
-        </Stack>
-      </Box>
-    );
-  }
-
-  if (rootCauseLoading && !showReport) {
-    return (
-      <Box className={classes.container}>
-        <div className={classes.skeletonWrapper}>
-          <Skeleton height={24} width={200} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} />
-        </div>
-      </Box>
-    );
-  }
-
-  if (
-    payload?.noDataAvailable ||
-    (payload && !payload.segments?.length && payload.message)
-  ) {
-    return (
-      <Box className={classes.container}>
-        <Text className={classes.stateMessage}>
-          {payload?.message ?? ROOT_CAUSE_MESSAGES.NO_DATA}
-        </Text>
-      </Box>
-    );
-  }
-
-  if (
-    payload?.everythingGood &&
-    (!payload.segments || payload.segments.length === 0)
-  ) {
-    return (
-      <Box className={classes.container}>
-        <Text className={classes.stateMessage}>
-          {payload?.message ?? ROOT_CAUSE_MESSAGES.EVERYTHING_GOOD}
-        </Text>
-      </Box>
-    );
-  }
-
-  if (!payload?.segments?.length) {
-    return (
-      <Box className={classes.container}>
-        <Text className={classes.stateMessage}>
-          {ROOT_CAUSE_MESSAGES.NO_DATA}
-        </Text>
-      </Box>
-    );
-  }
-
-  const cachedAtFormatted = payload.cachedAt
-    ? dayjs(payload.cachedAt).format("MMM D, YYYY [at] h:mm A")
-    : "";
-
   return (
     <Box className={classes.container}>
-      {cachedAtFormatted !== "" && (
-        <Text className={classes.cachedAt} size="sm" c="dimmed">
-          Data as of {cachedAtFormatted}
-        </Text>
-      )}
-      <Stack gap="lg">
-        {payload.segments.map((segment, index) => (
-          <Card
-            key={`${segment.label}-${index}`}
-            className={classes.segmentCard}
-            withBorder
-            padding="md"
-          >
-            <Text className={classes.segmentLabel}>{segment.label}</Text>
-            <SegmentTable segment={segment} baseline={payload.baseline ?? {}} />
-          </Card>
-        ))}
-      </Stack>
+      <Text className={classes.stateMessage}>
+        {ROOT_CAUSE_MESSAGES.NO_DATA}
+      </Text>
     </Box>
   );
 };

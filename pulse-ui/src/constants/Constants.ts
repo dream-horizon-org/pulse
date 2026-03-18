@@ -2,7 +2,7 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem
+  ComboboxItem,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -13,9 +13,12 @@ import {
   IconHome,
   IconListDetails,
   IconNetwork,
-  IconUsers
+  IconUsers,
 } from "@tabler/icons-react";
-import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
+import {
+  CriticalInteractionDetailsFilterValues,
+  TimeFilter,
+} from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -24,7 +27,7 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps
+  FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { SupportQueries } from "../screens/SupportQueries";
@@ -392,11 +395,6 @@ export const API_ROUTES: StreamverseRoutes = {
   },
   GET_INTERACTIONS: {
     key: "GET_INTERACTIONS",
-    apiPath: `/v1/interactions`,
-    method: API_METHODS.GET,
-  },
-  GET_INTERACTION_ROOT_CAUSE: {
-    key: "GET_INTERACTION_ROOT_CAUSE",
     apiPath: `/v1/interactions`,
     method: API_METHODS.GET,
   },
