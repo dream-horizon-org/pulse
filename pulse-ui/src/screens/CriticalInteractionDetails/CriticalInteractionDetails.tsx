@@ -100,6 +100,7 @@ export function CiritcalInteractionDetails() {
         projectName: "",
         userRole: "viewer",
         isActive: true,
+        isEventFlowStarted: false,
       });
     }
   }, [projectIdFromUrl, contextProjectId, setProject]);

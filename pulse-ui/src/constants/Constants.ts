@@ -2,7 +2,7 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem
+  ComboboxItem,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -16,7 +16,10 @@ import {
   IconHome,
   IconListDetails,
 } from "@tabler/icons-react";
-import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
+import {
+  CriticalInteractionDetailsFilterValues,
+  TimeFilter,
+} from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -25,10 +28,11 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps
+  FormSteps,
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
+import { RealTimeQuery } from "../screens/RealTimeQuery";
 import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
