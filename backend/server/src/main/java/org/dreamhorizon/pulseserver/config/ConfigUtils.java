@@ -28,7 +28,7 @@ public final class ConfigUtils {
             .addStore(hoconFile("conf/application-default.conf", false))
             .addStore(hoconFile("conf/webclient-default.conf", false))
             .addStore(hoconFile("conf/athena-default.conf", false))
-            .addStore(hoconFile("conf/notification-default.conf", true))
+            .addStore(hoconFile("conf/notification-default.conf", false))
             .addStore(hoconFile("conf/rootcause-default.conf", true))
             .setScanPeriod(5000));
   }

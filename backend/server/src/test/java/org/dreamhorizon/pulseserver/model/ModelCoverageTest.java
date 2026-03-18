@@ -29,6 +29,10 @@ import org.dreamhorizon.pulseserver.service.notification.models.NotificationStat
 import org.dreamhorizon.pulseserver.service.notification.models.NotificationTemplate;
 import org.dreamhorizon.pulseserver.service.notification.models.QueuedNotification;
 import org.dreamhorizon.pulseserver.service.notification.models.SuppressionReason;
+import org.dreamhorizon.pulseserver.dao.incidentdao.models.IncidentRow;
+import org.dreamhorizon.pulseserver.resources.incident.models.enums.IncidentSeverity;
+import org.dreamhorizon.pulseserver.resources.incident.models.enums.IncidentStatus;
+import org.dreamhorizon.pulseserver.service.notification.models.NotificationEventName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -682,6 +686,121 @@ class ModelCoverageTest {
     void shouldHaveValues() {
       assertThat(SuppressionReason.values()).containsExactly(
           SuppressionReason.BOUNCE, SuppressionReason.COMPLAINT, SuppressionReason.MANUAL);
+    }
+  }
+
+  @Nested
+  class IncidentStatusEnum {
+
+    @Test
+    void shouldHaveValues() {
+      assertThat(IncidentStatus.values()).containsExactly(
+          IncidentStatus.OPEN, IncidentStatus.ACKNOWLEDGED,
+          IncidentStatus.RECOVERED, IncidentStatus.CLOSED);
+    }
+
+    @Test
+    void shouldValueOf() {
+      assertThat(IncidentStatus.valueOf("OPEN")).isEqualTo(IncidentStatus.OPEN);
+      assertThat(IncidentStatus.valueOf("ACKNOWLEDGED")).isEqualTo(IncidentStatus.ACKNOWLEDGED);
+      assertThat(IncidentStatus.valueOf("RECOVERED")).isEqualTo(IncidentStatus.RECOVERED);
+      assertThat(IncidentStatus.valueOf("CLOSED")).isEqualTo(IncidentStatus.CLOSED);
+    }
+  }
+
+  @Nested
+  class IncidentSeverityEnum {
+
+    @Test
+    void shouldHaveValues() {
+      assertThat(IncidentSeverity.values()).containsExactly(
+          IncidentSeverity.P1, IncidentSeverity.P2,
+          IncidentSeverity.P3, IncidentSeverity.P4);
+    }
+
+    @Test
+    void shouldValueOf() {
+      assertThat(IncidentSeverity.valueOf("P1")).isEqualTo(IncidentSeverity.P1);
+      assertThat(IncidentSeverity.valueOf("P2")).isEqualTo(IncidentSeverity.P2);
+      assertThat(IncidentSeverity.valueOf("P3")).isEqualTo(IncidentSeverity.P3);
+      assertThat(IncidentSeverity.valueOf("P4")).isEqualTo(IncidentSeverity.P4);
+    }
+  }
+
+  @Nested
+  class NotificationEventNameEnum {
+
+    @Test
+    void shouldHaveValues() {
+      assertThat(NotificationEventName.values()).containsExactly(
+          NotificationEventName.CREATE_INCIDENT,
+          NotificationEventName.ACKNOWLEDGE_INCIDENT,
+          NotificationEventName.RECOVERED_INCIDENT,
+          NotificationEventName.CLOSE_INCIDENT);
+    }
+
+    @Test
+    void shouldGetValue() {
+      assertThat(NotificationEventName.CREATE_INCIDENT.getValue()).isEqualTo("create_incident");
+      assertThat(NotificationEventName.ACKNOWLEDGE_INCIDENT.getValue()).isEqualTo("acknowledge_incident");
+      assertThat(NotificationEventName.RECOVERED_INCIDENT.getValue()).isEqualTo("recover_incident");
+      assertThat(NotificationEventName.CLOSE_INCIDENT.getValue()).isEqualTo("close_incident");
+    }
+
+    @Test
+    void shouldValueOf() {
+      assertThat(NotificationEventName.valueOf("CREATE_INCIDENT"))
+          .isEqualTo(NotificationEventName.CREATE_INCIDENT);
+    }
+  }
+
+  @Nested
+  class IncidentRowModel {
+
+    @Test
+    void shouldBuildAndReadAllFields() {
+      IncidentRow row = IncidentRow.builder()
+          .id(1L)
+          .title("Server Outage")
+          .description("Main server is down")
+          .severity(IncidentSeverity.P1)
+          .reporterName("Alice")
+          .reporterEmail("alice@example.com")
+          .orgIdentifier("org-1")
+          .status(IncidentStatus.OPEN)
+          .createdAt("2026-03-16T10:00:00")
+          .updatedAt("2026-03-16T10:30:00")
+          .acknowledgedAt("2026-03-16T11:00:00")
+          .recoveredAt("2026-03-16T12:00:00")
+          .closedAt("2026-03-16T13:00:00")
+          .build();
+
+      assertThat(row.getId()).isEqualTo(1L);
+      assertThat(row.getTitle()).isEqualTo("Server Outage");
+      assertThat(row.getDescription()).isEqualTo("Main server is down");
+      assertThat(row.getSeverity()).isEqualTo(IncidentSeverity.P1);
+      assertThat(row.getReporterName()).isEqualTo("Alice");
+      assertThat(row.getReporterEmail()).isEqualTo("alice@example.com");
+      assertThat(row.getOrgIdentifier()).isEqualTo("org-1");
+      assertThat(row.getStatus()).isEqualTo(IncidentStatus.OPEN);
+      assertThat(row.getCreatedAt()).isEqualTo("2026-03-16T10:00:00");
+      assertThat(row.getUpdatedAt()).isEqualTo("2026-03-16T10:30:00");
+      assertThat(row.getAcknowledgedAt()).isEqualTo("2026-03-16T11:00:00");
+      assertThat(row.getRecoveredAt()).isEqualTo("2026-03-16T12:00:00");
+      assertThat(row.getClosedAt()).isEqualTo("2026-03-16T13:00:00");
+      assertThat(row.toString()).isNotNull();
+    }
+
+    @Test
+    void shouldSupportSetters() {
+      IncidentRow row = new IncidentRow();
+      row.setId(2L);
+      row.setTitle("Updated");
+      row.setStatus(IncidentStatus.ACKNOWLEDGED);
+
+      assertThat(row.getId()).isEqualTo(2L);
+      assertThat(row.getTitle()).isEqualTo("Updated");
+      assertThat(row.getStatus()).isEqualTo(IncidentStatus.ACKNOWLEDGED);
     }
   }
 }

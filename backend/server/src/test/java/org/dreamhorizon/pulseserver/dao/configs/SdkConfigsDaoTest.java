@@ -534,12 +534,23 @@ class SdkConfigsDaoTest {
       when(insertRowSet.rowCount()).thenReturn(1);
       when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
 
+      PreparedQuery<RowSet<Row>> nextVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      Row nextVersionRow = mock(Row.class);
+      when(nextVersionRow.getLong("next_version")).thenReturn(insertedId);
+      RowSet<Row> nextVersionRowSet = mock(RowSet.class);
+      when(nextVersionRowSet.size()).thenReturn(1);
+      RowIterator<Row> nextVersionIterator = mock(RowIterator.class);
+      when(nextVersionRowSet.iterator()).thenReturn(nextVersionIterator);
+      when(nextVersionIterator.next()).thenReturn(nextVersionRow);
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.GET_NEXT_VERSION)).thenReturn(nextVersionQuery);
+      when(nextVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(nextVersionRowSet));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
       when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -574,12 +585,23 @@ class SdkConfigsDaoTest {
 
       RowSet<Row> deactivateRowSet = mock(RowSet.class);
 
+      PreparedQuery<RowSet<Row>> nextVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      Row nextVersionRow = mock(Row.class);
+      when(nextVersionRow.getLong("next_version")).thenReturn(1L);
+      RowSet<Row> nextVersionRowSet = mock(RowSet.class);
+      when(nextVersionRowSet.size()).thenReturn(1);
+      RowIterator<Row> nextVersionIterator = mock(RowIterator.class);
+      when(nextVersionRowSet.iterator()).thenReturn(nextVersionIterator);
+      when(nextVersionIterator.next()).thenReturn(nextVersionRow);
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.GET_NEXT_VERSION)).thenReturn(nextVersionQuery);
+      when(nextVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(nextVersionRowSet));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
       when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -615,12 +637,23 @@ class SdkConfigsDaoTest {
       RowSet<Row> insertRowSet = mock(RowSet.class);
       when(insertRowSet.rowCount()).thenReturn(0);
 
+      PreparedQuery<RowSet<Row>> nextVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      Row nextVersionRow = mock(Row.class);
+      when(nextVersionRow.getLong("next_version")).thenReturn(1L);
+      RowSet<Row> nextVersionRowSet = mock(RowSet.class);
+      when(nextVersionRowSet.size()).thenReturn(1);
+      RowIterator<Row> nextVersionIterator = mock(RowIterator.class);
+      when(nextVersionRowSet.iterator()).thenReturn(nextVersionIterator);
+      when(nextVersionIterator.next()).thenReturn(nextVersionRow);
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.GET_NEXT_VERSION)).thenReturn(nextVersionQuery);
+      when(nextVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(nextVersionRowSet));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
       when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -653,11 +686,22 @@ class SdkConfigsDaoTest {
 
       RuntimeException deactivateError = new RuntimeException("Deactivate failed");
 
+      Row nextVersionRow = mock(Row.class);
+      when(nextVersionRow.getLong("next_version")).thenReturn(1L);
+      RowSet<Row> nextVersionRowSet = mock(RowSet.class);
+      when(nextVersionRowSet.size()).thenReturn(1);
+      RowIterator<Row> nextVersionIterator = mock(RowIterator.class);
+      when(nextVersionRowSet.iterator()).thenReturn(nextVersionIterator);
+      when(nextVersionIterator.next()).thenReturn(nextVersionRow);
+
+      PreparedQuery<RowSet<Row>> nextVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.GET_NEXT_VERSION)).thenReturn(nextVersionQuery);
+      when(nextVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(nextVersionRowSet));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
       when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.error(deactivateError));
       when(transaction.rxRollback()).thenReturn(Completable.complete());
@@ -695,12 +739,23 @@ class SdkConfigsDaoTest {
       when(insertRowSet.rowCount()).thenReturn(1);
       when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
 
+      PreparedQuery<RowSet<Row>> nextVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      Row nextVersionRow = mock(Row.class);
+      when(nextVersionRow.getLong("next_version")).thenReturn(1L);
+      RowSet<Row> nextVersionRowSet = mock(RowSet.class);
+      when(nextVersionRowSet.size()).thenReturn(1);
+      RowIterator<Row> nextVersionIterator = mock(RowIterator.class);
+      when(nextVersionRowSet.iterator()).thenReturn(nextVersionIterator);
+      when(nextVersionIterator.next()).thenReturn(nextVersionRow);
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.GET_NEXT_VERSION)).thenReturn(nextVersionQuery);
+      when(nextVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(nextVersionRowSet));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
       when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -738,12 +793,23 @@ class SdkConfigsDaoTest {
       when(insertRowSet.rowCount()).thenReturn(1);
       when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
 
+      PreparedQuery<RowSet<Row>> nextVersionQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> deactivateQuery = mock(PreparedQuery.class);
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
+
+      Row nextVersionRow = mock(Row.class);
+      when(nextVersionRow.getLong("next_version")).thenReturn(insertedId);
+      RowSet<Row> nextVersionRowSet = mock(RowSet.class);
+      when(nextVersionRowSet.size()).thenReturn(1);
+      RowIterator<Row> nextVersionIterator = mock(RowIterator.class);
+      when(nextVersionRowSet.iterator()).thenReturn(nextVersionIterator);
+      when(nextVersionIterator.next()).thenReturn(nextVersionRow);
 
       when(d11MysqlClient.getWriterPool()).thenReturn(writerPool);
       when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
       when(sqlConnection.begin()).thenReturn(Single.just(transaction));
+      when(sqlConnection.preparedQuery(Queries.GET_NEXT_VERSION)).thenReturn(nextVersionQuery);
+      when(nextVersionQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(nextVersionRowSet));
       when(sqlConnection.preparedQuery(Queries.DEACTIVATE_ACTIVE_CONFIG)).thenReturn(deactivateQuery);
       when(deactivateQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(deactivateRowSet));
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -885,10 +951,9 @@ class SdkConfigsDaoTest {
           .features(List.of())
           .build();
 
-      long insertedId = 1L;
+      // Mock the INSERT query execution
       RowSet<Row> insertRowSet = mock(RowSet.class);
       when(insertRowSet.rowCount()).thenReturn(1);
-      when(insertRowSet.property(any(PropertyKind.class))).thenReturn(insertedId);
 
       PreparedQuery<RowSet<Row>> insertQuery = mock(PreparedQuery.class);
       when(sqlConnection.preparedQuery(Queries.INSERT_CONFIG)).thenReturn(insertQuery);
@@ -898,7 +963,8 @@ class SdkConfigsDaoTest {
           sqlConnection, "new-project-id", configData).blockingGet();
 
       assertThat(result).isNotNull();
-      assertThat(result.getVersion()).isEqualTo(insertedId);
+      // Version should always be 1 for initial config
+      assertThat(result.getVersion()).isEqualTo(1L);
       assertThat(result.getDescription()).isEqualTo("Initial config for new project");
     }
   }

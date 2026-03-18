@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `Links.SpanId` Array(String) CODEC(ZSTD(1)),
     `Links.TraceState` Array(String) CODEC(ZSTD(1)),
     `Links.Attributes` Array(Map(LowCardinality(String), String)) CODEC(ZSTD(1)),
+    -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `SpanType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''), // DEPRECATED: Use PulseType instead
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['pulse.type'], ''),
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `GeoCountry` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['geo.country.iso_code'], ''),
     `DeviceModel` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['device.model.name'], ''),
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['pulse.metering.session.id'], ''),
     `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
@@ -83,6 +85,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     `ScopeAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `LogAttributes` Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     `SessionId` String MATERIALIZED ifNull(LogAttributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
     -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['app.build_name'], ''),
@@ -125,6 +128,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_metrics_gauge
     -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `SessionId` String MATERIALIZED ifNull(Attributes['session.id'], ''),
+    `MeteringSessionId` String MATERIALIZED ifNull(Attributes['pulse.metering.session.id'], ''),
     `AppVersion` LowCardinality(String) MATERIALIZED ifNull(Attributes['app.build_name'], ''),
     `SDKVersion` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['rum.sdk.version'], ''),
     `Platform` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['os.name'], ''),
@@ -188,7 +192,8 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `ResourceAttributes`    Map(LowCardinality(String), String) CODEC(ZSTD(1)),
     -- CHANGED: TenantId replaced with ProjectId
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
-    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel')
+    `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
+    `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
@@ -196,6 +201,64 @@ PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, GroupId, ExceptionType, toUnixTimestamp(Timestamp))
 SETTINGS index_granularity = 8192;
 
+
+CREATE TABLE IF NOT EXISTS otel.project_monthly_usage
+(
+    project_id String,
+    month Date,
+    source LowCardinality(String),
+    event_count SimpleAggregateFunction(sum, UInt64),
+    session_count AggregateFunction(uniqCombined64, String)
+)
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(month)
+ORDER BY (project_id, month, source);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_logs_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_logs
+GROUP BY project_id, month, source;
+
+-- MV 2: Traces (events + sessions)
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_traces_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_traces
+GROUP BY project_id, month, source;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_metrics_gauge_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(TimeUnix) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.otel_metrics_gauge
+GROUP BY project_id, month, source;
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS otel.project_monthly_stack_traces_events_mv
+TO otel.project_monthly_usage
+AS SELECT
+    ProjectId AS project_id,
+    toStartOfMonth(Timestamp) AS month,
+    'otel' AS source,
+    count() AS event_count,
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
+FROM otel.stack_trace_events
+GROUP BY project_id, month, source;
 -- ---------------------------------------------------------------------------
 -- Root Cause Analysis cache (read-through; TTL enforced in API)
 -- ---------------------------------------------------------------------------

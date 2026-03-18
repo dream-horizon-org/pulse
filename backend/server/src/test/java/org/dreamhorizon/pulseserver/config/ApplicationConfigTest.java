@@ -66,6 +66,7 @@ class ApplicationConfigTest {
   @Test
   void allArgsConstructor() {
     ApplicationConfig config = new ApplicationConfig(
+        "dev",
         "cronUrl",
         "serviceUrl",
         30,
@@ -89,9 +90,11 @@ class ApplicationConfigTest {
         "key",
         "tncS3Bucket",
         "http://ai:8000",
-        "ai-key"
+        "ai-key",
+        "dev-api-key"
     );
     assertNotNull(config);
+    assertEquals("dev", config.getAppEnvironment());
     assertEquals("cronUrl", config.getCronManagerBaseUrl());
     assertEquals("proj1", config.getFirebaseProjectId());
     assertEquals("interactionAsset", config.getInteractionDetailCloudFrontAssetPath());

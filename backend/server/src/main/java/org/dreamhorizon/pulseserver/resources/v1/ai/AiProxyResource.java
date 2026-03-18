@@ -50,7 +50,7 @@ public class AiProxyResource {
 
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
-  private static final String PROJECT_ID_HEADER = "X-Project-ID";
+  private static final String PROJECT_HEADER = "X-Project-ID";
   private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
@@ -113,7 +113,7 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyGet(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam(PROJECT_ID_HEADER) String projectId,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     validateAuth(authorization);
     return executeProxy(buildRequest("GET", path, null, authorization, projectId, uriInfo));
@@ -124,7 +124,7 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyPost(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam(PROJECT_ID_HEADER) String projectId,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
@@ -141,7 +141,7 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyPut(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam(PROJECT_ID_HEADER) String projectId,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
@@ -154,7 +154,7 @@ public class AiProxyResource {
   public CompletionStage<Response> proxyDelete(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam(PROJECT_ID_HEADER) String projectId,
+      @HeaderParam(PROJECT_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     validateAuth(authorization);
     return executeProxy(buildRequest("DELETE", path, null, authorization, projectId, uriInfo));
@@ -399,9 +399,8 @@ public class AiProxyResource {
         .uri(URI.create(targetUrl))
         .header(AUTHORIZATION_HEADER, authorization);
 
-    boolean hasProjectId = projectId != null && !projectId.isBlank();
-    if (hasProjectId) {
-      builder.header(PROJECT_ID_HEADER, projectId);
+    if (projectId != null && !projectId.isBlank()) {
+      builder.header(PROJECT_HEADER, projectId.trim());
     }
 
     boolean hasServiceKey = !serviceKey.isEmpty();

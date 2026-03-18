@@ -102,7 +102,7 @@ class ConfigClassesTest {
       NotificationConfig.SlackOAuthConfig slack = config.getSlackOAuthConfig();
 
       assertThat(slack).isNotNull();
-      assertThat(slack.getScopes()).isEqualTo("chat:write,chat:write.public,channels:read");
+      assertThat(slack.getScopes()).isEqualTo("chat:write,channels:read");
     }
 
     @Test
@@ -169,6 +169,7 @@ class ConfigClassesTest {
       config.setMaxsize(20);
       config.setHost("clickhouse.example.com");
       config.setPort(8123);
+      config.setClusterName("pulse-clickhouse");
 
       assertThat(config.getR2dbcUrl()).isEqualTo("r2dbc:clickhouse://localhost:8123/default");
       assertThat(config.getUsername()).isEqualTo("user");
@@ -177,15 +178,37 @@ class ConfigClassesTest {
       assertThat(config.getMaxsize()).isEqualTo(20);
       assertThat(config.getHost()).isEqualTo("clickhouse.example.com");
       assertThat(config.getPort()).isEqualTo(8123);
+      assertThat(config.getClusterName()).isEqualTo("pulse-clickhouse");
     }
 
     @Test
     void shouldSupportAllArgsConstructor() {
       ClickhouseConfig config = new ClickhouseConfig(
-          "r2dbc:url", "u", "p", 1, 10, "host", 9000);
+          "r2dbc:url", "u", "p", 1, 10, "host", 9000, null);
 
       assertThat(config.getR2dbcUrl()).isEqualTo("r2dbc:url");
       assertThat(config.getPort()).isEqualTo(9000);
+      assertThat(config.getClusterName()).isNull();
+    }
+
+    @Test
+    void shouldSupportAllArgsConstructorWithClusterName() {
+      ClickhouseConfig config = new ClickhouseConfig(
+          "r2dbc:url", "u", "p", 1, 10, "host", 9000, "my-cluster");
+
+      assertThat(config.getClusterName()).isEqualTo("my-cluster");
+    }
+
+    @Test
+    void shouldSupportClusterNameSetterGetter() {
+      ClickhouseConfig config = new ClickhouseConfig();
+      assertThat(config.getClusterName()).isNull();
+
+      config.setClusterName("test-cluster");
+      assertThat(config.getClusterName()).isEqualTo("test-cluster");
+
+      config.setClusterName(null);
+      assertThat(config.getClusterName()).isNull();
     }
   }
 
@@ -266,16 +289,27 @@ class ConfigClassesTest {
     @Test
     void shouldSupportAllArgsConstructor() {
       ApplicationConfig config = new ApplicationConfig(
-          "cron", "service", 10, "oauth", true, "firebase",
+          "dev", "cron", "service", 10, "oauth", true, "firebase",
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
           "interPath", "interCfPath", "encKey", "tncBucket",
-          "http://ai:8000", "ai-key");
+          "http://ai:8000", "ai-key",
+          "dev-api-key");
 
+      assertThat(config.getAppEnvironment()).isEqualTo("dev");
       assertThat(config.getCronManagerBaseUrl()).isEqualTo("cron");
       assertThat(config.getServiceUrl()).isEqualTo("service");
       assertThat(config.getShutdownGracePeriod()).isEqualTo(10);
       assertThat(config.getEncryptionMasterKey()).isEqualTo("encKey");
+    }
+
+    @Test
+    void shouldSupportAppEnvironmentSetterGetter() {
+      ApplicationConfig config = new ApplicationConfig();
+      assertThat(config.getAppEnvironment()).isNull();
+
+      config.setAppEnvironment("prod");
+      assertThat(config.getAppEnvironment()).isEqualTo("prod");
     }
   }
 

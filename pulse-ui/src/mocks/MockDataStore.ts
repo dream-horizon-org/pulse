@@ -6,6 +6,11 @@
  */
 
 import { MockDataStore as IMockDataStore } from "./types";
+import {
+  MockEventDefinition,
+  mockEventDefinitions,
+  getNextEventDefId,
+} from "./responses/eventDefinitionResponses";
 
 // SDK Config types matching the PulseConfig schema
 type SdkEnum = "android_native" | "android_rn" | "ios_native" | "ios_rn";
@@ -134,6 +139,8 @@ export interface MockProjectDetails {
   tenantId: string;
   apiKey?: string;
   isActive: boolean;
+  isEventFlowStarted?: boolean;
+  userRole?: string;
   createdAt: string;
   createdBy: string;
 }
@@ -176,6 +183,7 @@ export class MockDataStore {
   private data: IMockDataStore;
   private sdkConfig: PulseConfig;
   private configHistory: PulseConfigWithMeta[];
+  private eventDefinitions: MockEventDefinition[];
 
   /** Current tenant context - set by login (dev-id-token) or onboarding complete */
   private currentTenant: MockTenantContext | null = null;
@@ -212,6 +220,7 @@ export class MockDataStore {
     };
     this.sdkConfig = this.getDefaultSdkConfig();
     this.configHistory = this.initializeConfigHistory();
+    this.eventDefinitions = [...mockEventDefinitions];
     this.initializeData();
   }
 
@@ -1664,7 +1673,16 @@ export class MockDataStore {
 
   getProject(projectId: string): MockProjectDetails | null {
     const stored = this.mockProjects.get(projectId);
-    if (stored) return stored;
+    if (stored) {
+      // Find user's role from project members (default to admin for mocks)
+      const members = this.mockProjectMembers.get(projectId) ?? [];
+      const userRole = members.length > 0 ? members[0].role : "admin";
+
+      return {
+        ...stored,
+        userRole,
+      };
+    }
     // Derive from current tenant (e.g. onboarding-created)
     const tenant = this.currentTenant;
     if (tenant) {
@@ -1676,6 +1694,8 @@ export class MockDataStore {
           description: proj.description,
           tenantId: tenant.tenantId,
           isActive: proj.isActive,
+          isEventFlowStarted: true,
+          userRole: proj.role,
           createdAt: new Date().toISOString(),
           createdBy: "unknown",
         };
@@ -1705,6 +1725,7 @@ export class MockDataStore {
       tenantId,
       apiKey,
       isActive: true,
+      isEventFlowStarted: false,
       createdAt: now,
       createdBy,
     };
@@ -1814,9 +1835,43 @@ export class MockDataStore {
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
   }
 
+  getTenantMemberByEmail(
+    tenantId: string,
+    email: string,
+  ):
+    | {
+        userId: string;
+        email: string;
+        name: string;
+        role: string;
+        status: string;
+        lastLoginAt: string | null;
+      }
+    | undefined {
+    const members = this.mockTenantMembers.get(tenantId) ?? [];
+    return members.find((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
   hasProjectMember(projectId: string, email: string): boolean {
     const members = this.mockProjectMembers.get(projectId) ?? [];
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
+  }
+
+  getProjectMemberByEmail(
+    projectId: string,
+    email: string,
+  ):
+    | {
+        userId: string;
+        email: string;
+        name: string;
+        role: string;
+        status: string;
+        lastLoginAt: string | null;
+      }
+    | undefined {
+    const members = this.mockProjectMembers.get(projectId) ?? [];
+    return members.find((m) => m.email.toLowerCase() === email.toLowerCase());
   }
 
   removeTenantMember(tenantId: string, userId: string): boolean {
@@ -2053,6 +2108,106 @@ export class MockDataStore {
     this.data.alerts = this.data.alerts.filter(
       (alert) => alert.alert_id !== alertId,
     );
+  }
+
+  getEventDefinitions(params: {
+    search?: string;
+    category?: string;
+    limit?: number;
+    offset?: number;
+  }): { eventDefinitions: MockEventDefinition[]; totalCount: number } {
+    let filtered = this.eventDefinitions.filter((d) => !d.isArchived);
+
+    if (params.search) {
+      const s = params.search.toLowerCase();
+      filtered = filtered.filter(
+        (d) =>
+          d.eventName.toLowerCase().includes(s) ||
+          d.displayName.toLowerCase().includes(s) ||
+          d.description.toLowerCase().includes(s),
+      );
+    }
+
+    if (params.category) {
+      filtered = filtered.filter((d) => d.category === params.category);
+    }
+
+    const limit = params.limit ?? 50;
+    const offset = params.offset ?? 0;
+    return {
+      eventDefinitions: filtered.slice(offset, offset + limit),
+      totalCount: filtered.length,
+    };
+  }
+
+  getEventDefinitionById(id: number): MockEventDefinition | undefined {
+    return this.eventDefinitions.find((d) => d.id === id);
+  }
+
+  addEventDefinition(
+    def: Omit<
+      MockEventDefinition,
+      "id" | "createdAt" | "updatedAt" | "isArchived"
+    >,
+  ): MockEventDefinition {
+    const now = new Date().toISOString();
+    const newDef: MockEventDefinition = {
+      ...def,
+      id: getNextEventDefId(),
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+      attributes: (def.attributes || []).map((a, i) => ({
+        ...a,
+        id: Date.now() + i,
+        isArchived: false,
+      })),
+    };
+    this.eventDefinitions.push(newDef);
+    return newDef;
+  }
+
+  updateEventDefinition(
+    id: number,
+    updates: Partial<MockEventDefinition>,
+  ): MockEventDefinition | null {
+    const idx = this.eventDefinitions.findIndex((d) => d.id === id);
+    if (idx === -1) return null;
+    this.eventDefinitions[idx] = {
+      ...this.eventDefinitions[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    if (updates.attributes) {
+      this.eventDefinitions[idx].attributes = updates.attributes.map(
+        (a, i) => ({
+          ...a,
+          id: a.id || Date.now() + i,
+          isArchived: a.isArchived ?? false,
+        }),
+      );
+    }
+    return this.eventDefinitions[idx];
+  }
+
+  archiveEventDefinition(id: number): boolean {
+    const idx = this.eventDefinitions.findIndex((d) => d.id === id);
+    if (idx === -1) return false;
+    this.eventDefinitions[idx] = {
+      ...this.eventDefinitions[idx],
+      isArchived: true,
+      updatedAt: new Date().toISOString(),
+    };
+    return true;
+  }
+
+  getEventDefinitionCategories(): string[] {
+    const cats = new Set(
+      this.eventDefinitions
+        .filter((d) => !d.isArchived && d.category)
+        .map((d) => d.category),
+    );
+    return Array.from(cats).sort();
   }
 
   // Initialize config history with mock data

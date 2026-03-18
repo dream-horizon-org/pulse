@@ -1,8 +1,7 @@
-// TODO: Replace raw fetch with makeRequest helper once AI backend is behind the shared API gateway
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { buildAuthHeaders } from "../../../../helpers/makeRequestToServer";
+import { makeRequestToServer } from "../../../../helpers/makeRequestToServer";
 import { AiSessionListItem } from "./useGetAiSessions.interface";
 import { AI_API_PATHS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 
@@ -13,8 +12,10 @@ export const useGetAiSessions = () => {
     queryKey: ["ai-sessions", userId],
     queryFn: async () => {
       const url = `${API_BASE_URL}${AI_API_PATHS.SESSIONS}/${encodeURIComponent(userId)}`;
-      const authHeaders = buildAuthHeaders();
-      const response = await fetch(url, { headers: authHeaders });
+      const response = await makeRequestToServer({
+        url,
+        init: { method: "GET" },
+      });
       if (!response.ok)
         throw new Error(`Failed to fetch sessions: ${response.status}`);
       return response.json();

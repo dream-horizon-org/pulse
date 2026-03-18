@@ -11,7 +11,6 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from pydantic import BaseModel
 
@@ -57,13 +56,11 @@ app.add_middleware(
 )
 
 session_service = _create_session_service()
-artifact_service = InMemoryArtifactService()
 
 runner = Runner(
     agent=root_agent,
     app_name=APP_NAME,
     session_service=session_service,
-    artifact_service=artifact_service,
 )
 
 rca_runner = Runner(

@@ -18,6 +18,8 @@ import {
   LOGIN_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
+import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
+import { TIERS } from "../../constants/Tiers";
 import { useNavigate } from "react-router-dom";
 import { IconSquareRoundedX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -91,8 +93,8 @@ export function Login() {
         setTenantInfo({
           tenantId: data.tenantId,
           tenantName: data.tenantName || "",
-          userRole: data.tenantRole as "admin" | "member",
-          tier: data.tier || "free",
+          userRole: (data.tenantRole as TenantRole) || TENANT_ROLES.MEMBER,
+          tier: data.tier || TIERS.FREE,
         });
       }
 

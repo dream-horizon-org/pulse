@@ -230,6 +230,11 @@ export class MockResponseGenerator {
       return this.handlePermissionEndpoints(pathname, method, request);
     }
 
+    // Event Definition endpoints (must be before /alert and /events)
+    if (pathname.includes("/event-definitions")) {
+      return this.handleEventDefinitionEndpoints(pathname, method, request);
+    }
+
     // Alert endpoints
     if (pathname.includes("/alert")) {
       return this.handleAlertEndpoints(pathname, method, request);
@@ -334,6 +339,11 @@ export class MockResponseGenerator {
     // TNC endpoints
     if (pathname.includes("/v1/tnc/")) {
       return this.handleTncEndpoints(pathname, method, request);
+    }
+
+    // Notification endpoints
+    if (pathname.includes("/v1/notifications/")) {
+      return this.handleNotificationEndpoints(pathname, method, request);
     }
 
     // Default response
@@ -511,6 +521,58 @@ export class MockResponseGenerator {
         code: "NOT_FOUND",
         message: "TNC endpoint not found",
         cause: `Unknown path: ${pathname}`,
+      },
+    };
+  }
+
+  /**
+   * Handle notification endpoints
+   */
+  private handleNotificationEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    // POST /v1/notifications/contact-us
+    if (pathname.includes("/notifications/contact-us") && method === "POST") {
+      const url = this.parseURL(request.url);
+      const eventType = url.searchParams.get("type");
+
+      // Validate event type
+      if (
+        !eventType ||
+        !["sales", "support"].includes(eventType.toLowerCase())
+      ) {
+        return {
+          data: null,
+          status: 400,
+          error: {
+            code: "INVALID_TYPE",
+            message: "Invalid contact type. Use 'sales' or 'support'",
+            cause: "Invalid or missing type query parameter",
+          },
+        };
+      }
+
+      // Success response
+      const successMessage =
+        eventType.toLowerCase() === "sales"
+          ? "Contact request submitted successfully"
+          : "Support request submitted successfully";
+
+      return {
+        data: successMessage,
+        status: 200,
+      };
+    }
+
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Notification endpoint not found",
+        cause: `Unknown notification endpoint: ${pathname}`,
       },
     };
   }
@@ -1145,6 +1207,8 @@ export class MockResponseGenerator {
         description: project.description,
         tenantId: project.tenantId,
         isActive: project.isActive,
+        isEventFlowStarted: project.isEventFlowStarted ?? true,
+        userRole: project.userRole ?? "admin",
         createdAt: project.createdAt,
         createdBy: project.createdBy,
       },
@@ -1257,7 +1321,24 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      if (this.dataStore.hasProjectMember(projectId, email)) {
+      const existingMember = this.dataStore.getProjectMemberByEmail(
+        projectId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this project with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }
@@ -1872,7 +1953,24 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      if (this.dataStore.hasTenantMember(tenantId, email)) {
+      const existingMember = this.dataStore.getTenantMemberByEmail(
+        tenantId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this organization with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }
@@ -2786,6 +2884,158 @@ export class MockResponseGenerator {
 
     return {
       data: { message: "Job endpoint not implemented" },
+      status: 200,
+    };
+  }
+
+  private handleEventDefinitionEndpoints(
+    pathname: string,
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const url = new URL(request.url, "http://localhost");
+    const dataStore = MockDataStore.getInstance();
+
+    // GET /v1/event-definitions/categories
+    if (
+      pathname.includes("/event-definitions/categories") &&
+      method === "GET"
+    ) {
+      return {
+        data: dataStore.getEventDefinitionCategories(),
+        status: 200,
+      };
+    }
+
+    // POST /v1/event-definitions/bulk
+    if (pathname.includes("/event-definitions/bulk") && method === "POST") {
+      return {
+        data: {
+          created: 3,
+          updated: 1,
+          skipped: 0,
+          errors: [],
+        },
+        status: 200,
+      };
+    }
+
+    // GET /v1/event-definitions/:id
+    const idMatch = pathname.match(/\/event-definitions\/(\d+)$/);
+
+    if (idMatch && method === "GET") {
+      const id = parseInt(idMatch[1], 10);
+      const def = dataStore.getEventDefinitionById(id);
+      if (!def) {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "404",
+            message: "Event definition not found",
+            cause: "Not found",
+          },
+        };
+      }
+      return { data: def, status: 200 };
+    }
+
+    // PUT /v1/event-definitions/:id
+    if (idMatch && method === "PUT") {
+      const id = parseInt(idMatch[1], 10);
+      let body: any = {};
+      try {
+        body = JSON.parse(request.body || "{}");
+      } catch {
+        /* empty */
+      }
+      const updated = dataStore.updateEventDefinition(id, {
+        displayName: body.displayName,
+        description: body.description,
+        category: body.category,
+        updatedBy: "dev-user@localhost.local",
+        attributes: body.attributes?.map((a: any) => ({
+          attributeName: a.attributeName,
+          description: a.description || "",
+          dataType: a.dataType || "string",
+          isRequired: a.isRequired ?? false,
+        })),
+      });
+      if (!updated) {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "404",
+            message: "Event definition not found",
+            cause: "Not found",
+          },
+        };
+      }
+      return { data: updated, status: 200 };
+    }
+
+    // DELETE /v1/event-definitions/:id
+    if (idMatch && method === "DELETE") {
+      const id = parseInt(idMatch[1], 10);
+      const archived = dataStore.archiveEventDefinition(id);
+      if (!archived) {
+        return {
+          data: null,
+          status: 404,
+          error: {
+            code: "404",
+            message: "Event definition not found",
+            cause: "Not found",
+          },
+        };
+      }
+      const def = dataStore.getEventDefinitionById(id);
+      return { data: def, status: 200 };
+    }
+
+    // POST /v1/event-definitions (create)
+    if (pathname.endsWith("/event-definitions") && method === "POST") {
+      let body: any = {};
+      try {
+        body = JSON.parse(request.body || "{}");
+      } catch {
+        /* empty */
+      }
+      const created = dataStore.addEventDefinition({
+        eventName: body.eventName || "unnamed_event",
+        displayName: body.displayName || body.eventName || "Unnamed Event",
+        description: body.description || "",
+        category: body.category || "uncategorized",
+        createdBy: "dev-user@localhost.local",
+        updatedBy: "dev-user@localhost.local",
+        attributes: (body.attributes || []).map((a: any) => ({
+          attributeName: a.attributeName,
+          description: a.description || "",
+          dataType: a.dataType || "string",
+          isRequired: a.isRequired ?? false,
+        })),
+      });
+      return { data: created, status: 201 };
+    }
+
+    // GET /v1/event-definitions (list with pagination)
+    if (method === "GET") {
+      const search = url.searchParams.get("search") || undefined;
+      const category = url.searchParams.get("category") || undefined;
+      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+      const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+      const result = dataStore.getEventDefinitions({
+        search,
+        category,
+        limit,
+        offset,
+      });
+      return { data: result, status: 200 };
+    }
+
+    return {
+      data: { message: "Event definition endpoint not implemented" },
       status: 200,
     };
   }

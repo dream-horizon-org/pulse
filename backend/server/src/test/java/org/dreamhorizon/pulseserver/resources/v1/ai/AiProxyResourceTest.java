@@ -308,6 +308,28 @@ class AiProxyResourceTest {
       verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
       assertThat(captor.getValue().headers().firstValue("X-Pulse-Service-Key")).isEmpty();
     }
+
+    @Test
+    void shouldForwardProjectIdHeaderWhenProvided() {
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
+
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, "proj-123", uriInfo));
+
+      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
+      assertThat(captor.getValue().headers().firstValue("X-Project-ID")).contains("proj-123");
+    }
+
+    @Test
+    void shouldNotIncludeProjectIdHeaderWhenNull() {
+      setupSuccessfulProxy("chat", 200, "application/json", "{}");
+
+      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
+
+      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
+      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
+      assertThat(captor.getValue().headers().firstValue("X-Project-ID")).isEmpty();
+    }
   }
 
   @Nested
