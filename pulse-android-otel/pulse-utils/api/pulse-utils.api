@@ -50,8 +50,8 @@ public final class com/pulse/utils/PulseOtelUtils {
 	public final fun logError (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
 	public final fun logWarn (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/functions/Function0;)V
 	public final fun logWarn (Ljava/lang/String;Lkotlin/jvm/functions/Function0;)V
-	public final fun sanitizeMetricName (Ljava/lang/String;C)Ljava/lang/String;
-	public static synthetic fun sanitizeMetricName$default (Lcom/pulse/utils/PulseOtelUtils;Ljava/lang/String;CILjava/lang/Object;)Ljava/lang/String;
+	public final fun sanitizeInstrumentationName (Ljava/lang/String;C)Ljava/lang/String;
+	public static synthetic fun sanitizeInstrumentationName$default (Lcom/pulse/utils/PulseOtelUtils;Ljava/lang/String;CILjava/lang/Object;)Ljava/lang/String;
 }
 
 public final class com/pulse/utils/PulseOtelUtilsKt {

@@ -27,7 +27,10 @@ public object PulseOtelUtils {
 
     public fun isDebug(): Boolean = BuildConfig.DEBUG
 
-    public fun sanitizeMetricName(
+    /**
+     * Sanitizes the instrumentation name as per the SdkMeter.VALID_INSTRUMENT_NAME_PATTERN.
+     */
+    public fun sanitizeInstrumentationName(
         name: String,
         fallbackChar: Char = '_',
     ): String {
