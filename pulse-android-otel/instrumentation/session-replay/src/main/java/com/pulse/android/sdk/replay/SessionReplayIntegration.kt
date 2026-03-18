@@ -74,23 +74,18 @@ public class SessionReplayIntegration(
         added: Boolean,
     ) {
         try {
-            view.phoneWindow?.let { window ->
-                var hasDecorView = false
-                window.peekDecorView()?.let { decorView ->
-                    hasDecorView = decorViews[decorView] != null
-                }
-                if (added) {
-                    if (view.windowAttachCount == 0 || !hasDecorView) {
-                        window.onDecorViewReady { decorView ->
-                            setupDecorViewCapture(decorView, window)
-                        }
+            val window = view.phoneWindow ?: return
+            val hasDecorView = window.peekDecorView()?.let { decorViews[it] != null } ?: false
+            if (added) {
+                if (view.windowAttachCount == 0 || !hasDecorView) {
+                    window.onDecorViewReady { decorView ->
+                        setupDecorViewCapture(decorView, window)
                     }
-                    Unit
-                } else {
-                    window.peekDecorView()?.let { decorView ->
-                        decorViews[decorView]?.let { status ->
-                            clearViewListeners(decorView, status)
-                        }
+                }
+            } else {
+                window.peekDecorView()?.let { decorView ->
+                    decorViews[decorView]?.let { status ->
+                        clearViewListeners(decorView, status)
                     }
                 }
             }
@@ -116,7 +111,7 @@ public class SessionReplayIntegration(
                     if (!isActive()) return@onNextDraw
                     decorView.post {
                         try {
-                            if (!isActive()) return@post
+                            if (!isActive() || !decorView.isAliveAndAttachedToWindow()) return@post
                             val countAtCollection = drawCounter.get()
                             viewMaskCache.collectIfNeeded(
                                 decorView,
@@ -144,7 +139,7 @@ public class SessionReplayIntegration(
                 }
             decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
         } catch (e: Throwable) {
-            logger("Session Replay onDecorViewReady failed: $e")
+            logger("Session Replay setupDecorViewCapture failed: $e")
         }
     }
 
@@ -162,11 +157,7 @@ public class SessionReplayIntegration(
         if (view.isAliveAndAttachedToWindow()) {
             mainHandler.post {
                 if (view.isAliveAndAttachedToWindow()) {
-                    try {
-                        view.viewTreeObserver?.removeOnDrawListener(status.listener)
-                    } catch (_: Throwable) {
-                        // Ignore if observer or view is invalid
-                    }
+                    view.viewTreeObserver?.takeIf { it.isAlive }?.removeOnDrawListener(status.listener)
                 }
             }
         }
