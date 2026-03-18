@@ -9,10 +9,10 @@ import type { RootCauseProps } from "./RootCause.interface";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
 
-/** Mock related session replays for the RCA view; replace with API data when available */
+/** Mock related session replays for the RCA view; IDs match Session Replay mock (sess_mock_001, sess_mock_002) for Watch Replay navigation */
 const MOCK_RELATED_SESSIONS = [
   {
-    sessionId: "s_301",
+    sessionId: "sess_mock_001",
     duration: "2:34",
     relativeTime: "30 min ago",
     device: "SM-S911B • Android 13",
@@ -20,7 +20,7 @@ const MOCK_RELATED_SESSIONS = [
       "Payment gateway timeout at 8.2s → app crashed (OOM during retry)",
   },
   {
-    sessionId: "s_1422",
+    sessionId: "sess_mock_002",
     duration: "1:48",
     relativeTime: "2 hours ago",
     device: "iPhone 15 Pro • iOS 17.4",

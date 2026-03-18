@@ -198,6 +198,6 @@
     "patch-package": "^8.0.0",
     "postcss-simple-vars": "^7.0.1",
     "react-dev-utils": "12.0.1",
-    "swagger-typescript-api": "^13.0.12"
+    "swagger-typescript-api": "12.0.4"
   }
 }
