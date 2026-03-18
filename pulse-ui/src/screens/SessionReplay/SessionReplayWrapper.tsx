@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { SessionReplayFilterProvider } from "../../contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
+import { SessionReplayFilterProvider } from "../../contexts/SessionReplayFilterContext";
 
 /**
  * Wrapper component for Session Replay routes

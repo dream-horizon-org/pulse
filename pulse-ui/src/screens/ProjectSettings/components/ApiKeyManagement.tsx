@@ -1,17 +1,36 @@
-import { useState } from 'react';
-import { Stack, Text, Box, Group, Button, Code, CopyButton, ActionIcon, Tooltip, Loader, Alert } from '@mantine/core';
-import { IconCopy, IconCheck, IconRefresh, IconPlus, IconInfoCircle, IconKey } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
-import { useProjectContext } from '../../../contexts';
-import { ConfirmationModal } from '../../../components/ConfirmationModal';
-import { useProjectApiKey, useRegenerateProjectApiKey } from '../../../hooks';
-import classes from './ApiKeyManagement.module.css';
+import { useState } from "react";
+import {
+  Stack,
+  Text,
+  Box,
+  Group,
+  Button,
+  Code,
+  CopyButton,
+  ActionIcon,
+  Tooltip,
+  Loader,
+  Alert,
+} from "@mantine/core";
+import {
+  IconCopy,
+  IconCheck,
+  IconRefresh,
+  IconPlus,
+  IconInfoCircle,
+  IconKey,
+} from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+import { useProjectContext } from "../../../contexts/ProjectContext";
+import { ConfirmationModal } from "../../../components/ConfirmationModal";
+import { useProjectApiKey, useRegenerateProjectApiKey } from "../../../hooks";
+import classes from "./ApiKeyManagement.module.css";
 
 export function ApiKeyManagement() {
   const [confirmRegenerateOpen, setConfirmRegenerateOpen] = useState(false);
   const { projectId } = useProjectContext();
 
-  const { data: apiKeyData, isLoading } = useProjectApiKey(projectId ?? '');
+  const { data: apiKeyData, isLoading } = useProjectApiKey(projectId ?? "");
   const regenerateMutation = useRegenerateProjectApiKey();
 
   const apiKey = apiKeyData?.key ?? null;
@@ -21,9 +40,9 @@ export function ApiKeyManagement() {
   const handleGenerateOrRegenerateKey = (isRegenerate: boolean) => {
     if (!projectId) {
       notifications.show({
-        title: 'Error',
-        message: 'Project ID not available',
-        color: 'red',
+        title: "Error",
+        message: "Project ID not available",
+        color: "red",
       });
       return;
     }
@@ -34,23 +53,26 @@ export function ApiKeyManagement() {
         onSuccess: (response) => {
           if (response?.data) {
             notifications.show({
-              title: 'Success',
+              title: "Success",
               message: isRegenerate
-                ? 'API key regenerated successfully'
-                : 'API key generated successfully',
-              color: 'green',
+                ? "API key regenerated successfully"
+                : "API key generated successfully",
+              color: "green",
               icon: <IconCheck size={18} />,
             });
           }
         },
         onError: (error) => {
           notifications.show({
-            title: 'Error',
-            message: error instanceof Error ? error.message : 'An unexpected error occurred',
-            color: 'red',
+            title: "Error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "An unexpected error occurred",
+            color: "red",
           });
         },
-      }
+      },
     );
   };
 
@@ -63,7 +85,11 @@ export function ApiKeyManagement() {
             <Text className={classes.pageTitle}>API Key Management</Text>
           </Box>
         </Box>
-        <Alert color="red" title="No Project Selected" icon={<IconInfoCircle />}>
+        <Alert
+          color="red"
+          title="No Project Selected"
+          icon={<IconInfoCircle />}
+        >
           Please select a project to manage API keys.
         </Alert>
       </Box>
@@ -86,9 +112,11 @@ export function ApiKeyManagement() {
               <Text className={classes.tableHeaderTitle}>Project API Key</Text>
             </Box>
           </Box>
-          <Box className={classes.tableWrapper} style={{ textAlign: 'center' }}>
+          <Box className={classes.tableWrapper} style={{ textAlign: "center" }}>
             <Loader size="lg" />
-            <Text c="dimmed" mt="md">Loading API key...</Text>
+            <Text c="dimmed" mt="md">
+              Loading API key...
+            </Text>
           </Box>
         </Box>
       </Box>
@@ -108,9 +136,14 @@ export function ApiKeyManagement() {
 
       {/* Show info banner when using dummy key */}
       {isDummyKey && (
-        <Alert color="blue" title="Development Mode" icon={<IconInfoCircle />} mb="lg">
-          Using a development API key. The API key management endpoint is being developed by your team.
-          This key can be used for local testing.
+        <Alert
+          color="blue"
+          title="Development Mode"
+          icon={<IconInfoCircle />}
+          mb="lg"
+        >
+          Using a development API key. The API key management endpoint is being
+          developed by your team. This key can be used for local testing.
         </Alert>
       )}
 
@@ -129,24 +162,31 @@ export function ApiKeyManagement() {
               {apiKey && (
                 <CopyButton value={apiKey}>
                   {({ copied, copy }) => (
-                    <Tooltip label={copied ? 'Copied' : 'Copy'}>
-                      <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy}>
-                        {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                    <Tooltip label={copied ? "Copied" : "Copy"}>
+                      <ActionIcon
+                        color={copied ? "teal" : "gray"}
+                        onClick={copy}
+                      >
+                        {copied ? (
+                          <IconCheck size={16} />
+                        ) : (
+                          <IconCopy size={16} />
+                        )}
                       </ActionIcon>
                     </Tooltip>
                   )}
                 </CopyButton>
               )}
             </Group>
-            
-            {apiKey && (
-              <Code block>{apiKey}</Code>
-            )}
-            
+
+            {apiKey && <Code block>{apiKey}</Code>}
+
             {!apiKey && (
-              <Text c="dimmed" size="sm">No API key found for this project. Generate one to get started.</Text>
+              <Text c="dimmed" size="sm">
+                No API key found for this project. Generate one to get started.
+              </Text>
             )}
-            
+
             <Group gap="sm">
               {!apiKey ? (
                 // Show "Generate Key" button when no key exists
@@ -157,7 +197,7 @@ export function ApiKeyManagement() {
                   onClick={() => handleGenerateOrRegenerateKey(false)}
                   loading={generating}
                 >
-                  {generating ? 'Generating...' : 'Generate Key'}
+                  {generating ? "Generating..." : "Generate Key"}
                 </Button>
               ) : (
                 // Show "Regenerate Key" button when key exists
@@ -168,14 +208,15 @@ export function ApiKeyManagement() {
                   onClick={() => setConfirmRegenerateOpen(true)}
                   loading={generating}
                 >
-                  {generating ? 'Regenerating...' : 'Regenerate Key'}
+                  {generating ? "Regenerating..." : "Regenerate Key"}
                 </Button>
               )}
             </Group>
-            
+
             {apiKey && (
               <Text size="xs" c="dimmed">
-                Warning: Regenerating the key will invalidate the old key immediately.
+                Warning: Regenerating the key will invalidate the old key
+                immediately.
               </Text>
             )}
           </Stack>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Container,
@@ -12,16 +13,19 @@ import {
   Group,
 } from "@mantine/core";
 import { IconFolder, IconArrowLeft } from "@tabler/icons-react";
-import { useTenantContext, useProjectContext } from "../../contexts";
+
 import { showNotification } from "../../helpers/showNotification";
 import { ROUTES } from "../../constants";
 import { useCreateProject } from "../../hooks";
 import { PROJECT_ROLES } from "../../constants/Roles";
+import { TIERS } from "../../constants/Tiers";
+import { useTenantContext } from "../../contexts/TenantContext";
+import { useProjectContext } from "../../contexts/ProjectContext";
 
 export function CreateProject() {
   const navigate = useNavigate();
   const { tenantId, addProject } = useTenantContext();
-  const { navigateToProject } = useProjectContext();
+  const { setProject } = useProjectContext();
 
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -54,17 +58,48 @@ export function CreateProject() {
         description: projectDescription.trim() || undefined,
       },
       {
-        onSuccess: async (response) => {
+        onSuccess: (response) => {
           if (response?.data) {
             const projectData = response.data;
 
-            // Add project to tenant's projects list
-            addProject({
-              projectId: projectData.projectId,
-              name: projectData.name,
-              description: projectData.description,
-              isActive: true,
-              role: PROJECT_ROLES.ADMIN,
+            // Force immediate state update using flushSync to prevent race conditions
+            // This ensures the project is in both TenantContext and ProjectContext before navigation
+            flushSync(() => {
+              // Update TenantContext (adds to projects list)
+              addProject({
+                projectId: projectData.projectId,
+                name: projectData.name,
+                description: projectData.description,
+                isActive: true,
+                role: PROJECT_ROLES.ADMIN,
+              });
+
+              // Update ProjectContext (sets as active project)
+              setProject({
+                projectId: projectData.projectId,
+                projectName: projectData.name,
+                userRole: PROJECT_ROLES.ADMIN,
+                isActive: true,
+              });
+
+              // CRITICAL: Also update sessionStorage immediately to prevent race conditions
+              sessionStorage.setItem(
+                "pulse_project_context",
+                JSON.stringify({
+                  projectId: projectData.projectId,
+                  projectName: projectData.name,
+                  userRole: PROJECT_ROLES.ADMIN,
+                  isActive: true,
+                  plan: TIERS.FREE,
+                  timestamp: Date.now(),
+                }),
+              );
+
+              // Update last used project ID
+              sessionStorage.setItem(
+                "pulse_last_project_id",
+                projectData.projectId,
+              );
             });
 
             showNotification(
@@ -74,8 +109,14 @@ export function CreateProject() {
               "#0ec9c2",
             );
 
-            // Use navigateToProject to fetch full details and navigate
-            await navigateToProject(projectData.projectId);
+            // Navigate to project onboarding
+            navigate(`/projects/${projectData.projectId}/onboarding`, {
+              state: {
+                projectId: projectData.projectId,
+                projectName: projectData.name,
+                projectApiKey: projectData.apiKey,
+              },
+            });
           }
         },
         onError: (error) => {

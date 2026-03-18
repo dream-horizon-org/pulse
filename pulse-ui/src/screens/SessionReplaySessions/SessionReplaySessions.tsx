@@ -3,7 +3,6 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAnalytics } from "../../hooks/useAnalytics";
-import { useProjectContext } from "../../contexts";
 
 import type {
   FilterGroup,
@@ -25,7 +24,8 @@ import { AdvancedFilterBuilder } from "./components/AdvancedFilterBuilder";
 import { SessionsTableToolbar } from "./components/SessionsTableToolbar";
 import { SessionsTable } from "./components/SessionsTable";
 import { SessionListPagination } from "./components/SessionListPagination";
-import { useSessionReplayFilters } from "../../contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
+import { useProjectContext } from "../../contexts/ProjectContext";
+import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
 
 export function SessionReplaySessions() {
   const { trackClick } = useAnalytics("SessionReplaySessions");

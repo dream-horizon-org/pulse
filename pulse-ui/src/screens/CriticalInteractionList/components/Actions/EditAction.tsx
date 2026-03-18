@@ -3,7 +3,7 @@ import { TOOLTIP_LABLES, ROUTES } from "../../../../constants";
 import { Loader, Tooltip } from "@mantine/core";
 import { IconEdit } from "@tabler/icons-react";
 import { ActionProps } from "./Actions.interface";
-import { useProjectContext } from "../../../../contexts";
+import { useProjectContext } from "../../../../contexts/ProjectContext";
 
 export function EditAction({ iconColor, name, isLoading }: ActionProps) {
   const navigate = useNavigate();

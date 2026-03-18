@@ -19,7 +19,7 @@ import {
 import { getCookies } from "../../../../helpers/cookies";
 import { Loader, Tooltip } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
-import { useProjectContext } from "../../../../contexts";
+import { useProjectContext } from "../../../../contexts/ProjectContext";
 import { ConfirmationModal } from "../../../../components/ConfirmationModal";
 
 export function DeleteAction({
@@ -39,18 +39,20 @@ export function DeleteAction({
   const navigateToCriticalInteractionListingPage = () => {
     // Only navigate if projectId is available
     if (!projectId) {
-      console.error('[DeleteAction] Cannot navigate: projectId is null');
+      console.error("[DeleteAction] Cannot navigate: projectId is null");
       showNotification(
         COMMON_CONSTANTS.ERROR_NOTIFICATION_TITLE,
-        'Project context is missing. Please reload the page.',
+        "Project context is missing. Please reload the page.",
         <IconSquareRoundedX />,
         errorNotificationColor,
       );
       return;
     }
-    
+
     setTimeout(() => {
-      navigate(ROUTES.PROJECT_INTERACTIONS.basePath.replace(':projectId', projectId));
+      navigate(
+        ROUTES.PROJECT_INTERACTIONS.basePath.replace(":projectId", projectId),
+      );
     }, 3000);
   };
 

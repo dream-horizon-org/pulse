@@ -11,7 +11,7 @@ import {
   DEFAULT_DATE_PRESET,
   SEARCH_DEBOUNCE_MS,
 } from "../constants/sessionList.constants";
-import { SessionReplayFilterState } from "../../../contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
+import { SessionReplayFilterState } from "../../../contexts/SessionReplayFilterContext";
 
 function buildTimeRangeFromState(
   filterState: SessionReplayFilterState,

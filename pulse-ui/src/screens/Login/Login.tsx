@@ -30,7 +30,7 @@ import { getCookies } from "../../helpers/cookies";
 import { checkRefreshTokenExpiration } from "../../helpers/checkRefreshTokenExpiration";
 import { logEvent } from "../../helpers/googleAnalytics";
 import { useLogin } from "../../hooks";
-import { useTenantContext } from "../../contexts";
+import { useTenantContext } from "../../contexts/TenantContext";
 
 export function Login() {
   const navigate = useNavigate();

@@ -12,7 +12,7 @@ import {
 import { IconPlus } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import classes from "./SupportQueries.module.css";
-import { useGetIncidents } from "../../hooks/useGetIncidents/useGetIncidents";
+import { useGetIncidents } from "../../hooks/useGetIncidents";
 import { ContactUsModal } from "../../components/ContactUsModal/ContactUsModal";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { IncidentItem } from "./SupportQueries.interface";

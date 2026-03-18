@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { FilterGroup } from "../../../../services/sessionReplay/filterConfig";
+import { FilterGroup } from "../services/sessionReplay/filterConfig";
 
 /**
  * Drill-down types for navigating from Insights to Session List

@@ -50,7 +50,7 @@ import { useGetDataQuery } from "../../hooks";
 import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
-import { useProjectContext } from "../../contexts";
+import { useProjectContext } from "../../contexts/ProjectContext";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -359,7 +359,7 @@ export function CriticalInteractionList() {
     id: number;
     name: string | undefined;
   }) => {
-    trackClick(`Interaction: ${interaction.name || 'unknown'}`);
+    trackClick(`Interaction: ${interaction.name || "unknown"}`);
     navigate(
       `/projects/${projectId}/interaction-details/${interaction.name || ""}`,
     );
@@ -372,11 +372,11 @@ export function CriticalInteractionList() {
         <ScrollArea className={classes.scrollArea}>
           <Box className={classes.criticalInteractionsTableContainer}>
             {Array.from({ length: 8 }).map((_, index) => (
-              <CardSkeleton 
-                key={index} 
-                height={180} 
-                showHeader 
-                contentRows={3} 
+              <CardSkeleton
+                key={index}
+                height={180}
+                showHeader
+                contentRows={3}
               />
             ))}
           </Box>
@@ -413,7 +413,7 @@ export function CriticalInteractionList() {
                 onClick={() =>
                   onInteractionClick({
                     id: item?.id,
-                    name: item?.name
+                    name: item?.name,
                   })
                 }
                 apdexScore={metrics?.apdex}
@@ -486,12 +486,19 @@ export function CriticalInteractionList() {
               <Filters
                 defaultFilters={filters}
                 handleFiltersChange={handleFilterChange}
-                defaultFilterValuesFromServer={filterValuesFromServer || { createdBy: [], statuses: [] }}
+                defaultFilterValuesFromServer={
+                  filterValuesFromServer || { createdBy: [], statuses: [] }
+                }
               />
             </Popover.Dropdown>
           </Popover>
 
-          <Link to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(':projectId', projectId || '')}>
+          <Link
+            to={ROUTES.PROJECT_INTERACTION_FORM.basePath.replace(
+              ":projectId",
+              projectId || "",
+            )}
+          >
             <Button size="sm" variant="light" className={classes.createButton}>
               {
                 CRITICAL_INTERACTION_LISTING_PAGE_CONSTANTS.CREATE_USER_EXPERIENCE_BUTTON_TEXT

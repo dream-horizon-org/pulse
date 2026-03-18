@@ -1,7 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
-import { GetAlertDetailsParams, AlertDetailsResponse } from "./useGetAlertDetails.interface";
+import {
+  GetAlertDetailsParams,
+  AlertDetailsResponse,
+} from "./useGetAlertDetails.interface";
 
 export const useGetAlertDetails = ({
   queryParams = null,
@@ -31,6 +34,3 @@ export const useGetAlertDetails = ({
     staleTime: 0,
   });
 };
-
-
-

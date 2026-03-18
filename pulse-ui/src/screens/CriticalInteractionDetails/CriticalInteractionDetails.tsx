@@ -27,7 +27,7 @@ import Analysis from "./components/InteractionDetailsMainContent/components/Anal
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
-import { useSessionReplayFilters } from "../../contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
+import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();

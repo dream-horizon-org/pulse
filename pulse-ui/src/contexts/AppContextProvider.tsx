@@ -1,7 +1,9 @@
 import React, { ReactNode, useEffect } from "react";
 import { TenantProvider, useTenantContext } from "./TenantContext";
-import { ProjectProvider, useProjectContext } from "./ProjectContext";
+
 import { LOGOUT_EVENT } from "../helpers/logout";
+import { ProjectProvider } from "./ProjectContext";
+import { useProjectContext } from "./ProjectContext";
 
 /**
  * AppContextProvider - Technical wrapper that composes domain contexts

@@ -16,8 +16,8 @@ import { AppContextProvider } from "./contexts";
 import "@mantine/dates/styles.css";
 import { Suspense, useEffect } from "react";
 import { initGA, logPageView } from "./helpers/googleAnalytics";
-import { SessionReplayFilterProvider } from "./contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { SessionReplayFilterProvider } from "./contexts/SessionReplayFilterContext";
 
 export default function App() {
   useEffect(() => {

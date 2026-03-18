@@ -19,7 +19,7 @@ import {
   StatusMetricCard,
 } from "./MetricCards";
 import { DrillDownButton, DualDrillDown } from "./DrillDownActions";
-import { DrillDownType } from "../../../contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
+import { DrillDownType } from "../../../contexts/SessionReplayFilterContext";
 
 interface InsightsDashboardProps {
   metrics: SessionReplayMetrics;

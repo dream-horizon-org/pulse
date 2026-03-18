@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import {
   Container,
   Title,
@@ -18,19 +19,20 @@ import {
   IconUsers,
   IconRocket,
 } from "@tabler/icons-react";
-import { useTenantContext, useProjectContext } from "../../contexts";
+
 import { usePermissions, useTierLimits } from "../../hooks";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { showNotification } from "../../helpers/showNotification";
 import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
+import { useTenantContext } from "../../contexts/TenantContext";
+import { useProjectContext } from "../../contexts/ProjectContext";
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
-  const location = useLocation();
   const { projects, hasLoadedProjects, tier, refreshProjects } =
     useTenantContext();
-  const { projectId, navigateToProject } = useProjectContext();
+  const { projectId, setProject } = useProjectContext();
   const { canCreateProjects: hasPermission } = usePermissions();
   const { canCreateProjects, maxProjects, currentProjectCount } =
     useTierLimits();
@@ -40,19 +42,54 @@ export function OrganizationProjects() {
   const handleProjectClick = useCallback(
     async (selectedProjectId: string) => {
       try {
+        // Find the project details from the projects list
         const selectedProject = projects.find(
           (p) => p.projectId === selectedProjectId,
         );
+
         if (!selectedProject) {
+          console.error("[OrganizationProjects] Project not found in list");
           setError("Project not found");
           return;
         }
-        await navigateToProject(selectedProjectId);
+
+        // Force immediate context AND sessionStorage update before navigation
+        flushSync(() => {
+          // Update React context
+          setProject({
+            projectId: selectedProject.projectId,
+            projectName: selectedProject.name,
+            userRole: selectedProject.role as "admin" | "editor" | "viewer",
+            isActive: selectedProject.isActive,
+          });
+
+          // CRITICAL: Also update sessionStorage immediately to prevent race conditions
+          sessionStorage.setItem(
+            "pulse_project_context",
+            JSON.stringify({
+              projectId: selectedProject.projectId,
+              projectName: selectedProject.name,
+              userRole: selectedProject.role,
+              isActive: selectedProject.isActive,
+              plan: "free",
+              timestamp: Date.now(),
+            }),
+          );
+
+          // Update last used project ID
+          sessionStorage.setItem(
+            "pulse_last_project_id",
+            selectedProject.projectId,
+          );
+        });
+
+        navigate(`/projects/${selectedProjectId}`);
       } catch (err) {
         setError("Failed to switch to project");
+        console.error(err);
       }
     },
-    [projects, navigateToProject],
+    [projects, setProject, navigate],
   );
 
   // Trigger refresh on mount to ensure fresh data
@@ -66,17 +103,10 @@ export function OrganizationProjects() {
       return;
     }
 
-    // CRITICAL: Only run auto-selection logic if we're actually ON the projects listing page
-    // This prevents interfering with deep links like /projects/:id/alerts
-    const isOnProjectsListingPage =
-      location.pathname === `/${organizationId}/projects`;
-
-    if (!isOnProjectsListingPage) {
-      return;
-    }
     // If user already has a project context set, redirect to that project
+    console.log("[OrganizationProjects] projectId:", projectId, projects);
     if (projectId) {
-      navigateToProject(projectId);
+      navigate(`/projects/${projectId}`, { replace: true });
       return;
     }
 
@@ -90,12 +120,10 @@ export function OrganizationProjects() {
   }, [
     projectId,
     projects,
+    navigate,
     hasLoadedProjects,
     tier,
     handleProjectClick,
-    location.pathname,
-    organizationId,
-    navigateToProject,
   ]);
 
   const handleCreateProject = () => {
@@ -106,7 +134,7 @@ export function OrganizationProjects() {
         <IconLock />,
         "orange",
       );
-      navigate(`/${organizationId}/pricing`);
+      navigate("/pricing");
       return;
     }
     navigate(`/${organizationId}/projects/new`);

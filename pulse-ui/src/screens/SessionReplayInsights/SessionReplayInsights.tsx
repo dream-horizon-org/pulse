@@ -12,7 +12,7 @@ import {
 
 import { useDateRangeConfig } from "../SessionReplay/hooks/useDateRangeConfig";
 import classes from "./SessionReplayInsights.module.css";
-import { useSessionReplayFilters } from "../../contexts/pulse-ui/src/contexts/SessionReplayFilterContext";
+import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
 
 /**
  * Session Replay Insights Page

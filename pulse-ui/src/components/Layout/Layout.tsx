@@ -6,8 +6,6 @@ import {
   LAYOUT_PAGE_CONSTANTS,
   ROUTES,
 } from "../../constants";
-import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
-import { TIERS, TierType } from "../../constants/Tiers";
 import { useDisclosure } from "@mantine/hooks";
 import { Header } from "../Header";
 import { Navbar } from "../Navbar";
@@ -18,17 +16,17 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderWithMessage } from "../LoaderWithMessage";
 import { getCookies } from "../../helpers/cookies";
 import { ProjectGuard } from "../ProjectGuard";
-import { ProjectInitializingModal } from "../ProjectInitializingModal";
-import { useTenantContext, useProjectContext } from "../../contexts";
+import { useTenantContext } from "../../contexts/TenantContext";
 import { useGetTncStatus } from "../../hooks/useGetTncStatus";
 import { TncAcceptance } from "../../screens/TncAcceptance";
+import { TENANT_ROLES, TenantRole } from "../../constants/Roles";
+import { TIERS, TierType } from "../../constants/Tiers";
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const [opened, { toggle }] = useDisclosure(false);
   const { pathname } = useLocation();
   const { setTenantInfo, tenantId, userRole } = useTenantContext();
-  const { isInitializing } = useProjectContext();
   const [checkingCredentials, setCheckingCredentials] = useState(true);
   const displayMessage = useRef<string>(
     LAYOUT_PAGE_CONSTANTS.CHECKING_CREDENTIALS,
@@ -83,10 +81,7 @@ export function Layout({ children }: LayoutProps) {
   }, [pathname]);
 
   const tncEnabled =
-    !!tenantId &&
-    userRole === TENANT_ROLES.ADMIN &&
-    !isLoginPage &&
-    !isOnboardingPage;
+    !!tenantId && userRole === "admin" && !isLoginPage && !isOnboardingPage;
   const { data: tncData, isLoading: tncLoading } = useGetTncStatus(tncEnabled);
 
   if (checkingCredentials) {
@@ -121,37 +116,34 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <>
-      <AppShell
-        header={shouldShowHeader ? HEADER_CONFIG : undefined}
-        navbar={{
-          width: navbarWidth,
-          breakpoint: "sm",
-          collapsed: { mobile: !opened },
-        }}
-        padding={0}
-        styles={{
-          navbar: {
-            height: "100vh",
-            top: 0,
-            zIndex: 0,
-          },
-          header: shouldShowHeader
-            ? {
-                left: navbarWidth,
-                width: `calc(100% - ${navbarWidth}px)`,
-                zIndex: 100,
-              }
-            : undefined,
-        }}
-      >
-        {shouldShowHeader && <Header toggle={toggle} opened={opened} />}
-        <Navbar toggle={toggle} opened={opened} />
-        <Main>
-          <ProjectGuard>{children}</ProjectGuard>
-        </Main>
-      </AppShell>
-      <ProjectInitializingModal opened={isInitializing} />
-    </>
+    <AppShell
+      header={shouldShowHeader ? HEADER_CONFIG : undefined}
+      navbar={{
+        width: navbarWidth,
+        breakpoint: "sm",
+        collapsed: { mobile: !opened },
+      }}
+      padding={0}
+      styles={{
+        navbar: {
+          height: "100vh",
+          top: 0,
+          zIndex: 0,
+        },
+        header: shouldShowHeader
+          ? {
+              left: navbarWidth,
+              width: `calc(100% - ${navbarWidth}px)`,
+              zIndex: 100,
+            }
+          : undefined,
+      }}
+    >
+      {shouldShowHeader && <Header toggle={toggle} opened={opened} />}
+      <Navbar toggle={toggle} opened={opened} />
+      <Main>
+        <ProjectGuard>{children}</ProjectGuard>
+      </Main>
+    </AppShell>
   );
 }

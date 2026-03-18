@@ -50,7 +50,7 @@ import { AlertFilters } from "./components/AlertFilters";
 import { useGetAlertScopes } from "../../hooks/useGetAlertScopes";
 import { useGetAlertSeverities } from "../../hooks/useGetAlertSeverities";
 import { useGetAllScopeMetrics } from "../../hooks/useGetAlertMetrics";
-import { useProjectContext } from "../../contexts";
+import { useProjectContext } from "../../contexts/ProjectContext";
 
 const LIMIT = 12;
 

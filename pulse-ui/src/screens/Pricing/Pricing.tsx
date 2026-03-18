@@ -19,7 +19,7 @@ import {
   IconCircleCheck,
   IconUsers,
 } from "@tabler/icons-react";
-import { useTenantContext } from "../../contexts";
+import { useTenantContext } from "../../contexts/TenantContext";
 import { useNavigate } from "react-router-dom";
 import classes from "./Pricing.module.css";
 import { TIERS } from "../../constants/Tiers";
