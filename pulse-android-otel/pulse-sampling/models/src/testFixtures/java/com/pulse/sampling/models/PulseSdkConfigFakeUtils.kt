@@ -173,14 +173,14 @@ public object PulseSdkConfigFakeUtils {
         name: String = "fake_metric",
         target: PulseMetricsToAddTarget = PulseMetricsToAddTarget.Name(type = "name"),
         condition: PulseSignalMatchCondition = createFakeSignalMatchCondition(),
-        data: PulseMetricsType = createFakeCounter(),
+        type: PulseMetricsType = createFakeCounter(),
         attributesToPick: Collection<PulseSignalMatchCondition> = emptySet(),
     ): PulseMetricsToAddEntry =
         PulseMetricsToAddEntry(
             name = name,
             target = target,
             condition = condition,
-            type = data,
+            type = type,
             attributesToPick = attributesToPick,
         )
 
