@@ -3,3 +3,4 @@ export * from "./UserEngagement";
 export * from "./AlertListingPage";
 export * from "./AlertFormWizard";
 export * from "./AlertDetail";
+export * from "./SessionReplay";

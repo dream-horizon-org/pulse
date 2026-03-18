@@ -12,7 +12,7 @@ import {
 import { IconPlus } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import classes from "./SupportQueries.module.css";
-import { useGetIncidents } from "../../hooks/useGetIncidents";
+import { useGetIncidents } from "../../hooks/useGetIncidents/useGetIncidents";
 import { ContactUsModal } from "../../components/ContactUsModal/ContactUsModal";
 import { LoaderWithMessage } from "../../components/LoaderWithMessage";
 import { IncidentItem } from "./SupportQueries.interface";
@@ -138,7 +138,12 @@ export function SupportQueries() {
       <Box className={classes.pageHeader}>
         <Group className={classes.titleSection}>
           <h1 className={classes.pageTitle}>Support Queries</h1>
-          <Badge size="lg" variant="light" color="teal" className={classes.totalBadge}>
+          <Badge
+            size="lg"
+            variant="light"
+            color="teal"
+            className={classes.totalBadge}
+          >
             {incidents.length} Total
           </Badge>
         </Group>
@@ -160,7 +165,9 @@ export function SupportQueries() {
         onClose={() => setSelectedQuery(null)}
         title={
           <Group gap="sm">
-            <Text fw={700} size="lg">Query #{selectedQuery?.id}</Text>
+            <Text fw={700} size="lg">
+              Query #{selectedQuery?.id}
+            </Text>
             {selectedQuery && (
               <Badge
                 color={STATUS_COLOR[selectedQuery.status] ?? "gray"}
@@ -178,23 +185,33 @@ export function SupportQueries() {
         {selectedQuery && (
           <Stack gap="md">
             <Box>
-              <Text size="sm" c="dimmed" fw={600} mb={4}>Title</Text>
+              <Text size="sm" c="dimmed" fw={600} mb={4}>
+                Title
+              </Text>
               <Text size="sm">{selectedQuery.title}</Text>
             </Box>
             <Box>
-              <Text size="sm" c="dimmed" fw={600} mb={4}>Description</Text>
+              <Text size="sm" c="dimmed" fw={600} mb={4}>
+                Description
+              </Text>
               <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
                 {selectedQuery.description}
               </Text>
             </Box>
             <Group gap="xl">
               <Box>
-                <Text size="sm" c="dimmed" fw={600} mb={4}>Reported By</Text>
+                <Text size="sm" c="dimmed" fw={600} mb={4}>
+                  Reported By
+                </Text>
                 <Text size="sm">{selectedQuery.reporterName}</Text>
-                <Text size="xs" c="dimmed">{selectedQuery.reporterEmail}</Text>
+                <Text size="xs" c="dimmed">
+                  {selectedQuery.reporterEmail}
+                </Text>
               </Box>
               <Box>
-                <Text size="sm" c="dimmed" fw={600} mb={4}>Created At</Text>
+                <Text size="sm" c="dimmed" fw={600} mb={4}>
+                  Created At
+                </Text>
                 <Text size="sm">{formatDate(selectedQuery.createdAt)}</Text>
               </Box>
             </Group>

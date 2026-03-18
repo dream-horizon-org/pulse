@@ -5,13 +5,11 @@ import {
   InteractionDetailsResponse,
 } from "./useGetInteractionDetails.interface";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
-import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetInteractionDetails = ({
   queryParams = null,
 }: GetInteractionDetailsParams) => {
   const interactionDetails = API_ROUTES.GET_JOB_DETAILS;
-  const enabled = useProjectQueryEnabled(queryParams?.name !== null);
 
   return useQuery({
     queryKey: [interactionDetails.key, queryParams?.name],
@@ -27,7 +25,6 @@ export const useGetInteractionDetails = ({
         },
       });
     },
-    enabled,
     refetchOnWindowFocus: true,
   });
 };

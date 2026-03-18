@@ -4,7 +4,10 @@
  * Uses localStorage for same-device; API (or mock) for cross-device sharing.
  */
 
-import { ChatMessage, PinnedFinding } from "../components/AiChat/AiChat.interface";
+import {
+  ChatMessage,
+  PinnedFinding,
+} from "../components/AiChat/AiChat.interface";
 import { v4 as uuidV4 } from "uuid";
 import { API_BASE_URL } from "../../../constants";
 import { makeRequest } from "../../../helpers/makeRequest";
@@ -44,7 +47,9 @@ export function saveSessionToLocal(session: AiChatSessionData): void {
 }
 
 /** Load session from localStorage */
-export function loadSessionFromLocal(sessionId: string): AiChatSessionData | null {
+export function loadSessionFromLocal(
+  sessionId: string,
+): AiChatSessionData | null {
   try {
     const key = `${STORAGE_KEY_PREFIX}${sessionId}`;
     const raw = localStorage.getItem(key);
@@ -82,7 +87,9 @@ export function deleteSessionFromLocal(sessionId: string): void {
 export const AI_SESSION_API_PATH = "/query/ai/session";
 
 /** Fetch session from API (for shared URLs) - goes through makeRequest so mock works */
-export async function fetchSessionFromApi(sessionId: string): Promise<AiChatSessionData | null> {
+export async function fetchSessionFromApi(
+  sessionId: string,
+): Promise<AiChatSessionData | null> {
   try {
     const res = await makeRequest<AiChatSessionData>({
       url: `${API_BASE_URL}${AI_SESSION_API_PATH}/${sessionId}`,
@@ -97,7 +104,9 @@ export async function fetchSessionFromApi(sessionId: string): Promise<AiChatSess
 }
 
 /** Save session to API (for sharing) */
-export async function saveSessionToApi(session: AiChatSessionData): Promise<boolean> {
+export async function saveSessionToApi(
+  session: AiChatSessionData,
+): Promise<boolean> {
   try {
     const res = await makeRequest<{ ok: boolean; id: string }>({
       url: `${API_BASE_URL}${AI_SESSION_API_PATH}`,

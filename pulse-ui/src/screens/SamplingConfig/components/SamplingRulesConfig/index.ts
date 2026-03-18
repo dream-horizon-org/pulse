@@ -1,2 +1,1 @@
-export { SamplingRulesConfig } from './SamplingRulesConfig';
-
+export { SamplingRulesConfig } from "./SamplingRulesConfig";

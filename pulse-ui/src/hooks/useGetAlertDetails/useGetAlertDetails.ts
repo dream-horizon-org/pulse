@@ -1,20 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import { ApiResponse, makeRequest } from "../../helpers/makeRequest";
-import {
-  GetAlertDetailsParams,
-  AlertDetailsResponse,
-} from "./useGetAlertDetails.interface";
-import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
+import { GetAlertDetailsParams, AlertDetailsResponse } from "./useGetAlertDetails.interface";
 
 export const useGetAlertDetails = ({
   queryParams = null,
   refetchInterval = false,
 }: GetAlertDetailsParams) => {
   const getAlertDetails = API_ROUTES.GET_ALERT_DETAILS;
-  const enabled = useProjectQueryEnabled(
-    queryParams?.alert_id !== null && !isNaN(Number(queryParams?.alert_id)),
-  );
 
   return useQuery({
     queryKey: [getAlertDetails.key, queryParams?.alert_id],
@@ -33,9 +26,11 @@ export const useGetAlertDetails = ({
         },
       });
     },
-    enabled,
     refetchOnWindowFocus: false,
     refetchInterval,
     staleTime: 0,
   });
 };
+
+
+

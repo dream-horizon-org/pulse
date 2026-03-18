@@ -1,1 +1,0 @@
-export { useContactSupport } from "./useContactSupport";

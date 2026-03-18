@@ -1,2 +1,1 @@
-export { InfraConfig } from './InfraConfig';
-
+export { InfraConfig } from "./InfraConfig";
