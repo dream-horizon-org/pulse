@@ -1,7 +1,7 @@
 package com.pulse.android.sdk.replay.internal
 
+import com.google.gson.JsonParser
 import org.assertj.core.api.Assertions.assertThat
-import org.json.JSONObject
 import org.junit.jupiter.api.Test
 
 class ReplayEnvelopeBuilderTest {
@@ -19,10 +19,15 @@ class ReplayEnvelopeBuilderTest {
         assertThat(json).contains("proj-1")
         assertThat(json).contains("user-1")
         assertThat(json).contains("android")
-        val obj = JSONObject(json)
-        assertThat(obj.getString("event")).isEqualTo("snapshot")
-        assertThat(obj.getJSONObject("properties").getString("session_id")).isEqualTo("sid-123")
-        assertThat(obj.getJSONObject("properties").has("snapshot_data")).isTrue()
+        val obj = JsonParser.parseString(json).asJsonObject
+        assertThat(obj.get("event").asJsonPrimitive.asString).isEqualTo("snapshot")
+        assertThat(
+            obj
+                .getAsJsonObject("properties")
+                .get("session_id")
+                .asJsonPrimitive.asString,
+        ).isEqualTo("sid-123")
+        assertThat(obj.getAsJsonObject("properties").has("snapshot_data")).isTrue()
     }
 
     @Test
@@ -34,7 +39,13 @@ class ReplayEnvelopeBuilderTest {
                 projectId = "p",
                 userId = "",
             )
-        assertThat(JSONObject(json).getString("user_id")).isEqualTo("anonymous")
+        assertThat(
+            JsonParser
+                .parseString(json)
+                .asJsonObject
+                .get("user_id")
+                .asJsonPrimitive.asString,
+        ).isEqualTo("anonymous")
     }
 
     @Test
@@ -64,7 +75,7 @@ class ReplayEnvelopeBuilderTest {
         val payload = """{"properties":{"snapshot_data":[{"type":4,"timestamp":0,"data":{}}]}}"""
         val result = ReplayEnvelopeBuilder.getEventTypesSummary(payload)
         assertThat(result).isNotNull
-        assertThat(result).contains("Meta")
+        assertThat(result).contains("META")
         assertThat(result).contains("(1)")
     }
 

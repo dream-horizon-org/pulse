@@ -1,30 +1,22 @@
 package com.pulse.android.sdk.replay
 
 import android.content.Context
-import android.view.MotionEvent
 import android.view.View
 import android.view.Window
-import com.pulse.android.sdk.replay.events.ReplayEvent
-import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
-import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionEvent
-import com.pulse.android.sdk.replay.events.ReplayMouseInteraction
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.ScreenSizeInfo
 import com.pulse.android.sdk.replay.internal.capture.MaskRectCache
 import com.pulse.android.sdk.replay.internal.capture.ScreenshotCapture
 import com.pulse.android.sdk.replay.internal.capture.WireframeCapture
 import com.pulse.android.sdk.replay.internal.pipeline.SnapshotPipeline
-import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener.Companion.onNextDraw
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
 import com.pulse.android.sdk.replay.internal.scheduling.isAliveAndAttachedToWindow
 import com.pulse.android.sdk.replay.internal.util.DefaultDateProvider
 import curtains.Curtains
 import curtains.OnRootViewsChangedListener
-import curtains.TouchEventInterceptor
 import curtains.onDecorViewReady
 import curtains.phoneWindow
-import curtains.touchEventInterceptors
 import curtains.windowAttachCount
 import java.lang.ref.WeakReference
 import java.util.Collections
@@ -90,52 +82,8 @@ public class SessionReplayIntegration(
                 if (added) {
                     if (view.windowAttachCount == 0 || !hasDecorView) {
                         window.onDecorViewReady { decorView ->
-                            try {
-                                val viewMaskCache = MaskRectCache(config, logger)
-                                viewMaskCache.registerListeners(decorView)
-                                val listener =
-                                    decorView.onNextDraw(
-                                        mainHandler,
-                                        dateProvider,
-                                        config.effectiveThrottleDelayMs,
-                                        ::onDrawCallback,
-                                    ) {
-                                        if (!isActive()) return@onNextDraw
-                                        decorView.post {
-                                            try {
-                                                if (!isActive()) return@post
-                                                val countAtCollection = drawCounter.get()
-                                                viewMaskCache.collectIfNeeded(
-                                                    decorView,
-                                                    onDrawCalled = { drawCounter.get() != countAtCollection },
-                                                )
-                                                val snapshotMasks = ArrayList(viewMaskCache.rects)
-                                                val snapshotMasksValid = viewMaskCache.valid
-                                                executor.submit {
-                                                    try {
-                                                        generateSnapshot(
-                                                            WeakReference(decorView),
-                                                            WeakReference(window),
-                                                            snapshotMasks,
-                                                            snapshotMasksValid,
-                                                            countAtCollection,
-                                                        )
-                                                    } catch (e: Throwable) {
-                                                        logger("Session Replay generateSnapshot failed: $e")
-                                                    }
-                                                }
-                                            } catch (e: Throwable) {
-                                                logger("Session Replay mask collection failed: $e")
-                                            }
-                                        }
-                                    }
-                                decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
-                            } catch (e: Throwable) {
-                                logger("Session Replay onDecorViewReady failed: $e")
-                            }
+                            setupDecorViewCapture(decorView, window)
                         }
-                        // Touch/mouse events disabled for now
-                        // window.touchEventInterceptors += onTouchEventListener
                     }
                     Unit
                 } else {
@@ -151,69 +99,59 @@ public class SessionReplayIntegration(
         }
     }
 
+    private fun setupDecorViewCapture(
+        decorView: View,
+        window: Window,
+    ) {
+        try {
+            val viewMaskCache = MaskRectCache(config, logger)
+            viewMaskCache.registerListeners(decorView)
+            val listener =
+                decorView.onNextDraw(
+                    mainHandler,
+                    dateProvider,
+                    config.effectiveThrottleDelayMs,
+                    ::onDrawCallback,
+                ) {
+                    if (!isActive()) return@onNextDraw
+                    decorView.post {
+                        try {
+                            if (!isActive()) return@post
+                            val countAtCollection = drawCounter.get()
+                            viewMaskCache.collectIfNeeded(
+                                decorView,
+                                onDrawCalled = { drawCounter.get() != countAtCollection },
+                            )
+                            val snapshotMasks = ArrayList(viewMaskCache.rects)
+                            val isSnapshotMasksValid = viewMaskCache.isValid
+                            executor.submit {
+                                try {
+                                    generateSnapshot(
+                                        WeakReference(decorView),
+                                        WeakReference(window),
+                                        snapshotMasks,
+                                        isSnapshotMasksValid,
+                                        countAtCollection,
+                                    )
+                                } catch (e: Throwable) {
+                                    logger("Session Replay generateSnapshot failed: $e")
+                                }
+                            }
+                        } catch (e: Throwable) {
+                            logger("Session Replay mask collection failed: $e")
+                        }
+                    }
+                }
+            decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
+        } catch (e: Throwable) {
+            logger("Session Replay onDecorViewReady failed: $e")
+        }
+    }
+
     private val onRootViewsChangedListener =
         OnRootViewsChangedListener { view, added ->
             addView(view, added)
         }
-
-    /** Used when touch/mouse capture is re-enabled (see commented registration in addView). */
-    private val onTouchEventListener =
-        TouchEventInterceptor { motionEvent, dispatch ->
-            val timestamp = dateProvider.currentTimeMillis()
-            try {
-                val state = dispatch(motionEvent)
-                try {
-                    val safeMotionEvent = MotionEvent.obtain(motionEvent)
-                    executor.submit {
-                        try {
-                            if (!isActive()) return@submit
-                            when (safeMotionEvent.action and MotionEvent.ACTION_MASK) {
-                                MotionEvent.ACTION_DOWN ->
-                                    generateMouseInteractions(timestamp, safeMotionEvent, ReplayMouseInteraction.TouchStart)
-                                MotionEvent.ACTION_UP ->
-                                    generateMouseInteractions(timestamp, safeMotionEvent, ReplayMouseInteraction.TouchEnd)
-                            }
-                        } catch (e: Throwable) {
-                            logger("Executor#OnTouchEventListener $safeMotionEvent failed: $e")
-                        } finally {
-                            safeMotionEvent.recycle()
-                        }
-                    }
-                    state
-                } catch (_: Throwable) {
-                    state
-                }
-            } catch (e: Throwable) {
-                logger("TouchEventInterceptor $motionEvent failed: $e")
-                throw e
-            }
-        }
-
-    private fun generateMouseInteractions(
-        timestamp: Long,
-        motionEvent: MotionEvent,
-        type: ReplayMouseInteraction,
-    ) {
-        val events = mutableListOf<ReplayEvent>()
-        for (index in 0 until motionEvent.pointerCount) {
-            try {
-                val id = motionEvent.getPointerId(index)
-                val absX = (motionEvent.getRawXCompat(index).toInt() / displayMetrics.density).toInt()
-                val absY = (motionEvent.getRawYCompat(index).toInt() / displayMetrics.density).toInt()
-                val data = ReplayIncrementalMouseInteractionData(id = id, type = type, x = absX, y = absY)
-                events.add(ReplayIncrementalMouseInteractionEvent(data, timestamp))
-            } catch (e: Throwable) {
-                logger("Reading MotionEvent pointers failed: $e")
-            }
-        }
-        if (events.isNotEmpty()) eventEmitter.emit(requireSessionId(), events)
-    }
-
-    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
-    private fun MotionEvent.getRawXCompat(index: Int): Float = if (index < 0 || index >= pointerCount) rawX else getRawX(index)
-
-    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
-    private fun MotionEvent.getRawYCompat(index: Int): Float = if (index < 0 || index >= pointerCount) rawY else getRawY(index)
 
     private fun clearViewListeners(
         view: View,
@@ -247,12 +185,12 @@ public class SessionReplayIntegration(
         drawCountAtCollection: Long,
     ) {
         val view = viewRef.get() ?: return
-        val status = decorViews[view] ?: return
+        if (view !in decorViews) return
         val window = windowRef.get() ?: return
 
         val timestamp = dateProvider.currentTimeMillis()
 
-        if (config.screenshot) {
+        if (config.isScreenshot) {
             ScreenshotCapture.captureAsync(
                 window = window,
                 view = view,
@@ -298,12 +236,10 @@ public class SessionReplayIntegration(
             SnapshotPipeline.generateEvents(
                 wireframe = wireframeOrNull,
                 status = status,
-                config = config,
                 timestamp = timestamp,
                 view = view,
                 screenWidth = screenWidth,
                 screenHeight = screenHeight,
-                dateProvider = dateProvider,
             )
 
         if (events.isNotEmpty()) {
@@ -314,9 +250,9 @@ public class SessionReplayIntegration(
     }
 
     private fun resetViewSnapshotStates(status: ViewTreeSnapshotStatus) {
-        status.sentFullSnapshot = false
-        status.sentMetaEvent = false
-        status.keyboardVisible = false
+        status.hasSentFullSnapshot = false
+        status.hasSentMetaEvent = false
+        status.isKeyboardVisible = false
         status.lastSnapshot = null
         status.maskRectCache.clear()
     }

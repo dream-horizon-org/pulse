@@ -1,10 +1,6 @@
 package com.pulse.android.sdk.replay.internal.pipeline
 
 import android.view.View
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import com.pulse.android.sdk.replay.SessionReplayConfig
-import com.pulse.android.sdk.replay.events.ReplayCustomEvent
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayFullSnapshotEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
@@ -14,7 +10,6 @@ import com.pulse.android.sdk.replay.events.ReplayMutatedNode
 import com.pulse.android.sdk.replay.events.ReplayRemovedNode
 import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
-import com.pulse.android.sdk.replay.internal.util.DateProvider
 
 /**
  * Builds replay events from a captured wireframe and current status; computes full vs incremental.
@@ -23,22 +18,20 @@ internal object SnapshotPipeline {
     fun generateEvents(
         wireframe: ReplayWireframe,
         status: ViewTreeSnapshotStatus,
-        config: SessionReplayConfig,
         timestamp: Long,
         view: View,
         screenWidth: Int,
         screenHeight: Int,
-        dateProvider: DateProvider,
     ): List<ReplayEvent> {
         val events = mutableListOf<ReplayEvent>()
 
-        if (!status.sentMetaEvent) {
+        if (!status.hasSentMetaEvent) {
             val title = view.getScreenTitle()
             events.add(ReplayMetaEvent(screenWidth, screenHeight, timestamp, title))
-            status.sentMetaEvent = true
+            status.hasSentMetaEvent = true
         }
 
-        if (!status.sentFullSnapshot) {
+        if (!status.hasSentFullSnapshot) {
             events.add(
                 ReplayFullSnapshotEvent(
                     wireframes = listOf(wireframe),
@@ -47,7 +40,7 @@ internal object SnapshotPipeline {
                     timestamp = timestamp,
                 ),
             )
-            status.sentFullSnapshot = true
+            status.hasSentFullSnapshot = true
         } else {
             val lastSnapshot = status.lastSnapshot
             val lastList = if (lastSnapshot != null) listOf(lastSnapshot) else emptyList()
@@ -69,30 +62,7 @@ internal object SnapshotPipeline {
             }
         }
 
-        // Custom events (e.g. keyboard) disabled for now
-        // val (keyboardVisible, keyboardEvent) = detectKeyboardVisibility(view, status.keyboardVisible, timestamp)
-        // status.keyboardVisible = keyboardVisible
-        // keyboardEvent?.let { events.add(it) }
-
         return events
-    }
-
-    private fun detectKeyboardVisibility(
-        view: View,
-        currentVisible: Boolean,
-        timestamp: Long,
-    ): Pair<Boolean, ReplayCustomEvent?> {
-        val insets = ViewCompat.getRootWindowInsets(view) ?: return Pair(currentVisible, null)
-        val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-        if (currentVisible == imeVisible) return Pair(currentVisible, null)
-        val payload = mutableMapOf<String, Any>()
-        if (imeVisible) {
-            payload["open"] = true
-            payload["height"] = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-        } else {
-            payload["open"] = false
-        }
-        return Pair(imeVisible, ReplayCustomEvent("keyboard", payload, timestamp))
     }
 
     private fun List<ReplayWireframe>.flattenChildren(): List<ReplayWireframe> {
@@ -116,12 +86,22 @@ internal object SnapshotPipeline {
         val removed = oldItems.filter { it.id !in newIds }
         val updated = mutableListOf<ReplayWireframe>()
         for (id in oldIds intersect newIds) {
-            val oldItem = oldMap[id]?.copy(childWireframes = null) ?: continue
-            val newItem = newMap[id]?.copy(childWireframes = null) ?: continue
-            if (oldItem != newItem) updated.add(newMap[id]!!)
+            val oldRaw = oldMap[id]
+            val newRaw = newMap[id]
+            if (oldRaw != null && newRaw != null) {
+                val oldItem = oldRaw.copy(childWireframes = null)
+                val newItem = newRaw.copy(childWireframes = null)
+                if (oldItem != newItem) {
+                    updated.add(newRaw)
+                }
+            }
         }
         return Triple(added, removed, updated)
     }
 
-    private fun View.getScreenTitle(): String = (context as? android.app.Activity)?.title?.toString()?.substringAfter("/") ?: ""
+    private fun View.getScreenTitle(): String =
+        (context as? android.app.Activity)
+            ?.run {
+                title?.run { toString().substringAfter("/") }
+            }.orEmpty()
 }

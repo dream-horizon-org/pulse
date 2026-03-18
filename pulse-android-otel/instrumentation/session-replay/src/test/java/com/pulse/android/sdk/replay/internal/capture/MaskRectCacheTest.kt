@@ -30,7 +30,7 @@ class MaskRectCacheTest {
     @Test
     fun `rects is empty and valid is false initially`() {
         assertThat(cache.rects).isEmpty()
-        assertThat(cache.valid).isFalse
+        assertThat(cache.isValid).isFalse
     }
 
     @Test
@@ -46,7 +46,7 @@ class MaskRectCacheTest {
     fun `clear resets rects to empty valid to false and dirty to true`() {
         cache.clear()
         assertThat(cache.rects).isEmpty()
-        assertThat(cache.valid).isFalse
+        assertThat(cache.isValid).isFalse
         assertThat(cache.isDirty()).isTrue
     }
 

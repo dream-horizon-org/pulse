@@ -9,7 +9,7 @@ public class ReplayFullSnapshotEvent(
     initialOffsetLeft: Int,
     timestamp: Long,
 ) : ReplayEvent(
-        type = ReplayEventType.FullSnapshot,
+        type = ReplayEventType.FULL_SNAPSHOT,
         timestamp = timestamp,
         data =
             ReplayFullSnapshotData(

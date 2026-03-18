@@ -27,7 +27,8 @@ public class LoggingReplayEventEmitter(
         if (Log.isLoggable(tag, minLogLevel)) {
             Log.println(minLogLevel, tag, "Emitted sessionId=$sessionId ${events.size} events: ${events.map { it.type.name }}")
             events.forEach { e ->
-                Log.println(minLogLevel, tag, "  ${e.type} @ ${e.timestamp} data=${e.data?.javaClass?.simpleName}")
+                val dataType = e.data?.run { javaClass.simpleName } ?: "null"
+                Log.println(minLogLevel, tag, "  ${e.type} @ ${e.timestamp} data=$dataType")
             }
         }
     }

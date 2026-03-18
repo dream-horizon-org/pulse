@@ -73,21 +73,24 @@ public class SessionReplayApiClient(
                     .build()
             okHttpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    val responseBody = response.body?.string()?.take(MAX_ERROR_BODY_LOG) ?: ""
-                    ReplayLog.e("Session replay API error: ${response.code} ${response.message}. Body: $responseBody")
+                    val responseBody = response.body.string().take(MAX_ERROR_BODY_LOG)
+                    val msg = response.message
+                    ReplayLog.logError("Session replay API error: ${response.code} $msg. Body: $responseBody")
                     if (body.length <= MAX_REQUEST_LOG) {
-                        ReplayLog.e("Request payload: $body")
+                        ReplayLog.logError("Request payload: $body")
                     } else {
-                        ReplayLog.e("Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...")
+                        ReplayLog.logError(
+                            "Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...",
+                        )
                     }
-                    throw HttpException(response.code, response.message, responseBody)
+                    throw HttpException(response.code, msg, responseBody)
                 }
             }
         }
 
     private class HttpException(
         val code: Int,
-        message: String?,
+        message: String,
         val responseBody: String = "",
     ) : IOException("HTTP $code: $message${if (responseBody.isNotEmpty()) " — $responseBody" else ""}")
 

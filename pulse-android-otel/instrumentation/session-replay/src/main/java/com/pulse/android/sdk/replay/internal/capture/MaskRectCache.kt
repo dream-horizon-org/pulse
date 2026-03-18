@@ -22,7 +22,7 @@ internal class MaskRectCache(
         private set
 
     @Volatile
-    var valid: Boolean = false
+    var isValid: Boolean = false
         private set
 
     private val dirty = AtomicBoolean(true)
@@ -51,7 +51,7 @@ internal class MaskRectCache(
         if (!dirty.getAndSet(false)) return false
 
         val collected = mutableListOf<Rect>()
-        val masksValid =
+        val areMasksValid =
             MaskingCollector.findMaskableWidgets(
                 view,
                 config,
@@ -60,7 +60,7 @@ internal class MaskRectCache(
                 logger = logger,
             )
         rects = collected
-        valid = masksValid
+        isValid = areMasksValid
         return true
     }
 
@@ -99,6 +99,6 @@ internal class MaskRectCache(
     fun clear() {
         dirty.set(true)
         rects = emptyList()
-        valid = false
+        isValid = false
     }
 }

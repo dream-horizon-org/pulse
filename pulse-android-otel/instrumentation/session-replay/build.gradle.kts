@@ -42,5 +42,6 @@ dependencies {
     testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
     testImplementation(libs.findLibrary("robolectric").get())
     testImplementation(libs.findLibrary("okhttp-mockwebserver").get())
-    testImplementation(libs.findLibrary("json").get())
+    implementation(libs.findLibrary("gson").get())
+    testImplementation(libs.findLibrary("gson").get())
 }

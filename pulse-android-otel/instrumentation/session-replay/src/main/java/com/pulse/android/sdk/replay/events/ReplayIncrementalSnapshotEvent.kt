@@ -7,7 +7,7 @@ public class ReplayIncrementalSnapshotEvent(
     mutationData: ReplayIncrementalMutationData,
     timestamp: Long,
 ) : ReplayEvent(
-        type = ReplayEventType.IncrementalSnapshot,
+        type = ReplayEventType.INCREMENTAL_SNAPSHOT,
         timestamp = timestamp,
         data = mutationData,
     )

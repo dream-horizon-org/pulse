@@ -39,24 +39,22 @@ class SnapshotPipelineTest {
     @Nested
     inner class FirstCall {
         @Test
-        fun `generates Meta and FullSnapshot when sentFullSnapshot and sentMetaEvent are false`() {
+        fun `generates Meta and FullSnapshot when hasSentFullSnapshot and hasSentMetaEvent are false`() {
             val wireframe = ReplayWireframe(id = 1, x = 0, y = 0, width = 100, height = 100)
             val events =
                 SnapshotPipeline.generateEvents(
                     wireframe = wireframe,
                     status = status,
-                    config = config,
                     timestamp = 1000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
             assertThat(events).hasSize(2)
-            assertThat(events[0].type).isEqualTo(ReplayEventType.Meta)
-            assertThat(events[1].type).isEqualTo(ReplayEventType.FullSnapshot)
-            assertThat(status.sentMetaEvent).isTrue
-            assertThat(status.sentFullSnapshot).isTrue
+            assertThat(events[0].type).isEqualTo(ReplayEventType.META)
+            assertThat(events[1].type).isEqualTo(ReplayEventType.FULL_SNAPSHOT)
+            assertThat(status.hasSentMetaEvent).isTrue
+            assertThat(status.hasSentFullSnapshot).isTrue
         }
 
         @Test
@@ -66,15 +64,13 @@ class SnapshotPipelineTest {
                 SnapshotPipeline.generateEvents(
                     wireframe = wireframe,
                     status = status,
-                    config = config,
                     timestamp = 1000L,
                     view = view,
                     screenWidth = 800,
                     screenHeight = 600,
-                    dateProvider = dateProvider,
                 )
-            val metaEvent = events.first { it.type == ReplayEventType.Meta }
-            val metaData = metaEvent.data as ReplayMetaData
+            val metaEvent = events.first { it.type == ReplayEventType.META }
+            val metaData = (metaEvent.data ?: error("meta event data is null")) as ReplayMetaData
             assertThat(metaData.width).isEqualTo(800)
             assertThat(metaData.height).isEqualTo(600)
         }
@@ -86,15 +82,13 @@ class SnapshotPipelineTest {
                 SnapshotPipeline.generateEvents(
                     wireframe = wireframe,
                     status = status,
-                    config = config,
                     timestamp = 1000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
-            val fullSnapshotEvent = events.first { it.type == ReplayEventType.FullSnapshot }
-            val fullData = fullSnapshotEvent.data as ReplayFullSnapshotData
+            val fullSnapshotEvent = events.first { it.type == ReplayEventType.FULL_SNAPSHOT }
+            val fullData = (fullSnapshotEvent.data ?: error("full snapshot event data is null")) as ReplayFullSnapshotData
             assertThat(fullData.wireframes).hasSize(1)
             assertThat(fullData.wireframes[0].id).isEqualTo(42)
             assertThat(fullData.wireframes[0].width).isEqualTo(200)
@@ -105,21 +99,19 @@ class SnapshotPipelineTest {
     @Nested
     inner class SecondCall {
         @Test
-        fun `generates empty list when same wireframe and sentFullSnapshot is true`() {
+        fun `generates empty list when same wireframe and hasSentFullSnapshot is true`() {
             val wireframe = ReplayWireframe(id = 1, x = 0, y = 0, width = 100, height = 100)
-            status.sentFullSnapshot = true
-            status.sentMetaEvent = true
+            status.hasSentFullSnapshot = true
+            status.hasSentMetaEvent = true
             status.lastSnapshot = wireframe
             val events =
                 SnapshotPipeline.generateEvents(
                     wireframe = wireframe,
                     status = status,
-                    config = config,
                     timestamp = 2000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
             assertThat(events).isEmpty()
         }
@@ -137,22 +129,20 @@ class SnapshotPipelineTest {
                     height = 150,
                     childWireframes = listOf(newChild),
                 )
-            status.sentFullSnapshot = true
-            status.sentMetaEvent = true
+            status.hasSentFullSnapshot = true
+            status.hasSentMetaEvent = true
             status.lastSnapshot = oldWireframe
             val events =
                 SnapshotPipeline.generateEvents(
                     wireframe = newWireframe,
                     status = status,
-                    config = config,
                     timestamp = 2000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
             assertThat(events).hasSize(1)
-            assertThat(events[0].type).isEqualTo(ReplayEventType.IncrementalSnapshot)
+            assertThat(events[0].type).isEqualTo(ReplayEventType.INCREMENTAL_SNAPSHOT)
         }
 
         @Test
@@ -168,22 +158,20 @@ class SnapshotPipelineTest {
                     childWireframes = listOf(oldChild),
                 )
             val newWireframe = ReplayWireframe(id = 1, x = 0, y = 0, width = 100, height = 100)
-            status.sentFullSnapshot = true
-            status.sentMetaEvent = true
+            status.hasSentFullSnapshot = true
+            status.hasSentMetaEvent = true
             status.lastSnapshot = oldWireframe
             val events =
                 SnapshotPipeline.generateEvents(
                     wireframe = newWireframe,
                     status = status,
-                    config = config,
                     timestamp = 2000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
             assertThat(events).hasSize(1)
-            assertThat(events[0].type).isEqualTo(ReplayEventType.IncrementalSnapshot)
+            assertThat(events[0].type).isEqualTo(ReplayEventType.INCREMENTAL_SNAPSHOT)
         }
 
         @Test
@@ -206,42 +194,38 @@ class SnapshotPipelineTest {
                     height = 100,
                     text = "new",
                 )
-            status.sentFullSnapshot = true
-            status.sentMetaEvent = true
+            status.hasSentFullSnapshot = true
+            status.hasSentMetaEvent = true
             status.lastSnapshot = oldWireframe
             val events =
                 SnapshotPipeline.generateEvents(
                     wireframe = newWireframe,
                     status = status,
-                    config = config,
                     timestamp = 2000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
             assertThat(events).hasSize(1)
-            assertThat(events[0].type).isEqualTo(ReplayEventType.IncrementalSnapshot)
+            assertThat(events[0].type).isEqualTo(ReplayEventType.INCREMENTAL_SNAPSHOT)
         }
 
         @Test
-        fun `no Meta event when sentMetaEvent is already true`() {
+        fun `no Meta event when hasSentMetaEvent is already true`() {
             val wireframe = ReplayWireframe(id = 1, x = 0, y = 0, width = 100, height = 100)
-            status.sentFullSnapshot = true
-            status.sentMetaEvent = true
+            status.hasSentFullSnapshot = true
+            status.hasSentMetaEvent = true
             status.lastSnapshot = wireframe
             val events =
                 SnapshotPipeline.generateEvents(
                     wireframe = wireframe,
                     status = status,
-                    config = config,
                     timestamp = 2000L,
                     view = view,
                     screenWidth = 1080,
                     screenHeight = 1920,
-                    dateProvider = dateProvider,
                 )
-            assertThat(events).noneMatch { it.type == ReplayEventType.Meta }
+            assertThat(events).noneMatch { it.type == ReplayEventType.META }
         }
     }
 }

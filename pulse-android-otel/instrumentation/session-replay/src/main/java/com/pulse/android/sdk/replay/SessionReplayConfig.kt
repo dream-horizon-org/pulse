@@ -18,14 +18,14 @@ import android.graphics.drawable.Drawable
  *
  * **Client-only params** (set via the `sessionReplay { }` DSL in app code):
  * @param drawableConverter Optional: convert custom Drawables to Bitmap for wireframe mode.
- * @param captureLogcat If true, capture logcat as console events.
+ * @param isCaptureLogcat If true, capture logcat as console events.
  * @param maskViewClasses Fully-qualified class names whose instances (and subclasses) are always masked.
  * @param unmaskViewClasses Fully-qualified class names whose instances (and subclasses) are never masked by global config.
  */
 public data class SessionReplayConfig(
     val textAndInputPrivacy: TextAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
     val imagePrivacy: ImagePrivacy = ImagePrivacy.MASK_ALL,
-    val captureLogcat: Boolean = false,
+    val isCaptureLogcat: Boolean = false,
     val throttleDelayMs: Long = 1000L,
     val drawableConverter: DrawableConverter? = null,
     val screenshotScale: Float = 1f,
@@ -38,7 +38,7 @@ public data class SessionReplayConfig(
     val unmaskViewClasses: Set<String> = emptySet(),
 ) {
     /** Screenshot capture is always enabled (PixelCopy mode). */
-    val screenshot: Boolean = true
+    val isScreenshot: Boolean = true
 
     /** Scale factor clamped to valid range. */
     val effectiveScreenshotScale: Float get() = screenshotScale.coerceIn(0.01f, 1f)

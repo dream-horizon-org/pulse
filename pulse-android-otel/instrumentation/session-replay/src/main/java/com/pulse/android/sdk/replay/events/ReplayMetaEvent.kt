@@ -9,7 +9,7 @@ public class ReplayMetaEvent(
     timestamp: Long,
     href: String,
 ) : ReplayEvent(
-        type = ReplayEventType.Meta,
+        type = ReplayEventType.META,
         timestamp = timestamp,
         data = ReplayMetaData(href = href, width = width, height = height),
     )

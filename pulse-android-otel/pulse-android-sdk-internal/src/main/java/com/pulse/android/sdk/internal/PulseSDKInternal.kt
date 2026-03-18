@@ -17,6 +17,7 @@ import com.pulse.android.sdk.replay.SessionReplayRegistry
 import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
+import com.pulse.sampling.models.PulseFeatureConfigData
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseProp
 import com.pulse.sampling.models.PulseSdkConfig
@@ -417,19 +418,15 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         val base = localConfig ?: SessionReplayConfig()
 
-        val featureConfig =
-            backendFeature.config?.let { jsonObj ->
-                runCatching {
-                    PulseSerialisationUtils.jsonConfigForSerialisation
-                        .decodeFromJsonElement(PulseSessionReplayFeatureConfig.serializer(), jsonObj)
-                }.onFailure {
-                    PulseOtelUtils.logDebug(TAG) { "Failed to parse session_replay feature config: ${it.message.orEmpty()}" }
-                }.getOrNull()
+        val featureConfig = backendFeature.config as? PulseFeatureConfigData.SessionReplay
+        if (featureConfig == null) {
+            PulseOtelUtils.logDebug(TAG) {
+                "Session replay config missing or failed to parse (config type=${backendFeature.config?.javaClass?.simpleName}), using base with endpointBaseUrl fallback"
             }
+            return base.copy(replayApiBaseUrl = base.replayApiBaseUrl ?: endpointBaseUrl)
+        }
 
-        if (featureConfig == null) return base
-
-        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config" }
+        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=${featureConfig.replayApiBaseUrl})" }
 
         val resolvedTextPrivacy =
             featureConfig.textAndInputPrivacy?.let { value ->

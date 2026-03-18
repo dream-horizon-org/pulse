@@ -74,26 +74,35 @@ internal object MaskingCollector {
         val classDecision = view.resolveClassDecision(config)
 
         val effectiveDecision = if (instanceDecision != MaskDecision.UNDECIDED) instanceDecision else classDecision
-        var forceMaskChildren = parentForcedMask
+        var shouldForceMaskChildren = parentForcedMask
 
         when {
             effectiveDecision == MaskDecision.UNMASK -> {
-                forceMaskChildren = false
+                shouldForceMaskChildren = false
             }
             effectiveDecision == MaskDecision.MASK -> {
                 view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
-                forceMaskChildren = true
+                shouldForceMaskChildren = true
             }
             parentForcedMask -> {
                 view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
-                forceMaskChildren = true
+                shouldForceMaskChildren = true
             }
             else -> {
                 applyTypeSpecificMasking(view, config, maskableWidgets, screenToWindowOffset, logger)
             }
         }
 
-        return walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, forceMaskChildren, screenToWindowOffset)
+        return walkChildren(
+            view = view,
+            config = config,
+            maskableWidgets = maskableWidgets,
+            visitedViews = visitedViews,
+            onDrawCalled = onDrawCalled,
+            logger = logger,
+            parentForcedMask = shouldForceMaskChildren,
+            screenToWindowOffset = screenToWindowOffset,
+        )
     }
 
     private fun walkChildren(
@@ -108,27 +117,51 @@ internal object MaskingCollector {
     ): Boolean {
         if (view !is ViewGroup || view.isEmpty()) return true
         for (i in 0 until view.childCount) {
-            if (onDrawCalled()) {
-                logger("Session Replay screenshot discarded due to screen changes")
-                return false
-            }
-            val child = view.getChildAt(i) ?: continue
-            if (!child.isVisible(logger)) continue
-            if (!findMaskableWidgets(
-                    child,
-                    config,
-                    maskableWidgets,
-                    visitedViews,
-                    onDrawCalled,
-                    logger,
-                    parentForcedMask,
-                    screenToWindowOffset,
+            if (!walkSingleChild(
+                    parent = view,
+                    index = i,
+                    config = config,
+                    maskableWidgets = maskableWidgets,
+                    visitedViews = visitedViews,
+                    onDrawCalled = onDrawCalled,
+                    logger = logger,
+                    parentForcedMask = parentForcedMask,
+                    screenToWindowOffset = screenToWindowOffset,
                 )
             ) {
                 return false
             }
         }
         return true
+    }
+
+    private fun walkSingleChild(
+        parent: ViewGroup,
+        index: Int,
+        config: SessionReplayConfig,
+        maskableWidgets: MutableList<Rect>,
+        visitedViews: MutableSet<Int>,
+        onDrawCalled: () -> Boolean,
+        logger: (String) -> Unit,
+        parentForcedMask: Boolean,
+        screenToWindowOffset: IntArray,
+    ): Boolean {
+        if (onDrawCalled()) {
+            logger("Session Replay screenshot discarded due to screen changes")
+            return false
+        }
+        val child = parent.getChildAt(index) ?: return true
+        if (!child.isVisible(logger)) return true
+        return findMaskableWidgets(
+            view = child,
+            config = config,
+            maskableWidgets = maskableWidgets,
+            visitedViews = visitedViews,
+            onDrawCalled = onDrawCalled,
+            logger = logger,
+            parentForcedMask = parentForcedMask,
+            screenToWindowOffset = screenToWindowOffset,
+        )
     }
 
     // --- Per-view instance decision (priority 1) ---
@@ -143,7 +176,7 @@ internal object MaskingCollector {
             if (tagStr.contains(MASK_TAG)) return MaskDecision.MASK
         }
 
-        val cd = contentDescription?.toString()?.lowercase()
+        val cd = contentDescription?.run { toString().lowercase() }
         if (cd != null) {
             if (cd.contains(UNMASK_TAG)) return MaskDecision.UNMASK
             if (cd.contains(MASK_TAG)) return MaskDecision.MASK
@@ -231,10 +264,14 @@ internal object MaskingCollector {
     ): Boolean {
         if (isPasswordInputType(view.inputType)) return true
         return when (config.textAndInputPrivacy) {
-            TextAndInputPrivacy.MASK_ALL -> true
-            TextAndInputPrivacy.MASK_ALL_INPUTS -> false
+            TextAndInputPrivacy.MASK_ALL -> {
+                true
+            }
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> {
+                false
+            }
             TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> {
-                val hasContent = !view.text.isNullOrEmpty() || !view.hint.isNullOrEmpty()
+                val hasContent = !view.text.isNullOrBlank() || !view.hint.isNullOrBlank()
                 hasContent && isSensitiveInputType(view.inputType)
             }
         }

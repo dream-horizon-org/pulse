@@ -25,16 +25,16 @@ public class SessionReplayConfiguration {
         unmaskViewClassesMutable.add(className)
     }
 
-    internal var configured: Boolean = false
+    internal var isConfigured: Boolean = false
         private set
 
     /** SDK-internal: called when the user invokes `sessionReplay { }` in the instrumentations block. */
     public fun markConfigured() {
-        configured = true
+        isConfigured = true
     }
 
     /** SDK-internal: returns the built [SessionReplayConfig] if [markConfigured] was called; null otherwise. */
-    public fun getConfigIfConfigured(): SessionReplayConfig? = if (configured) build() else null
+    public fun getConfigIfConfigured(): SessionReplayConfig? = if (isConfigured) build() else null
 
     private fun build(): SessionReplayConfig =
         SessionReplayConfig(

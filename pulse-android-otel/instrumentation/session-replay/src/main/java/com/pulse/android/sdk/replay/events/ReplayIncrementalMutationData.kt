@@ -7,5 +7,5 @@ public data class ReplayIncrementalMutationData(
     public val adds: List<ReplayMutatedNode>? = null,
     public val removes: List<ReplayRemovedNode>? = null,
     public val updates: List<ReplayMutatedNode>? = null,
-    public val source: ReplayIncrementalSource = ReplayIncrementalSource.Mutation,
+    public val source: ReplayIncrementalSource = ReplayIncrementalSource.MUTATION,
 ) : ReplayEventData
