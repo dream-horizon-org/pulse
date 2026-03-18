@@ -1,6 +1,7 @@
 import { Box, Card, Stack, Table, Text, Title } from "@mantine/core";
 import ReactECharts from "echarts-for-react";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import type {
   RcaReportChartBlock,
@@ -145,7 +146,10 @@ export const RcaReportView = ({
         {hasMarkdown && (
           <Card withBorder padding="md" className={classes.segmentCard}>
             <div className={classes.markdownBlock}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+              >
                 {report.markdown ?? ""}
               </ReactMarkdown>
             </div>

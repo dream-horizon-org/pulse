@@ -1,5 +1,6 @@
 .container {
   padding: var(--mantine-spacing-md) 0;
+  margin: var(--mantine-spacing-md);
 }
 
 .skeletonWrapper {
