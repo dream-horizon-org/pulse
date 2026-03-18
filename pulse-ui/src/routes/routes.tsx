@@ -32,6 +32,7 @@ import { SessionReplay } from "../screens/SessionReplay";
 import { SessionReplayInsights } from "../screens/SessionReplayInsights";
 import { SessionReplaySessions } from "../screens/SessionReplaySessions";
 import { SessionReplayDetail } from "../screens/SessionReplayDetail";
+import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 
 export const ROUTES = {
@@ -186,6 +187,10 @@ export const ROUTES = {
     element: SessionReplay,
   },
 
+  SUPPORT_QUERIES: {
+    ...ROUTE_PATHS.SUPPORT_QUERIES,
+    element: SupportQueries,
+  },
   SESSION_REPLAY: {
     ...ROUTE_PATHS.SESSION_REPLAY,
     element: SessionReplay,
