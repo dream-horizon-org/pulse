@@ -292,7 +292,7 @@ export async function loadSnapshotsForTime(
     );
   }
 
-  const events = await fetchBlobRange(sessionId, startBlobKey, endBlobKey);
+  await fetchBlobRange(sessionId, startBlobKey, endBlobKey);
   const newLoaded = new Set(loadedRanges);
   newLoaded.add(rangeKey);
 

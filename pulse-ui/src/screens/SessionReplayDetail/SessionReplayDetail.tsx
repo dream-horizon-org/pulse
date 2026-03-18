@@ -15,7 +15,6 @@ import { SessionHeader } from "./components/SessionHeader";
 import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
-import { SessionTimelineSection } from "./components/SessionTimelineSection";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
@@ -37,7 +36,7 @@ export const SessionReplayDetail: React.FC = () => {
     "text",
   );
 
-  const [activePersona, setActivePersona] = useState<PersonaType>("all");
+  const [activePersona] = useState<PersonaType>("all");
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -46,7 +45,7 @@ export const SessionReplayDetail: React.FC = () => {
   const {
     data: apiSessionData,
     isLoading: sessionLoading,
-    isError: sessionError,
+    isError: _sessionError,
   } = useSessionDetail({
     sessionId: sessionId ?? undefined,
     includeEvents: true,
@@ -65,7 +64,7 @@ export const SessionReplayDetail: React.FC = () => {
   const {
     images: snapshotImages,
     loading: snapshotLoading,
-    error: snapshotError,
+    error: _snapshotError,
     snapshotDurationMs,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
@@ -79,14 +78,13 @@ export const SessionReplayDetail: React.FC = () => {
   const effectiveDuration =
     snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
 
-  const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
-    useMemo(() => {
-      return transformToFlameChart(
-        sessionData.traces,
-        sessionData.logs,
-        sessionData.exceptions,
-      );
-    }, [sessionData]);
+  useMemo(() => {
+    return transformToFlameChart(
+      sessionData.traces,
+      sessionData.logs,
+      sessionData.exceptions,
+    );
+  }, [sessionData]);
 
   const handleBack = () => {
     const projectMatch = pathname.match(/^\/projects\/([^/]+)/);

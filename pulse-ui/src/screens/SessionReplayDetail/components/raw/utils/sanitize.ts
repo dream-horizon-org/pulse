@@ -38,6 +38,8 @@ export function sanitizeDisplayText(
   maxLength: number = MAX_DISPLAY_LENGTH,
 ): string {
   if (text == null || typeof text !== "string") return "";
+  // Intentionally strip control characters (ASCII 0-31, 127) for safe display
+  // eslint-disable-next-line no-control-regex
   const trimmed = text.replace(/[\x00-\x1f\x7f]/g, "").trim();
   return trimmed.length > maxLength
     ? `${trimmed.slice(0, maxLength)}…`

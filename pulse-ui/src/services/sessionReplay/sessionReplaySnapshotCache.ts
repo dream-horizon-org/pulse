@@ -39,10 +39,6 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-function getRangeKey(startBlobKey: string, endBlobKey: string): string {
-  return `${startBlobKey}-${endBlobKey}`;
-}
-
 /**
  * Mark session as accessed (for TTL). Call when user opens or views a session.
  */

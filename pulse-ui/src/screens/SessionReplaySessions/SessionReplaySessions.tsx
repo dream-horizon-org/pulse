@@ -84,8 +84,7 @@ export function SessionReplaySessions() {
       });
     }
   }, [
-    interactionField?.fieldKey,
-    interactionField?.categoryKey,
+    interactionField,
     filterState.drillDown.type,
     filterState.drillDown.value,
     filterState.advancedFilters?.conditions,
