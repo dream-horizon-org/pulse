@@ -918,16 +918,19 @@ export class MockResponseGenerator {
       const tenant =
         this.dataStore.getCurrentTenant() ??
         this.dataStore.getDefaultMockTenant();
-      const firstActiveProject = tenant.projects.find((p) => p.isActive);
-      const redirectTo = firstActiveProject
-        ? `/projects/${firstActiveProject.projectId}`
-        : `/${tenant.tenantId}/projects`;
+      const { projects } = tenant;
+      let redirectTo: string | null = null;
+      if (projects.length === 1) {
+        redirectTo = `/projects/${projects[0].projectId}`;
+      } else if (projects.length > 1) {
+        redirectTo = "/project-selection";
+      }
 
       return {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects: tenant.projects,
+          projects,
           redirectTo,
         },
         status: 200,
