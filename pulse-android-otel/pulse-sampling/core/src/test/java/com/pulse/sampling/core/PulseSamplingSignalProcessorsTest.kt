@@ -16,6 +16,7 @@ import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.PulseSignalsToSampleEntry
 import com.pulse.sampling.models.SamplingRate
 import com.pulse.utils.createLogRecordData
+import com.pulse.utils.createMetricData
 import com.pulse.utils.createSpanData
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
@@ -38,6 +39,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.security.SecureRandom
 import java.util.Random
 
@@ -862,7 +865,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -894,7 +897,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = "exact_match_only",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -918,7 +921,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.LOGS),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledLogExporter = createSampledLogExporter(metricsToAdd)
@@ -952,7 +955,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -986,7 +989,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1024,7 +1027,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1048,7 +1051,7 @@ class PulseSamplingSignalProcessorsTest {
                                     scopes = setOf(PulseSignalScope.TRACES),
                                     sdks = setOf(PulseSdkName.ANDROID_RN),
                                 ),
-                            data = metricData,
+                            type = metricData,
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1100,7 +1103,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = metricData,
+                            type = metricData,
                             attributesToPick = attributesToPick,
                         ),
                     )
@@ -1143,7 +1146,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.LOGS),
                                 ),
-                            data = metricData,
+                            type = metricData,
                             attributesToPick = attributesToPick,
                         ),
                     )
@@ -1193,7 +1196,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = metricData,
+                                type = metricData,
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1231,7 +1234,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = metricData,
+                                type = metricData,
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1265,7 +1268,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = metricData,
+                                type = metricData,
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1303,7 +1306,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false, isMonotonic = true),
+                                type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false, isMonotonic = true),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1331,7 +1334,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false, isMonotonic = false),
+                                type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false, isMonotonic = false),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1364,7 +1367,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = metricData,
+                                type = metricData,
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1396,7 +1399,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = metricData,
+                                type = metricData,
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1420,7 +1423,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = true, isMonotonic = true),
+                                type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = true, isMonotonic = true),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1452,7 +1455,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = true, isMonotonic = false),
+                                type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = true, isMonotonic = false),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1490,7 +1493,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data =
+                                type =
                                     PulseSdkConfigFakeUtils.createFakeHistogram(
                                         bucket = listOf(1, 5.0, 10),
                                         isFraction = false,
@@ -1538,7 +1541,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data =
+                                type =
                                     PulseSdkConfigFakeUtils.createFakeHistogram(
                                         bucket = listOf(0.5, 2.0, 5.0),
                                         isFraction = true,
@@ -1582,7 +1585,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeHistogram(isFraction = true),
+                                type = PulseSdkConfigFakeUtils.createFakeHistogram(isFraction = true),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1628,13 +1631,55 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = false),
+                                type = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = false),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
                     sampledSpanExporter.export(listOf(createSpanData("42", emptyMap())))
                     meterProvider.forceFlush()
 
+                    val metrics = metricReader.collectAllMetrics().toList()
+                    assertThat(metrics).hasSize(1)
+                    assertThat(metrics[0].name).isEqualTo("span_gauge")
+                    OpenTelemetryAssertions
+                        .assertThat(metrics[0])
+                        .hasLongGaugeSatisfying { gauge ->
+                            gauge.hasPointsSatisfying(
+                                { pt: LongPointAssert ->
+                                    pt.hasValue(42L)
+                                },
+                            )
+                        }
+                }
+
+                @Test
+                fun `in span, records long gauge when condition matches and session sampling is off`() {
+                    val metricsToAdd =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                                name = "span_gauge",
+                                target = PulseMetricsToAddTarget.Name(type = "name"),
+                                condition =
+                                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                        name = ".*",
+                                        scopes = setOf(PulseSignalScope.TRACES),
+                                    ),
+                                type = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = false),
+                            ),
+                        )
+                    val config = PulseSdkConfigFakeUtils.createFakeConfig(metricsToAdd = metricsToAdd)
+                    val processors =
+                        createSamplingSignalProcessors(
+                            config = config,
+                            // session sampling is off
+                            sessionParser = PulseSessionParser.alwaysOff,
+                            meterProviderForMetricsToAdd = meterProvider,
+                        )
+                    val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+                    sampledSpanExporter.export(listOf(createSpanData("42", emptyMap())))
+                    meterProvider.forceFlush()
+
+                    assertThat(spanExporter.finishedSpanItems).isEmpty()
                     val metrics = metricReader.collectAllMetrics().toList()
                     assertThat(metrics).hasSize(1)
                     assertThat(metrics[0].name).isEqualTo("span_gauge")
@@ -1661,7 +1706,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.LOGS),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = false),
+                                type = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = false),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1687,7 +1732,7 @@ class PulseSamplingSignalProcessorsTest {
                                         name = ".*",
                                         scopes = setOf(PulseSignalScope.TRACES),
                                     ),
-                                data = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = true),
+                                type = PulseSdkConfigFakeUtils.createFakeGauge(isFraction = true),
                             ),
                         )
                     val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1736,7 +1781,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
+                            type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1773,7 +1818,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = ".*",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
+                            type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
                         ),
                     )
                 val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
@@ -1822,7 +1867,7 @@ class PulseSamplingSignalProcessorsTest {
                                     props = setOf(PulseSdkConfigFakeUtils.createFakeProp("enriched_key", ".*")),
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = PulseSdkConfigFakeUtils.createFakeCounter(),
+                            type = PulseSdkConfigFakeUtils.createFakeCounter(),
                         ),
                     )
                 val config =
@@ -1885,7 +1930,7 @@ class PulseSamplingSignalProcessorsTest {
                                     name = "api_span",
                                     scopes = setOf(PulseSignalScope.TRACES),
                                 ),
-                            data = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
+                            type = PulseSdkConfigFakeUtils.createFakeSum(isFraction = false),
                         ),
                     )
                 val config =
@@ -2108,7 +2153,7 @@ class PulseSamplingSignalProcessorsTest {
         }
 
         @Test
-        fun `in log, data is sent when session random value is equal to session sampling config`() {
+        fun `in log, data is sent when session random value is greater than session sampling config`() {
             val samplingRate = 0.501f
             val randomValue = 0.5f
             val config = PulseSdkConfigFakeUtils.createFakeConfig(sessionSampleRate = samplingRate)
@@ -2146,6 +2191,46 @@ class PulseSamplingSignalProcessorsTest {
             sampledLogExporter.export(listOf(testLog))
 
             assertThat(logExporter.finishedLogRecordItems).isEmpty()
+        }
+
+        @ParameterizedTest(name = "in metric, session sampling: rate={0}, random={1} -> exported {2}")
+        @CsvSource(
+            "0.501, 0.5, 1",
+            "0.5, 0.7, 0",
+        )
+        fun `in metric, data is sent or not sent per session random vs session sampling config`(
+            samplingRateStr: String,
+            randomValueStr: String,
+            expectedExportedCountStr: String,
+        ) {
+            val samplingRate = samplingRateStr.toFloat()
+            val randomValue = randomValueStr.toFloat()
+            val expectedExportedCount = expectedExportedCountStr.toInt()
+            val config =
+                PulseSdkConfigFakeUtils.createFakeConfig(
+                    sessionSampleRate = samplingRate,
+                    signalFilters =
+                        listOf(
+                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                                scopes = setOf(PulseSignalScope.METRICS),
+                            ),
+                        ),
+                )
+            val processors =
+                createSamplingSignalProcessors(
+                    config = config,
+                    sessionParser = PulseSessionParser { _, _, _ -> samplingRate },
+                    randomIdGenerator = createMockRandomGenerator(randomValue),
+                )
+            val exporter = processors.SampledMetricExporter(metricExporter)
+            val testSignal = createMetricData("test-signal", emptyMap())
+
+            exporter.export(listOf(testSignal))
+
+            assertThat(metricExporter.finishedMetricItems).hasSize(expectedExportedCount)
+            if (expectedExportedCount == 1) {
+                assertThat(metricExporter.finishedMetricItems[0].name).isEqualTo("test-signal")
+            }
         }
     }
 
@@ -2637,7 +2722,7 @@ class PulseSamplingSignalProcessorsTest {
         sessionParser: PulseSessionParser = PulseSessionParser.alwaysOn,
         randomIdGenerator: Random = SecureRandom(),
         currentSdkName: PulseSdkName = PulseSdkName.ANDROID_JAVA,
-        meterProviderForMetricsToAdd: SdkMeterProvider? = null,
+        meterProviderForMetricsToAdd: SdkMeterProvider = SdkMeterProvider.builder().build(),
     ): PulseSamplingSignalProcessors {
         val context = mockk<Context>()
         return PulseSamplingSignalProcessors(
@@ -2647,7 +2732,7 @@ class PulseSamplingSignalProcessorsTest {
             signalMatcher = signalMatcher,
             sessionParser = sessionParser,
             randomIdGenerator = randomIdGenerator,
-            meterProviderForMetricsToAdd = meterProviderForMetricsToAdd,
+            meterProviderLazy = lazy { meterProviderForMetricsToAdd },
         )
     }
 

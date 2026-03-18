@@ -25,13 +25,13 @@ import com.pulse.utils.filterNot
 import com.pulse.utils.matchesFromRegexCache
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
+import io.opentelemetry.api.metrics.MeterProvider
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.common.export.MemoryMode
 import io.opentelemetry.sdk.logs.data.LogRecordData
 import io.opentelemetry.sdk.logs.export.LogRecordExporter
 import io.opentelemetry.sdk.metrics.Aggregation
 import io.opentelemetry.sdk.metrics.InstrumentType
-import io.opentelemetry.sdk.metrics.SdkMeterProvider
 import io.opentelemetry.sdk.metrics.data.MetricData
 import io.opentelemetry.sdk.metrics.export.DefaultAggregationSelector
 import io.opentelemetry.sdk.metrics.export.MetricExporter
@@ -45,10 +45,10 @@ public class PulseSamplingSignalProcessors internal constructor(
     private val context: Context,
     private val sdkConfig: PulseSdkConfig,
     private val currentSdkName: PulseSdkName,
+    private val meterProviderLazy: Lazy<MeterProvider>,
     private val signalMatcher: PulseSignalMatcher = PulseSignalsAttrMatcher(),
     private val sessionParser: PulseSessionParser = PulseSessionConfigParser(),
     private val randomIdGenerator: Random = SecureRandom(),
-    private val meterProviderForMetricsToAdd: SdkMeterProvider? = null,
 ) {
     private fun getDroppedAttributesConfig(scope: PulseSignalScope): List<PulseAttributesToDropEntry> =
         sdkConfig
@@ -534,8 +534,7 @@ public class PulseSamplingSignalProcessors internal constructor(
     }
 
     private fun creatMeter(meterConfigEntry: PulseMetricsToAddEntry): DataRecorderFactory {
-        val meterProvider = meterProviderForMetricsToAdd ?: SdkMeterProvider.builder().build()
-        val meter = meterProvider.meterBuilder("com.pulse.signal.processors.metric").build()
+        val meter = meterProviderLazy.value.meterBuilder("$INSTRUMENTATION_NAME_PREFIX.metric").build()
         val recorderCache = mutableMapOf<String, DataRecorder>()
 
         return { metricName: String ->
@@ -677,20 +676,26 @@ public class PulseSamplingSignalProcessors internal constructor(
             CompletableResultCode.ofSuccess()
         }
     }
+
+    private companion object {
+        private const val INSTRUMENTATION_NAME_PREFIX = "com.pulse.signal.processors"
+    }
 }
 
 public fun PulseSamplingSignalProcessors(
     context: Context,
     sdkConfig: PulseSdkConfig,
     currentSdkName: PulseSdkName,
+    meterProviderLazy: Lazy<MeterProvider>,
 ): PulseSamplingSignalProcessors =
     PulseSamplingSignalProcessors(
-        context,
-        sdkConfig,
-        currentSdkName,
-        PulseSignalsAttrMatcher(),
-        PulseSessionConfigParser(),
-        SecureRandom(),
+        context = context,
+        sdkConfig = sdkConfig,
+        currentSdkName = currentSdkName,
+        meterProviderLazy = meterProviderLazy,
+        signalMatcher = PulseSignalsAttrMatcher(),
+        sessionParser = PulseSessionConfigParser(),
+        randomIdGenerator = SecureRandom(),
     )
 
 internal data class SignalMatchValues(

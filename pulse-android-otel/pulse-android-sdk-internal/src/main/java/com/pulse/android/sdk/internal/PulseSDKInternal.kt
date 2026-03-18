@@ -218,6 +218,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     context = application,
                     sdkConfig = currentSdkConfig,
                     currentSdkName = currentSdkName,
+                    meterProviderLazy = meterProviderLazy,
                 )
             }
         pulseSpanProcessor = PulseSdkSignalProcessors()
@@ -782,6 +783,13 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             .tracerBuilder("$SDK_INSTRUMENTATION_SCOPE.tracer")
             .build()
     }
+
+    private val meterProviderLazy =
+        lazy {
+            getOtelOrThrow()
+                .getOpenTelemetry()
+                .meterProvider
+        }
 
     private val sharedPrefsData by lazy {
         val application = application ?: throwSdkNotInitError()
