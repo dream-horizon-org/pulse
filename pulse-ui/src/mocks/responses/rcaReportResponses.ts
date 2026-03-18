@@ -49,7 +49,7 @@ export const buildMockRcaReportResponseBody = (
 
   const markdown = `## Top contributing segments
 
-### 1 Android + AppVersion 4.0.0
+### 1. Android + AppVersion 4.0.0
 
 | Metric | Value | Baseline | Delta |
 | :----- | :---- | :------- | :---- |
@@ -67,7 +67,7 @@ export const buildMockRcaReportResponseBody = (
 
 ---
 
-### 2 Android + AppVersion 4.0.0 + OsVersion 13
+### 2. Android + AppVersion 4.0.0 + OsVersion 13
 
 | Metric | Value | Baseline | Delta |
 | :----- | :---- | :------- | :---- |
@@ -85,7 +85,7 @@ export const buildMockRcaReportResponseBody = (
 
 ---
 
-### 3 iOS + AppVersion 4.2.0
+### 3. iOS + AppVersion 4.2.0
 
 | Metric | Value | Baseline | Delta |
 | :----- | :---- | :------- | :---- |
