@@ -509,7 +509,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                 )
             ) {
                 val pickedAttributes = buildAttributesFromPick(props, metricsToAddEntry.attributesToPick)
-                val baseMetricName = PulseOtelUtils.sanitizeMetricName(metricsToAddEntry.name)
+                val baseMetricName = PulseOtelUtils.sanitizeInstrumentationName(metricsToAddEntry.name)
                 when (val target = metricsToAddEntry.target) {
                     is PulseMetricsToAddTarget.Attribute -> {
                         props.forEach { key, value ->
