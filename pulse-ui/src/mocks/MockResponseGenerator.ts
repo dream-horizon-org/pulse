@@ -28,6 +28,7 @@ import {
   generateAiQueryResponse,
 } from "./responses/realtimeQueryResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
+import { resolveIncidentsMock } from "./incidentsMockHandler";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -171,6 +172,24 @@ export class MockResponseGenerator {
     // Tenant endpoints (GET /v1/tenants/:tenantId, members)
     if (pathname.includes("/v1/tenants")) {
       return this.handleTenantEndpoints(pathname, method, request);
+    }
+
+    // Support queries / incidents (exclude Slack webhook path)
+    if (
+      pathname.includes("/v1/incidents") &&
+      !pathname.includes("/v1/incidents/slack")
+    ) {
+      return this.handleIncidentsEndpoints(method, request);
+    }
+
+    // Contact us / contact support (Pricing — sales & support). High priority so
+    // no later /events or generic handlers swallow the request.
+    if (
+      method === "POST" &&
+      pathname.includes("notifications") &&
+      pathname.includes("contact-us")
+    ) {
+      return this.handleContactUsPost(request);
     }
 
     // Session Replay sessions/filters endpoint
@@ -538,37 +557,8 @@ export class MockResponseGenerator {
     method: string,
     request: MockRequest,
   ): MockResponse {
-    // POST /v1/notifications/contact-us
     if (pathname.includes("/notifications/contact-us") && method === "POST") {
-      const url = this.parseURL(request.url);
-      const eventType = url.searchParams.get("type");
-
-      // Validate event type
-      if (
-        !eventType ||
-        !["sales", "support"].includes(eventType.toLowerCase())
-      ) {
-        return {
-          data: null,
-          status: 400,
-          error: {
-            code: "INVALID_TYPE",
-            message: "Invalid contact type. Use 'sales' or 'support'",
-            cause: "Invalid or missing type query parameter",
-          },
-        };
-      }
-
-      // Success response
-      const successMessage =
-        eventType.toLowerCase() === "sales"
-          ? "Contact request submitted successfully"
-          : "Support request submitted successfully";
-
-      return {
-        data: successMessage,
-        status: 200,
-      };
+      return this.handleContactUsPost(request);
     }
 
     return {
@@ -579,6 +569,34 @@ export class MockResponseGenerator {
         message: "Notification endpoint not found",
         cause: `Unknown notification endpoint: ${pathname}`,
       },
+    };
+  }
+
+  /** POST /v1/notifications/contact-us?type=sales|support — matches backend NotificationController */
+  private handleContactUsPost(request: MockRequest): MockResponse {
+    const url = this.parseURL(request.url);
+    const eventType = url.searchParams.get("type");
+
+    if (!eventType || !["sales", "support"].includes(eventType.toLowerCase())) {
+      return {
+        data: null,
+        status: 400,
+        error: {
+          code: "INVALID_TYPE",
+          message: "Invalid contact type. Use 'sales' or 'support'",
+          cause: "Invalid or missing type query parameter",
+        },
+      };
+    }
+
+    const successMessage =
+      eventType.toLowerCase() === "sales"
+        ? "Contact request submitted successfully"
+        : "Support request submitted successfully";
+
+    return {
+      data: successMessage,
+      status: 200,
     };
   }
 
@@ -910,6 +928,15 @@ export class MockResponseGenerator {
       };
     }
 
+    return this.generateErrorResponse();
+  }
+
+  private handleIncidentsEndpoints(
+    method: string,
+    request: MockRequest,
+  ): MockResponse {
+    const resolved = resolveIncidentsMock(method, request.url, request.body);
+    if (resolved) return resolved;
     return this.generateErrorResponse();
   }
 

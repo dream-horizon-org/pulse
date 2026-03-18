@@ -1,6 +1,6 @@
 # Mock Server Status
 
-Last Updated: 2024-03-12
+Last Updated: 2025-03-18
 
 **Coverage**: 67/75 endpoints (89%)
 
@@ -50,6 +50,7 @@ Last Updated: 2024-03-12
 | `/sdk-config` | GET/POST/PUT | `handleSdkConfigEndpoints` | SDK config legacy |
 | `/events` | GET/POST | `handleEventEndpoints` | Events |
 | `/whitelist` | POST | `handleEventEndpoints` | Whitelist events |
+| `/v1/notifications/contact-us` | POST | `handleContactUsPost` | `?type=sales` or `?type=support`; Pricing contact modals |
 
 ---
 
@@ -159,6 +160,9 @@ Last Updated: 2024-03-12
 3. **No validation**: Mock accepts any input (backend validates)
 
 ## 📝 Recent Updates
+
+### Contact us (2025-03-18)
+- ✅ `POST /v1/notifications/contact-us?type=sales|support` — `handleContactUsPost` (also routed early so Pricing flows always hit the mock)
 
 ### Phase 3 (Completed 2024-03-12)
 - ✅ Implemented member removal (DELETE) for tenant and project members

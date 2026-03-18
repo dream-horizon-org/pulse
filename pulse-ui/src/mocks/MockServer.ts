@@ -7,7 +7,7 @@
 import { MockResponse, MockRequest } from "./types";
 import { MockResponseGenerator } from "./MockResponseGenerator";
 import { MockConfigManager } from "./MockConfig";
-import { MakeRequestConfig } from "../helpers/makeRequest";
+import type { MakeRequestConfig } from "../helpers/makeRequest/makeRequest.interface";
 
 export class MockServer {
   private static instance: MockServer;
@@ -58,7 +58,10 @@ export class MockServer {
   /**
    * Convert mock response to fetch Response object
    */
-  private createFetchResponse(mockResponse: MockResponse, unwrapped?: boolean): Response {
+  private createFetchResponse(
+    mockResponse: MockResponse,
+    unwrapped?: boolean,
+  ): Response {
     // For unwrapped endpoints, return the data directly without { data, error } wrapper
     const responseBody = unwrapped
       ? JSON.stringify(mockResponse.data)
