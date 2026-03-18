@@ -63,6 +63,10 @@ jobs:
           NODE_ENV: 'production'
           # Disable source maps for smaller bundle
           GENERATE_SOURCEMAP: 'false'
+          
+          REACT_APP_USE_MOCK_SESSION_REPLAY: 'true'
+          REACT_APP_ROOT_CAUSE_ENABLED: 'true'
+          
 
       - name: Add CNAME for custom domain
         run: echo 'demo.pulse-ux.com' > build/CNAME
