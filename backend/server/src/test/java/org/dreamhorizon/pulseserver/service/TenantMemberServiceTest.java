@@ -119,6 +119,7 @@ class TenantMemberServiceTest {
     void shouldFailWhenTenantNotFound() {
       when(tenantService.getTenant(TENANT_ID)).thenReturn(Maybe.empty());
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@b.c", "Admin")));
+      when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
 
       RuntimeException ex = assertThrows(RuntimeException.class, () ->
           tenantMemberService.addUserToTenant(TENANT_ID, EMAIL, "member", ADMIN_ID).blockingGet());
@@ -325,6 +326,8 @@ class TenantMemberServiceTest {
       when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(userService.getOrCreateUser("user2@test.com", "user2@test.com")).thenReturn(Single.just(user2));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.assignTenantRole(any(), any(), any())).thenReturn(Completable.complete());
 
       var result = tenantMemberService.addUsersToTenant(TENANT_ID, emails, "member", ADMIN_ID).blockingGet();
@@ -347,6 +350,8 @@ class TenantMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(openFgaService.isTenantAdmin(ADMIN_ID, TENANT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.assignTenantRole(any(), any(), any())).thenReturn(Completable.complete());
 
       var result = tenantMemberService.addUsersToTenant(TENANT_ID, emails, "member", ADMIN_ID).blockingGet();
@@ -381,6 +386,8 @@ class TenantMemberServiceTest {
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(userService.getOrCreateUser("user2@test.com", "user2@test.com"))
           .thenReturn(Single.error(new RuntimeException("User creation failed")));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.assignTenantRole("user-1", TENANT_ID, "member")).thenReturn(Completable.complete());
 
       var result = tenantMemberService.addUsersToTenant(TENANT_ID, emails, "member", ADMIN_ID).blockingGet();
@@ -408,6 +415,8 @@ class TenantMemberServiceTest {
       when(userService.getOrCreateUser("user2@test.com", "user2@test.com")).thenReturn(Single.just(user2));
       when(userService.getOrCreateUser("invalid@test.com", "invalid@test.com"))
           .thenReturn(Single.error(new IllegalArgumentException("Invalid email")));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.assignTenantRole(any(), eq(TENANT_ID), eq("member"))).thenReturn(Completable.complete());
 
       var result = tenantMemberService.addUsersToTenant(TENANT_ID, emails, "member", ADMIN_ID).blockingGet();

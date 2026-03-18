@@ -105,6 +105,7 @@ class ProjectMemberServiceTest {
     void shouldFailWhenProjectNotFound() {
       when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.empty());
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
 
       Exception ex = assertThrows(RuntimeException.class, () ->
           projectMemberService.addMemberToProject(PROJECT_ID, "user@test.com", "viewer", ADMIN_ID)
@@ -162,6 +163,7 @@ class ProjectMemberServiceTest {
       Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
       when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.error(new RuntimeException("User not found")));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
 
       Exception ex = assertThrows(RuntimeException.class, () ->
           projectMemberService.addMemberToProject(PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID)
@@ -569,6 +571,8 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(userService.getOrCreateUser("user2@test.com", "user2@test.com")).thenReturn(Single.just(user2));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
@@ -594,6 +598,8 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
@@ -619,6 +625,8 @@ class ProjectMemberServiceTest {
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(userService.getOrCreateUser("user2@test.com", "user2@test.com"))
           .thenReturn(Single.error(new RuntimeException("User creation failed")));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "editor"))
@@ -645,6 +653,8 @@ class ProjectMemberServiceTest {
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
           .thenReturn(Single.just(Optional.empty()));
       when(tenantMemberService.addUserToTenant(TENANT_ID, "user1@test.com", "member", ADMIN_ID))
@@ -672,6 +682,8 @@ class ProjectMemberServiceTest {
       when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
       when(userService.getOrCreateUser("invalid@test.com", "invalid@test.com"))
           .thenReturn(Single.error(new IllegalArgumentException("Invalid email")));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
