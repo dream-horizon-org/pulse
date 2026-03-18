@@ -25,6 +25,11 @@ import Analysis from "./components/InteractionDetailsMainContent/components/Anal
 import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangePicker";
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
+import dayjs from "dayjs";
+import { useProjectContext } from "../../contexts";
+import { RootCause } from "./components/RootCause";
+
+const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
 export function CiritcalInteractionDetails() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,7 +46,8 @@ export function CiritcalInteractionDetails() {
 
   const navigate = useNavigate();
   const params = useParams<{ projectId: string; "*": string }>();
-  const projectId = params.projectId;
+  const projectIdFromUrl = params.projectId;
+  const { projectId: contextProjectId } = useProjectContext();
   const routeParams = params["*"];
   const theme = useMantineTheme();
 
@@ -58,7 +64,25 @@ export function CiritcalInteractionDetails() {
     },
   });
 
-  const VALID_TABS = ["overview", "analysis", "sessions"];
+  const VALID_TABS = [
+    "overview",
+    "analysis",
+    "sessions",
+    ...(isRootCauseEnabled ? (["root-cause"] as const) : []),
+  ];
+
+  const rootCauseDateRaw =
+    endTime != null && endTime !== ""
+      ? dayjs(
+          typeof endTime === "string" && /^\d+$/.test(endTime)
+            ? Number(endTime)
+            : endTime,
+        ).format("YYYY-MM-DD")
+      : undefined;
+  const rootCauseDate =
+    rootCauseDateRaw && rootCauseDateRaw !== "Invalid Date"
+      ? rootCauseDateRaw
+      : undefined;
   const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
     ? searchParams.get("tab")
     : "overview";
@@ -143,7 +167,7 @@ export function CiritcalInteractionDetails() {
     navigate(
       ROUTES.PROJECT_INTERACTIONS.basePath.replace(
         ":projectId",
-        projectId || "",
+        projectIdFromUrl || "",
       ),
     );
   };
@@ -224,6 +248,9 @@ export function CiritcalInteractionDetails() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="analysis">Analysis</Tabs.Tab>
           <Tabs.Tab value="sessions">Interactions</Tabs.Tab>
+          {isRootCauseEnabled && (
+            <Tabs.Tab value="root-cause">Root Cause</Tabs.Tab>
+          )}
         </Tabs.List>
 
         <Tabs.Panel value="overview">
@@ -285,6 +312,15 @@ export function CiritcalInteractionDetails() {
             />
           )}
         </Tabs.Panel>
+        {isRootCauseEnabled && (
+          <Tabs.Panel value="root-cause">
+            <RootCause
+              interactionName={interactionName ?? null}
+              date={rootCauseDate}
+              projectId={contextProjectId ?? projectIdFromUrl ?? null}
+            />
+          </Tabs.Panel>
+        )}
       </div>
     </Tabs>
   );
