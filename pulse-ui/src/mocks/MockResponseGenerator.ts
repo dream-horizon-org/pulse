@@ -29,6 +29,7 @@ import {
 } from "./responses/realtimeQueryResponses";
 import { handleBreadcrumbsRequest } from "./responses/breadcrumbResponses";
 import { resolveIncidentsMock } from "./incidentsMockHandler";
+import { buildMockRcaReportResponseBody } from "./responses/rcaReportResponses";
 
 /** In-memory store for AI chat sessions (for mock sharing) */
 const aiChatSessionsStore = new Map<string, Record<string, unknown>>();
@@ -222,6 +223,10 @@ export class MockResponseGenerator {
     // Breadcrumbs endpoint
     if (pathname.includes("/v1/breadcrumbs") && method === "POST") {
       return this.handleBreadcrumbsEndpoint(request);
+    }
+
+    if (pathname.includes("/v1/ai/rca/report") && method === "POST") {
+      return this.handleRcaReportPostMock(request);
     }
 
     // Real-time querying endpoints (MUST come before /job endpoints to avoid being caught)
@@ -2390,6 +2395,22 @@ export class MockResponseGenerator {
     return {
       data: { message: "Dashboard filters endpoint not found" },
       status: 404,
+    };
+  }
+
+  private handleRcaReportPostMock(request: MockRequest): MockResponse {
+    let interactionName = "interaction";
+    try {
+      const body = request.body ? JSON.parse(request.body) : {};
+      if (body.interactionName) {
+        interactionName = String(body.interactionName);
+      }
+    } catch {
+      /* keep default */
+    }
+    return {
+      status: 200,
+      data: buildMockRcaReportResponseBody(interactionName),
     };
   }
 

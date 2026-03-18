@@ -23,6 +23,7 @@ Last Updated: 2025-03-18
 | `/telemetry-filters` | GET | `handleDashboardFiltersEndpoint` | Dashboard filters |
 | `/v1/interactions/filter-options` | GET | `handleDashboardFiltersEndpoint` | Filter options |
 | `/v1/breadcrumbs` | POST | `handleBreadcrumbsEndpoint` | Breadcrumb events |
+| `/v1/ai/rca/report` | POST | `handleRcaReportPostMock` | RCA showcase (markdown, chart, table, insights) |
 | `/query/metadata/table` | GET | `handleRealtimeQueryEndpoints` | Table metadata |
 | `/query/tables` | GET | `handleRealtimeQueryEndpoints` | Available tables |
 | `/query/history` | GET | `handleRealtimeQueryEndpoints` | Query history |
