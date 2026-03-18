@@ -12,7 +12,7 @@ import com.pulse.android.sdk.replay.internal.pipeline.SnapshotPipeline
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener.Companion.onNextDraw
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
 import com.pulse.android.sdk.replay.internal.scheduling.isAliveAndAttachedToWindow
-import com.pulse.android.sdk.replay.internal.util.DefaultDateProvider
+import io.opentelemetry.sdk.common.Clock
 import curtains.Curtains
 import curtains.OnRootViewsChangedListener
 import curtains.onDecorViewReady
@@ -48,7 +48,7 @@ public class SessionReplayIntegration(
         }
 
     private val mainHandler = mainHandler ?: android.os.Handler(android.os.Looper.getMainLooper())
-    private val dateProvider = DefaultDateProvider()
+    private val clock: Clock = Clock.getDefault()
     private val decorViews: MutableMap<View, ViewTreeSnapshotStatus> =
         Collections.synchronizedMap(WeakHashMap())
     private val executor =
@@ -109,7 +109,7 @@ public class SessionReplayIntegration(
             val listener =
                 decorView.onNextDraw(
                     mainHandler,
-                    dateProvider,
+                    clock,
                     config.effectiveThrottleDelayMs,
                     ::onDrawCallback,
                 ) {
@@ -188,7 +188,7 @@ public class SessionReplayIntegration(
         if (view !in decorViews) return
         val window = windowRef.get() ?: return
 
-        val timestamp = dateProvider.currentTimeMillis()
+        val timestamp = clock.now()
 
         if (config.isScreenshot) {
             ScreenshotCapture.captureAsync(

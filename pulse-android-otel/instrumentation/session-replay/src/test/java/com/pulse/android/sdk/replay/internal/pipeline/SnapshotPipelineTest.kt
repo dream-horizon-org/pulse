@@ -9,7 +9,6 @@ import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.internal.capture.MaskRectCache
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
-import com.pulse.android.sdk.replay.internal.util.DateProvider
 import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
@@ -21,7 +20,6 @@ class SnapshotPipelineTest {
     private lateinit var view: View
     private lateinit var status: ViewTreeSnapshotStatus
     private lateinit var config: SessionReplayConfig
-    private lateinit var dateProvider: DateProvider
 
     @BeforeEach
     fun setUp() {
@@ -31,9 +29,6 @@ class SnapshotPipelineTest {
         val maskRectCache = mockk<MaskRectCache>(relaxed = true)
         status = ViewTreeSnapshotStatus(listener, maskRectCache)
         config = SessionReplayConfig()
-        dateProvider = mockk(relaxed = true)
-        every { dateProvider.currentTimeMillis() } returns 1000L
-        every { dateProvider.nanoTime() } returns 1_000_000L
     }
 
     @Nested

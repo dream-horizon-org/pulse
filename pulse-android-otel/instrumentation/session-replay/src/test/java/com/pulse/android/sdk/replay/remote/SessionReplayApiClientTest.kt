@@ -44,11 +44,9 @@ class SessionReplayApiClientTest {
 
     @Test
     fun `sendBatch returns failure when server returns 500`() {
-        repeat(3) {
-            mockWebServer.enqueue(
-                MockResponse().setResponseCode(500).setBody("Internal error"),
-            )
-        }
+        mockWebServer.enqueue(
+            MockResponse().setResponseCode(500).setBody("Internal error"),
+        )
 
         val result = client.sendBatch("""{"event":"snapshot"}""")
 
@@ -66,20 +64,6 @@ class SessionReplayApiClientTest {
 
         assertThat(result.isFailure).isTrue()
         assertThat(result.exceptionOrNull()?.message).contains("404")
-    }
-
-    @Test
-    fun `sendBatch retries on 500 then succeeds on 200`() {
-        mockWebServer.enqueue(MockResponse().setResponseCode(500).setBody("Internal error"))
-        mockWebServer.enqueue(
-            MockResponse().setResponseCode(200).setBody("{}"),
-        )
-
-        val envelope = """{"event":"snapshot"}"""
-        val result = client.sendBatch(envelope)
-
-        assertThat(result.isSuccess).isTrue()
-        assertThat(mockWebServer.requestCount).isEqualTo(2)
     }
 
     @Test
@@ -123,20 +107,4 @@ class SessionReplayApiClientTest {
         assertThat(body).isEqualTo(batch)
     }
 
-    @Test
-    fun `sendBatch with maxRetries 0 makes single attempt`() {
-        val clientWithNoRetries =
-            SessionReplayApiClient(
-                baseUrl = mockWebServer.url("/").toString(),
-                maxRetries = 0,
-            )
-        mockWebServer.enqueue(
-            MockResponse().setResponseCode(500).setBody("Internal error"),
-        )
-
-        val result = clientWithNoRetries.sendBatch("""{"event":"snapshot"}""")
-
-        assertThat(result.isFailure).isTrue()
-        assertThat(mockWebServer.requestCount).isEqualTo(1)
-    }
 }

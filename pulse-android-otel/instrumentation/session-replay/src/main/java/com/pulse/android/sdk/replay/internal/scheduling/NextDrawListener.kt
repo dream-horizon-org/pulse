@@ -2,7 +2,7 @@ package com.pulse.android.sdk.replay.internal.scheduling
 
 import android.view.View
 import android.view.ViewTreeObserver
-import com.pulse.android.sdk.replay.internal.util.DateProvider
+import io.opentelemetry.sdk.common.Clock
 
 /**
  * OnDrawListener that fires on the next draw and then uses [Throttler] to limit how often
@@ -12,12 +12,12 @@ import com.pulse.android.sdk.replay.internal.util.DateProvider
 internal class NextDrawListener(
     private val view: View,
     mainHandler: android.os.Handler,
-    dateProvider: DateProvider,
+    clock: Clock,
     throttleDelayMs: Long,
     private val onDrawCallback: () -> Unit,
     private val onDrawThrottlerCallback: () -> Unit,
 ) : ViewTreeObserver.OnDrawListener {
-    private val throttler = Throttler(mainHandler, dateProvider, throttleDelayMs)
+    private val throttler = Throttler(mainHandler, clock, throttleDelayMs)
 
     override fun onDraw() {
         onDrawCallback()
@@ -37,7 +37,7 @@ internal class NextDrawListener(
          */
         fun View.onNextDraw(
             mainHandler: android.os.Handler,
-            dateProvider: DateProvider,
+            clock: Clock,
             throttleDelayMs: Long,
             onDrawCallback: () -> Unit,
             onDrawThrottlerCallback: () -> Unit,
@@ -46,7 +46,7 @@ internal class NextDrawListener(
                 NextDrawListener(
                     this,
                     mainHandler,
-                    dateProvider,
+                    clock,
                     throttleDelayMs,
                     onDrawCallback,
                     onDrawThrottlerCallback,

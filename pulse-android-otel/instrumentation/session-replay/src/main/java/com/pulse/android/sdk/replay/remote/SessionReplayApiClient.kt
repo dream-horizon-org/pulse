@@ -1,17 +1,19 @@
 package com.pulse.android.sdk.replay.remote
 
-import com.pulse.android.sdk.replay.internal.ReplayLog
+import com.pulse.android.sdk.replay.ReplayConstants
 import com.pulse.utils.PulseNetworkingUtils
+import com.pulse.utils.PulseOtelUtils
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Retrofit
 import java.io.IOException
 
 /**
  * Sends session replay snapshot batches to the backend API.
- * Uses the same common [OkHttpClient] as interaction and sampling
+ * Uses the same common OkHttpClient as interaction and sampling
  * ([PulseNetworkingUtils.okHttpClient]); no client is passed from outside.
+ *
+ * No client-side retries: server may signal retry via Retry-After headers or config.
  *
  * API contract:
  * - POST to [baseUrl]/s/
@@ -20,14 +22,17 @@ import java.io.IOException
  */
 public class SessionReplayApiClient(
     private val baseUrl: String,
-    private val maxRetries: Int = 2,
-    private val retryDelayMs: Long = 1_000L,
 ) {
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient
         get() = PulseNetworkingUtils.okHttpClient
 
-    private val uploadUrl: String by lazy {
-        PulseNetworkingUtils.endWithSlash(baseUrl) + SNAPSHOT_PATH
+    private val apiService: SessionReplayApiService by lazy {
+        Retrofit
+            .Builder()
+            .baseUrl(PulseNetworkingUtils.endWithSlash(baseUrl))
+            .client(okHttpClient)
+            .build()
+            .create(SessionReplayApiService::class.java)
     }
 
     /**
@@ -37,54 +42,25 @@ public class SessionReplayApiClient(
      * @param payload Single envelope (object) or pre-batched array string.
      * @return [Result.success] on 2xx, [Result.failure] on network error, 4xx, 5xx, or timeout.
      */
-    public fun sendBatch(payload: String): Result<Unit> {
-        val body = if (payload.trimStart().startsWith("[")) payload else "[$payload]"
-        var lastFailure: Throwable? = null
-        repeat(maxRetries + 1) { attempt ->
-            val result = executePost(body)
-            result.fold(
-                onSuccess = { return result },
-                onFailure = { t ->
-                    lastFailure = t
-                    if (attempt < maxRetries && shouldRetry(t)) {
-                        Thread.sleep(retryDelayMs)
-                    } else {
-                        return Result.failure(t)
-                    }
-                },
-            )
-        }
-        return Result.failure(lastFailure ?: IOException("Session replay upload failed after $maxRetries retries"))
-    }
-
-    private fun shouldRetry(t: Throwable): Boolean {
-        if (t is HttpException) return t.code in 500..599
-        if (t is IOException) return true
-        return false
-    }
-
-    private fun executePost(body: String): Result<Unit> =
+    public fun sendBatch(payload: String): Result<Unit> =
         runCatching {
-            val request =
-                Request
-                    .Builder()
-                    .url(uploadUrl)
-                    .post(body.toRequestBody(JSON_MEDIA_TYPE))
-                    .build()
-            okHttpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    val responseBody = response.body.string().take(MAX_ERROR_BODY_LOG)
-                    val msg = response.message
-                    ReplayLog.logError("Session replay API error: ${response.code} $msg. Body: $responseBody")
-                    if (body.length <= MAX_REQUEST_LOG) {
-                        ReplayLog.logError("Request payload: $body")
-                    } else {
-                        ReplayLog.logError(
-                            "Request payload (first ${MAX_REQUEST_LOG} chars): ${body.take(MAX_REQUEST_LOG)}...",
-                        )
-                    }
-                    throw HttpException(response.code, msg, responseBody)
+            val body = if (payload.trimStart().startsWith("[")) payload else "[$payload]"
+            val requestBody = body.toRequestBody(JSON_MEDIA_TYPE)
+            val response = apiService.sendBatch(requestBody).execute()
+            if (!response.isSuccessful) {
+                val responseBody = response.errorBody()?.string().orEmpty().take(MAX_ERROR_BODY_LOG)
+                val msg = response.message()
+                PulseOtelUtils.logError(ReplayConstants.REPLAY_LOG_TAG) {
+                    "Session replay API error: ${response.code()} $msg. Body: $responseBody"
                 }
+                if (body.length <= MAX_REQUEST_LOG) {
+                    PulseOtelUtils.logError(ReplayConstants.REPLAY_LOG_TAG) { "Request payload: $body" }
+                } else {
+                    PulseOtelUtils.logError(ReplayConstants.REPLAY_LOG_TAG) {
+                        "Request payload (first $MAX_REQUEST_LOG chars): ${body.take(MAX_REQUEST_LOG)}..."
+                    }
+                }
+                throw HttpException(response.code(), msg, responseBody)
             }
         }
 
@@ -98,6 +74,5 @@ public class SessionReplayApiClient(
         private const val MAX_ERROR_BODY_LOG = 1024
         private const val MAX_REQUEST_LOG = 800
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
-        private const val SNAPSHOT_PATH = "s/"
     }
 }

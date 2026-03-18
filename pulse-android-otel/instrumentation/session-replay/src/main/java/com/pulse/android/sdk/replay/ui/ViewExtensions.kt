@@ -10,7 +10,7 @@ private const val PRIVACY_UNMASK = "unmask"
  * Mark this view to be masked in session replay.
  * Overrides global config and class-level settings for this specific view instance.
  */
-public fun View.maskForReplay() {
+public fun View.setPulseReplayMask() {
     setTag(R.id.pulse_replay_privacy, PRIVACY_MASK)
 }
 
@@ -19,7 +19,7 @@ public fun View.maskForReplay() {
  * Overrides global config and class-level settings for this specific view instance.
  * Also overrides parent ViewGroup masking propagation.
  */
-public fun View.unmaskForReplay() {
+public fun View.setPulseReplayUnmask() {
     setTag(R.id.pulse_replay_privacy, PRIVACY_UNMASK)
 }
 

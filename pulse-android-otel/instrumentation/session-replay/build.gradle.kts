@@ -23,6 +23,7 @@ dependencies {
     api(projects.instrumentation.androidInstrumentation)
     implementation(projects.session)
     implementation(projects.pulseUtils)
+    implementation(libs.opentelemetry.sdk)
     implementation(libs.androidx.core)
     implementation(libs.curtains)
     implementation(libs.findbugs.jsr305)
@@ -34,6 +35,8 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.robolectric)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.opentelemetry.sdk.testing)
     implementation(libs.gson)
+    implementation(libs.retrofit)
     testImplementation(libs.gson)
 }

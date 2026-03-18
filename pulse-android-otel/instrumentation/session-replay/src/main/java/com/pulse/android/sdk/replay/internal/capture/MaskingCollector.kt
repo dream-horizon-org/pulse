@@ -23,8 +23,8 @@ import com.pulse.android.sdk.replay.ui.hasPrivacyUnmaskTag
  *
  * Masking priority (highest to lowest):
  * 1. Per-view instance: tag/extension ([ReplayConstants.MASK_TAG], [ReplayConstants.UNMASK_TAG],
- *    [maskForReplay][com.pulse.android.sdk.replay.ui.maskForReplay],
- *    [unmaskForReplay][com.pulse.android.sdk.replay.ui.unmaskForReplay])
+ *    [setPulseReplayMask][com.pulse.android.sdk.replay.ui.setPulseReplayMask],
+ *    [setPulseReplayUnmask][com.pulse.android.sdk.replay.ui.setPulseReplayUnmask])
  * 2. Per-view class: [SessionReplayConfig.maskViewClasses] / [SessionReplayConfig.unmaskViewClasses]
  * 3. Global config: [SessionReplayConfig.textAndInputPrivacy], [SessionReplayConfig.imagePrivacy]
  *
@@ -384,8 +384,8 @@ internal object MaskingCollector {
      * Compose: collect mask rects from semantics tree.
      *
      * Masking priority for Compose:
-     * 1. [maskForReplay(true)][com.pulse.android.sdk.replay.ui.maskForReplay] -> mask
-     * 2. [maskForReplay(false)][com.pulse.android.sdk.replay.ui.maskForReplay] -> unmask (skip auto-mask)
+ * 1. [setPulseReplayMask(true)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> mask
+ * 2. [setPulseReplayMask(false)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> unmask (skip auto-mask)
      * 3. Auto-mask text/editable text per [TextAndInputPrivacy]
      * 4. Auto-mask images per [ImagePrivacy] using [Role.Image] semantics
      */
@@ -411,7 +411,7 @@ internal object MaskingCollector {
                         maskableWidgets.add(node.boundsInWindow.toAndroidRect())
                     }
                     hasMaskModifier -> {
-                        // maskForReplay(false) -> explicit unmask, skip all auto-mask rules
+                        // setPulseReplayMask(false) -> explicit unmask, skip all auto-mask rules
                     }
                     else -> {
                         val hasText = node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Text)
