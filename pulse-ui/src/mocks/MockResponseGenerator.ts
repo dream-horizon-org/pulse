@@ -173,6 +173,11 @@ export class MockResponseGenerator {
       return this.handleTenantEndpoints(pathname, method, request);
     }
 
+    // Session Replay sessions/filters endpoint
+    if (pathname.includes("/v1/sessions/filters") && method === "GET") {
+      return this.handleSessionsFiltersEndpoint();
+    }
+
     // User endpoints - removed to avoid conflict with activity tracking endpoints
     // if (pathname.includes('/user')) {
     //   return this.handleUserEndpoints(pathname, method, request);
@@ -339,11 +344,6 @@ export class MockResponseGenerator {
     // TNC endpoints
     if (pathname.includes("/v1/tnc/")) {
       return this.handleTncEndpoints(pathname, method, request);
-    }
-
-    // Notification endpoints
-    if (pathname.includes("/v1/notifications/")) {
-      return this.handleNotificationEndpoints(pathname, method, request);
     }
 
     // Default response
@@ -521,58 +521,6 @@ export class MockResponseGenerator {
         code: "NOT_FOUND",
         message: "TNC endpoint not found",
         cause: `Unknown path: ${pathname}`,
-      },
-    };
-  }
-
-  /**
-   * Handle notification endpoints
-   */
-  private handleNotificationEndpoints(
-    pathname: string,
-    method: string,
-    request: MockRequest,
-  ): MockResponse {
-    // POST /v1/notifications/contact-us
-    if (pathname.includes("/notifications/contact-us") && method === "POST") {
-      const url = this.parseURL(request.url);
-      const eventType = url.searchParams.get("type");
-
-      // Validate event type
-      if (
-        !eventType ||
-        !["sales", "support"].includes(eventType.toLowerCase())
-      ) {
-        return {
-          data: null,
-          status: 400,
-          error: {
-            code: "INVALID_TYPE",
-            message: "Invalid contact type. Use 'sales' or 'support'",
-            cause: "Invalid or missing type query parameter",
-          },
-        };
-      }
-
-      // Success response
-      const successMessage =
-        eventType.toLowerCase() === "sales"
-          ? "Contact request submitted successfully"
-          : "Support request submitted successfully";
-
-      return {
-        data: successMessage,
-        status: 200,
-      };
-    }
-
-    return {
-      data: null,
-      status: 404,
-      error: {
-        code: "NOT_FOUND",
-        message: "Notification endpoint not found",
-        cause: `Unknown notification endpoint: ${pathname}`,
       },
     };
   }
@@ -908,6 +856,71 @@ export class MockResponseGenerator {
     return this.generateErrorResponse();
   }
 
+  private handleSessionsFiltersEndpoint(): MockResponse {
+    return {
+      data: {
+        quick: [
+          { key: "hasCrash", label: "Crashes", type: "boolean" },
+          { key: "hasAnr", label: "ANRs", type: "boolean" },
+          { key: "hasError", label: "Errors", type: "boolean" },
+          { key: "hasSlowRender", label: "Slow Renders", type: "boolean" },
+        ],
+        advanced: [
+          {
+            categoryKey: "session",
+            displayName: "Session",
+            fields: [
+              {
+                key: "duration",
+                displayName: "Duration (ms)",
+                dataType: "integer",
+                allowedOperators: [
+                  { key: "gt", label: "greater than" },
+                  { key: "lt", label: "less than" },
+                  { key: "eq", label: "equals" },
+                ],
+              },
+              {
+                key: "platform",
+                displayName: "Platform",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "neq", label: "not equals" },
+                ],
+              },
+            ],
+          },
+          {
+            categoryKey: "device",
+            displayName: "Device",
+            fields: [
+              {
+                key: "osVersion",
+                displayName: "OS Version",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "contains", label: "contains" },
+                ],
+              },
+              {
+                key: "appVersion",
+                displayName: "App Version",
+                dataType: "string",
+                allowedOperators: [
+                  { key: "eq", label: "equals" },
+                  { key: "neq", label: "not equals" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      status: 200,
+    };
+  }
+
   private handleV1UserEndpoints(
     pathname: string,
     method: string,
@@ -1207,8 +1220,6 @@ export class MockResponseGenerator {
         description: project.description,
         tenantId: project.tenantId,
         isActive: project.isActive,
-        isEventFlowStarted: project.isEventFlowStarted ?? true,
-        userRole: project.userRole ?? "admin",
         createdAt: project.createdAt,
         createdBy: project.createdBy,
       },
@@ -1321,24 +1332,7 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      const existingMember = this.dataStore.getProjectMemberByEmail(
-        projectId,
-        email,
-      );
-      if (existingMember) {
-        // If single email invite, return error
-        if (uniqueEmails.length === 1) {
-          return {
-            data: null,
-            status: 409,
-            error: {
-              code: "409",
-              message: `User ${email} is already a member of this project with role '${existingMember.role}'`,
-              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
-            },
-          };
-        }
-        // For batch invites, just skip
+      if (this.dataStore.hasProjectMember(projectId, email)) {
         skippedEmails.push(email);
         continue;
       }
@@ -1953,24 +1947,7 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      const existingMember = this.dataStore.getTenantMemberByEmail(
-        tenantId,
-        email,
-      );
-      if (existingMember) {
-        // If single email invite, return error
-        if (uniqueEmails.length === 1) {
-          return {
-            data: null,
-            status: 409,
-            error: {
-              code: "409",
-              message: `User ${email} is already a member of this organization with role '${existingMember.role}'`,
-              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
-            },
-          };
-        }
-        // For batch invites, just skip
+      if (this.dataStore.hasTenantMember(tenantId, email)) {
         skippedEmails.push(email);
         continue;
       }

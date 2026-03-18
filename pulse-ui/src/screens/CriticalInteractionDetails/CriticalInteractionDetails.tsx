@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Badge,
   Box,
+  Button,
   Grid,
   Tabs,
   Title,
@@ -15,7 +16,8 @@ import {
 } from "../../constants";
 import { AllInteractionDetails } from "./AllInteractionDetails";
 import { useEffect, useState } from "react";
-import { IconArrowNarrowLeft } from "@tabler/icons-react";
+import { IconArrowNarrowLeft, IconPlayerPlay } from "@tabler/icons-react";
+import { useSessionReplayFilters } from "../../contexts/SessionReplayFilterContext";
 import { Manage } from "../CriticalInteractionList/components/Manage";
 import { InteractionDetailsFilters } from "./components/InteractionDetailsFilters";
 import { InteractionDetailsMainContent } from "./components/InteractionDetailsMainContent";
@@ -57,6 +59,8 @@ export function CiritcalInteractionDetails() {
       name: interactionName,
     },
   });
+
+  const { actions: sessionReplayActions } = useSessionReplayFilters();
 
   const VALID_TABS = ["overview", "analysis", "sessions"];
   const initialTab = VALID_TABS.includes(searchParams.get("tab") || "")
@@ -148,6 +152,27 @@ export function CiritcalInteractionDetails() {
     );
   };
 
+  const handleViewSessions = () => {
+    const effectiveStart = selectedTimeFilter?.startDate || startTime;
+    const effectiveEnd = selectedTimeFilter?.endDate || endTime;
+
+    if (effectiveStart && effectiveEnd) {
+      sessionReplayActions.setDateRange("custom", effectiveStart, effectiveEnd);
+    }
+    if (interactionName) {
+      sessionReplayActions.setDrillDown(
+        "interaction",
+        interactionName,
+        interactionName,
+      );
+    }
+    const basePath = ROUTES.PROJECT_SESSION_REPLAY_SESSIONS.basePath.replace(
+      ":projectId",
+      projectId || "",
+    );
+    navigate(basePath);
+  };
+
   const handleTabChange = (value: string | null) => {
     if (value) {
       setActiveTab(value);
@@ -199,6 +224,16 @@ export function CiritcalInteractionDetails() {
 
           {/* Right Section - Actions, Filters, Time Picker */}
           <div className={classes.headerRightSection}>
+            <Button
+              variant="light"
+              color="teal"
+              size="xs"
+              leftSection={<IconPlayerPlay size={14} />}
+              onClick={handleViewSessions}
+            >
+              View Sessions
+            </Button>
+            <div className={classes.verticalDivider} />
             {!interactionDetailsError && interactionDetails?.data && (
               <>
                 <Manage

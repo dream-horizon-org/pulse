@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useProjectContext, useTenantContext } from "../../contexts";
-import { ROUTES, ORGANIZATION_PATH_SEGMENTS } from "../../constants";
+import { ROUTES } from "../../constants";
 
 interface ProjectGuardProps {
   children: React.ReactNode;
@@ -39,7 +39,9 @@ export function ProjectGuard({ children }: ProjectGuardProps) {
 
     const excludedPaths = [ROUTES.LOGIN.basePath, ROUTES.ONBOARDING.basePath];
 
-    const orgSegments = Object.values(ORGANIZATION_PATH_SEGMENTS).join("|");
+    const orgSegments = Object.values(ROUTES.ORGANIZATION_PATH_SEGMENTS).join(
+      "|",
+    );
     const isOrganizationPath = new RegExp(`^/[^/]+/(${orgSegments})`).test(
       location.pathname,
     );
