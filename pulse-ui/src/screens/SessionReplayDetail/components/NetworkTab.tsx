@@ -1,7 +1,15 @@
-import { Stack, Group, SegmentedControl, Card, Badge, Text } from "@mantine/core";
+import {
+  Stack,
+  Group,
+  SegmentedControl,
+  Card,
+  Badge,
+  Text,
+} from "@mantine/core";
 import { NetworkVisualization } from "./NetworkVisualization";
 import { formatTimestamp } from "../utils/sessionUtils";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
+import { TabPanelScrollArea } from "./TabPanelScrollArea";
 
 interface NetworkTabProps {
   sessionData: SessionDetailData;
@@ -16,7 +24,7 @@ export function NetworkTab({
 }: NetworkTabProps) {
   return (
     <Stack gap="xs">
-      <Group justify="flex-end">
+      <Group justify="flex-end" wrap="nowrap">
         <SegmentedControl
           size="xs"
           value={viewMode}
@@ -27,48 +35,48 @@ export function NetworkTab({
           ]}
         />
       </Group>
-      {viewMode === "graph" ? (
-        <NetworkVisualization
-          networkRequests={sessionData.networkRequests}
-          sessionStartTime={new Date(sessionData.startTime)}
-        />
-      ) : (
-        <>
-          {sessionData.networkRequests.map((req, idx) => (
-            <Card key={idx} padding="sm" withBorder>
-              <Group justify="space-between" mb={4}>
-                <Group gap="xs">
-                  <Badge size="xs" variant="light">
-                    {req.method}
-                  </Badge>
-                  <Badge
-                    size="xs"
-                    color={
-                      req.status >= 200 && req.status < 300
-                        ? "teal"
-                        : "red"
-                    }
-                  >
-                    {req.status}
-                  </Badge>
+      <TabPanelScrollArea>
+        {viewMode === "graph" ? (
+          <NetworkVisualization
+            networkRequests={sessionData.networkRequests}
+            sessionStartTime={new Date(sessionData.startTime)}
+          />
+        ) : (
+          <Stack gap="xs">
+            {sessionData.networkRequests.map((req, idx) => (
+              <Card key={idx} padding="sm" withBorder>
+                <Group justify="space-between" mb={4}>
+                  <Group gap="xs">
+                    <Badge size="xs" variant="light">
+                      {req.method}
+                    </Badge>
+                    <Badge
+                      size="xs"
+                      color={
+                        req.status >= 200 && req.status < 300 ? "teal" : "red"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    {req.duration}ms
+                  </Text>
                 </Group>
-                <Text size="xs" c="dimmed">
-                  {req.duration}ms
+                <Text size="sm" ff="monospace" truncate="end">
+                  {req.url}
                 </Text>
-              </Group>
-              <Text size="sm" ff="monospace" truncate="end">
-                {req.url}
-              </Text>
-              <Text size="xs" c="dimmed" mt={4}>
-                {formatTimestamp(
-                  req.timestamp,
-                  new Date(sessionData.startTime),
-                )}
-              </Text>
-            </Card>
-          ))}
-        </>
-      )}
+                <Text size="xs" c="dimmed" mt={4}>
+                  {formatTimestamp(
+                    req.timestamp,
+                    new Date(sessionData.startTime),
+                  )}
+                </Text>
+              </Card>
+            ))}
+          </Stack>
+        )}
+      </TabPanelScrollArea>
     </Stack>
   );
 }

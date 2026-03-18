@@ -9,6 +9,7 @@ import {
   Box,
 } from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
+import { TabPanelScrollArea } from "./TabPanelScrollArea";
 
 const EXCEPTION_FIELD_INDEX = {
   timestamp: 0,
@@ -43,67 +44,73 @@ export function PerformanceTab({ sessionData }: PerformanceTabProps) {
     exceptions.rows.length > 0;
 
   return (
-    <Stack gap="md">
-      {hasExceptions ? (
-        <>
-          <Title order={6}>Exceptions / Crashes</Title>
-          <Accordion variant="contained">
-            {exceptions.rows.map((row, index) => {
-              const title = getRowValue(row, "title");
-              const timestamp = getRowValue(row, "timestamp");
-              const pulseType = getRowValue(row, "pulseType");
-              const stackTrace = getRowValue(row, "exceptionMessage");
-              const traceId = getRowValue(row, "traceId");
-              const spanId = getRowValue(row, "spanId");
-              return (
-                <Accordion.Item key={index} value={`exception-${index}`}>
-                  <Accordion.Control>
-                    <Box
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <Text size="sm" fw={600}>
-                        {title || "Exception"}
-                      </Text>
-                      {pulseType && (
-                        <Badge size="sm" variant="light" color="red">
-                          {pulseType}
-                        </Badge>
-                      )}
-                      {timestamp && (
-                        <Text size="xs" c="dimmed">
-                          {timestamp}
+    <TabPanelScrollArea>
+      <Stack gap="md">
+        {hasExceptions ? (
+          <>
+            <Title order={6}>Exceptions / Crashes</Title>
+            <Accordion variant="contained">
+              {exceptions.rows.map((row, index) => {
+                const title = getRowValue(row, "title");
+                const timestamp = getRowValue(row, "timestamp");
+                const pulseType = getRowValue(row, "pulseType");
+                const stackTrace = getRowValue(row, "exceptionMessage");
+                const traceId = getRowValue(row, "traceId");
+                const spanId = getRowValue(row, "spanId");
+                return (
+                  <Accordion.Item key={index} value={`exception-${index}`}>
+                    <Accordion.Control>
+                      <Box
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <Text size="sm" fw={600}>
+                          {title || "Exception"}
                         </Text>
-                      )}
-                    </Box>
-                  </Accordion.Control>
-                  <Accordion.Panel>
-                    <Stack gap="xs">
-                      {(traceId || spanId) && (
-                        <Text size="xs" c="dimmed">
-                          traceId: {traceId || "—"} · spanId: {spanId || "—"}
-                        </Text>
-                      )}
-                      {stackTrace && (
-                        <Code
-                          block
-                          style={{ whiteSpace: "pre-wrap", fontSize: 11 }}
-                        >
-                          {stackTrace}
-                        </Code>
-                      )}
-                    </Stack>
-                  </Accordion.Panel>
-                </Accordion.Item>
-              );
-            })}
-          </Accordion>
-        </>
-      ) : (
-        <Text size="sm" c="dimmed">
-          App vitals data will appear here once available. No exceptions in this
-          session.
-        </Text>
-      )}
-    </Stack>
+                        {pulseType && (
+                          <Badge size="sm" variant="light" color="red">
+                            {pulseType}
+                          </Badge>
+                        )}
+                        {timestamp && (
+                          <Text size="xs" c="dimmed">
+                            {timestamp}
+                          </Text>
+                        )}
+                      </Box>
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                      <Stack gap="xs">
+                        {(traceId || spanId) && (
+                          <Text size="xs" c="dimmed">
+                            traceId: {traceId || "—"} · spanId: {spanId || "—"}
+                          </Text>
+                        )}
+                        {stackTrace && (
+                          <Code
+                            block
+                            style={{ whiteSpace: "pre-wrap", fontSize: 11 }}
+                          >
+                            {stackTrace}
+                          </Code>
+                        )}
+                      </Stack>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                );
+              })}
+            </Accordion>
+          </>
+        ) : (
+          <Text size="sm" c="dimmed">
+            App vitals data will appear here once available. No exceptions in
+            this session.
+          </Text>
+        )}
+      </Stack>
+    </TabPanelScrollArea>
   );
 }

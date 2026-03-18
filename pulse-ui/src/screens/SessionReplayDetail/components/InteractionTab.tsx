@@ -1,5 +1,6 @@
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import { CriticalInteractions } from "./all/CriticalInteractions";
+import { TabPanelScrollArea } from "./TabPanelScrollArea";
 
 interface InteractionTabProps {
   sessionData: SessionDetailData;
@@ -11,9 +12,11 @@ export function InteractionTab({
   onCriticalInteractionClick,
 }: InteractionTabProps) {
   return (
-    <CriticalInteractions
-      criticalInteractions={sessionData.criticalInteractions}
-      onCriticalInteractionClick={onCriticalInteractionClick}
-    />
+    <TabPanelScrollArea>
+      <CriticalInteractions
+        criticalInteractions={sessionData.criticalInteractions}
+        onCriticalInteractionClick={onCriticalInteractionClick}
+      />
+    </TabPanelScrollArea>
   );
 }

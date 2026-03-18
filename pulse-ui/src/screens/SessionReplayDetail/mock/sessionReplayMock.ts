@@ -425,6 +425,18 @@ export function getMockSessionsFiltersResponse(): FilterConfigResponse {
             dataType: "string",
             allowedOperators: stringOperators,
           },
+          {
+            key: "session.quality_score",
+            displayName: "Quality score",
+            dataType: "float",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "session.span_count",
+            displayName: "Span count",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
         ],
       },
       {
@@ -484,6 +496,152 @@ export function getMockSessionsFiltersResponse(): FilterConfigResponse {
                 valueType: "single" as const,
               },
             ],
+          },
+        ],
+      },
+      {
+        categoryKey: "user_property",
+        displayName: "User",
+        fields: [
+          {
+            key: "user.id",
+            displayName: "User ID",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+          {
+            key: "user.is_anonymous",
+            displayName: "Anonymous session",
+            dataType: "string",
+            allowedOperators: [
+              { key: "equals", label: "equals", valueType: "single" as const },
+            ],
+          },
+          {
+            key: "user.segment",
+            displayName: "User segment",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+        ],
+      },
+      {
+        categoryKey: "rum",
+        displayName: "RUM metrics",
+        fields: [
+          {
+            key: "rum.lcp_ms",
+            displayName: "LCP (ms)",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "rum.fid_ms",
+            displayName: "FID (ms)",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "rum.cls",
+            displayName: "CLS",
+            dataType: "float",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "rum.long_task_count",
+            displayName: "Long task count",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+        ],
+      },
+      {
+        categoryKey: "performance",
+        displayName: "Performance",
+        fields: [
+          {
+            key: "performance.freeze_frame_count",
+            displayName: "Frozen frames",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "performance.slow_frame_pct",
+            displayName: "Slow frame %",
+            dataType: "float",
+            allowedOperators: numberOperators,
+          },
+          {
+            key: "performance.memory_peak_mb",
+            displayName: "Peak memory (MB)",
+            dataType: "integer",
+            allowedOperators: numberOperators,
+          },
+        ],
+      },
+      {
+        categoryKey: "event",
+        displayName: "Events",
+        fields: [
+          {
+            key: "event.category",
+            displayName: "Event category",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+          {
+            key: "event.name",
+            displayName: "Event name",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+          {
+            key: "event.has_error",
+            displayName: "Has client error",
+            dataType: "string",
+            allowedOperators: [
+              { key: "equals", label: "equals", valueType: "single" as const },
+            ],
+          },
+        ],
+      },
+      {
+        categoryKey: "geography",
+        displayName: "Geography",
+        fields: [
+          {
+            key: "geography.country",
+            displayName: "Country",
+            dataType: "string",
+            allowedOperators: [
+              { key: "equals", label: "equals", valueType: "single" as const },
+              { key: "in", label: "is one of", valueType: "array" as const },
+              ...stringOperators.filter((o) => o.key !== "equals"),
+            ],
+          },
+          {
+            key: "geography.region",
+            displayName: "Region",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+        ],
+      },
+      {
+        categoryKey: "release",
+        displayName: "Release",
+        fields: [
+          {
+            key: "app.version",
+            displayName: "App version",
+            dataType: "string",
+            allowedOperators: stringOperators,
+          },
+          {
+            key: "app.build",
+            displayName: "Build number",
+            dataType: "string",
+            allowedOperators: stringOperators,
           },
         ],
       },

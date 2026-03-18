@@ -45,6 +45,7 @@ export function SessionTabs({
       <Tabs
         value={activeTab}
         onChange={(value) => onTabChange(value || TABS.ALL)}
+        classNames={{ root: classes.sessionTabsRoot }}
       >
         <Tabs.List>
           <Tabs.Tab value={TABS.ALL}>{TAB_LABELS.ALL}</Tabs.Tab>

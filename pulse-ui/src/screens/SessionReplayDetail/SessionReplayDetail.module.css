@@ -239,6 +239,15 @@
   flex-direction: column;
 }
 
+/* Tabs fill Paper so All / Events panels can shrink and scroll inside */
+.sessionTabsRoot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* All Tab Container - right panel tabs card */
 .allTabContainer {
   padding: 0;
