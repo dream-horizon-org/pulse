@@ -40,7 +40,7 @@ export function Onboarding() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
   const { setTenantInfo, addProject } = useTenantContext();
-  const { navigateToProject } = useProjectContext();
+  const { setProject } = useProjectContext();
 
   const [userData, setUserData] = useState<OnboardingUserData | null>(null);
   const [organizationName, setOrganizationName] = useState("");
@@ -125,13 +125,35 @@ export function Onboarding() {
               });
             }
 
+            // Set current project in context (new project, event flow not started)
+            if (data.projectId && data.projectName) {
+              setProject({
+                projectId: data.projectId,
+                projectName: data.projectName,
+                userRole: PROJECT_ROLES.ADMIN,
+                isActive: true,
+                isEventFlowStarted: false,
+              });
+            }
+
             // Clear sessionStorage
             sessionStorage.removeItem("onboarding_user");
             sessionStorage.removeItem("firebase_token");
 
-            // Use navigateToProject to fetch full details and navigate
+            // Navigate to onboarding success page (not project dashboard)
             if (data.projectId) {
-              await navigateToProject(data.projectId);
+              const successPath =
+                data.redirectTo ??
+                ROUTES.PROJECT_ONBOARDING_SUCCESS.basePath.replace(
+                  ":projectId",
+                  data.projectId,
+                );
+              navigate(successPath, {
+                state: {
+                  projectName: data.projectName,
+                  projectApiKey: data.projectApiKey,
+                },
+              });
             }
           }
         },

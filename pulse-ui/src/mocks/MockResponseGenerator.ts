@@ -1121,7 +1121,7 @@ export class MockResponseGenerator {
           refreshToken,
           tokenType: "Bearer",
           expiresIn: 86400,
-          redirectTo: `/projects/${projectId}/onboarding-success`,
+          redirectTo: `/projects/${projectId}/onboarding`,
         },
         status: 200,
       };
