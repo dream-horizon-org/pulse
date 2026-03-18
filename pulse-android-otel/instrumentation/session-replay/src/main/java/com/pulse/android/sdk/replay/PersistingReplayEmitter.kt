@@ -205,7 +205,7 @@ public class PersistingReplayEmitter(
                 }
             }
             if (toSend.isEmpty()) return
-                    PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (maxBatchSize: $maxBatchSize)"
             }
             val fileToContent =
@@ -216,7 +216,7 @@ public class PersistingReplayEmitter(
             if (fileToContent.isEmpty()) return
             val payload = buildBatchPayload(fileToContent.map { it.second })
             val filesToRequeue = fileToContent.map { it.first }
-                    PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush → combining ${fileToContent.size} batch(es) " +
                     "into single request (${payload.length} bytes) → sending to backend"
             }

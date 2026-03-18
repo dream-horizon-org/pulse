@@ -11,5 +11,7 @@ import retrofit2.http.POST
  */
 internal interface SessionReplayApiService {
     @POST("s/")
-    fun sendBatch(@Body body: RequestBody): Call<ResponseBody>
+    fun sendBatch(
+        @Body body: RequestBody,
+    ): Call<ResponseBody>
 }

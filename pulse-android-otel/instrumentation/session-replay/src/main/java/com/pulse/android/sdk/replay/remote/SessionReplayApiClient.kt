@@ -48,7 +48,12 @@ public class SessionReplayApiClient(
             val requestBody = body.toRequestBody(JSON_MEDIA_TYPE)
             val response = apiService.sendBatch(requestBody).execute()
             if (!response.isSuccessful) {
-                val responseBody = response.errorBody()?.string().orEmpty().take(MAX_ERROR_BODY_LOG)
+                val responseBody =
+                    response
+                        .errorBody()
+                        ?.string()
+                        .orEmpty()
+                        .take(MAX_ERROR_BODY_LOG)
                 val msg = response.message()
                 PulseOtelUtils.logError(ReplayConstants.REPLAY_LOG_TAG) {
                     "Session replay API error: ${response.code()} $msg. Body: $responseBody"

@@ -106,5 +106,4 @@ class SessionReplayApiClientTest {
         val body = request.body.readUtf8()
         assertThat(body).isEqualTo(batch)
     }
-
 }

@@ -12,12 +12,12 @@ import com.pulse.android.sdk.replay.internal.pipeline.SnapshotPipeline
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener.Companion.onNextDraw
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
 import com.pulse.android.sdk.replay.internal.scheduling.isAliveAndAttachedToWindow
-import io.opentelemetry.sdk.common.Clock
 import curtains.Curtains
 import curtains.OnRootViewsChangedListener
 import curtains.onDecorViewReady
 import curtains.phoneWindow
 import curtains.windowAttachCount
+import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.UUID

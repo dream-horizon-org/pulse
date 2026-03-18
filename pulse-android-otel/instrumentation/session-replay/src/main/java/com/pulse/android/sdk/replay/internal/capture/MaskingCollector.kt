@@ -384,8 +384,8 @@ internal object MaskingCollector {
      * Compose: collect mask rects from semantics tree.
      *
      * Masking priority for Compose:
- * 1. [setPulseReplayMask(true)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> mask
- * 2. [setPulseReplayMask(false)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> unmask (skip auto-mask)
+     * 1. [setPulseReplayMask(true)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> mask
+     * 2. [setPulseReplayMask(false)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> unmask (skip auto-mask)
      * 3. Auto-mask text/editable text per [TextAndInputPrivacy]
      * 4. Auto-mask images per [ImagePrivacy] using [Role.Image] semantics
      */
