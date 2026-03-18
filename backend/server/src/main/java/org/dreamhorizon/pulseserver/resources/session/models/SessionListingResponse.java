@@ -55,6 +55,9 @@ public class SessionListingResponse {
 
         @JsonProperty("impactedScreens")
         private Map<String, List<String>> impactedScreens;
+
+        @JsonProperty("impactedInteractions")
+        private List<String> impactedInteractions;
     }
 
     @Data
