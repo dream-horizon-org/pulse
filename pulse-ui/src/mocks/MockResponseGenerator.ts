@@ -997,7 +997,7 @@ export class MockResponseGenerator {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects: tenant.projects,
+          projects: Array.isArray(tenant.projects) ? tenant.projects : [],
           redirectTo,
         },
         status: 200,
