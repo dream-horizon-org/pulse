@@ -24,7 +24,10 @@ public class UsageNotificationRestDto {
 
   @JsonProperty("threshold")
   private Integer threshold;
-  
+
+  @JsonProperty("thresholdsToMark")
+  private java.util.List<Integer> thresholdsToMark;
+
   @JsonProperty("notifyFor")
   private String notifyFor;
   

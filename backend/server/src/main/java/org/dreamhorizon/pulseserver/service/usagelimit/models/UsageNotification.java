@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.service.usagelimit.models;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,7 +17,9 @@ import lombok.NoArgsConstructor;
 public class UsageNotification {
   private String projectId;
   private String projectName;
-  private Integer threshold;      // 50, 75, 90, 100
+  private Integer threshold;      // 50, 75, 90, 100, or overage limit (e.g. 110)
+  /** All thresholds to mark as notified (includes lower crossed thresholds when we only send highest) */
+  private List<Integer> thresholdsToMark;
   private String notifyFor;       // "sessions" or "events" - which metric triggered notification
   private String templateName;    // Template to use: USAGE_LIMIT_THRESHOLD, USAGE_LIMIT_REACHED, or USAGE_LIMIT_BLOCKED
   

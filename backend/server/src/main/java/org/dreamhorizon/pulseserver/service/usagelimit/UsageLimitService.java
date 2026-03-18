@@ -378,15 +378,6 @@ public class UsageLimitService {
    */
   public Single<NotificationStatusResponse> markThresholdsNotified(String projectId, List<Integer> thresholds) {
     return usageLimitDao.markThresholdsNotified(projectId, thresholds)
-        .onErrorResumeNext(error -> {
-          // Convert RuntimeException to proper RestException
-          if (error.getMessage() != null && error.getMessage().contains("already been notified")) {
-            return Single.error(new ForbiddenOperationException(
-                "THRESHOLD_ALREADY_NOTIFIED", 
-                error.getMessage()));
-          }
-          return Single.error(error);
-        })
         .map(record -> {
           String month = record.getCreatedAt() != null 
               ? record.getCreatedAt().atZone(java.time.ZoneOffset.UTC)
@@ -449,40 +440,57 @@ public class UsageLimitService {
                     sessionsPercentage = calculatePercentage(usage.getSessionsUsed(), sessionLimit);
                   }
                   
-                  // Check events first (priority)
-                  String notifyFor = null;
-                  List<Integer> thresholdsToCross = new ArrayList<>();
-                  
+                  // Build thresholds to check: 50, 75, 90, 100 + overage limit (e.g. 110) when blocked
+                  int maxOverage = Math.max(eventsOverage != null ? eventsOverage : 0,
+                                           sessionsOverage != null ? sessionsOverage : 0);
+                  int overageLimit = 100 + maxOverage;
+                  List<Integer> thresholdsToCheck = new ArrayList<>(NOTIFICATION_THRESHOLDS);
+                  if (maxOverage > 0 && !thresholdsToCheck.contains(overageLimit)) {
+                    thresholdsToCheck.add(overageLimit);
+                  }
+
+                  // Check both metrics: which has the highest crossed threshold?
+                  // Highest wins; if tied, events wins (ensures blocked/reached state is notified correctly)
+                  List<Integer> eventsCrossed = new ArrayList<>();
+                  List<Integer> sessionsCrossed = new ArrayList<>();
+
                   if (eventsPercentage != null) {
-                    for (Integer threshold : NOTIFICATION_THRESHOLDS) {
+                    for (Integer threshold : thresholdsToCheck) {
                       if (eventsPercentage >= threshold && !alreadyNotified.contains(threshold)) {
-                        thresholdsToCross.add(threshold);
+                        eventsCrossed.add(threshold);
                       }
                     }
-                    if (!thresholdsToCross.isEmpty()) {
-                      notifyFor = "events";
-                    }
                   }
-                  
-                  // Only check sessions if no event notification was needed
-                  if (notifyFor == null && sessionsPercentage != null) {
-                    for (Integer threshold : NOTIFICATION_THRESHOLDS) {
+                  if (sessionsPercentage != null) {
+                    for (Integer threshold : thresholdsToCheck) {
                       if (sessionsPercentage >= threshold && !alreadyNotified.contains(threshold)) {
-                        thresholdsToCross.add(threshold);
+                        sessionsCrossed.add(threshold);
                       }
                     }
-                    if (!thresholdsToCross.isEmpty()) {
-                      notifyFor = "sessions";
-                    }
                   }
-                  
+
+                  int eventsHighest = eventsCrossed.isEmpty() ? 0 : eventsCrossed.stream().max(Integer::compareTo).orElse(0);
+                  int sessionsHighest = sessionsCrossed.isEmpty() ? 0 : sessionsCrossed.stream().max(Integer::compareTo).orElse(0);
+
+                  String notifyFor = null;
+                  int chosenThreshold = 0;
+                  List<Integer> thresholdsToMark = new ArrayList<>();
+
+                  if (eventsHighest >= sessionsHighest && eventsHighest > 0) {
+                    notifyFor = "events";
+                    chosenThreshold = eventsHighest;
+                    thresholdsToMark = new ArrayList<>(eventsCrossed);
+                  } else if (sessionsHighest > 0) {
+                    notifyFor = "sessions";
+                    chosenThreshold = sessionsHighest;
+                    thresholdsToMark = new ArrayList<>(sessionsCrossed);
+                  }
+
+                  List<Integer> thresholdsToCross = chosenThreshold > 0 ? List.of(chosenThreshold) : List.of();
+
                   // Build notifications with both metrics details and template selection
                   for (Integer threshold : thresholdsToCross) {
-                    // Calculate status flags
-                    int maxOverage = Math.max(eventsOverage != null ? eventsOverage : 0, 
-                                             sessionsOverage != null ? sessionsOverage : 0);
-                    int overageLimit = 100 + maxOverage;
-                    
+                    // Calculate status flags (maxOverage, overageLimit computed above)
                     boolean eventsBlocked = eventsPercentage != null && eventsPercentage >= overageLimit;
                     boolean sessionsBlocked = sessionsPercentage != null && sessionsPercentage >= overageLimit;
                     boolean eventsAtLimit = eventsPercentage != null && eventsPercentage >= 100 
@@ -521,6 +529,7 @@ public class UsageLimitService {
                         .projectId(projectId)
                         .projectName(projectName)
                         .threshold(threshold)
+                        .thresholdsToMark(thresholdsToMark)
                         .notifyFor(notifyFor)
                         .templateName(templateName)
                         .sessionsUsed(usage.getSessionsUsed())

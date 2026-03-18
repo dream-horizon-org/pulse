@@ -291,11 +291,10 @@ public class ProjectUsageLimitDao {
       
           for (Integer threshold : thresholds) {
             String key = String.valueOf(threshold);
-            if (updatedNode.has(key)) {
-                return Single.error(new RuntimeException(
-                    "Threshold " + threshold + " has already been notified for this month"));
+            if (!updatedNode.has(key)) {
+              updatedNode.put(key, now.toString());
             }
-            updatedNode.put(key, now.toString());
+            // Idempotent: skip if already notified (e.g. retry after partial success)
           }
       
       String updatedJson = objectMapper.writeValueAsString(updatedNode);

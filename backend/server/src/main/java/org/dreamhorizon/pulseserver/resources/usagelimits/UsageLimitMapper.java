@@ -178,6 +178,7 @@ public abstract class UsageLimitMapper {
         .projectId(notification.getProjectId())
         .projectName(notification.getProjectName())
         .threshold(notification.getThreshold())
+        .thresholdsToMark(notification.getThresholdsToMark())
         .notifyFor(notification.getNotifyFor())
         .templateName(notification.getTemplateName())
         .sessionsUsed(notification.getSessionsUsed())

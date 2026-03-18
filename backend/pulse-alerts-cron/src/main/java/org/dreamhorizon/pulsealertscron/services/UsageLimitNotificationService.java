@@ -81,11 +81,15 @@ public class UsageLimitNotificationService {
         notification.getNotifyFor(),
         notification.getThreshold());
 
+    List<Integer> thresholdsToMark = notification.getThresholdsToMark();
+    if (thresholdsToMark == null || thresholdsToMark.isEmpty()) {
+      thresholdsToMark = List.of(notification.getThreshold());
+    }
     return apiClient.sendUsageLimitNotification(notification)
         .andThen(
             apiClient.markThresholdsNotified(
                 notification.getProjectId(),
-                List.of(notification.getThreshold())
+                thresholdsToMark
             )
         )
         .doOnComplete(() ->

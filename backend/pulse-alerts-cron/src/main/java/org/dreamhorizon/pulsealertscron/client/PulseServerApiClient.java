@@ -193,6 +193,7 @@ public class PulseServerApiClient {
         notification.getProjectId(), notification.getThreshold(), notification.getNotifyFor(), notification.getTemplateName());
 
     // Build params for template placeholders ({{projectName}}, {{threshold}}, etc.)
+    // Templates use eventsPercentageDisplay/sessionsPercentageDisplay; fallback to numeric when null
     String eventsDisplay = notification.getEventsPercentageDisplay() != null
         ? notification.getEventsPercentageDisplay()
         : String.valueOf(notification.getEventsPercentage() != null ? notification.getEventsPercentage() : 0);
@@ -204,8 +205,6 @@ public class PulseServerApiClient {
         .put("projectName", notification.getProjectName() != null ? notification.getProjectName() : notification.getProjectId())
         .put("threshold", notification.getThreshold())
         .put("notifyFor", notification.getNotifyFor())
-        .put("eventsPercentage", notification.getEventsPercentage())
-        .put("sessionsPercentage", notification.getSessionsPercentage())
         .put("eventsPercentageDisplay", eventsDisplay)
         .put("sessionsPercentageDisplay", sessionsDisplay)
         .put("dashboardUrl", DEFAULT_DASHBOARD_URL);

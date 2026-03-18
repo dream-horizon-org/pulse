@@ -16,7 +16,8 @@ import lombok.NoArgsConstructor;
 public class UsageNotificationDto {
   private String projectId;
   private String projectName;
-  private Integer threshold;      // 50, 75, 90, 100
+  private Integer threshold;      // 50, 75, 90, 100, or overage limit (e.g. 110)
+  private java.util.List<Integer> thresholdsToMark;  // All thresholds to mark (includes lower when we only send highest)
   private String notifyFor;       // "sessions" or "events" - which metric triggered notification
   private String templateName;    // Template to use: USAGE_LIMIT_THRESHOLD, USAGE_LIMIT_REACHED, or USAGE_LIMIT_BLOCKED
   
