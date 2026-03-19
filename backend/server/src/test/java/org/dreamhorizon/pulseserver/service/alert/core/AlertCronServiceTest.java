@@ -428,7 +428,7 @@ class AlertCronServiceTest {
           "/interaction/details.json",
           "encryptionKey",
           "tnc-bucket",
-          "symbol-files-bucket"
+          "symbol-files-bucket",
           "dev-api-key"
       );
 
@@ -529,7 +529,7 @@ class AlertCronServiceTest {
           "/interaction/details.json",
           "key",
           "tnc-bucket",
-          "symbol-files-bucket"
+          "symbol-files-bucket",
           "dev-api-key"
       );
       String toString = config.toString();
@@ -545,24 +545,21 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "symbol-files-bucket"
-          "key", "tnc-bucket", "dev-api-key"
+          "key", "tnc-bucket", "symbol-files-bucket", "dev-api-key"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "symbol-files-bucket"
-          "key", "tnc-bucket", "dev-api-key"
+          "key", "tnc-bucket", "symbol-files-bucket", "dev-api-key"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "symbol-files-bucket"
-          "key", "tnc-bucket", "dev-api-key"
+          "key", "tnc-bucket", "symbol-files-bucket", "dev-api-key"
       );
 
       assertEquals(config1, config2);

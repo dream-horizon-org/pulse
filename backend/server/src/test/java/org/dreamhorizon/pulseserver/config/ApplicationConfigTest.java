@@ -92,7 +92,7 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
-        "symbolFilesS3Bucket"
+        "symbolFilesS3Bucket",
         "dev-api-key"
     );
     assertNotNull(config);
