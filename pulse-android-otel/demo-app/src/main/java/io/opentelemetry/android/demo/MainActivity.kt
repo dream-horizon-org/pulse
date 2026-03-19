@@ -8,9 +8,14 @@ package io.opentelemetry.android.demo
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import android.view.ViewTreeObserver
+import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -27,10 +32,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -46,13 +51,34 @@ import io.opentelemetry.android.demo.about.AboutActivity
 import io.opentelemetry.android.demo.fragment.FragmentActivity
 import io.opentelemetry.android.demo.theme.DemoAppTheme
 import io.opentelemetry.android.demo.shop.ui.AstronomyShopActivity
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<DemoViewModel>()
+    private var t0: Long = 0
+    private var firstFrameCaptured = false
+    private var frameMetricsListener: Window.OnFrameMetricsAvailableListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // t0: onCreate called
+        t0 = System.currentTimeMillis()
+        Log.d(TAG, "STARTUP_T0_MS=$t0")
+        
         setContent {
+            // Session id is often null on first frame; polling avoids crashing on error("Session ID is null").
+            LaunchedEffect(Unit) {
+                repeat(30) {
+                    val sid = OtelDemoApplication.rum.getRumSessionId()
+                    if (sid != null) {
+                        viewModel.sessionIdState.value = sid
+                        return@LaunchedEffect
+                    }
+                    delay(200L)
+                }
+                Log.w(TAG, "RUM session id still null after ~6s; keeping placeholder")
+            }
             DemoAppTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
@@ -201,10 +227,8 @@ class MainActivity : ComponentActivity() {
 
                     }
                 }
-                Log.d(TAG, "Main Activity started ")
             }
         }
-        viewModel.sessionIdState.value = OtelDemoApplication.rum?.getRumSessionId() ?: error("Session ID is null")
 
         // Request the correct phone state permission based on API level
         // This permission is needed for gathering certain network information like
@@ -223,6 +247,58 @@ class MainActivity : ComponentActivity() {
                 this,
                 arrayOf(phoneStatePermission),
                 100,
+            )
+        }
+
+        // t1: first frame / first draw — FrameMetrics is API 24+ only; minSdk is 21.
+        scheduleStartupT1Measurement()
+    }
+
+    override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            frameMetricsListener?.let { window.removeOnFrameMetricsAvailableListener(it) }
+            frameMetricsListener = null
+        }
+        super.onDestroy()
+    }
+
+    private fun recordStartupT1IfNeeded() {
+        if (firstFrameCaptured) return
+        if (isFinishing) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed) return
+        firstFrameCaptured = true
+        val t1 = System.currentTimeMillis()
+        val totalStartupTime = t1 - t0
+        Log.d(TAG, "STARTUP_T1_MS=$t1")
+        Log.d(TAG, "STARTUP_TOTAL_MS=$totalStartupTime")
+    }
+
+    /**
+     * Log t1 and total startup time. [Window.addOnFrameMetricsAvailableListener] exists from API 24;
+     * on older APIs use first pre-draw as a proxy for first frame.
+     */
+    private fun scheduleStartupT1Measurement() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // Post so the window/decor is ready; avoids rare crashes from registering too early.
+            // API 35+: passing null Handler crashes (HardwareRendererObserver NPE: "handler and its looper cannot be null").
+            val mainHandler = Handler(Looper.getMainLooper())
+            window.decorView.post {
+                val listener = Window.OnFrameMetricsAvailableListener { _, _, _ ->
+                    recordStartupT1IfNeeded()
+                }
+                frameMetricsListener = listener
+                window.addOnFrameMetricsAvailableListener(listener, mainHandler)
+            }
+        } else {
+            val decor = window.decorView
+            decor.viewTreeObserver.addOnPreDrawListener(
+                object : ViewTreeObserver.OnPreDrawListener {
+                    override fun onPreDraw(): Boolean {
+                        decor.viewTreeObserver.removeOnPreDrawListener(this)
+                        recordStartupT1IfNeeded()
+                        return true
+                    }
+                },
             )
         }
     }
