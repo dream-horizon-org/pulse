@@ -1695,7 +1695,7 @@ export class MockDataStore {
           description: proj.description,
           tenantId: tenant.tenantId,
           isActive: proj.isActive,
-          isEventFlowStarted: true,
+          isEventFlowStarted: false, // New projects land on onboarding page first
           userRole: proj.role,
           createdAt: new Date().toISOString(),
           createdBy: "unknown",

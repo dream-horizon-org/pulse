@@ -12,7 +12,7 @@ Last Updated: 2025-03-19
 
 ### Mock Onboarding
 
-- **POST /v1/onboarding/complete**: Seeds the onboarded user (user-mock-onboarded, dev@example.com) as tenant admin and project admin
+- **POST /v1/onboarding/complete**: Seeds the onboarded user (user-mock-onboarded, dev@example.com) as tenant admin and project admin; redirectTo is `/projects/:projectId/onboarding`
 - **Invite flow after onboarding**: `GET /v1/tenants/:tenantId/members` and `GET /v1/projects/:projectId/members` return the creator; invite-by-email on OnboardingSuccess works; TenantMembersNotOnProjectPicker shows "Everyone in your organization is already on this project" when only the creator exists
 
 ---
