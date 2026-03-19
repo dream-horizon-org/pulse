@@ -156,11 +156,12 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
                             result.map(
                                 (row, md) -> {
                                   Map<String, Object> m = new LinkedHashMap<>();
-                                  for (int i = 0; i < md.getColumnMetadatas().size(); i++) {
-                                    m.put(
-                                        md.getColumnMetadatas().get(i).getName(),
-                                        row.get(i).toString());
-                                  }
+                                    for (int i = 0; i < md.getColumnMetadatas().size(); i++) {
+                                        Object cell = row.get(i);
+                                        m.put(
+                                                md.getColumnMetadatas().get(i).getName(),
+                                                cell == null ? null : cell.toString());
+                                    }
                                   return m;
                                 }))
                     .toList()
