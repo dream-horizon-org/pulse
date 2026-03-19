@@ -6,7 +6,6 @@ package com.pulse.sampling.remote
 import com.pulse.sampling.models.PulseDeviceAttributeName
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseSdkName
-import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import kotlinx.coroutines.test.runTest
 import okhttp3.Cache
@@ -76,10 +75,10 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.sampling.rules[0].name).isEqualTo(PulseDeviceAttributeName.OS_VERSION)
             assertThat(config.sampling.rules[0].value).isEqualTo("27")
             assertThat(config.sampling.rules[0].sessionSampleRate).isEqualTo(1.0f)
-            assertThat(config.sampling.criticalEventPolicies).isNotNull
-            assertThat(config.sampling.criticalEventPolicies!!.alwaysSend).hasSize(2)
+            assertThat(config.sampling.criticalSessionPolicies).isNotNull
+            assertThat(config.sampling.criticalSessionPolicies!!.alwaysSend).hasSize(2)
             assertThat(
-                config.sampling.criticalEventPolicies!!
+                config.sampling.criticalSessionPolicies!!
                     .alwaysSend
                     .first(),
             ).extracting({ it.name }, { it.sdks.toSet() }, { it.scopes.toSet() })
@@ -90,13 +89,13 @@ class PulseSdkConfigRetrofitClientTest {
                 )
 
             assertThat(
-                config.sampling.criticalEventPolicies!!
+                config.sampling.criticalSessionPolicies!!
                     .alwaysSend
                     .first()
                     .props,
             ).hasSize(1)
             assertThat(
-                config.sampling.criticalEventPolicies!!
+                config.sampling.criticalSessionPolicies!!
                     .alwaysSend
                     .first()
                     .props
@@ -104,7 +103,7 @@ class PulseSdkConfigRetrofitClientTest {
                     .name,
             ).isEqualTo("severity")
             assertThat(
-                config.sampling.criticalEventPolicies!!
+                config.sampling.criticalSessionPolicies!!
                     .alwaysSend
                     .first()
                     .props
@@ -115,13 +114,6 @@ class PulseSdkConfigRetrofitClientTest {
             assertThat(config.signals.scheduleDurationMs).isEqualTo(5000L)
             assertThat(config.signals.spanCollectorUrl).isEqualTo("http://localhost:4318/v1/traces")
             assertThat(config.signals.attributesToDrop).hasSize(2)
-            assertThat(config.signals.filters.mode).isEqualTo(PulseSignalFilterMode.BLACKLIST)
-            assertThat(config.signals.filters.values).hasSize(1)
-            assertThat(
-                config.signals.filters.values
-                    .first()
-                    .name,
-            ).isEqualTo("sensitive_event")
 
             assertThat(config.interaction.collectorUrl).isEqualTo("http://localhost:4318/v1/interactions")
             assertThat(config.interaction.configUrl).isEqualTo("http://localhost:8080/v1/configs/latest-version")
@@ -202,7 +194,7 @@ class PulseSdkConfigRetrofitClientTest {
                                     "sessionSampleRate": 0.9
                                 }
                             ],
-                            "criticalEventPolicies": {
+                            "criticalSessionPolicies": {
                                 "alwaysSend": [
                                     {
                                         "name": "test_event",
@@ -220,11 +212,7 @@ class PulseSdkConfigRetrofitClientTest {
                             "spanCollectorUrl": "http://localhost:4318/v1/traces",
                             "customEventCollectorUrl": "http://localhost:4318/v1/custom-event",
                             "attributesToDrop": [],
-                            "attributesToAdd": [],
-                            "filters": {
-                                "mode": "blacklist",
-                                "values": []
-                            }
+                            "attributesToAdd": []
                         },
                         "interaction": {
                             "collectorUrl": "http://localhost:4318/v1/interactions",
@@ -254,10 +242,10 @@ class PulseSdkConfigRetrofitClientTest {
                 .flatExtracting({ it.name })
                 .containsExactlyInAnyOrder(PulseDeviceAttributeName.UNKNOWN, PulseDeviceAttributeName.OS_VERSION)
 
-            assertThat(config.sampling.criticalEventPolicies).isNotNull
+            assertThat(config.sampling.criticalSessionPolicies).isNotNull
 
             assertThat(
-                config.sampling.criticalEventPolicies!!
+                config.sampling.criticalSessionPolicies!!
                     .alwaysSend
                     .first(),
             ).extracting({ it.scopes.toSet() }, { it.sdks.toSet() })
@@ -367,52 +355,6 @@ class PulseSdkConfigRetrofitClientTest {
                                 "sessionSampleRate": 1
                             }
                         ],
-                        "criticalEventPolicies": {
-                            "alwaysSend": [
-                                {
-                                    "name": "crash",
-                                    "props": [
-                                        {
-                                            "name": "severity",
-                                            "value": "critical"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                },
-                                {
-                                    "name": "payment_error",
-                                    "props": [
-                                        {
-                                            "name": "error_type",
-                                            "value": "payment.*"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                }
-                            ]
-                        },
                         "criticalSessionPolicies": {
                             "alwaysSend": [
                                 {
@@ -461,32 +403,6 @@ class PulseSdkConfigRetrofitClientTest {
                         }
                     },
                     "signals": {
-                        "filters": {
-                            "mode": "blacklist",
-                            "values": [
-                                {
-                                    "name": "sensitive_event",
-                                    "props": [
-                                        {
-                                            "name": "contains_pii",
-                                            "value": "true"
-                                        }
-                                    ],
-                                    "scopes": [
-                                        "logs",
-                                        "traces",
-                                        "metrics",
-                                        "baggage"
-                                    ],
-                                    "sdks": [
-                                        "pulse_android_java",
-                                        "pulse_android_rn",
-                                        "pulse_ios_swift",
-                                        "pulse_ios_rn"
-                                    ]
-                                }
-                            ]
-                        },
                         "scheduleDurationMs": 5000,
                         "logsCollectorUrl": "http://localhost:4318/v1/traces",
                         "metricCollectorUrl": "http://localhost:4318/v1/traces",

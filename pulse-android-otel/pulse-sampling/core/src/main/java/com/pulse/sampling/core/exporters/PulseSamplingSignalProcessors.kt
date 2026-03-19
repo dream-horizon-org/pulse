@@ -16,7 +16,6 @@ import com.pulse.sampling.models.PulseMetricsToAddTarget
 import com.pulse.sampling.models.PulseMetricsType
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkName
-import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.PulseSignalsToSampleEntry
 import com.pulse.sampling.models.SamplingRate
@@ -107,32 +106,8 @@ public class PulseSamplingSignalProcessors internal constructor(
                 attributesToDrop = attributesToDrop,
                 metricsToAdd = metricsToAdd,
             ) {
-                val filteredSpans =
-                    it
-                        .asSequence()
-                        .filter { spanData ->
-                            shouldExportSpan(spanData.name, spanData.attributes)
-                        }.toList()
-
-                delegateExporter.export(filteredSpans)
+                delegateExporter.export(it)
             }
-
-        private fun shouldExportSpan(
-            name: String?,
-            propsMap: Attributes,
-        ): Boolean =
-            name == null ||
-                sdkConfig.signals.filters.values.anyOrNone(
-                    sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
-                ) { matchCondition ->
-                    signalMatcher.matches(
-                        PulseSignalScope.TRACES,
-                        name,
-                        propsMap,
-                        matchCondition,
-                        currentSdkName,
-                    )
-                }
 
         override fun close() {
             delegateExporter.close()
@@ -161,33 +136,8 @@ public class PulseSamplingSignalProcessors internal constructor(
                 attributesToDrop,
                 metricsToAdd,
             ) {
-                val filteredLogs =
-                    it
-                        .asSequence()
-                        .filter { logRecord ->
-                            val logName = logRecord.bodyValue?.asString()
-                            shouldExportLog(logName, logRecord.attributes)
-                        }.toList()
-
-                delegateExporter.export(filteredLogs)
+                delegateExporter.export(it)
             }
-
-        private fun shouldExportLog(
-            name: String?,
-            propsMap: Attributes,
-        ): Boolean =
-            name == null ||
-                sdkConfig.signals.filters.values.anyOrNone(
-                    sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
-                ) { matchCondition ->
-                    signalMatcher.matches(
-                        PulseSignalScope.LOGS,
-                        name,
-                        propsMap,
-                        matchCondition,
-                        currentSdkName,
-                    )
-                }
 
         override fun close() {
             delegateExporter.close()
@@ -203,27 +153,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                 attributesToDrop = emptyList(),
                 attributesToAdd = emptyList(),
             ) {
-                val filteredLogs =
-                    it
-                        .asSequence()
-                        .filter { metric ->
-                            shouldExportMetric(metric.name)
-                        }.toList()
-
-                delegateExporter.export(filteredLogs)
-            }
-
-        private fun shouldExportMetric(name: String): Boolean =
-            sdkConfig.signals.filters.values.anyOrNone(
-                sdkConfig.signals.filters.mode == PulseSignalFilterMode.WHITELIST,
-            ) { matchCondition ->
-                signalMatcher.matches(
-                    PulseSignalScope.METRICS,
-                    name,
-                    Attributes.empty(),
-                    matchCondition,
-                    currentSdkName,
-                )
+                delegateExporter.export(it)
             }
 
         override fun getDefaultAggregation(instrumentType: InstrumentType): Aggregation? =
@@ -246,16 +176,6 @@ public class PulseSamplingSignalProcessors internal constructor(
             .features
             .filter { currentSdkName in it.sdks && it.sessionSampleRate == 1F }
             .map { it.featureName }
-
-    private inline fun <E> Iterable<E>.anyOrNone(
-        shouldMatchAny: Boolean,
-        predicate: (E) -> Boolean,
-    ): Boolean =
-        if (shouldMatchAny) {
-            this.any(predicate)
-        } else {
-            this.none(predicate)
-        }
 
     @OptIn(ExperimentalTypeInference::class)
     @BuilderInference
@@ -657,22 +577,7 @@ public class PulseSamplingSignalProcessors internal constructor(
                 if (matchedEntry != null) {
                     shouldSampleByRate(matchedEntry.sampleRate)
                 } else {
-                    if (shouldSampleThisSession) {
-                        true
-                    } else {
-                        sdkConfig.sampling.criticalEventPolicies
-                            ?.run {
-                                alwaysSend.any { matchCondition ->
-                                    signalMatcher.matches(
-                                        scope,
-                                        name,
-                                        props,
-                                        matchCondition,
-                                        currentSdkName,
-                                    )
-                                }
-                            } == true
-                    }
+                    shouldSampleThisSession
                 }
             }
         return if (sampledSignals.isNotEmpty()) {
