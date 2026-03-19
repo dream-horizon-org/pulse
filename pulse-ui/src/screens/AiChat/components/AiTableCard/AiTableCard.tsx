@@ -7,11 +7,10 @@ import {
   IconArrowsSort,
 } from "@tabler/icons-react";
 import { AiTableCardProps } from "./AiTableCard.interface";
+import { SortDir } from "../../types/chat";
 import { TableErrorBoundary } from "./TableErrorBoundary";
 import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 import classes from "./AiTableCard.module.css";
-
-type SortDir = "asc" | "desc" | null;
 
 export const AiTableCard = ({ table }: AiTableCardProps) => {
   const [sortKey, setSortKey] = useState<string | null>(null);

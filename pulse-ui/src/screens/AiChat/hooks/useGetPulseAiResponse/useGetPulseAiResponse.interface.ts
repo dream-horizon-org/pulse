@@ -1,7 +1,7 @@
-import { AiChartConfig, AiTableConfig } from "../../types/chat";
+import { AiChartConfig, AiTableConfig, BlockType } from "../../types/chat";
 
 export interface ContentBlock {
-  block_type: "chart" | "table" | string;
+  block_type: BlockType | string;
   [key: string]: unknown;
 }
 

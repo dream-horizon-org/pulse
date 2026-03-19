@@ -29,6 +29,7 @@ import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
 import { EventCatalog } from "../screens/EventCatalog";
 import { AiChat } from "../screens/AiChat";
+import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 
 export const ROUTES = {
@@ -174,4 +175,8 @@ export const ROUTES = {
   ...(ROUTE_PATHS.AI_CHAT
     ? { AI_CHAT: { ...ROUTE_PATHS.AI_CHAT, element: AiChat } }
     : {}),
+  SUPPORT_QUERIES: {
+    ...ROUTE_PATHS.SUPPORT_QUERIES,
+    element: SupportQueries,
+  },
 };

@@ -1,7 +1,6 @@
 import { Box, Text, Avatar } from "@mantine/core";
 import { IconUser, IconSparkles } from "@tabler/icons-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownContent } from "../../../../components/MarkdownContent";
 import { SqlResultCard } from "../SqlResultCard";
 import { AiChartCard } from "../AiChartCard";
 import { AiTableCard } from "../AiTableCard";
@@ -37,11 +36,10 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
           <TypingIndicator />
         ) : (
           <>
-            <div className={classes.markdown}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {displayText}
-              </ReactMarkdown>
-            </div>
+            <MarkdownContent
+              content={displayText}
+              className={classes.markdown}
+            />
             {sql && <SqlResultCard sql={sql} />}
             {message.charts?.map((chart, idx) => (
               <AiChartCard key={`chart-${chart.title}-${idx}`} chart={chart} />

@@ -36,16 +36,19 @@ import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 
 /**
  * Authenticates requests via JWT and proxies them to the Pulse AI agent service.
  * Supports SSE streaming for real-time responses.
+ * All proxy methods require can_view on the project (X-Project-ID); enforced by AuthorizationFilter.
  */
 @Slf4j
 @Path("/v1/ai")
 @Timeout(value = 120000, httpStatusCode = 504)
+@RequiresPermission("can_view")
 public class AiProxyResource {
 
   private static final String BEARER_PREFIX = "Bearer ";

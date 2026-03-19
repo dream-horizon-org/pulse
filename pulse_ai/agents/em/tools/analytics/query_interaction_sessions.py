@@ -8,6 +8,7 @@ import json
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
 from pulse_ai.agents.em.templates.interaction_templates import build_sessions_query
 from pulse_ai.agents.em.transformers.response_transformer import (
     parse_error_response,
@@ -33,7 +34,7 @@ async def query_interaction_sessions(
     Args:
         scope: What to query. "sessions" for session list, "stats" for summary statistics
         interaction_name: The interaction name
-        time_range: One of: last_5m, last_15m, last_30m, last_1h, last_3h, last_6h, last_12h, last_24h, last_2d, last_7d, last_30d, last_90d, yesterday, previous_week, previous_month, today_so_far, this_week, this_month_so_far, custom
+        time_range: One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
         event_type: Filter sessions by type: crash, error, completed, or omit for all

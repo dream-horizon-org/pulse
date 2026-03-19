@@ -7,6 +7,7 @@ Supports: list, detail, evaluation_history, available_scopes.
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
 from pulse_ai.agents.em.transformers.response_transformer import parse_error_response
 
 VALID_SCOPES = ("list", "detail", "evaluation_history", "available_scopes")
@@ -35,7 +36,7 @@ async def query_alerts(
         state: Filter by state: FIRING, NO_DATA, NORMAL, SNOOZED (scope="list")
         limit: Max results per page (scope="list", default 10)
         offset: Pagination offset (scope="list", default 0)
-        time_range: Time range for data queries (scope="available_scopes"). One of: last_5m, last_15m, last_30m, last_1h, last_3h, last_6h, last_12h, last_24h, last_2d, last_7d, last_30d, last_90d, yesterday, previous_week, previous_month, today_so_far, this_week, this_month_so_far, custom
+        time_range: Time range for data queries (scope="available_scopes"). One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
     """

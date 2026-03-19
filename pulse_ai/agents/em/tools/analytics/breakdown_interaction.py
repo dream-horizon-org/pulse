@@ -8,6 +8,7 @@ import json
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
 from pulse_ai.agents.em.templates.interaction_templates import build_breakdown_query
 from pulse_ai.agents.em.transformers.response_transformer import (
     parse_error_response,
@@ -38,7 +39,7 @@ async def breakdown_interaction(
     Args:
         dimension: Breakdown dimension. One of: device, region, release, platform, os, network, latency_by_network, latency_by_device, latency_by_os
         interaction_name: The interaction name
-        time_range: One of: last_5m, last_15m, last_30m, last_1h, last_3h, last_6h, last_12h, last_24h, last_2d, last_7d, last_30d, last_90d, yesterday, previous_week, previous_month, today_so_far, this_week, this_month_so_far, custom
+        time_range: One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
         filters: Optional dimension filters as JSON string to narrow within another dimension, e.g. '{"platform": "Android"}' when dimension is "device"
