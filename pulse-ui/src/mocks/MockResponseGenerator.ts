@@ -1104,7 +1104,11 @@ export class MockResponseGenerator {
         ],
       };
       this.dataStore.setCurrentTenant(newTenant);
-      this.dataStore.ensureTenantExists(tenantId, organizationName);
+      this.dataStore.ensureTenantExists(
+        tenantId,
+        organizationName,
+        "dev@example.com",
+      );
       this.dataStore.registerOnboardingProject(
         tenantId,
         projectId,

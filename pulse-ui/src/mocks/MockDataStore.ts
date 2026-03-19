@@ -1653,7 +1653,7 @@ export class MockDataStore {
     return null;
   }
 
-  ensureTenantExists(tenantId: string, name: string): void {
+  ensureTenantExists(tenantId: string, name: string, createdBy?: string): void {
     if (!this.mockTenants.has(tenantId)) {
       this.mockTenants.set(tenantId, {
         tenantId,
@@ -1663,8 +1663,89 @@ export class MockDataStore {
         isActive: true,
         createdAt: new Date().toISOString(),
       });
-      this.mockTenantMembers.set(tenantId, []);
+      const members = createdBy
+        ? this.getDefaultMembersForNewTenant(createdBy)
+        : [];
+      this.mockTenantMembers.set(tenantId, members);
     }
+  }
+
+  /**
+   * Returns default members for a newly created tenant (e.g. from onboarding).
+   * Includes the login user as admin plus 2-3 other mock users.
+   */
+  private getDefaultMembersForNewTenant(createdBy: string): MockMember[] {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    const oneDay = 24 * 60 * 60 * 1000;
+    const creatorName = createdBy.split("@")[0].replace(/\./g, " ");
+    const creatorUserId = "user-" + createdBy.replace(/[^a-z0-9]/gi, "-");
+
+    return [
+      {
+        userId: creatorUserId,
+        email: createdBy,
+        name: creatorName,
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - oneHour).toISOString(),
+      },
+      {
+        userId: "user-priya-2",
+        email: "priya.patel@example.com",
+        name: "Priya Patel",
+        role: "member",
+        status: "active",
+        lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-amit-3",
+        email: "amit.kumar@example.com",
+        name: "Amit Kumar",
+        role: "member",
+        status: "active",
+        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
+      },
+    ];
+  }
+
+  /**
+   * Returns default members for a newly created project (e.g. from onboarding).
+   * Includes the creator as admin plus 2 other mock users.
+   */
+  private getDefaultMembersForNewProject(createdBy: string): MockMember[] {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    const oneDay = 24 * 60 * 60 * 1000;
+    const creatorName = createdBy.split("@")[0].replace(/\./g, " ");
+    const creatorUserId = "user-" + createdBy.replace(/[^a-z0-9]/gi, "-");
+
+    return [
+      {
+        userId: creatorUserId,
+        email: createdBy,
+        name: creatorName,
+        role: "admin",
+        status: "active",
+        lastLoginAt: new Date(now - oneHour).toISOString(),
+      },
+      {
+        userId: "user-priya-2",
+        email: "priya.patel@example.com",
+        name: "Priya Patel",
+        role: "editor",
+        status: "active",
+        lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-amit-3",
+        email: "amit.kumar@example.com",
+        name: "Amit Kumar",
+        role: "viewer",
+        status: "active",
+        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
+      },
+    ];
   }
 
   getTenantMembers(tenantId: string): MockMember[] {
@@ -1748,17 +1829,8 @@ export class MockDataStore {
         deactivationReason: null,
       },
     ]);
-    const creatorName = createdBy.split("@")[0].replace(/\./g, " ");
-    this.mockProjectMembers.set(projectId, [
-      {
-        userId: "user-" + createdBy.replace(/[^a-z0-9]/gi, "-"),
-        email: createdBy,
-        name: creatorName,
-        role: "admin",
-        status: "active",
-        lastLoginAt: now,
-      },
-    ]);
+    const projectMembers = this.getDefaultMembersForNewProject(createdBy);
+    this.mockProjectMembers.set(projectId, projectMembers);
   }
 
   createProject(
