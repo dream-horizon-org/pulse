@@ -12,12 +12,12 @@ public typealias SamplingRate = Float
 @Serializable
 public class PulseSamplingConfig internal constructor(
     @SerialName("default")
-    public val default: PulseDefaultSamplingConfig,
+    public val default: PulseDefaultSamplingConfig = PulseDefaultSamplingConfig(),
     /**
      * Set of rules sorted by descending priority
      */
     @SerialName("rules")
-    public val rules: List<PulseSessionSamplingRule>,
+    public val rules: List<PulseSessionSamplingRule> = emptyList(),
     @SerialName("criticalEventPolicies")
     public val criticalEventPolicies: PulseCriticalEventPolicies? = null,
     @SerialName("criticalSessionPolicies")
@@ -28,13 +28,13 @@ public class PulseSamplingConfig internal constructor(
 @Serializable
 public class PulseSessionSamplingRule internal constructor(
     @SerialName("name")
-    public val name: PulseDeviceAttributeName,
+    public val name: PulseDeviceAttributeName = PulseDeviceAttributeName.UNKNOWN,
     @SerialName("value")
-    public val value: String,
+    public val value: String = "",
     @SerialName("sdks")
-    public val sdks: Collection<PulseSdkName>,
+    public val sdks: Collection<PulseSdkName> = emptyList(),
     @SerialName("sessionSampleRate")
-    public val sessionSampleRate: SamplingRate,
+    public val sessionSampleRate: SamplingRate = 1.0f,
 ) {
     public fun matches(context: Context): Boolean = name.matches(context, value)
 }
@@ -43,7 +43,7 @@ public class PulseSessionSamplingRule internal constructor(
 @Serializable
 public class PulseDefaultSamplingConfig internal constructor(
     @SerialName("sessionSampleRate")
-    public val sessionSampleRate: SamplingRate,
+    public val sessionSampleRate: SamplingRate = 1.0f,
 )
 
 @Keep

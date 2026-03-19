@@ -30,28 +30,28 @@ public class CronManager {
   private static final long INITIAL_RETRY_DELAY_MS = 1000; // 1 second
   private static final long REQUEST_TIMEOUT_MS = 30000; // 30 seconds
 
-  public Single<CronManagerDto> addCronTask(Integer id, String url, Integer interval, String tenantId) {
+  public Single<CronManagerDto> addCronTask(Integer id, String url, Integer interval, String projectId) {
     try {
       CronTask newTask = CronTask.builder()
           .id(id)
           .url(url)
-          .tenantId(tenantId)
+          .projectId(projectId)
           .build();
       cronGroups.computeIfAbsent(interval, k -> {
         startTimerForInterval(k);
         return new CopyOnWriteArrayList<>();
       }).add(newTask);
 
-      log.info("cron added: " + id + " for interval: " + interval + " tenant: " + tenantId);
+      log.info("cron added: " + id + " for interval: " + interval + " tenant: " + projectId);
       return Single.just(CronManagerDto.builder().status("success").build());
     } catch (Exception e) {
       return Single.just(CronManagerDto.builder().status("failure").failureReason(e.getMessage()).build());
     }
   }
 
-  public void modifyCronTask(Integer id, String tenantId, String newUrl, Integer newInterval, Integer oldInterval) {
+  public void modifyCronTask(Integer id, String projectId, String newUrl, Integer newInterval, Integer oldInterval) {
     removeCronTask(id, oldInterval);
-    addCronTask(id, newUrl, newInterval, tenantId).subscribe();
+    addCronTask(id, newUrl, newInterval, projectId).subscribe();
   }
 
   public void removeCronTask(Integer id, Integer interval) {
@@ -86,8 +86,8 @@ public class CronManager {
     List<CronTask> tasks = cronGroups.get(interval);
     if (tasks != null) {
       tasks.forEach(task -> {
-        log.info("Executing task: {} for tenant: {}", task.getId(), task.getTenantId());
-        triggerEvaluation(task.getUrl(), task.getTenantId());
+        log.info("Executing task: {} for tenant: {}", task.getId(), task.getProjectId());
+        triggerEvaluation(task.getUrl(), task.getProjectId());
       });
     } else {
       log.info("No tasks found for interval: {}", interval);
@@ -95,19 +95,19 @@ public class CronManager {
     }
   }
 
-  private void triggerEvaluation(String evaluationUrl, String tenantId) {
-    log.info("Triggering evaluation for url: {} tenant: {}", evaluationUrl, tenantId);
+  private void triggerEvaluation(String evaluationUrl, String projectId) {
+    log.info("Triggering evaluation for url: {} tenant: {}", evaluationUrl, projectId);
 
     AtomicInteger attemptCounter = new AtomicInteger(0);
     long startTime = System.currentTimeMillis();
 
-    makeRequestWithRetry(evaluationUrl, tenantId, attemptCounter, startTime)
+    makeRequestWithRetry(evaluationUrl, projectId, attemptCounter, startTime)
         .subscribe(
             response -> {
               long duration = System.currentTimeMillis() - startTime;
               log.info("✅ Evaluation successful for url: {} tenant: {} | Status: {} | Duration: {}ms | Attempts: {}",
                   evaluationUrl,
-                  tenantId,
+                  projectId,
                   response.statusCode(),
                   duration,
                   attemptCounter.get());
@@ -116,7 +116,7 @@ public class CronManager {
               long duration = System.currentTimeMillis() - startTime;
               log.error("❌ Evaluation failed for url: {} tenant: {} | Duration: {}ms | Attempts: {} | Error: {}",
                   evaluationUrl,
-                  tenantId,
+                  projectId,
                   duration,
                   attemptCounter.get(),
                   error.getMessage());
@@ -126,7 +126,7 @@ public class CronManager {
 
   private Single<HttpResponse<Buffer>> makeRequestWithRetry(
       String url,
-      String tenantId,
+      String projectId,
       AtomicInteger attemptCounter,
       long startTime) {
 
@@ -134,12 +134,12 @@ public class CronManager {
       int currentAttempt = attemptCounter.incrementAndGet();
 
       if (currentAttempt > 1) {
-        log.info("🔄 Retry attempt {} for url: {} tenant: {}", currentAttempt, url, tenantId);
+        log.info("🔄 Retry attempt {} for url: {} tenant: {}", currentAttempt, url, projectId);
       }
 
       return webClient
           .getAbs(url)
-          .putHeader("X-Tenant-ID", tenantId)
+          .putHeader("X-Project-ID", projectId)
           .timeout(REQUEST_TIMEOUT_MS)
           .rxSend()
           .flatMap(response -> {
@@ -150,12 +150,12 @@ public class CronManager {
             }
 
             if (statusCode >= 400 && statusCode < 500) {
-              log.warn("⚠️ Client error {} for url: {} tenant: {} - Not retrying", statusCode, url, tenantId);
+              log.warn("⚠️ Client error {} for url: {} tenant: {} - Not retrying", statusCode, url, projectId);
               return Single.just(response);
             }
 
             if (statusCode >= 500) {
-              String errorMsg = String.format("Server error %d for url: %s tenant: %s", statusCode, url, tenantId);
+              String errorMsg = String.format("Server error %d for url: %s tenant: %s", statusCode, url, projectId);
               log.warn("⚠️ {} - Will retry if attempts remaining", errorMsg);
               return Single.error(new RuntimeException(errorMsg));
             }
@@ -171,13 +171,13 @@ public class CronManager {
                   currentAttempt,
                   MAX_RETRY_ATTEMPTS,
                   url,
-                  tenantId,
+                  projectId,
                   error.getMessage());
 
               return Single.timer(delayMs, TimeUnit.MILLISECONDS)
-                  .flatMap(tick -> makeRequestWithRetry(url, tenantId, attemptCounter, startTime));
+                  .flatMap(tick -> makeRequestWithRetry(url, projectId, attemptCounter, startTime));
             } else {
-              log.error("❌ Max retry attempts ({}) exhausted for url: {} tenant: {}", MAX_RETRY_ATTEMPTS, url, tenantId);
+              log.error("❌ Max retry attempts ({}) exhausted for url: {} tenant: {}", MAX_RETRY_ATTEMPTS, url, projectId);
               return Single.error(error);
             }
           });
@@ -192,9 +192,9 @@ public class CronManager {
    * Adds a custom periodic task that executes at the specified interval.
    * Useful for non-HTTP periodic tasks like monitoring, cleanup, etc.
    *
-   * @param taskName Unique identifier for the task
+   * @param taskName        Unique identifier for the task
    * @param intervalSeconds Execution interval in seconds
-   * @param task The task to execute
+   * @param task            The task to execute
    */
   public void addCustomPeriodicTask(String taskName, Integer intervalSeconds, Runnable task) {
     if (customTimerIds.containsKey(taskName)) {

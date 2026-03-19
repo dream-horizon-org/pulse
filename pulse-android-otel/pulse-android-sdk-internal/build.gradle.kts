@@ -37,4 +37,7 @@ dependencies {
     implementation(libs.opentelemetry.semconv.incubating)
     implementation(libs.kotlin.serialisation)
     testImplementation(testFixtures(projects.pulseUtils))
+    testImplementation(testFixtures(projects.pulseSamplingModels))
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.kotlin.coroutinesTest)
 }

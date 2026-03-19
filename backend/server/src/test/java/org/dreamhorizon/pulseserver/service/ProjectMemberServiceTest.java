@@ -65,7 +65,7 @@ class ProjectMemberServiceTest {
         userService, projectDao, openFgaService, emailService,
         tenantMemberService, notificationService);
     // Stub notification service for fire-and-forget calls in success paths
-    when(notificationService.sendNotification(anyString(), any()))
+    when(notificationService.sendNotificationAsync(anyString(), any()))
         .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
   }
 
@@ -139,6 +139,8 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
           .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.of("member")));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "viewer"))
@@ -151,7 +153,7 @@ class ProjectMemberServiceTest {
       assertThat(result.getUserId()).isEqualTo(USER_ID);
       assertThat(result.getEmail()).isEqualTo("newuser@test.com");
       verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "viewer");
-      verify(notificationService).sendNotification(anyString(), any());
+      verify(notificationService).sendNotificationAsync(anyString(), any());
     }
 
     @Test
@@ -179,9 +181,11 @@ class ProjectMemberServiceTest {
       when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
       when(userService.getOrCreateUser("newuser@test.com", "newuser@test.com"))
           .thenReturn(Single.just(newUser));
+      when(openFgaService.getUserProjectRole(USER_ID, PROJECT_ID))
+          .thenReturn(Single.just(Optional.empty()));
       when(openFgaService.getUserTenantRole(USER_ID, TENANT_ID))
           .thenReturn(Single.just(Optional.empty()));
-      when(tenantMemberService.addUserToTenant(TENANT_ID, "newuser@test.com", "member", ADMIN_ID))
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "newuser@test.com"))
           .thenReturn(Single.just(newUser));
       when(openFgaService.assignProjectRole(USER_ID, PROJECT_ID, "editor"))
           .thenReturn(Completable.complete());
@@ -191,7 +195,7 @@ class ProjectMemberServiceTest {
 
       assertThat(result).isNotNull();
       assertThat(result.getUserId()).isEqualTo(USER_ID);
-      verify(tenantMemberService).addUserToTenant(TENANT_ID, "newuser@test.com", "member", ADMIN_ID);
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "newuser@test.com");
       verify(openFgaService).assignProjectRole(USER_ID, PROJECT_ID, "editor");
     }
   }
@@ -246,7 +250,7 @@ class ProjectMemberServiceTest {
       projectMemberService.removeMemberFromProject(PROJECT_ID, USER_ID, ADMIN_ID).blockingAwait();
 
       verify(openFgaService).removeProjectMember(USER_ID, PROJECT_ID);
-      verify(notificationService).sendNotification(anyString(), any());
+      verify(notificationService).sendNotificationAsync(anyString(), any());
     }
 
     @Test
@@ -451,7 +455,7 @@ class ProjectMemberServiceTest {
       projectMemberService.updateMemberRole(PROJECT_ID, USER_ID, "editor", ADMIN_ID).blockingAwait();
 
       verify(openFgaService).updateProjectRole(USER_ID, PROJECT_ID, "editor");
-      verify(notificationService).sendNotification(anyString(), any());
+      verify(notificationService).sendNotificationAsync(anyString(), any());
     }
 
     @Test

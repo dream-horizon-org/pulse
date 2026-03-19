@@ -28,7 +28,7 @@ class InteractionConfiguration internal constructor(
      * Configure the URL provider for the Interaction rest API. `Get` call will performed in this
      * URL to fetch the list of interaction configs
      * If not set, defaults to "http://10.0.2.2:8080/v1/interaction-configs/"
-     * Headers from endpointHeaders + projectId are automatically included.
+     * Headers from endpointHeaders + apiKey are automatically included.
      * Also see [setConfigFetcher]
      */
     fun setConfigUrl(urlProvider: () -> String): InteractionConfiguration =

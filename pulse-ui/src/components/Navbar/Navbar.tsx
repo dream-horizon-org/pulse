@@ -1,19 +1,19 @@
 import classes from "./Navbar.module.css";
 import {
+  ActionIcon,
   Anchor,
   AppShell,
-  ScrollArea,
-  Text,
-  Tooltip,
+  Avatar,
   Box,
+  Button,
+  Divider,
+  Group,
   Image,
   Popover,
-  Avatar,
-  Button,
+  ScrollArea,
   Stack,
-  Group,
-  Divider,
-  ActionIcon,
+  Text,
+  Tooltip,
 } from "@mantine/core";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -28,20 +28,21 @@ import {
 } from "../../constants";
 import { TIERS } from "../../constants/Tiers";
 import {
+  IconCreditCard,
+  IconFolder,
   IconHelp,
   IconLogout,
+  IconMail,
   IconMessageCircle,
-  IconUserCircle,
   IconSettings,
+  IconUserCircle,
   IconUsers,
-  IconFolder,
-  IconCreditCard,
 } from "@tabler/icons-react";
 import Cookies from "js-cookie";
 import { useRef, useState } from "react";
 import { getCookies } from "../../helpers/cookies";
 import { isGcpMultiTenantEnabled } from "../../helpers/gcpAuth";
-import { useTenantContext, useProjectContext } from "../../contexts";
+import { useProjectContext, useTenantContext } from "../../contexts";
 import { usePermissions } from "../../hooks";
 import { performLogout } from "../../helpers/logout";
 import { ConfirmationModal } from "../ConfirmationModal";
@@ -58,26 +59,38 @@ export function Navbar({
   const userProfilePicture = useRef<string>(
     Cookies.get(COOKIES_KEY.USER_PICTURE) ?? "",
   );
-  const { projectId: contextProjectId, clearProject } = useProjectContext();
-  const { tenantId, tenantName, tier, clearTenant } = useTenantContext();
+  const {
+    projectId: contextProjectId,
+    clearProject,
+    navigateToProject,
+  } = useProjectContext();
+  const { tenantId, tenantName, tier, clearTenant, projects } =
+    useTenantContext();
+  const [popoverOpened, setPopoverOpened] = useState(false);
+
   const permissions = usePermissions();
   const [logoutModalOpened, setLogoutModalOpened] = useState(false);
-  
+
   // Show nav items only on project dashboard pages (not on org pages or onboarding)
-  const isProjectDashboard = pathname.startsWith('/projects/') && 
-                             !pathname.includes('/onboarding');
+  const isProjectDashboard =
+    pathname.startsWith("/projects/") && !pathname.includes("/onboarding");
 
   const handleAllProjectsClick = () => {
     clearProject();
     if (tenantId) {
       navigate(`/${tenantId}/projects`);
     }
+    setPopoverOpened(false);
   };
 
   function onItemClick(routeTo: string) {
     // Transform flat routes to project-scoped routes
-    if (contextProjectId && !routeTo.startsWith('/organization') && !routeTo.startsWith('/projects/')) {
-      const projectScopedRoute = `${ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId)}${routeTo}`;
+    if (
+      contextProjectId &&
+      !routeTo.startsWith("/organization") &&
+      !routeTo.startsWith("/projects/")
+    ) {
+      const projectScopedRoute = `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${routeTo}`;
       navigate(projectScopedRoute);
     } else {
       navigate(routeTo);
@@ -86,15 +99,15 @@ export function Navbar({
 
   const isActive = (path: string) => {
     const decodedRouteName = decodeURIComponent(pathname);
-    
+
     // For project-scoped routes, check the part after /projects/:projectId
-    if (decodedRouteName.startsWith('/projects/')) {
-      const projectPathParts = decodedRouteName.split('/').slice(3); // Skip '', 'projects', projectId
-      const projectPath = '/' + projectPathParts.join('/');
-      const basePath = '/' + path.split('/')[1];
+    if (decodedRouteName.startsWith("/projects/")) {
+      const projectPathParts = decodedRouteName.split("/").slice(3); // Skip '', 'projects', projectId
+      const projectPath = "/" + projectPathParts.join("/");
+      const basePath = "/" + path.split("/")[1];
       return projectPath.startsWith(basePath);
     }
-    
+
     // For other routes, use the old logic
     const base = path.split("/")[1];
     const baseMatch = decodedRouteName.split("/")[1];
@@ -102,23 +115,34 @@ export function Navbar({
   };
 
   const onLogoClick = () => {
-    if (contextProjectId) {
-      navigate(ROUTES.PROJECT_DASHBOARD.basePath.replace(':projectId', contextProjectId));
-    } else if (tenantId) {
-      navigate(ROUTES.ORGANIZATION_PROJECTS.basePath.replace(':organizationId', tenantId));
+    if (!tenantId) return;
+
+    // FREE tier: Navigate directly to the single project
+    if (tier === TIERS.FREE && projects.length === 1) {
+      const singleProject = projects[0];
+      navigateToProject(singleProject.projectId);
+    } else {
+      // ENTERPRISE tier: Clear context and show projects listing
+      clearProject();
+      navigate(
+        ROUTES.ORGANIZATION_PROJECTS.basePath.replace(
+          ":organizationId",
+          tenantId,
+        ),
+      );
     }
   };
 
   const onLogoutClick = async () => {
     setLogoutModalOpened(false);
-    
+
     // Clear all React contexts explicitly
     clearProject();
     clearTenant();
-    
+
     // Perform logout (clears cookies, sessionStorage, and signs out)
     await performLogout();
-    
+
     // Navigate to login
     navigate(ROUTES.LOGIN.basePath);
   };
@@ -128,12 +152,26 @@ export function Navbar({
 
   return (
     <AppShell.Navbar className={classes.navbarContainer}>
-      <AppShell.Section className={classes.navbarHeader} style={{ height: 60, display: 'flex', alignItems: 'center', padding: '0 16px' }}>
-        <Box className={classes.logoSection} style={{ width: '100%', justifyContent: opened ? 'flex-start' : 'center' }}>
+      <AppShell.Section
+        className={classes.navbarHeader}
+        style={{
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+        }}
+      >
+        <Box
+          className={classes.logoSection}
+          style={{
+            width: "100%",
+            justifyContent: opened ? "flex-start" : "center",
+          }}
+        >
           {opened ? (
             <Box className={classes.logoExpanded} onClick={onLogoClick}>
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || "") + "/logo.svg"}
                 radius="md"
                 className={classes.logo}
                 alt=""
@@ -149,7 +187,7 @@ export function Navbar({
               withArrow
             >
               <Image
-                src={(process.env.PUBLIC_URL || '') + "/logo.svg"}
+                src={(process.env.PUBLIC_URL || "") + "/logo.svg"}
                 radius="md"
                 className={classes.logoCollapsed}
                 onClick={onLogoClick}
@@ -217,10 +255,20 @@ export function Navbar({
       )}
 
       {/* Bottom Section: Menu Button */}
-      <AppShell.Section className={classes.menuSectionContainer} style={{ paddingBottom: 16 }}>
+      <AppShell.Section
+        className={classes.menuSectionContainer}
+        style={{ paddingBottom: 16 }}
+      >
         <Divider my="sm" />
 
-        <Popover width={280} position="right-end" withArrow shadow="md">
+        <Popover
+          opened={popoverOpened}
+          onChange={setPopoverOpened}
+          width={280}
+          position="right-end"
+          withArrow
+          shadow="md"
+        >
           <Popover.Target>
             {opened ? (
               <Button
@@ -229,6 +277,7 @@ export function Navbar({
                 fullWidth
                 leftSection={<IconUserCircle size={20} />}
                 className={classes.menuButton}
+                onClick={() => setPopoverOpened((o) => !o)}
               >
                 More
               </Button>
@@ -239,6 +288,7 @@ export function Navbar({
                   color="teal"
                   size="lg"
                   className={classes.menuButtonCollapsed}
+                  onClick={() => setPopoverOpened((o) => !o)}
                 >
                   <IconUserCircle size={22} />
                 </ActionIcon>
@@ -269,7 +319,7 @@ export function Navbar({
                           {MULTI_TENANT_CONSTANTS.CURRENT_TENANT_LABEL}:{" "}
                           {tenantName || currentTenantId}
                         </Text>
-                    )}
+                      )}
                   </Box>
                 </Group>
               </Box>
@@ -277,19 +327,25 @@ export function Navbar({
               <Divider />
 
               {/* Organization Section */}
-              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Organization</Text>
-              
+              <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                Organization
+              </Text>
+
               {tier === TIERS.ENTERPRISE && (
                 <Box
                   className={classes.menuItem}
                   onClick={handleAllProjectsClick}
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: "pointer" }}
                 >
                   <Group gap="sm">
                     <IconFolder size={20} style={{ color: "#0ba09a" }} />
                     <Box>
-                      <Text size="sm" fw={500}>Projects</Text>
-                      <Text size="xs" c="dimmed">View all projects</Text>
+                      <Text size="sm" fw={500}>
+                        Projects
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        View all projects
+                      </Text>
                     </Box>
                   </Group>
                 </Box>
@@ -297,29 +353,53 @@ export function Navbar({
 
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.ORGANIZATION_MEMBERS.basePath)}
-                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  navigate(
+                    ROUTES.ORGANIZATION_MEMBERS.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
+                  setPopoverOpened(false);
+                }}
+                style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
                   <IconUsers size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Members</Text>
-                    <Text size="xs" c="dimmed">Team management</Text>
+                    <Text size="sm" fw={500}>
+                      Members
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Team management
+                    </Text>
                   </Box>
                 </Group>
               </Box>
 
               <Box
                 className={classes.menuItem}
-                onClick={() => navigate(ROUTES.PRICING.basePath)}
-                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  navigate(
+                    ROUTES.PRICING.basePath.replace(
+                      ":organizationId",
+                      tenantId || "",
+                    ),
+                  );
+                  setPopoverOpened(false);
+                }}
+                style={{ cursor: "pointer" }}
               >
                 <Group gap="sm">
                   <IconCreditCard size={20} style={{ color: "#0ba09a" }} />
                   <Box>
-                    <Text size="sm" fw={500}>Pricing & Plans</Text>
+                    <Text size="sm" fw={500}>
+                      Pricing & Plans
+                    </Text>
                     <Text size="xs" c="dimmed">
-                      {tier === TIERS.ENTERPRISE ? 'View your plan' : 'Upgrade to Enterprise'}
+                      {tier === TIERS.ENTERPRISE
+                        ? "View your plan"
+                        : "Upgrade to Enterprise"}
                     </Text>
                   </Box>
                 </Group>
@@ -330,7 +410,9 @@ export function Navbar({
               {/* Project Section - Only show if a project is selected */}
               {contextProjectId && (
                 <>
-                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Current Project</Text>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                    Current Project
+                  </Text>
 
                   {/* Settings Link */}
                   {permissions.canManageProjectSettings && (
@@ -338,16 +420,23 @@ export function Navbar({
                       className={classes.menuItem}
                       onClick={() => {
                         if (contextProjectId) {
-                          navigate(ROUTES.PROJECT_SETTINGS_ROUTE.basePath.replace(':projectId', contextProjectId));
+                          navigate(
+                            `${ROUTES.PROJECT_DASHBOARD.basePath.replace(":projectId", contextProjectId)}${ROUTES.PROJECT_SETTINGS.basePath}`,
+                          );
+                          setPopoverOpened(false);
                         }
                       }}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: "pointer" }}
                     >
                       <Group gap="sm">
                         <IconSettings size={20} style={{ color: "#0ba09a" }} />
                         <Box>
-                          <Text size="sm" fw={500}>Settings</Text>
-                          <Text size="xs" c="dimmed">API Keys, Team & Configuration</Text>
+                          <Text size="sm" fw={500}>
+                            Settings
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            API Keys, Team & Configuration
+                          </Text>
                         </Box>
                       </Group>
                     </Box>
@@ -368,6 +457,28 @@ export function Navbar({
                   <Text size="sm">{NAVBAR_CONSTANTS.HELP_BAR_TEXT}</Text>
                 </Group>
               </Anchor>
+
+              {/* Contact Us */}
+              <Box
+                className={classes.menuItem}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  navigate(ROUTES.SUPPORT_QUERIES.basePath);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <Group gap="sm">
+                  <IconMail size={20} style={{ color: "#0ba09a" }} />
+                  <Box>
+                    <Text size="sm" fw={500}>
+                      Contact Us
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Report an issue or ask a question
+                    </Text>
+                  </Box>
+                </Group>
+              </Box>
 
               {/* Footer Message - Discord Link */}
               <Anchor
@@ -392,7 +503,10 @@ export function Navbar({
               {/* Logout Button */}
               <Button
                 leftSection={<IconLogout size={18} />}
-                onClick={() => setLogoutModalOpened(true)}
+                onClick={() => {
+                  setPopoverOpened(false);
+                  setLogoutModalOpened(true);
+                }}
                 variant="light"
                 color="red"
                 size="sm"
@@ -404,7 +518,6 @@ export function Navbar({
           </Popover.Dropdown>
         </Popover>
       </AppShell.Section>
-
       {/* Logout Confirmation Modal */}
       <ConfirmationModal
         opened={logoutModalOpened}

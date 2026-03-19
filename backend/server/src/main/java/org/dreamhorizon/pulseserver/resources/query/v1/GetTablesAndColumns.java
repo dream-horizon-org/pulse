@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.query.models.ColumnMetadataResponseDto;
 import org.dreamhorizon.pulseserver.resources.query.models.TableMetadataResponseDto;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.query.QueryService;
@@ -29,6 +30,7 @@ public class GetTablesAndColumns {
   @Path("/tables")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<List<TableMetadataResponseDto>>> getTablesAndColumns() {
     return queryService.getTablesAndColumns()
         .map(tables -> tables.stream()

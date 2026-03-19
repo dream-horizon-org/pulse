@@ -23,9 +23,8 @@ Pulse is a real-time observability platform for mobile apps, built on OpenTeleme
 ## Data Flow
 
 ```
-Mobile SDKs → OTEL Collector (port 4317/4318)
-  → Kafka → ClickHouse (otel DB)
-Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery
+Mobile SDKs → OTEL Collector (port 4317/4318) → ClickHouse (otel DB)
+Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQuery  [Vector currently disabled in docker-compose]
 ```
 
 ## Databases
@@ -35,7 +34,13 @@ Custom Events → Vector (port 14317/14318) → S3 (Parquet) → Athena / BigQue
 
 ## Auth
 
-Google OAuth 2.0 → JWT (access 24h, refresh 30d). Tokens in cookies on frontend.
+**Production:** Google OAuth 2.0 → JWT (access 24h, refresh 30d). Tokens in cookies on frontend.
+
+**Dev Mode** (when `GOOGLE_OAUTH_ENABLED=false`):
+- Bypasses Google OAuth
+- Mock users: `mock-user-1`, `mock-user-2` (pre-seeded in MySQL + OpenFGA)
+- Default project: `default-project` with hardcoded API key (`DEV_MODE_API_KEY`)
+- Auto-initialized on startup via `DevModeInitService`
 
 ## Cross-Cutting Concerns
 

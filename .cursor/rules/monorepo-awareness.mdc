@@ -33,8 +33,8 @@ cd pulse_ai && ./setup.sh stop                # stop
 
 ```bash
 cd deploy && ./scripts/quickstart.sh          # build + start all
-cd deploy && ./scripts/build.sh [ui|server|alerting|all]
-cd deploy && ./scripts/start.sh -d [ui|server|alerting]
+cd deploy && ./scripts/build.sh [ui|server|cron|all]
+cd deploy && ./scripts/start.sh [-d|--detach] [--build]
 cd deploy && ./scripts/stop.sh [-v]
 cd deploy && ./scripts/logs.sh [service]
 ```
@@ -54,7 +54,7 @@ docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 | alerts-cron | 4000 | `/healthcheck` |
 | ClickHouse | 8123 (HTTP), 9000 (native) | `SELECT 1` |
 | MySQL | 3307 | `mysqladmin ping` |
-| Kafka UI | 8081 | — |
+| OpenFGA | 8180 (HTTP), 8181 (gRPC), 3001 (playground) | `/healthz` |
 | OTEL Collector | 4317/4318, 13133 (health) | — |
 
 ## Never commit `.env` files. Use `.env.example` as template.

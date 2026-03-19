@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.resources.usagelimits;
 
 import com.google.inject.Inject;
+import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
@@ -13,6 +14,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import org.dreamhorizon.pulseserver.resources.usagelimits.models.ResetLimitsRest
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.SetCustomLimitsRestRequest;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
+import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
 
 /**
@@ -44,6 +47,7 @@ public class InternalUsageLimitsController {
   private static final UsageLimitMapper mapper = UsageLimitMapper.INSTANCE;
 
   private final UsageLimitService usageLimitService;
+  private final JwtService jwtService;
 
   /**
    * Get project usage limits (full info for internal use).
@@ -92,11 +96,12 @@ public class InternalUsageLimitsController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> setCustomLimits(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @NotNull @PathParam("projectId") String projectId,
-      @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull @Valid SetCustomLimitsRestRequest request
   ) {
-    return usageLimitService.setCustomLimits(mapper.toSetCustomLimitsRequest(projectId, request, userEmail))
+    String performedBy = extractUserEmail(authorization);
+    return usageLimitService.setCustomLimits(mapper.toSetCustomLimitsRequest(projectId, request, performedBy))
         .map(mapper::toRestResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -110,14 +115,15 @@ public class InternalUsageLimitsController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<ProjectUsageLimitRestResponse>> resetToDefaults(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @NotNull @PathParam("projectId") String projectId,
-      @NotNull @HeaderParam("user-email") String userEmail,
       @Valid ResetLimitsRestRequest request
   ) {
+    String performedBy = extractUserEmail(authorization);
     ResetLimitsRestRequest effectiveRequest = request != null ? request : new ResetLimitsRestRequest();
     
     return usageLimitService.resetToDefaults(
-            mapper.toResetLimitsRequest(projectId, effectiveRequest, userEmail))
+            mapper.toResetLimitsRequest(projectId, effectiveRequest, performedBy))
         .map(mapper::toRestResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
@@ -136,5 +142,21 @@ public class InternalUsageLimitsController {
         .toList()
         .map(history -> mapper.toHistoryRestResponse(projectId, history))
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  private String extractUserEmail(String authorization) {
+    if (authorization == null || !authorization.startsWith("Bearer ")) {
+      return "system";
+    }
+    try {
+      Claims claims = jwtService.verifyToken(authorization.substring(7).trim());
+      String email = claims.get("email", String.class);
+      return email != null ? email : "system";
+    } catch (Exception e) {
+      log.debug("Failed to extract user email from token: {}", e.getMessage());
+      return "system";
+    }
   }
 }

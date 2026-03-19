@@ -15,7 +15,6 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@mantine/core";
-import { ROUTES } from "../../constants";
 
 interface Product {
   title: string;
@@ -40,7 +39,7 @@ export function ComingSoon() {
         "Event schema inspection",
         "Event frequency tracking",
       ],
-      sneakPeekRoute: ROUTES.EVENTS_DISCOVERABILITY.basePath,
+      sneakPeekRoute: undefined,
     },
     {
       title: "Real-Time Querying",
@@ -53,7 +52,7 @@ export function ComingSoon() {
         "Custom aggregations",
         "Export query results",
       ],
-      sneakPeekRoute: ROUTES.UNIVERSAL_QUERYING.basePath,
+      sneakPeekRoute: undefined,
     },
     {
       title: "Impact Analysis",
@@ -66,7 +65,7 @@ export function ComingSoon() {
         "Deployment impact tracking",
         "User segment analysis",
       ],
-      sneakPeekRoute: ROUTES.ANALYTICS_REPORT.basePath,
+      sneakPeekRoute: undefined,
     },
     {
       title: "Anomaly Detection",

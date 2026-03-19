@@ -1,5 +1,6 @@
 package org.dreamhorizon.pulseserver.filter;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -7,8 +8,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Single;
 import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ResourceInfo;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
@@ -44,7 +47,36 @@ class AuthorizationFilterTest {
   @Mock
   JwtService jwtService;
 
+  @Mock
+  ResourceInfo resourceInfo;
+
   AuthorizationFilter filter;
+
+  /**
+   * Test helper with method-level annotations for different permissions.
+   */
+  static class TestResource {
+    @RequiresPermission("can_view")
+    public void viewEndpoint() {
+    }
+
+    @RequiresPermission("can_edit")
+    public void editEndpoint() {
+    }
+
+    @RequiresPermission("can_delete_project")
+    public void deleteEndpoint() {
+    }
+
+    public void unannotatedEndpoint() {
+    }
+  }
+
+  @RequiresPermission("can_view")
+  static class ClassAnnotatedResource {
+    public void inheritedEndpoint() {
+    }
+  }
 
   @BeforeEach
   void setUp() throws Exception {
@@ -61,6 +93,7 @@ class AuthorizationFilterTest {
   private void injectDependencies() throws Exception {
     setField(filter, "openFgaService", openFgaService);
     setField(filter, "jwtService", jwtService);
+    setField(filter, "resourceInfo", resourceInfo);
   }
 
   private void setField(Object target, String fieldName, Object value) throws Exception {
@@ -69,13 +102,56 @@ class AuthorizationFilterTest {
     field.set(target, value);
   }
 
+  private void setupAnnotatedMethod(String permission) throws Exception {
+    String methodName = switch (permission) {
+      case "can_view" -> "viewEndpoint";
+      case "can_edit" -> "editEndpoint";
+      case "can_delete_project" -> "deleteEndpoint";
+      default -> throw new IllegalArgumentException("Unknown permission: " + permission);
+    };
+    when(resourceInfo.getResourceMethod())
+        .thenReturn(TestResource.class.getMethod(methodName));
+  }
+
+  private void setupUnannotatedMethod() throws Exception {
+    when(resourceInfo.getResourceMethod())
+        .thenReturn(TestResource.class.getMethod("unannotatedEndpoint"));
+    when(resourceInfo.getResourceClass())
+        .thenReturn((Class) TestResource.class);
+  }
+
+  private void setupClassAnnotatedMethod() throws Exception {
+    when(resourceInfo.getResourceMethod())
+        .thenReturn(ClassAnnotatedResource.class.getMethod("inheritedEndpoint"));
+    when(resourceInfo.getResourceClass())
+        .thenReturn((Class) ClassAnnotatedResource.class);
+  }
+
+  private void setupPath(String path) {
+    when(requestContext.getUriInfo()).thenReturn(uriInfo);
+    when(uriInfo.getPath()).thenReturn(path);
+  }
+
+  private void setupValidAuth(String userId) {
+    when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION))
+        .thenReturn("Bearer valid-token");
+    Claims claims = org.mockito.Mockito.mock(Claims.class);
+    when(claims.getSubject()).thenReturn(userId);
+    when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+  }
+
+  private int captureAbortStatus() {
+    ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
+    verify(requestContext).abortWith(captor.capture());
+    return captor.getValue().getStatus();
+  }
+
   @Nested
   class ExcludedPaths {
 
     @Test
     void shouldSkipAuthorizationForHealthcheck() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("healthcheck");
+      setupPath("healthcheck");
 
       filter.filter(requestContext);
 
@@ -84,8 +160,7 @@ class AuthorizationFilterTest {
 
     @Test
     void shouldSkipAuthorizationForAuthPath() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/auth/login");
+      setupPath("v1/auth/login");
 
       filter.filter(requestContext);
 
@@ -94,8 +169,7 @@ class AuthorizationFilterTest {
 
     @Test
     void shouldSkipAuthorizationForOnboardingPath() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/onboarding/step1");
+      setupPath("v1/onboarding/step1");
 
       filter.filter(requestContext);
 
@@ -103,9 +177,8 @@ class AuthorizationFilterTest {
     }
 
     @Test
-    void shouldSkipAuthorizationForHealthcheckWithSlash() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("healthcheck/");
+    void shouldSkipAuthorizationForHealthcheckWithTrailingSlash() throws IOException {
+      setupPath("healthcheck/");
 
       filter.filter(requestContext);
 
@@ -113,9 +186,8 @@ class AuthorizationFilterTest {
     }
 
     @Test
-    void shouldSkipAuthorizationForPathStartingWithHealthcheck() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("healthcheck/ready");
+    void shouldSkipAuthorizationForHealthcheckSubpath() throws IOException {
+      setupPath("healthcheck/ready");
 
       filter.filter(requestContext);
 
@@ -124,8 +196,25 @@ class AuthorizationFilterTest {
 
     @Test
     void shouldSkipAuthorizationForPathWithLeadingSlash() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("/healthcheck");
+      setupPath("/healthcheck");
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+    }
+
+    @Test
+    void shouldSkipAuthorizationForConfigsPath() throws IOException {
+      setupPath("v1/configs/active");
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+    }
+
+    @Test
+    void shouldSkipAuthorizationForSymbolUploadPath() throws IOException {
+      setupPath("v1/symbolicate/file/upload");
 
       filter.filter(requestContext);
 
@@ -134,23 +223,40 @@ class AuthorizationFilterTest {
   }
 
   @Nested
-  class NoProjectContext {
+  class NoAnnotation {
 
     @Test
-    void shouldSkipWhenProjectContextIsNull() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects");
-      ProjectContext.clear();
+    void shouldSkipWhenResourceInfoIsNull() throws Exception {
+      setField(filter, "resourceInfo", null);
+      setupPath("v1/projects/proj_123");
+      ProjectContext.setProjectId("proj_123");
 
       filter.filter(requestContext);
 
+      verify(requestContext, never()).abortWith(any(Response.class));
       verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
-    void shouldSkipWhenProjectContextIsBlank() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects");
+    void shouldSkipWhenMethodHasNoAnnotation() throws Exception {
+      setupUnannotatedMethod();
+      setupPath("v1/projects/proj_123");
+      ProjectContext.setProjectId("proj_123");
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+  }
+
+  @Nested
+  class NoProjectContext {
+
+    @Test
+    void shouldSkipWhenProjectContextIsBlank() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects");
       ProjectContext.setProjectId("   ");
 
       filter.filter(requestContext);
@@ -163,47 +269,39 @@ class AuthorizationFilterTest {
   class PermissionChecks {
 
     @Test
-    void shouldAbortUnauthorizedWhenNoUserIdInToken() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer invalid-token");
-      when(jwtService.verifyToken("invalid-token")).thenThrow(new RuntimeException("Invalid token"));
-
-      filter.filter(requestContext);
-
-      verify(requestContext).abortWith(any(Response.class));
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      org.junit.jupiter.api.Assertions.assertEquals(401, captor.getValue().getStatus());
-    }
-
-    @Test
-    void shouldAbortUnauthorizedWhenNoAuthHeader() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
+    void shouldAbortUnauthorizedWhenNoAuthHeader() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
 
       filter.filter(requestContext);
 
-      verify(requestContext).abortWith(any(Response.class));
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      org.junit.jupiter.api.Assertions.assertEquals(401, captor.getValue().getStatus());
+      assertThat(captureAbortStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void shouldAbortUnauthorizedWhenInvalidToken() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
+      ProjectContext.setProjectId("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION))
+          .thenReturn("Bearer invalid-token");
+      when(jwtService.verifyToken("invalid-token"))
+          .thenThrow(new RuntimeException("Invalid token"));
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(401);
     }
 
     @Test
     void shouldGrantAccessWhenPermissionCheckReturnsTrue() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("GET");
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
-      when(openFgaService.checkPermission(eq("user1"), eq("can_view"), eq("project"), eq("proj_123")))
+      setupValidAuth("user1");
+      when(openFgaService.checkPermission("user1", "can_view", "project", "proj_123"))
           .thenReturn(Single.just(true));
 
       filter.filter(requestContext);
@@ -213,39 +311,28 @@ class AuthorizationFilterTest {
 
     @Test
     void shouldAbortForbiddenWhenPermissionCheckReturnsFalse() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("GET");
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
-      when(openFgaService.checkPermission(eq("user1"), eq("can_view"), eq("project"), eq("proj_123")))
+      setupValidAuth("user1");
+      when(openFgaService.checkPermission("user1", "can_view", "project", "proj_123"))
           .thenReturn(Single.just(false));
 
       filter.filter(requestContext);
 
-      verify(requestContext).abortWith(any(Response.class));
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      org.junit.jupiter.api.Assertions.assertEquals(403, captor.getValue().getStatus());
+      assertThat(captureAbortStatus()).isEqualTo(403);
     }
   }
 
   @Nested
-  class HttpMethodToActionMapping {
+  class AnnotationResolution {
 
     @Test
-    void shouldUseCanViewForGetRequest() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("GET");
+    void shouldUseCanViewFromAnnotation() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/interactions");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      setupValidAuth("user1");
       when(openFgaService.checkPermission(eq("user1"), eq("can_view"), eq("project"), eq("proj_123")))
           .thenReturn(Single.just(true));
 
@@ -255,15 +342,11 @@ class AuthorizationFilterTest {
     }
 
     @Test
-    void shouldUseCanEditForPostRequest() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("POST");
+    void shouldUseCanEditFromAnnotation() throws Exception {
+      setupAnnotatedMethod("can_edit");
+      setupPath("v1/interactions");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      setupValidAuth("user1");
       when(openFgaService.checkPermission(eq("user1"), eq("can_edit"), eq("project"), eq("proj_123")))
           .thenReturn(Single.just(true));
 
@@ -273,15 +356,11 @@ class AuthorizationFilterTest {
     }
 
     @Test
-    void shouldUseCanDeleteProjectForDeleteRequest() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("DELETE");
+    void shouldUseCanDeleteProjectFromAnnotation() throws Exception {
+      setupAnnotatedMethod("can_delete_project");
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      setupValidAuth("user1");
       when(openFgaService.checkPermission(eq("user1"), eq("can_delete_project"), eq("project"), eq("proj_123")))
           .thenReturn(Single.just(true));
 
@@ -291,69 +370,11 @@ class AuthorizationFilterTest {
     }
 
     @Test
-    void shouldUseCanEditForPutRequest() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("PUT");
+    void shouldFallBackToClassLevelAnnotation() throws Exception {
+      setupClassAnnotatedMethod();
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
-      when(openFgaService.checkPermission(eq("user1"), eq("can_edit"), eq("project"), eq("proj_123")))
-          .thenReturn(Single.just(true));
-
-      filter.filter(requestContext);
-
-      verify(openFgaService).checkPermission("user1", "can_edit", "project", "proj_123");
-    }
-
-    @Test
-    void shouldUseCanEditForPatchRequest() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("PATCH");
-      ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
-      when(openFgaService.checkPermission(eq("user1"), eq("can_edit"), eq("project"), eq("proj_123")))
-          .thenReturn(Single.just(true));
-
-      filter.filter(requestContext);
-
-      verify(openFgaService).checkPermission("user1", "can_edit", "project", "proj_123");
-    }
-
-    @Test
-    void shouldUseCanViewForHeadRequest() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("HEAD");
-      ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
-      when(openFgaService.checkPermission(eq("user1"), eq("can_view"), eq("project"), eq("proj_123")))
-          .thenReturn(Single.just(true));
-
-      filter.filter(requestContext);
-
-      verify(openFgaService).checkPermission("user1", "can_view", "project", "proj_123");
-    }
-
-    @Test
-    void shouldUseCanViewForTraceMethod() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("TRACE");
-      ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      setupValidAuth("user1");
       when(openFgaService.checkPermission(eq("user1"), eq("can_view"), eq("project"), eq("proj_123")))
           .thenReturn(Single.just(true));
 
@@ -368,22 +389,16 @@ class AuthorizationFilterTest {
 
     @Test
     void shouldAbortInternalErrorWhenPermissionCheckThrows() throws Exception {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
-      when(requestContext.getMethod()).thenReturn("GET");
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer valid-token");
-      io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
-      when(claims.getSubject()).thenReturn("user1");
-      when(jwtService.verifyToken("valid-token")).thenReturn(claims);
+      setupValidAuth("user1");
       when(openFgaService.checkPermission(anyString(), anyString(), anyString(), anyString()))
           .thenReturn(Single.error(new RuntimeException("OpenFGA connection failed")));
 
       filter.filter(requestContext);
 
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      org.junit.jupiter.api.Assertions.assertEquals(500, captor.getValue().getStatus());
+      assertThat(captureAbortStatus()).isEqualTo(500);
     }
   }
 
@@ -391,18 +406,27 @@ class AuthorizationFilterTest {
   class TokenExtraction {
 
     @Test
-    void shouldAbortWhenBearerPrefixWithEmptyToken() throws IOException {
-      when(requestContext.getUriInfo()).thenReturn(uriInfo);
-      when(uriInfo.getPath()).thenReturn("v1/projects/proj_123");
+    void shouldAbortWhenBearerPrefixWithEmptyToken() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
       ProjectContext.setProjectId("proj_123");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer ");
 
       filter.filter(requestContext);
 
-      verify(requestContext).abortWith(any(Response.class));
-      ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
-      verify(requestContext).abortWith(captor.capture());
-      org.junit.jupiter.api.Assertions.assertEquals(401, captor.getValue().getStatus());
+      assertThat(captureAbortStatus()).isEqualTo(401);
+    }
+
+    @Test
+    void shouldAbortWhenAuthHeaderIsNotBearer() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/projects/proj_123");
+      ProjectContext.setProjectId("proj_123");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn("Basic abc123");
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(401);
     }
   }
 }

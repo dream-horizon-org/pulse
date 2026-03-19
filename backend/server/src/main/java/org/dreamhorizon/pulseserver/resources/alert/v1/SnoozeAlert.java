@@ -17,6 +17,7 @@ import org.dreamhorizon.pulseserver.resources.alert.AlertMapper;
 import org.dreamhorizon.pulseserver.resources.alert.models.SnoozeAlertRestRequest;
 import org.dreamhorizon.pulseserver.resources.alert.models.SnoozeAlertRestResponse;
 import org.dreamhorizon.pulseserver.resources.v1.auth.models.AuthHeaders;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertService;
@@ -32,6 +33,7 @@ public class SnoozeAlert {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<SnoozeAlertRestResponse>> snoozeAlert(
       @BeanParam @NotNull AuthHeaders authHeaders,
       @PathParam("id") Integer alertId,

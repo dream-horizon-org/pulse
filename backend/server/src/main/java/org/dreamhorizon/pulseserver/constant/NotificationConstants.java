@@ -1,8 +1,31 @@
 package org.dreamhorizon.pulseserver.constant;
 
+import java.util.List;
 import java.util.Set;
 
 public final class NotificationConstants {
+
+  // Platform-level constants for default channel-event mappings
+  public static final class Platform {
+    private Platform() {}
+
+    public static final Long DEFAULT_CHANNEL_ID = 1L;
+
+    public static final String EVENT_PROJECT_CREATED = "project_created";
+    public static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
+    public static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
+    public static final String EVENT_COLLABORATOR_ROLE_UPDATED = "collaborator_role_updated";
+
+    public record DefaultMapping(String eventName, String recipient) {}
+
+    public static final List<DefaultMapping> DEFAULT_MAPPINGS = List.of(
+        new DefaultMapping(EVENT_PROJECT_CREATED, null),
+        new DefaultMapping(EVENT_COLLABORATOR_ADDED, null),
+        new DefaultMapping(EVENT_COLLABORATOR_REMOVED, null),
+        new DefaultMapping(EVENT_COLLABORATOR_ROLE_UPDATED, null)
+    );
+  }
+
   // Common JSON body keys
   public static final String KEY_SUBJECT = "subject";
   public static final String KEY_TITLE = "title";
@@ -12,7 +35,9 @@ public final class NotificationConstants {
   public static final String KEY_BLOCKS = "blocks";
   public static final String KEY_TYPE = "type";
   public static final String KEY_ACTIONS = "actions";
-  public static final String CONTACT_US_EVENT_NAME = "contact.us";
+  public static final String CONTACT_US_EVENT_NAME = "contact_us";
+  public static final String CONTACT_SUPPORT_EVENT_NAME = "contact_support";
+  public static final String NOTIFICATION_DEFAULT_PROJECT = "default-project";
 
   // Default values
   public static final String DEFAULT_SUBJECT = "Notification";

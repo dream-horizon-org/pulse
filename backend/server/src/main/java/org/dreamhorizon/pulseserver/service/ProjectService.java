@@ -9,8 +9,11 @@ import java.util.Map;
 import java.util.UUID;
 
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
+import org.dreamhorizon.pulseserver.dao.project.ProjectQueries;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dto.ProjectCreationResult;
 import org.dreamhorizon.pulseserver.dto.ProjectDetailsDto;
@@ -32,9 +35,6 @@ public class ProjectService {
 
   private static final int PROJECT_ID_RANDOM_LENGTH = 8;
 
-  private static final String DEFAULT_PROJECT_ID = "default-project";
-  private static final String PROJECT_CREATED_EVENT = "project_created";
-
   private final MysqlClient mysqlClient;
   private final ProjectDao projectDao;
   private final OpenFgaService openFgaService;
@@ -44,6 +44,7 @@ public class ProjectService {
   private final UsageLimitService usageLimitService;
   private final UploadConfigDetailService uploadConfigDetailService;
   private final NotificationService notificationService;
+  private final ClickhouseReadClient clickhouseReadClient;
 
   @Inject
   public ProjectService(
@@ -55,7 +56,8 @@ public class ProjectService {
       ConfigService configService,
       UsageLimitService usageLimitService,
       UploadConfigDetailService uploadConfigDetailService,
-      NotificationService notificationService) {
+      NotificationService notificationService,
+      ClickhouseReadClient clickhouseReadClient) {
     this.mysqlClient = mysqlClient;
     this.projectDao = projectDao;
     this.openFgaService = openFgaService;
@@ -65,11 +67,13 @@ public class ProjectService {
     this.usageLimitService = usageLimitService;
     this.uploadConfigDetailService = uploadConfigDetailService;
     this.notificationService = notificationService;
+    this.clickhouseReadClient = clickhouseReadClient;
   }
 
   public Single<ProjectCreationResult> createProject(String tenantId, String name, String description, ReqUserInfo userInfo) {
-    String createdBy = userInfo.getUserId();
-    log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, createdBy);
+    String userEmail = userInfo.getEmail();
+    String userId = userInfo.getUserId();
+    log.info("Creating project: tenantId={}, name={}, createdBy={}", tenantId, name, userEmail);
 
     // 1. Pre-transaction: Generate projectId
     String projectId = generateProjectId(name);
@@ -80,17 +84,26 @@ public class ProjectService {
         .name(name)
         .description(description)
         .isActive(true)
-        .createdBy(createdBy)
+        .createdBy(userEmail)
         .build();
 
-    // 2. Execute transaction with service methods
-    return executeTransaction(project, createdBy)
-        // 3. Blocking: OpenFGA operations
+    // 2. Execute transaction with service methods (email for audit trail)
+    return executeTransaction(project, userEmail)
+        // 3. Blocking: OpenFGA operations (userId for role assignment)
         .flatMap(result ->
-            assignRolesAndLink(result.project, createdBy, tenantId)
+            assignRolesAndLink(result.project, userId, tenantId)
                 .andThen(Single.just(result))
         )
-        // 4. Fire-and-forget: Async tasks (including email notification)
+        // 4. Create default platform channel-event mappings (wait for completion)
+        .flatMap(result ->
+            notificationService.createDefaultPlatformMappings(project.getProjectId())
+                .map(mappings -> result)
+                .onErrorResumeNext(err -> {
+                  log.warn("Failed to create default platform mappings for project: {}", project.getProjectId(), err);
+                  return Single.just(result);
+                })
+        )
+        // 5. Fire-and-forget: Async tasks (including email notification)
         .doOnSuccess(result -> {
           executeAsyncTasks(result, projectId, tenantId, userInfo).subscribe();
         })
@@ -106,7 +119,7 @@ public class ProjectService {
         );
   }
 
-  private Single<TransactionResult> executeTransaction(Project project, String createdBy) {
+  private Single<TransactionResult> executeTransaction(Project project, String userEmail) {
     return mysqlClient.getWriterPool().rxGetConnection()
         .flatMap(conn -> conn.rxBegin()
             .flatMap(tx -> {
@@ -118,15 +131,15 @@ public class ProjectService {
                           .map(chCreds -> new TransactionResult(createdProject, chCreds, null))
                   )
                   .flatMap(result ->
-                      projectApiKeyService.createDefaultApiKey(conn, project.getProjectId(), createdBy)
+                      projectApiKeyService.createDefaultApiKey(conn, project.getProjectId(), userEmail)
                           .map(apiKeyInfo -> new TransactionResult(result.project, result.chCredentials, apiKeyInfo.getRawApiKey()))
                   )
                   .flatMap(result ->
-                      usageLimitService.createInitialLimits(conn, project.getProjectId(), "admin")
+                      usageLimitService.createInitialLimits(conn, project.getProjectId(), "system")
                           .map(limit -> result)
                   )
                   .flatMap(result ->
-                      configService.createInitialConfig(conn, project.getProjectId(), createdBy)
+                      configService.createInitialConfig(conn, project.getProjectId(), userEmail)
                           .map(sdkConfig -> result)
                   )
                   .flatMap(result ->
@@ -144,9 +157,9 @@ public class ProjectService {
         );
   }
 
-  private Completable assignRolesAndLink(Project project, String createdBy, String tenantId) {
+  private Completable assignRolesAndLink(Project project, String userId, String tenantId) {
     log.debug("Assigning roles and linking project: {} to tenant: {}", project.getProjectId(), tenantId);
-    return openFgaService.assignProjectRole(createdBy, project.getProjectId(), "admin")
+    return openFgaService.assignProjectRole(userId, project.getProjectId(), "admin")
         .andThen(openFgaService.linkProjectToTenant(project.getProjectId(), tenantId))
         .doOnComplete(() -> log.debug("OpenFGA operations completed for project: {}", project.getProjectId()))
         .doOnError(err -> log.error("OpenFGA operations failed for project: {}", project.getProjectId(), err));
@@ -201,16 +214,15 @@ public class ProjectService {
         .emails(List.of(userInfo.getEmail()))
         .build();
 
-    // Build notification request (uses default-project for template lookup)
     SendNotificationRequestDto notificationRequest = SendNotificationRequestDto.builder()
-        .eventName(PROJECT_CREATED_EVENT)
+        .eventName(NotificationConstants.Platform.EVENT_PROJECT_CREATED)
         .channelTypes(List.of(ChannelType.EMAIL))
         .recipients(recipients)
             .idempotencyKey(UUID.randomUUID().toString())
         .params(params)
         .build();
 
-    return notificationService.sendNotificationAsync(DEFAULT_PROJECT_ID, notificationRequest)
+    return notificationService.sendNotificationAsync(projectId, notificationRequest)
         .ignoreElement();
   }
 
@@ -306,6 +318,10 @@ public class ProjectService {
         .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId)));
   }
 
+  public Single<Boolean> projectExists(String projectId) {
+    return projectDao.projectExists(projectId);
+  }
+
   @Deprecated
   public Single<Project> getProjectByApiKey(String apiKey) {
     return Single.error(new RuntimeException("API key lookup not implemented - use ProjectApiKeyService instead"));
@@ -337,5 +353,46 @@ public class ProjectService {
 
   public Single<Integer> getActiveProjectCount(String tenantId) {
     return projectDao.getActiveProjectCount(tenantId);
+  }
+
+  public Single<Boolean> hasEventFlowStarted(String projectId) {
+    return Single.fromPublisher(clickhouseReadClient.getPool().create())
+        .flatMap(conn -> {
+          Single<Boolean> results = Single.fromPublisher(
+              conn.createStatement(ProjectQueries.HAS_EVENT_FLOW_STARTED)
+                  .bind("projectId", projectId)
+                  .execute())
+              .flatMap(result -> Single.fromPublisher(result.map((row, md) -> {
+                  Object value = row.get("has_events");
+                  
+                  if (value instanceof Number) {
+                    return ((Number) value).intValue() > 0;
+                  }
+                  return Boolean.TRUE.equals(value);
+              })));
+          return results.doFinally(() -> 
+              Single.fromPublisher(conn.close())
+                  .onErrorComplete()
+                  .subscribe()
+          );
+        })
+        .doOnError(error -> log.error("Error checking event flow for project {}: {}", 
+            projectId, error.getMessage()))
+        .onErrorReturnItem(false);
+  }
+
+  /**
+   * Get user's role in a project.
+   * 
+   * @param userId User ID
+   * @param projectId Project ID
+   * @return Optional role (admin/editor/viewer) or empty if no access
+   */
+  public Single<java.util.Optional<String>> getUserRoleInProject(String userId, String projectId) {
+    return openFgaService.getUserRoleInProject(userId, projectId)
+        .doOnSuccess(role ->
+            log.debug("Retrieved user role: userId={}, projectId={}, role={}",
+                userId, projectId, role.orElse("none"))
+        );
   }
 }
