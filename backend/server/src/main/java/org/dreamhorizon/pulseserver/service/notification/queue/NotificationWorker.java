@@ -102,17 +102,9 @@ public class NotificationWorker {
 
               log.debug("Received {} messages from queue", messages.size());
 
-              // Process each message in isolation so one failure does not cancel others in the batch
               return Observable.fromIterable(messages)
-                  .flatMapCompletable(
-                      msg -> processMessage(msg).onErrorComplete(
-                          e -> {
-                            log.error(
-                                "Message processing failed (recipient may still be queued): {}",
-                                e.getMessage(),
-                                e);
-                            return true;
-                          }));
+                  .flatMapCompletable(this::processMessage)
+                  .onErrorComplete();
             });
   }
 

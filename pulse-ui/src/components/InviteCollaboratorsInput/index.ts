@@ -1,1 +1,0 @@
-export { InviteCollaboratorsInput } from "./InviteCollaboratorsInput";

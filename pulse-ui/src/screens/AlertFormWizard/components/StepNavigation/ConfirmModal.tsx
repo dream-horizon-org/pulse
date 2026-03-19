@@ -3,14 +3,14 @@
  */
 
 import React from "react";
-import { Modal, Stack, Text, Button, Group } from "@mantine/core";
-import { IconHelpCircle } from "@tabler/icons-react";
+import { Modal, Box, Text, Button, Group } from "@mantine/core";
+import classes from "./StepNavigation.module.css";
 
 interface ConfirmModalProps {
   opened: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  title?: string;
+  title: string;
   message: string;
   isLoading?: boolean;
   isEditMode?: boolean;
@@ -20,30 +20,25 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   opened,
   onClose,
   onConfirm,
+  title,
   message,
   isLoading = false,
   isEditMode = false,
 }) => (
-  <Modal
-    opened={opened}
-    onClose={onClose}
-    centered
-    size="md"
-    withCloseButton={false}
-  >
-    <Stack gap="md" align="center">
-      <IconHelpCircle size={40} color="var(--mantine-color-teal-6)" />
-      <Text size="sm" c="dimmed" ta="center">
+  <Modal opened={opened} onClose={onClose} title={title} centered size="md">
+    <Box className={classes.modalContent}>
+      <Text size="sm" c="dimmed" mb="lg">
         {message}
       </Text>
-      <Group justify="center" gap="sm" w="100%">
-        <Button variant="default" onClick={onClose} disabled={isLoading}>
+      <Group justify="flex-end" gap="md">
+        <Button variant="default" onClick={onClose}>
           Cancel
         </Button>
         <Button color="teal" onClick={onConfirm} loading={isLoading}>
           {isEditMode ? "Update" : "Confirm"}
         </Button>
       </Group>
-    </Stack>
+    </Box>
   </Modal>
 );
+

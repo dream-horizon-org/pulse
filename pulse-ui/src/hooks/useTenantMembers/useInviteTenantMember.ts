@@ -22,15 +22,12 @@ export const useInviteTenantMember = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            emails: params.emails,
+            email: params.email,
             role: params.role,
           }),
         },
       }),
-    onSuccess: (
-      data: ApiResponse<TenantMember>,
-      variables: InviteTenantMemberParams,
-    ) => {
+    onSuccess: (data: ApiResponse<TenantMember>, variables: InviteTenantMemberParams) => {
       if (data?.data && !data?.error) {
         queryClient.invalidateQueries({
           queryKey: [getRoute.key, variables.tenantId],

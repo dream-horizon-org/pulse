@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public final class MemberResponse implements AddMemberResult {
+public class MemberResponse {
     private String userId;           // User ID
     private String email;            // User email
     private String name;             // User name

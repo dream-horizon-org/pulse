@@ -9,7 +9,6 @@ import {
   GetInteractionsResponse,
 } from "./useGetInteractions.interface";
 import { makeRequest } from "../../helpers/makeRequest";
-import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetInteractions = ({
   queryParams = null,
@@ -17,8 +16,6 @@ export const useGetInteractions = ({
   pageIdentifier = "details",
 }: GetInteractionsQueryParams) => {
   const getInteractions = API_ROUTES.GET_INTERACTIONS;
-  const isProjectReady = useProjectQueryEnabled(enabled);
-
   // Map frontend 'interactionName' to backend 'name' parameter
   const apiParams = queryParams
     ? {
@@ -49,7 +46,7 @@ export const useGetInteractions = ({
       });
     },
     refetchOnWindowFocus: false,
-    enabled: isProjectReady,
+    enabled: enabled,
     staleTime: 0,
   });
 };

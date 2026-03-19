@@ -22,15 +22,12 @@ export const useInviteProjectMember = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            emails: params.emails,
+            email: params.email,
             role: params.role,
           }),
         },
       }),
-    onSuccess: (
-      data: ApiResponse<ProjectMember>,
-      variables: InviteProjectMemberParams,
-    ) => {
+    onSuccess: (data: ApiResponse<ProjectMember>, variables: InviteProjectMemberParams) => {
       if (data?.data && !data?.error) {
         queryClient.invalidateQueries({
           queryKey: [getRoute.key, variables.projectId],

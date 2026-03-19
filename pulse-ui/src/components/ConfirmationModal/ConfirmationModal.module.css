@@ -1,11 +1,31 @@
+.iconContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+
 .iconDanger {
-  color: var(--mantine-color-red-6);
+  color: #fa5252;
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .iconWarning {
-  color: var(--mantine-color-orange-6);
+  color: #fd7e14;
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .iconInfo {
-  color: var(--mantine-color-blue-6);
+  color: #339af0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }

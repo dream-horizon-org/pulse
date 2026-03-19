@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: pulse-mysql
     ports:
-      - "3307:3306"  # Using 3307 on host to avoid conflicts
+      - "3307:3306" # Using 3307 on host to avoid conflicts
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pulse_root_password}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
@@ -17,7 +17,16 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER:-pulse_user}", "-p${MYSQL_PASSWORD:-pulse_password}" ]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u${MYSQL_USER:-pulse_user}",
+          "-p${MYSQL_PASSWORD:-pulse_password}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +38,7 @@ services:
   openfga-migrate:
     image: alpine:3.19
     container_name: pulse-openfga-migrate
-    command: [ "/bin/sh", "/scripts/migrate-openfga.sh" ]
+    command: ["/bin/sh", "/scripts/migrate-openfga.sh"]
     environment:
       - OPENFGA_VERSION=1.5.3
       - MYSQL_HOST=mysql
@@ -58,9 +67,9 @@ services:
       - OPENFGA_DATASTORE_URI=pulse_user:pulse_password@tcp(mysql:3306)/openfga?parseTime=true
       - OPENFGA_PLAYGROUND_ENABLED=true
     ports:
-      - "8180:8080"   # HTTP API (using 8180 to avoid conflicts)
-      - "8181:8081"   # gRPC API
-      - "3001:3000"   # Playground UI
+      - "8180:8080" # HTTP API (using 8180 to avoid conflicts)
+      - "8181:8081" # gRPC API
+      - "3001:3000" # Playground UI
     depends_on:
       mysql:
         condition: service_healthy
@@ -76,14 +85,14 @@ services:
   openfga-init:
     image: alpine:3.19
     container_name: pulse-openfga-init
-    command: [ "/bin/sh", "/scripts/init-openfga.sh" ]
+    command: ["/bin/sh", "/scripts/init-openfga.sh"]
     environment:
       - OPENFGA_URL=http://openfga:8080
     volumes:
       - ./openfga:/scripts:ro
     depends_on:
       openfga:
-        condition: service_started  # Init script waits for OpenFGA via curl
+        condition: service_started # Init script waits for OpenFGA via curl
     networks:
       - pulse-network
     restart: "no"
@@ -93,8 +102,8 @@ services:
     image: clickhouse/clickhouse-server:24.8
     container_name: pulse-clickhouse
     ports:
-      - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native client
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native client
     environment:
       - CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE:-otel}
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -108,7 +117,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -164,7 +173,14 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test:
+        [
+          "CMD",
+          "kafka-topics",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--list",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -266,7 +282,7 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
     container_name: pulse-otel-collector
-    command: [ "--config=/etc/otel-collector.yaml" ]
+    command: ["--config=/etc/otel-collector.yaml"]
     volumes:
       - ../backend/ingestion/otel-collector.yaml:/etc/otel-collector.yaml:ro
     networks:
@@ -285,9 +301,9 @@ services:
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
       - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Prometheus metrics (collector internal)
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8888:8888" # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
 
   # Pulse UI Service (React Frontend)
@@ -297,7 +313,7 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID}
-        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL:-http://localhost:8080}
+        REACT_APP_PULSE_SERVER_URL: ${REACT_APP_PULSE_SERVER_URL}
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
@@ -305,11 +321,6 @@ services:
         REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
         REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
-        REACT_APP_USE_MOCK_SERVER: ${REACT_APP_USE_MOCK_SERVER:-false}
-        REACT_APP_MOCK_DELAY: ${REACT_APP_MOCK_DELAY:-500}
-        REACT_APP_MOCK_ERROR_RATE: ${REACT_APP_MOCK_ERROR_RATE:-0}
-        REACT_APP_MOCK_LOGGING: ${REACT_APP_MOCK_LOGGING:-false}
-        REACT_APP_GCP_MULTI_TENANT_ENABLED: ${REACT_APP_GCP_MULTI_TENANT_ENABLED:-true}
     container_name: pulse-ui
     ports:
       - "3000:8080"
@@ -322,41 +333,48 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthcheck.txt" ]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthcheck.txt",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
   # Vector Service (Data Collector)
-#  vector:
-#    build:
-#      context: ../vector
-#      dockerfile: Dockerfile
-#      args:
-#        VECTOR_REPO: https://github.com/parth-modh/vector
-#        VECTOR_REF: forked/multi-bucket
-#        DEBIAN_VERSION: "12"
-#    container_name: vector
-#    command: [ ]
-#    environment:
-#      - VECTOR_LOG=debug
-#    volumes:
-#      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-#      - vector-data:/var/lib/vector
-#    networks:
-#      - pulse-network
-#    restart: unless-stopped
-#    healthcheck:
-#      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 3
-#      start_period: 15s
-#    ports:
-#      - "8686:8686"
-#      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-#      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+  #  vector:
+  #    build:
+  #      context: ../vector
+  #      dockerfile: Dockerfile
+  #      args:
+  #        VECTOR_REPO: https://github.com/parth-modh/vector
+  #        VECTOR_REF: forked/multi-bucket
+  #        DEBIAN_VERSION: "12"
+  #    container_name: vector
+  #    command: [ ]
+  #    environment:
+  #      - VECTOR_LOG=debug
+  #    volumes:
+  #      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+  #      - vector-data:/var/lib/vector
+  #    networks:
+  #      - pulse-network
+  #    restart: unless-stopped
+  #    healthcheck:
+  #      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 3
+  #      start_period: 15s
+  #    ports:
+  #      - "8686:8686"
+  #      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+  #      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -367,7 +385,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # AWS Credentials for S3/Athena access (required in .env; use empty for local if unused)
+      # AWS Credentials for S3/Athena access
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
@@ -402,11 +420,11 @@ services:
       - ENCRYPTION_MASTER_KEY=${VAULT_ENCRYPTION_MASTER_KEY}
 
       # Redis Configuration
-      - REDIS_HOST=${REDIS_HOST:-ascend-redis}
+      - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
 
       # S3 Configuration
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-pulse-config}
+      - S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME:-pulse-config}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
 
@@ -418,16 +436,16 @@ services:
       - SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-east-1}
 
       # CloudFront Configuration
-      - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID:-NONE}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID:-NONE}
       - CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH:-/config/pulse-config.json}
       - INTERACTION_CLOUDFRONT_ASSET_PATH=${INTERACTION_CLOUDFRONT_ASSET_PATH:-/config/interaction-config.json}
 
-      # OpenTelemetry Configuration (defaults for local dev)
-      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL:-http://localhost:4318/v1/traces}
-      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL:-http://localhost:4318/v1/logs}
-      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL:-http://localhost:4318/v1/metrics}
-      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL:-http://localhost:4318/v1/traces}
-      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL:-http://localhost:4318/v1/logs}
+      # OpenTelemetry Configuration
+      - INTERACTION_CONFIG_URL=${INTERACTION_CONFIG_URL}
+      - LOGS_COLLECTOR_URL=${LOGS_COLLECTOR_URL}
+      - METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}
+      - SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}
+      - CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}
       # Query Engine Configuration
       - CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE:-athena}
       # Athena Configuration (only used when QUERY_ENGINE=athena)
@@ -476,12 +494,12 @@ services:
       openfga-init:
         condition: service_completed_successfully
       openfga:
-        condition: service_started  # OpenFGA distroless image has no healthcheck
+        condition: service_started # OpenFGA distroless image has no healthcheck
       minio-init:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -515,7 +533,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEDATABASE=otel
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEUSERNAME=pulse_user
       - CONFIG_SERVICE_APPLICATION_CLICKHOUSEPASSWORD=pulse_password
-      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-ascend-redis}
+      - CONFIG_SERVICE_APPLICATION_REDISHOST=${REDIS_HOST:-redis}
       - CONFIG_SERVICE_APPLICATION_REDISPORT=${REDIS_PORT:-6379}
     networks:
       - pulse-network
@@ -528,7 +546,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -552,4 +570,3 @@ volumes:
     driver: local
   minio-data:
     driver: local
-

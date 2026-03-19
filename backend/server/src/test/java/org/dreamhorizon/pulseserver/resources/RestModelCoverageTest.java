@@ -306,11 +306,11 @@ class RestModelCoverageTest {
     @Test
     void shouldBuildAndAssertAllFields() {
       AddMemberRequest model = AddMemberRequest.builder()
-          .emails(List.of("user@test.com"))
+          .email("user@test.com")
           .role("member")
           .build();
 
-      assertThat(model.getEmails()).containsExactly("user@test.com");
+      assertThat(model.getEmail()).isEqualTo("user@test.com");
       assertThat(model.getRole()).isEqualTo("member");
     }
   }

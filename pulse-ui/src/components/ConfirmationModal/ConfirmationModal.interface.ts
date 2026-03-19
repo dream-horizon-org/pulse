@@ -2,11 +2,11 @@ export interface ConfirmationModalProps {
   opened: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
-  title?: string;
+  title: string;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
   confirmColor?: string;
   loading?: boolean;
-  severity?: "warning" | "danger" | "info";
+  severity?: 'warning' | 'danger' | 'info';
 }

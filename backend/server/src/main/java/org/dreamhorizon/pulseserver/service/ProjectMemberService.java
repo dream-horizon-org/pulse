@@ -5,7 +5,6 @@ import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,11 +16,9 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
-import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.notification.models.RecipientsDto;
 import org.dreamhorizon.pulseserver.resources.notification.models.SendNotificationRequestDto;
-import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.models.ChannelType;
 
@@ -118,7 +115,10 @@ public class ProjectMemberService {
                     }
                     return Single.just(ctx);
                 }))
-            // 4. Ensure user is in parent tenant
+            // Get or create user being added
+            .flatMap(ctx -> userService.getOrCreateUser(email, email)
+                .map(user -> new AddCompleteContext(ctx.project, ctx.admin, user)))
+            // Ensure user is in parent tenant
             .flatMap(ctx -> ensureUserInTenant(ctx.newUser, ctx.project.getTenantId(), addedBy)
                 .andThen(Single.just(ctx)))
             // 5. Assign project role in OpenFGA with rollback awareness
@@ -461,8 +461,7 @@ public class ProjectMemberService {
     
     /**
      * Ensure user is in the parent tenant.
-     * If not, add them as a member automatically using the internal bypass method.
-     * This allows project admins to add users to projects without needing tenant admin permissions.
+     * If not, add them as a member automatically.
      */
     private Completable ensureUserInTenant(User user, String tenantId, String addedBy) {
         return openFgaService.getUserTenantRole(user.getUserId(), tenantId)

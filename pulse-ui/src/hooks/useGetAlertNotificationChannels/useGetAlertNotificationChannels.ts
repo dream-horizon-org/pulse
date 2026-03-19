@@ -2,13 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { makeRequest } from "../../helpers/makeRequest";
 import { API_BASE_URL, API_ROUTES } from "../../constants";
 import { GetAlertNotificationChannelsResponse } from "./useGetAlertNotificationChannels.interface";
-import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 
 export const useGetAlertNotificationChannels = () => {
-  const getAlertNotificationChannels =
-    API_ROUTES.GET_ALERT_NOTIFICATION_CHANNELS;
-  const enabled = useProjectQueryEnabled();
-
+  const getAlertNotificationChannels = API_ROUTES.GET_ALERT_NOTIFICATION_CHANNELS;
   return useQuery({
     queryKey: [getAlertNotificationChannels.key],
     queryFn: async () => {
@@ -19,8 +15,11 @@ export const useGetAlertNotificationChannels = () => {
         },
       });
     },
-    enabled,
     refetchOnWindowFocus: false,
     refetchInterval: false,
   });
 };
+
+
+
+

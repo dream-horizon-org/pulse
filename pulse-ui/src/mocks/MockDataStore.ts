@@ -139,8 +139,6 @@ export interface MockProjectDetails {
   tenantId: string;
   apiKey?: string;
   isActive: boolean;
-  isEventFlowStarted?: boolean;
-  userRole?: string;
   createdAt: string;
   createdBy: string;
 }
@@ -375,8 +373,7 @@ export class MockDataStore {
       createdAt: new Date(now - 90 * oneDay).toISOString(),
     });
 
-    // Tenant members (5 members for realistic "Add from organization" picker testing)
-    // proj-mock-1 has 2 members → 3 members (Amit, Neha, Vikram) appear in picker
+    // Tenant members (3-4 with admin/member roles)
     this.mockTenantMembers.set(defaultTenantId, [
       {
         userId: "user-rahul-1",
@@ -410,17 +407,9 @@ export class MockDataStore {
         status: "pending",
         lastLoginAt: null,
       },
-      {
-        userId: "user-vikram-5",
-        email: "vikram.verma@example.com",
-        name: "Vikram Verma",
-        role: "member",
-        status: "active",
-        lastLoginAt: new Date(now - 3 * oneHour).toISOString(),
-      },
     ]);
 
-    // Project members: proj-mock-1 has 2 members (Rahul, Priya) → 3 tenant members available in picker
+    // Project members for default projects (2-3 per project with admin/editor/viewer)
     const proj1Members: MockMember[] = [
       {
         userId: "user-rahul-1",
@@ -437,6 +426,14 @@ export class MockDataStore {
         role: "editor",
         status: "active",
         lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
+      },
+      {
+        userId: "user-amit-3",
+        email: "amit.kumar@example.com",
+        name: "Amit Kumar",
+        role: "viewer",
+        status: "active",
+        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
       },
     ];
     this.mockProjectMembers.set("proj-mock-1", proj1Members);
@@ -1674,16 +1671,7 @@ export class MockDataStore {
 
   getProject(projectId: string): MockProjectDetails | null {
     const stored = this.mockProjects.get(projectId);
-    if (stored) {
-      // Find user's role from project members (default to admin for mocks)
-      const members = this.mockProjectMembers.get(projectId) ?? [];
-      const userRole = members.length > 0 ? members[0].role : "admin";
-
-      return {
-        ...stored,
-        userRole,
-      };
-    }
+    if (stored) return stored;
     // Derive from current tenant (e.g. onboarding-created)
     const tenant = this.currentTenant;
     if (tenant) {
@@ -1695,8 +1683,6 @@ export class MockDataStore {
           description: proj.description,
           tenantId: tenant.tenantId,
           isActive: proj.isActive,
-          isEventFlowStarted: false, // New projects land on onboarding page first
-          userRole: proj.role,
           createdAt: new Date().toISOString(),
           createdBy: "unknown",
         };
@@ -1726,7 +1712,6 @@ export class MockDataStore {
       tenantId,
       apiKey,
       isActive: true,
-      isEventFlowStarted: false,
       createdAt: now,
       createdBy,
     };
@@ -1794,19 +1779,16 @@ export class MockDataStore {
     email: string,
     role: "admin" | "member",
     name?: string,
-    existingUserId?: string,
-    status: "active" | "pending" = "pending",
   ): MockMember {
     const members = this.mockTenantMembers.get(tenantId) ?? [];
-    const userId =
-      existingUserId ?? "user-" + Math.random().toString(36).slice(2, 11);
+    const userId = "user-" + Math.random().toString(36).slice(2, 11);
     const member: MockMember = {
       userId,
       email,
       name: name ?? email.split("@")[0].replace(/\./g, " "),
       role,
-      status,
-      lastLoginAt: status === "active" ? new Date().toISOString() : null,
+      status: "pending",
+      lastLoginAt: null,
     };
     members.push(member);
     this.mockTenantMembers.set(tenantId, members);
@@ -1818,19 +1800,16 @@ export class MockDataStore {
     email: string,
     role: "admin" | "editor" | "viewer",
     name?: string,
-    existingUserId?: string,
-    status: "active" | "pending" = "pending",
   ): MockMember {
     const members = this.mockProjectMembers.get(projectId) ?? [];
-    const userId =
-      existingUserId ?? "user-" + Math.random().toString(36).slice(2, 11);
+    const userId = "user-" + Math.random().toString(36).slice(2, 11);
     const member: MockMember = {
       userId,
       email,
       name: name ?? email.split("@")[0].replace(/\./g, " "),
       role,
-      status,
-      lastLoginAt: status === "active" ? new Date().toISOString() : null,
+      status: "pending",
+      lastLoginAt: null,
     };
     members.push(member);
     this.mockProjectMembers.set(projectId, members);
@@ -1842,43 +1821,9 @@ export class MockDataStore {
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
   }
 
-  getTenantMemberByEmail(
-    tenantId: string,
-    email: string,
-  ):
-    | {
-        userId: string;
-        email: string;
-        name: string;
-        role: string;
-        status: string;
-        lastLoginAt: string | null;
-      }
-    | undefined {
-    const members = this.mockTenantMembers.get(tenantId) ?? [];
-    return members.find((m) => m.email.toLowerCase() === email.toLowerCase());
-  }
-
   hasProjectMember(projectId: string, email: string): boolean {
     const members = this.mockProjectMembers.get(projectId) ?? [];
     return members.some((m) => m.email.toLowerCase() === email.toLowerCase());
-  }
-
-  getProjectMemberByEmail(
-    projectId: string,
-    email: string,
-  ):
-    | {
-        userId: string;
-        email: string;
-        name: string;
-        role: string;
-        status: string;
-        lastLoginAt: string | null;
-      }
-    | undefined {
-    const members = this.mockProjectMembers.get(projectId) ?? [];
-    return members.find((m) => m.email.toLowerCase() === email.toLowerCase());
   }
 
   removeTenantMember(tenantId: string, userId: string): boolean {
@@ -2151,12 +2096,7 @@ export class MockDataStore {
     return this.eventDefinitions.find((d) => d.id === id);
   }
 
-  addEventDefinition(
-    def: Omit<
-      MockEventDefinition,
-      "id" | "createdAt" | "updatedAt" | "isArchived"
-    >,
-  ): MockEventDefinition {
+  addEventDefinition(def: Omit<MockEventDefinition, "id" | "createdAt" | "updatedAt" | "isArchived">): MockEventDefinition {
     const now = new Date().toISOString();
     const newDef: MockEventDefinition = {
       ...def,
@@ -2174,10 +2114,7 @@ export class MockDataStore {
     return newDef;
   }
 
-  updateEventDefinition(
-    id: number,
-    updates: Partial<MockEventDefinition>,
-  ): MockEventDefinition | null {
+  updateEventDefinition(id: number, updates: Partial<MockEventDefinition>): MockEventDefinition | null {
     const idx = this.eventDefinitions.findIndex((d) => d.id === id);
     if (idx === -1) return null;
     this.eventDefinitions[idx] = {
@@ -2186,13 +2123,11 @@ export class MockDataStore {
       updatedAt: new Date().toISOString(),
     };
     if (updates.attributes) {
-      this.eventDefinitions[idx].attributes = updates.attributes.map(
-        (a, i) => ({
-          ...a,
-          id: a.id || Date.now() + i,
-          isArchived: a.isArchived ?? false,
-        }),
-      );
+      this.eventDefinitions[idx].attributes = updates.attributes.map((a, i) => ({
+        ...a,
+        id: a.id || Date.now() + i,
+        isArchived: a.isArchived ?? false,
+      }));
     }
     return this.eventDefinitions[idx];
   }

@@ -453,17 +453,6 @@
         <testSourceDirectory>${project.basedir}/src/test/java</testSourceDirectory>
         <plugins>
             <plugin>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>3.4.0</version>
-                <configuration>
-                    <filesets>
-                        <fileset>
-                            <directory>src/main/generated</directory>
-                        </fileset>
-                    </filesets>
-                </configuration>
-            </plugin>
-            <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven.compiler.plugin.version}</version>
                 <configuration>

@@ -167,18 +167,6 @@ INSERT INTO projects (project_id, tenant_id, name, description, slug, is_active,
 ('dream11-pwa', 'dream11', 'Dream11 PWA', 'Dream11 Progressive Web App', 'pwa', TRUE, 'system')
 ON DUPLICATE KEY UPDATE name = name;
 
--- ============================================================================
--- DEV MODE: Mock Users for Development/Testing
--- These users are pre-created to bypass onboarding in development mode.
--- When GOOGLE_OAUTH_ENABLED=false, these users can login with mock tokens.
--- OpenFGA relationships are set up in deploy/openfga/init-openfga.sh
--- ============================================================================
-INSERT INTO users (user_id, email, name, firebase_uid, status, created_at, last_login_at)
-VALUES 
-  ('mock-user-1', 'user1@example.com', 'Test User 1', 'mock-user-1-firebase-uid', 'active', NOW(), NOW()),
-  ('mock-user-2', 'user2@example.com', 'Test User 2', 'mock-user-2-firebase-uid', 'active', NOW(), NOW())
-ON DUPLICATE KEY UPDATE user_id = user_id;
-
 -- ============================================================
 -- Tables that reference projects
 -- ============================================================
@@ -199,43 +187,6 @@ CREATE TABLE interaction (
     CONSTRAINT fk_interaction_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
--- ============================================================================
--- DEV MODE: Sample Interactions for default-project
--- These interactions match the current production data for testing.
--- ============================================================================
-INSERT INTO interaction (project_id, name, status, details, is_archived, created_by, updated_by)
-VALUES
--- BasicInteraction
-('default-project', 'BasicInteraction', 'RUNNING', JSON_OBJECT(
-    'description', 'NewInteraction',
-    'uptimeLowerLimitInMs', 16,
-    'uptimeMidLimitInMs', 50,
-    'uptimeUpperLimitInMs', 100,
-    'thresholdInMs', 20000,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY()
-), 0, 'system', 'system'),
-
--- FullShopping
-('default-project', 'FullShopping', 'RUNNING', JSON_OBJECT(
-    'description', 'FullShopping',
-    'uptimeLowerLimitInMs', 16,
-    'uptimeMidLimitInMs', 50,
-    'uptimeUpperLimitInMs', 100,
-    'thresholdInMs', 20000,
-    'events', JSON_ARRAY(
-        JSON_OBJECT('name', 'Go shopping', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Telescope selected', 'props', JSON_ARRAY(), 'isBlacklisted', false),
-        JSON_OBJECT('name', 'Add to cart', 'props', JSON_ARRAY(), 'isBlacklisted', false)
-    ),
-    'globalBlacklistedEvents', JSON_ARRAY()
-), 0, 'system', 'system')
-ON DUPLICATE KEY UPDATE name = name;
-
-
 -- Symbol files table with project_id in composite primary key
 CREATE TABLE symbol_files (
     project_id VARCHAR(64) NOT NULL DEFAULT 'default',
@@ -250,14 +201,13 @@ CREATE TABLE symbol_files (
 );
 
 CREATE TABLE pulse_sdk_configs (
-    version INT UNSIGNED NOT NULL,
+    version INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     project_id VARCHAR(64) NOT NULL,
     description TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     config_json JSON NOT NULL,
-    PRIMARY KEY (project_id, version),
     INDEX idx_sdk_configs_project (project_id),
     INDEX idx_sdk_configs_project_active (project_id, is_active),
     CONSTRAINT fk_sdk_configs_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE

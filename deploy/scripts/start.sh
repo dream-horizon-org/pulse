@@ -6,7 +6,7 @@
 # back to Docker CLI with dependency-ordered health-check gating.
 #
 # Usage:
-#   ./start.sh [-d|--detach] [--build] [--no-cache] [--skip-env-check]
+#   ./start.sh [-d|--detach] [--build]
 # ============================================================================
 
 # Source common library
@@ -21,59 +21,34 @@ echo ""
 
 # ── Pre-flight ─────────────────────────────────────────────────────────────
 check_docker
-ensure_compose
 load_env
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 DETACHED=""
 BUILD_FIRST=""
-BUILD_NO_CACHE=""
-SKIP_ENV_CHECK=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -d|--detach)     DETACHED="true"; shift ;;
-        --build)        BUILD_FIRST="true"; shift ;;
-        --no-cache)     BUILD_NO_CACHE="true"; shift ;;
-        --skip-env-check) SKIP_ENV_CHECK="true"; shift ;;
+        -d|--detach)  DETACHED="true"; shift ;;
+        --build)      BUILD_FIRST="true"; shift ;;
         -h|--help)
-            echo "Usage: $0 [-d|--detach] [--build] [--no-cache] [--skip-env-check]"
-            echo "  --no-cache       With --build: build images without cache"
-            echo "  --skip-env-check Skip .env and URL validation"
+            echo "Usage: $0 [-d|--detach] [--build]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [-d|--detach] [--build] [--no-cache] [--skip-env-check]"
+            echo "Usage: $0 [-d|--detach] [--build]"
             exit 1
             ;;
     esac
 done
 
-# ── Validate .env and URLs (unless skipped) ─────────────────────────────────
-if [ "$SKIP_ENV_CHECK" != "true" ]; then
-    if ! validate_env_against_example_and_compose; then
-        print_error "Env validation failed. Fix .env or run with --skip-env-check to skip."
-        exit 1
-    fi
-    if ! validate_url_vars; then
-        print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
-        exit 1
-    fi
-fi
-
 # ── Compose path ──────────────────────────────────────────────────────────
 if has_compose; then
     cd "$DEPLOY_DIR"
-    # If --no-cache and --build: build without cache first, then up without --build
-    if [ "$BUILD_NO_CACHE" = "true" ] && [ "$BUILD_FIRST" = "true" ]; then
-        print_info "Building images without cache..."
-        run_compose build --no-cache
-    fi
     COMPOSE_ARGS=""
-    if [ "$BUILD_FIRST" = "true" ] && [ "$BUILD_NO_CACHE" != "true" ]; then
-        COMPOSE_ARGS="$COMPOSE_ARGS --build"
-    fi
+    # Let Compose handle --build natively (avoids building twice)
+    [ "$BUILD_FIRST" = "true" ] && COMPOSE_ARGS="$COMPOSE_ARGS --build"
     [ "$DETACHED" = "true" ] && COMPOSE_ARGS="$COMPOSE_ARGS -d"
 
     print_info "Starting services via Docker Compose..."
@@ -111,11 +86,7 @@ fi
 # ── Optional build step (CLI mode only -- Compose handles --build natively)
 if [ "$BUILD_FIRST" = "true" ]; then
     print_section "Building Docker images"
-    if [ "$BUILD_NO_CACHE" = "true" ]; then
-        "$SCRIPT_DIR/build.sh" --no-cache
-    else
-        "$SCRIPT_DIR/build.sh"
-    fi
+    "$SCRIPT_DIR/build.sh"
 fi
 
 # ── Docker CLI path ──────────────────────────────────────────────────────

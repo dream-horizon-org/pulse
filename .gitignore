@@ -10,7 +10,6 @@ lib/
 
 .cursor/.env
 .cursor/hooks/state/
-.cursor/plans/
 .terraform/
 *.tfstate
 *.tfstate.*

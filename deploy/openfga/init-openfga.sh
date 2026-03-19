@@ -172,23 +172,6 @@ write_tuple "user:viewer@fancode.com" "member" "project:fancode-web"
 echo "  ✓ Sample user roles written (or already exist)"
 echo ""
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Step 5: Write Mock User Roles for Development (IDEMPOTENT)
-# ═══════════════════════════════════════════════════════════════════════════
-echo "Step 5: Writing mock user roles for development..."
-
-# Mock users as admins/members on default tenant
-write_tuple "user:mock-user-1" "admin" "tenant:default"
-write_tuple "user:mock-user-2" "member" "tenant:default"
-
-# Mock users have access to default-project
-write_tuple "user:mock-user-1" "admin" "project:default-project"
-write_tuple "user:mock-user-2" "viewer" "project:default-project"
-
-echo "  ✓ Mock user roles written (or already exist)"
-echo ""
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Save Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -221,10 +204,6 @@ echo "  SAMPLE USERS (fancode tenant):"
 echo "    - admin@fancode.com     → Tenant Admin (full access)"
 echo "    - developer@fancode.com → Editor on Android/iOS projects"
 echo "    - viewer@fancode.com    → Viewer on Web project"
-echo ""
-echo "  MOCK USERS (default tenant - for dev mode):"
-echo "    - mock-user-1 (user1@example.com) → Tenant Admin, Admin on default-project"
-echo "    - mock-user-2 (user2@example.com) → Tenant Member, Viewer on default-project"
 echo ""
 echo "Config saved to: $CONFIG_FILE"
 echo ""

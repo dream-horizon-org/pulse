@@ -18,7 +18,6 @@ export function UserCategorisationDetails({
           offset={-5}
           zIndex={10}
           withArrow
-          withinPortal = {false}
           styles={{
             tooltip: {
               backgroundColor: "transparent",
@@ -48,7 +47,6 @@ export function UserCategorisationDetails({
           offset={-5}
           opened
           withArrow
-          withinPortal = {false}
           styles={{
             tooltip: {
               backgroundColor: "transparent",
@@ -77,7 +75,6 @@ export function UserCategorisationDetails({
           zIndex={10}
           offset={-5}
           withArrow
-          withinPortal = {false}
           opened
           styles={{
             tooltip: {
@@ -107,7 +104,6 @@ export function UserCategorisationDetails({
           withArrow
           offset={-5}
           zIndex={10}
-          withinPortal = {false}
           opened
           styles={{
             tooltip: {
