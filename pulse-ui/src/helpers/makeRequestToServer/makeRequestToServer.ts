@@ -16,6 +16,7 @@ const getMockServer = async () => {
 
 /**
  * Builds authentication headers for API requests.
+ * Used by makeRequestToServer and by makeStreamingRequestToServer for SSE/streaming calls.
  * Uses the backend-generated access token stored in cookies after successful authentication.
  */
 export function buildAuthHeaders(): Record<string, string> {
@@ -58,6 +59,21 @@ export function buildAuthHeaders(): Record<string, string> {
   }
 
   return headers;
+}
+
+/**
+ * Performs a streaming fetch (e.g. SSE) with the same auth headers as makeRequestToServer.
+ * Returns the raw Response so the caller can use response.body.getReader() for streaming.
+ */
+export async function makeStreamingRequestToServer(
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const authHeaders = buildAuthHeaders();
+  return fetch(url, {
+    ...init,
+    headers: { ...init?.headers, ...authHeaders },
+  });
 }
 
 export const makeRequestToServer = async (

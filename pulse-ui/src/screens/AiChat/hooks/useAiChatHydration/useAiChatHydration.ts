@@ -8,6 +8,7 @@ import {
   AiChartConfig,
   AiTableConfig,
   ChatMessage,
+  ChatRole,
   ChatSession,
 } from "../../types/chat";
 import { AI_CHAT_TEXTS, AI_CHAT_LIMITS } from "../../AiChat.constants";
@@ -89,7 +90,7 @@ export const useAiChatHydration = () => {
 
     const mapped: ChatMessage[] = historyData.messages.map((m, i) => ({
       id: `restored-${i}`,
-      role: m.role as "user" | "model",
+      role: m.role as ChatRole,
       text: m.text,
       charts: m.charts?.length ? (m.charts as AiChartConfig[]) : undefined,
       tables: m.tables?.length ? (m.tables as AiTableConfig[]) : undefined,

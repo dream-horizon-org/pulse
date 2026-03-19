@@ -35,6 +35,8 @@ CALENDAR_RANGES = {
 }
 
 ALL_VALID_RANGES = set(TIME_RANGE_MAP.keys()) | CALENDAR_RANGES | {"custom"}
+# Comma-separated list for tool docstrings; single source of truth so new ranges only added here.
+TIME_RANGE_DOC = ", ".join(sorted(ALL_VALID_RANGES))
 
 
 def _to_iso_utc(dt: datetime) -> str:

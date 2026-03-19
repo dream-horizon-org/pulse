@@ -4,6 +4,8 @@ import { IconAlertTriangle } from "@tabler/icons-react";
 import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 import classes from "./ChartErrorBoundary.module.css";
 
+const ERROR_ICON_SIZE = 16;
+
 interface Props {
   children: ReactNode;
   chartConfig?: unknown;
@@ -32,7 +34,10 @@ export class ChartErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <Box className={classes.errorFallback}>
-          <IconAlertTriangle size={16} color="var(--mantine-color-gray-5)" />
+          <IconAlertTriangle
+            size={ERROR_ICON_SIZE}
+            color="var(--mantine-color-gray-5)"
+          />
           <Text size="sm" c="dimmed">
             {AI_CHAT_TEXTS.CHART_RENDER_ERROR}
           </Text>

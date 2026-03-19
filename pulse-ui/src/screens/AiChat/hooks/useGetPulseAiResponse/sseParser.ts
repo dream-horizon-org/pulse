@@ -5,6 +5,8 @@ import {
 } from "./useGetPulseAiResponse.interface";
 import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 
+export type SseHandleResult = "done" | "continue";
+
 interface SsePayload {
   type?: string;
   content?: string;
@@ -15,7 +17,7 @@ interface SsePayload {
 export function handleSseLine(
   line: string,
   callbacks: StreamingCallbacks,
-): "done" | "continue" {
+): SseHandleResult {
   const trimmed = line.trim();
   if (!trimmed.startsWith("data: ")) return "continue";
 

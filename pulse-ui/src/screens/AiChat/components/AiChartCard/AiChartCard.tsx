@@ -6,7 +6,7 @@ import { BarChart } from "../../../../components/Charts/BarChart/BarChart";
 import { PieChart } from "../../../../components/Charts/PieChart/PieChart";
 import { AreaChart } from "../../../../components/Charts/AreaChart/AreaChart";
 import { AiChartCardProps } from "./AiChartCard.interface";
-import { AiChartType } from "../../types/chat";
+import { AiChartType, AI_CHART_TYPES } from "../../types/chat";
 import { ChartErrorBoundary } from "./ChartErrorBoundary";
 import {
   AI_CHAT_LIMITS,
@@ -32,7 +32,7 @@ export const AiChartCard = ({ chart }: AiChartCardProps) => {
 
   const option = useMemo(() => {
     const base = (chart.data ?? {}) as Record<string, Record<string, unknown>>;
-    const isPie = chart.type === "pie";
+    const isPie = chart.type === AI_CHART_TYPES.pie;
 
     if (isPie) return base;
 

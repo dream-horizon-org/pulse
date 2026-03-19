@@ -1,5 +1,7 @@
+import { ChatRole } from "../../types/chat";
+
 export interface AiSessionMessage {
-  role: "user" | "model";
+  role: ChatRole;
   text: string;
   charts: Array<{
     type: string;

@@ -8,6 +8,7 @@ import json
 from google.adk.tools import ToolContext
 
 from pulse_ai.client.pulse_client import PulseClient
+from pulse_ai.agents.em.templates.base import TIME_RANGE_DOC
 from pulse_ai.agents.em.templates.interaction_templates import build_health_query
 from pulse_ai.agents.em.transformers.response_transformer import (
     parse_error_response,
@@ -31,7 +32,7 @@ async def query_interaction_health(
     Args:
         top_n: Number of top interactions to show (default 10)
         interaction_names: Optional list of specific interaction names to query
-        time_range: One of: last_5m, last_15m, last_30m, last_1h, last_3h, last_6h, last_12h, last_24h, last_2d, last_7d, last_30d, last_90d, yesterday, previous_week, previous_month, today_so_far, this_week, this_month_so_far, custom
+        time_range: One of: """ + TIME_RANGE_DOC + """
         start_time: ISO 8601 start (only when time_range="custom")
         end_time: ISO 8601 end (only when time_range="custom")
         filters: Optional dimension filters as JSON string, e.g. '{"platform": "Android"}'
