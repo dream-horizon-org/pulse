@@ -1,7 +1,7 @@
 package com.pulse.android.sdk.replay.internal.scheduling
 
 import android.os.Handler
-import com.pulse.android.sdk.replay.internal.util.DateProvider
+import io.opentelemetry.sdk.common.Clock
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class Throttler(
     private val handler: Handler,
-    private val dateProvider: DateProvider,
+    private val clock: Clock,
     throttleDelayMs: Long,
 ) {
     @Volatile private var lastCall = 0L
@@ -19,7 +19,7 @@ internal class Throttler(
     private val isThrottling = AtomicBoolean(false)
 
     fun throttle(runnable: Runnable) {
-        val currentTime = dateProvider.nanoTime()
+        val currentTime = clock.nanoTime()
         val timeSinceLastExecution = currentTime - lastCall
 
         if (timeSinceLastExecution >= delayNs) {
@@ -39,7 +39,7 @@ internal class Throttler(
 
     private fun executeAndReleaseThrottle(runnable: Runnable) {
         try {
-            lastCall = dateProvider.nanoTime()
+            lastCall = clock.nanoTime()
             runnable.run()
         } finally {
             isThrottling.set(false)

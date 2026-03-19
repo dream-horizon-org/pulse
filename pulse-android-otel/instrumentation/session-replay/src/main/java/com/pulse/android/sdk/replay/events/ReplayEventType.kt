@@ -1,17 +1,15 @@
 package com.pulse.android.sdk.replay.events
 
-/**
- * Type of replay event. Mirrors common session-replay event kinds (e.g. rrweb-style).
- * Used for serialization and downstream consumers.
- */
-public enum class ReplayEventType(public val value: Int) {
-    DomContentLoaded(0),
-    Load(1),
-    FullSnapshot(2),
-    IncrementalSnapshot(3),
-    Meta(4),
-    Custom(5),
-    Plugin(6),
+public enum class ReplayEventType(
+    public val value: Int,
+) {
+    DOM_CONTENT_LOADED(0),
+    LOAD(1),
+    FULL_SNAPSHOT(2),
+    INCREMENTAL_SNAPSHOT(3),
+    META(4),
+    CUSTOM(5),
+    PLUGIN(6),
     ;
 
     public companion object {

@@ -9,40 +9,37 @@ package com.pulse.android.sdk.replay
  * the backend via the `session_replay` feature config.
  */
 public class SessionReplayConfiguration {
-
     /** Optional: convert custom Drawables to Bitmap for wireframe capture mode. */
     public var drawableConverter: DrawableConverter? = null
 
-    private val _maskViewClasses: MutableSet<String> = mutableSetOf()
-    private val _unmaskViewClasses: MutableSet<String> = mutableSetOf()
+    private val maskViewClassesMutable: MutableSet<String> = mutableSetOf()
+    private val unmaskViewClassesMutable: MutableSet<String> = mutableSetOf()
 
     /** Register a view class (fully-qualified name) to always mask. Subclasses are also masked. */
     public fun addMaskViewClass(className: String) {
-        _maskViewClasses.add(className)
+        maskViewClassesMutable.add(className)
     }
 
     /** Register a view class (fully-qualified name) to never mask by global config. */
     public fun addUnmaskViewClass(className: String) {
-        _unmaskViewClasses.add(className)
+        unmaskViewClassesMutable.add(className)
     }
 
-    internal var configured: Boolean = false
+    internal var isConfigured: Boolean = false
         private set
 
     /** SDK-internal: called when the user invokes `sessionReplay { }` in the instrumentations block. */
     public fun markConfigured() {
-        configured = true
+        isConfigured = true
     }
 
     /** SDK-internal: returns the built [SessionReplayConfig] if [markConfigured] was called; null otherwise. */
-    public fun getConfigIfConfigured(): SessionReplayConfig? =
-        if (configured) build() else null
+    public fun getConfigIfConfigured(): SessionReplayConfig? = if (isConfigured) build() else null
 
-    private fun build(): SessionReplayConfig {
-        return SessionReplayConfig(
+    private fun build(): SessionReplayConfig =
+        SessionReplayConfig(
             drawableConverter = drawableConverter,
-            maskViewClasses = _maskViewClasses.toSet(),
-            unmaskViewClasses = _unmaskViewClasses.toSet(),
+            maskViewClasses = maskViewClassesMutable.toSet(),
+            unmaskViewClasses = unmaskViewClassesMutable.toSet(),
         )
-    }
 }

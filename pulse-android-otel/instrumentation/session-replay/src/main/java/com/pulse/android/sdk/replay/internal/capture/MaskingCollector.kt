@@ -23,15 +23,14 @@ import com.pulse.android.sdk.replay.ui.hasPrivacyUnmaskTag
  *
  * Masking priority (highest to lowest):
  * 1. Per-view instance: tag/extension ([ReplayConstants.MASK_TAG], [ReplayConstants.UNMASK_TAG],
- *    [pulseReplayMask][com.pulse.android.sdk.replay.ui.pulseReplayMask],
- *    [pulseReplayUnmask][com.pulse.android.sdk.replay.ui.pulseReplayUnmask])
+ *    [setPulseReplayMask][com.pulse.android.sdk.replay.ui.setPulseReplayMask],
+ *    [setPulseReplayUnmask][com.pulse.android.sdk.replay.ui.setPulseReplayUnmask])
  * 2. Per-view class: [SessionReplayConfig.maskViewClasses] / [SessionReplayConfig.unmaskViewClasses]
  * 3. Global config: [SessionReplayConfig.textAndInputPrivacy], [SessionReplayConfig.imagePrivacy]
  *
  * ViewGroup propagation: a force-masked parent masks all children unless a child has an explicit unmask override.
  */
 internal object MaskingCollector {
-
     private val MASK_TAG = ReplayConstants.MASK_TAG
     private val UNMASK_TAG = ReplayConstants.UNMASK_TAG
 
@@ -59,33 +58,51 @@ internal object MaskingCollector {
 
         if (view.isComposeView(logger)) {
             findMaskableComposeWidgets(view, config, maskableWidgets, logger)
-            return walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask = false, screenToWindowOffset)
+            return walkChildren(
+                view,
+                config,
+                maskableWidgets,
+                visitedViews,
+                onDrawCalled,
+                logger,
+                parentForcedMask = false,
+                screenToWindowOffset,
+            )
         }
 
         val instanceDecision = view.resolveInstanceDecision()
         val classDecision = view.resolveClassDecision(config)
 
         val effectiveDecision = if (instanceDecision != MaskDecision.UNDECIDED) instanceDecision else classDecision
-        var forceMaskChildren = parentForcedMask
+        var shouldForceMaskChildren = parentForcedMask
 
         when {
             effectiveDecision == MaskDecision.UNMASK -> {
-                forceMaskChildren = false
+                shouldForceMaskChildren = false
             }
             effectiveDecision == MaskDecision.MASK -> {
                 view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
-                forceMaskChildren = true
+                shouldForceMaskChildren = true
             }
             parentForcedMask -> {
                 view.windowVisibleRectSafe(screenToWindowOffset, logger)?.let { maskableWidgets.add(it) }
-                forceMaskChildren = true
+                shouldForceMaskChildren = true
             }
             else -> {
                 applyTypeSpecificMasking(view, config, maskableWidgets, screenToWindowOffset, logger)
             }
         }
 
-        return walkChildren(view, config, maskableWidgets, visitedViews, onDrawCalled, logger, forceMaskChildren, screenToWindowOffset)
+        return walkChildren(
+            view = view,
+            config = config,
+            maskableWidgets = maskableWidgets,
+            visitedViews = visitedViews,
+            onDrawCalled = onDrawCalled,
+            logger = logger,
+            parentForcedMask = shouldForceMaskChildren,
+            screenToWindowOffset = screenToWindowOffset,
+        )
     }
 
     private fun walkChildren(
@@ -100,17 +117,51 @@ internal object MaskingCollector {
     ): Boolean {
         if (view !is ViewGroup || view.isEmpty()) return true
         for (i in 0 until view.childCount) {
-            if (onDrawCalled()) {
-                logger("Session Replay screenshot discarded due to screen changes")
-                return false
-            }
-            val child = view.getChildAt(i) ?: continue
-            if (!child.isVisible(logger)) continue
-            if (!findMaskableWidgets(child, config, maskableWidgets, visitedViews, onDrawCalled, logger, parentForcedMask, screenToWindowOffset)) {
+            if (!walkSingleChild(
+                    parent = view,
+                    index = i,
+                    config = config,
+                    maskableWidgets = maskableWidgets,
+                    visitedViews = visitedViews,
+                    onDrawCalled = onDrawCalled,
+                    logger = logger,
+                    parentForcedMask = parentForcedMask,
+                    screenToWindowOffset = screenToWindowOffset,
+                )
+            ) {
                 return false
             }
         }
         return true
+    }
+
+    private fun walkSingleChild(
+        parent: ViewGroup,
+        index: Int,
+        config: SessionReplayConfig,
+        maskableWidgets: MutableList<Rect>,
+        visitedViews: MutableSet<Int>,
+        onDrawCalled: () -> Boolean,
+        logger: (String) -> Unit,
+        parentForcedMask: Boolean,
+        screenToWindowOffset: IntArray,
+    ): Boolean {
+        if (onDrawCalled()) {
+            logger("Session Replay screenshot discarded due to screen changes")
+            return false
+        }
+        val child = parent.getChildAt(index) ?: return true
+        if (!child.isVisible(logger)) return true
+        return findMaskableWidgets(
+            view = child,
+            config = config,
+            maskableWidgets = maskableWidgets,
+            visitedViews = visitedViews,
+            onDrawCalled = onDrawCalled,
+            logger = logger,
+            parentForcedMask = parentForcedMask,
+            screenToWindowOffset = screenToWindowOffset,
+        )
     }
 
     // --- Per-view instance decision (priority 1) ---
@@ -125,7 +176,7 @@ internal object MaskingCollector {
             if (tagStr.contains(MASK_TAG)) return MaskDecision.MASK
         }
 
-        val cd = contentDescription?.toString()?.lowercase()
+        val cd = contentDescription?.run { toString().lowercase() }
         if (cd != null) {
             if (cd.contains(UNMASK_TAG)) return MaskDecision.UNMASK
             if (cd.contains(MASK_TAG)) return MaskDecision.MASK
@@ -195,7 +246,10 @@ internal object MaskingCollector {
         }
     }
 
-    private fun shouldMaskEditText(view: EditText, config: SessionReplayConfig): Boolean {
+    private fun shouldMaskEditText(
+        view: EditText,
+        config: SessionReplayConfig,
+    ): Boolean {
         if (isPasswordInputType(view.inputType)) return true
         return when (config.textAndInputPrivacy) {
             TextAndInputPrivacy.MASK_ALL -> true
@@ -204,13 +258,20 @@ internal object MaskingCollector {
         }
     }
 
-    private fun shouldMaskTextView(view: TextView, config: SessionReplayConfig): Boolean {
+    private fun shouldMaskTextView(
+        view: TextView,
+        config: SessionReplayConfig,
+    ): Boolean {
         if (isPasswordInputType(view.inputType)) return true
         return when (config.textAndInputPrivacy) {
-            TextAndInputPrivacy.MASK_ALL -> true
-            TextAndInputPrivacy.MASK_ALL_INPUTS -> false
+            TextAndInputPrivacy.MASK_ALL -> {
+                true
+            }
+            TextAndInputPrivacy.MASK_ALL_INPUTS -> {
+                false
+            }
             TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> {
-                val hasContent = !view.text.isNullOrEmpty() || !view.hint.isNullOrEmpty()
+                val hasContent = !view.text.isNullOrBlank() || !view.hint.isNullOrBlank()
                 hasContent && isSensitiveInputType(view.inputType)
             }
         }
@@ -223,8 +284,10 @@ internal object MaskingCollector {
             TextAndInputPrivacy.MASK_SENSITIVE_INPUTS -> false
         }
 
-    private fun shouldMaskImage(view: ImageView, config: SessionReplayConfig): Boolean =
-        config.imagePrivacy == ImagePrivacy.MASK_ALL && view.drawable != null
+    private fun shouldMaskImage(
+        view: ImageView,
+        config: SessionReplayConfig,
+    ): Boolean = config.imagePrivacy == ImagePrivacy.MASK_ALL && view.drawable != null
 
     private fun shouldMaskWebView(config: SessionReplayConfig): Boolean =
         config.textAndInputPrivacy != TextAndInputPrivacy.MASK_SENSITIVE_INPUTS ||
@@ -232,11 +295,9 @@ internal object MaskingCollector {
 
     // --- Input type classification (delegated to shared utility) ---
 
-    private fun isPasswordInputType(inputType: Int): Boolean =
-        InputTypeClassifier.isPasswordInputType(inputType)
+    private fun isPasswordInputType(inputType: Int): Boolean = InputTypeClassifier.isPasswordInputType(inputType)
 
-    private fun isSensitiveInputType(inputType: Int): Boolean =
-        InputTypeClassifier.isSensitiveInputType(inputType)
+    private fun isSensitiveInputType(inputType: Int): Boolean = InputTypeClassifier.isSensitiveInputType(inputType)
 
     // --- Rect helpers ---
 
@@ -262,7 +323,10 @@ internal object MaskingCollector {
      * dropped — an approximate mask is safer than no mask at all.
      */
     @Suppress("UNUSED_PARAMETER")
-    private fun View.windowVisibleRectSafe(offset: IntArray, logger: (String) -> Unit): Rect? {
+    private fun View.windowVisibleRectSafe(
+        offset: IntArray,
+        logger: (String) -> Unit,
+    ): Rect? {
         return try {
             val rect = Rect()
             if (!getGlobalVisibleRect(rect, null)) return null
@@ -274,7 +338,10 @@ internal object MaskingCollector {
         }
     }
 
-    private fun TextView.getTextAreaWindowRect(offset: IntArray, logger: (String) -> Unit): Rect? {
+    private fun TextView.getTextAreaWindowRect(
+        offset: IntArray,
+        logger: (String) -> Unit,
+    ): Rect? {
         val fullRect = windowVisibleRectSafe(offset, logger) ?: return null
         val shouldAdjust = this is EditText || this is android.widget.Button
         if (!shouldAdjust) return fullRect
@@ -317,8 +384,8 @@ internal object MaskingCollector {
      * Compose: collect mask rects from semantics tree.
      *
      * Masking priority for Compose:
-     * 1. [pulseReplayMask(true)][com.pulse.android.sdk.replay.ui.pulseReplayMask] -> mask
-     * 2. [pulseReplayMask(false)][com.pulse.android.sdk.replay.ui.pulseReplayMask] -> unmask (skip auto-mask)
+     * 1. [setPulseReplayMask(true)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> mask
+     * 2. [setPulseReplayMask(false)][com.pulse.android.sdk.replay.ui.setPulseReplayMask] -> unmask (skip auto-mask)
      * 3. Auto-mask text/editable text per [TextAndInputPrivacy]
      * 4. Auto-mask images per [ImagePrivacy] using [Role.Image] semantics
      */
@@ -329,10 +396,11 @@ internal object MaskingCollector {
         logger: (String) -> Unit,
     ) {
         try {
-            val semanticsOwner = (view as? androidx.compose.ui.node.RootForTest)?.semanticsOwner ?: run {
-                logger("View is not a RootForTest: $view")
-                return
-            }
+            val semanticsOwner =
+                (view as? androidx.compose.ui.node.RootForTest)?.semanticsOwner ?: run {
+                    logger("View is not a RootForTest: $view")
+                    return
+                }
             val semanticsNodes = semanticsOwner.getAllSemanticsNodes(mergingEnabled = false)
             val maskKey = PulseReplayMaskKey
             for (node in semanticsNodes) {
@@ -343,7 +411,7 @@ internal object MaskingCollector {
                         maskableWidgets.add(node.boundsInWindow.toAndroidRect())
                     }
                     hasMaskModifier -> {
-                        // pulseReplayMask(false) -> explicit unmask, skip all auto-mask rules
+                        // setPulseReplayMask(false) -> explicit unmask, skip all auto-mask rules
                     }
                     else -> {
                         val hasText = node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Text)
@@ -399,5 +467,4 @@ internal object MaskingCollector {
     private enum class MaskDecision { MASK, UNMASK, UNDECIDED }
 }
 
-private fun androidx.compose.ui.geometry.Rect.toAndroidRect(): Rect =
-    Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())
+private fun androidx.compose.ui.geometry.Rect.toAndroidRect(): Rect = Rect(left.toInt(), top.toInt(), right.toInt(), bottom.toInt())

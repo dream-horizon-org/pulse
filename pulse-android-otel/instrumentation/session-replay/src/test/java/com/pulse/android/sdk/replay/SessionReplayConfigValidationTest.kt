@@ -120,7 +120,7 @@ class SessionReplayConfigValidationTest {
         @Test
         fun `is always true`() {
             val config = SessionReplayConfig()
-            assertThat(config.screenshot).isTrue()
+            assertThat(config.isScreenshot).isTrue()
         }
     }
 }

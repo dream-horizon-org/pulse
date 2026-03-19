@@ -1,20 +1,19 @@
 package com.pulse.android.sdk.replay.events
 
-/**
- * Mouse/touch interaction type. Matches rrweb/PostHog values.
- */
-public enum class ReplayMouseInteraction(public val value: Int) {
-    MouseUp(0),
-    MouseDown(1),
-    Click(2),
-    ContextMenu(3),
-    DblClick(4),
-    Focus(5),
-    Blur(6),
-    TouchStart(7),
-    TouchMoveDeparted(8),
-    TouchEnd(9),
-    TouchCancel(10),
+public enum class ReplayMouseInteraction(
+    public val value: Int,
+) {
+    MOUSE_UP(0),
+    MOUSE_DOWN(1),
+    CLICK(2),
+    CONTEXT_MENU(3),
+    DBL_CLICK(4),
+    FOCUS(5),
+    BLUR(6),
+    TOUCH_START(7),
+    TOUCH_MOVE_DEPARTED(8),
+    TOUCH_END(9),
+    TOUCH_CANCEL(10),
     ;
 
     public companion object {

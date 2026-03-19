@@ -12,8 +12,8 @@ import com.pulse.android.sdk.replay.internal.capture.MaskRectCache
 internal class ViewTreeSnapshotStatus(
     val listener: NextDrawListener,
     val maskRectCache: MaskRectCache,
-    var sentFullSnapshot: Boolean = false,
-    var sentMetaEvent: Boolean = false,
-    var keyboardVisible: Boolean = false,
+    var hasSentFullSnapshot: Boolean = false,
+    var hasSentMetaEvent: Boolean = false,
+    var isKeyboardVisible: Boolean = false,
     var lastSnapshot: ReplayWireframe? = null,
 )

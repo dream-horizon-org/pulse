@@ -7,7 +7,7 @@ public class ReplayIncrementalMouseInteractionEvent(
     mouseInteractionData: ReplayIncrementalMouseInteractionData,
     timestamp: Long,
 ) : ReplayEvent(
-    type = ReplayEventType.IncrementalSnapshot,
-    timestamp = timestamp,
-    data = mouseInteractionData,
-)
+        type = ReplayEventType.INCREMENTAL_SNAPSHOT,
+        timestamp = timestamp,
+        data = mouseInteractionData,
+    )

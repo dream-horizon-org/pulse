@@ -18,45 +18,76 @@ import android.graphics.drawable.Drawable
  *
  * **Client-only params** (set via the `sessionReplay { }` DSL in app code):
  * @param drawableConverter Optional: convert custom Drawables to Bitmap for wireframe mode.
- * @param captureLogcat If true, capture logcat as console events.
+ * @param isCaptureLogcat If true, capture logcat as console events.
  * @param maskViewClasses Fully-qualified class names whose instances (and subclasses) are always masked.
  * @param unmaskViewClasses Fully-qualified class names whose instances (and subclasses) are never masked by global config.
  */
-public data class SessionReplayConfig(
-    val textAndInputPrivacy: TextAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
-    val imagePrivacy: ImagePrivacy = ImagePrivacy.MASK_ALL,
-    val captureLogcat: Boolean = false,
-    val throttleDelayMs: Long = 1000L,
-    val drawableConverter: DrawableConverter? = null,
-    val screenshotScale: Float = 1f,
-    val screenshotQuality: Int = 30,
-    val flushIntervalSeconds: Int = 60,
-    val flushAt: Int = 10,
-    val maxBatchSize: Int = 50,
-    val replayApiBaseUrl: String? = null,
-    val maskViewClasses: Set<String> = emptySet(),
-    val unmaskViewClasses: Set<String> = emptySet(),
+public class SessionReplayConfig(
+    public val textAndInputPrivacy: TextAndInputPrivacy = TextAndInputPrivacy.MASK_ALL,
+    public val imagePrivacy: ImagePrivacy = ImagePrivacy.MASK_ALL,
+    public val isCaptureLogcat: Boolean = false,
+    public val throttleDelayMs: Long = 1000L,
+    public val drawableConverter: DrawableConverter? = null,
+    public val screenshotScale: Float = 1f,
+    public val screenshotQuality: Int = 30,
+    public val flushIntervalSeconds: Int = 60,
+    public val flushAt: Int = 10,
+    public val maxBatchSize: Int = 50,
+    public val replayApiBaseUrl: String? = null,
+    public val maskViewClasses: Set<String> = emptySet(),
+    public val unmaskViewClasses: Set<String> = emptySet(),
 ) {
     /** Screenshot capture is always enabled (PixelCopy mode). */
-    val screenshot: Boolean = true
+    public val isScreenshot: Boolean = true
 
     /** Scale factor clamped to valid range. */
-    val effectiveScreenshotScale: Float get() = screenshotScale.coerceIn(0.01f, 1f)
+    public val effectiveScreenshotScale: Float get() = screenshotScale.coerceIn(0.01f, 1f)
 
     /** Quality clamped to valid range. */
-    val effectiveScreenshotQuality: Int get() = screenshotQuality.coerceIn(0, 100)
+    public val effectiveScreenshotQuality: Int get() = screenshotQuality.coerceIn(0, 100)
 
     /** Throttle delay clamped to minimum 100ms. */
-    val effectiveThrottleDelayMs: Long get() = throttleDelayMs.coerceAtLeast(100L)
+    public val effectiveThrottleDelayMs: Long get() = throttleDelayMs.coerceAtLeast(100L)
 
     /** Flush interval clamped to minimum 1 second. */
-    val effectiveFlushIntervalSeconds: Int get() = flushIntervalSeconds.coerceAtLeast(1)
+    public val effectiveFlushIntervalSeconds: Int get() = flushIntervalSeconds.coerceAtLeast(1)
 
     /** Flush-at threshold clamped to minimum 1. */
-    val effectiveFlushAt: Int get() = flushAt.coerceAtLeast(1)
+    public val effectiveFlushAt: Int get() = flushAt.coerceAtLeast(1)
 
     /** Max batch size clamped to minimum 1. */
-    val effectiveMaxBatchSize: Int get() = maxBatchSize.coerceAtLeast(1)
+    public val effectiveMaxBatchSize: Int get() = maxBatchSize.coerceAtLeast(1)
+
+    public fun copy(
+        textAndInputPrivacy: TextAndInputPrivacy = this.textAndInputPrivacy,
+        imagePrivacy: ImagePrivacy = this.imagePrivacy,
+        isCaptureLogcat: Boolean = this.isCaptureLogcat,
+        throttleDelayMs: Long = this.throttleDelayMs,
+        drawableConverter: DrawableConverter? = this.drawableConverter,
+        screenshotScale: Float = this.screenshotScale,
+        screenshotQuality: Int = this.screenshotQuality,
+        flushIntervalSeconds: Int = this.flushIntervalSeconds,
+        flushAt: Int = this.flushAt,
+        maxBatchSize: Int = this.maxBatchSize,
+        replayApiBaseUrl: String? = this.replayApiBaseUrl,
+        maskViewClasses: Set<String> = this.maskViewClasses,
+        unmaskViewClasses: Set<String> = this.unmaskViewClasses,
+    ): SessionReplayConfig =
+        SessionReplayConfig(
+            textAndInputPrivacy = textAndInputPrivacy,
+            imagePrivacy = imagePrivacy,
+            isCaptureLogcat = isCaptureLogcat,
+            throttleDelayMs = throttleDelayMs,
+            drawableConverter = drawableConverter,
+            screenshotScale = screenshotScale,
+            screenshotQuality = screenshotQuality,
+            flushIntervalSeconds = flushIntervalSeconds,
+            flushAt = flushAt,
+            maxBatchSize = maxBatchSize,
+            replayApiBaseUrl = replayApiBaseUrl,
+            maskViewClasses = maskViewClasses,
+            unmaskViewClasses = unmaskViewClasses,
+        )
 }
 
 /**

@@ -9,11 +9,12 @@ public class ReplayFullSnapshotEvent(
     initialOffsetLeft: Int,
     timestamp: Long,
 ) : ReplayEvent(
-    type = ReplayEventType.FullSnapshot,
-    timestamp = timestamp,
-    data = ReplayFullSnapshotData(
-        wireframes = wireframes,
-        initialOffsetTop = initialOffsetTop,
-        initialOffsetLeft = initialOffsetLeft,
-    ),
-)
+        type = ReplayEventType.FULL_SNAPSHOT,
+        timestamp = timestamp,
+        data =
+            ReplayFullSnapshotData(
+                wireframes = wireframes,
+                initialOffsetTop = initialOffsetTop,
+                initialOffsetLeft = initialOffsetLeft,
+            ),
+    )

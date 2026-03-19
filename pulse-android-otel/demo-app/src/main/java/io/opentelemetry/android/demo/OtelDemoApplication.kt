@@ -28,7 +28,7 @@ import kotlin.time.Duration.Companion.minutes
 
 const val TAG = "otel.demo"
 // Demo API key for local development testing - not a real secret (orca-security-ignore)
-private const val DEMO_API_KEY = "default-project_devkey01"
+private const val DEMO_API_KEY = "Demo-VNyUhfQC"
 
 class OtelDemoApplication : Application() {
 

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
 class SessionReplayRegistryTest {
-
     @AfterEach
     fun tearDown() {
         SessionReplayRegistry.clearIntegration()
@@ -15,11 +14,12 @@ class SessionReplayRegistryTest {
     @Test
     fun `set and getAndClearPending round-trip bootstrap`() {
         val config = SessionReplayConfig()
-        val bootstrap = SessionReplayBootstrap(
-            config = config,
-            projectId = "proj-1",
-            userIdProvider = { "user-1" },
-        )
+        val bootstrap =
+            SessionReplayBootstrap(
+                config = config,
+                projectId = "proj-1",
+                userIdProvider = { "user-1" },
+            )
         SessionReplayRegistry.set(bootstrap)
         val pending = SessionReplayRegistry.getAndClearPending()
         assertThat(pending).isNotNull

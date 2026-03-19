@@ -48,7 +48,7 @@ class PersistingReplayEmitterTest {
         val events = listOf(ReplayMetaEvent(1080, 1920, 1000L, "Test"))
         emitter.emit("sid-1", events)
         Thread.sleep(500)
-        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") } ?: emptyList()
+        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") }.orEmpty()
         assertThat(files).hasSize(1)
         assertThat(String(files.single().readBytes(), Charsets.UTF_8)).isEqualTo(envelope)
     }
@@ -78,7 +78,7 @@ class PersistingReplayEmitterTest {
         assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue()
         assertThat(sent.get()).isEqualTo(envelope)
         Thread.sleep(200)
-        val remaining = (tempDir.listFiles() ?: arrayOf()).filter { it.isFile }
+        val remaining = tempDir.listFiles().orEmpty().filter { it.isFile }
         assertThat(remaining).isEmpty()
     }
 
@@ -103,7 +103,7 @@ class PersistingReplayEmitterTest {
             )
         emitter.sendCachedEvents()
         assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue()
-        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") } ?: emptyList()
+        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") }.orEmpty()
         assertThat(files).hasSize(1)
     }
 
@@ -236,7 +236,7 @@ class PersistingReplayEmitterTest {
         emitter.flush()
         assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue()
         Thread.sleep(600)
-        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") } ?: emptyList()
+        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") }.orEmpty()
         assertThat(files).hasSize(1)
     }
 
@@ -247,7 +247,10 @@ class PersistingReplayEmitterTest {
             PersistingReplayEmitter(
                 storageDir = tempDir,
                 buildEnvelope = { _, _ -> """{"event":"snapshot"}""" },
-                realSend = { payload -> sent.set(payload); Result.success(Unit) },
+                realSend = { payload ->
+                    sent.set(payload)
+                    Result.success(Unit)
+                },
                 flushIntervalSeconds = 60,
                 flushAt = 10,
                 maxBatchSize = 50,

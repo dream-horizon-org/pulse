@@ -7,7 +7,6 @@ import android.text.InputType
  * and [WireframeCapture] (wireframe mode).
  */
 internal object InputTypeClassifier {
-
     fun isPasswordInputType(inputType: Int): Boolean {
         val variation = inputType and InputType.TYPE_MASK_VARIATION
         val cls = inputType and InputType.TYPE_MASK_CLASS

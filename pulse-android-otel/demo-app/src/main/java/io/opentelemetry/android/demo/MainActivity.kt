@@ -117,10 +117,29 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth(),
                         )
 
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LauncherButton(
+                                text = "Crash here",
+                                onClick = {
+                                    viewModel.performSomeWork()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            LauncherButton(
+                                text = "Trigger ANR",
+                                onClick = {
+                                    viewModel.triggerAnr()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                         LauncherButton(
-                            text = "Crash here",
+                            text = "Network call",
                             onClick = {
-                                viewModel.performSomeWork()
+                                viewModel.makeNetworkCall()
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -138,6 +157,15 @@ class MainActivity : ComponentActivity() {
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
+
+                        LaunchedEffect(Unit) {
+                            viewModel.networkMessage.collect { msg ->
+                                if (msg != null) {
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    viewModel.clearNetworkMessage()
+                                }
+                            }
+                        }
 
                         LaunchedEffect(Unit) {
                             viewModel.networkMessage.collect { msg ->

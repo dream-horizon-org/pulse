@@ -1,5 +1,3 @@
-import org.gradle.api.artifacts.VersionCatalogsExtension
-
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
@@ -9,10 +7,6 @@ description = "Pulse Session Replay – screenshot capture, masking, throttling,
 
 android {
     namespace = "com.pulse.android.sdk.replay"
-
-    defaultConfig {
-        consumerProguardFiles("consumer-rules.pro")
-    }
 
     testOptions {
         unitTests {
@@ -25,22 +19,24 @@ kotlin {
     explicitApi()
 }
 
-val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
-
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
     implementation(projects.session)
     implementation(projects.pulseUtils)
-    implementation(libs.findLibrary("androidx-core").get())
-    implementation("com.squareup.curtains:curtains:1.2.5")
-    implementation(libs.findLibrary("findbugs-jsr305").get())
-    implementation(libs.findLibrary("androidx-annotation").get())
-    compileOnly(libs.findLibrary("compose").get())
-    testImplementation(libs.findLibrary("assertj-core").get())
-    testImplementation(libs.findBundle("mocking").get())
-    testImplementation(libs.findBundle("junit").get())
-    testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
-    testImplementation(libs.findLibrary("robolectric").get())
-    testImplementation(libs.findLibrary("okhttp-mockwebserver").get())
-    testImplementation("org.json:json:20231013")
+    implementation(libs.opentelemetry.sdk)
+    implementation(libs.androidx.core)
+    implementation(libs.curtains)
+    implementation(libs.findbugs.jsr305)
+    implementation(libs.androidx.annotation)
+    compileOnly(libs.compose)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.bundles.mocking)
+    testImplementation(libs.bundles.junit)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.opentelemetry.sdk.testing)
+    implementation(libs.gson)
+    implementation(libs.retrofit)
+    testImplementation(libs.gson)
 }

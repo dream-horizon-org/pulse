@@ -4,7 +4,7 @@ import com.pulse.android.sdk.replay.events.ReplayCustomEventData
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
-import com.pulse.android.sdk.replay.internal.ReplayLog
+import com.pulse.utils.PulseOtelUtils
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -118,12 +118,14 @@ public class PersistingReplayEmitter(
                         }.entries
                         .joinToString(", ") { "${it.key}(${it.value.size})" }
                 val eventWord = if (events.size == 1) "event" else "events"
-                ReplayLog.d(
+                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] Batch persisted to disk (${events.size} $eventWord) — " +
-                        "event types: [$eventTypesSummary] — queue size: ${deque.size}, flush at: $flushAt",
-                )
+                        "event types: [$eventTypesSummary] — queue size: ${deque.size}, flush at: $flushAt"
+                }
                 if (deque.size >= flushAt) {
-                    ReplayLog.d("[Replay flow] Queue reached flush threshold ($flushAt) → triggering flush")
+                    PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                        "[Replay flow] Queue reached flush threshold ($flushAt) → triggering flush"
+                    }
                     flushIfNeeded()
                 }
             } catch (e: Throwable) {
@@ -145,7 +147,9 @@ public class PersistingReplayEmitter(
                 val files = listCachedReplayFiles()
                 if (files.isEmpty()) return@execute
                 logger("Sending ${files.size} cached replay batches from previous run")
-                ReplayLog.d("[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run")
+                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                    "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run"
+                }
                 val fileToContent =
                     readFilesToContent(files) { file, e ->
                         logger("Failed to read cached replay file ${file.name}: $e")
@@ -153,10 +157,10 @@ public class PersistingReplayEmitter(
                     }
                 if (fileToContent.isEmpty()) return@execute
                 val payload = buildBatchPayload(fileToContent.map { it.second })
-                ReplayLog.d(
+                PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] Cached → combining ${fileToContent.size} batch(es) " +
-                        "into single request (${payload.length} bytes) → flushing to backend",
-                )
+                        "into single request (${payload.length} bytes) → flushing to backend"
+                }
                 networkExecutor.execute {
                     realSend(payload).fold(
                         onSuccess = {
@@ -165,11 +169,10 @@ public class PersistingReplayEmitter(
                             }
                         },
                         onFailure = { t ->
-                            ReplayLog.w(
-                                "[Replay flow] Cached send failed, ${fileToContent.size} batch(es) will be retried on next launch",
-                                t,
-                            )
-                            logger("Send cached replay failed: ${t.message}")
+                            PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                                "[Replay flow] Cached send failed, ${fileToContent.size} batch(es) will be retried on next launch"
+                            }
+                            logger("Send cached replay failed: ${t.message.orEmpty()}")
                         },
                     )
                 }
@@ -197,11 +200,13 @@ public class PersistingReplayEmitter(
             synchronized(dequeLock) {
                 val n = minOf(maxBatchSize, deque.size)
                 repeat(n) {
-                    deque.removeFirstOrNull()?.let { toSend.add(it) }
+                    deque.removeFirstOrNull()?.let { file -> toSend.add(file) }
                 }
             }
             if (toSend.isEmpty()) return
-            ReplayLog.d("[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (maxBatchSize: $maxBatchSize)")
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
+                "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (maxBatchSize: $maxBatchSize)"
+            }
             val fileToContent =
                 readFilesToContent(toSend) { file, e ->
                     logger("Flush failed for ${file.name}: $e")
@@ -210,10 +215,10 @@ public class PersistingReplayEmitter(
             if (fileToContent.isEmpty()) return
             val payload = buildBatchPayload(fileToContent.map { it.second })
             val filesToRequeue = fileToContent.map { it.first }
-            ReplayLog.d(
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush → combining ${fileToContent.size} batch(es) " +
-                    "into single request (${payload.length} bytes) → sending to backend",
-            )
+                    "into single request (${payload.length} bytes) → sending to backend"
+            }
             networkExecutor.execute {
                 realSend(payload).fold(
                     onSuccess = {
@@ -221,12 +226,11 @@ public class PersistingReplayEmitter(
                             if (!shutDown.get()) fileToContent.forEach { (file) -> file.delete() }
                         }
                     },
-                        onFailure = { t ->
-                        ReplayLog.w(
-                            "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry",
-                            t,
-                        )
-                        logger("Flush send failed: ${t.message}")
+                    onFailure = { t ->
+                        PulseOtelUtils.logWarn(ReplayConstants.REPLAY_LOG_TAG, t) {
+                            "[Replay flow] Flush send failed, re-queuing ${fileToContent.size} batch(es) for retry"
+                        }
+                        logger("Flush send failed: ${t.message.orEmpty()}")
                         executor.execute {
                             if (!shutDown.get()) {
                                 synchronized(dequeLock) {
@@ -242,9 +246,13 @@ public class PersistingReplayEmitter(
         }
     }
 
-    private fun listCachedReplayFiles(): List<File> =
-        storageDir.listFiles()?.filter { it.isFile && it.name.endsWith(".replay") }?.sortedBy { it.lastModified() }
-            ?: emptyList()
+    private fun listCachedReplayFiles(): List<File> {
+        val files =
+            storageDir.listFiles()?.run {
+                filter { it.isFile && it.name.endsWith(".replay") }.sortedBy { it.lastModified() }
+            }
+        return files.orEmpty()
+    }
 
     private fun readFilesToContent(
         files: List<File>,
@@ -252,7 +260,7 @@ public class PersistingReplayEmitter(
     ): List<Pair<File, String>> =
         files.mapNotNull { file ->
             try {
-                readFileContent(file)?.let { file to it }
+                readFileContent(file)?.let { content -> file to content }
             } catch (e: Throwable) {
                 onReadError(file, e)
                 null
@@ -263,7 +271,7 @@ public class PersistingReplayEmitter(
         if (contents.size == 1) contents.single() else contents.joinToString(prefix = "[", postfix = "]", separator = ",")
 
     private fun scheduleFlush(): ScheduledFuture<*> =
-        executor.scheduleAtFixedRate(
+        executor.scheduleWithFixedDelay(
             { flushIfNeeded() },
             flushIntervalSeconds.toLong(),
             flushIntervalSeconds.toLong(),

@@ -17,25 +17,26 @@ internal class MaskRectCache(
     private val config: SessionReplayConfig,
     private val logger: (String) -> Unit,
 ) {
-
     @Volatile
     var rects: List<Rect> = emptyList()
         private set
 
     @Volatile
-    var valid: Boolean = false
+    var isValid: Boolean = false
         private set
 
     private val dirty = AtomicBoolean(true)
     private var registeredView: WeakReference<View>? = null
 
-    private val scrollChangedListener = ViewTreeObserver.OnScrollChangedListener {
-        dirty.set(true)
-    }
+    private val scrollChangedListener =
+        ViewTreeObserver.OnScrollChangedListener {
+            dirty.set(true)
+        }
 
-    private val globalLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
-        dirty.set(true)
-    }
+    private val globalLayoutListener =
+        ViewTreeObserver.OnGlobalLayoutListener {
+            dirty.set(true)
+        }
 
     fun isDirty(): Boolean = dirty.get()
 
@@ -50,15 +51,16 @@ internal class MaskRectCache(
         if (!dirty.getAndSet(false)) return false
 
         val collected = mutableListOf<Rect>()
-        val masksValid = MaskingCollector.findMaskableWidgets(
-            view,
-            config,
-            collected,
-            onDrawCalled = onDrawCalled,
-            logger = logger,
-        )
+        val areMasksValid =
+            MaskingCollector.findMaskableWidgets(
+                view,
+                config,
+                collected,
+                onDrawCalled = onDrawCalled,
+                logger = logger,
+            )
         rects = collected
-        valid = masksValid
+        isValid = areMasksValid
         return true
     }
 
@@ -97,6 +99,6 @@ internal class MaskRectCache(
     fun clear() {
         dirty.set(true)
         rects = emptyList()
-        valid = false
+        isValid = false
     }
 }

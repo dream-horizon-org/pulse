@@ -8,7 +8,7 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.pulse.android.sdk.replay.ui.pulseReplayMask
+import com.pulse.android.sdk.replay.ui.setPulseReplayMask
 import io.opentelemetry.android.demo.R
 
 class AppFeaturesFragment : Fragment() {
@@ -22,7 +22,7 @@ class AppFeaturesFragment : Fragment() {
         val features = getFeatureList()
         val recyclerView: RecyclerView = view.findViewById(R.id.recyclerView)
 
-        view.findViewById<TextView>(R.id.text_view_app_features).pulseReplayMask()
+        view.findViewById<TextView>(R.id.text_view_app_features).setPulseReplayMask()
 
         featureAdapter = FeatureAdapter(features)
         recyclerView.adapter = featureAdapter

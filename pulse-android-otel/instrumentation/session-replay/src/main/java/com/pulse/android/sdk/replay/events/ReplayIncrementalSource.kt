@@ -1,23 +1,25 @@
 package com.pulse.android.sdk.replay.events
 
-public enum class ReplayIncrementalSource(public val value: Int) {
-    Mutation(0),
-    MouseMove(1),
-    MouseInteraction(2),
-    Scroll(3),
-    ViewportResize(4),
-    Input(5),
-    TouchMove(6),
-    MediaInteraction(7),
-    StyleSheetRule(8),
-    CanvasMutation(9),
-    Font(10),
-    Log(11),
-    Drag(12),
-    StyleDeclaration(13),
-    Selection(14),
-    AdoptedStyleSheet(15),
-    CustomElement(16),
+public enum class ReplayIncrementalSource(
+    public val value: Int,
+) {
+    MUTATION(0),
+    MOUSE_MOVE(1),
+    MOUSE_INTERACTION(2),
+    SCROLL(3),
+    VIEWPORT_RESIZE(4),
+    INPUT(5),
+    TOUCH_MOVE(6),
+    MEDIA_INTERACTION(7),
+    STYLE_SHEET_RULE(8),
+    CANVAS_MUTATION(9),
+    FONT(10),
+    LOG(11),
+    DRAG(12),
+    STYLE_DECLARATION(13),
+    SELECTION(14),
+    ADOPTED_STYLE_SHEET(15),
+    CUSTOM_ELEMENT(16),
     ;
 
     public companion object {

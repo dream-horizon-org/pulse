@@ -2,6 +2,7 @@ package com.pulse.android.sdk.replay
 
 import android.content.Context
 import android.util.Base64
+import androidx.core.content.edit
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -13,8 +14,9 @@ import javax.crypto.spec.SecretKeySpec
  * app-private SharedPreferences. Applied by the SDK for all persisted replay files.
  * For hardware-backed key storage, provide a custom [ReplayStorageEncryption] using Android Keystore.
  */
-public class DefaultReplayStorageEncryption(context: Context) : ReplayStorageEncryption {
-
+public class DefaultReplayStorageEncryption(
+    context: Context,
+) : ReplayStorageEncryption {
     private val key: SecretKey = getOrCreateKey(context)
 
     private companion object {
@@ -53,7 +55,7 @@ public class DefaultReplayStorageEncryption(context: Context) : ReplayStorageEnc
         } else {
             val keyGenerator = KeyGenerator.getInstance("AES").apply { init(KEY_SIZE) }
             val secretKey = keyGenerator.generateKey()
-            prefs.edit().putString(PREF_KEY_SECRET, Base64.encodeToString(secretKey.encoded, Base64.NO_WRAP)).apply()
+            prefs.edit { putString(PREF_KEY_SECRET, Base64.encodeToString(secretKey.encoded, Base64.NO_WRAP)) }
             secretKey
         }
     }

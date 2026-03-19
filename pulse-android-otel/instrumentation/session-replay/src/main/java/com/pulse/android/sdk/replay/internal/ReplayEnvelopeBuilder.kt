@@ -1,18 +1,17 @@
 package com.pulse.android.sdk.replay.internal
 
+import com.google.gson.JsonArray
+import com.google.gson.JsonParser
+import com.pulse.android.sdk.replay.encoding.ReplayEventPayloadEncoder
+import com.pulse.android.sdk.replay.encoding.ReplayGson
+import com.pulse.android.sdk.replay.encoding.TransportEnvelope
+import com.pulse.android.sdk.replay.encoding.TransportEnvelopeProperties
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayEventType
-import com.pulse.android.sdk.replay.encoding.ReplayEventPayloadEncoder
-import org.json.JSONArray
-import org.json.JSONObject
 
-/**
- * Builds the snapshot envelope JSON (event, project_id, user_id, properties) and provides
- * optional payload summary for logging. Used internally by SessionReplayInstrumentation.
- */
 internal object ReplayEnvelopeBuilder {
-
     private const val ANONYMOUS_USER_ID = "anonymous"
+    private const val SNAPSHOT_SOURCE = "android"
 
     fun buildEnvelope(
         sessionId: String,
@@ -20,70 +19,128 @@ internal object ReplayEnvelopeBuilder {
         projectId: String,
         userId: String,
     ): String {
-        val snapshotDataJson = ReplayEventPayloadEncoder.encodeToJson(events)
-        val properties = JSONObject().apply {
-            put("session_id", sessionId)
-            put("snapshot_data", JSONArray(snapshotDataJson))
-            put("snapshot_source", "android")
-        }
-        return JSONObject().apply {
-            put("event", "snapshot")
-            put("project_id", projectId)
-            put("user_id", userId.ifEmpty { ANONYMOUS_USER_ID })
-            put("properties", properties)
-        }.toString()
+        val transportEvents = ReplayEventPayloadEncoder.toTransportEvents(events)
+        val envelope =
+            TransportEnvelope(
+                event = "snapshot",
+                projectId = projectId,
+                userId = userId.ifEmpty { ANONYMOUS_USER_ID },
+                properties =
+                    TransportEnvelopeProperties(
+                        sessionId = sessionId,
+                        snapshotData = transportEvents,
+                        snapshotSource = SNAPSHOT_SOURCE,
+                    ),
+            )
+        return ReplayGson.instance.toJson(envelope)
     }
 
-    /** Returns a string suitable for logging, e.g. "session_id: abc-123" or "session_ids: a, b" for batches. */
-    fun getSessionIdsForLog(payload: String): String? = try {
-        val envelopes = parseEnvelopes(payload)
-        val ids = envelopes.mapNotNull { envelope ->
-            envelope.optJSONObject("properties")?.optString("session_id", "")?.takeIf { it.isNotEmpty() }
-        }.toSet()
-        when (ids.size) {
-            0 -> null
-            1 -> "session_id: ${ids.first()}"
-            else -> "session_ids: ${ids.take(3).joinToString(", ")}${if (ids.size > 3) " (+${ids.size - 3} more)" else ""}"
+    fun getSessionIdsForLog(payload: String): String? =
+        try {
+            val envelopes = parseEnvelopes(payload)
+            val ids =
+                envelopes
+                    .mapNotNull { envelope ->
+                        envelope
+                            .get("properties")
+                            ?.takeIf { it.isJsonObject }
+                            ?.asJsonObject
+                            ?.get("session_id")
+                            ?.takeIf { it.isJsonPrimitive }
+                            ?.asJsonPrimitive
+                            ?.asString
+                            ?.takeIf { it.isNotEmpty() }
+                    }.toSet()
+            when (ids.size) {
+                0 -> {
+                    null
+                }
+                1 -> {
+                    "session_id: ${ids.first()}"
+                }
+                else -> {
+                    val preview = ids.take(3).joinToString(", ")
+                    val suffix = if (ids.size > 3) " (+${ids.size - 3} more)" else ""
+                    "session_ids: $preview$suffix"
+                }
+            }
+        } catch (_: Throwable) {
+            null
         }
-    } catch (_: Throwable) {
-        null
-    }
 
-    fun getEventTypesSummary(payload: String): String? = try {
+    fun getEventTypesSummary(payload: String): String? =
+        try {
+            val typeCounts = countEventTypes(payload)
+            if (typeCounts.isEmpty()) {
+                null
+            } else {
+                typeCounts.entries.joinToString(", ") { "${it.key}(${it.value})" }
+            }
+        } catch (_: Throwable) {
+            null
+        }
+
+    private fun countEventTypes(payload: String): Map<String, Int> {
         val envelopes = parseEnvelopes(payload)
         val typeCounts = mutableMapOf<String, Int>()
         for (envelope in envelopes) {
-            val props = envelope.optJSONObject("properties") ?: continue
-            val snapshotData = props.optJSONArray("snapshot_data") ?: continue
-            for (j in 0 until snapshotData.length()) {
-                val item = snapshotData.optJSONObject(j) ?: continue
-                val typeInt = item.optInt("type", -1)
-                if (typeInt < 0) continue
-                val name = when (typeInt) {
-                    3 -> {
-                        val data = item.optJSONObject("data")
-                        val source = data?.optInt("source", -1)
-                        if (source == 2) "Touch" else "ViewMutation"
-                    }
-                    5 -> {
-                        val data = item.optJSONObject("data")
-                        val tag = data?.optString("tag", "")?.takeIf { it.isNotEmpty() }
-                        if (tag != null) "Custom($tag)" else "Custom"
-                    }
-                    else -> ReplayEventType.fromValue(typeInt)?.name ?: "type_$typeInt"
-                }
+            val props = envelope.get("properties")?.takeIf { it.isJsonObject }?.asJsonObject
+            val snapshotData = props?.get("snapshot_data")?.takeIf { it.isJsonArray }?.asJsonArray
+            if (snapshotData != null) {
+                countEventsInSnapshot(snapshotData, typeCounts)
+            }
+        }
+        return typeCounts
+    }
+
+    private fun countEventsInSnapshot(
+        snapshotData: com.google.gson.JsonArray,
+        typeCounts: MutableMap<String, Int>,
+    ) {
+        for (element in snapshotData) {
+            val item = element.takeIf { it.isJsonObject }?.asJsonObject
+            val name = item?.let { resolveEventTypeName(it) }
+            if (name != null) {
                 typeCounts[name] = (typeCounts[name] ?: 0) + 1
             }
         }
-        if (typeCounts.isEmpty()) null else typeCounts.entries.joinToString(", ") { "${it.key}(${it.value})" }
-    } catch (_: Throwable) {
-        null
     }
 
-    /** Parses payload as single envelope or array of envelopes; returns list of JSONObject. */
-    private fun parseEnvelopes(payload: String): List<JSONObject> {
+    private fun resolveEventTypeName(item: com.google.gson.JsonObject): String? {
+        val typeInt = item.get("type")?.takeIf { it.isJsonPrimitive }?.asInt ?: return null
+        if (typeInt < 0) return null
+        return when (typeInt) {
+            3 -> {
+                val data = item.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+                val source = data?.get("source")?.takeIf { it.isJsonPrimitive }?.asInt ?: -1
+                if (source == 2) "Touch" else "ViewMutation"
+            }
+            5 -> {
+                val data = item.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+                val tag =
+                    data
+                        ?.get("tag")
+                        ?.takeIf { it.isJsonPrimitive }
+                        ?.asString
+                        ?.takeIf { it.isNotEmpty() }
+                if (tag != null) "Custom($tag)" else "Custom"
+            }
+            else -> {
+                ReplayEventType.fromValue(typeInt)?.name ?: "type_$typeInt"
+            }
+        }
+    }
+
+    private fun parseEnvelopes(payload: String): List<com.google.gson.JsonObject> {
         val trimmed = payload.trimStart()
-        val array = if (trimmed.startsWith("[")) JSONArray(payload) else JSONArray().put(JSONObject(payload))
-        return (0 until array.length()).mapNotNull { index -> array.optJSONObject(index) }
+        val array =
+            if (trimmed.startsWith("[")) {
+                JsonParser.parseString(payload).asJsonArray
+            } else {
+                JsonArray().apply { add(JsonParser.parseString(payload).asJsonObject) }
+            }
+        return (0 until array.size()).mapNotNull { index ->
+            array.get(index).takeIf { it.isJsonObject }?.asJsonObject
+        }
     }
 }
