@@ -9,6 +9,11 @@ import {
 import { readSseStream } from "./sseParser";
 import { AI_API_PATHS, AI_CHAT_TEXTS } from "../../AiChat.constants";
 
+/** DOM fetch error names (e.g. when request is aborted via AbortController). */
+enum FetchErrorName {
+  Abort = "AbortError",
+}
+
 export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -50,14 +55,14 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
           try {
             await readSseStream(response.body.getReader(), callbacks);
           } catch (err) {
-            if ((err as Error).name === "AbortError") return;
+            if ((err as Error).name === FetchErrorName.Abort) return;
             callbacks.onError(
               (err as Error).message || AI_CHAT_TEXTS.STREAM_FAILED,
             );
           }
         })
         .catch((err) => {
-          if ((err as Error).name === "AbortError") return;
+          if ((err as Error).name === FetchErrorName.Abort) return;
           callbacks.onError(
             (err as Error).message || AI_CHAT_TEXTS.NETWORK_ERROR,
           );
