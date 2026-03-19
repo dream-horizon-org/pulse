@@ -6,6 +6,7 @@ import com.pulse.sampling.core.PulseSessionConfigParser
 import com.pulse.sampling.core.PulseSessionParser
 import com.pulse.sampling.core.PulseSignalMatcher
 import com.pulse.sampling.core.PulseSignalsAttrMatcher
+import com.pulse.sampling.core.matches
 import com.pulse.sampling.models.PulseAttributeType
 import com.pulse.sampling.models.PulseAttributesToAddEntry
 import com.pulse.sampling.models.PulseAttributesToDropEntry
@@ -67,7 +68,7 @@ public class PulseSamplingSignalProcessors internal constructor(
             .signals
             .metricsToAdd
             .filter { it.condition.scopes.contains(scope) && currentSdkName in it.condition.sdks }
-            .associateWith { creatMeter(it) }
+            .associateWith { createMeterRecorderFactory(it) }
 
     private fun getSignalsToSampleConfig(scope: PulseSignalScope): List<PulseSignalsToSampleEntry> =
         sdkConfig
@@ -513,7 +514,11 @@ public class PulseSamplingSignalProcessors internal constructor(
                 when (val target = metricsToAddEntry.target) {
                     is PulseMetricsToAddTarget.Attribute -> {
                         props.forEach { key, value ->
-                            if (target.condition.props.any { key.key.matchesFromRegexCache(it.name) }) {
+                            if (
+                                target.condition.props.any {
+                                    it.matches(key, value)
+                                }
+                            ) {
                                 val metricName =
                                     if (target.shouldAddPropNameAsSuffix) {
                                         "$baseMetricName.${key.key}"
@@ -533,7 +538,7 @@ public class PulseSamplingSignalProcessors internal constructor(
         }
     }
 
-    private fun creatMeter(meterConfigEntry: PulseMetricsToAddEntry): DataRecorderFactory {
+    private fun createMeterRecorderFactory(meterConfigEntry: PulseMetricsToAddEntry): DataRecorderFactory {
         val meter = meterProviderLazy.value.meterBuilder("$INSTRUMENTATION_NAME_PREFIX.metric").build()
         val recorderCache = mutableMapOf<String, DataRecorder>()
 
