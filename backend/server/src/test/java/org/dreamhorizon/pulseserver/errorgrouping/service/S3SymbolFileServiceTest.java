@@ -74,7 +74,7 @@ class S3SymbolFileServiceTest {
 
       String s3Key = s3SymbolFileService.uploadFile(metadata, fileInputStream).blockingGet();
 
-      assertThat(s3Key).isEqualTo("symbols/android/test-project/1.0.0/100/mapping/mapping.txt");
+      assertThat(s3Key).isEqualTo("symbols/test-project/android/mapping/1.0.0/100/mapping.txt");
       verify(s3AsyncClient).putObject(any(PutObjectRequest.class), any(AsyncRequestBody.class));
     }
 
@@ -135,7 +135,7 @@ class S3SymbolFileServiceTest {
       s3SymbolFileService.uploadFile(metadata, fileInputStream).blockingGet();
 
       verify(s3AsyncClient).putObject(requestCaptor.capture(), any(AsyncRequestBody.class));
-      assertThat(requestCaptor.getValue().key()).isEqualTo("symbols/android/test_project/1.0.0/100/mapping/mapping_file.txt");
+      assertThat(requestCaptor.getValue().key()).isEqualTo("symbols/test_project/android/mapping/1.0.0/100/mapping_file.txt");
     }
 
     @Test
@@ -195,7 +195,7 @@ class S3SymbolFileServiceTest {
 
     @Test
     void shouldDownloadFileAsBytesSuccessfully() {
-      String s3Key = "symbols/android/test-project/1.0.0/100/mapping/mapping.txt";
+      String s3Key = "symbols/test-project/android/mapping/1.0.0/100/mapping.txt";
       byte[] content = "file content".getBytes(StandardCharsets.UTF_8);
 
       when(applicationConfig.getSymbolFilesS3BucketName()).thenReturn("pulse-symbol-files");

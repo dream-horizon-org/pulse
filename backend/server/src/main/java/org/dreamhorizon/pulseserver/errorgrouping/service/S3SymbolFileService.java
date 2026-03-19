@@ -89,14 +89,14 @@ public class S3SymbolFileService {
   }
 
   private String buildS3Key(UploadMetadata metadata) {
-    String platform = sanitizeForS3Key(metadata.getPlatform());
     String projectId = sanitizeForS3Key(metadata.getProjectId());
+    String platform = sanitizeForS3Key(metadata.getPlatform());
+    String framework = sanitizeForS3Key(metadata.getType());
     String appVersion = sanitizeForS3Key(metadata.getAppVersion());
     String versionCode = sanitizeForS3Key(metadata.getVersionCode());
-    String framework = sanitizeForS3Key(metadata.getType());
     String fileName = sanitizeForS3Key(metadata.getFileName());
 
-    return String.format(S3_KEY_FORMAT, platform, projectId, appVersion, versionCode, framework, fileName);
+    return String.format(S3_KEY_FORMAT, projectId, platform, framework, appVersion, versionCode, fileName);
   }
 
   private String sanitizeForS3Key(String value) {
