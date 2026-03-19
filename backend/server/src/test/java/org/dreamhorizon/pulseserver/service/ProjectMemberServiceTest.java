@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,6 +68,8 @@ class ProjectMemberServiceTest {
     // Stub notification service for fire-and-forget calls in success paths
     when(notificationService.sendNotificationAsync(anyString(), any()))
         .thenReturn(Single.just(NotificationBatchResponseDto.builder().idempotencyKey("batch-1").build()));
+    // Stub so add-member flow can call getUserByEmail(email).isEmpty() without NPE
+    when(userService.getUserByEmail(any())).thenReturn(Maybe.empty());
   }
 
   private Project createProject(String projectId, String tenantId, String name) {
@@ -104,6 +107,7 @@ class ProjectMemberServiceTest {
     void shouldFailWhenProjectNotFound() {
       when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.empty());
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(createUser(ADMIN_ID, "a@t.com", "Admin")));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
 
       Exception ex = assertThrows(RuntimeException.class, () ->
           projectMemberService.addMemberToProject(PROJECT_ID, "user@test.com", "viewer", ADMIN_ID)
@@ -161,6 +165,7 @@ class ProjectMemberServiceTest {
       Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
       when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
       when(userService.getUserById(ADMIN_ID)).thenReturn(Single.error(new RuntimeException("User not found")));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
 
       Exception ex = assertThrows(RuntimeException.class, () ->
           projectMemberService.addMemberToProject(PROJECT_ID, "newuser@test.com", "viewer", ADMIN_ID)
@@ -548,6 +553,153 @@ class ProjectMemberServiceTest {
           projectMemberService.listProjectMembers(PROJECT_ID, ADMIN_ID).blockingGet());
 
       assertThat(ex.getMessage()).contains("User service unavailable");
+    }
+  }
+
+  @Nested
+  class AddMembersToProject {
+
+    @Test
+    void shouldAddMultipleMembersSuccessfully() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+      User user2 = createUser("user-2", "user2@test.com", "User 2");
+
+      List<String> emails = List.of("user1@test.com", "user2@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("user2@test.com", "user2@test.com")).thenReturn(Single.just(user2));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
+          .thenReturn(Single.just(Optional.of("member")));
+      when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getSuccessCount()).isEqualTo(2);
+      assertThat(result.getFailureCount()).isEqualTo(0);
+      assertThat(result.getSuccessEmails()).containsExactlyInAnyOrder("user1@test.com", "user2@test.com");
+    }
+
+    @Test
+    void shouldTrimAndValidateEmails() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("  user1@test.com  ", " user1@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      when(openFgaService.getUserTenantRole(any(), eq(TENANT_ID)))
+          .thenReturn(Single.just(Optional.of("member")));
+      when(openFgaService.assignProjectRole(any(), eq(PROJECT_ID), eq("viewer")))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
+    }
+
+    @Test
+    void shouldHandlePartialFailures() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("user1@test.com", "user2@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("user2@test.com", "user2@test.com"))
+          .thenReturn(Single.error(new RuntimeException("User creation failed")));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
+          .thenReturn(Single.just(Optional.of("member")));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "editor"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "editor", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
+      assertThat(result.getFailedEmails()).hasSize(1);
+      assertThat(result.getFailedEmails().get(0)).contains("user2@test.com");
+    }
+
+    @Test
+    void shouldAutoAddToTenantForNewUsers() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("user1@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
+          .thenReturn(Single.just(Optional.empty()));
+      when(tenantMemberService.addUserToTenantInternal(TENANT_ID, "user1@test.com"))
+          .thenReturn(Single.just(user1));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      verify(tenantMemberService).addUserToTenantInternal(TENANT_ID, "user1@test.com");
+    }
+
+    @Test
+    void shouldReturnBulkInviteResults() {
+      Project project = createProject(PROJECT_ID, TENANT_ID, "My Project");
+      User admin = createUser(ADMIN_ID, "admin@test.com", "Admin User");
+      User user1 = createUser("user-1", "user1@test.com", "User 1");
+
+      List<String> emails = List.of("user1@test.com", "invalid@test.com");
+
+      when(projectDao.getProjectByProjectId(PROJECT_ID)).thenReturn(Maybe.just(project));
+      when(userService.getUserById(ADMIN_ID)).thenReturn(Single.just(admin));
+      when(openFgaService.isProjectAdmin(ADMIN_ID, PROJECT_ID)).thenReturn(Single.just(true));
+      when(userService.getOrCreateUser("user1@test.com", "user1@test.com")).thenReturn(Single.just(user1));
+      when(userService.getOrCreateUser("invalid@test.com", "invalid@test.com"))
+          .thenReturn(Single.error(new IllegalArgumentException("Invalid email")));
+      when(openFgaService.getUserProjectRole(any(), eq(PROJECT_ID)))
+          .thenReturn(Single.just(Optional.empty()));
+      when(openFgaService.getUserTenantRole("user-1", TENANT_ID))
+          .thenReturn(Single.just(Optional.of("member")));
+      when(openFgaService.assignProjectRole("user-1", PROJECT_ID, "viewer"))
+          .thenReturn(Completable.complete());
+
+      var result = projectMemberService.addMembersToProject(PROJECT_ID, emails, "viewer", ADMIN_ID).blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getSuccessCount()).isEqualTo(1);
+      assertThat(result.getFailureCount()).isEqualTo(1);
+      assertThat(result.getSkippedCount()).isEqualTo(0);
+      assertThat(result.getSuccessEmails()).containsExactly("user1@test.com");
+      assertThat(result.getFailedEmails()).hasSize(1);
+      assertThat(result.getFailedEmails().get(0)).contains("invalid@test.com").contains("Invalid email");
     }
   }
 }
