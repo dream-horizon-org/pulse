@@ -292,7 +292,7 @@ class ConfigClassesTest {
           "dev", "cron", "service", 10, "oauth", true, "firebase",
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
-          "interPath", "interCfPath", "encKey", "tncBucket",
+          "interPath", "interCfPath", "encKey", "tncBucket", "dev-api-key",
           "replayBaseUrl", "replayBucket", "replayEndpoint", "replayRegion", "replayAccessKey", "replaySecretKey");
 
       assertThat(config.getAppEnvironment()).isEqualTo("dev");

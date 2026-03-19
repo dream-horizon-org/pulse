@@ -27,6 +27,7 @@ echo ""
 
 # ── Pre-flight checks ──────────────────────────────────────────────────────
 check_docker
+ensure_compose
 load_env
 
 # ── Ensure BuildKit + buildx are available ─────────────────────────────────

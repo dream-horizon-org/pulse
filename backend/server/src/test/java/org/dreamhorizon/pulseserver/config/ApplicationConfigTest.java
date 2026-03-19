@@ -89,6 +89,7 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
+        "dev-api-key",
         "replayApiBaseUrl",
         "sessionReplayBucket",
         "sessionReplayEndpoint",

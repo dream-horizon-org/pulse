@@ -48,7 +48,7 @@ class MainApplication : Application(), ReactApplication {
     Pulse.initialize(
         application = this,
         endpointBaseUrl = "http://10.0.2.2:4318",
-        apiKey = "default-project",
+        apiKey = "default-project_devkey01",
         dataCollectionState = PulseDataCollectionConsent.ALLOWED,
     ) {
       interaction {

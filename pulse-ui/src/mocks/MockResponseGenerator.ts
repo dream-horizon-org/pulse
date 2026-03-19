@@ -931,16 +931,19 @@ export class MockResponseGenerator {
       const tenant =
         this.dataStore.getCurrentTenant() ??
         this.dataStore.getDefaultMockTenant();
-      const firstActiveProject = tenant.projects.find((p) => p.isActive);
-      const redirectTo = firstActiveProject
-        ? `/projects/${firstActiveProject.projectId}`
-        : `/${tenant.tenantId}/projects`;
+      const { projects } = tenant;
+      let redirectTo: string | null = null;
+      if (projects.length === 1) {
+        redirectTo = `/projects/${projects[0].projectId}`;
+      } else if (projects.length > 1) {
+        redirectTo = "/project-selection";
+      }
 
       return {
         data: {
           tenantId: tenant.tenantId,
           tenantName: tenant.tenantName,
-          projects: tenant.projects,
+          projects,
           redirectTo,
         },
         status: 200,
@@ -1017,6 +1020,24 @@ export class MockResponseGenerator {
       this.dataStore.setCurrentTenant(newTenant);
       this.dataStore.ensureTenantExists(tenantId, organizationName);
 
+      // Seed the onboarded user as tenant admin and project admin so invite flow works
+      this.dataStore.addTenantMember(
+        tenantId,
+        "dev@example.com",
+        "admin",
+        "Dev User",
+        "user-mock-onboarded",
+        "active",
+      );
+      this.dataStore.addProjectMember(
+        projectId,
+        "dev@example.com",
+        "admin",
+        "Dev User",
+        "user-mock-onboarded",
+        "active",
+      );
+
       return {
         data: {
           userId: "user-mock-onboarded",
@@ -1032,7 +1053,7 @@ export class MockResponseGenerator {
           refreshToken,
           tokenType: "Bearer",
           expiresIn: 86400,
-          redirectTo: `/projects/${projectId}/onboarding-success`,
+          redirectTo: `/projects/${projectId}/onboarding`,
         },
         status: 200,
       };
@@ -1220,6 +1241,8 @@ export class MockResponseGenerator {
         description: project.description,
         tenantId: project.tenantId,
         isActive: project.isActive,
+        isEventFlowStarted: project.isEventFlowStarted ?? true,
+        userRole: project.userRole ?? "admin",
         createdAt: project.createdAt,
         createdBy: project.createdBy,
       },
@@ -1332,14 +1355,39 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      if (this.dataStore.hasProjectMember(projectId, email)) {
+      const existingMember = this.dataStore.getProjectMemberByEmail(
+        projectId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this project with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }
+      // If email matches existing tenant member, use their userId/name for consistency
+      // (TenantMembersNotOnProjectPicker adds org members by email; UI filters by userId)
+      const project = this.dataStore.getProject(projectId);
+      const tenantMember = project
+        ? this.dataStore.getTenantMemberByEmail(project.tenantId, email)
+        : undefined;
       const member = this.dataStore.addProjectMember(
         projectId,
         email,
         role as "admin" | "editor" | "viewer",
+        tenantMember?.name,
+        tenantMember?.userId,
       );
       successEmails.push(email);
       addedMembers.push(member);
@@ -1947,7 +1995,24 @@ export class MockResponseGenerator {
         failedEmails.push(email);
         continue;
       }
-      if (this.dataStore.hasTenantMember(tenantId, email)) {
+      const existingMember = this.dataStore.getTenantMemberByEmail(
+        tenantId,
+        email,
+      );
+      if (existingMember) {
+        // If single email invite, return error
+        if (uniqueEmails.length === 1) {
+          return {
+            data: null,
+            status: 409,
+            error: {
+              code: "409",
+              message: `User ${email} is already a member of this organization with role '${existingMember.role}'`,
+              cause: `User ${email} already has role '${existingMember.role}'. To change their role, use the update member role option.`,
+            },
+          };
+        }
+        // For batch invites, just skip
         skippedEmails.push(email);
         continue;
       }
