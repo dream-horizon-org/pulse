@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberRequest;
+import org.dreamhorizon.pulseserver.resources.v1.members.models.AddMemberResult;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.BulkInviteResult;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberListResponse;
 import org.dreamhorizon.pulseserver.resources.v1.members.models.MemberResponse;
@@ -58,7 +59,7 @@ public class TenantMemberResource {
      * @return Added member information or bulk invite results
      */
     @POST
-    public CompletionStage<Response<Object>> addMember(
+    public CompletionStage<Response<AddMemberResult>> addMember(
             @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
             @PathParam("tenantId") String tenantId,
             AddMemberRequest request) {
@@ -84,7 +85,7 @@ public class TenantMemberResource {
                     request.getRole(),
                     userId
                 )
-                .map(result -> (Object) result)
+                .map(result -> (AddMemberResult) result)
                 .to(RestResponse.jaxrsRestHandler());
         }
         
@@ -110,7 +111,7 @@ public class TenantMemberResource {
                         .status(user.getStatus())
                         .lastLoginAt(user.getLastLoginAt())
                         .build()))
-            .map(response -> (Object) response)
+            .map(response -> (AddMemberResult) response)
             .to(RestResponse.jaxrsRestHandler());
     }
     

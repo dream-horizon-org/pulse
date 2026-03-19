@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BulkInviteResult {
+public final class BulkInviteResult implements AddMemberResult {
   private Integer successCount;        // Number of successful invites
   private Integer failureCount;        // Number of failed invites
   private Integer skippedCount;        // Number of skipped emails (duplicates/already invited)
