@@ -18,7 +18,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class S3SymbolFileService {
-  private static final String S3_KEY_FORMAT = "symbols/%s/%s/%s/%s/%s/%s";
+  private static final String S3_KEY_FORMAT = "symbols/%s/%s/%s/%s";
 
   private final S3AsyncClient s3AsyncClient;
   private final ApplicationConfig applicationConfig;
@@ -96,7 +96,8 @@ public class S3SymbolFileService {
     String versionCode = sanitizeForS3Key(metadata.getVersionCode());
     String fileName = sanitizeForS3Key(metadata.getFileName());
 
-    return String.format(S3_KEY_FORMAT, projectId, platform, framework, appVersion, versionCode, fileName);
+    String singleSegment = appVersion + "_" + versionCode + "_" + fileName;
+    return String.format(S3_KEY_FORMAT, projectId, platform, framework, singleSegment);
   }
 
   private String sanitizeForS3Key(String value) {
