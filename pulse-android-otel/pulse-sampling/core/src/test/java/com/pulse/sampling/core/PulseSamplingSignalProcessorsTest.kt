@@ -585,7 +585,7 @@ class PulseSamplingSignalProcessorsTest {
                             PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                                 name = "test-span\\d",
                                 // here value is regex
-                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value\\d")),
+                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key\\d", "value\\d")),
                             ),
                     ),
                 )
@@ -598,6 +598,8 @@ class PulseSamplingSignalProcessorsTest {
                     "test-span2",
                     mapOf(
                         "key1" to "value1",
+                        "key12" to "value1", // will not be dropped as key12 doesn't match the key regex
+                        "key3" to "value12", // will not be dropped as value12 doesn't match the value regex
                         "keyD1" to "value1",
                         "keyD2" to "value1",
                         "keyD3" to "value1",
@@ -617,6 +619,8 @@ class PulseSamplingSignalProcessorsTest {
                 .assertThat(logExporter.finishedLogRecordItems[0].attributes)
                 .containsEntry("key1", "value1")
                 .containsEntry("other", "value1")
+                .containsEntry("key12", "value1")
+                .containsEntry("key3", "value12")
                 .doesNotContainKey("keyD1")
                 .doesNotContainKey("keyD2")
                 .doesNotContainKey("keyD3")
@@ -1066,6 +1070,37 @@ class PulseSamplingSignalProcessorsTest {
                 val metrics = metricReader.collectAllMetrics().toList()
                 assertThat(metrics).isEmpty()
             }
+
+            @Test
+            fun `in span, records when attribute condition matches both key and value`() {
+                val attributeMatcher =
+                    PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
+                        name = ".*",
+                        props = setOf(PulseSdkConfigFakeUtils.createFakeProp("status_\\d", "error\\d+")),
+                        scopes = setOf(PulseSignalScope.TRACES),
+                    )
+                val metricsToAdd =
+                    listOf(
+                        PulseSdkConfigFakeUtils.createFakeMetricsToAddEntry(
+                            name = "error_span_count",
+                            target = PulseSdkConfigFakeUtils.createFakeMetricsToAddTargetAttribute(condition = attributeMatcher),
+                            condition = attributeMatcher,
+                            type = metricData,
+                        ),
+                    )
+                val sampledSpanExporter = createSampledSpanExporter(metricsToAdd)
+                sampledSpanExporter.export(listOf(createSpanData("any_span", mapOf("status_0" to "error00"))))
+                sampledSpanExporter.export(listOf(createSpanData("any_span", mapOf("status_1" to "error01"))))
+                sampledSpanExporter.export(listOf(createSpanData("other_span", mapOf("status" to "ok"))))
+                meterProvider.forceFlush()
+
+                val metrics = metricReader.collectAllMetrics().toList()
+                assertThat(metrics).hasSize(1)
+                assertThat(metrics[0].name).isEqualTo("error_span_count")
+                OpenTelemetryAssertions
+                    .assertThat(metrics[0])
+                    .hasLongSumSatisfying { sum: LongSumAssert -> sum.hasPointsSatisfying({ pt: LongPointAssert -> pt.hasValue(2L) }) }
+            }
         }
 
         @Nested
@@ -1255,7 +1290,7 @@ class PulseSamplingSignalProcessorsTest {
                     val attributeMatcher =
                         PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
                             name = ".*",
-                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("attr_key_.", ".*")),
+                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("attr_key_.", "\\d")),
                             scopes = setOf(PulseSignalScope.TRACES),
                         )
                     val metricsToAdd =
@@ -1279,11 +1314,12 @@ class PulseSamplingSignalProcessorsTest {
                                 mapOf(
                                     "attr_key_1" to "2",
                                     "attr_key_2" to "3",
+                                    "attr_key_3" to "30", // doesn't match /d which is single digit
                                 ),
                             ),
                         ),
                     )
-                    sampledSpanExporter.export(listOf(createSpanData("any_span_2", mapOf("attr_key_3" to "4"))))
+                    sampledSpanExporter.export(listOf(createSpanData("any_span_2", mapOf("attr_key_4" to "4"))))
                     meterProvider.forceFlush()
 
                     val metrics = metricReader.collectAllMetrics().toList()
