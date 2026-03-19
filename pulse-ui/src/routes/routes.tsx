@@ -28,6 +28,7 @@ import { OrganizationMembers } from "../screens/OrganizationMembers";
 import { OrganizationProjects } from "../screens/OrganizationProjects";
 import { CreateProject } from "../screens/CreateProject";
 import { EventCatalog } from "../screens/EventCatalog";
+import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 
 export const ROUTES = {
@@ -167,5 +168,9 @@ export const ROUTES = {
   PROJECT_EVENT_CATALOG: {
     ...ROUTE_PATHS.PROJECT_EVENT_CATALOG,
     element: EventCatalog,
+  },
+  SUPPORT_QUERIES: {
+    ...ROUTE_PATHS.SUPPORT_QUERIES,
+    element: SupportQueries,
   },
 };

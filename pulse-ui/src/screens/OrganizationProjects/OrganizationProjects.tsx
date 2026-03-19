@@ -17,6 +17,7 @@ import {
   IconLock,
   IconUsers,
   IconRocket,
+  IconUserPlus,
 } from "@tabler/icons-react";
 import { useTenantContext, useProjectContext } from "../../contexts";
 import { usePermissions, useTierLimits } from "../../hooks";
@@ -24,11 +25,12 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { showNotification } from "../../helpers/showNotification";
 import classes from "./OrganizationProjects.module.css";
 import { TIERS } from "../../constants/Tiers";
+import { TENANT_ROLES } from "../../constants/Roles";
 
 export function OrganizationProjects() {
   const { organizationId } = useParams<{ organizationId: string }>();
   const location = useLocation();
-  const { projects, hasLoadedProjects, tier, refreshProjects } =
+  const { projects, hasLoadedProjects, tier, refreshProjects, userRole } =
     useTenantContext();
   const { projectId, navigateToProject } = useProjectContext();
   const { canCreateProjects: hasPermission } = usePermissions();
@@ -183,39 +185,64 @@ export function OrganizationProjects() {
 
         {/* Projects Grid or Empty State */}
         {projects.length === 0 ? (
-          <Card
-            className={classes.emptyState}
-            shadow="sm"
-            radius="lg"
-            withBorder
-          >
-            <Stack align="center" gap="lg">
-              <Box className={classes.emptyIconWrapper}>
-                <IconRocket size={48} className={classes.emptyIcon} />
-              </Box>
-              <Stack align="center" gap="xs">
-                <Text size="xl" fw={600}>
-                  No projects yet
-                </Text>
-                <Text c="dimmed" size="md" ta="center" maw={400}>
-                  {canCreateProjects
-                    ? "Get started by creating your first project to track analytics and monitor your applications."
-                    : "Contact your administrator to create projects for your organization."}
-                </Text>
+          userRole === TENANT_ROLES.ADMIN ? (
+            <Card
+              className={classes.emptyState}
+              shadow="sm"
+              radius="lg"
+              withBorder
+            >
+              <Stack align="center" gap="lg">
+                <Box className={classes.emptyIconWrapper}>
+                  <IconRocket size={48} className={classes.emptyIcon} />
+                </Box>
+                <Stack align="center" gap="xs">
+                  <Text size="xl" fw={600}>
+                    No projects yet
+                  </Text>
+                  <Text c="dimmed" size="md" ta="center" maw={400}>
+                    {canCreateProjects
+                      ? "Get started by creating your first project to track analytics and monitor your applications."
+                      : "Contact your administrator to create projects for your organization."}
+                  </Text>
+                </Stack>
+                {hasPermission && canCreateProjects && (
+                  <Button
+                    leftSection={<IconPlus size={18} />}
+                    onClick={handleCreateProject}
+                    size="lg"
+                    className={classes.createButton}
+                    mt="md"
+                  >
+                    Create First Project
+                  </Button>
+                )}
               </Stack>
-              {hasPermission && canCreateProjects && (
-                <Button
-                  leftSection={<IconPlus size={18} />}
-                  onClick={handleCreateProject}
-                  size="lg"
-                  className={classes.createButton}
-                  mt="md"
-                >
-                  Create First Project
-                </Button>
-              )}
-            </Stack>
-          </Card>
+            </Card>
+          ) : (
+            <Card
+              className={classes.emptyState}
+              shadow="sm"
+              radius="lg"
+              withBorder
+            >
+              <Stack align="center" gap="lg">
+                <Box className={classes.emptyIconWrapper}>
+                  <IconUserPlus size={48} className={classes.emptyIcon} />
+                </Box>
+                <Stack align="center" gap="xs">
+                  <Text size="xl" fw={600}>
+                    You&apos;re not on any project yet
+                  </Text>
+                  <Text c="dimmed" size="md" ta="center" maw={440}>
+                    Ask a <strong>project admin</strong> or{" "}
+                    <strong>organization admin</strong> to invite you to a
+                    project. Once you&apos;re added, it will appear here.
+                  </Text>
+                </Stack>
+              </Stack>
+            </Card>
+          )
         ) : (
           <Grid gutter="xl">
             {projects.map((project) => (

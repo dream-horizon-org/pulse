@@ -1,9 +1,7 @@
 import { useCallback } from "react";
-import { EChartsType } from "echarts/core";
+import type { EChartsType } from "echarts";
 import { useFilterStore } from "../../../stores/useFilterStore";
-import {
-  getUTCDateTimeFromLocalStringDateValue,
-} from "../../../utils/DateUtil";
+import { getUTCDateTimeFromLocalStringDateValue } from "../../../utils/DateUtil";
 import { useSearchParams } from "react-router-dom";
 import { StartEndDateTimeType } from "../../../screens/CriticalInteractionDetails/components/DateTimeRangePickerDropDown/DateTimeRangePicker.interface";
 
