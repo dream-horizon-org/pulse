@@ -428,6 +428,7 @@ class AlertCronServiceTest {
           "/interaction/details.json",
           "encryptionKey",
           "tnc-bucket",
+          "dev-api-key",
           "http://replay.url",
           "session-recordings",
           "http://minio:9000",
@@ -538,7 +539,8 @@ class AlertCronServiceTest {
           "http://minio:9000",
           "us-east-1",
           "access-key",
-          "secret-key"
+          "secret-key",
+          "dev-api-key"
       );
       String toString = config.toString();
 
@@ -553,7 +555,7 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket",
+          "key", "tnc-bucket", "dev-api-key",
           "http://replay.url", "replay-bucket", "http://minio:9000", "us-east-1", "ak", "sk"
       );
       ApplicationConfig config2 = new ApplicationConfig(
@@ -561,7 +563,7 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket",
+          "key", "tnc-bucket", "dev-api-key",
           "http://replay.url", "replay-bucket", "http://minio:9000", "us-east-1", "ak", "sk"
       );
       ApplicationConfig config3 = new ApplicationConfig(
@@ -569,7 +571,7 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket",
+          "key", "tnc-bucket", "dev-api-key",
           "http://replay.url", "replay-bucket", "http://minio:9000", "us-east-1", "ak", "sk"
       );
 

@@ -7,6 +7,10 @@ import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +43,7 @@ public class ProjectMemberService {
     private static final String EVENT_COLLABORATOR_ADDED = "collaborator_added";
     private static final String EVENT_COLLABORATOR_REMOVED = "collaborator_removed";
     private static final String EVENT_COLLABORATOR_ROLE_UPDATED = "collaborator_role_updated";
-    
+
     private final UserService userService;
     private final ProjectDao projectDao;
     private final OpenFgaService openFgaService;
@@ -77,20 +81,37 @@ public class ProjectMemberService {
                 "Invalid project role: " + role + ". Must be one of: admin, editor, viewer"));
         }
         
-        // Fetch all needed data
-        return Single.zip(
-                projectDao.getProjectByProjectId(projectId)
-                    .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
-                userService.getUserById(addedBy)
-                    .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + addedBy))),
-                (project, admin) -> new AddContext(project, admin)
-            )
-            // Authorization check
-            .flatMap(ctx -> openFgaService.isProjectAdmin(addedBy, projectId)
-                .flatMap(isAdmin -> {
-                    if (!isAdmin) {
-                        return Single.error(new IllegalArgumentException(
-                            "Only project admins can add members"));
+        // 1. FIRST: Check permissions (fail fast before any data operations)
+        return openFgaService.isProjectAdmin(addedBy, projectId)
+            .flatMap(isAdmin -> {
+                if (!isAdmin) {
+                    return Single.error(new IllegalArgumentException(
+                        "Only project admins can add members"));
+                }
+
+                // 2. THEN: Fetch all needed data
+                return Single.zip(
+                    projectDao.getProjectByProjectId(projectId)
+                        .switchIfEmpty(Single.error(new RuntimeException("Project not found: " + projectId))),
+                    userService.getUserById(addedBy)
+                        .onErrorResumeNext(error -> Single.error(new RuntimeException("Admin user not found: " + addedBy))),
+                    (project, admin) -> new AddContext(project, admin)
+                );
+            })
+            // 3. Get or create user being added
+            .flatMap(ctx -> userService.getOrCreateUser(email, email)
+                .map(user -> new AddCompleteContext(ctx.project, ctx.admin, user)))
+            // Check if user already has a project role
+            .flatMap(ctx -> openFgaService.getUserProjectRole(ctx.newUser.getUserId(), projectId)
+                .flatMap(existingRole -> {
+                    if (existingRole.isPresent()) {
+                        String message = String.format(
+                            "User %s is already a member of this project with role '%s'",
+                            email, existingRole.get());
+                        String cause = String.format(
+                            "User %s already has role '%s'. To change their role, use the update member role option.",
+                            email, existingRole.get());
+                        return Single.error(ServiceError.MEMBER_ALREADY_EXISTS.getCustomException(message, cause));
                     }
                     return Single.just(ctx);
                 }))
@@ -100,10 +121,25 @@ public class ProjectMemberService {
             // Ensure user is in parent tenant
             .flatMap(ctx -> ensureUserInTenant(ctx.newUser, ctx.project.getTenantId(), addedBy)
                 .andThen(Single.just(ctx)))
-            // Assign project role in OpenFGA
-            .flatMap(ctx -> openFgaService.assignProjectRole(ctx.newUser.getUserId(), projectId, role)
-                .andThen(Single.just(ctx)))
-            // Send notification email
+            // 5. Assign project role in OpenFGA with rollback awareness
+            .flatMap(ctx -> {
+                return userService.getUserByEmail(email)
+                    .isEmpty()
+                    .flatMap(wasNewlyCreated ->
+                        openFgaService.assignProjectRole(ctx.newUser.getUserId(), projectId, role)
+                            .toSingleDefault(ctx)
+                            .onErrorResumeNext(fgaError -> {
+                                if (wasNewlyCreated) {
+                                    // ROLLBACK: User was just created, log warning about orphaned user
+                                    log.error("OpenFGA role assignment failed for newly created user. " +
+                                        "User {} may be orphaned in database. Error: {}",
+                                        ctx.newUser.getUserId(), fgaError.getMessage());
+                                }
+                                return Single.error(fgaError);
+                            })
+                    );
+            })
+            // 6. Send notification email (non-critical)
             .doOnSuccess(ctx -> {
                 sendCollaboratorAddedNotification(
                     ctx.newUser.getEmail(),
@@ -121,6 +157,93 @@ public class ProjectMemberService {
             );
     }
     
+    /**
+     * Add multiple members to a project with the specified role (bulk invite).
+     * This method processes multiple emails, handling failures gracefully.
+     * Ensures all users are also added to the parent tenant if not already members.
+     *
+     * @param projectId Project ID
+     * @param emails List of email addresses to invite
+     * @param role Role to assign (admin, editor, viewer)
+     * @param addedBy User ID of the person adding these members
+     * @return Single<BulkInviteResult> Results of bulk invite operation
+     */
+    public Single<BulkInviteResult> addMembersToProject(
+            String projectId,
+            List<String> emails,
+            String role,
+            String addedBy) {
+
+        log.info("Bulk adding members to project: count={}, project={}, role={}, addedBy={}",
+            emails.size(), projectId, role, addedBy);
+
+        // Trim and deduplicate emails
+        Set<String> uniqueEmails = emails.stream()
+            .map(String::trim)
+            .filter(email -> !email.isEmpty())
+            .collect(Collectors.toSet());
+
+        if (uniqueEmails.isEmpty()) {
+            return Single.just(BulkInviteResult.builder()
+                .successCount(0)
+                .failureCount(0)
+                .skippedCount(0)
+                .successEmails(new ArrayList<>())
+                .failedEmails(new ArrayList<>())
+                .skippedEmails(new ArrayList<>())
+                .build());
+        }
+
+        List<String> successEmails = new ArrayList<>();
+        List<String> failedEmails = new ArrayList<>();
+        List<String> skippedEmails = new ArrayList<>();
+
+        // Process each email sequentially
+        List<Completable> inviteOperations = new ArrayList<>();
+
+        for (String email : uniqueEmails) {
+            Completable operation = addMemberToProject(projectId, email, role, addedBy)
+                .doOnSuccess(user -> {
+                    synchronized (successEmails) {
+                        successEmails.add(email);
+                    }
+                })
+                .ignoreElement() // Convert Single to Completable
+                .onErrorComplete(error -> {
+                    // Log and record error, then complete successfully to continue with other emails
+                    log.warn("Failed to add member to project: email={}, error={}", email, error.getMessage());
+                    synchronized (failedEmails) {
+                        failedEmails.add(email + " (" + error.getMessage() + ")");
+                    }
+                    return true; // Complete successfully to continue processing
+                });
+
+            inviteOperations.add(operation);
+        }
+
+        // Execute all operations and collect results
+        return Completable.merge(inviteOperations)
+            .andThen(Single.fromCallable(() ->
+                BulkInviteResult.builder()
+                    .successCount(successEmails.size())
+                    .failureCount(failedEmails.size())
+                    .skippedCount(uniqueEmails.size() - (successEmails.size() + failedEmails.size()))
+                    .successEmails(successEmails)
+                    .failedEmails(failedEmails)
+                    .skippedEmails(skippedEmails)
+                    .build()
+            ))
+            .doOnSuccess(bulkResult -> {
+                if (bulkResult.getSkippedCount() > 0) {
+                    log.warn("Some emails were skipped: count={}", bulkResult.getSkippedCount());
+                }
+                log.info("Bulk invite completed: success={}, failed={}, skipped={}",
+                    bulkResult.getSuccessCount(),
+                    bulkResult.getFailureCount(),
+                    bulkResult.getSkippedCount());
+            });
+    }
+
     /**
      * Remove a member from a project.
      * Validates that we're not removing the last admin.
@@ -349,11 +472,11 @@ public class ProjectMemberService {
                         user.getUserId(), tenantId, roleOpt.get());
                     return Completable.complete();
                 } else {
-                    // Add user to tenant as member
-                    log.info("Auto-adding user to tenant as member: user={}, tenant={}", 
-                        user.getUserId(), tenantId);
-                    return tenantMemberService.addUserToTenant(
-                        tenantId, user.getEmail(), "member", addedBy
+                    // Add user to tenant as member using internal method (bypasses auth check)
+                    log.info("Auto-adding user to tenant as member: user={}, tenant={}, triggeredBy={}",
+                        user.getUserId(), tenantId, addedBy);
+                    return tenantMemberService.addUserToTenantInternal(
+                        tenantId, user.getEmail()
                     ).ignoreElement();
                 }
             });
@@ -407,7 +530,7 @@ public class ProjectMemberService {
      */
     private void sendCollaboratorRemovedNotification(
             String recipientEmail, 
-            String projectName, 
+            String projectName,
             String removedByName) {
         try {
             SendNotificationRequestDto request = SendNotificationRequestDto.builder()
@@ -438,7 +561,7 @@ public class ProjectMemberService {
      */
     private void sendCollaboratorRoleUpdatedNotification(
             String recipientEmail, 
-            String projectName, 
+            String projectName,
             String newRole, 
             String updatedByName) {
         try {

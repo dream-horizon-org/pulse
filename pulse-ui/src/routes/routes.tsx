@@ -202,4 +202,5 @@ export const ROUTES = {
     ...ROUTE_PATHS.SESSION_REPLAY_DETAIL,
     element: SessionReplayDetail,
   },
+  
 };

@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: pulse-mysql
     ports:
-      - "3307:3306"  # Using 3307 on host to avoid conflicts
+      - "3307:3306" # Using 3307 on host to avoid conflicts
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-pulse_root_password}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-pulse_db}
@@ -17,7 +17,16 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER:-pulse_user}", "-p${MYSQL_PASSWORD:-pulse_password}" ]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u${MYSQL_USER:-pulse_user}",
+          "-p${MYSQL_PASSWORD:-pulse_password}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +38,7 @@ services:
   openfga-migrate:
     image: alpine:3.19
     container_name: pulse-openfga-migrate
-    command: [ "/bin/sh", "/scripts/migrate-openfga.sh" ]
+    command: ["/bin/sh", "/scripts/migrate-openfga.sh"]
     environment:
       - OPENFGA_VERSION=1.5.3
       - MYSQL_HOST=mysql
@@ -58,9 +67,9 @@ services:
       - OPENFGA_DATASTORE_URI=pulse_user:pulse_password@tcp(mysql:3306)/openfga?parseTime=true
       - OPENFGA_PLAYGROUND_ENABLED=true
     ports:
-      - "8180:8080"   # HTTP API (using 8180 to avoid conflicts)
-      - "8181:8081"   # gRPC API
-      - "3001:3000"   # Playground UI
+      - "8180:8080" # HTTP API (using 8180 to avoid conflicts)
+      - "8181:8081" # gRPC API
+      - "3001:3000" # Playground UI
     depends_on:
       mysql:
         condition: service_healthy
@@ -76,14 +85,14 @@ services:
   openfga-init:
     image: alpine:3.19
     container_name: pulse-openfga-init
-    command: [ "/bin/sh", "/scripts/init-openfga.sh" ]
+    command: ["/bin/sh", "/scripts/init-openfga.sh"]
     environment:
       - OPENFGA_URL=http://openfga:8080
     volumes:
       - ./openfga:/scripts:ro
     depends_on:
       openfga:
-        condition: service_started  # Init script waits for OpenFGA via curl
+        condition: service_started # Init script waits for OpenFGA via curl
     networks:
       - pulse-network
     restart: "no"
@@ -93,8 +102,8 @@ services:
     image: clickhouse/clickhouse-server:24.8
     container_name: pulse-clickhouse
     ports:
-      - "8123:8123"  # HTTP interface
-      - "9000:9000"  # Native client
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native client
     environment:
       - CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE:-otel}
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
@@ -108,7 +117,7 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -164,7 +173,14 @@ services:
       - pulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test:
+        [
+          "CMD",
+          "kafka-topics",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--list",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -266,7 +282,7 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.137.0
     container_name: pulse-otel-collector
-    command: [ "--config=/etc/otel-collector.yaml" ]
+    command: ["--config=/etc/otel-collector.yaml"]
     volumes:
       - ../backend/ingestion/otel-collector.yaml:/etc/otel-collector.yaml:ro
     networks:
@@ -285,9 +301,9 @@ services:
       - CLICKHOUSE_USER=${OTEL_CLICKHOUSE_USER:-pulse_user}
       - CLICKHOUSE_PASSWORD=${OTEL_CLICKHOUSE_PASSWORD:-pulse_password}
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Prometheus metrics (collector internal)
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8888:8888" # Prometheus metrics (collector internal)
       - "13133:13133" # Health check
 
   # Pulse UI Service (React Frontend)
@@ -301,7 +317,7 @@ services:
         REACT_APP_GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
         REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY}
         REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN}
-        REACT_APP_FIREBASE_PROJECT_ID: ${CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID}
+        REACT_APP_FIREBASE_PROJECT_ID: ${REACT_APP_FIREBASE_PROJECT_ID}
         REACT_APP_FIREBASE_STORAGE_BUCKET: ${REACT_APP_FIREBASE_STORAGE_BUCKET}
         REACT_APP_FIREBASE_MESSAGING_SENDER_ID: ${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
         REACT_APP_FIREBASE_APP_ID: ${REACT_APP_FIREBASE_APP_ID}
@@ -317,41 +333,48 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/healthcheck.txt" ]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:8080/healthcheck.txt",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
   # Vector Service (Data Collector)
-#  vector:
-#    build:
-#      context: ../vector
-#      dockerfile: Dockerfile
-#      args:
-#        VECTOR_REPO: https://github.com/parth-modh/vector
-#        VECTOR_REF: forked/multi-bucket
-#        DEBIAN_VERSION: "12"
-#    container_name: vector
-#    command: [ ]
-#    environment:
-#      - VECTOR_LOG=debug
-#    volumes:
-#      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
-#      - vector-data:/var/lib/vector
-#    networks:
-#      - pulse-network
-#    restart: unless-stopped
-#    healthcheck:
-#      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 3
-#      start_period: 15s
-#    ports:
-#      - "8686:8686"
-#      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
-#      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
+  #  vector:
+  #    build:
+  #      context: ../vector
+  #      dockerfile: Dockerfile
+  #      args:
+  #        VECTOR_REPO: https://github.com/parth-modh/vector
+  #        VECTOR_REF: forked/multi-bucket
+  #        DEBIAN_VERSION: "12"
+  #    container_name: vector
+  #    command: [ ]
+  #    environment:
+  #      - VECTOR_LOG=debug
+  #    volumes:
+  #      - ../vector/vector.yaml:/etc/vector/vector.yaml:ro
+  #      - vector-data:/var/lib/vector
+  #    networks:
+  #      - pulse-network
+  #    restart: unless-stopped
+  #    healthcheck:
+  #      test: [ "CMD", "/usr/bin/vector", "validate", "--config-dir", "/etc/vector" ]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 3
+  #      start_period: 15s
+  #    ports:
+  #      - "8686:8686"
+  #      - "14317:4317"   # OTLP gRPC (host 14317 to avoid conflict with otel-collector on 4317)
+  #      - "14318:4318"   # OTLP HTTP (script sends here to reach Vector)
 
   # Pulse Server Service (Java/Vert.x Backend)
   pulse-server:
@@ -385,6 +408,7 @@ services:
       - CONFIG_SERVICE_APPLICATION_JWTSECRET=${CONFIG_SERVICE_APPLICATION_JWTSECRET:-dev-secret-key-at-least-32-characters-long-for-local-testing-only}
       - CONFIG_SERVICE_APPLICATION_WEBHOOKURL=${CONFIG_SERVICE_APPLICATION_WEBHOOKURL}
       - CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}
+      - DEV_MODE_API_KEY=${DEV_MODE_API_KEY:-default-project_devkey01}
 
       # ClickHouse Database Configuration
       - CLICKHOUSE_R2DBC_URL=r2dbc:clickhouse:http://clickhouse:8123/${OTEL_CLICKHOUSE_DATABASE:-otel}
@@ -438,6 +462,28 @@ services:
       - OPENFGA_STORE_ID=${OPENFGA_STORE_ID:-}
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
+
+      # Incident Configuration
+      - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
+
+      # Notification Service Configuration
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - NOTIFICATION_QUEUE_URL=${NOTIFICATION_QUEUE_URL:-}
+      - NOTIFICATION_DLQ_URL=${NOTIFICATION_DLQ_URL:-}
+      - SES_CONFIGURATION_SET_NAME=${SES_CONFIGURATION_SET_NAME:-}
+      - NOTIFICATION_RETRY_MAX_ATTEMPTS=${NOTIFICATION_RETRY_MAX_ATTEMPTS:-3}
+      - NOTIFICATION_RETRY_INITIAL_DELAY_MS=${NOTIFICATION_RETRY_INITIAL_DELAY_MS:-1000}
+      - NOTIFICATION_RETRY_MAX_DELAY_MS=${NOTIFICATION_RETRY_MAX_DELAY_MS:-30000}
+      - NOTIFICATION_RETRY_MULTIPLIER=${NOTIFICATION_RETRY_MULTIPLIER:-2.0}
+      - NOTIFICATION_WORKER_BATCH_SIZE=${NOTIFICATION_WORKER_BATCH_SIZE:-10}
+      - NOTIFICATION_WORKER_VISIBILITY_TIMEOUT=${NOTIFICATION_WORKER_VISIBILITY_TIMEOUT:-60}
+      - NOTIFICATION_WORKER_POLL_INTERVAL=${NOTIFICATION_WORKER_POLL_INTERVAL:-1}
+      - NOTIFICATION_WORKER_ENABLED=${NOTIFICATION_WORKER_ENABLED:-true}
+      - SLACK_CLIENT_ID=${SLACK_CLIENT_ID:-}
+      - SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET:-}
+      - SLACK_REDIRECT_URI=${SLACK_REDIRECT_URI:-}
+      - SLACK_UI_REDIRECT_URL=${SLACK_UI_REDIRECT_URL:-}
+      - SLACK_OAUTH_SCOPES=${SLACK_OAUTH_SCOPES:-}
     networks:
       - pulse-network
     depends_on:
@@ -448,12 +494,12 @@ services:
       openfga-init:
         condition: service_completed_successfully
       openfga:
-        condition: service_started  # OpenFGA distroless image has no healthcheck
+        condition: service_started # OpenFGA distroless image has no healthcheck
       minio-init:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/healthcheck" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -500,7 +546,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:4000/healthcheck" ]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -524,4 +570,3 @@ volumes:
     driver: local
   minio-data:
     driver: local
-
