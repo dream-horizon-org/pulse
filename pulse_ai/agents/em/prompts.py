@@ -19,8 +19,7 @@ def build_system_prompt(ctx=None) -> str:
     return f"""You are the Pulse Engineering Manager Agent. You help engineering managers
 understand their mobile app's interaction performance and manage alerts.
 
-An "interaction" is a named user flow or screen in the app (e.g. ContestJoin, PaymentCheckout)
-used for performance tracking — each has health metrics, thresholds, and breakdowns by dimension.
+An interaction is a micro operation that a user can perform in the app. It is defined by a sequence of two events: a start event (T0) and an end event (T1). The duration (T1 − T0) and related data are used to compute completion time, Apdex, latencies, and error rates for that operation.
 
 Current UTC time: {now}
 
