@@ -375,7 +375,8 @@ export class MockDataStore {
       createdAt: new Date(now - 90 * oneDay).toISOString(),
     });
 
-    // Tenant members (3-4 with admin/member roles)
+    // Tenant members (5 members for realistic "Add from organization" picker testing)
+    // proj-mock-1 has 2 members → 3 members (Amit, Neha, Vikram) appear in picker
     this.mockTenantMembers.set(defaultTenantId, [
       {
         userId: "user-rahul-1",
@@ -409,9 +410,17 @@ export class MockDataStore {
         status: "pending",
         lastLoginAt: null,
       },
+      {
+        userId: "user-vikram-5",
+        email: "vikram.verma@example.com",
+        name: "Vikram Verma",
+        role: "member",
+        status: "active",
+        lastLoginAt: new Date(now - 3 * oneHour).toISOString(),
+      },
     ]);
 
-    // Project members for default projects (2-3 per project with admin/editor/viewer)
+    // Project members: proj-mock-1 has 2 members (Rahul, Priya) → 3 tenant members available in picker
     const proj1Members: MockMember[] = [
       {
         userId: "user-rahul-1",
@@ -428,14 +437,6 @@ export class MockDataStore {
         role: "editor",
         status: "active",
         lastLoginAt: new Date(now - 5 * oneHour).toISOString(),
-      },
-      {
-        userId: "user-amit-3",
-        email: "amit.kumar@example.com",
-        name: "Amit Kumar",
-        role: "viewer",
-        status: "active",
-        lastLoginAt: new Date(now - 1 * oneDay).toISOString(),
       },
     ];
     this.mockProjectMembers.set("proj-mock-1", proj1Members);
@@ -1793,16 +1794,19 @@ export class MockDataStore {
     email: string,
     role: "admin" | "member",
     name?: string,
+    existingUserId?: string,
+    status: "active" | "pending" = "pending",
   ): MockMember {
     const members = this.mockTenantMembers.get(tenantId) ?? [];
-    const userId = "user-" + Math.random().toString(36).slice(2, 11);
+    const userId =
+      existingUserId ?? "user-" + Math.random().toString(36).slice(2, 11);
     const member: MockMember = {
       userId,
       email,
       name: name ?? email.split("@")[0].replace(/\./g, " "),
       role,
-      status: "pending",
-      lastLoginAt: null,
+      status,
+      lastLoginAt: status === "active" ? new Date().toISOString() : null,
     };
     members.push(member);
     this.mockTenantMembers.set(tenantId, members);
@@ -1814,16 +1818,19 @@ export class MockDataStore {
     email: string,
     role: "admin" | "editor" | "viewer",
     name?: string,
+    existingUserId?: string,
+    status: "active" | "pending" = "pending",
   ): MockMember {
     const members = this.mockProjectMembers.get(projectId) ?? [];
-    const userId = "user-" + Math.random().toString(36).slice(2, 11);
+    const userId =
+      existingUserId ?? "user-" + Math.random().toString(36).slice(2, 11);
     const member: MockMember = {
       userId,
       email,
       name: name ?? email.split("@")[0].replace(/\./g, " "),
       role,
-      status: "pending",
-      lastLoginAt: null,
+      status,
+      lastLoginAt: status === "active" ? new Date().toISOString() : null,
     };
     members.push(member);
     this.mockProjectMembers.set(projectId, members);

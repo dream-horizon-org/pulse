@@ -1,8 +1,19 @@
 # Mock Server Status
 
-Last Updated: 2024-03-12
+Last Updated: 2025-03-19
 
 **Coverage**: 67/75 endpoints (89%)
+
+### Invite Collaborators (PR #311)
+
+- **TenantMembersNotOnProjectPicker**: `GET /v1/tenants/:tenantId/members` returns 5 mock members (userId, email, name)
+- **Project members**: `GET /v1/projects/:projectId/members` returns subset; proj-mock-1 has 2 members → 3 available in "Add from organization" picker
+- **Bulk invite**: `POST /v1/projects/:projectId/members` supports emails array; uses tenant member userId when email matches for UI filtering consistency
+
+### Mock Onboarding
+
+- **POST /v1/onboarding/complete**: Seeds the onboarded user (user-mock-onboarded, dev@example.com) as tenant admin and project admin
+- **Invite flow after onboarding**: `GET /v1/tenants/:tenantId/members` and `GET /v1/projects/:projectId/members` return the creator; invite-by-email on OnboardingSuccess works; TenantMembersNotOnProjectPicker shows "Everyone in your organization is already on this project" when only the creator exists
 
 ---
 
