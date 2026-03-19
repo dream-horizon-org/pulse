@@ -405,6 +405,7 @@ class AlertCronServiceTest {
     @Test
     void shouldCreateApplicationConfigWithAllArgs() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -426,9 +427,11 @@ class AlertCronServiceTest {
           "interaction/details.json",
           "/interaction/details.json",
           "encryptionKey",
-          "tnc-bucket"
+          "tnc-bucket",
+          "dev-api-key"
       );
 
+      assertEquals("dev", config.getAppEnvironment());
       assertEquals("http://cron.url", config.getCronManagerBaseUrl());
       assertEquals("http://service.url", config.getServiceUrl());
       assertEquals(30, config.getShutdownGracePeriod());
@@ -502,6 +505,7 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectToStringForApplicationConfig() {
       ApplicationConfig config = new ApplicationConfig(
+          "dev",
           "http://cron.url",
           "http://service.url",
           30,
@@ -523,7 +527,8 @@ class AlertCronServiceTest {
           "interaction/details.json",
           "/interaction/details.json",
           "key",
-          "tnc-bucket"
+          "tnc-bucket",
+          "dev-api-key"
       );
       String toString = config.toString();
 
@@ -534,25 +539,25 @@ class AlertCronServiceTest {
     @Test
     void shouldHaveCorrectEqualsAndHashCodeForApplicationConfig() {
       ApplicationConfig config1 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket"
+          "key", "tnc-bucket", "dev-api-key"
       );
       ApplicationConfig config2 = new ApplicationConfig(
-          "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket"
+          "key", "tnc-bucket", "dev-api-key"
       );
       ApplicationConfig config3 = new ApplicationConfig(
-          "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
+          "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket"
+          "key", "tnc-bucket", "dev-api-key"
       );
 
       assertEquals(config1, config2);

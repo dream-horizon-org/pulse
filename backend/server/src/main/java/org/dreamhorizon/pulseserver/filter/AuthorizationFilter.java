@@ -10,8 +10,10 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
+
 import java.io.IOException;
 import java.lang.reflect.Method;
+
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
@@ -44,6 +46,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
   private static final String SESSION_REPLAYS_PATH = "v1/sessions";
   private static final String ALERTS_PATH_PREFIX = "alerts";
   private static final String SYMBOL_UPLOAD_PREFIX = "v1/symbolicate/file/upload";
+  private static final String INCIDENTS_PREFIC = "v1/incidents";
 
   @Context
   private ResourceInfo resourceInfo;
@@ -81,13 +84,13 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
     try {
       Boolean hasPermission = getOpenFgaService().checkPermission(userId, action, "project", projectId)
-          .blockingGet();
+        .blockingGet();
 
       if (!hasPermission) {
         log.warn("Access denied: userId={}, action={}, projectId={}, path={}",
-            userId, action, projectId, path);
+          userId, action, projectId, path);
         abortForbidden(requestContext,
-            "Access denied: You don't have " + action + " permission for this project");
+          "Access denied: You don't have " + action + " permission for this project");
         return;
       }
 
@@ -95,7 +98,7 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
     } catch (Exception e) {
       log.error("Permission check failed: userId={}, projectId={}, error={}",
-          userId, projectId, e.getMessage(), e);
+        userId, projectId, e.getMessage(), e);
       abortInternalError(requestContext, "Authorization check failed");
     }
   }
@@ -190,28 +193,28 @@ public class AuthorizationFilter implements ContainerRequestFilter {
 
   private void abortUnauthorized(ContainerRequestContext requestContext, String message) {
     requestContext.abortWith(
-        Response.status(Response.Status.UNAUTHORIZED)
-            .entity("{\"error\": \"Unauthorized\", \"message\": \"" + message + "\"}")
-            .type("application/json")
-            .build()
+      Response.status(Response.Status.UNAUTHORIZED)
+        .entity("{\"error\": \"Unauthorized\", \"message\": \"" + message + "\"}")
+        .type("application/json")
+        .build()
     );
   }
 
   private void abortForbidden(ContainerRequestContext requestContext, String message) {
     requestContext.abortWith(
-        Response.status(Response.Status.FORBIDDEN)
-            .entity("{\"error\": \"Forbidden\", \"message\": \"" + message + "\"}")
-            .type("application/json")
-            .build()
+      Response.status(Response.Status.FORBIDDEN)
+        .entity("{\"error\": \"Forbidden\", \"message\": \"" + message + "\"}")
+        .type("application/json")
+        .build()
     );
   }
 
   private void abortInternalError(ContainerRequestContext requestContext, String message) {
     requestContext.abortWith(
-        Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-            .entity("{\"error\": \"Internal Server Error\", \"message\": \"" + message + "\"}")
-            .type("application/json")
-            .build()
+      Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+        .entity("{\"error\": \"Internal Server Error\", \"message\": \"" + message + "\"}")
+        .type("application/json")
+        .build()
     );
   }
 }

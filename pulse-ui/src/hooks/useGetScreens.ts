@@ -114,12 +114,14 @@ export const useGetScreens = ({
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: "uniqCombined(UserId)" },
+          param: { expression: "uniqCombined64(nullIf(UserId, ''))" },
           alias: "user_count",
         },
         {
           function: "CUSTOM" as const,
-          param: { expression: `countIf(StatusCode != '${STATUS_CODE.ERROR}')` },
+          param: {
+            expression: `countIf(StatusCode != '${STATUS_CODE.ERROR}')`,
+          },
           alias: "success_count",
         },
         {

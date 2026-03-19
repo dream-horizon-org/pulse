@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 @AllArgsConstructor
 @Singleton
 public class ApplicationConfig {
+  public String appEnvironment;
   public String cronManagerBaseUrl;
   public String serviceUrl;
   public Integer shutdownGracePeriod;
@@ -39,4 +40,15 @@ public class ApplicationConfig {
   public String sessionReplayS3Region;
   public String sessionReplayS3AccessKeyId;
   public String sessionReplayS3SecretAccessKey;
+  public String devModeApiKey;
+
+  /**
+   * Get the dev mode API key with a sensible default.
+   * This key is used when GOOGLE_OAUTH_ENABLED=false.
+   */
+  public String getDevModeApiKey() {
+    return devModeApiKey != null && !devModeApiKey.isBlank()
+        ? devModeApiKey
+        : "default-project_devkey01";
+  }
 }

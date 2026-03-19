@@ -11,4 +11,5 @@ export * from "./alertResponses";
 export * from "./analyticsResponses";
 export * from "./queryResponses";
 export * from "./eventResponses";
+export * from "./eventDefinitionResponses";
 export * from "./breadcrumbResponses";

@@ -20,12 +20,24 @@ import {
   NO_ALERT_CONFIGURED,
   ROUTES,
 } from "../../constants";
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertListingPageProps,
   FiltersType,
 } from "./AlertListingPage.interface";
-import { IconFilterEdit, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
+import {
+  IconFilterEdit,
+  IconPlus,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import { useGetAlertList, AlertListItem } from "../../hooks/useGetAlertList";
 import { AlertCard } from "./components/AlertCard";
@@ -45,14 +57,21 @@ const LIMIT = 12;
 type StatusTab = "all" | "firing" | "normal" | "snoozed" | "no_data";
 
 // Map UI status tab to API status filter
-const getApiStatusFilter = (tab: StatusTab): "FIRING" | "NORMAL" | "SNOOZED" | "NO_DATA" | null => {
+const getApiStatusFilter = (
+  tab: StatusTab,
+): "FIRING" | "NORMAL" | "SNOOZED" | "NO_DATA" | null => {
   switch (tab) {
-    case "firing": return "FIRING";
-    case "normal": return "NORMAL";
-    case "snoozed": return "SNOOZED";
-    case "no_data": return "NO_DATA";
-    case "all": 
-    default: return null;
+    case "firing":
+      return "FIRING";
+    case "normal":
+      return "NORMAL";
+    case "snoozed":
+      return "SNOOZED";
+    case "no_data":
+      return "NO_DATA";
+    case "all":
+    default:
+      return null;
   }
 };
 
@@ -63,9 +82,12 @@ export function AlertListingPage({
   const [rows, setRows] = useState<Array<AlertListItem>>([]);
   const navigate = useNavigate();
   const { projectId } = useProjectContext();
-  const [filterOpened, { open: filterOpen, close: filterClose }] = useDisclosure(false);
+  const [filterOpened, { open: filterOpen, close: filterClose }] =
+    useDisclosure(false);
   const [searchStr, setSearchStr] = useState<string>("");
-  const [errors, setErrors] = useState<DefaultErrorResponse | null | undefined>();
+  const [errors, setErrors] = useState<
+    DefaultErrorResponse | null | undefined
+  >();
   const [pagination, setPagination] = useState<number>(0);
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const offsetRef = useRef<number>(0);
@@ -104,25 +126,36 @@ export function AlertListingPage({
 
   // Get all scope names and fetch metrics for all scopes
   const scopeNames = useMemo(() => {
-    return scopesData?.data?.scopes?.map(s => s.name) || [];
+    return scopesData?.data?.scopes?.map((s) => s.name) || [];
   }, [scopesData]);
 
   const { metricLabels } = useGetAllScopeMetrics({ scopeNames });
 
   const severityConfig = useMemo(() => {
-    const map: Record<number, { label: string; color: string; description: string }> = {};
+    const map: Record<
+      number,
+      { label: string; color: string; description: string }
+    > = {};
     const colors = ["#ef4444", "#f59e0b", "#3b82f6", "#10b981", "#6366f1"];
-    const labels = ["P1 Critical", "P2 Warning", "P3 Info", "P4 Low", "P5 Trace"];
+    const labels = [
+      "P1 Critical",
+      "P2 Warning",
+      "P3 Info",
+      "P4 Low",
+      "P5 Trace",
+    ];
     // severitiesData.data is an array of AlertSeverityItem
     const severities = severitiesData?.data || [];
     if (Array.isArray(severities)) {
-      severities.forEach((s: { severity_id: number; name: number; description: string }) => {
-        map[s.severity_id] = {
-          label: labels[s.name - 1] || `P${s.name}`,
-          color: colors[s.name - 1] || "#6b7280",
-          description: s.description,
-        };
-      });
+      severities.forEach(
+        (s: { severity_id: number; name: number; description: string }) => {
+          map[s.severity_id] = {
+            label: labels[s.name - 1] || `P${s.name}`,
+            color: colors[s.name - 1] || "#6b7280",
+            description: s.description,
+          };
+        },
+      );
     }
     return map;
   }, [severitiesData]);
@@ -188,17 +221,18 @@ export function AlertListingPage({
         <Box className={classes.emptyState}>
           <Box className={classes.emptyStateIcon}>🔔</Box>
           <Text className={classes.emptyStateTitle}>
-            {statusTab === "all" ? NO_ALERT_CONFIGURED : `No ${statusTab} alerts`}
+            {statusTab === "all"
+              ? NO_ALERT_CONFIGURED
+              : `No ${statusTab} alerts`}
           </Text>
           <Text className={classes.emptyStateDescription}>
-            {statusTab === "all" 
+            {statusTab === "all"
               ? "Create your first alert to monitor your application metrics"
-              : `There are no alerts in ${statusTab} state right now`
-            }
+              : `There are no alerts in ${statusTab} state right now`}
           </Text>
           {statusTab === "all" && (
-            <Button 
-              leftSection={<IconPlus size={16} />} 
+            <Button
+              leftSection={<IconPlus size={16} />}
               onClick={handleOnCreateAlert}
               className={classes.emptyStateButton}
             >
@@ -228,7 +262,9 @@ export function AlertListingPage({
             severityConfig={severityConfig}
             metricLabels={metricLabels}
             onClick={() =>
-              navigate(`${ROUTES.ALERT_DETAIL.basePath}/${element.alert_id}`)
+              navigate(
+                `${ROUTES.PROJECT_ALERT_DETAIL.basePath.replace(":projectId", projectId || "")}/${element.alert_id}`,
+              )
             }
           />
         ))}
@@ -274,10 +310,12 @@ export function AlertListingPage({
       onCreateAlert?.();
     } else {
       if (!projectId) {
-        console.error('[AlertListingPage] Cannot navigate: projectId is null');
+        console.error("[AlertListingPage] Cannot navigate: projectId is null");
         return;
       }
-      navigate(ROUTES.PROJECT_ALERTS_FORM.basePath.replace(':projectId', projectId));
+      navigate(
+        ROUTES.PROJECT_ALERTS_FORM.basePath.replace(":projectId", projectId),
+      );
     }
   };
 
@@ -290,7 +328,12 @@ export function AlertListingPage({
             <Box className={classes.headerTop}>
               <Box className={classes.titleSection}>
                 <h1 className={classes.pageTitle}>Alerts</h1>
-                <Badge size="lg" variant="light" color="teal" className={classes.totalBadge}>
+                <Badge
+                  size="lg"
+                  variant="light"
+                  color="teal"
+                  className={classes.totalBadge}
+                >
                   {response?.data?.total_alerts || 0} Total
                 </Badge>
               </Box>
@@ -302,7 +345,6 @@ export function AlertListingPage({
                 {CREATE_ALERT}
               </Button>
             </Box>
-
           </Box>
 
           {/* Controls Section */}
@@ -331,15 +373,20 @@ export function AlertListingPage({
                 value={searchStr}
                 size="sm"
               />
-              
+
               <Group gap="xs">
                 {activeFilterCount > 0 && (
-                  <Badge 
-                    size="sm" 
-                    variant="filled" 
+                  <Badge
+                    size="sm"
+                    variant="filled"
                     color="teal"
                     rightSection={
-                      <ActionIcon size="xs" variant="transparent" color="white" onClick={clearFilters}>
+                      <ActionIcon
+                        size="xs"
+                        variant="transparent"
+                        color="white"
+                        onClick={clearFilters}
+                      >
                         <IconX size={12} />
                       </ActionIcon>
                     }
@@ -421,7 +468,8 @@ export function AlertListingPage({
             {filteredRows.length > 0 && (
               <Box className={classes.PaginationContainer}>
                 <Text size="sm" c="dimmed">
-                  Showing {Math.min(filteredRows.length, LIMIT)} of {response?.data?.total_alerts || 0} alerts
+                  Showing {Math.min(filteredRows.length, LIMIT)} of{" "}
+                  {response?.data?.total_alerts || 0} alerts
                 </Text>
                 <Pagination
                   total={

@@ -6,7 +6,7 @@
 # Auto-detects Docker Compose; falls back to Docker CLI if unavailable.
 #
 # Usage:
-#   ./quickstart.sh
+#   ./quickstart.sh [--no-cache] [--skip-env-check]
 # ============================================================================
 
 # Source common library (provides colors, print_*, check_docker, has_compose,
@@ -14,6 +14,27 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/common.sh"
+
+# Parse flags (before banner so they can be used later)
+BUILD_NO_CACHE=""
+SKIP_ENV_CHECK=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-cache)      BUILD_NO_CACHE="true"; shift ;;
+        --skip-env-check) SKIP_ENV_CHECK="true"; shift ;;
+        -h|--help)
+            echo "Usage: $0 [--no-cache] [--skip-env-check]"
+            echo "  --no-cache       Build Docker images without cache"
+            echo "  --skip-env-check Skip .env vs .env.example/docker-compose validation"
+            exit 0
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            echo "Usage: $0 [--no-cache] [--skip-env-check]"
+            exit 1
+            ;;
+    esac
+done
 
 clear 2>/dev/null || true
 
@@ -56,8 +77,9 @@ print_section "Step 1: Checking Prerequisites"
 
 check_docker
 
-# Re-detect compose after possible Docker installation
+# Re-detect compose after possible Docker installation; install if missing
 detect_compose
+ensure_compose
 
 # Check available disk space (convert to GB regardless of unit)
 _disk_avail_gb() {
@@ -156,6 +178,20 @@ print_success "ClickHouse session replay schema found"
 
 load_env
 
+# Validate .env against .env.example and docker-compose.yml
+if [ "$SKIP_ENV_CHECK" != "true" ]; then
+    print_info "Validating .env against docker-compose.yml (warnings for .env.example-only keys missing in .env)..."
+    if ! validate_env_against_example_and_compose; then
+        print_error "Env validation failed. Fix .env or run with --skip-env-check to skip."
+        exit 1
+    fi
+    if ! validate_url_vars; then
+        print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
+        exit 1
+    fi
+    print_success "Env and URL validation passed"
+fi
+
 # ============================================================================
 # Step 3: Build Docker Images
 # ============================================================================
@@ -164,7 +200,12 @@ print_section "Step 3: Building Docker Images"
 print_info "This may take 15-20 minutes on first run..."
 echo ""
 
-if "$SCRIPT_DIR/build.sh"; then
+if [ -n "$BUILD_NO_CACHE" ]; then
+    "$SCRIPT_DIR/build.sh" --no-cache
+else
+    "$SCRIPT_DIR/build.sh"
+fi
+if [ $? -eq 0 ]; then
     print_success "All Docker images built successfully"
 else
     print_error "Failed to build Docker images"
@@ -207,28 +248,32 @@ print_info "Testing backend health endpoint..."
 if curl -sf http://localhost:8080/healthcheck > /dev/null 2>&1; then
     print_success "Backend is responding"
 else
-    print_warning "Backend health check failed (may still be starting)"
+    print_error "Backend health check failed"
+    exit 1
 fi
 
 print_info "Testing frontend..."
 if curl -sf http://localhost:3000/healthcheck.txt > /dev/null 2>&1; then
     print_success "Frontend is responding"
 else
-    print_warning "Frontend health check failed (may still be starting)"
+    print_error "Frontend health check failed"
+    exit 1
 fi
 
 print_info "Testing MySQL connection..."
 if docker exec "$CONTAINER_MYSQL" mysql -u "${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" -e "SELECT 1" > /dev/null 2>&1; then
     print_success "MySQL is accessible"
 else
-    print_warning "MySQL connection failed"
+    print_error "MySQL connection failed"
+    exit 1
 fi
 
 print_info "Testing ClickHouse connection..."
 if curl -s "http://localhost:8123/?query=SELECT+1&user=${OTEL_CLICKHOUSE_USER}&password=${OTEL_CLICKHOUSE_PASSWORD}" > /dev/null 2>&1; then
     print_success "ClickHouse is accessible"
 else
-    print_warning "ClickHouse connection failed"
+    print_error "ClickHouse connection failed"
+    exit 1
 fi
 
 print_info "Testing session replay pipeline..."
