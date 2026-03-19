@@ -7,7 +7,8 @@ import { Autocomplete, AutocompleteProps, Group, Text } from "@mantine/core";
 import { CRITICAL_INTERACTION_FORM_CONSTANTS } from "../../../../constants";
 import classes from "./AutoCompleteInput.module.css";
 import { ApiResponse } from "../../../../helpers/makeRequest";
-import { useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useDebouncedValue } from "@mantine/hooks";
 import { EventsMetadata } from "../../CriticalInteractionForm.interface";
 
 export function AutoCompleteInput(props: AutoCompleteInputProps) {
@@ -20,19 +21,33 @@ export function AutoCompleteInput(props: AutoCompleteInputProps) {
   } = props;
 
   const eventMetadata = useRef<EventsMetadata>({});
+  const [debouncedSearch] = useDebouncedValue(eventName, 300);
 
   const { data, isFetching, error, isLoading } =
     useGetScreenNameToEventQueryMapping({
       queryParams: {
-        search_string: eventName,
+        search_string: debouncedSearch,
         limit: "10",
       },
     });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // const fetchOptions = useCallback(debounce(refetch, 300), []);
+  useEffect(() => {
+    if (!data || !data.data || isFetching || isLoading) return;
+    const eventsData = (
+      data as ApiResponse<GetScreeNameToEvenQueryMappingResponse>
+    ).data;
+    if (!eventsData?.eventList) return;
 
-  const getOptions = () => {
+    const match = eventsData.eventList.find(
+      (e) => e?.metadata?.eventName === eventName,
+    );
+    if (match) {
+      onEventNameSelect?.(match.properties);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, isFetching, isLoading, eventName]);
+
+  const options = useMemo(() => {
     if (isFetching || isLoading) {
       return [
         {
@@ -74,29 +89,58 @@ export function AutoCompleteInput(props: AutoCompleteInputProps) {
       return [];
     }
 
-    let eventsGroupingBasedOnScreenName: Record<string, Array<string>> = {};
-    let tempEventsMetadata: EventsMetadata = {};
+    const eventsGroupingBasedOnScreenName: Record<string, Array<string>> = {};
+    const tempEventsMetadata: EventsMetadata = {};
+    const ungroupedEvents: string[] = [];
 
     eventsData.eventList.forEach((event) => {
-      const eventName = event?.metadata?.eventName || "";
-      if (eventName && !tempEventsMetadata[eventName]) {
-        tempEventsMetadata[eventName] = {
+      const evtName = event?.metadata?.eventName || "";
+      if (evtName && !tempEventsMetadata[evtName]) {
+        tempEventsMetadata[evtName] = {
           description:
             event?.metadata?.description ||
             CRITICAL_INTERACTION_FORM_CONSTANTS.NO_DESCRIPTION_MESSAGE,
           properties: event.properties,
         };
       }
-      event?.metadata?.screenNames?.forEach((screenName) => {
-        if (!eventsGroupingBasedOnScreenName[screenName]) {
-          eventsGroupingBasedOnScreenName[screenName] = [eventName];
-        } else {
-          eventsGroupingBasedOnScreenName[screenName].push(eventName);
+
+      const screenNames = event?.metadata?.screenNames || [];
+      if (screenNames.length === 0) {
+        if (evtName && !ungroupedEvents.includes(evtName)) {
+          ungroupedEvents.push(evtName);
         }
-      });
+      } else {
+        screenNames.forEach((screenName) => {
+          if (!eventsGroupingBasedOnScreenName[screenName]) {
+            eventsGroupingBasedOnScreenName[screenName] = [evtName];
+          } else if (
+            !eventsGroupingBasedOnScreenName[screenName].includes(evtName)
+          ) {
+            eventsGroupingBasedOnScreenName[screenName].push(evtName);
+          }
+        });
+      }
     });
 
-    let suggestions = [];
+    eventMetadata.current = tempEventsMetadata;
+
+    const hasGroups = Object.keys(eventsGroupingBasedOnScreenName).length > 0;
+
+    if (!hasGroups) {
+      return ungroupedEvents.map((name) => ({
+        label: name,
+        value: name,
+      }));
+    }
+
+    const suggestions = [];
+
+    if (ungroupedEvents.length > 0) {
+      suggestions.push({
+        group: "Events",
+        items: ungroupedEvents,
+      });
+    }
 
     for (const item in eventsGroupingBasedOnScreenName) {
       suggestions.push({
@@ -105,14 +149,15 @@ export function AutoCompleteInput(props: AutoCompleteInputProps) {
       });
     }
 
-    eventMetadata.current = tempEventsMetadata;
-
     return suggestions;
-  };
+  }, [data, isFetching, isLoading, error]);
 
-  const onChange = (eventName: string) => {
-    onEventNameChange(eventName);
-  };
+  const onChange = useCallback(
+    (value: string) => {
+      onEventNameChange(value);
+    },
+    [onEventNameChange],
+  );
 
   const renderAutocompleteOption: AutocompleteProps["renderOption"] = ({
     option,
@@ -129,9 +174,14 @@ export function AutoCompleteInput(props: AutoCompleteInputProps) {
     );
   };
 
-  const onOptionSubmit = (selectedEventName: string) => {
-    onEventNameSelect?.(eventMetadata.current[selectedEventName].properties);
-  };
+  const onOptionSubmit = useCallback(
+    (selectedEventName: string) => {
+      onEventNameSelect?.(
+        eventMetadata.current[selectedEventName]?.properties,
+      );
+    },
+    [onEventNameSelect],
+  );
 
   return (
     <Autocomplete
@@ -140,13 +190,14 @@ export function AutoCompleteInput(props: AutoCompleteInputProps) {
       radius={CRITICAL_INTERACTION_FORM_CONSTANTS.TEXT_INPUT_SIZE}
       className={classes.eventSequenceItemAutocomplete}
       placeholder={placeHolderText}
-      data={getOptions()}
+      data={options}
       onChange={onChange}
       value={eventName}
       withAsterisk
       limit={100}
       onOptionSubmit={onOptionSubmit}
       renderOption={renderAutocompleteOption}
+      filter={({ options }) => options}
       required
       maxDropdownHeight={300}
       label={badgeText}

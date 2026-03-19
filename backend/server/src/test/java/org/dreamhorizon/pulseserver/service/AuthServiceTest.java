@@ -17,9 +17,11 @@ import io.jsonwebtoken.Claims;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
+import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.dto.request.GetAccessTokenFromRefreshTokenRequestDto;
 import org.dreamhorizon.pulseserver.model.LoginStatus;
 import org.dreamhorizon.pulseserver.model.User;
@@ -383,10 +385,9 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken(null);
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof IllegalArgumentException);
-      assertTrue(ex.getCause().getMessage().contains("Refresh token is required"));
+      assertEquals(400, ex.getResponse().getStatus());
     }
 
     @Test
@@ -394,9 +395,9 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("   ");
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof IllegalArgumentException);
+      assertEquals(400, ex.getResponse().getStatus());
     }
 
     @Test
@@ -405,10 +406,21 @@ class AuthServiceTest {
       request.setRefreshToken("not-refresh");
       when(jwtService.isRefreshToken("not-refresh")).thenReturn(false);
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-      assertTrue(ex.getCause() instanceof IllegalArgumentException);
-      assertTrue(ex.getCause().getMessage().contains("Invalid token type"));
+      assertEquals(400, ex.getResponse().getStatus());
+    }
+
+    @Test
+    void throwsWhenRefreshTokenExpired() {
+      GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
+      request.setRefreshToken("expired-refresh");
+      when(jwtService.isRefreshToken("expired-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("expired-refresh")).thenReturn(true);
+
+      WebApplicationException ex = assertThrows(WebApplicationException.class, () ->
+          authService.getAccessTokenFromRefreshToken(request).blockingGet());
+      assertEquals(401, ex.getResponse().getStatus());
     }
 
     @Test
@@ -416,6 +428,7 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("valid-refresh");
       when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("valid-refresh")).thenReturn(false);
       Claims claims = mock(Claims.class);
       when(claims.getSubject()).thenReturn("user1");
       when(claims.get(eq("email"), eq(String.class))).thenReturn("e@x.com");
@@ -439,15 +452,13 @@ class AuthServiceTest {
     @Test
     void throwsWhenVerifyTokenThrows() {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
-      request.setRefreshToken("expired-refresh");
-      when(jwtService.isRefreshToken("expired-refresh")).thenReturn(true);
-      when(jwtService.verifyToken("expired-refresh")).thenThrow(new RuntimeException("Token expired"));
+      request.setRefreshToken("bad-refresh");
+      when(jwtService.isRefreshToken("bad-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("bad-refresh")).thenReturn(false);
+      when(jwtService.verifyToken("bad-refresh")).thenThrow(new RuntimeException("Token invalid"));
 
-      RuntimeException ex = assertThrows(RuntimeException.class, () ->
+      assertThrows(RuntimeException.class, () ->
           authService.getAccessTokenFromRefreshToken(request).blockingGet());
-
-      assertTrue(ex.getMessage().contains("Failed to refresh access token"));
-      assertNotNull(ex.getCause());
     }
 
     @Test
@@ -455,6 +466,7 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("valid-refresh");
       when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("valid-refresh")).thenReturn(false);
       Claims claims = mock(Claims.class);
       when(claims.getSubject()).thenReturn("user1");
       when(claims.get(eq("email"), eq(String.class))).thenReturn(null);
@@ -487,7 +499,7 @@ class AuthServiceTest {
           .build();
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(devUser));
       when(userService.updateLastLogin("mock-user-1")).thenReturn(Completable.complete());
-      when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("mock-user1").blockingGet();
 
@@ -515,6 +527,7 @@ class AuthServiceTest {
               .build();
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(devUser));
       when(userService.updateLastLogin("mock-user-1")).thenReturn(Completable.complete());
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.List.of("tenant-1")));
       when(openFgaService.getUserProjects("mock-user-1"))
           .thenReturn(Single.just(java.util.List.of("proj-1")));
       when(projectService.getProjectById("proj-1")).thenReturn(Single.just(project));
@@ -538,10 +551,51 @@ class AuthServiceTest {
     }
 
     @Test
+    void shouldReturnSuccessWithTenantOnlyWhenDevModeHasTenantsButNoProjects() {
+      when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
+      User devUser = User.builder()
+          .userId("mock-user-1")
+          .email("user1@example.com")
+          .name("Test User 1")
+          .status("active")
+          .build();
+      when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(devUser));
+      when(userService.updateLastLogin("mock-user-1")).thenReturn(Completable.complete());
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.List.of("tenant-1")));
+      when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      Tenant tenant = Tenant.builder()
+          .tenantId("tenant-1")
+          .name("Acme Org")
+          .tierId(1)
+          .build();
+      when(tenantDao.getTenantById("tenant-1")).thenReturn(Maybe.just(tenant));
+      when(tierService.getTierNameById(1)).thenReturn(Maybe.just("free"));
+      when(openFgaService.getUserTenantRole("mock-user-1", "tenant-1"))
+          .thenReturn(Single.just(java.util.Optional.of("admin")));
+      when(jwtService.generateAccessToken(eq("mock-user-1"), eq("user1@example.com"), eq("Test User 1"), eq("tenant-1")))
+          .thenReturn("access-tenant-only");
+      when(jwtService.generateRefreshToken(eq("mock-user-1"), eq("user1@example.com"), eq("Test User 1"), eq("tenant-1")))
+          .thenReturn("refresh-tenant-only");
+
+      LoginResponse result = authService.login("mock-user1").blockingGet();
+
+      assertNotNull(result);
+      assertEquals(LoginStatus.SUCCESS, result.getStatus());
+      assertFalse(result.getNeedsOnboarding());
+      assertEquals("access-tenant-only", result.getAccessToken());
+      assertEquals("refresh-tenant-only", result.getRefreshToken());
+      assertEquals("tenant-1", result.getTenantId());
+      assertEquals("Acme Org", result.getTenantName());
+      assertEquals("admin", result.getTenantRole());
+      assertEquals("free", result.getTier());
+      verify(projectService, never()).getProjectById(anyString());
+    }
+
+    @Test
     void shouldReturnNeedsOnboardingWhenDevModeAndNewUserHasNoProjects() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("mock-user1").blockingGet();
 
@@ -549,7 +603,8 @@ class AuthServiceTest {
       assertEquals(LoginStatus.NEEDS_ONBOARDING, result.getStatus());
       assertTrue(result.getNeedsOnboarding());
       verify(userService).getUserByEmail("user1@example.com");
-      verify(openFgaService).getUserProjects("mock-user-1");
+      verify(openFgaService).getUserTenants("mock-user-1");
+      verify(openFgaService, never()).getUserProjects(anyString());
       verify(projectService, never()).getProjectById(anyString());
     }
 
@@ -557,7 +612,7 @@ class AuthServiceTest {
     void shouldUseDevModeWhenTokenIsDevPrefixed() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("dev-xyz").blockingGet();
 
@@ -569,7 +624,7 @@ class AuthServiceTest {
     void shouldUseUser2WhenMockTokenContainsUser2() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user2@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-2")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-2")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("mock-user2").blockingGet();
 
@@ -662,7 +717,7 @@ class AuthServiceTest {
     void shouldUseTestTokenUser1ForTestTokenUser1() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("test-token-user1").blockingGet();
 
@@ -677,7 +732,7 @@ class AuthServiceTest {
     void shouldUseTestTokenUser2ForTestTokenUser2() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user2@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-2")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-2")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("test-token-user2").blockingGet();
 
@@ -691,7 +746,7 @@ class AuthServiceTest {
     void shouldUseDevModeWhenTokenHasNoDots() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("simplestring").blockingGet();
 
@@ -703,7 +758,7 @@ class AuthServiceTest {
     void shouldUseUser2WhenMockTokenContains2() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user2@example.com")).thenReturn(Maybe.empty());
-      when(openFgaService.getUserProjects("mock-user-2")).thenReturn(Single.just(java.util.Collections.emptyList()));
+      when(openFgaService.getUserTenants("mock-user-2")).thenReturn(Single.just(java.util.Collections.emptyList()));
 
       LoginResponse result = authService.login("mock-something-2").blockingGet();
 
@@ -727,6 +782,7 @@ class AuthServiceTest {
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(pendingUser));
       when(userService.activateUser(eq("pending-123"), eq("pending-123-firebase-uid"), eq("Test User 1")))
           .thenReturn(Completable.complete());
+      when(openFgaService.getUserTenants("pending-123")).thenReturn(Single.just(java.util.List.of("tenant-1")));
       when(openFgaService.getUserProjects("pending-123")).thenReturn(Single.just(java.util.List.of("proj-1")));
       org.dreamhorizon.pulseserver.dao.project.models.Project project =
           org.dreamhorizon.pulseserver.dao.project.models.Project.builder()
@@ -754,6 +810,7 @@ class AuthServiceTest {
     void shouldHandleDevUserWithProjectsButNoDbRecord() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.empty());
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.List.of("tenant-1")));
       when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.List.of("proj-1")));
       org.dreamhorizon.pulseserver.dao.project.models.Project project =
           org.dreamhorizon.pulseserver.dao.project.models.Project.builder()
@@ -794,6 +851,7 @@ class AuthServiceTest {
               .build();
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(devUser));
       when(userService.updateLastLogin("mock-user-1")).thenReturn(Completable.complete());
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.List.of("tenant-1")));
       when(openFgaService.getUserProjects("mock-user-1"))
           .thenReturn(Single.just(java.util.List.of("proj-1")));
       when(projectService.getProjectById("proj-1")).thenReturn(Single.just(project));
@@ -921,7 +979,7 @@ class AuthServiceTest {
   class LoginErrorPaths {
 
     @Test
-    void shouldPropagateErrorWhenGetUserProjectsFailsInDevMode() {
+    void shouldPropagateErrorWhenGetUserTenantsFailsInDevMode() {
       when(applicationConfig.getGoogleOAuthEnabled()).thenReturn(false);
       User devUser = User.builder()
           .userId("mock-user-1")
@@ -931,7 +989,7 @@ class AuthServiceTest {
           .build();
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(devUser));
       when(userService.updateLastLogin("mock-user-1")).thenReturn(Completable.complete());
-      when(openFgaService.getUserProjects("mock-user-1"))
+      when(openFgaService.getUserTenants("mock-user-1"))
           .thenReturn(Single.error(new RuntimeException("OpenFGA unavailable")));
 
       assertThrows(RuntimeException.class, () -> authService.login("mock-user1").blockingGet());
@@ -948,6 +1006,7 @@ class AuthServiceTest {
           .build();
       when(userService.getUserByEmail("user1@example.com")).thenReturn(Maybe.just(devUser));
       when(userService.updateLastLogin("mock-user-1")).thenReturn(Completable.complete());
+      when(openFgaService.getUserTenants("mock-user-1")).thenReturn(Single.just(java.util.List.of("tenant-1")));
       when(openFgaService.getUserProjects("mock-user-1")).thenReturn(Single.just(java.util.List.of("proj-1")));
       when(projectService.getProjectById("proj-1"))
           .thenReturn(Single.error(new RuntimeException("Project not found")));
@@ -964,6 +1023,7 @@ class AuthServiceTest {
       GetAccessTokenFromRefreshTokenRequestDto request = new GetAccessTokenFromRefreshTokenRequestDto();
       request.setRefreshToken("valid-refresh");
       when(jwtService.isRefreshToken("valid-refresh")).thenReturn(true);
+      when(jwtService.isTokenExpired("valid-refresh")).thenReturn(false);
       Claims claims = mock(Claims.class);
       when(claims.getSubject()).thenReturn(null);
       when(claims.get(eq("email"), eq(String.class))).thenReturn("e@x.com");

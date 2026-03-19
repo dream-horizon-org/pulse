@@ -250,7 +250,7 @@ class NotificationLogDaoTest {
   class InsertLogIfNotExists {
 
     @Test
-    void shouldReturnTrueWhenInserted() {
+    void shouldReturnInsertedIdWhenInserted() {
       NotificationLog log =
           NotificationLog.builder()
               .projectId("proj-1")
@@ -266,15 +266,16 @@ class NotificationLogDaoTest {
 
       setupWriterPreparedQuery();
       when(rowSet.rowCount()).thenReturn(1);
+      when(rowSet.property(MySQLClient.LAST_INSERTED_ID)).thenReturn(42L);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      Boolean result = notificationLogDao.insertLogIfNotExists(log).blockingGet();
+      Long result = notificationLogDao.insertLogIfNotExists(log).blockingGet();
 
-      assertThat(result).isTrue();
+      assertThat(result).isEqualTo(42L);
     }
 
     @Test
-    void shouldReturnFalseWhenNotInserted() {
+    void shouldReturnZeroWhenNotInserted() {
       NotificationLog log =
           NotificationLog.builder()
               .projectId("proj-1")
@@ -292,9 +293,9 @@ class NotificationLogDaoTest {
       when(rowSet.rowCount()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      Boolean result = notificationLogDao.insertLogIfNotExists(log).blockingGet();
+      Long result = notificationLogDao.insertLogIfNotExists(log).blockingGet();
 
-      assertThat(result).isFalse();
+      assertThat(result).isEqualTo(0L);
     }
   }
 

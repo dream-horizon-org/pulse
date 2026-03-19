@@ -23,7 +23,6 @@ export function useGetActiveSessionsData({
   isLoading: boolean;
   error: Error | null;
 } {
-
   // Determine data source based on whether screenName is provided
   // - With screenName: Use TRACES with screen_session/screen_load (screen-specific sessions)
   // - Without screenName: Use LOGS with session.start (overall app sessions)
@@ -102,7 +101,9 @@ export function useGetActiveSessionsData({
         },
         {
           function: "CUSTOM",
-          param: { expression: `uniqCombined(${COLUMN_NAME.SESSION_ID})` },
+          param: {
+            expression: `uniqCombined64(nullIf(${COLUMN_NAME.SESSION_ID}, ''))`,
+          },
           alias: "session_count",
         },
       ],
@@ -170,4 +171,3 @@ export function useGetActiveSessionsData({
     error,
   };
 }
-
