@@ -67,7 +67,6 @@ rca_runner = Runner(
     agent=rca_pipeline_agent,
     app_name=APP_NAME,
     session_service=session_service,
-    artifact_service=artifact_service,
     auto_create_session=True,
 )
 
