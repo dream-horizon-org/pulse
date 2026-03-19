@@ -615,6 +615,7 @@ export class MockResponseGenerator {
             "custom_events",
             "rn_screen_load",
             "rn_screen_interactive",
+            "session_replay",
           ],
         },
         status: 200,
