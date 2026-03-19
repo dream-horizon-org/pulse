@@ -5,13 +5,11 @@ package com.pulse.sampling.core
 import android.content.Context
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.models.PulseAttributeType
-import com.pulse.sampling.models.PulseCriticalEventPolicies
 import com.pulse.sampling.models.PulseMetricsToAddEntry
 import com.pulse.sampling.models.PulseMetricsToAddTarget
 import com.pulse.sampling.models.PulseSdkConfig
 import com.pulse.sampling.models.PulseSdkConfigFakeUtils
 import com.pulse.sampling.models.PulseSdkName
-import com.pulse.sampling.models.PulseSignalFilterMode
 import com.pulse.sampling.models.PulseSignalScope
 import com.pulse.sampling.models.PulseSignalsToSampleEntry
 import com.pulse.sampling.models.SamplingRate
@@ -62,281 +60,55 @@ class PulseSamplingSignalProcessorsTest {
     }
 
     @Nested
-    inner class `With whitelist` {
-        val whitelistWithRegexWithOneCharAndProp =
-            PulseSdkConfigFakeUtils.createFakeConfig(
-                filterMode = PulseSignalFilterMode.WHITELIST,
-                signalFilters =
-                    listOf(
-                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                            "abc.",
-                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
-                        ),
-                    ),
-            )
-
+    inner class `Export delegates after session sampling` {
         @Test
-        fun `in span, filters the span only matching the regex and prop`() {
-            val processors = createSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+        fun `in span, export delegates exporter when attributes is absent`() {
+            val sampledSpanExporter = whitelistAllAllowedProcessors.SampledSpanExporter(spanExporter)
+            val realSpan = createSpanData("test-span", emptyMap())
 
-            sampledSpanExporter.export(
-                listOf(
-                    createSpanData("abc", emptyMap()),
-                    createSpanData("abc", mapOf("key1" to "value1")),
-                    createSpanData("abc1", emptyMap()),
-                    createSpanData("abc1", mapOf("key1" to "value1")),
-                ),
-            )
+            sampledSpanExporter.export(listOf(realSpan))
 
-            assertThat(spanExporter.finishedSpanItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.name }
-                .isEqualTo("abc1")
+            assertThat(spanExporter.finishedSpanItems).hasSize(1)
+            assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
+            OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes).isEmpty
         }
 
         @Test
-        fun `in log, filters the span only matching the regex and prop`() {
-            val processors = createSamplingSignalProcessors(whitelistWithRegexWithOneCharAndProp)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
+        fun `in span, export delegates exporter when attributes is present`() {
+            val sampledSpanExporter = whitelistAllAllowedProcessors.SampledSpanExporter(spanExporter)
+            val realSpan = createSpanData("test-span", mapOf("key1" to "value1"))
 
-            sampledLogExporter.export(
-                listOf(
-                    createLogRecordData("abc", emptyMap()),
-                    createLogRecordData("abc", mapOf("key1" to "value1")),
-                    createLogRecordData("abc1", emptyMap()),
-                    createLogRecordData("abc1", mapOf("key1" to "value1")),
-                ),
-            )
+            sampledSpanExporter.export(listOf(realSpan))
 
-            assertThat(logExporter.finishedLogRecordItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.bodyValue }
-                .isNotNull
-                .extracting { it!!.asString() }
-                .isEqualTo("abc1")
-        }
-
-        @Nested
-        inner class `With all allowed` {
-            @Test
-            fun `in span, export delegates exporter when attributes is absent`() {
-                val sampledSpanExporter = whitelistAllAllowedProcessors.SampledSpanExporter(spanExporter)
-                val realSpan = createSpanData("test-span", emptyMap())
-
-                sampledSpanExporter.export(listOf(realSpan))
-
-                assertThat(spanExporter.finishedSpanItems).hasSize(1)
-                assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
-                OpenTelemetryAssertions.assertThat(spanExporter.finishedSpanItems[0].attributes).isEmpty
-            }
-
-            @Test
-            fun `in span, export delegates exporter when attributes is present`() {
-                val sampledSpanExporter = whitelistAllAllowedProcessors.SampledSpanExporter(spanExporter)
-                val realSpan = createSpanData("test-span", mapOf("key1" to "value1"))
-
-                sampledSpanExporter.export(listOf(realSpan))
-
-                assertThat(spanExporter.finishedSpanItems).hasSize(1)
-                assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
-                OpenTelemetryAssertions
-                    .assertThat(spanExporter.finishedSpanItems[0].attributes)
-                    .containsEntry("key1", "value1")
-            }
-
-            @Test
-            fun `in log, export delegates exporter when attributes is present`() {
-                val sampledLogExporter = whitelistAllAllowedProcessors.SampledLogExporter(logExporter)
-                val mockLogRecord = createLogRecordData("test-log", mapOf("key1" to "value1"))
-                sampledLogExporter.export(listOf(mockLogRecord))
-
-                assertThat(logExporter.finishedLogRecordItems).hasSize(1)
-                assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
-                OpenTelemetryAssertions
-                    .assertThat(logExporter.finishedLogRecordItems[0].attributes)
-                    .containsEntry("key1", "value1")
-            }
-
-            @Test
-            fun `in log, export delegates exporter when attributes is absent`() {
-                val sampledLogExporter = whitelistAllAllowedProcessors.SampledLogExporter(logExporter)
-                val mockLogRecord = createLogRecordData("test-log", emptyMap())
-                sampledLogExporter.export(listOf(mockLogRecord))
-
-                assertThat(logExporter.finishedLogRecordItems).hasSize(1)
-                assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
-                OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes).isEmpty
-            }
-        }
-    }
-
-    @Nested
-    inner class `With blacklist` {
-        val blackListWithRegexWithOneChar =
-            PulseSdkConfigFakeUtils.createFakeConfig(
-                filterMode = PulseSignalFilterMode.BLACKLIST,
-                signalFilters = listOf(PulseSdkConfigFakeUtils.createFakeSignalMatchCondition("abc.")),
-            )
-
-        val blackListWithRegexWithOneCharAndProp =
-            PulseSdkConfigFakeUtils.createFakeConfig(
-                filterMode = PulseSignalFilterMode.BLACKLIST,
-                signalFilters =
-                    listOf(
-                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                            "abc.",
-                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1")),
-                        ),
-                    ),
-            )
-
-        val blackListWithRegexWithOneCharAndPropRegex =
-            PulseSdkConfigFakeUtils.createFakeConfig(
-                filterMode = PulseSignalFilterMode.BLACKLIST,
-                signalFilters =
-                    listOf(
-                        PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                            "abc.",
-                            props = setOf(PulseSdkConfigFakeUtils.createFakeProp("key1", "value1.")),
-                        ),
-                    ),
-            )
-
-        @Test
-        fun `in span, filters the span only matching the regex`() {
-            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneChar)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-            sampledSpanExporter.export(
-                listOf(
-                    createSpanData("abc", emptyMap()),
-                    createSpanData("abc1", emptyMap()),
-                ),
-            )
-
-            assertThat(spanExporter.finishedSpanItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.name }
-                .isEqualTo("abc")
+            assertThat(spanExporter.finishedSpanItems).hasSize(1)
+            assertThat(spanExporter.finishedSpanItems[0].name).isEqualTo("test-span")
+            OpenTelemetryAssertions
+                .assertThat(spanExporter.finishedSpanItems[0].attributes)
+                .containsEntry("key1", "value1")
         }
 
         @Test
-        fun `in span, filters the span only matching the regex and prop`() {
-            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+        fun `in log, export delegates exporter when attributes is present`() {
+            val sampledLogExporter = whitelistAllAllowedProcessors.SampledLogExporter(logExporter)
+            val mockLogRecord = createLogRecordData("test-log", mapOf("key1" to "value1"))
+            sampledLogExporter.export(listOf(mockLogRecord))
 
-            sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value1"))))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .isEmpty()
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
+            OpenTelemetryAssertions
+                .assertThat(logExporter.finishedLogRecordItems[0].attributes)
+                .containsEntry("key1", "value1")
         }
 
         @Test
-        fun `in span, does not filters the span matching the name but not the prop`() {
-            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndProp)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
+        fun `in log, export delegates exporter when attributes is absent`() {
+            val sampledLogExporter = whitelistAllAllowedProcessors.SampledLogExporter(logExporter)
+            val mockLogRecord = createLogRecordData("test-log", emptyMap())
+            sampledLogExporter.export(listOf(mockLogRecord))
 
-            sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value2"))))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.name }
-                .isEqualTo("abc1")
-        }
-
-        @Test
-        fun `in span, filters the span only matching the regex and prop regex`() {
-            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-            sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value12"))))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .isEmpty()
-        }
-
-        @Test
-        fun `in span, does not filters the span matching the name but not the prop regex`() {
-            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneCharAndPropRegex)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-            sampledSpanExporter.export(listOf(createSpanData("abc1", mapOf("key1" to "value1"))))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.name }
-                .isEqualTo("abc1")
-        }
-
-        @Test
-        fun `in log, filers the log only matching the regex`() {
-            val processors = createSamplingSignalProcessors(blackListWithRegexWithOneChar)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-            sampledLogExporter.export(
-                listOf(
-                    createLogRecordData("abc", emptyMap()),
-                    createLogRecordData("abc1", emptyMap()),
-                ),
-            )
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.bodyValue }
-                .isNotNull
-                .extracting { it!!.asString() }
-                .isEqualTo("abc")
-        }
-
-        @Nested
-        inner class `having all denied` {
-            val blackListAllDenyConfig = PulseSdkConfigFakeUtils.createFakeConfig(filterMode = PulseSignalFilterMode.BLACKLIST)
-
-            @Test
-            fun `in span, filters the span without any props`() {
-                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
-                val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-                sampledSpanExporter.export(listOf(createSpanData("test-span", emptyMap())))
-
-                assertThat(spanExporter.finishedSpanItems).isEmpty()
-            }
-
-            @Test
-            fun `in span, filters the span with a prop`() {
-                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
-                val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-                sampledSpanExporter.export(listOf(createSpanData("test-span", mapOf("key1" to "value1"))))
-
-                assertThat(spanExporter.finishedSpanItems).isEmpty()
-            }
-
-            @Test
-            fun `in log, filers the log without a prop`() {
-                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
-                val sampledLogExporter = processors.SampledLogExporter(logExporter)
-                val mockLogRecord = createLogRecordData("test-log", emptyMap())
-                sampledLogExporter.export(listOf(mockLogRecord))
-
-                assertThat(logExporter.finishedLogRecordItems).isEmpty()
-            }
-
-            @Test
-            fun `in log, filers the log with a prop`() {
-                val processors = createSamplingSignalProcessors(blackListAllDenyConfig)
-                val sampledLogExporter = processors.SampledLogExporter(logExporter)
-                val mockLogRecord = createLogRecordData("test-log", mapOf("key1" to "value1"))
-                sampledLogExporter.export(listOf(mockLogRecord))
-
-                assertThat(logExporter.finishedLogRecordItems).isEmpty()
-            }
+            assertThat(logExporter.finishedLogRecordItems).hasSize(1)
+            assertThat(logExporter.finishedLogRecordItems[0].bodyValue?.asString()).isEqualTo("test-log")
+            OpenTelemetryAssertions.assertThat(logExporter.finishedLogRecordItems[0].attributes).isEmpty
         }
     }
 
@@ -2245,12 +2017,6 @@ class PulseSamplingSignalProcessorsTest {
             val config =
                 PulseSdkConfigFakeUtils.createFakeConfig(
                     sessionSampleRate = samplingRate,
-                    signalFilters =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                scopes = setOf(PulseSignalScope.METRICS),
-                            ),
-                        ),
                 )
             val processors =
                 createSamplingSignalProcessors(
@@ -2267,273 +2033,6 @@ class PulseSamplingSignalProcessorsTest {
             if (expectedExportedCount == 1) {
                 assertThat(metricExporter.finishedMetricItems[0].name).isEqualTo("test-signal")
             }
-        }
-    }
-
-    @Nested
-    inner class `Critical Event Policy` {
-        @Test
-        fun `in log, crash event matches critical event policy by name and is always sent when session sampling is off`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "device\\.crash",
-                                scopes = setOf(PulseSignalScope.LOGS),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val crashLog = createLogRecordData("device.crash", emptyMap())
-            sampledLogExporter.export(listOf(crashLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .hasSize(1)
-            assertThat(
-                logExporter.finishedLogRecordItems
-                    .first()
-                    .bodyValue
-                    ?.asString(),
-            ).isEqualTo("device.crash")
-        }
-
-        @Test
-        fun `in log, crash event with matching property matches critical event policy and is always sent`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "device\\.crash",
-                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("severity", "critical")),
-                                scopes = setOf(PulseSignalScope.LOGS),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val crashLog =
-                createLogRecordData(
-                    "device.crash",
-                    mapOf("severity" to "critical"),
-                )
-            sampledLogExporter.export(listOf(crashLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .hasSize(1)
-            assertThat(
-                logExporter.finishedLogRecordItems
-                    .first()
-                    .bodyValue
-                    ?.asString(),
-            ).isEqualTo("device.crash")
-        }
-
-        @Test
-        fun `in log, crash event with non-matching property does not match critical event policy and is filtered out`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "device\\.crash",
-                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("severity", "critical")),
-                                scopes = setOf(PulseSignalScope.LOGS),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val crashLog =
-                createLogRecordData(
-                    "device.crash",
-                    mapOf("severity" to "non-critical"),
-                )
-            sampledLogExporter.export(listOf(crashLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .isEmpty()
-        }
-
-        @Test
-        fun `in log, non-critical event does not match critical event policy and is filtered out when session sampling is off`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "device\\.crash",
-                                scopes = setOf(PulseSignalScope.LOGS),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val regularLog = createLogRecordData("app.widget.click", emptyMap())
-            sampledLogExporter.export(listOf(regularLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .isEmpty()
-        }
-
-        @Test
-        fun `in span, critical span matches critical event policy by name and is always sent when session sampling is off`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "critical\\.error",
-                                scopes = setOf(PulseSignalScope.TRACES),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-            val criticalSpan = createSpanData("critical.error", emptyMap())
-            sampledSpanExporter.export(listOf(criticalSpan))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.name }
-                .isEqualTo("critical.error")
-        }
-
-        @Test
-        fun `in span, critical span with matching property matches critical event policy and is always sent`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "error\\.span",
-                                props = setOf(PulseSdkConfigFakeUtils.createFakeProp("error.type", "fatal")),
-                                scopes = setOf(PulseSignalScope.TRACES),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-            val errorSpan =
-                createSpanData(
-                    "error.span",
-                    mapOf("error.type" to "fatal"),
-                )
-            sampledSpanExporter.export(listOf(errorSpan))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .hasSize(1)
-                .first()
-                .extracting { it.name }
-                .isEqualTo("error.span")
-        }
-
-        @Test
-        fun `in span, span with non-matching scope does not match critical event policy and is filtered out`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "critical\\.span",
-                                scopes = setOf(PulseSignalScope.LOGS),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledSpanExporter = processors.SampledSpanExporter(spanExporter)
-
-            val span = createSpanData("critical.span", emptyMap())
-            sampledSpanExporter.export(listOf(span))
-
-            assertThat(spanExporter.finishedSpanItems)
-                .isEmpty()
-        }
-
-        @Test
-        fun `in log, when critical event policy is null all events are filtered out when session sampling is off`() {
-            val config = createConfigWithCriticalEventPolicy(null)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val crashLog = createLogRecordData("device.crash", emptyMap())
-            sampledLogExporter.export(listOf(crashLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .isEmpty()
-        }
-
-        @Test
-        fun `in log, when critical event policy is empty all events are filtered out when session sampling is off`() {
-            val config =
-                createConfigWithCriticalEventPolicy(
-                    PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                        alwaysSend = emptyList(),
-                    ),
-                )
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOff)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val crashLog = createLogRecordData("device.crash", emptyMap())
-            sampledLogExporter.export(listOf(crashLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .isEmpty()
-        }
-
-        @Test
-        fun `in log, when session sampling is on all events are sent regardless of critical event policy`() {
-            val criticalEventPolicy =
-                PulseSdkConfigFakeUtils.createFakeCriticalEventPolicies(
-                    alwaysSend =
-                        listOf(
-                            PulseSdkConfigFakeUtils.createFakeSignalMatchCondition(
-                                name = "device\\.crash",
-                                scopes = setOf(PulseSignalScope.LOGS),
-                            ),
-                        ),
-                )
-            val config = createConfigWithCriticalEventPolicy(criticalEventPolicy)
-            val processors = createSamplingSignalProcessors(config, sessionParser = PulseSessionParser.alwaysOn)
-            val sampledLogExporter = processors.SampledLogExporter(logExporter)
-
-            val regularLog = createLogRecordData("app.widget.click", emptyMap())
-            sampledLogExporter.export(listOf(regularLog))
-
-            assertThat(logExporter.finishedLogRecordItems)
-                .hasSize(1)
-            assertThat(
-                logExporter.finishedLogRecordItems
-                    .first()
-                    .bodyValue
-                    ?.asString(),
-            ).isEqualTo("app.widget.click")
-        }
-
-        private fun createConfigWithCriticalEventPolicy(criticalEventPolicy: PulseCriticalEventPolicies?): PulseSdkConfig {
-            val samplingConfig =
-                PulseSdkConfigFakeUtils.createFakeSamplingConfig(
-                    criticalEventPolicies = criticalEventPolicy,
-                )
-            return PulseSdkConfigFakeUtils.createFakeConfig(
-                sampling = samplingConfig,
-            )
         }
     }
 

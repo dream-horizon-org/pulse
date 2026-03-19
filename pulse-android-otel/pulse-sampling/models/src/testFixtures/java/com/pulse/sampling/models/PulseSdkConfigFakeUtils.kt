@@ -12,8 +12,6 @@ public object PulseSdkConfigFakeUtils {
         collectorUrl: String = "https://example.com/",
         configUrl: String = "https://example.com/configs/active",
         beforeInitQueueSize: Int = 100,
-        filterMode: PulseSignalFilterMode = PulseSignalFilterMode.WHITELIST,
-        signalFilters: List<PulseSignalMatchCondition> = listOf(createFakeSignalMatchCondition()),
         attributesToDrop: List<PulseAttributesToDropEntry> = emptyList(),
         attributesToAdd: List<PulseAttributesToAddEntry> = emptyList(),
         metricsToAdd: List<PulseMetricsToAddEntry> = emptyList(),
@@ -41,11 +39,6 @@ public object PulseSdkConfigFakeUtils {
                     attributesToDrop = attributesToDrop,
                     attributesToAdd = attributesToAdd,
                     metricsToAdd = metricsToAdd,
-                    filters =
-                        PulseSignalFilter(
-                            mode = filterMode,
-                            values = signalFilters,
-                        ),
                 ),
             interaction =
                 PulseInteractionConfig(
@@ -59,14 +52,12 @@ public object PulseSdkConfigFakeUtils {
     public fun createFakeSamplingConfig(
         default: PulseDefaultSamplingConfig = createFakeDefaultSamplingConfig(),
         rules: List<PulseSessionSamplingRule> = emptyList(),
-        criticalEventPolicies: PulseCriticalEventPolicies? = null,
         criticalSessionPolicies: PulseCriticalEventPolicies? = null,
         signalsToSample: List<PulseSignalsToSampleEntry> = emptyList(),
     ): PulseSamplingConfig =
         PulseSamplingConfig(
             default = default,
             rules = rules,
-            criticalEventPolicies = criticalEventPolicies,
             criticalSessionPolicies = criticalSessionPolicies,
             signalsToSample = signalsToSample,
         )

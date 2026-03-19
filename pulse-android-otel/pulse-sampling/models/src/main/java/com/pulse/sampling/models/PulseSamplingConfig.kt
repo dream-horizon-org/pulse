@@ -25,8 +25,6 @@ public class PulseSamplingConfig internal constructor(
      */
     @SerialName("rules")
     public val rules: List<PulseSessionSamplingRule> = emptyList(),
-    @SerialName("criticalEventPolicies")
-    public val criticalEventPolicies: PulseCriticalEventPolicies? = null,
     @SerialName("criticalSessionPolicies")
     public val criticalSessionPolicies: PulseCriticalEventPolicies? = null,
     @SerialName("signalsToSample")
