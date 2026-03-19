@@ -2,6 +2,8 @@
 
 Single Spark/Glue job for all funnels across all projects. Plan plus optimizations.
 
+**Finalized:** Spark pre-computes saved funnels (with **predefined filters** + **static** `window_seconds`) and writes to **`otel.funnel_results`**. On-the-fly explore funnels are **out of scope** for this job unless explicitly triggered as a separate Spark run.
+
 ---
 
 ## 1. Job Scope and Modes

@@ -1,5 +1,7 @@
 # Funnel Data Architecture Decision Document
 
+**Confluence (canonical):** [Funnel & Journey Data Architecture Decision Document](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4775477367) — includes **Finalized approach (production)** and deprecates the old standalone [Finalized approach page](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4791042087). Publish updates via `docs/confluence-drafts/generate_funnel_data_architecture_decision_storage.py`.
+
 ## 1. Context and Problem Statement
 
 ### Feature Overview
@@ -479,9 +481,27 @@ Each new funnel save triggers an on-demand Spark job. At ~5 new funnels/day, 2 D
 
 ## 6. Recommendation and Chosen Implementation
 
-**Selected: Approach C — Daily Spark Job with ClickHouse Storage**
+**Selected: Approach C — Spark pre-computation with ClickHouse storage (finalized)**
 
-Pulse will use a Spark-based funnel computation pipeline. Funnel results are stored in ClickHouse and read by the dashboard. Two job triggers: (1) **on funnel save** — immediate Spark job for the new funnel; (2) **daily** — batch job for all saved funnels.
+Pulse uses **Spark** (AWS Glue or EMR Serverless) to **pre-compute** funnel metrics for **all saved funnels across all projects** and **writes results to ClickHouse** (`otel.funnel_results`). The dashboard reads pre-computed data from ClickHouse via pulse-server — no heavy funnel scan at request time for saved funnels.
+
+### 6.1 Finalized product requirements
+
+| Requirement | Decision |
+|-------------|----------|
+| **Predefined filters** | Users can create funnels with **fixed filter dimensions** (e.g. city, network provider / carrier, OS version — fields present in **S3 Parquet** / Athena schema). Filters are part of the saved funnel definition in **MySQL** (`filters` / `filters_json` and step-level filters in `steps` / `steps_json` per [Schema Design](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4787011590)). Spark applies them when reading S3. **No** raw product-events table in ClickHouse. |
+| **Conversion time** | **Static per funnel** — `window_seconds` is set when the funnel is defined and does not change per dashboard request. Saved-funnel results in ClickHouse are computed for that window. |
+| **On-the-fly (explore) funnels** | Users can run **ad-hoc** funnel analysis (not necessarily saved). Computation runs **asynchronously** (background job): client receives **202 Accepted** + job identifier, polls job status, then fetches results when ready. Implementation can extend `POST /v1/funnel/analyze` (or a dedicated async endpoint) and reuse existing ClickHouse async-query patterns where applicable. On-the-fly results are **not** the same path as saved `funnel_results` until/unless written to a transient or cache table. |
+
+### 6.2 Finalized technical approach (Spark → ClickHouse)
+
+| Piece | Role |
+|-------|------|
+| **Spark (daily)** | Pre-computes **all** saved funnels for **all** projects in one (or few) job runs: single-pass S3 read per project where possible, column pruning, per-funnel filters and steps, writes rows to **`otel.funnel_results`**. |
+| **Spark (on-save)** | When a user saves or updates a funnel, trigger an **on-save** job for that funnel (same logic, narrower scope), write to **`otel.funnel_results`**. |
+| **ClickHouse** | **`otel.funnel_results`** holds pre-computed step counts and conversion % per `funnel_id`, `project_id`, `run_date`, `step_index`. Dashboard **`GET /v1/funnel/{id}/results`** reads only this table. |
+| **S3** | Remains the source of truth for raw events (Vector Parquet per project bucket). Spark reads from S3; **no requirement** to stream raw events into ClickHouse for saved-funnel reads. |
+| **On-the-fly** | Async job (Spark and/or ClickHouse long-running query) computes explore funnels; API returns job id + polling; results returned when complete. |
 
 ### Chosen Implementation Flow
 
@@ -507,11 +527,11 @@ Pulse will use a Spark-based funnel computation pipeline. Funnel results are sto
 
 | Component | Responsibility |
 |-----------|----------------|
-| **pulse-server** | On funnel save: persist definition to MySQL, trigger Spark job (async). Expose API for dashboard to read funnel results from ClickHouse. |
-| **Spark job (on-save)** | Triggered per new funnel. Reads S3 Parquet for funnel's date window, computes funnel logic, writes to `otel.funnel_results`. |
-| **Spark job (daily)** | Triggered by cron. Loads all saved funnels, reads S3 Parquet once, computes all funnels in single pass, writes to `otel.funnel_results`. |
-| **ClickHouse** | Stores `otel.funnel_results` (funnel_id, project_id, run_date, step_index, step_name, user_count, conversion_pct). |
-| **Dashboard** | Queries pulse-server API → pulse-server queries ClickHouse → returns funnel step counts. |
+| **pulse-server** | On funnel save: persist definition to MySQL (including **predefined filters** + static **window_seconds**), trigger Spark job (async). Expose API for dashboard to read saved funnel results from ClickHouse. Expose **async** API for on-the-fly funnel explore (202 + job id + poll). |
+| **Spark job (on-save)** | Triggered per new/updated funnel. Reads S3 Parquet for funnel's date window, applies funnel **filters** (city, carrier, OS version, etc.) and **steps**, static conversion window, writes to `otel.funnel_results`. |
+| **Spark job (daily)** | Triggered by cron. Loads **all** saved funnels (all projects), reads S3 Parquet efficiently (single read per project where possible), computes **every** funnel with its filters, writes **all** results to `otel.funnel_results`. |
+| **ClickHouse** | Stores **`otel.funnel_results`** — pre-computed funnel output only (see `backend/ingestion/clickhouse-funnel-results-schema.sql`). |
+| **Dashboard** | Saved funnels: read via API from ClickHouse. Explore: submit async funnel, poll until complete, display results. |
 
 ### Funnel Lifecycle
 

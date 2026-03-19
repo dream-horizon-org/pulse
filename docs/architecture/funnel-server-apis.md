@@ -2,6 +2,8 @@
 
 Specification of funnel-related REST APIs in pulse-server: **new** saved-funnel APIs (to be implemented) and **existing** ad-hoc funnel endpoints (already in this branch).
 
+**Confluence:** [Funnel & User Journey API](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4785078289) — keep in sync with this file. **Funnel definitions** are persisted in **MySQL** per [Schema Design](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4787011590); pre-computed metrics are read from ClickHouse `otel.funnel_results`.
+
 **Base path:** `/v1/funnel`
 
 ---
@@ -83,7 +85,7 @@ The **job-callback** endpoint is internal (Spark/Lambda → server); it does not
 | `windowSeconds` | number | Yes | Conversion window in seconds (e.g. 86400 = 24h). |
 | `mode` | string | Yes | `UNIQUE_USERS` or `SESSIONS`. |
 | `dateRangeDays` | number | Yes | Lookback days for Spark (e.g. 7, 14, 30). |
-| `filters` | array | No | Global filters (same shape as `QueryRequest.filters`: `field`, `operator`, `value`). |
+| `filters` | array | No | **Predefined global filters** for the saved funnel (city, network provider, OS version, etc.); same shape as `QueryRequest.filters`. Spark applies these on every pre-compute run. |
 
 ### Response
 
@@ -515,7 +517,7 @@ These endpoints are implemented in `FunnelController` on this branch. They are *
 
 ### POST /v1/funnel/analyze
 
-**Purpose:** Ad-hoc funnel analysis: run funnel computation on the fly over ClickHouse for a given time range. Does not save the funnel; used for exploration in the UI.
+**Purpose:** **On-the-fly (explore) funnel** — user-defined steps, time range, and filters without saving. Per **finalized product**, heavy exploration runs **asynchronously** so the API does not block on large scans.
 
 | Attribute | Value |
 |-----------|--------|
@@ -524,9 +526,14 @@ These endpoints are implemented in `FunnelController` on this branch. They are *
 | **Permission** | `can_view` (recommended when adding @RequiresPermission). |
 | **Headers** | `Authorization: Bearer <JWT>`, `X-Project-ID: <projectId>`, `Content-Type: application/json` |
 
-**Request body:** Same shape as `FunnelRequest`: `steps` (array of FunnelStep), `timeRange` (start, end), `filters` (optional), `groupBy` (optional), `mode` (UNIQUE_USERS \| SESSIONS), `windowSeconds` (optional, default 86400). Tenant/project may be set from context.
+**Request body:** Same shape as `FunnelRequest`: `steps`, `timeRange` (start, end), `filters` (optional — city, network provider, OS version, etc.), `groupBy` (optional), `mode` (UNIQUE_USERS \| SESSIONS), `windowSeconds` (conversion window for this explore request).
 
-**Response:** `200 OK` — `FunnelResponse`: `steps` (stepName, count, conversionRate, dropoffRate), `totalEnteredUsers`, `overallConversionRate`, `groupedResults` (optional).
+**Response (finalized async behavior):**
+
+- **`202 Accepted`** — Body includes `jobId` (and optionally `analyzeJobId`). Client polls **`GET /v1/funnel/analyze/{jobId}/status`** (or reuses existing ClickHouse/async query job status endpoint) until `SUCCEEDED` / `FAILED`.
+- **`200 OK`** — Optional for **small** time ranges / fast paths: returns `FunnelResponse` directly (same as today). Product may standardize on 202-only for consistency.
+
+**Result fetch:** After job completes, **`GET /v1/funnel/analyze/{jobId}/results`** (or equivalent) returns `FunnelResponse`. Implementation may use Spark for explore jobs or long-running ClickHouse query jobs; results are **not** read from `otel.funnel_results` unless explicitly materialized there for caching.
 
 ---
 

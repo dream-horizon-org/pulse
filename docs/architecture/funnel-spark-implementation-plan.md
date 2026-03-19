@@ -1,6 +1,14 @@
 # Funnel Spark Implementation Plan
 
+**Confluence:** [Funnel Spark implementation (job plan)](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4782587990) — Spark runtime only (no DDL). **DDL:** [Schema Design](https://dream11.atlassian.net/wiki/spaces/Pulse/pages/4787011590). Publish from `docs/confluence-drafts/generate_funnel_spark_implementation_storage.py`.
+
 This document defines the **flow** and **schemas** for implementing the chosen funnel architecture: Spark jobs (on-save + daily) writing pre-computed results to ClickHouse, with the dashboard reading from ClickHouse via pulse-server.
+
+**Finalized product rules (current):**
+
+- **Predefined filters** — Saved funnels include fixed dimensions (e.g. city, network provider / carrier, OS version, device attributes) aligned with Parquet columns in `pulse-otel-{project_id}/vector-logs/`. Spark applies `filters_json` and step-level filters when computing.
+- **Conversion window** — **Static** per funnel: `window_seconds` stored in MySQL and used by Spark for every run for that funnel (not overridden per dashboard read).
+- **On-the-fly (explore) funnels** — Computed **asynchronously**: API returns **202 Accepted** + job identifier; client polls job status; results returned when the job completes (Spark or long-running ClickHouse query). Does not block on synchronous `windowFunnel` in the API for large data.
 
 ---
 
@@ -29,13 +37,21 @@ This document defines the **flow** and **schemas** for implementing the chosen f
 │   UI → GET /v1/funnel/{id}/results (optional: date range)                                │
 │   pulse-server: query ClickHouse otel.funnel_results → return step counts                │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│ FLOW 4: On-the-fly funnel (explore, async)                                               │
+│   UI → POST /v1/funnel/analyze (async) or dedicated async endpoint → 202 + job_id       │
+│   pulse-server: enqueue Spark job OR submit async ClickHouse query                       │
+│   User: polls GET …/job-status (or existing query job API) until SUCCEEDED               │
+│   User: GET results (from job output store or temporary result table)                    │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.2 Flow 1 — Save Funnel (Detailed)
 
 | Step | Actor | Action |
 |------|--------|--------|
-| 1 | UI | `POST /v1/funnel` with body: name, steps (event names + optional filters), time range (e.g. last 7 days), window_seconds, mode (UNIQUE_USERS \| SESSIONS). |
+| 1 | UI | `POST /v1/funnel` with body: name, steps, **predefined global filters** (city, network provider, OS version, etc.), **date_range_days**, **window_seconds** (static conversion window), mode (UNIQUE_USERS \| SESSIONS). |
 | 2 | pulse-server | Validate request; generate `funnel_id` (e.g. UUID); persist row in `funnel` (MySQL); enqueue or invoke Spark job with `funnel_id`, `project_id`, `date_from`, `date_to`. |
 | 3 | pulse-server | Return `202 Accepted` with `funnel_id` and `job_id` (if job tracking is used). |
 | 4 | Spark job (on-save) | Load funnel definition by `funnel_id` (from API or MySQL); read S3 Parquet for `project_id` and date range; compute funnel; write to `otel.funnel_results`; optionally update job status. |
@@ -96,7 +112,7 @@ CREATE TABLE funnel (
 
 - `steps_json`: same shape as existing `FunnelRequest.steps` (list of `FunnelStep`: eventName, dataType, pulseType, stepFilters).
 - `date_range_days`: used by Spark to decide how many days of S3 data to read (e.g. 7 or 30).
-- `filters_json`: optional global filters (same as `FunnelRequest.filters`) for future use.
+- `filters_json`: predefined global filters (city, network provider, OS version, etc.) when the user configures them; nullable in DB. Same shape as `FunnelRequest.filters` (`field`, `operator`, `value`). Spark maps `field` to Parquet column names and applies `.filter()` in the job.
 
 ### 2.2 MySQL — funnel_job (on-save job status)
 

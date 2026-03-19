@@ -1,8 +1,17 @@
 -- =============================================================================
--- ClickHouse: Pre-computed funnel results (written by Spark, read by pulse-server)
+-- ClickHouse: Pre-computed funnel results ONLY (Spark → ClickHouse)
 -- =============================================================================
--- One row per (funnel_id, run_date, step_index). Spark job (on-save + daily)
--- writes step-level counts here; dashboard reads via GET /v1/funnel/{id}/results.
+-- Funnel **definitions** are stored in **MySQL** (see Confluence: Funnel & User
+-- Journey Schema Design, page 4787011590). Spark reads definitions + S3 Parquet
+-- and writes **aggregated** rows here only.
+--
+-- Do **not** create otel.product_events or a raw “product events” table in
+-- ClickHouse for this pipeline — raw events remain in S3 (Vector).
+--
+-- One row per (funnel_id, run_date, step_index). Spark pre-computes all saved
+-- funnels (daily + on-save); pulse-server reads via GET /v1/funnel/{id}/results.
+--
+-- Doc: docs/architecture/funnel-mysql-clickhouse-schema.md
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS otel.funnel_results
@@ -21,3 +30,6 @@ ENGINE = MergeTree()
 PARTITION BY toYYYYMM(run_date)
 ORDER BY (funnel_id, run_date, step_index)
 SETTINGS index_granularity = 8192;
+
+-- Optional: secondary index for project-scoped admin queries (uncomment if needed)
+-- ALTER TABLE otel.funnel_results ADD INDEX idx_project project_id TYPE bloom_filter GRANULARITY 4;
