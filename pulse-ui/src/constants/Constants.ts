@@ -2,23 +2,20 @@ import {
   AppShellFooterConfiguration,
   AppShellHeaderConfiguration,
   AppShellNavbarConfiguration,
-  ComboboxItem,
+  ComboboxItem
 } from "@mantine/core";
 import {
-  IconBell,
-  IconListDetails,
-  IconHome,
   IconActivityHeartbeat,
-  IconDeviceDesktop,
-  IconNetwork,
-  IconUsers,
-  IconDatabaseSearch,
+  IconBell,
   IconCalendarEvent,
+  IconDatabaseSearch,
+  IconDeviceDesktop,
+  IconHome,
+  IconListDetails,
+  IconNetwork,
+  IconUsers
 } from "@tabler/icons-react";
-import {
-  CriticalInteractionDetailsFilterValues,
-  TimeFilter,
-} from "../screens/CriticalInteractionDetails";
+import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
 import { v4 as uuidV4 } from "uuid";
 import { CriticalInteractionDetailsFilterOptionsResponse } from "../helpers/getCriticalInteractionDetailsFilterOptions";
@@ -27,9 +24,10 @@ import {
   CriticalInteractionFormStepsRecords,
   EventFilters,
   EventSequenceData,
-  FormSteps,
+  FormSteps
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
 
@@ -214,7 +212,6 @@ export const ROUTES: Routes = {
     basePath: "/projects/:projectId/event-catalog",
     path: "/projects/:projectId/event-catalog",
   },
-
   LOGIN: {
     key: "LOGIN",
     basePath: "/login",
@@ -227,8 +224,8 @@ export const ROUTES: Routes = {
   },
   PRICING: {
     key: "PRICING",
-    basePath: "/pricing",
-    path: "/pricing",
+    basePath: "/:organizationId/pricing",
+    path: "/:organizationId/pricing",
   },
   COMING_SOON: {
     key: "COMING_SOON",
@@ -239,6 +236,12 @@ export const ROUTES: Routes = {
     key: "PROJECT_SETTINGS",
     basePath: "/settings",
     path: "/settings",
+  },
+  SUPPORT_QUERIES: {
+    key: "SUPPORT_QUERIES",
+    basePath: "/support-queries",
+    path: "/support-queries",
+    element: SupportQueries,
   },
 };
 
@@ -262,6 +265,13 @@ export const SETTINGS_PATHS = {
   SDK_CONFIG: "/settings/sdk-config",
   NOTIFICATIONS: "/settings/notifications",
   SECURITY: "/settings/security",
+} as const;
+
+// Organization-level path segments (for URL pattern matching)
+export const ORGANIZATION_PATH_SEGMENTS = {
+  PROJECTS: "projects",
+  MEMBERS: "members",
+  PRICING: "pricing",
 } as const;
 
 export const NAVBAR_ITEMS: NavbarItems = [
@@ -883,6 +893,12 @@ export const API_ROUTES: StreamverseRoutes = {
     key: "CREATE_PROJECT",
     apiPath: `/v1/projects`,
     method: API_METHODS.POST,
+  },
+  // Get Project Details API Route
+  GET_PROJECT: {
+    key: "GET_PROJECT",
+    apiPath: `/v1/projects/:projectId`,
+    method: API_METHODS.GET,
   },
   // Project API Key Management API Routes
   GET_PROJECT_API_KEYS: {

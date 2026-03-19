@@ -292,7 +292,7 @@ class ConfigClassesTest {
           "dev", "cron", "service", 10, "oauth", true, "firebase",
           "jwt", "otel", "config", "logs", "metric", "span", "events",
           "bucket", "configPath", "cfId", "cfPath", "webhook",
-          "interPath", "interCfPath", "encKey", "tncBucket", "replayBaseUrl");
+          "interPath", "interCfPath", "encKey", "tncBucket", "dev-api-key", "replayBaseUrl");
 
       assertThat(config.getAppEnvironment()).isEqualTo("dev");
       assertThat(config.getCronManagerBaseUrl()).isEqualTo("cron");

@@ -21,7 +21,7 @@ import {
 import classes from "./Onboarding.module.css";
 import { ROUTES, COMMON_CONSTANTS } from "../../constants";
 import { useCompleteOnboarding } from "../../hooks";
-import { PROJECT_ROLES } from "../../constants/Roles";
+import { PROJECT_ROLES, TENANT_ROLES } from "../../constants/Roles";
 import { TIERS } from "../../constants/Tiers";
 import { setCookiesAfterAuthentication } from "../../helpers/setCookiesAfterAuthentication";
 import { showNotification } from "../../helpers/showNotification";
@@ -40,7 +40,7 @@ export function Onboarding() {
   const navigate = useNavigate();
   const theme = useMantineTheme();
   const { setTenantInfo, addProject } = useTenantContext();
-  const { setProject } = useProjectContext();
+  const { navigateToProject } = useProjectContext();
 
   const [userData, setUserData] = useState<OnboardingUserData | null>(null);
   const [organizationName, setOrganizationName] = useState("");
@@ -110,21 +110,12 @@ export function Onboarding() {
             setTenantInfo({
               tenantId: data.tenantId,
               tenantName: data.tenantName,
-              userRole: "admin",
-              tier: data.tier || "free",
+              userRole: TENANT_ROLES.ADMIN,
+              tier: data.tier || TIERS.FREE,
             });
 
-            // Set project context
+            // Add project to tenant's projects list
             if (data.projectId && data.projectName) {
-              setProject({
-                projectId: data.projectId,
-                projectName: data.projectName,
-                userRole: PROJECT_ROLES.ADMIN,
-                isActive: true,
-                plan: TIERS.FREE,
-              });
-
-              // Add project to tenant's projects list
               addProject({
                 projectId: data.projectId,
                 name: data.projectName,
@@ -138,20 +129,10 @@ export function Onboarding() {
             sessionStorage.removeItem("onboarding_user");
             sessionStorage.removeItem("firebase_token");
 
-            // Navigate to project-scoped onboarding success page
-            navigate(
-              ROUTES.PROJECT_ONBOARDING_SUCCESS.basePath.replace(
-                ":projectId",
-                data.projectId,
-              ),
-              {
-                state: {
-                  projectId: data.projectId,
-                  projectName: data.projectName,
-                  projectApiKey: data.projectApiKey,
-                },
-              },
-            );
+            // Use navigateToProject to fetch full details and navigate
+            if (data.projectId) {
+              await navigateToProject(data.projectId);
+            }
           }
         },
         onError: (error) => {
