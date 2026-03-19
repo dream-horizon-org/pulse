@@ -989,10 +989,13 @@ export class MockResponseGenerator {
       const tenant =
         this.dataStore.getCurrentTenant() ??
         this.dataStore.getDefaultMockTenant();
-      const firstActiveProject = tenant.projects.find((p) => p.isActive);
-      const redirectTo = firstActiveProject
-        ? `/projects/${firstActiveProject.projectId}`
-        : `/${tenant.tenantId}/projects`;
+      const { projects } = tenant;
+      let redirectTo: string | null = null;
+      if (projects.length === 1) {
+        redirectTo = `/projects/${projects[0].projectId}`;
+      } else if (projects.length > 1) {
+        redirectTo = "/project-selection";
+      }
 
       return {
         data: {
@@ -1075,6 +1078,24 @@ export class MockResponseGenerator {
       this.dataStore.setCurrentTenant(newTenant);
       this.dataStore.ensureTenantExists(tenantId, organizationName);
 
+      // Seed the onboarded user as tenant admin and project admin so invite flow works
+      this.dataStore.addTenantMember(
+        tenantId,
+        "dev@example.com",
+        "admin",
+        "Dev User",
+        "user-mock-onboarded",
+        "active",
+      );
+      this.dataStore.addProjectMember(
+        projectId,
+        "dev@example.com",
+        "admin",
+        "Dev User",
+        "user-mock-onboarded",
+        "active",
+      );
+
       return {
         data: {
           userId: "user-mock-onboarded",
@@ -1090,7 +1111,7 @@ export class MockResponseGenerator {
           refreshToken,
           tokenType: "Bearer",
           expiresIn: 86400,
-          redirectTo: `/projects/${projectId}/onboarding-success`,
+          redirectTo: `/projects/${projectId}/onboarding`,
         },
         status: 200,
       };
@@ -1418,10 +1439,18 @@ export class MockResponseGenerator {
         skippedEmails.push(email);
         continue;
       }
+      // If email matches existing tenant member, use their userId/name for consistency
+      // (TenantMembersNotOnProjectPicker adds org members by email; UI filters by userId)
+      const project = this.dataStore.getProject(projectId);
+      const tenantMember = project
+        ? this.dataStore.getTenantMemberByEmail(project.tenantId, email)
+        : undefined;
       const member = this.dataStore.addProjectMember(
         projectId,
         email,
         role as "admin" | "editor" | "viewer",
+        tenantMember?.name,
+        tenantMember?.userId,
       );
       successEmails.push(email);
       addedMembers.push(member);
