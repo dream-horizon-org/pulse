@@ -27,28 +27,7 @@ public class PulseSignalConfig internal constructor(
      */
     @SerialName("metricsToAdd")
     public val metricsToAdd: Collection<PulseMetricsToAddEntry> = emptySet(),
-    @SerialName("filters")
-    public val filters: PulseSignalFilter = PulseSignalFilter(),
 )
-
-@Keep
-@Serializable
-public class PulseSignalFilter internal constructor(
-    @SerialName("mode")
-    public val mode: PulseSignalFilterMode = PulseSignalFilterMode.BLACKLIST,
-    @SerialName("values")
-    public val values: Collection<PulseSignalMatchCondition> = emptySet(),
-)
-
-@Keep
-@Serializable
-public enum class PulseSignalFilterMode {
-    @SerialName("blacklist")
-    BLACKLIST,
-
-    @SerialName("whitelist")
-    WHITELIST,
-}
 
 @Keep
 @Serializable
