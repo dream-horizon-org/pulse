@@ -72,4 +72,40 @@ describe("ChatSidebar", () => {
     );
     expect(mockOnNewChat).toHaveBeenCalled();
   });
+
+  it("disables New Chat while a session is being created", () => {
+    renderWithProviders(
+      <ChatSidebar
+        sessions={mockSessions}
+        activeSessionId={null}
+        isCreatingSession
+        onNewChat={mockOnNewChat}
+        onSelectSession={mockOnSelectSession}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: AI_CHAT_TEXTS.NEW_CHAT }),
+    ).toBeDisabled();
+  });
+
+  it("shows retry when sessions failed to load", () => {
+    const onRetry = jest.fn();
+    renderWithProviders(
+      <ChatSidebar
+        sessions={[]}
+        activeSessionId={null}
+        sessionsError={AI_CHAT_TEXTS.SESSIONS_LOAD_FAILED}
+        onRetrySessions={onRetry}
+        onNewChat={mockOnNewChat}
+        onSelectSession={mockOnSelectSession}
+      />,
+    );
+
+    expect(
+      screen.getByText(AI_CHAT_TEXTS.SESSIONS_LOAD_FAILED),
+    ).toBeInTheDocument();
+    userEvent.click(screen.getByRole("button", { name: AI_CHAT_TEXTS.RETRY }));
+    expect(onRetry).toHaveBeenCalled();
+  });
 });

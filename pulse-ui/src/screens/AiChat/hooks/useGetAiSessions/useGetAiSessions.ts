@@ -8,19 +8,22 @@ import { AI_API_PATHS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 export const useGetAiSessions = () => {
   const userId = getCookies(COOKIES_KEY.USER_EMAIL) || "anonymous";
 
-  return useQuery<AiSessionListItem[]>({
+  const query = useQuery<AiSessionListItem[]>({
     queryKey: ["ai-sessions", userId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const url = `${API_BASE_URL}${AI_API_PATHS.SESSIONS}/${encodeURIComponent(userId)}`;
       const response = await makeRequestToServer({
         url,
-        init: { method: "GET" },
+        init: { method: "GET", signal },
+        unwrapped: true,
       });
       if (!response.ok)
         throw new Error(`Failed to fetch sessions: ${response.status}`);
       return response.json();
     },
-    refetchOnWindowFocus: false,
     staleTime: AI_CHAT_LIMITS.SESSIONS_STALE_TIME_MS,
+    refetchOnWindowFocus: false,
   });
+
+  return { ...query, refetchSessions: query.refetch };
 };

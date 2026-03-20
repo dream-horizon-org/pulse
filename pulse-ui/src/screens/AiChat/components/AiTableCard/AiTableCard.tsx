@@ -13,6 +13,7 @@ import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 import classes from "./AiTableCard.module.css";
 
 export const AiTableCard = ({ table }: AiTableCardProps) => {
+  const rows = useMemo(() => table?.rows ?? [], [table]);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
 
@@ -32,10 +33,10 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
   );
 
   const sortedRows = useMemo(() => {
-    if (!sortKey || !sortDir) return table.rows;
+    if (!table || !sortKey || !sortDir) return rows;
     const col = table.columns.find((c) => c.key === sortKey);
     const isNumber = col?.type === "number";
-    return [...table.rows].sort((a, b) => {
+    return [...rows].sort((a, b) => {
       const va = a[sortKey];
       const vb = b[sortKey];
       let cmp: number;
@@ -46,9 +47,7 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
       }
       return sortDir === "desc" ? -cmp : cmp;
     });
-  }, [table.rows, table.columns, sortKey, sortDir]);
-
-  if (!table.columns?.length) return null;
+  }, [rows, table, sortKey, sortDir]);
 
   const SortIndicator = ({ colKey }: { colKey: string }) => {
     if (sortKey !== colKey)
@@ -57,6 +56,9 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
       return <IconArrowUp size={10} className={classes.sortIcon} />;
     return <IconArrowDown size={10} className={classes.sortIcon} />;
   };
+
+  if (!table) return null;
+  if (!table.columns?.length) return null;
 
   return (
     <TableErrorBoundary tableConfig={table}>
@@ -67,7 +69,7 @@ export const AiTableCard = ({ table }: AiTableCardProps) => {
             {table.title}
           </Text>
           <Text size="xs" c="dimmed">
-            {table.rows.length}
+            {rows.length}
             {AI_CHAT_TEXTS.ROWS_SUFFIX}
           </Text>
         </div>

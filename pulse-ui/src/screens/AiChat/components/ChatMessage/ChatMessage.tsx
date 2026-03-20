@@ -10,6 +10,8 @@ import { extractSql, stripSqlBlocks } from "./ChatMessage.utils";
 import classes from "./ChatMessage.module.css";
 
 export const ChatMessage = ({ message }: ChatMessageProps) => {
+  if (!message) return null;
+
   const isUser = message.role === "user";
   const sql = message.sql ?? extractSql(message.text);
   const displayText = sql ? stripSqlBlocks(message.text) : message.text;
@@ -41,12 +43,26 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
               className={classes.markdown}
             />
             {sql && <SqlResultCard sql={sql} />}
-            {message.charts?.map((chart, idx) => (
-              <AiChartCard key={`chart-${chart.title}-${idx}`} chart={chart} />
-            ))}
-            {message.tables?.map((table, idx) => (
-              <AiTableCard key={`table-${table.title}-${idx}`} table={table} />
-            ))}
+            {message.charts
+              ?.filter(
+                (chart): chart is NonNullable<typeof chart> => chart != null,
+              )
+              .map((chart, idx) => (
+                <AiChartCard
+                  key={`chart-${chart.title}-${idx}`}
+                  chart={chart}
+                />
+              ))}
+            {message.tables
+              ?.filter(
+                (table): table is NonNullable<typeof table> => table != null,
+              )
+              .map((table, idx) => (
+                <AiTableCard
+                  key={`table-${table.title}-${idx}`}
+                  table={table}
+                />
+              ))}
           </>
         )}
         <Text size="xs" c="dimmed" className={classes.timestamp}>

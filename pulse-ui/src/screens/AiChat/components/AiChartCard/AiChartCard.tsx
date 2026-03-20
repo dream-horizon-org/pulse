@@ -28,9 +28,12 @@ const CHART_COMPONENTS: Record<AiChartType, ChartComponentType> = {
 };
 
 export const AiChartCard = ({ chart }: AiChartCardProps) => {
-  const ChartComponent = CHART_COMPONENTS[chart.type];
+  const ChartComponent = chart
+    ? CHART_COMPONENTS[chart.type as AiChartType]
+    : undefined;
 
   const option = useMemo(() => {
+    if (!chart) return {} as Record<string, unknown>;
     const base = (chart.data ?? {}) as Record<string, Record<string, unknown>>;
     const isPie = chart.type === AI_CHART_TYPES.pie;
 
@@ -56,8 +59,9 @@ export const AiChartCard = ({ chart }: AiChartCardProps) => {
         },
       },
     };
-  }, [chart.data, chart.type]);
+  }, [chart]);
 
+  if (!chart) return null;
   if (!ChartComponent) return null;
 
   return (

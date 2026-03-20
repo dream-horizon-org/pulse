@@ -19,7 +19,7 @@ const getMockServer = async () => {
  * Used by makeRequestToServer and by makeStreamingRequestToServer for SSE/streaming calls.
  * Uses the backend-generated access token stored in cookies after successful authentication.
  */
-export function buildAuthHeaders(): Record<string, string> {
+function buildAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
 
   // Only add Authorization header if access token exists (user is logged in)
@@ -103,6 +103,7 @@ export const makeRequestToServer = async (
   const authHeaders = buildAuthHeaders();
   const isFormData = body instanceof FormData;
 
+  // `signal`, `credentials`, `cache`, etc. are left in `rest` and forwarded to fetch.
   return await fetch(url, {
     method: method ?? API_METHODS.GET,
     headers: {

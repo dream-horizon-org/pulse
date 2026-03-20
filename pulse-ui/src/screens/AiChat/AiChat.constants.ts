@@ -11,6 +11,11 @@ export const AI_CHAT_TEXTS = {
   NEW_CONVERSATION: "New conversation",
   FAILED_RESPONSE: "Failed to get response.",
   LOADING_SESSIONS: "Loading sessions...",
+  SESSIONS_LOAD_FAILED:
+    "Could not load conversations. Check your connection and try again.",
+  SESSION_CREATE_FAILED:
+    "Could not start a new conversation. Check your connection and try again.",
+  RETRY: "Retry",
   GENERATED_SQL: "Generated SQL",
   COPIED: "Copied",
   COPY: "Copy",
@@ -38,10 +43,24 @@ export const AI_API_PATHS = {
   SESSIONS: "/v1/ai/sessions",
 } as const;
 
+/** SSE line prefixes and JSON `type` / `block_type` values from the AI stream. */
+export const SSE_CONSTANTS = {
+  DATA_PREFIX: "data: ",
+  DONE_MARKER: "[DONE]",
+  EVENT_TYPE: {
+    TEXT: "text",
+    CONTENT_BLOCKS: "content_blocks",
+    ERROR: "error",
+    META: "meta",
+  },
+  BLOCK_TYPE: {
+    CHART: "chart",
+    TABLE: "table",
+  },
+} as const;
+
 export const AI_CHAT_LIMITS = {
   TITLE_MAX_LENGTH: 50,
-  SIDEBAR_TITLE_TRUNCATE: 30,
-  SIDEBAR_DESC_TRUNCATE: 40,
   CHAT_INPUT_MIN_ROWS: 1,
   CHAT_INPUT_MAX_ROWS: 6,
   COPY_TOOLTIP_TIMEOUT_MS: 2000,

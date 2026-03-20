@@ -1,6 +1,9 @@
 import { ChatRole } from "../../types/chat";
 
 export interface AiSessionMessage {
+  /** ADK persisted event id when provided by pulse_ai (session history). */
+  id?: string;
+  invocation_id?: string;
   role: ChatRole;
   text: string;
   charts: Array<{

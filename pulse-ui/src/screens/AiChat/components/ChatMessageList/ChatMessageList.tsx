@@ -15,6 +15,8 @@ export const ChatMessageList = ({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  if (!messages) return null;
+
   if (messages.length === 0) {
     return <EmptyState onSelectSuggestion={onSelectSuggestion} />;
   }

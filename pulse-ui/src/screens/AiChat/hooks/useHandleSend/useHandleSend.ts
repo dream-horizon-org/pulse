@@ -15,6 +15,7 @@ export const useHandleSend = () => {
     updateLastMessageTables,
     markLastMessageComplete,
     markLastMessageError,
+    patchLastMessageIdByRole,
     updateSessionTitle,
     setStreaming,
     setError,
@@ -57,6 +58,14 @@ export const useHandleSend = () => {
 
       const sid = activeSessionId;
       sendMessage(sid, text, {
+        onMeta: ({ userEventId, assistantEventId }) => {
+          if (userEventId) {
+            patchLastMessageIdByRole(sid, "user", userEventId);
+          }
+          if (assistantEventId) {
+            patchLastMessageIdByRole(sid, "model", assistantEventId);
+          }
+        },
         onToken: (token) => {
           appendToLastMessage(sid, token);
         },
@@ -86,6 +95,7 @@ export const useHandleSend = () => {
       updateLastMessageTables,
       markLastMessageComplete,
       markLastMessageError,
+      patchLastMessageIdByRole,
       updateSessionTitle,
       setStreaming,
       setError,

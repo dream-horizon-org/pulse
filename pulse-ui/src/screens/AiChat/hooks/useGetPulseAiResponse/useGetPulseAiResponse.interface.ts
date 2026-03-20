@@ -5,11 +5,18 @@ export interface ContentBlock {
   [key: string]: unknown;
 }
 
+export interface StreamMetaPayload {
+  userEventId?: string;
+  assistantEventId?: string;
+  invocationId?: string;
+}
+
 export interface StreamingCallbacks {
   onToken: (token: string) => void;
   onCharts: (charts: AiChartConfig[]) => void;
   onTables: (tables: AiTableConfig[]) => void;
   onContentBlocks?: (blocks: ContentBlock[]) => void;
+  onMeta?: (payload: StreamMetaPayload) => void;
   onComplete: () => void;
   onError: (message: string) => void;
 }

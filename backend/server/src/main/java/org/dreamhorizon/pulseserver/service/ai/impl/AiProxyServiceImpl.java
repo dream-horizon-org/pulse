@@ -1,8 +1,6 @@
 package org.dreamhorizon.pulseserver.service.ai.impl;
 
 import com.google.inject.Inject;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.StreamingOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -16,9 +14,12 @@ import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
+import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 
 /**
  * HTTP client implementation for forwarding requests to the Pulse AI service.
+ * Returns {@link AiProxyUpstreamResult} (no JAX-RS types); the controller maps to
+ * {@link jakarta.ws.rs.core.Response}.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
@@ -29,8 +30,6 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-  private static final int STREAM_BUFFER_SIZE = 1024;
-  private static final int HTTP_BAD_GATEWAY = 502;
 
   private final HttpClient httpClient;
   private final String aiServiceUrl;
@@ -56,7 +55,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   }
 
   @Override
-  public CompletionStage<Response> proxy(
+  public CompletionStage<AiProxyUpstreamResult> proxy(
       String method,
       String path,
       String rawQuery,
@@ -121,69 +120,42 @@ public class AiProxyServiceImpl implements AiProxyService {
     }
   }
 
-  private CompletionStage<Response> executeProxy(HttpRequest request) {
+  private CompletionStage<AiProxyUpstreamResult> executeProxy(HttpRequest request) {
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-        .thenApply(this::buildResponse)
+        .thenApply(this::buildResult)
         .exceptionally(ex -> {
           log.error("AI proxy error for {}: {}", request.uri(), ex.getMessage());
-          return badGatewayResponse();
+          return AiProxyUpstreamResult.badGateway();
         });
   }
 
-  private Response buildResponse(HttpResponse<InputStream> response) {
+  private AiProxyUpstreamResult buildResult(HttpResponse<InputStream> response) {
     String contentType = response.headers()
         .firstValue("Content-Type")
         .orElse(CONTENT_TYPE_JSON);
 
     boolean isSse = contentType.contains(CONTENT_TYPE_SSE);
     if (isSse) {
-      return buildStreamingResponse(response, contentType);
+      return buildStreamingResult(response, contentType);
     }
-    return buildBufferedResponse(response, contentType);
+    return buildBufferedResult(response, contentType);
   }
 
-  private Response buildStreamingResponse(HttpResponse<InputStream> response, String contentType) {
-    InputStream body = response.body();
-    StreamingOutput stream = output -> pipeStream(body, output, STREAM_BUFFER_SIZE);
-
-    return Response.status(response.statusCode())
-        .entity(stream)
-        .type(contentType)
-        .build();
+  private AiProxyUpstreamResult buildStreamingResult(
+      HttpResponse<InputStream> response, String contentType) {
+    return AiProxyUpstreamResult.streaming(
+        response.statusCode(), contentType, response.body());
   }
 
-  /**
-   * Copies bytes from an input stream to a streaming JAX-RS output.
-   */
-  static void pipeStream(InputStream body, java.io.OutputStream output, int bufferSize)
-      throws IOException {
-    try (InputStream is = body) {
-      byte[] buf = new byte[bufferSize];
-      int bytesRead;
-      while ((bytesRead = is.read(buf)) != -1) {
-        output.write(buf, 0, bytesRead);
-        output.flush();
-      }
-    }
-  }
-
-  private Response buildBufferedResponse(HttpResponse<InputStream> response, String contentType) {
+  private AiProxyUpstreamResult buildBufferedResult(
+      HttpResponse<InputStream> response, String contentType) {
     try (InputStream is = response.body()) {
       String responseBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-      return Response.status(response.statusCode())
-          .entity(responseBody)
-          .type(contentType)
-          .build();
+      return AiProxyUpstreamResult.buffered(
+          response.statusCode(), contentType, responseBody);
     } catch (IOException e) {
       log.error("Failed to read AI service response: {}", e.getMessage());
-      return badGatewayResponse();
+      return AiProxyUpstreamResult.badGateway();
     }
-  }
-
-  private Response badGatewayResponse() {
-    return Response.status(HTTP_BAD_GATEWAY)
-        .entity("{\"error\":\"AI service unavailable\"}")
-        .type(CONTENT_TYPE_JSON)
-        .build();
   }
 }

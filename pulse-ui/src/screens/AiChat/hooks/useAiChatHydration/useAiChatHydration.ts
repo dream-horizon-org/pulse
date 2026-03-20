@@ -1,9 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
-import { v4 as uuidV4 } from "uuid";
+import { COOKIES_KEY } from "../../../../constants";
+import { getCookies } from "../../../../helpers/cookies";
 import { useChatStore } from "../../../../stores/useChatStore";
 import { useCreateUserAiSession } from "../useCreateUserAiSession";
 import { useGetAiSessions } from "../useGetAiSessions";
 import { useGetAiSessionHistory } from "../useGetAiSessionHistory";
+import type { AiSessionListItem } from "../useGetAiSessions";
 import {
   AiChartConfig,
   AiTableConfig,
@@ -24,18 +27,25 @@ export const useAiChatHydration = () => {
     setMessages,
     updateSessionTitle,
     setError,
+    error,
   } = useChatStore();
 
-  const { mutate: createAdkSession } = useCreateUserAiSession((_data, err) => {
-    if (err) setError(AI_CHAT_TEXTS.ERROR_GENERIC);
-  });
+  const queryClient = useQueryClient();
+  const userId = getCookies(COOKIES_KEY.USER_EMAIL) || "anonymous";
+
+  const { mutateAsync: createSessionOnServer, isPending: isCreatingSession } =
+    useCreateUserAiSession((_data, err) => {
+      if (err) setError(AI_CHAT_TEXTS.SESSION_CREATE_FAILED);
+    });
 
   const hydratedRef = useRef<Set<string>>(new Set());
+  const sessionsHydratedRef = useRef(false);
 
   const {
     data: sessionsData,
     isLoading: isLoadingSessions,
     isError: isSessionsError,
+    refetchSessions,
   } = useGetAiSessions();
 
   const shouldFetchHistory =
@@ -44,68 +54,146 @@ export const useAiChatHydration = () => {
     shouldFetchHistory ? activeSessionId : null,
   );
 
-  const handleNewChat = useCallback(() => {
-    const sessionId = uuidV4();
+  const prependSessionToQueryCache = useCallback(
+    (row: AiSessionListItem) => {
+      queryClient.setQueryData<AiSessionListItem[]>(
+        ["ai-sessions", userId],
+        (prev) => [row, ...(prev ?? [])],
+      );
+    },
+    [queryClient, userId],
+  );
+
+  const createLocalSessionFromServer = useCallback(async () => {
+    const data = await createSessionOnServer({});
+    const nowSec = Math.floor(Date.now() / 1000);
+    const listRow: AiSessionListItem = {
+      id: data.session_id,
+      user_id: data.user_id,
+      title: AI_CHAT_TEXTS.NEW_CONVERSATION,
+      last_update_time: nowSec,
+    };
+    prependSessionToQueryCache(listRow);
     const session: ChatSession = {
-      id: sessionId,
+      id: data.session_id,
       title: AI_CHAT_TEXTS.NEW_CONVERSATION,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
     createSession(session);
-    createAdkSession({ sessionId });
-    hydratedRef.current.add(sessionId);
-  }, [createSession, createAdkSession]);
+    hydratedRef.current.add(data.session_id);
+    return data;
+  }, [createSession, createSessionOnServer, prependSessionToQueryCache]);
+
+  const handleNewChat = useCallback(async () => {
+    try {
+      await createLocalSessionFromServer();
+    } catch {
+      // onSettled already surfaces ERROR_GENERIC
+    }
+  }, [createLocalSessionFromServer]);
+
+  const onRetrySessions = useCallback(() => {
+    setError(null);
+    void refetchSessions();
+  }, [refetchSessions, setError]);
 
   useEffect(() => {
-    if (isLoadingSessions) return;
-
-    if (isSessionsError) {
-      if (sessions.length === 0) handleNewChat();
-      return;
+    if (!isSessionsError && error === AI_CHAT_TEXTS.SESSIONS_LOAD_FAILED) {
+      setError(null);
     }
+  }, [isSessionsError, error, setError]);
 
-    if (!sessionsData || hydratedRef.current.has("__sessions__")) return;
-    hydratedRef.current.add("__sessions__");
-
-    if (sessionsData.length === 0) {
-      if (sessions.length === 0) handleNewChat();
-      return;
+  useEffect(() => {
+    if (!isLoadingSessions && isSessionsError) {
+      setError(AI_CHAT_TEXTS.SESSIONS_LOAD_FAILED);
     }
+  }, [isLoadingSessions, isSessionsError, setError]);
 
-    const mapped: ChatSession[] = sessionsData.map((s) => ({
-      id: s.id,
-      title: s.title || AI_CHAT_TEXTS.NEW_CONVERSATION,
-      createdAt: toMs(s.last_update_time),
-      updatedAt: toMs(s.last_update_time),
-    }));
-    setSessions(mapped);
-    switchSession(mapped[0].id);
-  }, [sessionsData, isLoadingSessions, isSessionsError]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (isLoadingSessions) return;
+
+      if (isSessionsError) return;
+
+      if (!sessionsData || sessionsHydratedRef.current) return;
+
+      if (sessionsData.length === 0 && sessions.length === 0) {
+        try {
+          await createLocalSessionFromServer();
+          if (cancelled) return;
+          sessionsHydratedRef.current = true;
+        } catch {
+          if (!cancelled) sessionsHydratedRef.current = true;
+        }
+        return;
+      }
+
+      if (sessionsData.length === 0) {
+        sessionsHydratedRef.current = true;
+        return;
+      }
+
+      sessionsHydratedRef.current = true;
+      const mapped: ChatSession[] = sessionsData.map((s) => ({
+        id: s.id,
+        title: s.title || AI_CHAT_TEXTS.NEW_CONVERSATION,
+        createdAt: toMs(s.last_update_time),
+        updatedAt: toMs(s.last_update_time),
+      }));
+      setSessions(mapped);
+      switchSession(mapped[0].id);
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    sessionsData,
+    isLoadingSessions,
+    isSessionsError,
+    sessions.length,
+    createLocalSessionFromServer,
+    setSessions,
+    switchSession,
+  ]);
 
   useEffect(() => {
     if (!historyData || !activeSessionId) return;
     if (hydratedRef.current.has(activeSessionId)) return;
     hydratedRef.current.add(activeSessionId);
 
-    const mapped: ChatMessage[] = historyData.messages.map((m, i) => ({
-      id: `restored-${i}`,
+    const rawMessages = historyData.messages ?? [];
+    const mapped: ChatMessage[] = rawMessages.map((m, i) => ({
+      id: typeof m.id === "string" && m.id.length > 0 ? m.id : `restored-${i}`,
       role: m.role as ChatRole,
-      text: m.text,
+      text: m.text ?? "",
       charts: m.charts?.length ? (m.charts as AiChartConfig[]) : undefined,
       tables: m.tables?.length ? (m.tables as AiTableConfig[]) : undefined,
       timestamp: toMs(historyData.last_update_time),
     }));
     setMessages(activeSessionId, mapped);
 
-    const firstUserMsg = historyData.messages.find((m) => m.role === "user");
+    const firstUserMsg = rawMessages.find((m) => m.role === "user");
     if (firstUserMsg) {
       updateSessionTitle(
         activeSessionId,
-        firstUserMsg.text.slice(0, AI_CHAT_LIMITS.TITLE_MAX_LENGTH),
+        (firstUserMsg.text ?? "").slice(0, AI_CHAT_LIMITS.TITLE_MAX_LENGTH),
       );
     }
   }, [historyData, activeSessionId, setMessages, updateSessionTitle]);
 
-  return { handleNewChat, isLoadingSessions };
+  return {
+    handleNewChat,
+    isLoadingSessions,
+    isSessionsError,
+    onRetrySessions,
+    isCreatingSession,
+    sessionsErrorMessage: isSessionsError
+      ? AI_CHAT_TEXTS.SESSIONS_LOAD_FAILED
+      : null,
+  };
 };

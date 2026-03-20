@@ -1,6 +1,5 @@
 package org.dreamhorizon.pulseserver.service.ai;
 
-import jakarta.ws.rs.core.Response;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -18,7 +17,7 @@ public interface AiProxyService {
    * @param authorization Full Authorization header value (e.g. Bearer token)
    * @param projectId     X-Project-ID header value, or null if absent
    */
-  CompletionStage<Response> proxy(
+  CompletionStage<AiProxyUpstreamResult> proxy(
       String method,
       String path,
       String rawQuery,

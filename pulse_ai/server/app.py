@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from pulse_ai.agent import root_agent
 from pulse_ai.constants import APP_NAME, DEFAULT_CORS_ORIGINS
 from pulse_ai.server.middleware import AuthMiddleware
+from pulse_ai.server.session_scope_store import create_session_scope_store
 
 load_dotenv()
 
@@ -55,6 +56,7 @@ app.add_middleware(
 )
 
 session_service = _create_session_service()
+session_scope_store = create_session_scope_store(os.getenv("SESSION_DB_URL"))
 
 runner = Runner(
     agent=root_agent,

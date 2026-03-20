@@ -1,5 +1,6 @@
 import { ChatMessage } from "../../types/chat";
 
 export interface ChatMessageProps {
-  message: ChatMessage;
+  /** When missing (e.g. bad list data), renders nothing. */
+  message?: ChatMessage | null;
 }
