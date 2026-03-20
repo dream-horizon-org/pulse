@@ -54,6 +54,10 @@ export const useAiChatHydration = () => {
     shouldFetchHistory ? activeSessionId : null,
   );
 
+  /**
+   * Optimistic list sync: server is source of truth for `session_id`, but we prepend the
+   * new row into React Query immediately so the sidebar updates without waiting for refetch.
+   */
   const prependSessionToQueryCache = useCallback(
     (row: AiSessionListItem) => {
       queryClient.setQueryData<AiSessionListItem[]>(
@@ -64,6 +68,10 @@ export const useAiChatHydration = () => {
     [queryClient, userId],
   );
 
+  /**
+   * Creates session on pulse_ai (via proxy), then syncs React Query cache + Zustand so the
+   * UI shows the new thread immediately; server remains source of truth for `session_id`.
+   */
   const createLocalSessionFromServer = useCallback(async () => {
     const data = await createSessionOnServer({});
     const nowSec = Math.floor(Date.now() / 1000);

@@ -1,5 +1,10 @@
 package org.dreamhorizon.pulseserver.resources.v1.ai;
 
+import static org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyResponseSupport.DEFAULT_STREAM_BUFFER_SIZE;
+import static org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyResponseSupport.rawQuery;
+import static org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyResponseSupport.readBodyUtf8;
+import static org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyResponseSupport.toJaxRsResponse;
+
 import com.dream11.rest.annotation.Timeout;
 import com.google.inject.Inject;
 import jakarta.ws.rs.DELETE;
@@ -12,23 +17,19 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriInfo;
-import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
-import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 
 /**
  * JAX-RS controller for the Pulse AI reverse proxy. Authenticates via JWT and delegates
- * upstream calls to {@link AiProxyService}. Maps {@link AiProxyUpstreamResult} to JAX-RS
- * {@link Response}, including {@link StreamingOutput} for SSE streaming.
+ * upstream calls to {@link AiProxyService}. Maps upstream results to JAX-RS
+ * {@link Response}, including {@link jakarta.ws.rs.core.StreamingOutput} for SSE streaming.
  * All methods require {@code can_view} on the project ({@code X-Project-ID}); enforced by
  * {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter}.
  */
@@ -41,7 +42,6 @@ public class AiProxyController {
 
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
-  private static final int STREAM_BUFFER_SIZE = 1024;
 
   private final JwtService jwtService;
   private final AiProxyService aiProxyService;
@@ -56,7 +56,7 @@ public class AiProxyController {
     validateAuth(authorization);
     return aiProxyService
         .proxy("GET", path, rawQuery(uriInfo), null, authorization, projectId)
-        .thenApply(this::toJaxRsResponse);
+        .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
   }
 
   @POST
@@ -68,10 +68,10 @@ public class AiProxyController {
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
-    String body = readBodySafe(bodyStream);
+    String body = readBodyUtf8(bodyStream);
     return aiProxyService
         .proxy("POST", path, rawQuery(uriInfo), body, authorization, projectId)
-        .thenApply(this::toJaxRsResponse);
+        .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
   }
 
   @PUT
@@ -83,10 +83,10 @@ public class AiProxyController {
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     validateAuth(authorization);
-    String body = readBodySafe(bodyStream);
+    String body = readBodyUtf8(bodyStream);
     return aiProxyService
         .proxy("PUT", path, rawQuery(uriInfo), body, authorization, projectId)
-        .thenApply(this::toJaxRsResponse);
+        .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
   }
 
   @DELETE
@@ -99,41 +99,7 @@ public class AiProxyController {
     validateAuth(authorization);
     return aiProxyService
         .proxy("DELETE", path, rawQuery(uriInfo), null, authorization, projectId)
-        .thenApply(this::toJaxRsResponse);
-  }
-
-  private Response toJaxRsResponse(AiProxyUpstreamResult result) {
-    if (result.isBuffered()) {
-      return Response.status(result.getStatusCode())
-          .entity(result.getBufferedBody())
-          .type(result.getMediaType())
-          .build();
-    }
-    InputStream body = result.getStreamBody();
-    StreamingOutput stream = output -> pipeStream(body, output, STREAM_BUFFER_SIZE);
-    return Response.status(result.getStatusCode())
-        .entity(stream)
-        .type(result.getMediaType())
-        .build();
-  }
-
-  /**
-   * Copies bytes from an input stream to a streaming JAX-RS output (SSE / chunked).
-   */
-  private static void pipeStream(InputStream body, java.io.OutputStream output, int bufferSize)
-      throws IOException {
-    try (InputStream is = body) {
-      byte[] buf = new byte[bufferSize];
-      int bytesRead;
-      while ((bytesRead = is.read(buf)) != -1) {
-        output.write(buf, 0, bytesRead);
-        output.flush();
-      }
-    }
-  }
-
-  private static String rawQuery(UriInfo uriInfo) {
-    return uriInfo.getRequestUri().getRawQuery();
+        .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
   }
 
   private void validateAuth(String authorization) {
@@ -153,20 +119,6 @@ public class AiProxyController {
     } catch (Exception e) {
       log.debug("JWT verification failed: {}", e.getMessage());
       throw new WebApplicationException("Invalid or expired token", 401);
-    }
-  }
-
-  private String readBodySafe(InputStream bodyStream) {
-    if (bodyStream == null) {
-      return null;
-    }
-    try {
-      byte[] bytes = bodyStream.readAllBytes();
-      boolean isEmpty = bytes.length == 0;
-      return isEmpty ? null : new String(bytes, StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      log.debug("Failed to read request body: {}", e.getMessage());
-      return null;
     }
   }
 }
