@@ -20,7 +20,7 @@ public class PeriodicSyncService {
   
   private static final long USAGE_LIMITS_INTERVAL_SECONDS = 5; // 5 seconds
   private static final long API_KEYS_INTERVAL_SECONDS = 10 * 60; // 10 minutes
-  private static final long NOTIFICATION_INTERVAL_SECONDS =  60; // 1 hour
+  private static final long NOTIFICATION_INTERVAL_SECONDS =  24 * 60 * 60; // 24 hours
 
   @Inject
   public PeriodicSyncService(Vertx vertx, WebClient webClient, ApplicationConfig config) {
