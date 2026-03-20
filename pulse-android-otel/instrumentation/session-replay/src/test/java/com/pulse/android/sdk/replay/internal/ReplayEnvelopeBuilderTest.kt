@@ -1,6 +1,9 @@
 package com.pulse.android.sdk.replay.internal
 
-import com.google.gson.JsonParser
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -19,15 +22,12 @@ class ReplayEnvelopeBuilderTest {
         assertThat(json).contains("proj-1")
         assertThat(json).contains("user-1")
         assertThat(json).contains("android")
-        val obj = JsonParser.parseString(json).asJsonObject
-        assertThat(obj.get("event").asJsonPrimitive.asString).isEqualTo("snapshot")
+        val obj = Json.parseToJsonElement(json).jsonObject
+        assertThat(obj["event"]!!.jsonPrimitive.content).isEqualTo("snapshot")
         assertThat(
-            obj
-                .getAsJsonObject("properties")
-                .get("session_id")
-                .asJsonPrimitive.asString,
+            obj["properties"]!!.jsonObject["session_id"]!!.jsonPrimitive.content,
         ).isEqualTo("sid-123")
-        assertThat(obj.getAsJsonObject("properties").has("snapshot_data")).isTrue()
+        assertThat(obj["properties"]!!.jsonObject.containsKey("snapshot_data")).isTrue()
     }
 
     @Test
@@ -40,11 +40,7 @@ class ReplayEnvelopeBuilderTest {
                 userId = "",
             )
         assertThat(
-            JsonParser
-                .parseString(json)
-                .asJsonObject
-                .get("user_id")
-                .asJsonPrimitive.asString,
+            Json.parseToJsonElement(json).jsonObject["user_id"]!!.jsonPrimitive.content,
         ).isEqualTo("anonymous")
     }
 

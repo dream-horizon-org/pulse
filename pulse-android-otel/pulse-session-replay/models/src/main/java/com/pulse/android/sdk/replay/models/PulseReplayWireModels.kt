@@ -1,54 +1,72 @@
 package com.pulse.android.sdk.replay.models
 
-import androidx.annotation.Keep
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonSerializer
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
-/** Gson instance for serializing [PulseReplayEnvelope] and nested wire types. */
-@Keep
-public object PulseReplayGson {
-    public val instance: Gson =
-        GsonBuilder()
-            .registerTypeAdapter(
-                PulseReplayEventData::class.java,
-                JsonSerializer<PulseReplayEventData> { src, _, context ->
-                    context.serialize(src, src::class.java)
-                },
-            ).create()
+/** kotlinx.serialization Json instance for serializing [PulseReplayEnvelope] and nested wire types. */
+public object PulseReplayJson {
+    public val instance: Json = Json {
+        encodeDefaults = false
+        explicitNulls = false
+    }
 }
 
-@Keep
+@Serializable
 public data class PulseReplaySnapshotEvent(
     public val type: Int,
     public val timestamp: Long,
     public val data: PulseReplayEventData? = null,
 )
 
-@Keep
+@Serializable(with = PulseReplayEventDataSerializer::class)
 public sealed class PulseReplayEventData
 
-@Keep
+internal object PulseReplayEventDataSerializer : KSerializer<PulseReplayEventData> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("PulseReplayEventData")
+
+    override fun serialize(encoder: Encoder, value: PulseReplayEventData) {
+        when (value) {
+            is PulseReplayMetaData -> PulseReplayMetaData.serializer().serialize(encoder, value)
+            is PulseReplayFullSnapshotData -> PulseReplayFullSnapshotData.serializer().serialize(encoder, value)
+            is PulseReplayIncrementalMutationData -> PulseReplayIncrementalMutationData.serializer().serialize(encoder, value)
+            is PulseReplayMouseInteractionData -> PulseReplayMouseInteractionData.serializer().serialize(encoder, value)
+            is PulseReplayCustomEventData -> PulseReplayCustomEventData.serializer().serialize(encoder, value)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): PulseReplayEventData {
+        throw UnsupportedOperationException("Deserialization of PulseReplayEventData is not supported")
+    }
+}
+
+@Serializable
 public data class PulseReplayMetaData(
     public val href: String,
     public val width: Int,
     public val height: Int,
 ) : PulseReplayEventData()
 
-@Keep
+@Serializable
 public data class PulseReplayFullSnapshotData(
     public val wireframes: List<PulseReplayWireframe>,
     public val initialOffset: PulseReplayOffset,
 ) : PulseReplayEventData()
 
-@Keep
+@Serializable
 public data class PulseReplayOffset(
     public val top: Int,
     public val left: Int,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayIncrementalMutationData(
     public val source: Int,
     public val adds: List<PulseReplayMutatedNode>? = null,
@@ -56,19 +74,19 @@ public data class PulseReplayIncrementalMutationData(
     public val updates: List<PulseReplayMutatedNode>? = null,
 ) : PulseReplayEventData()
 
-@Keep
+@Serializable
 public data class PulseReplayMutatedNode(
     public val parentId: Int?,
     public val wireframe: PulseReplayWireframe,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayRemovedNode(
     public val id: Int,
     public val parentId: Int? = null,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayMouseInteractionData(
     public val id: Int,
     public val type: Int,
@@ -79,7 +97,7 @@ public data class PulseReplayMouseInteractionData(
     public val positions: List<PulseReplayMousePosition>? = null,
 ) : PulseReplayEventData()
 
-@Keep
+@Serializable
 public data class PulseReplayMousePosition(
     public val x: Int,
     public val y: Int,
@@ -87,13 +105,13 @@ public data class PulseReplayMousePosition(
     public val timeOffset: Long? = null,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayCustomEventData(
     public val tag: String,
-    public val payload: Map<String, Any>,
+    public val payload: JsonObject,
 ) : PulseReplayEventData()
 
-@Keep
+@Serializable
 public data class PulseReplayWireframe(
     public val id: Int,
     public val x: Int,
@@ -104,9 +122,9 @@ public data class PulseReplayWireframe(
     public val text: String? = null,
     public val base64: String? = null,
     public val inputType: String? = null,
-    public val value: Any? = null,
-    @SerializedName("disabled") public val isDisabled: Boolean? = null,
-    @SerializedName("checked") public val isChecked: Boolean? = null,
+    public val value: JsonElement? = null,
+    @SerialName("disabled") public val isDisabled: Boolean? = null,
+    @SerialName("checked") public val isChecked: Boolean? = null,
     public val label: String? = null,
     public val parentId: Int? = null,
     public val max: Int? = null,
@@ -115,7 +133,7 @@ public data class PulseReplayWireframe(
     public val options: List<String>? = null,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayStyle(
     public val color: String? = null,
     public val backgroundColor: String? = null,
@@ -136,17 +154,17 @@ public data class PulseReplayStyle(
     public val iconRight: String? = null,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayEnvelope(
     public val event: String,
-    @SerializedName("project_id") public val projectId: String,
-    @SerializedName("user_id") public val userId: String,
+    @SerialName("project_id") public val projectId: String,
+    @SerialName("user_id") public val userId: String,
     public val properties: PulseReplayEnvelopeProperties,
 )
 
-@Keep
+@Serializable
 public data class PulseReplayEnvelopeProperties(
-    @SerializedName("session_id") public val sessionId: String,
-    @SerializedName("snapshot_data") public val snapshotData: List<PulseReplaySnapshotEvent>,
-    @SerializedName("snapshot_source") public val snapshotSource: String,
+    @SerialName("session_id") public val sessionId: String,
+    @SerialName("snapshot_data") public val snapshotData: List<PulseReplaySnapshotEvent>,
+    @SerialName("snapshot_source") public val snapshotSource: String,
 )

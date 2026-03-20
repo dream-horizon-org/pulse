@@ -1,6 +1,5 @@
 package com.pulse.android.sdk.replay.encoding
 
-import com.google.gson.JsonParser
 import com.pulse.android.sdk.replay.events.ReplayCustomEvent
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayEventType
@@ -15,6 +14,13 @@ import com.pulse.android.sdk.replay.events.ReplayMutatedNode
 import com.pulse.android.sdk.replay.events.ReplayRemovedNode
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -29,15 +35,15 @@ class ReplayEventPayloadEncoderTest {
     fun `encodeToJson with MetaEvent has correct type and data fields`() {
         val event = ReplayMetaEvent(width = 1080, height = 1920, timestamp = 1000L, href = "https://example.com")
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
-        val arr = JsonParser.parseString(result).asJsonArray
-        assertThat(arr.size()).isEqualTo(1)
-        val obj = arr.get(0).asJsonObject
-        assertThat(obj.get("type").asJsonPrimitive.asInt).isEqualTo(4)
-        assertThat(obj.get("timestamp").asJsonPrimitive.asLong).isEqualTo(1000L)
-        val data = obj.getAsJsonObject("data")
-        assertThat(data.get("href").asJsonPrimitive.asString).isEqualTo("https://example.com")
-        assertThat(data.get("width").asJsonPrimitive.asInt).isEqualTo(1080)
-        assertThat(data.get("height").asJsonPrimitive.asInt).isEqualTo(1920)
+        val arr = Json.parseToJsonElement(result).jsonArray
+        assertThat(arr.size).isEqualTo(1)
+        val obj = arr[0].jsonObject
+        assertThat(obj["type"]!!.jsonPrimitive.int).isEqualTo(4)
+        assertThat(obj["timestamp"]!!.jsonPrimitive.long).isEqualTo(1000L)
+        val data = obj["data"]!!.jsonObject
+        assertThat(data["href"]!!.jsonPrimitive.content).isEqualTo("https://example.com")
+        assertThat(data["width"]!!.jsonPrimitive.int).isEqualTo(1080)
+        assertThat(data["height"]!!.jsonPrimitive.int).isEqualTo(1920)
     }
 
     @Test
@@ -45,18 +51,18 @@ class ReplayEventPayloadEncoderTest {
         val wireframe = ReplayWireframe(id = 1, x = 0, y = 0, width = 100, height = 50)
         val event = ReplayFullSnapshotEvent(wireframes = listOf(wireframe), initialOffsetTop = 0, initialOffsetLeft = 0, timestamp = 2000L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
-        val arr = JsonParser.parseString(result).asJsonArray
-        val obj = arr.get(0).asJsonObject
-        assertThat(obj.get("type").asJsonPrimitive.asInt).isEqualTo(2)
-        val data = obj.getAsJsonObject("data")
-        val wireframes = data.getAsJsonArray("wireframes")
-        assertThat(wireframes.size()).isEqualTo(1)
-        val wf = wireframes.get(0).asJsonObject
-        assertThat(wf.get("id").asJsonPrimitive.asInt).isEqualTo(1)
-        assertThat(wf.get("x").asJsonPrimitive.asInt).isEqualTo(0)
-        assertThat(wf.get("y").asJsonPrimitive.asInt).isEqualTo(0)
-        assertThat(wf.get("width").asJsonPrimitive.asInt).isEqualTo(100)
-        assertThat(wf.get("height").asJsonPrimitive.asInt).isEqualTo(50)
+        val arr = Json.parseToJsonElement(result).jsonArray
+        val obj = arr[0].jsonObject
+        assertThat(obj["type"]!!.jsonPrimitive.int).isEqualTo(2)
+        val data = obj["data"]!!.jsonObject
+        val wireframes = data["wireframes"]!!.jsonArray
+        assertThat(wireframes.size).isEqualTo(1)
+        val wf = wireframes[0].jsonObject
+        assertThat(wf["id"]!!.jsonPrimitive.int).isEqualTo(1)
+        assertThat(wf["x"]!!.jsonPrimitive.int).isEqualTo(0)
+        assertThat(wf["y"]!!.jsonPrimitive.int).isEqualTo(0)
+        assertThat(wf["width"]!!.jsonPrimitive.int).isEqualTo(100)
+        assertThat(wf["height"]!!.jsonPrimitive.int).isEqualTo(50)
     }
 
     @Test
@@ -74,27 +80,21 @@ class ReplayEventPayloadEncoderTest {
             )
         val event = ReplayIncrementalSnapshotEvent(mutationData = mutationData, timestamp = 3000L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
-        val arr = JsonParser.parseString(result).asJsonArray
-        val obj = arr.get(0).asJsonObject
-        assertThat(obj.get("type").asJsonPrimitive.asInt).isEqualTo(3)
-        val data = obj.getAsJsonObject("data")
-        val adds = data.getAsJsonArray("adds")
-        assertThat(adds.size()).isEqualTo(1)
-        val addWireframe = adds.get(0).asJsonObject.getAsJsonObject("wireframe")
-        assertThat(addWireframe.get("id").asJsonPrimitive.asInt).isEqualTo(10)
-        val removes = data.getAsJsonArray("removes")
-        assertThat(removes.size()).isEqualTo(1)
-        assertThat(
-            removes
-                .get(0)
-                .asJsonObject
-                .get("id")
-                .asJsonPrimitive.asInt,
-        ).isEqualTo(99)
-        val updates = data.getAsJsonArray("updates")
-        assertThat(updates.size()).isEqualTo(1)
-        val updateWireframeJson = updates.get(0).asJsonObject.getAsJsonObject("wireframe")
-        assertThat(updateWireframeJson.get("id").asJsonPrimitive.asInt).isEqualTo(20)
+        val arr = Json.parseToJsonElement(result).jsonArray
+        val obj = arr[0].jsonObject
+        assertThat(obj["type"]!!.jsonPrimitive.int).isEqualTo(3)
+        val data = obj["data"]!!.jsonObject
+        val adds = data["adds"]!!.jsonArray
+        assertThat(adds.size).isEqualTo(1)
+        val addWireframe = adds[0].jsonObject["wireframe"]!!.jsonObject
+        assertThat(addWireframe["id"]!!.jsonPrimitive.int).isEqualTo(10)
+        val removes = data["removes"]!!.jsonArray
+        assertThat(removes.size).isEqualTo(1)
+        assertThat(removes[0].jsonObject["id"]!!.jsonPrimitive.int).isEqualTo(99)
+        val updates = data["updates"]!!.jsonArray
+        assertThat(updates.size).isEqualTo(1)
+        val updateWireframeJson = updates[0].jsonObject["wireframe"]!!.jsonObject
+        assertThat(updateWireframeJson["id"]!!.jsonPrimitive.int).isEqualTo(20)
     }
 
     @Test
@@ -108,29 +108,29 @@ class ReplayEventPayloadEncoderTest {
             )
         val event = ReplayIncrementalMouseInteractionEvent(mouseInteractionData = mouseData, timestamp = 4000L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
-        val arr = JsonParser.parseString(result).asJsonArray
-        val obj = arr.get(0).asJsonObject
-        assertThat(obj.get("type").asJsonPrimitive.asInt).isEqualTo(3)
-        val data = obj.getAsJsonObject("data")
-        assertThat(data.get("id").asJsonPrimitive.asInt).isEqualTo(42)
-        assertThat(data.get("type").asJsonPrimitive.asInt).isEqualTo(7)
-        assertThat(data.get("x").asJsonPrimitive.asInt).isEqualTo(150)
-        assertThat(data.get("y").asJsonPrimitive.asInt).isEqualTo(200)
-        assertThat(data.get("source").asJsonPrimitive.asInt).isEqualTo(2)
+        val arr = Json.parseToJsonElement(result).jsonArray
+        val obj = arr[0].jsonObject
+        assertThat(obj["type"]!!.jsonPrimitive.int).isEqualTo(3)
+        val data = obj["data"]!!.jsonObject
+        assertThat(data["id"]!!.jsonPrimitive.int).isEqualTo(42)
+        assertThat(data["type"]!!.jsonPrimitive.int).isEqualTo(7)
+        assertThat(data["x"]!!.jsonPrimitive.int).isEqualTo(150)
+        assertThat(data["y"]!!.jsonPrimitive.int).isEqualTo(200)
+        assertThat(data["source"]!!.jsonPrimitive.int).isEqualTo(2)
     }
 
     @Test
     fun `encodeToJson with CustomEvent has tag and payload`() {
         val event = ReplayCustomEvent(tag = "keyboard_open", payload = mapOf("visible" to true, "count" to 3), timestamp = 5000L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
-        val arr = JsonParser.parseString(result).asJsonArray
-        val obj = arr.get(0).asJsonObject
-        assertThat(obj.get("type").asJsonPrimitive.asInt).isEqualTo(5)
-        val data = obj.getAsJsonObject("data")
-        assertThat(data.get("tag").asJsonPrimitive.asString).isEqualTo("keyboard_open")
-        val payload = data.getAsJsonObject("payload")
-        assertThat(payload.get("visible").asJsonPrimitive.asBoolean).isTrue()
-        assertThat(payload.get("count").asJsonPrimitive.asInt).isEqualTo(3)
+        val arr = Json.parseToJsonElement(result).jsonArray
+        val obj = arr[0].jsonObject
+        assertThat(obj["type"]!!.jsonPrimitive.int).isEqualTo(5)
+        val data = obj["data"]!!.jsonObject
+        assertThat(data["tag"]!!.jsonPrimitive.content).isEqualTo("keyboard_open")
+        val payload = data["payload"]!!.jsonObject
+        assertThat(payload["visible"]!!.jsonPrimitive.boolean).isTrue()
+        assertThat(payload["count"]!!.jsonPrimitive.int).isEqualTo(3)
     }
 
     @Test
@@ -140,17 +140,12 @@ class ReplayEventPayloadEncoderTest {
         val event = ReplayFullSnapshotEvent(wireframes = listOf(wireframe), initialOffsetTop = 0, initialOffsetLeft = 0, timestamp = 0L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
         val data =
-            JsonParser
-                .parseString(result)
-                .asJsonArray
-                .get(0)
-                .asJsonObject
-                .getAsJsonObject("data")
-        val wf = data.getAsJsonArray("wireframes").get(0).asJsonObject
-        val styleObj = wf.getAsJsonObject("style")
-        assertThat(styleObj.get("color").asJsonPrimitive.asString).isEqualTo("#333333")
-        assertThat(styleObj.get("backgroundColor").asJsonPrimitive.asString).isEqualTo("#ffffff")
-        assertThat(styleObj.get("fontSize").asJsonPrimitive.asInt).isEqualTo(14)
+            Json.parseToJsonElement(result).jsonArray[0].jsonObject["data"]!!.jsonObject
+        val wf = data["wireframes"]!!.jsonArray[0].jsonObject
+        val styleObj = wf["style"]!!.jsonObject
+        assertThat(styleObj["color"]!!.jsonPrimitive.content).isEqualTo("#333333")
+        assertThat(styleObj["backgroundColor"]!!.jsonPrimitive.content).isEqualTo("#ffffff")
+        assertThat(styleObj["fontSize"]!!.jsonPrimitive.int).isEqualTo(14)
     }
 
     @Test
@@ -160,19 +155,14 @@ class ReplayEventPayloadEncoderTest {
         val event = ReplayFullSnapshotEvent(wireframes = listOf(parent), initialOffsetTop = 0, initialOffsetLeft = 0, timestamp = 0L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
         val data =
-            JsonParser
-                .parseString(result)
-                .asJsonArray
-                .get(0)
-                .asJsonObject
-                .getAsJsonObject("data")
-        val parentWf = data.getAsJsonArray("wireframes").get(0).asJsonObject
-        assertThat(parentWf.get("id").asJsonPrimitive.asInt).isEqualTo(1)
-        val children = parentWf.getAsJsonArray("childWireframes")
-        assertThat(children.size()).isEqualTo(1)
-        val childWf = children.get(0).asJsonObject
-        assertThat(childWf.get("id").asJsonPrimitive.asInt).isEqualTo(2)
-        assertThat(childWf.get("x").asJsonPrimitive.asInt).isEqualTo(10)
+            Json.parseToJsonElement(result).jsonArray[0].jsonObject["data"]!!.jsonObject
+        val parentWf = data["wireframes"]!!.jsonArray[0].jsonObject
+        assertThat(parentWf["id"]!!.jsonPrimitive.int).isEqualTo(1)
+        val children = parentWf["childWireframes"]!!.jsonArray
+        assertThat(children.size).isEqualTo(1)
+        val childWf = children[0].jsonObject
+        assertThat(childWf["id"]!!.jsonPrimitive.int).isEqualTo(2)
+        assertThat(childWf["x"]!!.jsonPrimitive.int).isEqualTo(10)
     }
 
     @Test
@@ -180,9 +170,9 @@ class ReplayEventPayloadEncoderTest {
         val event =
             object : ReplayEvent(type = ReplayEventType.META, timestamp = 0L, data = null) {}
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
-        val arr = JsonParser.parseString(result).asJsonArray
-        val obj = arr.get(0).asJsonObject
-        assertThat(obj.get("type").asJsonPrimitive.asInt).isEqualTo(4)
-        assertThat(!obj.has("data") || obj.get("data").isJsonNull).isTrue()
+        val arr = Json.parseToJsonElement(result).jsonArray
+        val obj = arr[0].jsonObject
+        assertThat(obj["type"]!!.jsonPrimitive.int).isEqualTo(4)
+        assertThat(!obj.containsKey("data") || obj["data"] == null).isTrue()
     }
 }

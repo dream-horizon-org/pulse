@@ -73,7 +73,6 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 config = config,
                 eventEmitter = persistingEmitter,
                 sessionIdProvider = { ctx.sessionProvider.getSessionId() },
-                logger = {},
             )
         integration.install()
         integration.start(resumeCurrent = false)

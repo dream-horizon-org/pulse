@@ -10,7 +10,9 @@ import android.os.HandlerThread
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
+import android.os.Looper
 import androidx.annotation.RequiresApi
+import androidx.annotation.WorkerThread
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import com.pulse.android.sdk.replay.events.ReplayStyle
@@ -67,6 +69,7 @@ internal object ScreenshotCapture {
      * @param screenshotQuality WebP lossy quality 0–100. Lower = smaller size.
      */
     @RequiresApi(Build.VERSION_CODES.O)
+    @WorkerThread
     fun capture(
         window: Window,
         view: View,
@@ -79,6 +82,9 @@ internal object ScreenshotCapture {
         screenshotScale: Float = 1f,
         screenshotQuality: Int = 30,
     ): ReplayWireframe? {
+        check(Looper.myLooper() != Looper.getMainLooper()) {
+            "capture() must not be called on the main thread"
+        }
         if (isShutDown) return null
         if (!isVisible(view, logger)) return null
         if (view.width <= 0 || view.height <= 0) return null
@@ -125,6 +131,10 @@ internal object ScreenshotCapture {
             bitmap.recycle()
             logger("Session Replay PixelCopy request failed: $e")
             isSuccess = false
+        } finally {
+            // If PixelCopy.request() itself threw, the callback was never posted.
+            // Count down so latch.await() unblocks. If the callback already ran,
+            // CountDownLatch ignores redundant countdowns (count is already 0).
             latch.countDown()
         }
 
@@ -241,6 +251,7 @@ internal object ScreenshotCapture {
      * the integration to avoid blocking the replay queue for up to 1s per capture.
      */
     @RequiresApi(Build.VERSION_CODES.O)
+    @WorkerThread
     fun captureAsync(
         window: Window,
         view: View,

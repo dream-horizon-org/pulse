@@ -1,5 +1,8 @@
 package com.pulse.android.sdk.replay.internal.pipeline
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.view.View
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayFullSnapshotEvent
@@ -100,8 +103,15 @@ internal object SnapshotPipeline {
     }
 
     private fun View.getScreenTitle(): String =
-        (context as? android.app.Activity)
+        context.getActivity()
             ?.run {
                 title?.run { toString().substringAfter("/") }
             }.orEmpty()
 }
+
+private tailrec fun Context.getActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.getActivity()
+        else -> null
+    }

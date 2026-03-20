@@ -146,10 +146,7 @@ class MainActivity : ComponentActivity() {
 
                         LaunchedEffect(Unit) {
                             viewModel.networkMessage.collect { msg ->
-                                if (msg != null) {
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                    viewModel.clearNetworkMessage()
-                                }
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             }
                         }
 

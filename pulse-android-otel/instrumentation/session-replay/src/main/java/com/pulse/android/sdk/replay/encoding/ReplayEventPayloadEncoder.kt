@@ -12,8 +12,8 @@ import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.models.PulseReplayCustomEventData
 import com.pulse.android.sdk.replay.models.PulseReplayEventData
 import com.pulse.android.sdk.replay.models.PulseReplayFullSnapshotData
-import com.pulse.android.sdk.replay.models.PulseReplayGson
 import com.pulse.android.sdk.replay.models.PulseReplayIncrementalMutationData
+import com.pulse.android.sdk.replay.models.PulseReplayJson
 import com.pulse.android.sdk.replay.models.PulseReplayMetaData
 import com.pulse.android.sdk.replay.models.PulseReplayMouseInteractionData
 import com.pulse.android.sdk.replay.models.PulseReplayMousePosition
@@ -23,9 +23,16 @@ import com.pulse.android.sdk.replay.models.PulseReplayRemovedNode
 import com.pulse.android.sdk.replay.models.PulseReplaySnapshotEvent
 import com.pulse.android.sdk.replay.models.PulseReplayStyle
 import com.pulse.android.sdk.replay.models.PulseReplayWireframe
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 internal object ReplayEventPayloadEncoder {
-    fun encodeToJson(events: List<ReplayEvent>): String = PulseReplayGson.instance.toJson(toPulseReplayWireEvents(events))
+    fun encodeToJson(events: List<ReplayEvent>): String =
+        PulseReplayJson.instance.encodeToString(toPulseReplayWireEvents(events))
 
     internal fun toPulseReplayWireEvents(events: List<ReplayEvent>): List<PulseReplaySnapshotEvent> = events.map { it.toPulseReplayWire() }
 
@@ -58,7 +65,7 @@ internal object ReplayEventPayloadEncoder {
                 toPulseReplayMouseInteractionWire()
             }
             is ReplayCustomEventData -> {
-                PulseReplayCustomEventData(tag = tag, payload = payload)
+                PulseReplayCustomEventData(tag = tag, payload = payload.toJsonObject())
             }
         }
 
@@ -92,7 +99,7 @@ internal object ReplayEventPayloadEncoder {
             x = x,
             y = y,
             source = source.value,
-            pointerType = pointerType,
+            pointerType = pointerType.value,
             positions =
                 positions?.map {
                     PulseReplayMousePosition(
@@ -115,7 +122,7 @@ internal object ReplayEventPayloadEncoder {
             text = text,
             base64 = base64,
             inputType = inputType,
-            value = value,
+            value = value?.toJsonElement(),
             isDisabled = isDisabled,
             isChecked = isChecked,
             label = label,
@@ -146,4 +153,19 @@ internal object ReplayEventPayloadEncoder {
             iconLeft = iconLeft,
             iconRight = iconRight,
         )
+
+    private fun Map<String, Any>.toJsonObject(): JsonObject = buildJsonObject {
+        for ((key, value) in this@toJsonObject) {
+            put(key, value.toJsonElement())
+        }
+    }
+
+    private fun Any?.toJsonElement(): JsonElement =
+        when (this) {
+            null -> JsonNull
+            is Boolean -> JsonPrimitive(this)
+            is Number -> JsonPrimitive(this)
+            is String -> JsonPrimitive(this)
+            else -> JsonPrimitive(toString())
+        }
 }

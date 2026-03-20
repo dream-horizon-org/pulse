@@ -9,17 +9,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import java.net.HttpURLConnection
 import java.net.URL
 
 class DemoViewModel : ViewModel() {
     val sessionIdState = MutableStateFlow("? unknown ?")
-    private val _networkMessage = MutableStateFlow<String?>(null)
-    val networkMessage: StateFlow<String?> = _networkMessage.asStateFlow()
+    private val _networkMessage = MutableSharedFlow<String>()
+    val networkMessage: SharedFlow<String> = _networkMessage.asSharedFlow()
     private val tracer = OtelDemoApplication.tracer("otel.demo")!!
 
     init {
@@ -64,14 +65,11 @@ class DemoViewModel : ViewModel() {
                 connection.readTimeout = 10_000
                 val code = connection.responseCode
                 connection.disconnect()
-                _networkMessage.value = "Network call completed (HTTP $code)"
+                _networkMessage.emit("Network call completed (HTTP $code)")
             } catch (e: Exception) {
-                _networkMessage.value = "Network call failed: ${e.message}"
+                _networkMessage.emit("Network call failed: ${e.message}")
             }
         }
     }
 
-    fun clearNetworkMessage() {
-        _networkMessage.value = null
-    }
 }

@@ -17,6 +17,7 @@ import curtains.OnRootViewsChangedListener
 import curtains.onDecorViewReady
 import curtains.phoneWindow
 import curtains.windowAttachCount
+import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 import java.util.Collections
@@ -32,23 +33,17 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * @param sessionIdProvider Supplies the session ID for each batch (e.g. from RUM [SessionProvider]).
  *   Replay batches use this ID so they align with the same session as other telemetry.
- *   If null (standalone usage), a single UUID is generated and reused for this integration's lifetime.
  */
 public class SessionReplayIntegration(
     private val context: Context,
     private val config: SessionReplayConfig,
     private val eventEmitter: ReplayEventEmitter,
-    sessionIdProvider: (() -> String)? = null,
-    private val logger: (String) -> Unit = {},
-    mainHandler: android.os.Handler? = null,
+    private val sessionIdProvider: () -> String,
 ) : SessionReplayController {
-    private val sessionIdProvider: () -> String =
-        sessionIdProvider ?: run {
-            var fallbackId: String? = null
-            return@run { fallbackId ?: UUID.randomUUID().toString().also { fallbackId = it } }
-        }
-
-    private val mainHandler = mainHandler ?: android.os.Handler(android.os.Looper.getMainLooper())
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val logger: (String) -> Unit = { msg ->
+        PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { msg }
+    }
     private val clock: Clock = Clock.getDefault()
     private val decorViews: MutableMap<View, ViewTreeSnapshotStatus> =
         Collections.synchronizedMap(WeakHashMap())
@@ -91,7 +86,7 @@ public class SessionReplayIntegration(
                 }
             }
         } catch (e: Throwable) {
-            logger("Session Replay OnRootViewsChangedListener failed: $e")
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay OnRootViewsChangedListener failed: $e" }
         }
     }
 
@@ -130,17 +125,17 @@ public class SessionReplayIntegration(
                                         countAtCollection,
                                     )
                                 } catch (e: Throwable) {
-                                    logger("Session Replay generateSnapshot failed: $e")
+                                    PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay generateSnapshot failed: $e" }
                                 }
                             }
                         } catch (e: Throwable) {
-                            logger("Session Replay mask collection failed: $e")
+                            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay mask collection failed: $e" }
                         }
                     }
                 }
             decorViews[decorView] = ViewTreeSnapshotStatus(listener, viewMaskCache)
         } catch (e: Throwable) {
-            logger("Session Replay setupDecorViewCapture failed: $e")
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setupDecorViewCapture failed: $e" }
         }
     }
 
@@ -260,7 +255,7 @@ public class SessionReplayIntegration(
         try {
             Curtains.onRootViewsChangedListeners += onRootViewsChangedListener
         } catch (e: Throwable) {
-            logger("Session Replay setup failed: $e")
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay setup failed: $e" }
         }
     }
 
@@ -270,7 +265,7 @@ public class SessionReplayIntegration(
             val snapshot = synchronized(decorViews) { decorViews.entries.toList() }
             snapshot.forEach { (view, status) -> clearViewListeners(view, status) }
         } catch (e: Throwable) {
-            logger("Session Replay uninstall failed: $e")
+            PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay uninstall failed: $e" }
         }
         isSessionReplayActive = false
         drawCounter.incrementAndGet()

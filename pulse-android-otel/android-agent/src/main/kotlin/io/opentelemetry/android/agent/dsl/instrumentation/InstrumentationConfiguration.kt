@@ -84,5 +84,5 @@ class InstrumentationConfiguration(
      * Returns the configured [SessionReplayConfig] if [sessionReplay] was invoked in the
      * instrumentations block; null otherwise.
      */
-    public fun getSessionReplayConfig(): SessionReplayConfig? = sessionReplay.getConfigIfConfigured()
+    fun getSessionReplayConfig(): SessionReplayConfig? = sessionReplay.getConfigIfConfigured()
 }

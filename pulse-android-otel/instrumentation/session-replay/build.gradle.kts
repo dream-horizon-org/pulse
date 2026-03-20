@@ -1,6 +1,7 @@
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
+    alias(libs.plugins.kotlinSerialisation)
 }
 
 description = "Pulse Session Replay – screenshot capture, masking, throttling, lifecycle (no PostHog dependency)"
@@ -41,6 +42,6 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.robolectric)
     testImplementation(libs.opentelemetry.sdk.testing)
-    implementation(libs.gson)
-    testImplementation(libs.gson)
+    implementation(libs.kotlin.serialisation)
+    testImplementation(libs.kotlin.serialisation)
 }

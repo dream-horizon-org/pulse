@@ -9,6 +9,6 @@ public data class ReplayIncrementalMouseInteractionData(
     public val x: Int,
     public val y: Int,
     public val source: ReplayIncrementalSource = ReplayIncrementalSource.MOUSE_INTERACTION,
-    public val pointerType: Int = 2, // Touch
+    public val pointerType: PointerType = PointerType.TOUCH,
     public val positions: List<ReplayMousePosition>? = null,
 ) : ReplayEventData
