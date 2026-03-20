@@ -40,8 +40,13 @@ export const useChartReady = ({
         setSearchParams(newSearchParams);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [handleDateTimeApply, searchParams, setSearchParams, onTimeFilterChange],
+    [
+      handleDateTimeApply,
+      searchParams,
+      setSearchParams,
+      setActiveQuickTimeFilter,
+      onTimeFilterChange,
+    ],
   );
   const onChartReady = useCallback(
     (chartInstance: EChartsType) => {

@@ -64,6 +64,7 @@ export const AI_CHAT_LIMITS = {
   CHAT_INPUT_MIN_ROWS: 1,
   CHAT_INPUT_MAX_ROWS: 6,
   COPY_TOOLTIP_TIMEOUT_MS: 2000,
+  /** Session list/history: avoid refetch on tab focus; cache is updated after create via setQueryData. */
   SESSIONS_STALE_TIME_MS: 30_000,
   CHART_HEIGHT: 300,
 } as const;
