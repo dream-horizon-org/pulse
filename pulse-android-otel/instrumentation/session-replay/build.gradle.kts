@@ -8,6 +8,10 @@ description = "Pulse Session Replay – screenshot capture, masking, throttling,
 android {
     namespace = "com.pulse.android.sdk.replay"
 
+    defaultConfig {
+        consumerProguardFiles("consumer-rules.pro")
+    }
+
     testOptions {
         unitTests {
             isReturnDefaultValues = true
@@ -21,6 +25,8 @@ kotlin {
 
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
+    api(projects.pulseSessionReplayRemote)
+    implementation(projects.pulseSessionReplayModels)
     implementation(projects.session)
     implementation(projects.pulseUtils)
     implementation(libs.opentelemetry.sdk)
@@ -34,9 +40,7 @@ dependencies {
     testImplementation(libs.bundles.junit)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.robolectric)
-    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.opentelemetry.sdk.testing)
     implementation(libs.gson)
-    implementation(libs.retrofit)
     testImplementation(libs.gson)
 }

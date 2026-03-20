@@ -33,6 +33,10 @@ include(":pulse-sampling-core")
 project(":pulse-sampling-core").projectDir = File("./pulse-sampling/core")
 include(":pulse-sampling-remote")
 project(":pulse-sampling-remote").projectDir = File("./pulse-sampling/remote")
+include(":pulse-session-replay-models")
+project(":pulse-session-replay-models").projectDir = File("./pulse-session-replay/models")
+include(":pulse-session-replay-remote")
+project(":pulse-session-replay-remote").projectDir = File("./pulse-session-replay/remote")
 includeBuild("pulse-upload-plugin")
 includeFromDir("instrumentation") {
     if (it.contains(":instrumentation:interaction:") || it.contains(":instrumentation:location:")) {

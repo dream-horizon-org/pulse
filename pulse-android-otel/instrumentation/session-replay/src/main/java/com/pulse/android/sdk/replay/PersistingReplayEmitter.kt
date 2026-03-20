@@ -155,7 +155,7 @@ public class PersistingReplayEmitter(
                 trimPersistedReplayFilesToStorageCap()
                 val files = listCachedReplayFiles()
                 if (files.isEmpty()) return@execute
-                logger("Sending ${files.size} cached replay batches from previous run (${flushAt} per request)")
+                logger("Sending ${files.size} cached replay batches from previous run ($flushAt per request)")
                 PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                     "[Replay flow] sendCachedEvents: found ${files.size} cached batch(es) from previous run"
                 }
@@ -273,6 +273,7 @@ public class PersistingReplayEmitter(
     private fun sendCachedFileChunksSequentially(files: List<File>) {
         val chunks = files.chunked(flushAt)
         val nextChunkIndex = AtomicInteger(0)
+
         fun sendNextChunk() {
             if (shutDown.get()) return
             val idx = nextChunkIndex.get()

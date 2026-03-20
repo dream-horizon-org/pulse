@@ -483,11 +483,6 @@ public final class com/pulse/android/sdk/replay/events/ScreenSizeInfo {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class com/pulse/android/sdk/replay/remote/SessionReplayApiClient {
-	public fun <init> (Ljava/lang/String;)V
-	public final fun sendBatch-IoAF18A (Ljava/lang/String;)Ljava/lang/Object;
-}
-
 public final class com/pulse/android/sdk/replay/ui/PulseReplayMaskKt {
 	public static final fun setPulseReplayMask (Landroidx/compose/ui/Modifier;Z)Landroidx/compose/ui/Modifier;
 	public static synthetic fun setPulseReplayMask$default (Landroidx/compose/ui/Modifier;ZILjava/lang/Object;)Landroidx/compose/ui/Modifier;

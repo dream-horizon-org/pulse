@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.compose.ui.semantics.SemanticsOwner
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.core.view.isEmpty
 import com.pulse.android.sdk.replay.ImagePrivacy
@@ -381,6 +382,21 @@ internal object MaskingCollector {
     }
 
     /**
+     * [androidx.compose.ui.platform.AndroidComposeView] is internal; [androidx.compose.ui.node.RootForTest]
+     * casts can fail in R8 release builds. Use the public JVM accessor instead.
+     */
+    private fun semanticsOwnerFromComposeRootView(view: View): SemanticsOwner? =
+        try {
+            val m =
+                view.javaClass.methods.firstOrNull {
+                    it.name == "getSemanticsOwner" && it.parameterTypes.isEmpty()
+                }
+            m?.invoke(view) as? SemanticsOwner
+        } catch (_: Throwable) {
+            null
+        }
+
+    /**
      * Compose: collect mask rects from semantics tree.
      *
      * Masking priority for Compose:
@@ -396,9 +412,11 @@ internal object MaskingCollector {
         logger: (String) -> Unit,
     ) {
         try {
+            // AndroidComposeView is internal in androidx.compose.ui; RootForTest casts can fail under R8.
+            // Resolve semanticsOwner reflectively (Compose keeps this accessor on compose roots).
             val semanticsOwner =
-                (view as? androidx.compose.ui.node.RootForTest)?.semanticsOwner ?: run {
-                    logger("View is not a RootForTest: $view")
+                semanticsOwnerFromComposeRootView(view) ?: run {
+                    logger("No semanticsOwner on compose root: $view")
                     return
                 }
             val semanticsNodes = semanticsOwner.getAllSemanticsNodes(mergingEnabled = false)
