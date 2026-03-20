@@ -53,13 +53,13 @@ public class ClickhouseService {
 
   public Single<List<UsageStats>> getCurrentMonthUsage() {
     String query = """
-SELECT 
-    project_id,
-    sum(event_count) as events_used,
-    uniqCombined64Merge(session_count) as sessions_used
-FROM otel.project_monthly_usage
-WHERE month = toStartOfMonth(now())
-GROUP BY project_id
+        SELECT 
+            project_id,
+            sum(event_count) as events_used,
+            uniqCombined64Merge(session_count) as sessions_used
+        FROM otel.project_monthly_usage
+        WHERE month = toStartOfMonth(now())
+        GROUP BY project_id
         """;
 
     log.info("Executing ClickHouse query to fetch current month usage");
