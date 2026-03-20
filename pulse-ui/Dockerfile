@@ -4,11 +4,12 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json yarn.lock ./
+# Copy package files and Yarn 4 setup
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn/releases .yarn/releases
 
-# Install dependencies using yarn
-RUN yarn install --frozen-lockfile
+# Install dependencies using Yarn 4 (project uses yarnPath)
+RUN corepack enable && yarn install --immutable
 
 # Copy source code and configuration
 COPY . .

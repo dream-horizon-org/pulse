@@ -49,8 +49,11 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: pulse-ui/yarn.lock
 
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Run TypeScript type check
         run: |
