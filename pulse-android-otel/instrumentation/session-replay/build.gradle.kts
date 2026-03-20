@@ -8,6 +8,10 @@ description = "Pulse Session Replay – screenshot capture, masking, throttling,
 android {
     namespace = "com.pulse.android.sdk.replay"
 
+    defaultConfig {
+        consumerProguardFiles("consumer-rules.pro")
+    }
+
     testOptions {
         unitTests {
             isReturnDefaultValues = true
