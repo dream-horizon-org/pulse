@@ -19,8 +19,10 @@ import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.sqlclient.SqlConnection;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
@@ -30,13 +32,19 @@ import org.dreamhorizon.pulseserver.dao.tier.models.Tier;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
+import org.dreamhorizon.pulseserver.model.User;
 import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
+import org.dreamhorizon.pulseserver.service.UserService;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitPublicInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ResetLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.SetCustomLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotification;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationResult;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -67,6 +75,12 @@ class UsageLimitServiceTest {
   ClickhouseQueryService clickhouseQueryService;
 
   @Mock
+  OpenFgaService openFgaService;
+
+  @Mock
+  UserService userService;
+
+  @Mock
   SqlConnection sqlConnection;
 
   ObjectMapper objectMapper;
@@ -75,7 +89,8 @@ class UsageLimitServiceTest {
   @BeforeEach
   void setup() {
     objectMapper = new ObjectMapper();
-    usageLimitService = new UsageLimitService(usageLimitDao, projectDao, tenantDao, tierDao, tierService, objectMapper, clickhouseQueryService);
+    usageLimitService = new UsageLimitService(usageLimitDao, projectDao, tenantDao, tierDao, tierService,
+        objectMapper, clickhouseQueryService, openFgaService, userService);
   }
 
   private ProjectUsageLimit createMockUsageLimit() throws Exception {
@@ -700,6 +715,111 @@ class UsageLimitServiceTest {
       ProjectUsageLimitInfo result = usageLimitService.getProjectLimits("test-project").blockingGet();
 
       assertEquals(null, result.getUsageLimits().get("max_events").getFinalThreshold());
+    }
+  }
+
+  @Nested
+  class GetUsageNotifications {
+
+    @Test
+    void shouldReturnNotificationsWithAdminEmailsAndTenantId() throws Exception {
+      Map<String, UsageLimitValue> limits = new HashMap<>();
+      limits.put("max_events_per_project", UsageLimitValue.builder()
+          .displayName("Max Events")
+          .windowType("MONTHLY")
+          .dataType("NUMBER")
+          .value(100L)
+          .overage(10)
+          .build());
+      limits.put("max_user_sessions_per_project", UsageLimitValue.builder()
+          .displayName("Max Sessions")
+          .windowType("MONTHLY")
+          .dataType("NUMBER")
+          .value(100L)
+          .overage(10)
+          .build());
+
+      ProjectUsageLimit limit = ProjectUsageLimit.builder()
+          .projectUsageLimitId(1L)
+          .projectId("proj-notify")
+          .projectName("Test Project")
+          .tenantId("tenant-1")
+          .usageLimits(objectMapper.writeValueAsString(limits))
+          .isActive(true)
+          .createdBy("creator@test.com")
+          .createdAt(Instant.now())
+          .build();
+
+      when(usageLimitDao.getAllActiveLimits())
+          .thenReturn(Flowable.just(limit));
+      when(clickhouseQueryService.getCurrentMonthUsage())
+          .thenReturn(Single.just(Map.of("proj-notify",
+              UsageStats.builder().projectId("proj-notify").eventsUsed(60L).sessionsUsed(60L).build())));
+      when(openFgaService.getProjectAdmins("proj-notify"))
+          .thenReturn(Single.just(Set.of("user-admin-1")));
+      when(userService.getUsersByIds(any()))
+          .thenReturn(Single.just(List.of(User.builder().userId("user-admin-1").email("admin@test.com").build())));
+
+      UsageNotificationResult result = usageLimitService.getUsageNotifications().blockingGet();
+
+      assertNotNull(result);
+      assertNotNull(result.getNotifications());
+      assertEquals(1, result.getNotifications().size());
+      UsageNotification notification = result.getNotifications().get(0);
+      assertEquals("proj-notify", notification.getProjectId());
+      assertEquals("tenant-1", notification.getTenantId());
+      assertEquals(50, notification.getThreshold());
+      assertNotNull(notification.getRecipientEmails());
+      assertTrue(notification.getRecipientEmails().contains("admin@test.com"));
+    }
+
+    @Test
+    void shouldFallbackToCreatedByWhenNoAdmins() throws Exception {
+      Map<String, UsageLimitValue> limits = new HashMap<>();
+      limits.put("max_events_per_project", UsageLimitValue.builder()
+          .displayName("Max Events")
+          .windowType("MONTHLY")
+          .dataType("NUMBER")
+          .value(100L)
+          .overage(10)
+          .build());
+      limits.put("max_user_sessions_per_project", UsageLimitValue.builder()
+          .displayName("Max Sessions")
+          .windowType("MONTHLY")
+          .dataType("NUMBER")
+          .value(100L)
+          .overage(10)
+          .build());
+
+      ProjectUsageLimit limit = ProjectUsageLimit.builder()
+          .projectUsageLimitId(1L)
+          .projectId("proj-fallback")
+          .projectName("Fallback Project")
+          .tenantId("tenant-2")
+          .usageLimits(objectMapper.writeValueAsString(limits))
+          .isActive(true)
+          .createdBy("creator@fallback.com")
+          .createdAt(Instant.now())
+          .build();
+
+      when(usageLimitDao.getAllActiveLimits())
+          .thenReturn(Flowable.just(limit));
+      when(clickhouseQueryService.getCurrentMonthUsage())
+          .thenReturn(Single.just(Map.of("proj-fallback",
+              UsageStats.builder().projectId("proj-fallback").eventsUsed(50L).sessionsUsed(50L).build())));
+      when(openFgaService.getProjectAdmins("proj-fallback"))
+          .thenReturn(Single.just(new HashSet<>()));
+
+      UsageNotificationResult result = usageLimitService.getUsageNotifications().blockingGet();
+
+      assertNotNull(result);
+      assertEquals(1, result.getNotifications().size());
+      UsageNotification notification = result.getNotifications().get(0);
+      assertEquals("proj-fallback", notification.getProjectId());
+      assertEquals("tenant-2", notification.getTenantId());
+      assertNotNull(notification.getRecipientEmails());
+      assertTrue(notification.getRecipientEmails().contains("creator@fallback.com"));
+      verify(userService, never()).getUsersByIds(any());
     }
   }
 }

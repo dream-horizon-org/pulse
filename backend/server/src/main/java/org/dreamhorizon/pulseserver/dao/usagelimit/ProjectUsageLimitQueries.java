@@ -10,7 +10,8 @@ public class ProjectUsageLimitQueries {
           + "pul.created_at, pul.disabled_at, pul.disabled_by, pul.disabled_reason, pul.created_by, "
           + "COALESCE(uln.thresholds_notified, '{}') as thresholds_notified, "
           + "uln.created_at as notification_created_at, "
-          + "COALESCE(p.name, pul.project_id) as project_name";
+          + "COALESCE(p.name, pul.project_id) as project_name, "
+          + "p.tenant_id as tenant_id";
 
   private static final String NOTIFICATION_JOIN =
       " LEFT JOIN usage_limit_notifications uln "

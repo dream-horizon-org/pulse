@@ -24,5 +24,6 @@ public class ProjectUsageLimit {
   private String createdBy;
   private JsonNode thresholdsNotified;
   private Instant notificationCreatedAt;
+  private String tenantId;
 }
 

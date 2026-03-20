@@ -142,6 +142,17 @@ class ProjectUsageLimitDaoTest {
     return mockRow;
   }
 
+  private Row createMockUsageLimitRowWithTenantId() {
+    Row mockRow = createMockUsageLimitRow();
+    when(mockRow.getColumnIndex("project_name")).thenReturn(0);
+    when(mockRow.getString("project_name")).thenReturn("Test Project");
+    when(mockRow.getColumnIndex("tenant_id")).thenReturn(0);
+    when(mockRow.getString("tenant_id")).thenReturn("tenant-1");
+    when(mockRow.getValue("thresholds_notified")).thenReturn(new JsonObject("{}"));
+    when(mockRow.getLocalDateTime("notification_created_at")).thenReturn(null);
+    return mockRow;
+  }
+
   private Row createMockUsageLimitRowWithNullUsageLimits() {
     Row mockRow = mock(Row.class);
     LocalDateTime now = LocalDateTime.now();
@@ -484,7 +495,7 @@ class ProjectUsageLimitDaoTest {
       setupReaderPool();
       when(readerPool.query(anyString())).thenReturn(query);
 
-      Row limitRow = createMockUsageLimitRow();
+      Row limitRow = createMockUsageLimitRowWithTenantId();
       RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
       when(rowSet.iterator()).thenReturn(iterator);
       when(query.rxExecute()).thenReturn(Single.just(rowSet));
@@ -493,6 +504,8 @@ class ProjectUsageLimitDaoTest {
 
       assertNotNull(result);
       assertEquals(1, result.size());
+      assertEquals("tenant-1", result.get(0).getTenantId());
+      assertEquals("Test Project", result.get(0).getProjectName());
     }
 
     @Test

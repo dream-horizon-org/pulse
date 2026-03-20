@@ -43,4 +43,8 @@ public class UsageNotification {
   private String eventsPercentageDisplay;
   /** Display string for template: "&lt;1" when used>0 but percentage rounds to 0, else numeric value */
   private String sessionsPercentageDisplay;
+  /** Project admin emails - recipients for usage limit notifications */
+  private List<String> recipientEmails;
+  /** Tenant ID for pricing URL (e.g. /{tenantId}/pricing) */
+  private String tenantId;
 }

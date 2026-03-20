@@ -488,6 +488,41 @@ public class OpenFgaService {
   }
 
   /**
+   * Get user IDs of project admins (direct admin role on project).
+   * Used for usage limit notifications.
+   *
+   * @param projectId Project ID
+   * @return Single emitting set of admin user IDs
+   */
+  public Single<Set<String>> getProjectAdmins(String projectId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getProjectAdmins: project={}", projectId);
+      return Single.just(new HashSet<>());
+    }
+    return Single.fromCallable(() -> {
+      ClientReadRequest request = new ClientReadRequest()
+          .relation("admin")
+          ._object(PROJECT_PREFIX + projectId);
+      var response = client.read(request).get();
+      var tuples = response.getTuples();
+
+      if (tuples == null || tuples.isEmpty()) {
+        log.debug("getProjectAdmins: project={} -> empty set", projectId);
+        return new HashSet<String>();
+      }
+
+      Set<String> admins = tuples.stream()
+          .map(Tuple::getKey)
+          .filter(key -> key.getUser() != null && key.getUser().startsWith(USER_PREFIX))
+          .map(key -> key.getUser().substring(USER_PREFIX.length()))
+          .collect(Collectors.toSet());
+
+      log.debug("getProjectAdmins: project={} -> {} admin(s)", projectId, admins.size());
+      return admins;
+    });
+  }
+
+  /**
    * Count users with the admin role on a project.
    *
    * @param projectId Project ID

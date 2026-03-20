@@ -40,4 +40,7 @@ public class UsageNotificationDto {
   /** Display string for template: "&lt;1" when used>0 but percentage rounds to 0, else numeric value */
   private String eventsPercentageDisplay;
   private String sessionsPercentageDisplay;
+
+  private java.util.List<String> recipientEmails;
+  private String tenantId;
 }

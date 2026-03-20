@@ -26,6 +26,8 @@ import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.dao.tier.models.Tier;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
+import org.dreamhorizon.pulseserver.service.UserService;
 import org.dreamhorizon.pulseserver.service.tier.TierService;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitPublicInfo;
@@ -63,6 +65,12 @@ class UsageLimitTests {
 
   @Mock
   ClickhouseQueryService clickhouseQueryService;
+
+  @Mock
+  OpenFgaService openFgaService;
+
+  @Mock
+  UserService userService;
 
   @Mock
   SqlConnection sqlConnection;
@@ -103,8 +111,8 @@ class UsageLimitTests {
   @BeforeEach
   void setup() {
     objectMapper = new ObjectMapper();
-    usageLimitService = new UsageLimitService(
-        usageLimitDao, projectDao, tenantDao, tierDao, tierService, objectMapper, clickhouseQueryService);
+    usageLimitService = new UsageLimitService(usageLimitDao, projectDao, tenantDao, tierDao, tierService,
+        objectMapper, clickhouseQueryService, openFgaService, userService);
   }
 
   @Nested

@@ -25,6 +25,9 @@ import org.dreamhorizon.pulseserver.dao.project.models.Project;
 import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitDao;
 import org.dreamhorizon.pulseserver.rest.exception.ForbiddenOperationException;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
+import org.dreamhorizon.pulseserver.model.User;
+import org.dreamhorizon.pulseserver.service.OpenFgaService;
+import org.dreamhorizon.pulseserver.service.UserService;
 import org.dreamhorizon.pulseserver.dao.tenant.TenantDao;
 import org.dreamhorizon.pulseserver.dao.tenant.models.Tenant;
 import org.dreamhorizon.pulseserver.dao.tier.TierDao;
@@ -40,9 +43,12 @@ import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotification;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationResult;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageStats;
+import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Singleton
@@ -52,7 +58,7 @@ public class UsageLimitService {
   private static final int FREE_TIER_ID = 1;
   private static final String DISABLED_REASON_CUSTOM_OVERRIDE = "custom_override";
   private static final String DISABLED_REASON_RESET_TO_DEFAULTS = "reset_to_defaults";
-  private static final List<Integer> NOTIFICATION_THRESHOLDS = List.of(50, 75, 90, 100);
+  private static final List<Integer> NOTIFICATION_THRESHOLDS = List.of(50, 75, 100);
 
   private final ProjectUsageLimitDao usageLimitDao;
   private final ProjectDao projectDao;
@@ -61,6 +67,8 @@ public class UsageLimitService {
   private final TierService tierService;
   private final ObjectMapper objectMapper;
   private final ClickhouseQueryService clickhouseQueryService;
+  private final OpenFgaService openFgaService;
+  private final UserService userService;
 
   // ==================== PUBLIC API ====================
 
@@ -309,6 +317,7 @@ public class UsageLimitService {
         .projectUsageLimitId(limit.getProjectUsageLimitId())
         .projectId(limit.getProjectId())
         .projectName(limit.getProjectName())
+        .tenantId(limit.getTenantId())
         .usageLimits(usageLimits)
         .isActive(limit.getIsActive())
         .createdAt(limit.getCreatedAt())
@@ -409,7 +418,7 @@ public class UsageLimitService {
           log.info("Found {} active project limits", limits.size());
           
           return clickhouseQueryService.getCurrentMonthUsage()
-              .map(usageStatsMap -> {
+              .flatMap(usageStatsMap -> {
                 List<UsageNotification> notifications = new ArrayList<>();
                 
                 for (ProjectUsageLimitInfo limit : limits) {
@@ -504,7 +513,7 @@ public class UsageLimitService {
                     int displaySessionsPercentage = sessionsPercentage != null ? sessionsPercentage : 0;
                     
                     if (eventsBlocked || sessionsBlocked) {
-                      templateName = "USAGE_LIMIT_BLOCKED";
+                      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_BLOCKED;
                       // Cap non-blocked metric at 100% for display
                       if (!eventsBlocked) {
                         displayEventsPercentage = Math.min(displayEventsPercentage, 100);
@@ -513,12 +522,12 @@ public class UsageLimitService {
                         displaySessionsPercentage = Math.min(displaySessionsPercentage, 100);
                       }
                     } else if (eventsAtLimit || sessionsAtLimit) {
-                      templateName = "USAGE_LIMIT_REACHED";
+                      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_REACHED;
                       // Cap both at 100% for display
                       displayEventsPercentage = Math.min(displayEventsPercentage, 100);
                       displaySessionsPercentage = Math.min(displaySessionsPercentage, 100);
                     } else {
-                      templateName = "USAGE_LIMIT_THRESHOLD";
+                      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_THRESHOLD;
                       // Show actual percentages (under 100%)
                     }
                     
@@ -528,6 +537,7 @@ public class UsageLimitService {
                     UsageNotification notification = UsageNotification.builder()
                         .projectId(projectId)
                         .projectName(projectName)
+                        .tenantId(limit.getTenantId())
                         .threshold(threshold)
                         .thresholdsToMark(thresholdsToMark)
                         .notifyFor(notifyFor)
@@ -546,6 +556,7 @@ public class UsageLimitService {
                         .eventsOverage(eventsOverage)
                         .eventsBlocked(eventsBlocked)
                         .eventsAtLimit(eventsAtLimit)
+                        .recipientEmails(null)
                         .build();
                     
                     notifications.add(notification);
@@ -557,15 +568,59 @@ public class UsageLimitService {
                 
                 Instant endTime = Instant.now();
                 log.info("✅ Analysis complete: {} notifications due across {} projects (took {}ms)",
-                    notifications.size(), limits.size(), 
+                    notifications.size(), limits.size(),
                     java.time.Duration.between(startTime, endTime).toMillis());
-                
-                return UsageNotificationResult.builder()
-                    .notifications(notifications)
-                    .totalProjectsChecked(limits.size())
-                    .notificationsDue(notifications.size())
-                    .checkedAt(endTime)
-                    .build();
+
+                if (notifications.isEmpty()) {
+                  return Single.just(UsageNotificationResult.builder()
+                      .notifications(notifications)
+                      .totalProjectsChecked(limits.size())
+                      .notificationsDue(0)
+                      .checkedAt(endTime)
+                      .build());
+                }
+
+                Set<String> projectIds = notifications.stream()
+                    .map(UsageNotification::getProjectId)
+                    .collect(Collectors.toSet());
+                Map<String, ProjectUsageLimitInfo> limitByProject = limits.stream()
+                    .collect(Collectors.toMap(ProjectUsageLimitInfo::getProjectId, l -> l));
+
+                return Flowable.fromIterable(projectIds)
+                    .flatMapSingle(projectId ->
+                        openFgaService.getProjectAdmins(projectId)
+                            .flatMap(adminIds -> {
+                              if (adminIds == null || adminIds.isEmpty()) {
+                                ProjectUsageLimitInfo limit = limitByProject.get(projectId);
+                                String createdBy = limit != null ? limit.getCreatedBy() : null;
+                                List<String> fallback = (createdBy != null && createdBy.contains("@"))
+                                    ? List.of(createdBy) : List.of();
+                                return Single.just(new AbstractMap.SimpleEntry<>(projectId, fallback));
+                              }
+                              return userService.getUsersByIds(new ArrayList<>(adminIds))
+                                  .map(users -> users.stream()
+                                      .map(User::getEmail)
+                                      .filter(e -> e != null && e.contains("@"))
+                                      .distinct()
+                                      .toList())
+                                  .map(emails -> new AbstractMap.SimpleEntry<>(projectId, emails));
+                            }))
+                    .toList()
+                    .map(entries -> {
+                      Map<String, List<String>> projectToEmails = new HashMap<>();
+                      for (var e : entries) {
+                        projectToEmails.put(e.getKey(), e.getValue());
+                      }
+                      for (UsageNotification n : notifications) {
+                        n.setRecipientEmails(projectToEmails.getOrDefault(n.getProjectId(), List.of()));
+                      }
+                      return UsageNotificationResult.builder()
+                          .notifications(notifications)
+                          .totalProjectsChecked(limits.size())
+                          .notificationsDue(notifications.size())
+                          .checkedAt(endTime)
+                          .build();
+                    });
               });
         })
         .doOnError(error -> 

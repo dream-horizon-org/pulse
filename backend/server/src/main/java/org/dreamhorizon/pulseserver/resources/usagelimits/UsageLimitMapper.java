@@ -195,6 +195,8 @@ public abstract class UsageLimitMapper {
         .eventsAtLimit(notification.getEventsAtLimit())
         .eventsPercentageDisplay(notification.getEventsPercentageDisplay())
         .sessionsPercentageDisplay(notification.getSessionsPercentageDisplay())
+        .recipientEmails(notification.getRecipientEmails())
+        .tenantId(notification.getTenantId())
         .build();
   }
 }

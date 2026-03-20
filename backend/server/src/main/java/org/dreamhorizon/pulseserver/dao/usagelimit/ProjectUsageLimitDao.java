@@ -251,6 +251,7 @@ public class ProjectUsageLimitDao {
         .thresholdsNotified(thresholdsNotified)
         .notificationCreatedAt(row.getLocalDateTime("notification_created_at") != null
             ? row.getLocalDateTime("notification_created_at").toInstant(ZoneOffset.UTC) : null)
+        .tenantId(row.getColumnIndex("tenant_id") >= 0 ? row.getString("tenant_id") : null)
         .build();
   }
 

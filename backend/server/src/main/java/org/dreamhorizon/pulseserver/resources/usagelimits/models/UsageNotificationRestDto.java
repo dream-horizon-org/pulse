@@ -75,4 +75,10 @@ public class UsageNotificationRestDto {
 
   @JsonProperty("sessionsPercentageDisplay")
   private String sessionsPercentageDisplay;
+
+  @JsonProperty("recipientEmails")
+  private java.util.List<String> recipientEmails;
+
+  @JsonProperty("tenantId")
+  private String tenantId;
 }

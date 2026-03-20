@@ -208,11 +208,25 @@ public class PulseServerApiClient {
         .put("eventsPercentageDisplay", eventsDisplay)
         .put("sessionsPercentageDisplay", sessionsDisplay)
         .put("dashboardUrl", DEFAULT_DASHBOARD_URL);
+    if (notification.getTenantId() != null && !notification.getTenantId().isBlank()) {
+      params.put("tenantId", notification.getTenantId());
+    }
 
     JsonObject body = new JsonObject()
         .put("eventName", notification.getTemplateName())
         .put("channelTypes", new JsonArray().add("EMAIL"))
         .put("params", params);
+
+      List<String> recipientEmails = notification.getRecipientEmails();
+      if (recipientEmails != null && !recipientEmails.isEmpty()) {
+        JsonArray emailsArray = new JsonArray();
+        recipientEmails.stream()
+            .filter(e -> e != null && !e.isBlank() && e.contains("@"))
+            .forEach(emailsArray::add);
+        if (!emailsArray.isEmpty()) {
+          body.put("recipients", new JsonObject().put("emails", emailsArray));
+        }
+      }
     
     return Single.defer(() ->
         webClient
