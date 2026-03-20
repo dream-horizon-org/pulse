@@ -1,7 +1,6 @@
 package org.dreamhorizon.pulseserver.errorgrouping.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,13 +55,16 @@ class MysqlSymbolFileServiceTest {
   @Mock
   private Row row;
 
+  @Mock
+  private S3SymbolFileService s3SymbolFileService;
+
   private MysqlSymbolFileService mysqlSymbolFileService;
 
   @BeforeEach
   void setUp() {
     lenient().when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     lenient().when(mysqlClient.getReaderPool()).thenReturn(readerPool);
-    mysqlSymbolFileService = new MysqlSymbolFileService(mysqlClient);
+    mysqlSymbolFileService = new MysqlSymbolFileService(mysqlClient, s3SymbolFileService);
   }
 
   private UploadMetadata createMetadata() {
@@ -72,31 +74,8 @@ class MysqlSymbolFileServiceTest {
         .platform("android")
         .type("JS")
         .bundleId("com.example.app")
+        .projectId("test-project")
         .build();
-  }
-
-  @Nested
-  class ToBufferTests {
-    @Test
-    void shouldConvertInputStreamToBuffer() throws Exception {
-      String content = "test content";
-      InputStream inputStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
-
-      Buffer result = MysqlSymbolFileService.toBuffer(inputStream);
-
-      assertNotNull(result);
-      assertEquals(content, result.toString(StandardCharsets.UTF_8));
-    }
-
-    @Test
-    void shouldHandleEmptyInputStream() throws Exception {
-      InputStream inputStream = new ByteArrayInputStream(new byte[0]);
-
-      Buffer result = MysqlSymbolFileService.toBuffer(inputStream);
-
-      assertNotNull(result);
-      assertEquals(0, result.length());
-    }
   }
 
   @Nested
@@ -107,6 +86,7 @@ class MysqlSymbolFileServiceTest {
       String content = "source map content";
       InputStream fileInputStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
 
+      when(s3SymbolFileService.uploadFile(any(), any())).thenReturn(Single.just("symbols/android/test-project/1.0.0/100/JS/test.map"));
       when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
 
@@ -117,43 +97,41 @@ class MysqlSymbolFileServiceTest {
     }
 
     @Test
-    void shouldReturnFalseOnUploadError() {
+    void shouldPropagateErrorOnS3Failure() {
       UploadMetadata metadata = createMetadata();
       String content = "source map content";
       InputStream fileInputStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
 
+      when(s3SymbolFileService.uploadFile(any(), any())).thenReturn(Single.error(new RuntimeException("S3 error")));
+
+      Single<Boolean> result = mysqlSymbolFileService.uploadFile("test.map", fileInputStream, metadata);
+
+      assertThrows(RuntimeException.class, () -> result.blockingGet());
+    }
+
+    @Test
+    void shouldPropagateErrorOnDbFailure() {
+      UploadMetadata metadata = createMetadata();
+      String content = "source map content";
+      InputStream fileInputStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
+
+      when(s3SymbolFileService.uploadFile(any(), any())).thenReturn(Single.just("symbols/test-key"));
       when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.execute(any())).thenReturn(Single.error(new RuntimeException("Database error")));
 
       Single<Boolean> result = mysqlSymbolFileService.uploadFile("test.map", fileInputStream, metadata);
 
-      Boolean success = result.blockingGet();
-      assertFalse(success);
-    }
-
-    @Test
-    void shouldUploadFileWithBundleId() {
-      UploadMetadata metadata = createMetadata();
-      String content = "source map content";
-      InputStream fileInputStream = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
-
-      when(writerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
-      when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
-
-      Single<Boolean> result = mysqlSymbolFileService.uploadFile("test.map", fileInputStream, metadata);
-
-      Boolean success = result.blockingGet();
-      assertTrue(success);
+      assertThrows(RuntimeException.class, () -> result.blockingGet());
     }
   }
 
   @Nested
   class ReadFileTests {
     @Test
-    void shouldReadFileSuccessfully() {
+    void shouldReadFileFromS3() {
       UploadMetadata metadata = createMetadata();
       String content = "file content";
-      Buffer buffer = Buffer.buffer(content.getBytes(StandardCharsets.UTF_8));
+      String s3Key = "symbols/android/test-project/1.0.0/100/JS/test.map";
 
       RowIterator<Row> rowIterator = mock(RowIterator.class);
       when(rowIterator.hasNext()).thenReturn(true);
@@ -161,7 +139,9 @@ class MysqlSymbolFileServiceTest {
       when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
       when(rowSet.iterator()).thenReturn(rowIterator);
-      when(row.getBuffer(0)).thenReturn(buffer);
+      when(row.getString(0)).thenReturn(s3Key);
+      when(s3SymbolFileService.downloadFileAsBytes(s3Key))
+          .thenReturn(Single.just(content.getBytes(StandardCharsets.UTF_8)));
 
       Single<Buffer> result = mysqlSymbolFileService.readFile(metadata);
 
@@ -184,6 +164,23 @@ class MysqlSymbolFileServiceTest {
 
       assertThrows(NoSuchElementException.class, () -> result.blockingGet());
     }
+
+    @Test
+    void shouldThrowExceptionWhenS3KeyIsNull() {
+      UploadMetadata metadata = createMetadata();
+
+      RowIterator<Row> rowIterator = mock(RowIterator.class);
+      when(rowIterator.hasNext()).thenReturn(true);
+      when(rowIterator.next()).thenReturn(row);
+      when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
+      when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
+      when(rowSet.iterator()).thenReturn(rowIterator);
+      when(row.getString(0)).thenReturn(null);
+
+      Single<Buffer> result = mysqlSymbolFileService.readFile(metadata);
+
+      assertThrows(NoSuchElementException.class, () -> result.blockingGet());
+    }
   }
 
   @Nested
@@ -192,7 +189,7 @@ class MysqlSymbolFileServiceTest {
     void shouldReadFileAsBytes() {
       UploadMetadata metadata = createMetadata();
       byte[] content = "file content".getBytes(StandardCharsets.UTF_8);
-      Buffer buffer = Buffer.buffer(content);
+      String s3Key = "symbols/test-key";
 
       RowIterator<Row> rowIterator = mock(RowIterator.class);
       when(rowIterator.hasNext()).thenReturn(true);
@@ -200,7 +197,8 @@ class MysqlSymbolFileServiceTest {
       when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
       when(rowSet.iterator()).thenReturn(rowIterator);
-      when(row.getBuffer(0)).thenReturn(buffer);
+      when(row.getString(0)).thenReturn(s3Key);
+      when(s3SymbolFileService.downloadFileAsBytes(s3Key)).thenReturn(Single.just(content));
 
       Single<byte[]> result = mysqlSymbolFileService.readFileAsBytes(metadata);
 
@@ -216,7 +214,7 @@ class MysqlSymbolFileServiceTest {
     void shouldReadFileAsString() {
       UploadMetadata metadata = createMetadata();
       String content = "file content";
-      Buffer buffer = Buffer.buffer(content.getBytes(StandardCharsets.UTF_8));
+      String s3Key = "symbols/test-key";
 
       RowIterator<Row> rowIterator = mock(RowIterator.class);
       when(rowIterator.hasNext()).thenReturn(true);
@@ -224,7 +222,9 @@ class MysqlSymbolFileServiceTest {
       when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
       when(rowSet.iterator()).thenReturn(rowIterator);
-      when(row.getBuffer(0)).thenReturn(buffer);
+      when(row.getString(0)).thenReturn(s3Key);
+      when(s3SymbolFileService.downloadFileAsBytes(s3Key))
+          .thenReturn(Single.just(content.getBytes(StandardCharsets.UTF_8)));
 
       Single<String> result = mysqlSymbolFileService.readFileAsString(metadata);
 
@@ -237,7 +237,7 @@ class MysqlSymbolFileServiceTest {
     void shouldHandleUtf8Encoding() {
       UploadMetadata metadata = createMetadata();
       String content = "测试内容 🚀";
-      Buffer buffer = Buffer.buffer(content.getBytes(StandardCharsets.UTF_8));
+      String s3Key = "symbols/test-key";
 
       RowIterator<Row> rowIterator = mock(RowIterator.class);
       when(rowIterator.hasNext()).thenReturn(true);
@@ -245,7 +245,9 @@ class MysqlSymbolFileServiceTest {
       when(readerPool.preparedQuery(anyString())).thenReturn(preparedQuery);
       when(preparedQuery.execute(any())).thenReturn(Single.just(rowSet));
       when(rowSet.iterator()).thenReturn(rowIterator);
-      when(row.getBuffer(0)).thenReturn(buffer);
+      when(row.getString(0)).thenReturn(s3Key);
+      when(s3SymbolFileService.downloadFileAsBytes(s3Key))
+          .thenReturn(Single.just(content.getBytes(StandardCharsets.UTF_8)));
 
       Single<String> result = mysqlSymbolFileService.readFileAsString(metadata);
 
@@ -254,4 +256,3 @@ class MysqlSymbolFileServiceTest {
     }
   }
 }
-
