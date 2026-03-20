@@ -359,17 +359,24 @@ internal object MaskingCollector {
 
     @Suppress("UNUSED_PARAMETER")
     private fun View.isComposeView(logger: (String) -> Unit): Boolean {
-        if (!isComposeAvailable) return false
-        return javaClass.name.contains("AndroidComposeView")
+        val cls = androidComposeViewClass ?: return false
+        return cls.isInstance(this)
+    }
+
+    // Cache the AndroidComposeView Class object. Class.forName succeeds because consumer-rules.pro
+    // uses -keep (not -keepclassmembers) to preserve the class name for R8 release builds.
+    // isInstance() replaces the fragile javaClass.name string check and correctly handles
+    // any subclass of AndroidComposeView.
+    private val androidComposeViewClass: Class<*>? by lazy {
+        try {
+            Class.forName("androidx.compose.ui.platform.AndroidComposeView")
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     private val isComposeAvailable: Boolean by lazy {
-        try {
-            Class.forName("androidx.compose.ui.platform.AndroidComposeView")
-            true
-        } catch (_: Throwable) {
-            false
-        }
+        androidComposeViewClass != null
     }
 
     private val isComposeRoleAvailable: Boolean by lazy {

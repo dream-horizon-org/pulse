@@ -3,7 +3,10 @@
 
 -keep class com.pulse.android.sdk.replay.ui.** { *; }
 
-# MaskingCollector obtains SemanticsOwner via reflection (getSemanticsOwner); keep the accessor on Compose roots.
--keepclassmembers class androidx.compose.ui.platform.AndroidComposeView {
+# MaskingCollector checks for Compose views via Class.forName("...AndroidComposeView") and calls
+# getSemanticsOwner() via reflection. -keepclassmembers alone only preserves the method but lets
+# R8 rename the class, so Class.forName throws and isComposeAvailable becomes false – silently
+# disabling all Compose masking in release builds. -keep preserves both the class name and member.
+-keep class androidx.compose.ui.platform.AndroidComposeView {
     public androidx.compose.ui.semantics.SemanticsOwner getSemanticsOwner();
 }
