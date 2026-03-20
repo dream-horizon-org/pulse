@@ -23,7 +23,9 @@ public sealed class PulseFeatureConfigData {
         @SerialName("screenshotScale") val screenshotScale: Float? = null,
         @SerialName("screenshotQuality") val screenshotQuality: Int? = null,
         @SerialName("flushIntervalSeconds") val flushIntervalSeconds: Int? = null,
+        /** Max replay batch files per backend upload; also queue size that triggers a flush. */
         @SerialName("flushAt") val flushAt: Int? = null,
+        /** Max replay batch files retained on disk (oldest evicted when exceeded). */
         @SerialName("maxBatchSize") val maxBatchSize: Int? = null,
         @SerialName("replayApiBaseUrl") val replayApiBaseUrl: String? = null,
     ) : PulseFeatureConfigData()

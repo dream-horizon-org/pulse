@@ -12,8 +12,10 @@ import android.graphics.drawable.Drawable
  * @param screenshotScale Scale factor for screenshot dimensions (0.0, 1.0].
  * @param screenshotQuality WebP lossy quality 0–100 for screenshot encoding.
  * @param flushIntervalSeconds Interval in seconds to flush the replay queue.
- * @param flushAt Flush when queue size reaches this many batches.
- * @param maxBatchSize Maximum number of batches to send per flush / per cached send.
+ * @param flushAt When the pending batch queue reaches this size, a flush is triggered. Also caps how many
+ *   replay batch files are uploaded in a single backend request (per flush and per cached-send chunk).
+ * @param maxBatchSize Maximum number of replay batch files kept on disk (including the in-memory queue).
+ *   When exceeded, the oldest batches are deleted (latest-first retention).
  * @param replayApiBaseUrl When set, replay batches are sent to this URL via POST to /s/. When null, emitted as OTLP logs only.
  *
  * **Client-only params** (set via the `sessionReplay { }` DSL in app code):

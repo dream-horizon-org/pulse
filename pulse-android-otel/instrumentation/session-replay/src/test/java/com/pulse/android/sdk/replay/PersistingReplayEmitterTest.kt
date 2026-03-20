@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 class PersistingReplayEmitterTest {
@@ -164,7 +165,7 @@ class PersistingReplayEmitterTest {
     }
 
     @Test
-    fun `maxBatchSize limits flush to configured amount`() {
+    fun `flushAt limits batches per upload`() {
         val envelope = """{"event":"snapshot"}"""
         val sent = AtomicReference<String?>(null)
         val latch = CountDownLatch(1)
@@ -178,8 +179,8 @@ class PersistingReplayEmitterTest {
                     Result.success(Unit)
                 },
                 flushIntervalSeconds = 60,
-                flushAt = 100,
-                maxBatchSize = 2,
+                flushAt = 2,
+                maxBatchSize = 100,
                 replayStorageEncryption = IdentityReplayStorageEncryption(),
             )
         repeat(5) {
@@ -192,6 +193,76 @@ class PersistingReplayEmitterTest {
         assertThat(payload).isNotNull
         val envelopeCount = payload!!.split("},{").size
         assertThat(envelopeCount).isEqualTo(2)
+    }
+
+    @Test
+    fun `init trims persisted files to storage cap`() {
+        val env = """{"event":"snapshot"}"""
+        repeat(5) { i ->
+            val f = File(tempDir, "${1000 + i}_x.replay")
+            f.writeBytes(env.toByteArray(Charsets.UTF_8))
+            f.setLastModified(10_000L + i * 1000L)
+        }
+        PersistingReplayEmitter(
+            storageDir = tempDir,
+            buildEnvelope = { _, _ -> env },
+            realSend = { Result.success(Unit) },
+            flushIntervalSeconds = 60,
+            flushAt = 10,
+            maxBatchSize = 2,
+            replayStorageEncryption = IdentityReplayStorageEncryption(),
+        )
+        Thread.sleep(400)
+        val left = tempDir.listFiles()?.filter { it.name.endsWith(".replay") }.orEmpty()
+        assertThat(left).hasSize(2)
+    }
+
+    @Test
+    fun `emit evicts oldest batches when storage cap exceeded`() {
+        val envelope = """{"event":"snapshot"}"""
+        val emitter =
+            PersistingReplayEmitter(
+                storageDir = tempDir,
+                buildEnvelope = { _, _ -> envelope },
+                realSend = { Result.success(Unit) },
+                flushIntervalSeconds = 60,
+                flushAt = 100,
+                maxBatchSize = 3,
+                replayStorageEncryption = IdentityReplayStorageEncryption(),
+            )
+        repeat(4) {
+            emitter.emit("sid", listOf(ReplayMetaEvent(800, 600, 0L, "")))
+        }
+        Thread.sleep(1000)
+        val files = tempDir.listFiles()?.filter { it.name.endsWith(".replay") }.orEmpty()
+        assertThat(files).hasSize(3)
+    }
+
+    @Test
+    fun `sendCachedEvents sends one request per flushAt chunk`() {
+        val env = """{"event":"snapshot"}"""
+        repeat(3) { i ->
+            File(tempDir, "${2000 + i}_y.replay").writeBytes(env.toByteArray(Charsets.UTF_8))
+        }
+        val sendCount = AtomicInteger(0)
+        val latch = CountDownLatch(3)
+        val emitter =
+            PersistingReplayEmitter(
+                storageDir = tempDir,
+                buildEnvelope = { _, _ -> env },
+                realSend = {
+                    sendCount.incrementAndGet()
+                    latch.countDown()
+                    Result.success(Unit)
+                },
+                flushIntervalSeconds = 60,
+                flushAt = 1,
+                maxBatchSize = 50,
+                replayStorageEncryption = IdentityReplayStorageEncryption(),
+            )
+        emitter.sendCachedEvents()
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue()
+        assertThat(sendCount.get()).isEqualTo(3)
     }
 
     @Test
