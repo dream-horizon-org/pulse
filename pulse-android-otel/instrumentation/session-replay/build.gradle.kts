@@ -21,6 +21,8 @@ kotlin {
 
 dependencies {
     api(projects.instrumentation.androidInstrumentation)
+    api(projects.pulseSessionReplayRemote)
+    implementation(projects.pulseSessionReplayModels)
     implementation(projects.session)
     implementation(projects.pulseUtils)
     implementation(libs.opentelemetry.sdk)
@@ -34,9 +36,7 @@ dependencies {
     testImplementation(libs.bundles.junit)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.robolectric)
-    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.opentelemetry.sdk.testing)
     implementation(libs.gson)
-    implementation(libs.retrofit)
     testImplementation(libs.gson)
 }

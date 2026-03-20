@@ -3,11 +3,11 @@ package com.pulse.android.sdk.replay.internal
 import com.google.gson.JsonArray
 import com.google.gson.JsonParser
 import com.pulse.android.sdk.replay.encoding.ReplayEventPayloadEncoder
-import com.pulse.android.sdk.replay.encoding.ReplayGson
-import com.pulse.android.sdk.replay.encoding.TransportEnvelope
-import com.pulse.android.sdk.replay.encoding.TransportEnvelopeProperties
 import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayEventType
+import com.pulse.android.sdk.replay.models.PulseReplayEnvelope
+import com.pulse.android.sdk.replay.models.PulseReplayEnvelopeProperties
+import com.pulse.android.sdk.replay.models.PulseReplayGson
 
 internal object ReplayEnvelopeBuilder {
     private const val ANONYMOUS_USER_ID = "anonymous"
@@ -19,20 +19,20 @@ internal object ReplayEnvelopeBuilder {
         projectId: String,
         userId: String,
     ): String {
-        val transportEvents = ReplayEventPayloadEncoder.toTransportEvents(events)
+        val wireSnapshotEvents = ReplayEventPayloadEncoder.toPulseReplayWireEvents(events)
         val envelope =
-            TransportEnvelope(
+            PulseReplayEnvelope(
                 event = "snapshot",
                 projectId = projectId,
                 userId = userId.ifEmpty { ANONYMOUS_USER_ID },
                 properties =
-                    TransportEnvelopeProperties(
+                    PulseReplayEnvelopeProperties(
                         sessionId = sessionId,
-                        snapshotData = transportEvents,
+                        snapshotData = wireSnapshotEvents,
                         snapshotSource = SNAPSHOT_SOURCE,
                     ),
             )
-        return ReplayGson.instance.toJson(envelope)
+        return PulseReplayGson.instance.toJson(envelope)
     }
 
     fun getSessionIdsForLog(payload: String): String? =

@@ -9,70 +9,84 @@ import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
 import com.pulse.android.sdk.replay.events.ReplayMetaData
 import com.pulse.android.sdk.replay.events.ReplayStyle
 import com.pulse.android.sdk.replay.events.ReplayWireframe
+import com.pulse.android.sdk.replay.models.PulseReplayCustomEventData
+import com.pulse.android.sdk.replay.models.PulseReplayEventData
+import com.pulse.android.sdk.replay.models.PulseReplayFullSnapshotData
+import com.pulse.android.sdk.replay.models.PulseReplayGson
+import com.pulse.android.sdk.replay.models.PulseReplayIncrementalMutationData
+import com.pulse.android.sdk.replay.models.PulseReplayMetaData
+import com.pulse.android.sdk.replay.models.PulseReplayMouseInteractionData
+import com.pulse.android.sdk.replay.models.PulseReplayMousePosition
+import com.pulse.android.sdk.replay.models.PulseReplayMutatedNode
+import com.pulse.android.sdk.replay.models.PulseReplayOffset
+import com.pulse.android.sdk.replay.models.PulseReplayRemovedNode
+import com.pulse.android.sdk.replay.models.PulseReplaySnapshotEvent
+import com.pulse.android.sdk.replay.models.PulseReplayStyle
+import com.pulse.android.sdk.replay.models.PulseReplayWireframe
 
 internal object ReplayEventPayloadEncoder {
-    fun encodeToJson(events: List<ReplayEvent>): String = ReplayGson.instance.toJson(toTransportEvents(events))
+    fun encodeToJson(events: List<ReplayEvent>): String = PulseReplayGson.instance.toJson(toPulseReplayWireEvents(events))
 
-    internal fun toTransportEvents(events: List<ReplayEvent>): List<TransportReplayEvent> = events.map { it.toTransport() }
+    internal fun toPulseReplayWireEvents(events: List<ReplayEvent>): List<PulseReplaySnapshotEvent> = events.map { it.toPulseReplayWire() }
 
-    private fun ReplayEvent.toTransport(): TransportReplayEvent =
-        TransportReplayEvent(
+    private fun ReplayEvent.toPulseReplayWire(): PulseReplaySnapshotEvent =
+        PulseReplaySnapshotEvent(
             type = type.value,
             timestamp = timestamp,
-            data = data?.toTransport(),
+            data = data?.toPulseReplayWire(),
         )
 
-    private fun ReplayEventData.toTransport(): TransportEventData =
+    private fun ReplayEventData.toPulseReplayWire(): PulseReplayEventData =
         when (this) {
             is ReplayMetaData -> {
-                TransportMetaData(href = href, width = width, height = height)
+                PulseReplayMetaData(href = href, width = width, height = height)
             }
             is ReplayFullSnapshotData -> {
-                TransportFullSnapshotData(
-                    wireframes = wireframes.map { it.toTransport() },
+                PulseReplayFullSnapshotData(
+                    wireframes = wireframes.map { it.toPulseReplayWire() },
                     initialOffset =
-                        TransportOffset(
+                        PulseReplayOffset(
                             top = initialOffsetTop,
                             left = initialOffsetLeft,
                         ),
                 )
             }
             is ReplayIncrementalMutationData -> {
-                toTransportMutation()
+                toPulseReplayMutationWire()
             }
             is ReplayIncrementalMouseInteractionData -> {
-                toTransportMouseInteraction()
+                toPulseReplayMouseInteractionWire()
             }
             is ReplayCustomEventData -> {
-                TransportCustomEventData(tag = tag, payload = payload)
+                PulseReplayCustomEventData(tag = tag, payload = payload)
             }
         }
 
-    private fun ReplayIncrementalMutationData.toTransportMutation() =
-        TransportIncrementalMutationData(
+    private fun ReplayIncrementalMutationData.toPulseReplayMutationWire() =
+        PulseReplayIncrementalMutationData(
             source = source.value,
             adds =
                 adds?.map {
-                    TransportMutatedNode(
+                    PulseReplayMutatedNode(
                         parentId = it.parentId,
-                        wireframe = it.wireframe.toTransport(),
+                        wireframe = it.wireframe.toPulseReplayWire(),
                     )
                 },
             removes =
                 removes?.map {
-                    TransportRemovedNode(id = it.id, parentId = it.parentId)
+                    PulseReplayRemovedNode(id = it.id, parentId = it.parentId)
                 },
             updates =
                 updates?.map {
-                    TransportMutatedNode(
+                    PulseReplayMutatedNode(
                         parentId = it.parentId,
-                        wireframe = it.wireframe.toTransport(),
+                        wireframe = it.wireframe.toPulseReplayWire(),
                     )
                 },
         )
 
-    private fun ReplayIncrementalMouseInteractionData.toTransportMouseInteraction() =
-        TransportMouseInteractionData(
+    private fun ReplayIncrementalMouseInteractionData.toPulseReplayMouseInteractionWire() =
+        PulseReplayMouseInteractionData(
             id = id,
             type = type.value,
             x = x,
@@ -81,7 +95,7 @@ internal object ReplayEventPayloadEncoder {
             pointerType = pointerType,
             positions =
                 positions?.map {
-                    TransportMousePosition(
+                    PulseReplayMousePosition(
                         x = it.x,
                         y = it.y,
                         id = it.id,
@@ -90,8 +104,8 @@ internal object ReplayEventPayloadEncoder {
                 },
         )
 
-    private fun ReplayWireframe.toTransport(): TransportWireframe =
-        TransportWireframe(
+    private fun ReplayWireframe.toPulseReplayWire(): PulseReplayWireframe =
+        PulseReplayWireframe(
             id = id,
             x = x,
             y = y,
@@ -107,13 +121,13 @@ internal object ReplayEventPayloadEncoder {
             label = label,
             parentId = parentId,
             max = max,
-            style = style?.toTransport(),
-            childWireframes = childWireframes?.map { it.toTransport() },
+            style = style?.toPulseReplayWire(),
+            childWireframes = childWireframes?.map { it.toPulseReplayWire() },
             options = options,
         )
 
-    private fun ReplayStyle.toTransport(): TransportStyle =
-        TransportStyle(
+    private fun ReplayStyle.toPulseReplayWire(): PulseReplayStyle =
+        PulseReplayStyle(
             color = color,
             backgroundColor = backgroundColor,
             backgroundImage = backgroundImage,
