@@ -41,6 +41,7 @@ public class ApplicationConfig {
   public String sessionReplayS3AccessKeyId;
   public String sessionReplayS3SecretAccessKey;
   public String devModeApiKey;
+  public String replayApiBaseUrl;
 
   /**
    * Get the dev mode API key with a sensible default.

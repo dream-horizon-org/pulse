@@ -166,6 +166,7 @@ docker run -d \
     -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
     -v "${VOLUME_CLICKHOUSE}:/var/lib/clickhouse" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/02-session-summary-mv.sql:ro" \
     --health-cmd 'clickhouse-client --query "SELECT 1"' \
     --health-interval 10s \
     --health-timeout 5s \
@@ -277,6 +278,7 @@ docker run --rm \
     -v "${SCRIPT_DIR}/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-session-replay-schema.sql:/init/clickhouse-session-replay-schema.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro" \
     "$IMAGE_CLICKHOUSE" \
     /bin/bash /scripts/init-clickhouse.sh
 
@@ -414,6 +416,7 @@ docker run -d \
     -e "METRIC_COLLECTOR_URL=${METRIC_COLLECTOR_URL}" \
     -e "SPAN_COLLECTOR_URL=${SPAN_COLLECTOR_URL}" \
     -e "CUSTOM_EVENT_COLLECTOR_URL=${CUSTOM_EVENT_COLLECTOR_URL}" \
+    -e "CONFIG_REPLAY_API_BASE_URL=${CONFIG_REPLAY_API_BASE_URL}" \
     \
     -e "CONFIG_SERVICE_APPLICATION_QUERY_ENGINE=${CONFIG_SERVICE_APPLICATION_QUERY_ENGINE}" \
     -e "CONFIG_SERVICE_APPLICATION_ATHENA_REGION=${CONFIG_SERVICE_APPLICATION_ATHENA_REGION}" \

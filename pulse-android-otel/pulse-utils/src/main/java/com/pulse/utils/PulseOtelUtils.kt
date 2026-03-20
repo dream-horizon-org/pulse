@@ -34,14 +34,36 @@ public object PulseOtelUtils {
         throwable: Throwable,
         body: () -> String,
     ) {
-        Log.e(getTag { tag }, body(), throwable)
+        if (isDebug()) Log.e(getTag { tag }, body(), throwable)
+    }
+
+    public inline fun logError(
+        tag: String,
+        body: () -> String,
+    ) {
+        if (isDebug()) Log.e(getTag { tag }, body())
     }
 
     public inline fun logDebug(
         tag: String,
         body: () -> String,
     ) {
-        Log.d(getTag { tag }, body())
+        if (isDebug()) Log.d(getTag { tag }, body())
+    }
+
+    public inline fun logWarn(
+        tag: String,
+        body: () -> String,
+    ) {
+        if (isDebug()) Log.w(getTag { tag }, body())
+    }
+
+    public inline fun logWarn(
+        tag: String,
+        throwable: Throwable?,
+        body: () -> String,
+    ) {
+        if (isDebug()) Log.w(getTag { tag }, body(), throwable)
     }
 }
 

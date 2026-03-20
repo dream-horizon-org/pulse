@@ -176,6 +176,12 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-session-replay-schema.sql" ]; 
 fi
 print_success "ClickHouse session replay schema found"
 
+if [ ! -f "$ROOT_DIR/backend/ingestion/session-summary-mv.sql" ]; then
+    print_error "ClickHouse session summary MV schema not found"
+    exit 1
+fi
+print_success "ClickHouse session summary MV schema found"
+
 load_env
 
 # Validate .env against .env.example and docker-compose.yml
