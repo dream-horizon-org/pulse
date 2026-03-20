@@ -23,6 +23,7 @@ import java.util.Collections
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -179,7 +180,7 @@ public class SessionReplayIntegration(
         if (view !in decorViews) return
         val window = windowRef.get() ?: return
 
-        val timestamp = clock.now()
+        val timestamp = TimeUnit.NANOSECONDS.toMillis(clock.now())
 
         if (config.isScreenshot) {
             ScreenshotCapture.captureAsync(
