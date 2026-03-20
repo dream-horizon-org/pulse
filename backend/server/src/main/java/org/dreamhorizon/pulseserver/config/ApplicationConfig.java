@@ -36,7 +36,6 @@ public class ApplicationConfig {
   public String encryptionMasterKey;
   public String tncS3BucketName;
   public String aiServiceUrl;
-  public String aiServiceKey;
   public String devModeApiKey;
   
   /**

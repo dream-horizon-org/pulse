@@ -43,7 +43,6 @@ public class AiProxyResource {
   private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String PROJECT_HEADER = "X-Project-ID";
-  private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
@@ -54,7 +53,6 @@ public class AiProxyResource {
   private final JwtService jwtService;
   private final HttpClient httpClient;
   private final String aiServiceUrl;
-  private final String serviceKey;
 
   @Inject
   public AiProxyResource(JwtService jwtService, ApplicationConfig config) {
@@ -63,17 +61,14 @@ public class AiProxyResource {
             .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(CONNECT_TIMEOUT)
             .build(),
-        config.getAiServiceUrl(),
-        config.getAiServiceKey());
+        config.getAiServiceUrl());
   }
 
-  AiProxyResource(JwtService jwtService, HttpClient httpClient, String aiServiceUrl,
-      String serviceKey) {
+  AiProxyResource(JwtService jwtService, HttpClient httpClient, String aiServiceUrl) {
     this.jwtService = jwtService;
     this.httpClient = httpClient;
     this.aiServiceUrl = aiServiceUrl != null && !aiServiceUrl.isBlank()
         ? aiServiceUrl : DEFAULT_AI_SERVICE_URL;
-    this.serviceKey = serviceKey != null ? serviceKey : "";
     log.info("AI proxy initialized → {}", this.aiServiceUrl);
   }
 
@@ -155,11 +150,6 @@ public class AiProxyResource {
 
     if (projectId != null && !projectId.isBlank()) {
       builder.header(PROJECT_HEADER, projectId.trim());
-    }
-
-    boolean hasServiceKey = !serviceKey.isEmpty();
-    if (hasServiceKey) {
-      builder.header(SERVICE_KEY_HEADER, serviceKey);
     }
 
     applyMethodAndBody(builder, method, body);

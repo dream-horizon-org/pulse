@@ -307,7 +307,6 @@ services:
 
       # AI Proxy Configuration 
       - AI_SERVICE_URL=${AI_SERVICE_URL:-http://host.docker.internal:8000}
-      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 

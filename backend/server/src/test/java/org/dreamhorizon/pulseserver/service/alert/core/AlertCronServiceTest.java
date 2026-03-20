@@ -429,7 +429,6 @@ class AlertCronServiceTest {
           "encryptionKey",
           "tnc-bucket",
           "http://ai:8000",
-          "ai-key",
           "dev-api-key"
       );
 
@@ -531,7 +530,6 @@ class AlertCronServiceTest {
           "key",
           "tnc-bucket",
           "http://ai:8000",
-          "ai-key",
           "dev-api-key"
       );
       String toString = config.toString();
@@ -547,21 +545,21 @@ class AlertCronServiceTest {
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "http://ai:8000", "ai-key", "dev-api-key"
+          "key", "tnc-bucket", "http://ai:8000", "dev-api-key"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "http://ai:8000", "ai-key", "dev-api-key"
+          "key", "tnc-bucket", "http://ai:8000", "dev-api-key"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
           "http://otel.url", "http://interaction.url", "http://logs.url", "http://metric.url",
           "http://span.url", "http://custom-event.url", "bucket", "path.json", "dist-id", "/path.json", "http://webhook.url",
           "interaction-path.json", "/interaction-path.json",
-          "key", "tnc-bucket", "http://ai:8000", "ai-key", "dev-api-key"
+          "key", "tnc-bucket", "http://ai:8000", "dev-api-key"
       );
 
       assertEquals(config1, config2);

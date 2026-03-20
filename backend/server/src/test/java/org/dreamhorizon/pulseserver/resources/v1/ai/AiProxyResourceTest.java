@@ -53,7 +53,7 @@ class AiProxyResourceTest {
 
   @BeforeEach
   void setUp() {
-    resource = new AiProxyResource(jwtService, httpClient, AI_SERVICE_URL, "");
+    resource = new AiProxyResource(jwtService, httpClient, AI_SERVICE_URL);
   }
 
   private void setupUriInfo(String path, String queryString) {
@@ -270,30 +270,6 @@ class AiProxyResourceTest {
       assertThat(captor.getValue().uri().toString())
           .contains("limit=10")
           .contains("offset=0");
-    }
-
-    @Test
-    void shouldIncludeServiceKeyHeaderWhenConfigured() {
-      resource = new AiProxyResource(jwtService, httpClient, AI_SERVICE_URL, "secret-service-key");
-      setupSuccessfulProxy("chat", 200, "application/json", "{}");
-
-      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
-
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().headers().firstValue("X-Pulse-Service-Key"))
-          .contains("secret-service-key");
-    }
-
-    @Test
-    void shouldNotIncludeServiceKeyHeaderWhenEmpty() {
-      setupSuccessfulProxy("chat", 200, "application/json", "{}");
-
-      awaitResponse(resource.proxyGet("chat", VALID_TOKEN, null, uriInfo));
-
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().headers().firstValue("X-Pulse-Service-Key")).isEmpty();
     }
 
     @Test
