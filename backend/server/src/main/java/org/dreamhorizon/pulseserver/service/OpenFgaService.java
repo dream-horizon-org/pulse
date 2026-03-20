@@ -62,6 +62,11 @@ public class OpenFgaService {
     }
   }
 
+  /** Whether OpenFGA is configured and active (listing and checks use FGA when true). */
+  public boolean isEnabled() {
+    return enabled;
+  }
+
   /**
    * Check if a user has a specific permission on a resource.
    *
