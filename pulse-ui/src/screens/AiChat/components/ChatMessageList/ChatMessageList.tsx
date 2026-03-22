@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ScrollArea, Stack } from "@mantine/core";
+import { Box, ScrollArea, Stack } from "@mantine/core";
 import { ChatMessage } from "../ChatMessage";
 import { EmptyState } from "../EmptyState";
 import { ChatMessageListProps } from "./ChatMessageList.interface";
@@ -18,7 +18,11 @@ export const ChatMessageList = ({
   if (!messages) return null;
 
   if (messages.length === 0) {
-    return <EmptyState onSelectSuggestion={onSelectSuggestion} />;
+    return (
+      <Box className={classes.container}>
+        <EmptyState onSelectSuggestion={onSelectSuggestion} />
+      </Box>
+    );
   }
 
   return (
