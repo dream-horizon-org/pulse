@@ -348,8 +348,8 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertComplete();
 
-      // 1 CREATE USER + 4 CREATE ROW POLICY + 1 GRANT = 6 SQL statements
-      verify(mockConnection, times(6)).createStatement(anyString());
+      // 1 CREATE USER + 5 ROW POLICIES (4 otel + root_cause_cache) + 2 GRANTS (SELECT + INSERT)
+      verify(mockConnection, times(8)).createStatement(anyString());
     }
   }
 
@@ -405,8 +405,8 @@ class ClickhouseProjectServiceTest {
           .test()
           .assertComplete();
 
-      // 4 DROP ROW POLICY + 1 DROP USER = 5 SQL statements
-      verify(mockConnection, times(5)).createStatement(anyString());
+      // 5 DROP ROW POLICY (4 otel + root_cause_cache) + 1 DROP USER = 6 SQL statements
+      verify(mockConnection, times(6)).createStatement(anyString());
     }
   }
 
