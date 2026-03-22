@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -154,6 +155,37 @@ class AiProxyServiceImplTest {
     }
 
     @Test
+    void shouldReturnMysqlHitUnchangedWhenBodyIsNotJsonObject() {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+          .thenReturn(Maybe.just("[1,2]"));
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      assertThat(result.getBufferedBody()).isEqualTo("[1,2]");
+      verify(httpClient, never()).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+
+    @Test
+    void shouldSkipMysqlAndEnrichmentWhenInteractionNameMissing() {
+      String body = "{\"date\":\"2025-03-10\"}";
+      HttpResponse<InputStream> upstreamResponse =
+          mockBufferedResponse(200, "application/json", "{}");
+      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+
+      awaitResult(
+          fullPipelineService()
+              .proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
+
+      verify(rcaReportCacheDao, never()).get(any(), any(), any());
+      verify(rootCauseService, never()).getRootCause(any(), any(), any());
+    }
+
+    @Test
     void shouldCallGetRootCauseAndUpstreamWhenMysqlMisses() {
       when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
@@ -243,6 +275,41 @@ class AiProxyServiceImplTest {
       verify(rootCauseService, times(2)).getRootCause(any(), any(), any());
       verify(httpClient, times(2)).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
       verify(rcaReportCacheDao, times(2)).get(PROJECT_ID, "checkout", ANALYSIS_DATE);
+    }
+  }
+
+  @Nested
+  class NonRcaProxy {
+
+    @Test
+    void shouldUseStreamingBodyWhenContentTypeIsSse() {
+      AiProxyServiceImpl service = fullPipelineService();
+      HttpResponse<InputStream> upstreamResponse =
+          mockBufferedResponse(200, "text/event-stream; charset=utf-8", "data: ping\n\n");
+      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+
+      AiProxyUpstreamResult result =
+          awaitResult(service.proxy("GET", "events", null, null, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(200);
+      assertThat(result.isBuffered()).isFalse();
+      assertThat(result.getMediaType()).contains("text/event-stream");
+      assertThat(result.getStreamBody()).isNotNull();
+    }
+
+    @Test
+    void shouldMapSendAsyncFailureToBadGateway() {
+      AiProxyServiceImpl service = new AiProxyServiceImpl(httpClient, AI_SERVICE_URL);
+      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+          .thenReturn(CompletableFuture.failedFuture(new RuntimeException("network")));
+
+      AiProxyUpstreamResult result =
+          awaitResult(service.proxy("GET", "health", null, null, AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(502);
+      assertThat(result.getBufferedBody()).contains("unavailable");
+      verifyNoInteractions(rootCauseService);
     }
   }
 

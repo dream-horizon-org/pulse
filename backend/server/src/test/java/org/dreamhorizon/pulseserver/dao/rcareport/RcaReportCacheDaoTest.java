@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.observers.TestObserver;
 import io.vertx.rxjava3.mysqlclient.MySQLPool;
 import io.vertx.rxjava3.sqlclient.PreparedQuery;
 import io.vertx.rxjava3.sqlclient.Row;
@@ -100,6 +101,34 @@ class RcaReportCacheDaoTest {
 
       assertThat(body).isEqualTo("{\"report\":1}");
     }
+
+    @Test
+    void shouldReturnEmptyWhenCachedBodyIsBlank() {
+      setupReader();
+      Row row = org.mockito.Mockito.mock(Row.class);
+      when(row.getString(0)).thenReturn("   ");
+      RowIterator<Row> iterator = org.mockito.Mockito.mock(RowIterator.class);
+      when(iterator.hasNext()).thenReturn(true, false);
+      when(iterator.next()).thenReturn(row);
+      when(rowSet.iterator()).thenReturn(iterator);
+      when(rowSet.size()).thenReturn(1);
+      when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+
+      String body = dao.get(PROJECT, INTERACTION, DATE).blockingGet();
+
+      assertThat(body).isNull();
+    }
+
+    @Test
+    void shouldPropagateErrorWhenReaderFails() {
+      setupReader();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new RuntimeException("db down")));
+
+      TestObserver<String> observer = dao.get(PROJECT, INTERACTION, DATE).test();
+
+      observer.assertError(RuntimeException.class);
+    }
   }
 
   @Nested
@@ -121,6 +150,26 @@ class RcaReportCacheDaoTest {
       when(rowSet.size()).thenReturn(0);
 
       dao.put(PROJECT, INTERACTION, DATE, "{\"x\":1}").blockingAwait();
+
+      verify(writerPool).preparedQuery(org.mockito.Mockito.contains("INSERT INTO rca_report_cache"));
+    }
+
+    @Test
+    void shouldCompleteWithoutWriteWhenReportBodyNull() {
+      setupWriter();
+
+      dao.put(PROJECT, INTERACTION, DATE, null).blockingAwait();
+
+      verify(writerPool, org.mockito.Mockito.never()).preparedQuery(anyString());
+    }
+
+    @Test
+    void shouldPropagateErrorWhenWriterFails() {
+      setupWriter();
+      when(preparedQuery.rxExecute(any(Tuple.class)))
+          .thenReturn(Single.error(new RuntimeException("write failed")));
+
+      dao.put(PROJECT, INTERACTION, DATE, "{\"x\":1}").test().assertError(RuntimeException.class);
 
       verify(writerPool).preparedQuery(org.mockito.Mockito.contains("INSERT INTO rca_report_cache"));
     }

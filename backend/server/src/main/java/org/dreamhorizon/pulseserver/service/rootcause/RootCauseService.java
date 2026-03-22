@@ -195,8 +195,9 @@ public class RootCauseService {
       String value = top.get().getKey();
       Map<String, String> filters = Map.of(dim, value);
       String label = dim + ": " + value;
-      RootCauseSegment seg = fetchSegmentMetrics(projectId, interactionName, window, baseline, label, filters).blockingGet();
-      if (seg != null) out.add(seg);
+      fetchSegmentMetrics(projectId, interactionName, window, baseline, label, filters)
+          .blockingGet()
+          .ifPresent(out::add);
     }
     return Single.just(out);
   }
@@ -266,14 +267,15 @@ public class RootCauseService {
       String label = path.size() == 1
           ? p.dimension + ": " + p.value
           : String.join(" + ", acc.values());
-      RootCauseSegment seg = fetchSegmentMetrics(
-          projectId, interactionName, window, baseline, label, Map.copyOf(acc)).blockingGet();
-      if (seg != null) segments.add(seg);
+      fetchSegmentMetrics(
+              projectId, interactionName, window, baseline, label, Map.copyOf(acc))
+          .blockingGet()
+          .ifPresent(segments::add);
     }
     return Single.just(segments);
   }
 
-  private Single<RootCauseSegment> fetchSegmentMetrics(
+  private Single<Optional<RootCauseSegment>> fetchSegmentMetrics(
       String projectId,
       String interactionName,
       RootCauseQueryBuilder.Window window,
@@ -286,15 +288,18 @@ public class RootCauseService {
         projectId, interactionName, window.startInclusive, window.endExclusive, dims, dimensionFilters);
     return executeQuery(projectId, q)
         .map(rows -> {
-          if (rows.isEmpty()) return null;
+          if (rows.isEmpty()) {
+            return Optional.<RootCauseSegment>empty();
+          }
           Map<String, Object> row = rows.get(0);
           Map<String, Double> deltas = computeDeltas(baseline, row);
-          return RootCauseSegment.builder()
+          RootCauseSegment segment = RootCauseSegment.builder()
               .label(label)
               .dimensions(new LinkedHashMap<>(dimensionFilters))
               .metrics(new LinkedHashMap<>(row))
               .deltas(deltas)
               .build();
+          return Optional.of(segment);
         });
   }
 
