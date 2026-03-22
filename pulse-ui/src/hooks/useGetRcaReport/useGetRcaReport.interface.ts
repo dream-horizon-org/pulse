@@ -23,6 +23,8 @@ export type RcaReportResponse = {
   report: RcaReportPayload;
   rca_insights?: string | null;
   cached?: boolean;
+  /** ISO-8601 instant when served from MySQL cache (pulse-server only) */
+  cachedAt?: string | null;
 };
 
 export type UseGetRcaReportParams = {

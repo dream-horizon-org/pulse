@@ -25,6 +25,14 @@ function formatMetricValue(value: number | string): string {
   return String(value);
 }
 
+function formatRcaReportCachedAt(
+  iso: string | null | undefined,
+): string | null {
+  if (iso == null || String(iso).trim() === "") return null;
+  const parsed = dayjs(iso);
+  return parsed.isValid() ? parsed.format("MMM D, YYYY [at] h:mm A") : null;
+}
+
 function orderedMetricKeys(metrics: Record<string, number | string>): string[] {
   const keys = Object.keys(metrics);
   const ordered: string[] = [];
@@ -174,9 +182,10 @@ export function RootCause({
   }
 
   if (showReport && reportPayload) {
-    const cachedAtFormatted = reportPayload.cached
-      ? dayjs().format("MMM D, YYYY [at] h:mm A")
-      : null;
+    const cachedAtFormatted =
+      reportPayload.cached === true
+        ? formatRcaReportCachedAt(reportPayload.cachedAt)
+        : null;
     const report = reportPayload.report ?? {
       markdown: null,
       charts: [],
