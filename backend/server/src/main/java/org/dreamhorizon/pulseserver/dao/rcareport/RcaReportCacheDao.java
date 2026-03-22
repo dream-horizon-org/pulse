@@ -4,12 +4,17 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
+import io.vertx.rxjava3.sqlclient.Row;
 import io.vertx.rxjava3.sqlclient.Tuple;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
+import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 
 @Slf4j
 @Singleton
@@ -23,7 +28,7 @@ public class RcaReportCacheDao {
    * Returns the cached report body if present and not expired. TTL matches
    * {@link RootCauseConfig#getCacheTtlHours()} (same as ClickHouse root-cause cache).
    */
-  public Maybe<String> get(String projectId, String interactionName, LocalDate date) {
+  public Maybe<RcaReportCacheHit> get(String projectId, String interactionName, LocalDate date) {
     int cacheTtlHours = rootCauseConfig.getCacheTtlHours();
     return mysqlClient.getReaderPool()
         .preparedQuery(RcaReportCacheQueries.GET_VALID)
@@ -32,8 +37,15 @@ public class RcaReportCacheDao {
           if (rows.size() == 0) {
             return Maybe.empty();
           }
-          String body = rows.iterator().next().getString(0);
-          return body == null || body.isBlank() ? Maybe.empty() : Maybe.just(body);
+          Row row = rows.iterator().next();
+          String body = row.getString(0);
+          if (body == null || body.isBlank()) {
+            return Maybe.empty();
+          }
+          LocalDateTime cachedAtLdt = row.getLocalDateTime(1);
+          Instant cachedAt =
+              cachedAtLdt != null ? cachedAtLdt.toInstant(ZoneOffset.UTC) : null;
+          return Maybe.just(new RcaReportCacheHit(body, cachedAt));
         })
         .doOnError(e -> log.warn("RCA report cache get failed: {}", e.getMessage()));
   }

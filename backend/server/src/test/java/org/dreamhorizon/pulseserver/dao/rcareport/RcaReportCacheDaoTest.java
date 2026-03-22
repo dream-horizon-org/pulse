@@ -15,6 +15,9 @@ import io.vertx.rxjava3.sqlclient.RowIterator;
 import io.vertx.rxjava3.sqlclient.RowSet;
 import io.vertx.rxjava3.sqlclient.Tuple;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,10 +86,10 @@ class RcaReportCacheDaoTest {
       when(rowSet.size()).thenReturn(0);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String body =
+      RcaReportCacheHit hit =
           dao.get(PROJECT, INTERACTION, DATE).blockingGet();
 
-      assertThat(body).isNull();
+      assertThat(hit).isNull();
     }
 
     @Test
@@ -94,6 +97,7 @@ class RcaReportCacheDaoTest {
       setupReader();
       Row row = org.mockito.Mockito.mock(Row.class);
       when(row.getString(0)).thenReturn("{\"report\":1}");
+      when(row.getLocalDateTime(1)).thenReturn(LocalDateTime.of(2025, 5, 1, 12, 0, 0));
       RowIterator<Row> iterator = org.mockito.Mockito.mock(RowIterator.class);
       when(iterator.hasNext()).thenReturn(true, false);
       when(iterator.next()).thenReturn(row);
@@ -101,10 +105,12 @@ class RcaReportCacheDaoTest {
       when(rowSet.size()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String body =
+      RcaReportCacheHit hit =
           dao.get(PROJECT, INTERACTION, DATE).blockingGet();
 
-      assertThat(body).isEqualTo("{\"report\":1}");
+      assertThat(hit.reportBody()).isEqualTo("{\"report\":1}");
+      assertThat(hit.cachedAt())
+          .isEqualTo(LocalDateTime.of(2025, 5, 1, 12, 0, 0).toInstant(ZoneOffset.UTC));
     }
 
     @Test
@@ -112,6 +118,7 @@ class RcaReportCacheDaoTest {
       setupReader();
       Row row = org.mockito.Mockito.mock(Row.class);
       when(row.getString(0)).thenReturn("   ");
+      when(row.getLocalDateTime(1)).thenReturn(LocalDateTime.of(2025, 1, 1, 0, 0));
       RowIterator<Row> iterator = org.mockito.Mockito.mock(RowIterator.class);
       when(iterator.hasNext()).thenReturn(true, false);
       when(iterator.next()).thenReturn(row);
@@ -119,9 +126,9 @@ class RcaReportCacheDaoTest {
       when(rowSet.size()).thenReturn(1);
       when(preparedQuery.rxExecute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
-      String body = dao.get(PROJECT, INTERACTION, DATE).blockingGet();
+      RcaReportCacheHit hit = dao.get(PROJECT, INTERACTION, DATE).blockingGet();
 
-      assertThat(body).isNull();
+      assertThat(hit).isNull();
     }
 
     @Test
@@ -130,7 +137,7 @@ class RcaReportCacheDaoTest {
       when(preparedQuery.rxExecute(any(Tuple.class)))
           .thenReturn(Single.error(new RuntimeException("db down")));
 
-      TestObserver<String> observer = dao.get(PROJECT, INTERACTION, DATE).test();
+      TestObserver<RcaReportCacheHit> observer = dao.get(PROJECT, INTERACTION, DATE).test();
 
       observer.assertError(RuntimeException.class);
     }

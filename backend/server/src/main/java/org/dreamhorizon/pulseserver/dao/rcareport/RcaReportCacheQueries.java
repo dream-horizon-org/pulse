@@ -14,7 +14,7 @@ public final class RcaReportCacheQueries {
    * Parameters: project_id, interaction_name, date, ttl_hours.
    */
   public static final String GET_VALID =
-      "SELECT report_body FROM rca_report_cache"
+      "SELECT report_body, cached_at FROM rca_report_cache"
           + " WHERE project_id = ? AND interaction_name = ? AND date = ?"
           + " AND cached_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)";
 

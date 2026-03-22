@@ -23,6 +23,7 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
+import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
@@ -138,7 +140,9 @@ class AiProxyServiceImplTest {
     @Test
     void shouldReturnMysqlHitWithoutCallingUpstream() throws Exception {
       when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
-          .thenReturn(Maybe.just("{\"fromDb\":1}"));
+          .thenReturn(
+              Maybe.just(
+                  new RcaReportCacheHit("{\"fromDb\":1}", Instant.parse("2025-03-10T08:30:00Z"))));
 
       AiProxyUpstreamResult result =
           awaitResult(
@@ -149,6 +153,7 @@ class AiProxyServiceImplTest {
       JsonNode node = objectMapper.readTree(result.getBufferedBody());
       assertThat(node.path("fromDb").asInt()).isEqualTo(1);
       assertThat(node.path("cached").asBoolean()).isTrue();
+      assertThat(node.path("cachedAt").asText()).isEqualTo("2025-03-10T08:30:00Z");
 
       verify(httpClient, never()).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
       verify(rootCauseService, never()).getRootCause(any(), any(), any());
@@ -157,7 +162,7 @@ class AiProxyServiceImplTest {
     @Test
     void shouldReturnMysqlHitUnchangedWhenBodyIsNotJsonObject() {
       when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
-          .thenReturn(Maybe.just("[1,2]"));
+          .thenReturn(Maybe.just(new RcaReportCacheHit("[1,2]", null)));
 
       AiProxyUpstreamResult result =
           awaitResult(

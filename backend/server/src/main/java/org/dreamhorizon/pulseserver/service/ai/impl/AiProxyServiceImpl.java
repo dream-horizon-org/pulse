@@ -14,8 +14,10 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -23,6 +25,7 @@ import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
+import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
@@ -153,18 +156,20 @@ public class AiProxyServiceImpl implements AiProxyService {
     if (keyPartsOpt.isPresent()) {
       RcaCacheKeyParts keyParts = keyPartsOpt.get();
       try {
-        CompletionStage<Optional<String>> mysqlStage =
+        CompletionStage<Optional<RcaReportCacheHit>> mysqlStage =
             maybeToCompletionStage(rcaReportCacheDao.get(keyParts.projectId(), keyParts.interactionName(), keyParts.date()));
         return withRcaErrorLogging(
             mysqlStage.thenCompose(
-                maybeBody -> {
-                  boolean hasMysqlHit = maybeBody.isPresent() && !maybeBody.get().isBlank();
+                maybeHit -> {
+                  boolean hasMysqlHit =
+                      maybeHit.isPresent() && !maybeHit.get().reportBody().isBlank();
                   if (hasMysqlHit) {
+                    RcaReportCacheHit hit = maybeHit.get();
                     return CompletableFuture.completedFuture(
                         AiProxyUpstreamResult.buffered(
                             200,
                             CONTENT_TYPE_JSON,
-                            applyCachedFlag(maybeBody.get(), true)));
+                            applyCacheMetadata(hit.reportBody(), true, hit.cachedAt())));
                   }
                   return doEnrichAndProxyRca(targetUrl, body, authorization, projectId)
                       .thenApply(
@@ -430,11 +435,15 @@ public class AiProxyServiceImpl implements AiProxyService {
     }
   }
 
-  private String applyCachedFlag(String body, boolean cached) {
+  private String applyCacheMetadata(String body, boolean cached, Instant cachedAt) {
     try {
       JsonNode node = objectMapper.readTree(body);
       if (node instanceof ObjectNode) {
-        ((ObjectNode) node).put("cached", cached);
+        ObjectNode obj = (ObjectNode) node;
+        obj.put("cached", cached);
+        if (cachedAt != null) {
+          obj.put("cachedAt", DateTimeFormatter.ISO_INSTANT.format(cachedAt));
+        }
       }
       return objectMapper.writeValueAsString(node);
     } catch (Exception exception) {
