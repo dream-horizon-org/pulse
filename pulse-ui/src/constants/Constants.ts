@@ -455,11 +455,6 @@ export const API_ROUTES: StreamverseRoutes = {
     apiPath: `/v2/getJobDetails`,
     method: API_METHODS.GET,
   },
-  GET_INTERACTION_ROOT_CAUSE: {
-    key: "GET_INTERACTION_ROOT_CAUSE",
-    apiPath: `/v1/interactions`,
-    method: API_METHODS.GET,
-  },
   DELETE_JOB: {
     key: "DELETE_JOB",
     apiPath: `/v3/deleteJob`,

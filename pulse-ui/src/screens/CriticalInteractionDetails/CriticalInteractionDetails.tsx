@@ -326,11 +326,13 @@ export function CiritcalInteractionDetails() {
         </Tabs.Panel>
         {isRootCauseEnabled && (
           <Tabs.Panel value="root-cause">
-            <RootCause
-              interactionName={interactionName ?? null}
-              date={rootCauseDate}
-              projectId={contextProjectId ?? projectIdFromUrl ?? null}
-            />
+            {activeTab === "root-cause" ? (
+              <RootCause
+                interactionName={interactionName ?? null}
+                date={rootCauseDate}
+                projectId={contextProjectId ?? projectIdFromUrl ?? null}
+              />
+            ) : null}
           </Tabs.Panel>
         )}
       </div>
