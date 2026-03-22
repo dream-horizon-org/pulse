@@ -32,8 +32,9 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
  * Returns {@link AiProxyUpstreamResult} (no JAX-RS types); the controller maps to
  * {@link jakarta.ws.rs.core.Response}.
  *
- * <p>POST {@code rca/report} uses read-through MySQL cache ({@link RcaReportCacheDao}), body
- * enrichment ({@code rootCausePayload} via {@link RootCauseService}), then upstream proxy.
+ * <p>POST {@code rca/report} uses read-through MySQL cache ({@link RcaReportCacheDao}; TTL from
+ * root-cause config), body enrichment ({@code rootCausePayload} via {@link RootCauseService}), then
+ * upstream proxy.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {

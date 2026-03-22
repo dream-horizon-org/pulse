@@ -1,17 +1,22 @@
 package org.dreamhorizon.pulseserver.dao.rcareport;
 
-/** SQL for pulse_db.rca_report_cache (MySQL). TTL 24h enforced in SELECT. */
+/**
+ * SQL for pulse_db.rca_report_cache (MySQL). Cache TTL (hours) is the fourth bound parameter on
+ * {@link #GET_VALID}.
+ */
 public final class RcaReportCacheQueries {
 
-  private static final int CACHE_TTL_HOURS = 24;
+  private RcaReportCacheQueries() {
+  }
 
-  private RcaReportCacheQueries() {}
-
-  /** Get report body if row exists and cached_at is within TTL. */
+  /**
+   * Get report body if row exists and {@code cached_at} is within the TTL (hours).
+   * Parameters: project_id, interaction_name, date, ttl_hours.
+   */
   public static final String GET_VALID =
       "SELECT report_body FROM rca_report_cache"
           + " WHERE project_id = ? AND interaction_name = ? AND date = ?"
-          + " AND cached_at >= NOW() - INTERVAL " + CACHE_TTL_HOURS + " HOUR";
+          + " AND cached_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)";
 
   /** Insert or replace report for (project_id, interaction_name, date). */
   public static final String UPSERT =

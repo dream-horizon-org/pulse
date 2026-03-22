@@ -19,7 +19,6 @@ import org.dreamhorizon.pulseserver.model.QueryResultResponse;
 public class RootCauseCacheDao {
 
   private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ISO_LOCAL_DATE;
-  private static final DateTimeFormatter DATETIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
   private final ClickhouseQueryService clickhouseQueryService;
 
@@ -28,11 +27,7 @@ public class RootCauseCacheDao {
    */
   public Single<Optional<RootCauseCacheRow>> findByKey(String projectId, String interactionName, LocalDate date) {
     String dateStr = date.format(DATE_FMT);
-    String query = "SELECT project_id, interaction_name, date, mode, baseline, segments, cached_at"
-        + " FROM otel.root_cause_cache FINAL"
-        + " WHERE project_id = '" + escape(projectId) + "'"
-        + " AND interaction_name = '" + escape(interactionName) + "'"
-        + " AND date = '" + dateStr + "'";
+    String query = RootCauseCacheQueries.buildSelectByKeyQuery(projectId, interactionName, dateStr);
     QueryConfiguration config = QueryConfiguration.newQuery(query)
         .projectId(projectId)
         .build();
@@ -54,17 +49,14 @@ public class RootCauseCacheDao {
       LocalDateTime cachedAt
   ) {
     String dateStr = date.format(DATE_FMT);
-    String cachedAtStr = cachedAt.format(DATETIME_FMT);
-    String query = "INSERT INTO otel.root_cause_cache (project_id, interaction_name, date, mode, baseline, segments, cached_at)"
-        + " VALUES ("
-        + "'" + escape(projectId) + "',"
-        + "'" + escape(interactionName) + "',"
-        + "'" + dateStr + "',"
-        + "'" + escape(mode) + "',"
-        + "'" + escapeJson(baselineJson) + "',"
-        + "'" + escapeJson(segmentsJson) + "',"
-        + "toDateTime64('" + cachedAtStr + "', 3, 'UTC')"
-        + ")";
+    String query = RootCauseCacheQueries.buildInsertQuery(
+        projectId,
+        interactionName,
+        dateStr,
+        mode,
+        baselineJson,
+        segmentsJson,
+        cachedAt);
     QueryConfiguration config = QueryConfiguration.newQuery(query)
         .projectId(projectId)
         .build();
@@ -74,15 +66,5 @@ public class RootCauseCacheDao {
           log.error("Root cause cache upsert failed: {}", e.getMessage());
           return Completable.error(e);
         });
-  }
-
-  private static String escape(String s) {
-    if (s == null) return "";
-    return s.replace("\\", "\\\\").replace("'", "\\'");
-  }
-
-  private static String escapeJson(String s) {
-    if (s == null) return "{}";
-    return s.replace("\\", "\\\\").replace("'", "\\'");
   }
 }
