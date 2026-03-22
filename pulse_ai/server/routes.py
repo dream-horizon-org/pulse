@@ -15,7 +15,7 @@ from google.genai.types import Content, Part
 
 from pulse_ai.constants import APP_NAME
 
-from .app import RunSSERequest, app, runner, session_service, session_scope_store
+from .app import RunSSERequest, app, rca_runner, runner, session_service, session_scope_store
 from .serializers import DeltaTracker, events_to_messages, extract_content_blocks, extract_title
 from .project_headers import require_x_project_id
 from .run_sse_utils import (
