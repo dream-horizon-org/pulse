@@ -262,39 +262,22 @@ AS SELECT
 FROM otel.stack_trace_events
 GROUP BY project_id, month, source;
 -- ---------------------------------------------------------------------------
--- Root Cause Analysis cache (read-through; TTL enforced in API)
+-- Root Cause Analysis cache (on-demand read-through; TTL enforced in API)
+-- Cache key: (project_id, interaction_name, date). Use project_id for isolation
+-- (not tenant_id). No table TTL; API enforces expiry (e.g. serve only if
+-- cached_at within 24h).
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS otel.root_cause_cache
 (
-    `project_id` String CODEC(ZSTD(1)),
+    `project_id`       LowCardinality(String) CODEC(ZSTD(1)),
     `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
-    `date` Date CODEC(ZSTD(1)),
-    `mode` LowCardinality(String) CODEC(ZSTD(1)),
-    `baseline` String CODEC(ZSTD(1)),
-    `segments` String CODEC(ZSTD(1)),
-    `cached_at` DateTime64(3, 'UTC') CODEC(ZSTD(1))
+    `date`             Date CODEC(ZSTD(1)),
+    `mode`             LowCardinality(String) CODEC(ZSTD(1)) COMMENT 'hierarchical | flat',
+    `baseline`         String CODEC(ZSTD(1)) COMMENT 'JSON',
+    `segments`         String CODEC(ZSTD(1)) COMMENT 'JSON',
+    `cached_at`        DateTime64(3, 'UTC') CODEC(ZSTD(1))
 )
 ENGINE = ReplacingMergeTree(cached_at)
 PARTITION BY toYYYYMM(date)
-ORDER BY (project_id, interaction_name, date)
-SETTINGS index_granularity = 8192;
-
--- ---------------------------------------------------------------------------
--- Root Cause Analysis cache (on-demand read-through)
--- Cache key: (project_id, interaction_name, date). Main branch uses ProjectId
--- for isolation; plan referenced tenant_id — use project_id only here.
--- No table TTL; API enforces expiry (e.g. serve only if cached_at within 24h).
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS otel.root_cause_cache
-(
-    `project_id`       LowCardinality(String),
-    `interaction_name` String,
-    `date`             Date,
-    `mode`             LowCardinality(String) COMMENT 'hierarchical | flat',
-    `baseline`         String COMMENT 'JSON',
-    `segments`         String COMMENT 'JSON',
-    `cached_at`        DateTime64(3, 'UTC')
-)
-ENGINE = ReplacingMergeTree(cached_at)
 ORDER BY (project_id, interaction_name, date)
 SETTINGS index_granularity = 8192;
