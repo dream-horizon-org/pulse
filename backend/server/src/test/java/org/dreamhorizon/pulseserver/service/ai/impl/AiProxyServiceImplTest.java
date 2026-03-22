@@ -217,6 +217,34 @@ class AiProxyServiceImplTest {
     }
 
     @Test
+    void shouldReturnStandardErrorEnvelopeWhenCachePutFailsAfterSuccessfulUpstream()
+        throws Exception {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+          .thenReturn(Maybe.empty());
+      when(rootCauseService.getRootCause(any(), any(), any()))
+          .thenReturn(
+              Single.just(
+                  RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
+      HttpResponse<InputStream> upstreamResponse =
+          mockBufferedResponse(200, "application/json", "{\"report\":\"ai\"}");
+      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      when(rcaReportCacheDao.put(any(), any(), any(), any()))
+          .thenThrow(new RuntimeException("put failed"));
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(500);
+      JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
+      assertThat(envelope.path("error").path("code").asText()).isEqualTo("BE1007");
+      assertThat(envelope.path("error").path("message").asText())
+          .isEqualTo("Internal error generating RCA report");
+    }
+
+    @Test
     void shouldSkipMysqlPutWhenUpstreamReturnsError() {
       when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
       when(rootCauseService.getRootCause(any(), any(), any()))

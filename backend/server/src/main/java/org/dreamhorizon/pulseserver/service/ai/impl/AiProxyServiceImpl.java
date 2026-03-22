@@ -23,6 +23,8 @@ import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
+import org.dreamhorizon.pulseserver.error.ServiceError;
+import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
@@ -50,7 +52,10 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";
   private static final int HTTP_INTERNAL_ERROR = 500;
-  private static final String ERROR_INTERNAL_RCA = "{\"error\":\"Internal error generating RCA report\"}";
+  private static final String ERROR_MESSAGE_RCA_INTERNAL = "Internal error generating RCA report";
+  private static final String ERROR_INTERNAL_RCA_BODY =
+      Error.of(ServiceError.INTERNAL_SERVER_ERROR.getErrorCode(), ERROR_MESSAGE_RCA_INTERNAL)
+          .toJsonString();
   private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
 
   private final HttpClient httpClient;
@@ -183,7 +188,7 @@ public class AiProxyServiceImpl implements AiProxyService {
         ex -> {
           log.error("RCA report proxy failed", ex);
           return AiProxyUpstreamResult.buffered(
-              HTTP_INTERNAL_ERROR, CONTENT_TYPE_JSON, ERROR_INTERNAL_RCA);
+              HTTP_INTERNAL_ERROR, CONTENT_TYPE_JSON, ERROR_INTERNAL_RCA_BODY);
         });
   }
 
