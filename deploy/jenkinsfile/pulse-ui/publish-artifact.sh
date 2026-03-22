@@ -62,7 +62,8 @@ echo "Success! Secrets have been written to $ENV_FILE."
 # 5. Build Application
 echo "### Installing project dependencies..."
 export NODE_OPTIONS=--max_old_space_size=4096
-yarn install
+corepack enable
+yarn install --immutable
 
 echo "### Building the dashboard..."
 NODE_ENV=production PORT=3000 yarn build

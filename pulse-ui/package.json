@@ -104,6 +104,7 @@
     "zustand": "^5.0.8"
   },
   "scripts": {
+    "setup": "corepack enable",
     "start": "node scripts/start.js",
     "postinstall": "patch-package",
     "build": "node scripts/build.js",
@@ -203,5 +204,6 @@
     "postcss-simple-vars": "^7.0.1",
     "react-dev-utils": "12.0.1",
     "swagger-typescript-api": "^13.0.12"
-  }
+  },
+  "packageManager": "yarn@4.12.0"
 }
