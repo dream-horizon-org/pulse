@@ -90,7 +90,6 @@ class ApplicationConfigTest {
         "key",
         "tncS3Bucket",
         "http://ai:8000",
-        "ai-key",
         "dev-api-key"
     );
     assertNotNull(config);

@@ -89,17 +89,25 @@ class _AgentTurn:
     text: str = ""
     charts: list[dict] = field(default_factory=list)
     tables: list[dict] = field(default_factory=list)
+    # Last ADK event id in this collapsed assistant turn (matches streaming meta).
+    last_event_id: str = ""
+    invocation_id: str = ""
 
     def is_empty(self) -> bool:
         return not self.text and not self.charts and not self.tables
 
     def to_message(self) -> dict[str, Any]:
-        return {
+        msg: dict[str, Any] = {
             "role": "model",
             "text": self.text,
             "charts": list(self.charts),
             "tables": list(self.tables),
         }
+        if self.last_event_id:
+            msg["id"] = self.last_event_id
+        if self.invocation_id:
+            msg["invocation_id"] = self.invocation_id
+        return msg
 
 
 def events_to_messages(events: list[Any] | None) -> list[dict[str, Any]]:
@@ -127,16 +135,30 @@ def events_to_messages(events: list[Any] | None) -> list[dict[str, Any]]:
             flush()
             joined = "".join(texts)
             if joined:
-                messages.append({
+                user_msg: dict[str, Any] = {
                     "role": "user",
                     "text": joined,
                     "charts": [],
                     "tables": [],
-                })
+                }
+                eid = getattr(ev, "id", "") or ""
+                if eid:
+                    user_msg["id"] = eid
+                inv = getattr(ev, "invocation_id", "") or ""
+                if inv:
+                    user_msg["invocation_id"] = inv
+                messages.append(user_msg)
             continue
 
         if ev.author != REPORT_AGENT_NAME:
             continue
+
+        eid = getattr(ev, "id", "") or ""
+        if eid:
+            turn.last_event_id = eid
+        inv = getattr(ev, "invocation_id", "") or ""
+        if inv:
+            turn.invocation_id = inv
 
         text = "".join(texts)
         if text:

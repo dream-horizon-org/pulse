@@ -3,9 +3,7 @@ export interface UseCreateUserAiSessionResponse {
   user_id: string;
 }
 
-export interface CreateSessionInput {
-  sessionId: string;
-}
+export type CreateSessionInput = Record<string, never>;
 
 export type OnSettled = (
   data: UseCreateUserAiSessionResponse | undefined,

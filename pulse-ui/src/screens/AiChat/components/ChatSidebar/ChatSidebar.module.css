@@ -53,3 +53,12 @@
   background: var(--ai-teal-10);
   border-left-color: var(--ai-teal-60);
 }
+
+/* Single-line ellipsis for session title / preview (NavLink label + description). */
+.ellipsisText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 100%;
+}

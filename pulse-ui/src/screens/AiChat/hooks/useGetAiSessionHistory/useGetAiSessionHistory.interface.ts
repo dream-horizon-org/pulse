@@ -1,5 +1,10 @@
+import { ChatRole } from "../../types/chat";
+
 export interface AiSessionMessage {
-  role: "user" | "model";
+  /** ADK persisted event id when provided by pulse_ai (session history). */
+  id?: string;
+  invocation_id?: string;
+  role: ChatRole;
   text: string;
   charts: Array<{
     type: string;

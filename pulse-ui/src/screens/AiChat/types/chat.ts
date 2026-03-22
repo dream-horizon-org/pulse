@@ -1,4 +1,18 @@
+export type ChatRole = "user" | "model";
+
 export type AiChartType = "line" | "bar" | "pie" | "area";
+
+/** Single source for chart type literals (use instead of raw "line" | "bar" | "pie" | "area"). */
+export const AI_CHART_TYPES: Record<AiChartType, AiChartType> = {
+  line: "line",
+  bar: "bar",
+  pie: "pie",
+  area: "area",
+};
+
+export type BlockType = "chart" | "table";
+
+export type SortDir = "asc" | "desc" | null;
 
 export interface AiChartConfig {
   type: AiChartType;
@@ -22,7 +36,7 @@ export interface AiTableConfig {
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "model";
+  role: ChatRole;
   text: string;
   sql?: string;
   charts?: AiChartConfig[];
@@ -43,7 +57,7 @@ export interface AdkRunRequest {
   appName: string;
   userId: string;
   sessionId: string;
-  newMessage: { role: "user"; parts: { text: string }[] };
+  newMessage: { role: ChatRole; parts: { text: string }[] };
   streaming?: boolean;
 }
 

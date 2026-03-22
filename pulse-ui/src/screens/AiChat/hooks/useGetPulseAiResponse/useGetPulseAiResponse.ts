@@ -1,8 +1,8 @@
-// TODO: Replace raw fetch with makeRequest helper once AI backend is behind the shared API gateway (SSE streaming may need a custom adapter)
+import { useMutation } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { buildAuthHeaders } from "../../../../helpers/makeRequestToServer";
+import { makeStreamingRequestToServer } from "../../../../helpers/makeRequestToServer";
 import {
   StreamingCallbacks,
   UseGetPulseAiResponseReturn,
@@ -10,21 +10,31 @@ import {
 import { readSseStream } from "./sseParser";
 import { AI_API_PATHS, AI_CHAT_TEXTS } from "../../AiChat.constants";
 
+/** DOM fetch error names (e.g. when request is aborted via AbortController). */
+enum FetchErrorName {
+  Abort = "AbortError",
+}
+
+type StreamAiMessageVariables = {
+  sessionId: string;
+  text: string;
+  callbacks: StreamingCallbacks;
+};
+
 export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const cancel = useCallback(() => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
-  }, []);
-
-  const sendMessage = useCallback(
-    (sessionId: string, text: string, callbacks: StreamingCallbacks) => {
+  const { mutate, reset } = useMutation({
+    mutationFn: async ({
+      sessionId,
+      text,
+      callbacks,
+    }: StreamAiMessageVariables): Promise<void> => {
+      abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
       const userId = getCookies(COOKIES_KEY.USER_EMAIL) || "anonymous";
-
       const body = JSON.stringify({
         user_id: userId,
         session_id: sessionId,
@@ -32,41 +42,58 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
         streaming: true,
       });
 
-      const authHeaders = buildAuthHeaders();
+      try {
+        const response = await makeStreamingRequestToServer(
+          `${API_BASE_URL}${AI_API_PATHS.RUN_SSE}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+            signal: controller.signal,
+          },
+        );
 
-      fetch(`${API_BASE_URL}${AI_API_PATHS.RUN_SSE}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body,
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            callbacks.onError(`Server error: ${response.status}`);
-            return;
-          }
-          if (!response.body) {
-            callbacks.onError(AI_CHAT_TEXTS.NO_RESPONSE_BODY);
-            return;
-          }
+        if (!response.ok) {
+          callbacks.onError(`Server error: ${response.status}`);
+          return;
+        }
+        if (!response.body) {
+          callbacks.onError(AI_CHAT_TEXTS.NO_RESPONSE_BODY);
+          return;
+        }
 
-          try {
-            await readSseStream(response.body.getReader(), callbacks);
-          } catch (err) {
-            if ((err as Error).name === "AbortError") return;
-            callbacks.onError(
-              (err as Error).message || AI_CHAT_TEXTS.STREAM_FAILED,
-            );
-          }
-        })
-        .catch((err) => {
-          if ((err as Error).name === "AbortError") return;
+        try {
+          await readSseStream(response.body.getReader(), callbacks);
+        } catch (err) {
+          if ((err as Error).name === FetchErrorName.Abort) return;
           callbacks.onError(
-            (err as Error).message || AI_CHAT_TEXTS.NETWORK_ERROR,
+            (err as Error).message || AI_CHAT_TEXTS.STREAM_FAILED,
           );
-        });
+        }
+      } catch (err) {
+        if ((err as Error).name === FetchErrorName.Abort) return;
+        callbacks.onError(
+          (err as Error).message || AI_CHAT_TEXTS.NETWORK_ERROR,
+        );
+      } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+      }
     },
-    [],
+  });
+
+  const cancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    reset();
+  }, [reset]);
+
+  const sendMessage = useCallback(
+    (sessionId: string, text: string, callbacks: StreamingCallbacks) => {
+      mutate({ sessionId, text, callbacks });
+    },
+    [mutate],
   );
 
   return { sendMessage, cancel };

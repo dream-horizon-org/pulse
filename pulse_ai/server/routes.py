@@ -9,18 +9,25 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import HTTPException, Header, Request
+from fastapi import HTTPException, Header, Request, Response
 from fastapi.responses import StreamingResponse
 from google.genai.types import Content, Part
 
-from pulse_ai.constants import APP_NAME, DEFAULT_TITLE
+from pulse_ai.constants import APP_NAME
 
-from .app import RunSSERequest, app, rca_runner, runner, session_service
+from .app import RunSSERequest, app, runner, session_service, session_scope_store
+from .serializers import DeltaTracker, events_to_messages, extract_content_blocks, extract_title
+from .project_headers import require_x_project_id
+from .run_sse_utils import (
+    ensure_session_for_run,
+    request_headers_to_state_delta,
+    stream_adk_run_as_sse,
+    user_content_from_parts,
+)
+from pulse_ai.schemas import RootCausePayloadSchema
 from .backend_client import BackendClientError, fetch_root_cause_payload
 from .rca_runner import RcaRunnerError, generate_rca_report
 from .schemas import RcaReportRequest, RcaReportResponse
-from pulse_ai.schemas import RootCausePayloadSchema
-from .serializers import DeltaTracker, events_to_messages, extract_content_blocks, extract_title
 
 logger = logging.getLogger(__name__)
 
@@ -35,107 +42,96 @@ async def run_sse(http_request: Request, body: RunSSERequest) -> StreamingRespon
     Passes the request's Authorization header to tools via state_delta so
     tools can use it when calling the Pulse backend (Bearer token from client).
     """
-    session = await session_service.get_session(
+    project_id = require_x_project_id(http_request)
+    await ensure_session_for_run(
+        session_service,
+        session_scope_store,
         app_name=APP_NAME,
         user_id=body.user_id,
         session_id=body.session_id,
+        project_id=project_id,
     )
-    if not session:
-        session = await session_service.create_session(
-            app_name=APP_NAME,
+    state_delta = request_headers_to_state_delta(http_request)
+    new_message = user_content_from_parts(body.new_message.parts)
+
+    return StreamingResponse(
+        stream_adk_run_as_sse(
+            runner=runner,
+            session_service=session_service,
             user_id=body.user_id,
             session_id=body.session_id,
-        )
-
-    authorization = http_request.headers.get("Authorization")
-    project_id = http_request.headers.get("X-Project-ID")
-    state_delta = {}
-    if authorization:
-        state_delta["bearer_token"] = authorization
-    if project_id and project_id.strip():
-        state_delta["project_id"] = project_id.strip()
-    state_delta = state_delta or None
-
-    parts = [Part.from_text(text=p.text) for p in body.new_message.parts]
-    new_message = Content(role="user", parts=parts)
-
-    async def event_stream():
-        content_blocks: list[dict] = []
-        tracker = DeltaTracker()
-
-        try:
-            async for event in runner.run_async(
-                user_id=body.user_id,
-                session_id=body.session_id,
-                new_message=new_message,
-                state_delta=state_delta,
-            ):
-                if not event.content or not event.content.parts:
-                    continue
-
-                texts, blocks = extract_content_blocks(
-                    event.content.parts, event.author,
-                )
-
-                if blocks:
-                    tracker.reset()
-                    content_blocks.extend(blocks)
-
-                for text in texts:
-                    delta = tracker.push(text)
-                    if delta:
-                        yield f"data: {json.dumps({'type': 'text', 'content': delta})}\n\n"
-
-        except Exception as e:
-            logger.exception("Error during agent execution")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-        if content_blocks:
-            yield f"data: {json.dumps({'type': 'content_blocks', 'blocks': content_blocks})}\n\n"
-        yield "data: [DONE]\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+            new_message=new_message,
+            state_delta=state_delta,
+        ),
+        media_type="text/event-stream",
+    )
 
 
 @app.post("/sessions")
-async def create_session_endpoint(user_id: str, session_id: str = "") -> dict[str, str]:
+async def create_session_endpoint(
+    request: Request,
+    user_id: str,
+    session_id: str | None = None,
+) -> dict[str, str]:
     """Create a new agent session."""
+    project_id = require_x_project_id(request)
     sid = session_id or str(uuid.uuid4())
     session = await session_service.create_session(
         app_name=APP_NAME,
         user_id=user_id,
         session_id=sid,
     )
-    return {"session_id": session.id, "user_id": user_id}
+    # Prefer ADK session.id when set; fall back to sid so clients always get a
+    # non-empty id consistent with create_session registration.
+    returned_id = getattr(session, "id", None) or sid
+    returned_id_str = str(returned_id)
+    await session_scope_store.upsert(
+        app_name=APP_NAME,
+        user_id=user_id,
+        session_id=returned_id_str,
+        project_id=project_id,
+    )
+    return {"session_id": returned_id_str, "user_id": user_id}
 
 
 # TODO: list_sessions does N+1 get_session calls to extract titles.
 # Consider caching titles or storing them as session metadata once ADK supports it.
 @app.get("/sessions/{user_id}")
-async def list_sessions(user_id: str) -> list[dict[str, Any]]:
-    """List all sessions for a user, each with a derived title."""
-    result = await session_service.list_sessions(
+async def list_sessions(request: Request, user_id: str) -> list[dict[str, Any]]:
+    """List sessions for a user scoped to X-Project-ID, each with a derived title."""
+    project_id = require_x_project_id(request)
+    ids = await session_scope_store.list_session_ids_for_user_project(
         app_name=APP_NAME,
         user_id=user_id,
+        project_id=project_id,
     )
-    items = []
-    for s in (result.sessions or []):
+    items: list[dict[str, Any]] = []
+    for sid in ids:
         full = await session_service.get_session(
-            app_name=APP_NAME, user_id=user_id, session_id=s.id,
+            app_name=APP_NAME,
+            user_id=user_id,
+            session_id=sid,
         )
+        if not full:
+            continue
         items.append({
-            "id": s.id,
-            "user_id": s.user_id,
-            "title": extract_title(full.events) if full else DEFAULT_TITLE,
-            "last_update_time": s.last_update_time,
+            "id": full.id,
+            "user_id": full.user_id,
+            "title": extract_title(full.events),
+            "last_update_time": full.last_update_time,
         })
     items.sort(key=lambda x: x["last_update_time"], reverse=True)
     return items
 
 
 @app.get("/sessions/{user_id}/{session_id}")
-async def get_session(user_id: str, session_id: str) -> dict[str, Any]:
+async def get_session(
+    request: Request,
+    user_id: str,
+    session_id: str,
+) -> dict[str, Any]:
     """Get session details with pre-processed message history."""
+    project_id = require_x_project_id(request)
     session = await session_service.get_session(
         app_name=APP_NAME,
         user_id=user_id,
@@ -143,12 +139,58 @@ async def get_session(user_id: str, session_id: str) -> dict[str, Any]:
     )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    stored = await session_scope_store.get_project_id(
+        app_name=APP_NAME,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    if stored is None or stored != project_id:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {
         "id": session.id,
         "user_id": session.user_id,
         "messages": events_to_messages(session.events),
         "last_update_time": session.last_update_time,
     }
+
+
+@app.delete("/sessions/{user_id}/{session_id}")
+async def delete_session_endpoint(
+    request: Request,
+    user_id: str,
+    session_id: str,
+) -> Response:
+    """Delete ADK session and sidecar row when scoped; idempotent 204."""
+    project_id = require_x_project_id(request)
+    stored = await session_scope_store.get_project_id(
+        app_name=APP_NAME,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    if stored is None:
+        return Response(status_code=204)
+    if stored != project_id:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await session_service.delete_session(
+        app_name=APP_NAME,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    try:
+        await session_scope_store.delete(
+            app_name=APP_NAME,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    except Exception as e:
+        logger.warning(
+            "Sidecar delete failed after ADK delete (app=%s user=%s session=%s): %s",
+            APP_NAME,
+            user_id,
+            session_id,
+            e,
+        )
+    return Response(status_code=204)
 
 
 @app.get("/health")

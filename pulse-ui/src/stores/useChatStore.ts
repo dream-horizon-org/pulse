@@ -4,6 +4,7 @@ import {
   AiChartConfig,
   AiTableConfig,
   ChatMessage,
+  ChatRole,
   ChatSession,
 } from "../types/chat";
 
@@ -27,6 +28,12 @@ interface ChatActions {
   appendToLastMessage: (sessionId: string, token: string) => void;
   markLastMessageComplete: (sessionId: string) => void;
   markLastMessageError: (sessionId: string, fallbackText: string) => void;
+  /** Set `id` on the last message with the given role (server ADK event id from SSE meta). */
+  patchLastMessageIdByRole: (
+    sessionId: string,
+    role: ChatRole,
+    id: string,
+  ) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
   setMessages: (sessionId: string, messages: ChatMessage[]) => void;
   setStreaming: (isStreaming: boolean) => void;
@@ -48,14 +55,18 @@ export const useChatStore = create<ChatState & ChatActions>()(
       ...initialState,
 
       createSession: (session) =>
-        set((state) => ({
-          sessions: [session, ...state.sessions],
-          activeSessionId: session.id,
-          messages: { ...state.messages, [session.id]: [] },
-        })),
+        set((state) => {
+          if (!session?.id) return state;
+          return {
+            sessions: [session, ...state.sessions],
+            activeSessionId: session.id,
+            messages: { ...state.messages, [session.id]: [] },
+          };
+        }),
 
       deleteSession: (sessionId) =>
         set((state) => {
+          if (!sessionId) return state;
           const { [sessionId]: _, ...remaining } = state.messages;
           const filteredSessions = state.sessions.filter(
             (s) => s.id !== sessionId,
@@ -72,10 +83,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       switchSession: (sessionId) => set({ activeSessionId: sessionId }),
 
-      setSessions: (sessions) => set({ sessions }),
+      setSessions: (sessions) =>
+        set({ sessions: Array.isArray(sessions) ? sessions : [] }),
 
       addMessage: (sessionId, message) =>
         set((state) => {
+          if (!sessionId) return state;
           const existing = state.messages[sessionId] ?? [];
           const updatedSessions = state.sessions.map((s) =>
             s.id === sessionId
@@ -97,10 +110,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       updateLastMessage: (sessionId, text) =>
         set((state) => {
+          if (!sessionId) return state;
           const sessionMessages = state.messages[sessionId] ?? [];
           if (sessionMessages.length === 0) return state;
           const updated = [...sessionMessages];
           const last = updated[updated.length - 1];
+          if (!last) return state;
           updated[updated.length - 1] = { ...last, text };
           return {
             messages: { ...state.messages, [sessionId]: updated },
@@ -109,10 +124,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       updateLastMessageCharts: (sessionId, charts) =>
         set((state) => {
+          if (!sessionId) return state;
           const sessionMessages = state.messages[sessionId] ?? [];
           if (sessionMessages.length === 0) return state;
           const updated = [...sessionMessages];
           const last = updated[updated.length - 1];
+          if (!last) return state;
           updated[updated.length - 1] = { ...last, charts };
           return {
             messages: { ...state.messages, [sessionId]: updated },
@@ -121,10 +138,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       updateLastMessageTables: (sessionId, tables) =>
         set((state) => {
+          if (!sessionId) return state;
           const sessionMessages = state.messages[sessionId] ?? [];
           if (sessionMessages.length === 0) return state;
           const updated = [...sessionMessages];
           const last = updated[updated.length - 1];
+          if (!last) return state;
           updated[updated.length - 1] = { ...last, tables };
           return {
             messages: { ...state.messages, [sessionId]: updated },
@@ -133,22 +152,26 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       appendToLastMessage: (sessionId, token) =>
         set((state) => {
+          if (!sessionId) return state;
           const sessionMessages = state.messages[sessionId] ?? [];
           if (sessionMessages.length === 0) return state;
           const updated = [...sessionMessages];
           const last = updated[updated.length - 1];
-          if (last.role !== "model") return state;
+          if (!last || last.role !== "model") return state;
           updated[updated.length - 1] = { ...last, text: last.text + token };
           return { messages: { ...state.messages, [sessionId]: updated } };
         }),
 
       markLastMessageComplete: (sessionId) =>
         set((state) => {
+          if (!sessionId) return state;
           const sessionMessages = state.messages[sessionId] ?? [];
           if (sessionMessages.length === 0) return state;
           const updated = [...sessionMessages];
+          const last = updated[updated.length - 1];
+          if (!last) return state;
           updated[updated.length - 1] = {
-            ...updated[updated.length - 1],
+            ...last,
             isStreaming: false,
           };
           return { messages: { ...state.messages, [sessionId]: updated } };
@@ -156,10 +179,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       markLastMessageError: (sessionId, fallbackText) =>
         set((state) => {
+          if (!sessionId) return state;
           const sessionMessages = state.messages[sessionId] ?? [];
           if (sessionMessages.length === 0) return state;
           const updated = [...sessionMessages];
           const last = updated[updated.length - 1];
+          if (!last) return state;
           updated[updated.length - 1] = {
             ...last,
             isStreaming: false,
@@ -168,17 +193,42 @@ export const useChatStore = create<ChatState & ChatActions>()(
           return { messages: { ...state.messages, [sessionId]: updated } };
         }),
 
+      patchLastMessageIdByRole: (sessionId, role, id) =>
+        set((state) => {
+          if (!sessionId || !id) return state;
+          const sessionMessages = state.messages[sessionId] ?? [];
+          let targetIndex = -1;
+          for (let i = sessionMessages.length - 1; i >= 0; i--) {
+            if (sessionMessages[i]?.role === role) {
+              targetIndex = i;
+              break;
+            }
+          }
+          if (targetIndex < 0) return state;
+          const updated = [...sessionMessages];
+          const cur = updated[targetIndex];
+          if (!cur) return state;
+          updated[targetIndex] = { ...cur, id };
+          return { messages: { ...state.messages, [sessionId]: updated } };
+        }),
+
       updateSessionTitle: (sessionId, title) =>
-        set((state) => ({
-          sessions: state.sessions.map((s) =>
-            s.id === sessionId ? { ...s, title } : s,
-          ),
-        })),
+        set((state) => {
+          if (!sessionId) return state;
+          return {
+            sessions: state.sessions.map((s) =>
+              s.id === sessionId ? { ...s, title } : s,
+            ),
+          };
+        }),
 
       setMessages: (sessionId, messages) =>
-        set((state) => ({
-          messages: { ...state.messages, [sessionId]: messages },
-        })),
+        set((state) => {
+          if (!sessionId) return state;
+          return {
+            messages: { ...state.messages, [sessionId]: messages },
+          };
+        }),
 
       setStreaming: (isStreaming) => set({ isStreaming }),
 

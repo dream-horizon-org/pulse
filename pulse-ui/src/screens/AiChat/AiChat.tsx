@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Alert, Box } from "@mantine/core";
+import { useEffect, useMemo } from "react";
+import { Alert, Box, LoadingOverlay } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useChatStore } from "../../stores/useChatStore";
 import { useAiChatHydration } from "./hooks/useAiChatHydration";
@@ -21,8 +21,16 @@ export const AiChat = () => {
     setError,
   } = useChatStore();
 
-  const { handleNewChat, isLoadingSessions } = useAiChatHydration();
-  const { handleSend } = useHandleSend();
+  const {
+    handleNewChat,
+    isLoadingSessions,
+    isCreatingSession,
+    sessionsErrorMessage,
+    onRetrySessions,
+  } = useAiChatHydration();
+  const { handleSend, cancel } = useHandleSend();
+
+  useEffect(() => () => cancel(), [cancel]);
 
   const activeMessages = useMemo(
     () => (activeSessionId ? (messages[activeSessionId] ?? []) : []),
@@ -35,10 +43,18 @@ export const AiChat = () => {
         sessions={sessions}
         activeSessionId={activeSessionId}
         isLoading={isLoadingSessions}
+        isCreatingSession={isCreatingSession}
+        sessionsError={sessionsErrorMessage}
+        onRetrySessions={onRetrySessions}
         onNewChat={handleNewChat}
         onSelectSession={switchSession}
       />
       <Box className={classes.chatArea}>
+        <LoadingOverlay
+          visible={isCreatingSession}
+          overlayProps={{ blur: 2 }}
+          zIndex={50}
+        />
         {error && (
           <Alert
             icon={<IconAlertCircle size={16} />}

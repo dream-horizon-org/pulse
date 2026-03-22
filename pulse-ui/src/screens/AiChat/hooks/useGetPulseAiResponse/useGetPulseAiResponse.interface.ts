@@ -1,8 +1,14 @@
-import { AiChartConfig, AiTableConfig } from "../../types/chat";
+import { AiChartConfig, AiTableConfig, BlockType } from "../../types/chat";
 
 export interface ContentBlock {
-  block_type: "chart" | "table" | string;
+  block_type: BlockType | string;
   [key: string]: unknown;
+}
+
+export interface StreamMetaPayload {
+  userEventId?: string;
+  assistantEventId?: string;
+  invocationId?: string;
 }
 
 export interface StreamingCallbacks {
@@ -10,6 +16,7 @@ export interface StreamingCallbacks {
   onCharts: (charts: AiChartConfig[]) => void;
   onTables: (tables: AiTableConfig[]) => void;
   onContentBlocks?: (blocks: ContentBlock[]) => void;
+  onMeta?: (payload: StreamMetaPayload) => void;
   onComplete: () => void;
   onError: (message: string) => void;
 }
