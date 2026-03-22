@@ -38,6 +38,7 @@ public class ApplicationConfig {
   public String aiServiceUrl;
   /** Shared secret for server-to-server calls (X-Pulse-Service-Key); optional. */
   public String aiServiceKey;
+  public String symbolFilesS3BucketName;
   public String devModeApiKey;
   
   /**

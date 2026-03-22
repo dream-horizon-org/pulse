@@ -113,6 +113,16 @@ if [ ${#SERVICES[@]} -eq 0 ]; then
     SERVICES=("ui" "server" "cron")
 fi
 
+# Validate encryption key when building server or cron (required at runtime)
+_needs_encryption_key=false
+for svc in "${SERVICES[@]}"; do
+    [ "$svc" = "server" ] || [ "$svc" = "cron" ] && _needs_encryption_key=true && break
+done
+if [ "$_needs_encryption_key" = true ] && ! validate_encryption_key; then
+    print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+    exit 1
+fi
+
 # ── Compose path (simple) ────────────────────────────────────────────────
 if has_compose; then
     cd "$DEPLOY_DIR"

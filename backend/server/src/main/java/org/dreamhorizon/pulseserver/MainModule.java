@@ -26,6 +26,7 @@ import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
+import org.dreamhorizon.pulseserver.errorgrouping.service.S3SymbolFileService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
@@ -88,6 +89,7 @@ public class MainModule extends VertxAbstractModule {
       return new ClickhouseProjectConnectionPoolManager(config);
     }).in(Singleton.class);
 
+    bind(S3SymbolFileService.class).in(Singleton.class);
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
