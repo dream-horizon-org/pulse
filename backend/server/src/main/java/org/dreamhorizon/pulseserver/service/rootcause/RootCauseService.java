@@ -62,8 +62,8 @@ public class RootCauseService {
       RootCauseQueryBuilder.Window window
   ) {
     return runBaseline(projectId, interactionName, window)
-        .flatMap(baselineRow -> {
-          if (baselineRow == null) {
+        .flatMap(baselineRowOpt -> {
+          if (baselineRowOpt.isEmpty()) {
             return Single.just(RootCauseResult.builder()
                 .noDataAvailable(true)
                 .message("No data available")
@@ -71,6 +71,7 @@ public class RootCauseService {
                 .segments(List.of())
                 .build());
           }
+          Map<String, Object> baselineRow = baselineRowOpt.get();
           Object vol = baselineRow.get(RootCauseMetricsRegistry.VOLUME);
           long volume = toLong(vol);
           if (volume == 0) {
@@ -117,7 +118,7 @@ public class RootCauseService {
         });
   }
 
-  private Single<Map<String, Object>> runBaseline(
+  private Single<Optional<Map<String, Object>>> runBaseline(
       String projectId,
       String interactionName,
       RootCauseQueryBuilder.Window window
@@ -125,7 +126,7 @@ public class RootCauseService {
     String query = RootCauseQueryBuilder.buildBaselineQuery(
         projectId, interactionName, window.startInclusive, window.endExclusive);
     return executeQuery(projectId, query)
-        .map(rows -> rows.isEmpty() ? null : rows.get(0));
+        .map(rows -> rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0)));
   }
 
   private Single<List<RootCauseSegment>> runAlgorithm(
