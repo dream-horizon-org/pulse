@@ -36,6 +36,8 @@ public class ApplicationConfig {
   public String encryptionMasterKey;
   public String tncS3BucketName;
   public String aiServiceUrl;
+  /** Shared secret for server-to-server calls (X-Pulse-Service-Key); optional. */
+  public String aiServiceKey;
   public String devModeApiKey;
   
   /**
