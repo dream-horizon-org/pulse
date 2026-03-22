@@ -29,7 +29,9 @@ import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.config.StartupConfigValidator;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
+import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
@@ -37,6 +39,8 @@ import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 public class MainVerticle extends AbstractVerticle {
 
   private WebClient webClient;
+  /** Long read/idle timeouts for {@code /v1/ai/*} proxy (SSE); not shared with general WebClient. */
+  private WebClient aiProxyWebClient;
   private MysqlClient mysqlClient;
 
   @Override
@@ -54,6 +58,11 @@ public class MainVerticle extends AbstractVerticle {
 
           this.mysqlClient = new MysqlClientImpl(this.vertx, mysqlConfig);
           this.webClient = WebClient.create(vertx, getWebClientOptions(webClientConfig));
+          this.aiProxyWebClient =
+              WebClient.create(vertx, getAiProxyWebClientOptions(webClientConfig));
+          log.info(
+              "AI proxy WebClient: read/write/idle timeouts {} ms (aligned with AiProxyController)",
+              AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
           SharedDataUtils.put(vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
           JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
@@ -105,6 +114,7 @@ public class MainVerticle extends AbstractVerticle {
 
           SharedDataUtils.put(vertx.getDelegate(), mysqlClient);
           SharedDataUtils.put(vertx.getDelegate(), webClient);
+          SharedDataUtils.put(vertx.getDelegate(), aiProxyWebClient, Constants.WEB_CLIENT_AI_PROXY);
 
           // Validate startup configuration after all configs are loaded
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
@@ -247,6 +257,29 @@ public class MainVerticle extends AbstractVerticle {
         .setWriteIdleTimeout(Integer.parseInt(config.getString(HTTP_WRITE_TIMEOUT)));
   }
 
+  /**
+   * WebClient options for Pulse AI reverse proxy: long read/write/idle so SSE and slow LLM first
+   * token do not hit the ~1s defaults used by {@link #getWebClientOptions(JsonObject)}.
+   */
+  private WebClientOptions getAiProxyWebClientOptions(JsonObject config) {
+    int longMs = (int) AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS;
+    int connectMs =
+        Math.max(30_000, Integer.parseInt(config.getString(HTTP_CONNECT_TIMEOUT)));
+    int keepAliveTimeoutSec =
+        Math.max(
+            120,
+            Integer.parseInt(config.getString(HTTP_CLIENT_KEEP_ALIVE_TIMEOUT)) / 1000);
+    return new WebClientOptions()
+        .setConnectTimeout(connectMs)
+        .setIdleTimeoutUnit(TimeUnit.MILLISECONDS)
+        .setKeepAlive(Boolean.parseBoolean(config.getString(HTTP_CLIENT_KEEP_ALIVE)))
+        .setKeepAliveTimeout(keepAliveTimeoutSec)
+        .setIdleTimeout(longMs)
+        .setMaxPoolSize(Integer.parseInt(config.getString(HTTP_CLIENT_CONNECTION_POOL_MAX_SIZE)))
+        .setReadIdleTimeout(longMs)
+        .setWriteIdleTimeout(longMs);
+  }
+
   @Override
   public Completable rxStop() {
     stopNotificationWorker();
@@ -263,6 +296,9 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     this.webClient.close();
+    if (this.aiProxyWebClient != null) {
+      this.aiProxyWebClient.close();
+    }
     return mysqlClient.rxClose();
   }
 }
