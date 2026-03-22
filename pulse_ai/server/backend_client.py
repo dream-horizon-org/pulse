@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 AUTHORIZATION_HEADER = "Authorization"
 PROJECT_HEADER = "X-Project-ID"
-SERVICE_KEY_HEADER = "X-Pulse-Service-Key"
 DATE_QUERY_PARAM = "date"
 ROOT_CAUSE_PATH_SUFFIX = "/v1/interactions/{interaction}/root-cause"
 HTTP_TIMEOUT_GATEWAY = 504
@@ -44,19 +43,11 @@ def _build_root_cause_url(interaction_name: str, date_value: str | None) -> str:
     return f"{PULSE_SERVER_BASE_URL}{base_path}?{DATE_QUERY_PARAM}={effective_date}"
 
 
-def _build_headers(
-    authorization: str | None,
-    project_id: str | None,
-    service_key: str | None = None,
-) -> dict[str, str]:
-    headers: dict[str, str] = {}
-    if authorization:
-        headers[AUTHORIZATION_HEADER] = authorization
-    if project_id:
-        headers[PROJECT_HEADER] = project_id
-    if service_key:
-        headers[SERVICE_KEY_HEADER] = service_key
-    return headers
+def _build_headers(authorization: str, project_id: str) -> dict[str, str]:
+    return {
+        AUTHORIZATION_HEADER: authorization,
+        PROJECT_HEADER: project_id,
+    }
 
 
 def _extract_root_cause_payload(response_json: dict) -> dict:
@@ -86,19 +77,21 @@ def _perform_request(url: str, headers: dict[str, str]) -> dict:
 async def fetch_root_cause_payload(
     interaction_name: str,
     date_value: str | None,
-    authorization: str | None,
-    project_id: str | None,
-    service_key: str | None = None,
+    authorization: str,
+    project_id: str,
 ) -> RootCausePayloadSchema:
     """
     Fetches root-cause tabular payload from pulse-server.
+
+    ``authorization`` must be a non-empty ``Authorization`` header value (e.g. ``Bearer <jwt>``).
+    ``project_id`` is sent as ``X-Project-ID`` so pulse-server can authorize via OpenFGA.
 
     Timeout behavior:
     - Uses BACKEND_REQUEST_TIMEOUT_SECONDS.
     - Raises BackendClientError(504) on timeout.
     """
     request_url = _build_root_cause_url(interaction_name, date_value)
-    request_headers = _build_headers(authorization, project_id, service_key)
+    request_headers = _build_headers(authorization, project_id)
 
     response_json = await asyncio.to_thread(_perform_request, request_url, request_headers)
     root_cause_json = _extract_root_cause_payload(response_json)

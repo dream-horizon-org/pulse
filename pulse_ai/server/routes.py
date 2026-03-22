@@ -31,6 +31,8 @@ from .schemas import RcaReportRequest, RcaReportResponse
 
 logger = logging.getLogger(__name__)
 
+RCA_CALLBACK_BEARER_PREFIX = "Bearer "
+
 
 # TODO: Add authentication middleware to validate Bearer tokens before production deployment
 
@@ -198,29 +200,63 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _require_headers_for_rca_callback(
+    authorization: str | None,
+    project_id: str | None,
+) -> tuple[str, str]:
+    """
+    Pulse-server requires the user's JWT and project id for OpenFGA; callback path must
+    forward the same headers the client sent to this endpoint (via pulse-server proxy).
+    """
+    if authorization is None or not authorization.strip():
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header is required when rootCausePayload is omitted",
+        )
+    auth_stripped = authorization.strip()
+    bearer_prefix_len = len(RCA_CALLBACK_BEARER_PREFIX)
+    token_part = auth_stripped[bearer_prefix_len:].strip()
+    is_missing_bearer = not auth_stripped.startswith(RCA_CALLBACK_BEARER_PREFIX)
+    is_empty_token = not token_part
+    if is_missing_bearer or is_empty_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Valid Bearer token is required when rootCausePayload is omitted",
+        )
+    if project_id is None or not project_id.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="X-Project-ID header is required when rootCausePayload is omitted",
+        )
+    return auth_stripped, project_id.strip()
+
+
 @app.post("/rca/report")
 async def generate_root_cause_report(
     request: RcaReportRequest,
     authorization: str | None = Header(default=None, alias="Authorization"),
     project_id: str | None = Header(default=None, alias="X-Project-ID"),
-    service_key: str | None = Header(default=None, alias="X-Pulse-Service-Key"),
 ) -> RcaReportResponse:
     """Generate a non-conversational RCA report for an interaction.
 
     Accepts root-cause data two ways (in priority order):
     1. **Embedded** – ``rootCausePayload`` in the request body (preferred; avoids callback auth).
     2. **Callback** – omit ``rootCausePayload``; pulse_ai calls pulse-server to fetch it.
+       Requires ``Authorization: Bearer <jwt>`` and ``X-Project-ID`` (forwarded by the proxy).
     """
     try:
         if request.rootCausePayload is not None:
             payload = RootCausePayloadSchema.model_validate(request.rootCausePayload)
         else:
+            auth_value, project_value = _require_headers_for_rca_callback(
+                authorization,
+                project_id,
+            )
             payload = await fetch_root_cause_payload(
                 interaction_name=request.interactionName,
                 date_value=request.date,
-                authorization=authorization,
-                project_id=project_id,
-                service_key=service_key,
+                authorization=auth_value,
+                project_id=project_value,
             )
         return await generate_rca_report(
             runner=rca_runner,

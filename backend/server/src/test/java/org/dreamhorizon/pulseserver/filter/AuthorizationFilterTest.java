@@ -403,6 +403,42 @@ class AuthorizationFilterTest {
   }
 
   @Nested
+  class AiProxyOpenFga {
+
+    private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
+
+    @Test
+    void shouldRunOpenFgaForV1AiWhenServiceKeyHeaderPresent() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/ai/sessions/stream");
+      ProjectContext.setProjectId("proj_123");
+      when(requestContext.getHeaderString(SERVICE_KEY_HEADER)).thenReturn("any-service-key");
+      setupValidAuth("user1");
+      when(openFgaService.checkPermission("user1", "can_view", "project", "proj_123"))
+          .thenReturn(Single.just(true));
+
+      filter.filter(requestContext);
+
+      verify(requestContext, never()).abortWith(any(Response.class));
+      verify(openFgaService).checkPermission("user1", "can_view", "project", "proj_123");
+    }
+
+    @Test
+    void shouldAbortUnauthorizedForV1AiWhenOnlyServiceKeyPresent() throws Exception {
+      setupAnnotatedMethod("can_view");
+      setupPath("v1/ai/chat");
+      ProjectContext.setProjectId("proj_123");
+      when(requestContext.getHeaderString(SERVICE_KEY_HEADER)).thenReturn("shared-secret");
+      when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
+
+      filter.filter(requestContext);
+
+      assertThat(captureAbortStatus()).isEqualTo(401);
+      verify(openFgaService, never()).checkPermission(anyString(), anyString(), anyString(), anyString());
+    }
+  }
+
+  @Nested
   class TokenExtraction {
 
     @Test

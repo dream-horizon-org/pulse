@@ -18,6 +18,9 @@ const getMockServer = async () => {
  * Builds authentication headers for API requests.
  * Used by makeRequestToServer and by makeStreamingRequestToServer for SSE/streaming calls.
  * Uses the backend-generated access token stored in cookies after successful authentication.
+ *
+ * OpenFGA-protected routes (including all `/v1/ai/*` calls through pulse-server) require both
+ * `Authorization` and `X-Project-ID`; the latter comes from `sessionStorage` project context.
  */
 function buildAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};

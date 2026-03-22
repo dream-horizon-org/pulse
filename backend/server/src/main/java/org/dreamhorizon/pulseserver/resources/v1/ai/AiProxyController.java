@@ -30,8 +30,8 @@ import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
  * JAX-RS controller for the Pulse AI reverse proxy. Authenticates via JWT and delegates
  * upstream calls to {@link AiProxyService}. Maps upstream results to JAX-RS
  * {@link Response}, including {@link jakarta.ws.rs.core.StreamingOutput} for SSE streaming.
- * All methods require {@code can_view} on the project ({@code X-Project-ID}); enforced by
- * {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter}.
+ * All methods require a valid JWT and {@code can_view} on the project ({@code X-Project-ID});
+ * OpenFGA enforcement is handled by {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter}.
  */
 @Slf4j
 @Path("/v1/ai")
