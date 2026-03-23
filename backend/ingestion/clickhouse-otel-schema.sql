@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS otel.otel_traces
     `NetworkProvider` LowCardinality(String) MATERIALIZED ifNull(SpanAttributes['network.carrier.name'], ''),
     `MeteringSessionId` String MATERIALIZED ifNull(SpanAttributes['pulse.metering.session.id'], ''),
     `UserId` String MATERIALIZED ifNull(nullIf(SpanAttributes['user.id'], ''), ifNull(SpanAttributes['app.installation.id'], '')),
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1,
     INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1
 )
 ENGINE = MergeTree
@@ -176,6 +177,7 @@ CREATE TABLE IF NOT EXISTS otel.stack_trace_events
     `ProjectId` LowCardinality(String) MATERIALIZED ifNull(ResourceAttributes['project.id'], ''),
     `PulseType` LowCardinality(String) MATERIALIZED ifNull(LogAttributes['pulse.type'], 'otel'),
     `MeteringSessionId` String MATERIALIZED ifNull(LogAttributes['pulse.metering.session.id'], ''),
+    INDEX idx_session_id SessionId TYPE bloom_filter(0.01) GRANULARITY 1
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(Timestamp)
@@ -203,7 +205,7 @@ AS SELECT
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
     count() AS event_count,
-    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
 FROM otel.otel_logs
 GROUP BY project_id, month, source;
 
@@ -215,7 +217,7 @@ AS SELECT
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
     count() AS event_count,
-    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
 FROM otel.otel_traces
 GROUP BY project_id, month, source;
 
@@ -226,7 +228,7 @@ AS SELECT
     toStartOfMonth(TimeUnix) AS month,
     'otel' AS source,
     count() AS event_count,
-    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
 FROM otel.otel_metrics_gauge
 GROUP BY project_id, month, source;
 
@@ -238,6 +240,6 @@ AS SELECT
     toStartOfMonth(Timestamp) AS month,
     'otel' AS source,
     count() AS event_count,
-    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count   
+    uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
 FROM otel.stack_trace_events
 GROUP BY project_id, month, source;

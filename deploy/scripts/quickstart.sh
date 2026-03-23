@@ -170,6 +170,12 @@ if [ ! -f "$ROOT_DIR/backend/ingestion/clickhouse-otel-schema.sql" ]; then
 fi
 print_success "ClickHouse schema found"
 
+if [ ! -f "$ROOT_DIR/backend/ingestion/session-summary-mv.sql" ]; then
+    print_error "ClickHouse session summary MV schema not found"
+    exit 1
+fi
+print_success "ClickHouse session summary MV schema found"
+
 load_env
 
 # Validate .env against .env.example and docker-compose.yml
@@ -183,7 +189,11 @@ if [ "$SKIP_ENV_CHECK" != "true" ]; then
         print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
         exit 1
     fi
-    print_success "Env and URL validation passed"
+    if ! validate_encryption_key; then
+        print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+        exit 1
+    fi
+    print_success "Env, URL, and encryption key validation passed"
 fi
 
 # ============================================================================
