@@ -50,7 +50,7 @@ echo ""
 
 # Step 3: Prepare CSV
 CSV_FILE="$BENCHMARK_DIR/startup_times_${NUM_RUNS}runs_adb.csv"
-echo "run_number,t0_onCreate_ms,t1_firstFrame_ms,total_startup_ms,timestamp" > "$CSV_FILE"
+echo "run_number,pulse_init_t0_ms,pulse_init_t1_ms,pulse_init_duration_ms,timestamp" > "$CSV_FILE"
 echo -e "${GREEN}✓ CSV file created: $CSV_FILE${NC}"
 echo ""
 
@@ -81,7 +81,7 @@ for i in $(seq 1 $NUM_RUNS); do
   # Start app
   adb shell am start "$APP_ID/$ACTIVITY" > /dev/null 2>&1
   
-  # Poll logcat until t0+t1+total (see common.sh; waits up to ~9s for FrameMetrics / t1)
+  # Poll logcat until PULSE_INIT_* (see common.sh / OtelDemoApplication.kt)
   if line=$(poll_startup_from_logcat); then
     read -r T0 T1 TOTAL <<< "$line"
     TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")

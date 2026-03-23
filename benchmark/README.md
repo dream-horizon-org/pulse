@@ -58,14 +58,17 @@ chmod +x ../../benchmark/run_1000_launches_adb.sh
 
 CSV is written under `benchmark/` (see script header for exact filename).
 
-### Waiting for `t1` (first frame)
+### Waiting for Pulse init logs
 
-Startup scripts poll logcat every **0.25s** until `STARTUP_T0_MS`, `STARTUP_T1_MS`, and `STARTUP_TOTAL_MS` all appear (default **36** polls ≈ **9s** max), so fast launches still capture FrameMetrics.
+The demo logs **`PULSE_INIT_T0_MS`**, **`PULSE_INIT_T1_MS`**, and **`PULSE_INIT_DURATION_MS`** from `OtelDemoApplication` (around `PulseSDK.initialize`). Scripts poll logcat every **0.25s** until all three appear (default **36** polls ≈ **9s** max).
 
 Optional env vars:
 
 ```bash
-export WAIT_FOR_T1_MAX_POLLS=48   # longer cap (~12s at 0.25s poll)
-export WAIT_FOR_T1_POLL_SEC=0.3   # slower polling
+export WAIT_FOR_PULSE_INIT_MAX_POLLS=48   # longer cap (~12s at 0.25s poll)
+export WAIT_FOR_PULSE_INIT_POLL_SEC=0.3   # slower polling
+# Legacy aliases still work:
+export WAIT_FOR_T1_MAX_POLLS=48
+export WAIT_FOR_T1_POLL_SEC=0.3
 ./benchmark/run_1000_launches_adb.sh
 ```
