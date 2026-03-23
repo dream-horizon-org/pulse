@@ -53,7 +53,6 @@ public class AiProxyController {
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
       @HeaderParam("X-Project-ID") String projectId,
       @Context UriInfo uriInfo) {
-    validateAuth(authorization);
     return aiProxyService
         .proxy("GET", path, rawQuery(uriInfo), null, authorization, projectId)
         .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
@@ -67,7 +66,6 @@ public class AiProxyController {
       @HeaderParam("X-Project-ID") String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
-    validateAuth(authorization);
     String body = readBodyUtf8(bodyStream);
     return aiProxyService
         .proxy("POST", path, rawQuery(uriInfo), body, authorization, projectId)
@@ -82,7 +80,6 @@ public class AiProxyController {
       @HeaderParam("X-Project-ID") String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
-    validateAuth(authorization);
     String body = readBodyUtf8(bodyStream);
     return aiProxyService
         .proxy("PUT", path, rawQuery(uriInfo), body, authorization, projectId)
@@ -96,29 +93,8 @@ public class AiProxyController {
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
       @HeaderParam("X-Project-ID") String projectId,
       @Context UriInfo uriInfo) {
-    validateAuth(authorization);
     return aiProxyService
         .proxy("DELETE", path, rawQuery(uriInfo), null, authorization, projectId)
         .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
-  }
-
-  private void validateAuth(String authorization) {
-    boolean isMissingBearer = authorization == null || !authorization.startsWith(BEARER_PREFIX);
-    if (isMissingBearer) {
-      throw new WebApplicationException("Missing or invalid Authorization header", 401);
-    }
-
-    String token = authorization.substring(BEARER_PREFIX.length()).trim();
-    boolean isTokenEmpty = token.isEmpty();
-    if (isTokenEmpty) {
-      throw new WebApplicationException("Empty authorization token", 401);
-    }
-
-    try {
-      jwtService.verifyToken(token);
-    } catch (Exception e) {
-      log.debug("JWT verification failed: {}", e.getMessage());
-      throw new WebApplicationException("Invalid or expired token", 401);
-    }
   }
 }
