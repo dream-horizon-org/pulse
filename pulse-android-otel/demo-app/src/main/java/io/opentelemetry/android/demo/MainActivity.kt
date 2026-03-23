@@ -8,13 +8,8 @@ package io.opentelemetry.android.demo
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
-import android.view.ViewTreeObserver
-import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -54,17 +49,10 @@ import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<DemoViewModel>()
-    private var t0: Long = 0
-    private var firstFrameCaptured = false
-    private var frameMetricsListener: Window.OnFrameMetricsAvailableListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // t0: onCreate called
-        t0 = System.currentTimeMillis()
-        Log.d(TAG, "STARTUP_T0_MS=$t0")
-        
+
         setContent {
             // Session id is often null on first frame; polling avoids crashing on error("Session ID is null").
             LaunchedEffect(Unit) {
@@ -218,58 +206,6 @@ class MainActivity : ComponentActivity() {
                 this,
                 arrayOf(phoneStatePermission),
                 100,
-            )
-        }
-
-        // t1: first frame / first draw — FrameMetrics is API 24+ only; minSdk is 21.
-        scheduleStartupT1Measurement()
-    }
-
-    override fun onDestroy() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            frameMetricsListener?.let { window.removeOnFrameMetricsAvailableListener(it) }
-            frameMetricsListener = null
-        }
-        super.onDestroy()
-    }
-
-    private fun recordStartupT1IfNeeded() {
-        if (firstFrameCaptured) return
-        if (isFinishing) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed) return
-        firstFrameCaptured = true
-        val t1 = System.currentTimeMillis()
-        val totalStartupTime = t1 - t0
-        Log.d(TAG, "STARTUP_T1_MS=$t1")
-        Log.d(TAG, "STARTUP_TOTAL_MS=$totalStartupTime")
-    }
-
-    /**
-     * Log t1 and total startup time. [Window.addOnFrameMetricsAvailableListener] exists from API 24;
-     * on older APIs use first pre-draw as a proxy for first frame.
-     */
-    private fun scheduleStartupT1Measurement() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            // Post so the window/decor is ready; avoids rare crashes from registering too early.
-            // API 35+: passing null Handler crashes (HardwareRendererObserver NPE: "handler and its looper cannot be null").
-            val mainHandler = Handler(Looper.getMainLooper())
-            window.decorView.post {
-                val listener = Window.OnFrameMetricsAvailableListener { _, _, _ ->
-                    recordStartupT1IfNeeded()
-                }
-                frameMetricsListener = listener
-                window.addOnFrameMetricsAvailableListener(listener, mainHandler)
-            }
-        } else {
-            val decor = window.decorView
-            decor.viewTreeObserver.addOnPreDrawListener(
-                object : ViewTreeObserver.OnPreDrawListener {
-                    override fun onPreDraw(): Boolean {
-                        decor.viewTreeObserver.removeOnPreDrawListener(this)
-                        recordStartupT1IfNeeded()
-                        return true
-                    }
-                },
             )
         }
     }

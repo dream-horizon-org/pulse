@@ -47,6 +47,8 @@ class OtelDemoApplication : Application() {
 
     private fun initOTel(application: Application): OpenTelemetryRum =
         runCatching {
+            val pulseInitT0 = System.currentTimeMillis()
+            Log.d(TAG, "PULSE_INIT_T0_MS=$pulseInitT0")
             PulseSDK.INSTANCE.initialize(
                 application = application,
                 endpointBaseUrl = "http://10.0.2.2:4318",
@@ -71,9 +73,13 @@ class OtelDemoApplication : Application() {
                     enabled(true)
                 }
             }
-            PulseSDK.INSTANCE.getOtelOrThrow()
+            val rumInstance = PulseSDK.INSTANCE.getOtelOrThrow()
+            val pulseInitT1 = System.currentTimeMillis()
+            Log.d(TAG, "PULSE_INIT_T1_MS=$pulseInitT1")
+            Log.d(TAG, "PULSE_INIT_DURATION_MS=${pulseInitT1 - pulseInitT0}")
+            rumInstance
         }.onFailure {
-            Log.e(TAG, "Initialization failed", it)
+            Log.e(TAG, "Initialization failed (no PULSE_INIT_T1 — init did not complete)", it)
         }.getOrThrow()
 
     // This is not used but it's needed to verify that our consumer proguard rules cover this use case.
