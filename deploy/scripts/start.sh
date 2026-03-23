@@ -60,6 +60,10 @@ if [ "$SKIP_ENV_CHECK" != "true" ]; then
         print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
         exit 1
     fi
+    if ! validate_encryption_key; then
+        print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+        exit 1
+    fi
 fi
 
 # ── Compose path ──────────────────────────────────────────────────────────
