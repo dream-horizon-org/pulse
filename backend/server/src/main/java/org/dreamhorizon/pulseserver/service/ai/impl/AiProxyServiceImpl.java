@@ -1,25 +1,26 @@
 package org.dreamhorizon.pulseserver.service.ai.impl;
 
 import com.google.inject.Inject;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpRequest.BodyPublishers;
-import java.net.http.HttpResponse;
+import com.google.inject.name.Named;
+import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.core.buffer.Buffer;
+import io.vertx.rxjava3.ext.web.client.HttpRequest;
+import io.vertx.rxjava3.ext.web.client.HttpResponse;
+import io.vertx.rxjava3.ext.web.client.WebClient;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 
 /**
- * HTTP client implementation for forwarding requests to the Pulse AI service.
- * Returns {@link AiProxyUpstreamResult} (no JAX-RS types); the controller maps to
- * {@link jakarta.ws.rs.core.Response}.
+ * HTTP client implementation for forwarding requests to the Pulse AI service using the dedicated
+ * long-timeout Vert.x {@link WebClient} ({@link Constants#WEB_CLIENT_AI_PROXY}). Maps responses to
+ * {@link AiProxyUpstreamResult}; the controller maps to JAX-RS.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
@@ -29,29 +30,39 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
-  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
 
-  private final HttpClient httpClient;
+  /**
+   * Upstream deadline / idle budget (ms) for AI proxy: per-request {@link HttpRequest#timeout}
+   * plus {@link org.dreamhorizon.pulseserver.verticle.MainVerticle#getAiProxyWebClientOptions}.
+   * Matches {@link org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyController} {@code
+   * @Timeout(120000)}.
+   */
+  public static final long AI_PROXY_UPSTREAM_TIMEOUT_MS = 120_000L;
+
+  private final WebClient webClient;
   private final String aiServiceUrl;
 
   @Inject
-  public AiProxyServiceImpl(ApplicationConfig config) {
-    this(
-        HttpClient.newBuilder()
-            .version(HttpClient.Version.HTTP_1_1)
-            .connectTimeout(CONNECT_TIMEOUT)
-            .build(),
-        config.getAiServiceUrl());
+  public AiProxyServiceImpl(
+      @Named(Constants.WEB_CLIENT_AI_PROXY) WebClient webClient, ApplicationConfig config) {
+    this(webClient, resolveAiUrl(config));
   }
 
   /**
-   * For unit tests and direct wiring with a custom {@link HttpClient}.
+   * For unit tests with a mock {@link WebClient}.
    */
-  public AiProxyServiceImpl(HttpClient httpClient, String aiServiceUrl) {
-    this.httpClient = httpClient;
-    this.aiServiceUrl = aiServiceUrl != null && !aiServiceUrl.isBlank()
-        ? aiServiceUrl : DEFAULT_AI_SERVICE_URL;
+  public AiProxyServiceImpl(WebClient webClient, String aiServiceUrl) {
+    this.webClient = webClient;
+    this.aiServiceUrl =
+        aiServiceUrl != null && !aiServiceUrl.isBlank()
+            ? aiServiceUrl
+            : DEFAULT_AI_SERVICE_URL;
     log.info("AI proxy service initialized → {}", this.aiServiceUrl);
+  }
+
+  private static String resolveAiUrl(ApplicationConfig config) {
+    String url = config.getAiServiceUrl();
+    return url != null && !url.isBlank() ? url : DEFAULT_AI_SERVICE_URL;
   }
 
   @Override
@@ -62,29 +73,9 @@ public class AiProxyServiceImpl implements AiProxyService {
       String body,
       String authorization,
       String projectId) {
-    HttpRequest request = buildRequest(method, path, rawQuery, body, authorization, projectId);
-    return executeProxy(request);
-  }
-
-  private HttpRequest buildRequest(
-      String method,
-      String path,
-      String rawQuery,
-      String body,
-      String authorization,
-      String projectId) {
     String targetUrl = buildTargetUrl(path, rawQuery);
-
-    HttpRequest.Builder builder = HttpRequest.newBuilder()
-        .uri(URI.create(targetUrl))
-        .header(AUTHORIZATION_HEADER, authorization);
-
-    if (projectId != null && !projectId.isBlank()) {
-      builder.header(PROJECT_HEADER, projectId.trim());
-    }
-
-    applyMethodAndBody(builder, method, body);
-    return builder.build();
+    HttpRequest<Buffer> request = buildRequest(method, targetUrl, body, authorization, projectId);
+    return execute(request, method, body);
   }
 
   private String buildTargetUrl(String path, String rawQuery) {
@@ -94,68 +85,71 @@ public class AiProxyServiceImpl implements AiProxyService {
         : aiServiceUrl + "/" + path;
   }
 
-  private void applyMethodAndBody(HttpRequest.Builder builder, String method, String body) {
+  private HttpRequest<Buffer> buildRequest(
+      String method,
+      String targetUrl,
+      String body,
+      String authorization,
+      String projectId) {
+    HttpRequest<Buffer> req =
+        switch (method) {
+          case "POST" -> webClient.postAbs(targetUrl);
+          case "PUT" -> webClient.putAbs(targetUrl);
+          case "DELETE" -> webClient.deleteAbs(targetUrl);
+          default -> webClient.getAbs(targetUrl);
+        };
+    req.putHeader(AUTHORIZATION_HEADER, authorization);
+    if (projectId != null && !projectId.isBlank()) {
+      req.putHeader(PROJECT_HEADER, projectId.trim());
+    }
     boolean hasBody = body != null && !body.isEmpty();
-    switch (method) {
-      case "POST":
-      case "PUT":
-        if (hasBody) {
-          builder.header("Content-Type", CONTENT_TYPE_JSON);
-        }
-        HttpRequest.BodyPublisher publisher = hasBody
-            ? BodyPublishers.ofString(body)
-            : BodyPublishers.noBody();
-        if ("POST".equals(method)) {
-          builder.POST(publisher);
-        } else {
-          builder.PUT(publisher);
-        }
-        break;
-      case "DELETE":
-        builder.DELETE();
-        break;
-      default:
-        builder.GET();
-        break;
+    if (hasBody && ("POST".equals(method) || "PUT".equals(method))) {
+      req.putHeader("Content-Type", CONTENT_TYPE_JSON);
     }
+    req.timeout(AI_PROXY_UPSTREAM_TIMEOUT_MS);
+    return req;
   }
 
-  private CompletionStage<AiProxyUpstreamResult> executeProxy(HttpRequest request) {
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-        .thenApply(this::buildResult)
-        .exceptionally(ex -> {
-          log.error("AI proxy error for {}: {}", request.uri(), ex.getMessage());
-          return AiProxyUpstreamResult.badGateway();
+  private CompletionStage<AiProxyUpstreamResult> execute(
+      HttpRequest<Buffer> request, String method, String body) {
+    boolean hasBody = body != null && !body.isEmpty();
+    Single<HttpResponse<Buffer>> single;
+    if (hasBody && ("POST".equals(method) || "PUT".equals(method))) {
+      single = request.rxSendBuffer(Buffer.buffer(body));
+    } else {
+      single = request.rxSend();
+    }
+    CompletableFuture<AiProxyUpstreamResult> cf = new CompletableFuture<>();
+    single.subscribe(
+        resp -> {
+          try {
+            cf.complete(buildResult(resp));
+          } catch (Exception e) {
+            log.error("AI proxy failed building result: {}", e.getMessage());
+            cf.complete(AiProxyUpstreamResult.badGateway());
+          }
+        },
+        err -> {
+          log.error("AI proxy error: {}", err.getMessage());
+          cf.complete(AiProxyUpstreamResult.badGateway());
         });
+    return cf;
   }
 
-  private AiProxyUpstreamResult buildResult(HttpResponse<InputStream> response) {
-    String contentType = response.headers()
-        .firstValue("Content-Type")
-        .orElse(CONTENT_TYPE_JSON);
-
+  private AiProxyUpstreamResult buildResult(HttpResponse<Buffer> response) {
+    int statusCode = response.statusCode();
+    String contentType = response.getHeader("Content-Type");
+    if (contentType == null || contentType.isEmpty()) {
+      contentType = CONTENT_TYPE_JSON;
+    }
     boolean isSse = contentType.contains(CONTENT_TYPE_SSE);
+    Buffer buf = response.body();
+    byte[] bytes = buf != null ? buf.getBytes() : new byte[0];
     if (isSse) {
-      return buildStreamingResult(response, contentType);
+      return AiProxyUpstreamResult.streaming(
+          statusCode, contentType, new ByteArrayInputStream(bytes));
     }
-    return buildBufferedResult(response, contentType);
-  }
-
-  private AiProxyUpstreamResult buildStreamingResult(
-      HttpResponse<InputStream> response, String contentType) {
-    return AiProxyUpstreamResult.streaming(
-        response.statusCode(), contentType, response.body());
-  }
-
-  private AiProxyUpstreamResult buildBufferedResult(
-      HttpResponse<InputStream> response, String contentType) {
-    try (InputStream is = response.body()) {
-      String responseBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-      return AiProxyUpstreamResult.buffered(
-          response.statusCode(), contentType, responseBody);
-    } catch (IOException e) {
-      log.error("Failed to read AI service response: {}", e.getMessage());
-      return AiProxyUpstreamResult.badGateway();
-    }
+    return AiProxyUpstreamResult.buffered(
+        statusCode, contentType, new String(bytes, StandardCharsets.UTF_8));
   }
 }

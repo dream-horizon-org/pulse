@@ -8,11 +8,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.name.Names;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
@@ -71,6 +73,11 @@ public class MainModule extends VertxAbstractModule {
         .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
     bind(ObjectMapper.class).toInstance(getObjectMapper());
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
+    bind(WebClient.class)
+        .annotatedWith(Names.named(Constants.WEB_CLIENT_AI_PROXY))
+        .toProvider(
+            () -> SharedDataUtils.get(vertx, WebClient.class, Constants.WEB_CLIENT_AI_PROXY))
+        .in(Singleton.class);
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
 
     // === NEW: Multi-tenancy & RBAC Services ===
