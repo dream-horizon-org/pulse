@@ -10,11 +10,17 @@ import com.google.debugging.sourcemap.SourceMapConsumerV3;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Collections;
 import java.util.List;
+import io.vertx.rxjava3.core.Vertx;
+import java.util.Optional;
 import org.dreamhorizon.pulseserver.errorgrouping.model.EventMeta;
 import org.dreamhorizon.pulseserver.errorgrouping.model.Frame;
 import org.dreamhorizon.pulseserver.errorgrouping.model.JsFrame;
+import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
+import org.dreamhorizon.pulseserver.errorgrouping.model.Lane;
 import org.dreamhorizon.pulseserver.errorgrouping.model.UploadMetadata;
+import org.dreamhorizon.pulseserver.errorgrouping.service.DsymCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,11 +34,27 @@ class SymbolicatorTest {
   @Mock
   private SourceMapCache sourceMapCache;
 
+  @Mock
+  private DsymCache dsymCache;
+
+  @Mock
+  private IosLlvmSymbolicator iosLlvmSymbolicator;
+
+  private io.vertx.core.Vertx coreVertx;
   private Symbolicator symbolicator;
 
   @BeforeEach
   void setUp() {
-    symbolicator = new Symbolicator(sourceMapCache);
+    coreVertx = io.vertx.core.Vertx.vertx();
+    Vertx rxVertx = Vertx.newInstance(coreVertx);
+    symbolicator = new Symbolicator(sourceMapCache, dsymCache, iosLlvmSymbolicator, rxVertx);
+  }
+
+  @AfterEach
+  void tearDown() {
+    if (coreVertx != null) {
+      coreVertx.close();
+    }
   }
 
   private JsFrame createJsFrame(String token, Integer line, Integer col, String function) {
@@ -274,6 +296,43 @@ class SymbolicatorTest {
 
       List<String> retraced = result.blockingGet();
       assertTrue(retraced.isEmpty());
+    }
+  }
+
+  @Nested
+  class SymbolicateIosNativeTests {
+    @Test
+    void shouldReturnEmptyWhenNoFrames() {
+      EventMeta meta = EventMeta.builder().platform("iOS").projectId("p").build();
+      List<String> out = symbolicator.symbolicateIosNative(Collections.emptyList(), meta, "", false)
+          .blockingGet();
+      assertTrue(out.isEmpty());
+    }
+
+    @Test
+    void shouldUseTokensWhenNoDsymBytes() {
+      NdkFrame f = NdkFrame.builder()
+          .lane(Lane.IOS_NATIVE)
+          .ndkLib("App")
+          .ndkPc("0x1")
+          .ndkSymbol("main")
+          .rawLine("0  App  0x1 main")
+          .originalPosition(0)
+          .build();
+      EventMeta meta = EventMeta.builder()
+          .platform("iOS")
+          .appVersion("1")
+          .appVersionCode("1")
+          .projectId("proj")
+          .build();
+      when(dsymCache.getDsym(any(UploadMetadata.class))).thenReturn(Single.just(Optional.empty()));
+      when(iosLlvmSymbolicator.symbolicateFrames(any(), any(), any()))
+          .thenReturn(List.of("0  App  0x1 main"));
+
+      List<String> out = symbolicator.symbolicateIosNative(List.of(f), meta, "Process: App [1]\n", false)
+          .blockingGet();
+      assertEquals(1, out.size());
+      assertEquals("App#main", out.get(0));
     }
   }
 }

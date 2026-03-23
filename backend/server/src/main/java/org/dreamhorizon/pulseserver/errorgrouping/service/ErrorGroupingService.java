@@ -125,7 +125,7 @@ public class ErrorGroupingService {
   public static String buildDisplayName(Lane lane, List<String> excTypes, List<String> frames, String groupId) {
     String headline;
     if (excTypes.isEmpty()) {
-      headline = (lane == Lane.NDK) ? "NativeError" : "Error";
+      headline = (lane == Lane.NDK || lane == Lane.IOS_NATIVE) ? "NativeError" : "Error";
     } else if (lane == Lane.JAVA && excTypes.size() >= 2) {
       headline = excTypes.get(0) + " caused by " + excTypes.get(excTypes.size() - 1);
     } else {
@@ -153,8 +153,9 @@ public class ErrorGroupingService {
     int js = st.getJsFrames().size();
     int jv = st.getJavaFrames().size();
     int nk = st.getNdkFrames().size();
+    int io = st.getIosNativeFrames().size();
 
-    if (js == 0 && jv == 0 && nk == 0) {
+    if (js == 0 && jv == 0 && nk == 0 && io == 0) {
       return Lane.UNKNOWN;
     }
 
@@ -170,15 +171,21 @@ public class ErrorGroupingService {
       if (primary == Lane.NDK && nk > 0) {
         return Lane.NDK;
       }
+      if (primary == Lane.IOS_NATIVE && io > 0) {
+        return Lane.IOS_NATIVE;
+      }
     }
 
-    // Priority 2: Total frame count (tie-breaker: JS > JAVA > NDK)
-    int max = Math.max(js, Math.max(jv, nk));
+    // Priority 2: Total frame count (tie-breaker: JS > JAVA > IOS_NATIVE > NDK)
+    int max = Math.max(js, Math.max(jv, Math.max(nk, io)));
     if (js == max) {
       return Lane.JS;
     }
     if (jv == max) {
       return Lane.JAVA;
+    }
+    if (io == max) {
+      return Lane.IOS_NATIVE;
     }
     return Lane.NDK;
   }
@@ -188,6 +195,7 @@ public class ErrorGroupingService {
       case JS -> st.getJsTypes();
       case JAVA -> st.getJavaTypes();
       case NDK -> st.getNdkTypes();
+      case IOS_NATIVE -> st.getIosNativeTypes();
       default -> List.of();
     };
     if (types == null || types.isEmpty()) {
@@ -196,6 +204,9 @@ public class ErrorGroupingService {
       }
       if (!st.getJavaTypes().isEmpty()) {
         return st.getJavaTypes();
+      }
+      if (!st.getIosNativeTypes().isEmpty()) {
+        return st.getIosNativeTypes();
       }
       if (!st.getNdkFrames().isEmpty()) {
         return st.getNdkTypes();
@@ -210,6 +221,7 @@ public class ErrorGroupingService {
       case JS -> st.getJsFrames();
       case JAVA -> st.getJavaFrames();
       case NDK -> st.getNdkFrames();
+      case IOS_NATIVE -> st.getIosNativeFrames();
       default -> List.of();
     };
     if (frames.isEmpty()) {
@@ -375,11 +387,28 @@ public class ErrorGroupingService {
     return "";
   }
 
-  private Single<List<String>> symbolicate(Lane lane, List<Frame> frames, EventMeta eventMeta) {
+  static boolean isIosPlatform(EventMeta meta) {
+    if (meta == null || meta.getPlatform() == null) {
+      return false;
+    }
+    String p = meta.getPlatform().toLowerCase(Locale.ROOT);
+    return p.contains("ios") || p.contains("iphone") || p.contains("ipados");
+  }
+
+  private Single<List<String>> symbolicate(
+      Lane lane, List<Frame> frames, EventMeta eventMeta, String rawReport, boolean iosStackTraceFormat) {
     return switch (lane) {
       case JS -> symbolicator.symbolicateJsInPlace(frames, eventMeta);
       case JAVA -> symbolicator.retrace(frames, eventMeta);
       case NDK -> Single.just(Collections.emptyList());
+      case IOS_NATIVE -> {
+        if (!isIosPlatform(eventMeta)) {
+          yield Single.just(frames.stream()
+              .map(f -> iosStackTraceFormat ? f.getRawLine() : f.getToken())
+              .toList());
+        }
+        yield symbolicator.symbolicateIosNative(frames, eventMeta, rawReport, iosStackTraceFormat);
+      }
       case UNKNOWN -> Single.just(Collections.emptyList());
     };
   }
@@ -400,10 +429,10 @@ public class ErrorGroupingService {
     List<Frame> primaryFrames = selectPrimaryTokens(parsedFrames, primary, TOP_N_FRAMES);
 
     // Symbolicate all lanes in parallel for complete stack trace
-    Single<CompleteSymbolication> completeSymb = symbolicateComplete(parsedFrames, meta);
+    Single<CompleteSymbolication> completeSymb = symbolicateComplete(parsedFrames, meta, raw);
 
     // Symbolicate primary lane for grouping
-    Single<List<String>> primaryTokens = symbolicate(primary, primaryFrames, meta);
+    Single<List<String>> primaryTokens = symbolicate(primary, primaryFrames, meta, raw, false);
 
     return Single.zip(primaryTokens, completeSymb, (tokens, complete) -> {
       // Build group from primary lane
@@ -423,13 +452,15 @@ public class ErrorGroupingService {
    * Returns CompleteSymbolication which can reconstruct the full stack trace.
    * OPTIMIZATION: Skip symbolication if no frames exist for a lane (early return).
    */
-  private Single<CompleteSymbolication> symbolicateComplete(ParsedFrames parsedFrames, EventMeta meta) {
+  private Single<CompleteSymbolication> symbolicateComplete(ParsedFrames parsedFrames, EventMeta meta, String rawReport) {
     // OPTIMIZATION: Early return if no frames to process
     if (parsedFrames.getJsFrames().isEmpty()
         && parsedFrames.getJavaFrames().isEmpty()
-        && parsedFrames.getNdkFrames().isEmpty()) {
+        && parsedFrames.getNdkFrames().isEmpty()
+        && parsedFrames.getIosNativeFrames().isEmpty()) {
       return Single.just(new CompleteSymbolication(
           parsedFrames,
+          Collections.emptyList(),
           Collections.emptyList(),
           Collections.emptyList(),
           Collections.emptyList()
@@ -437,20 +468,20 @@ public class ErrorGroupingService {
     }
 
     // Symbolicate all lanes in parallel
-    Single<List<String>> jsSymb = symbolicateAllFrames(Lane.JS, parsedFrames.getJsFrames(), meta);
-    Single<List<String>> javaSymb = symbolicateAllFrames(Lane.JAVA, parsedFrames.getJavaFrames(), meta);
-    Single<List<String>> ndkSymb = symbolicateAllFrames(Lane.NDK, parsedFrames.getNdkFrames(), meta);
+    Single<List<String>> jsSymb = symbolicateAllFrames(Lane.JS, parsedFrames.getJsFrames(), meta, rawReport);
+    Single<List<String>> javaSymb = symbolicateAllFrames(Lane.JAVA, parsedFrames.getJavaFrames(), meta, rawReport);
+    Single<List<String>> ndkSymb = symbolicateAllFrames(Lane.NDK, parsedFrames.getNdkFrames(), meta, rawReport);
+    Single<List<String>> iosSymb = symbolicateAllFrames(Lane.IOS_NATIVE, parsedFrames.getIosNativeFrames(), meta, rawReport);
 
-    return Single.zip(jsSymb, javaSymb, ndkSymb, (js, java, ndk) ->
-        new CompleteSymbolication(parsedFrames, js, java, ndk)
-    );
+    return Single.zip(jsSymb, javaSymb, ndkSymb, iosSymb,
+        (js, java, ndk, ios) -> new CompleteSymbolication(parsedFrames, js, java, ndk, ios));
   }
 
-  private Single<List<String>> symbolicateAllFrames(Lane lane, List<? extends Frame> frames, EventMeta meta) {
+  private Single<List<String>> symbolicateAllFrames(Lane lane, List<? extends Frame> frames, EventMeta meta, String rawReport) {
     if (frames.isEmpty()) {
       return Single.just(Collections.emptyList());
     }
-    return symbolicate(lane, new ArrayList<>(frames), meta);
+    return symbolicate(lane, new ArrayList<>(frames), meta, rawReport, lane == Lane.IOS_NATIVE);
   }
 
   public record ProcessingResult(Group group, CompleteSymbolication completeSymbolication) {

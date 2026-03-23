@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -53,6 +54,12 @@ class ErrorGroupingServiceTest {
   @BeforeEach
   void setUp() {
     errorGroupingService = new ErrorGroupingService(clickhouseQueryService, symbolicator);
+    lenient().when(symbolicator.symbolicateIosNative(anyList(), any(EventMeta.class), any(), anyBoolean()))
+        .thenAnswer(invocation -> {
+          @SuppressWarnings("unchecked")
+          List<Frame> frames = invocation.getArgument(0);
+          return Single.just(frames.stream().map(Frame::getToken).toList());
+        });
   }
 
   // Helper methods to create test data
@@ -93,6 +100,18 @@ class ErrorGroupingServiceTest {
         .ndkPc("0x1234")
         .ndkSymbol("nativeFunc")
         .rawLine("libnative.so+0x1234")
+        .originalPosition(position)
+        .build();
+  }
+
+  private NdkFrame createIosNativeFrame(int position) {
+    return NdkFrame.builder()
+        .lane(Lane.IOS_NATIVE)
+        .iosAppBinaryName("PulseIOSExample")
+        .ndkLib("PulseIOSExample")
+        .ndkPc("0x102944318")
+        .ndkSymbol("mangledSym")
+        .rawLine("4   PulseIOSExample 0x0000000102944318 sym + 1")
         .originalPosition(position)
         .build();
   }
@@ -315,6 +334,46 @@ class ErrorGroupingServiceTest {
       Lane result = ErrorGroupingService.choosePrimary(parsed);
 
       assertEquals(Lane.NDK, result);
+    }
+
+    @Test
+    void shouldPrioritizeIosNativeWhenPrimaryLaneMatches() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(Lane.IOS_NATIVE)
+          .iosNativeFrames(List.of(createIosNativeFrame(0)))
+          .jsFrames(Collections.emptyList())
+          .javaFrames(Collections.emptyList())
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      assertEquals(Lane.IOS_NATIVE, ErrorGroupingService.choosePrimary(parsed));
+    }
+
+    @Test
+    void shouldPreferJavaOverIosWhenSameFrameCount() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(null)
+          .iosNativeFrames(List.of(createIosNativeFrame(0), createIosNativeFrame(1)))
+          .javaFrames(List.of(createJavaFrame(2), createJavaFrame(3)))
+          .jsFrames(Collections.emptyList())
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      assertEquals(Lane.JAVA, ErrorGroupingService.choosePrimary(parsed));
+    }
+
+    @Test
+    void shouldReturnIosNativeWhenItHasMostFrames() {
+      ParsedFrames parsed = ParsedFrames.builder()
+          .primaryExceptionLane(null)
+          .iosNativeFrames(List.of(
+              createIosNativeFrame(0), createIosNativeFrame(1), createIosNativeFrame(2)))
+          .javaFrames(List.of(createJavaFrame(3)))
+          .jsFrames(Collections.emptyList())
+          .ndkFrames(Collections.emptyList())
+          .build();
+
+      assertEquals(Lane.IOS_NATIVE, ErrorGroupingService.choosePrimary(parsed));
     }
   }
 
