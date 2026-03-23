@@ -50,24 +50,6 @@ PARTITION BY toYYYYMMDD(Timestamp)
 ORDER BY (ProjectId, ServiceName, PulseType, SpanName, Timestamp)
 SETTINGS index_granularity = 8192;
 
--- ---------------------------------------------------------------------------
--- Root Cause Analysis (RCA) – otel_traces usage
--- ---------------------------------------------------------------------------
--- Dimensions (materialized): Platform, OsVersion, AppVersion, DeviceModel,
---   NetworkProvider, GeoState. Filter: PulseType = 'interaction',
---   SpanName = <interaction_name>, ProjectId = <project_id>.
--- Metrics: StatusCode, Duration, Events.Name; SpanAttributes:
---   pulse.interaction.apdex_score, pulse.interaction.user_category,
---   app.interaction.frozen_frame_count, app.interaction.slow_frame_count,
---   app.interaction.analysed_frame_count (and unanalysed for rates).
---
--- Problematic count (error OR poor) for RCA segment selection:
---   countIf(StatusCode = 'Error' OR ifNull(SpanAttributes['pulse.interaction.user_category'], '') = 'Poor')
--- Union = sum: a span is either error or poor, so distinct by SpanId is not
--- required; countIf over rows is correct. If distinct were needed:
---   uniqExactIf(SpanId, StatusCode = 'Error' OR ... = 'Poor')
--- ---------------------------------------------------------------------------
-
 CREATE TABLE IF NOT EXISTS otel.otel_logs
 (
     `Timestamp` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
@@ -261,12 +243,7 @@ AS SELECT
     uniqCombined64StateIf(MeteringSessionId, MeteringSessionId != '') AS session_count
 FROM otel.stack_trace_events
 GROUP BY project_id, month, source;
--- ---------------------------------------------------------------------------
--- Root Cause Analysis cache (on-demand read-through; TTL enforced in API)
--- Cache key: (project_id, interaction_name, date). Use project_id for isolation
--- (not tenant_id). No table TTL; API enforces expiry (e.g. serve only if
--- cached_at within 24h).
--- ---------------------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS otel.root_cause_cache
 (
     `project_id`       LowCardinality(String) CODEC(ZSTD(1)),
