@@ -14,7 +14,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
@@ -23,15 +22,16 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 
 /**
- * JAX-RS controller for the Pulse AI reverse proxy. Authenticates via JWT and delegates
- * upstream calls to {@link AiProxyService}. Maps upstream results to JAX-RS
- * {@link Response}, including {@link jakarta.ws.rs.core.StreamingOutput} for SSE streaming.
- * All methods require {@code can_view} on the project ({@code X-Project-ID}); enforced by
- * {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter}.
+ * JAX-RS controller for the Pulse AI reverse proxy. Delegates upstream calls to {@link
+ * AiProxyService}. Maps upstream results to JAX-RS {@link Response}, including {@link
+ * jakarta.ws.rs.core.StreamingOutput} for SSE streaming.
+ *
+ * <p>Authentication and JWT validation are enforced by {@link
+ * org.dreamhorizon.pulseserver.filter.AuthorizationFilter} ({@code @RequiresPermission("can_view")}
+ * and {@code X-Project-ID}).
  */
 @Slf4j
 @Path("/v1/ai")
@@ -40,10 +40,8 @@ import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AiProxyController {
 
-  private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
 
-  private final JwtService jwtService;
   private final AiProxyService aiProxyService;
 
   @GET
