@@ -9,37 +9,57 @@ import { getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
 import rootCauseClasses from "./RootCause.module.css";
 
-const metricToneClassName = (tone: ReturnType<typeof getMetricValueTone>) => {
-  if (tone === "good") return rcaClasses.metricValueGood;
-  if (tone === "bad") return rcaClasses.metricValueBad;
-  return rcaClasses.metricValueNeutral;
-};
-
 const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
   const tone = getMetricValueTone(
     row.metric_id,
     row.value_number,
     row.baseline_number,
+    {
+      valueDisplay: row.value_display,
+      baselineDisplay: row.baseline_display,
+      deltaDisplay: row.delta_display,
+    },
   );
-  const toneClassName = metricToneClassName(tone);
+  const valueDeltaColor =
+    tone === "good"
+      ? ("teal.7" as const)
+      : tone === "bad"
+        ? ("red.7" as const)
+        : undefined;
 
   return (
     <Table.Tr>
-      <Table.Td>
+      <Table.Td className={rcaClasses.metricsColMetric}>
         <Text size="sm">{row.metric_label}</Text>
       </Table.Td>
-      <Table.Td>
-        <Text size="sm" className={toneClassName} span>
+      <Table.Td className={rcaClasses.metricsColNumeric}>
+        <Text
+          size="sm"
+          span
+          fw={600}
+          c={valueDeltaColor}
+          className={
+            tone === "neutral" ? rcaClasses.metricValueNeutral : undefined
+          }
+        >
           {row.value_display}
         </Text>
       </Table.Td>
-      <Table.Td>
+      <Table.Td className={rcaClasses.metricsColNumeric}>
         <Text size="sm" c="dimmed">
           {row.baseline_display}
         </Text>
       </Table.Td>
-      <Table.Td>
-        <Text size="sm" className={toneClassName} span>
+      <Table.Td className={rcaClasses.metricsColNumericNarrow}>
+        <Text
+          size="sm"
+          span
+          fw={600}
+          c={valueDeltaColor}
+          className={
+            tone === "neutral" ? rcaClasses.metricValueNeutral : undefined
+          }
+        >
           {row.delta_display}
         </Text>
       </Table.Td>
@@ -72,10 +92,10 @@ const RcaStructuredReportV1View = ({
             Report as of {cachedAt}
           </Text>
         )}
-        <Stack className={rcaClasses.reportStack}>
+        <Stack gap="lg">
           {hasExecutiveSummary && (
             <Card
-              padding={0}
+              padding="lg"
               radius="md"
               withBorder
               className={rcaClasses.executiveSummaryCard}
@@ -106,18 +126,17 @@ const RcaStructuredReportV1View = ({
                   {segmentCount}
                 </Badge>
               </div>
-              <Stack className={rcaClasses.segmentStack}>
+              <Stack gap="md">
                 {segments.map((segment, index) => {
                   const rank = segment.rank ?? index + 1;
                   const impactText = segment.impact?.trim() ?? "";
                   const hasImpact = impactText !== "";
                   const metrics = segment.metrics ?? [];
-
                   return (
                     <Card
                       key={`rca-segment-${rank}-${segment.title}-${index}`}
                       withBorder
-                      padding={0}
+                      padding="lg"
                       radius="md"
                       className={rcaClasses.segmentCard}
                     >
@@ -136,14 +155,32 @@ const RcaStructuredReportV1View = ({
                               highlightOnHover
                               withTableBorder
                               horizontalSpacing="sm"
-                              verticalSpacing={4}
+                              verticalSpacing="xs"
                             >
                               <Table.Thead>
                                 <Table.Tr>
-                                  <Table.Th>Metric</Table.Th>
-                                  <Table.Th>Value</Table.Th>
-                                  <Table.Th>Baseline</Table.Th>
-                                  <Table.Th>Delta</Table.Th>
+                                  <Table.Th
+                                    className={rcaClasses.metricsColMetric}
+                                  >
+                                    Metric
+                                  </Table.Th>
+                                  <Table.Th
+                                    className={rcaClasses.metricsColNumeric}
+                                  >
+                                    Value
+                                  </Table.Th>
+                                  <Table.Th
+                                    className={rcaClasses.metricsColNumeric}
+                                  >
+                                    Baseline
+                                  </Table.Th>
+                                  <Table.Th
+                                    className={
+                                      rcaClasses.metricsColNumericNarrow
+                                    }
+                                  >
+                                    Delta
+                                  </Table.Th>
                                 </Table.Tr>
                               </Table.Thead>
                               <Table.Tbody>
@@ -177,7 +214,7 @@ const RcaStructuredReportV1View = ({
 
           {hasRecommendations && (
             <Card
-              padding={0}
+              padding="lg"
               radius="md"
               withBorder
               className={rcaClasses.recommendationsCard}

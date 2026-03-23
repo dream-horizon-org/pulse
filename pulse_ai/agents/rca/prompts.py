@@ -40,7 +40,7 @@ Ground every segment and number in the root-cause JSON and the analyzer insights
 - `executive_summary`: 1–2 sentences max; user-facing.
 - `segments`: ordered list of the **top contributing segments** from `segments` in the payload (same order as impact or re-rank by severity if insights justify it). For each segment:
   - `rank`: 1-based index (1 = highest impact).
-  - `title`: human-readable slice, e.g. combine `label` and key `dimensions` (e.g. "Android · AppVersion 4.0.0").
+  - `title`: human-readable slice; combine `label` and key `dimensions` with **" + "** between parts (e.g. "Android + AppVersion 4.0.0"). Do not use middle dot or bullet separators.
   - `metrics`: rows for the metrics that matter for that segment; include volume plus the worst or most relevant rates/durations from the payload.
   - `impact`: optional short paragraph for a highlighted callout when the segment is especially important; else null.
 - `recommendations`: 3–7 short, actionable strings (e.g. "Reduce error rate on X: …").

@@ -1,16 +1,16 @@
-/* Full-width content with light horizontal inset (no narrow column) */
+/* Shell: horizontal inset (card padding uses Mantine `padding="lg"` — do not use padding={0} on Card; it overrides CSS-module padding). */
 .reportShell {
   width: 100%;
   max-width: none;
   margin-inline: 0;
-  padding-inline: var(--mantine-spacing-xs);
-  padding-bottom: 0;
+  padding-inline: var(--mantine-spacing-md);
+  padding-bottom: var(--mantine-spacing-md);
   box-sizing: border-box;
 }
 
 @media (min-width: 48em) {
   .reportShell {
-    padding-inline: var(--mantine-spacing-sm);
+    padding-inline: var(--mantine-spacing-xl);
   }
 }
 
@@ -20,16 +20,8 @@
   margin-bottom: var(--mantine-spacing-sm);
 }
 
-.reportStack {
-  gap: 1rem;
-}
-
-.segmentStack {
-  gap: 0.75rem;
-}
-
+/* Padding lives on Mantine Card `padding="lg"` — only skin below */
 .executiveSummaryCard {
-  padding: 0.625rem 0.875rem;
   border-left: 4px solid var(--mantine-color-violet-5);
   background: light-dark(
     var(--mantine-color-violet-0),
@@ -40,8 +32,8 @@
 .executiveSummaryTitleRow {
   display: flex;
   align-items: center;
-  gap: var(--mantine-spacing-xs);
-  margin-bottom: 0.375rem;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
 }
 
 .executiveSummaryBody {
@@ -52,33 +44,34 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--mantine-spacing-xs);
-  margin-bottom: 0.5rem;
-  padding-top: 0;
+  gap: var(--mantine-spacing-sm);
+  margin-top: 0;
+  margin-bottom: var(--mantine-spacing-md);
+  padding-top: var(--mantine-spacing-xs);
 }
 
 .segmentCard {
   overflow: hidden;
-  padding: 0.625rem 0.875rem;
 }
 
 .segmentHeader {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: var(--mantine-spacing-sm);
+  margin-bottom: var(--mantine-spacing-sm);
+  padding-bottom: var(--mantine-spacing-xs);
 }
 
 .rankBadge {
   flex-shrink: 0;
-  min-width: 1.625rem;
-  height: 1.625rem;
+  min-width: 1.875rem;
+  height: 1.875rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--mantine-radius-sm);
   font-weight: 700;
-  font-size: var(--mantine-font-size-xs);
+  font-size: var(--mantine-font-size-sm);
   background: light-dark(
     var(--mantine-color-gray-2),
     var(--mantine-color-dark-4)
@@ -87,11 +80,34 @@
 }
 
 .tableWrap {
-  margin-inline: 0;
+  margin-inline: calc(-1 * var(--mantine-spacing-xs));
 }
 
 .metricsTable {
   font-size: var(--mantine-font-size-sm);
+  /* Same column grid on every segment card (auto layout sizes per table → misaligned stacks). */
+  table-layout: fixed;
+  width: 100%;
+}
+
+.metricsColMetric {
+  width: 38%;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.metricsColNumeric {
+  width: 21%;
+  vertical-align: top;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricsColNumericNarrow {
+  width: 20%;
+  vertical-align: top;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 
 .metricsTable :global(thead tr th) {
@@ -100,13 +116,13 @@
   letter-spacing: 0.02em;
   color: var(--mantine-color-gray-6);
   font-weight: 600;
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 .metricsTable :global(tbody tr td) {
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 .metricsTable :global(th:first-child),
@@ -115,8 +131,9 @@
 }
 
 .impactCallout {
-  margin-top: 0.625rem;
-  padding: 0.5rem 0.75rem;
+  margin-top: var(--mantine-spacing-md);
+  margin-bottom: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
   border-radius: var(--mantine-radius-sm);
   background: light-dark(
     var(--mantine-color-gray-0),
@@ -127,22 +144,21 @@
 }
 
 .recommendationsCard {
-  padding: 0.625rem 0.875rem;
   border: 1px solid var(--mantine-color-teal-3);
   background: light-dark(var(--mantine-color-teal-0), rgba(12, 148, 136, 0.22));
 }
 
 .recommendationsTitle {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--mantine-spacing-md);
 }
 
 .recommendationsList {
   margin: 0;
-  padding-left: 1rem;
+  padding-left: 1.25rem;
 }
 
 .recommendationsList li {
-  margin-bottom: 0.375rem;
+  margin-bottom: var(--mantine-spacing-sm);
 }
 
 .recommendationsList li:last-child {
