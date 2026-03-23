@@ -1,8 +1,9 @@
 export { useGetRcaReport } from "./useGetRcaReport";
 export type {
-  RcaReportChartBlock,
   RcaReportPayload,
   RcaReportResponse,
-  RcaReportTableBlock,
+  RcaStructuredMetricRowV1,
+  RcaStructuredReportV1,
+  RcaStructuredSegmentV1,
   UseGetRcaReportParams,
 } from "./useGetRcaReport.interface";

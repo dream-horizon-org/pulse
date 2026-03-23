@@ -8,8 +8,8 @@ from pulse_ai.constants import (
     RCA_REPORT_AGENT_NAME,
 )
 
-from ..report.tools import create_chart, create_table
 from .prompts import RCA_ANALYZER_INSTRUCTION, RCA_REPORT_INSTRUCTION
+from .tools import submit_rca_structured_report
 
 rca_analyzer_agent = LlmAgent(
     model=AGENT_MODEL,
@@ -22,9 +22,9 @@ rca_analyzer_agent = LlmAgent(
 rca_report_agent = LlmAgent(
     model=AGENT_MODEL,
     name=RCA_REPORT_AGENT_NAME,
-    description="Generates markdown + charts/tables RCA report.",
+    description="Emits versioned structured RCA report (v1).",
     instruction=RCA_REPORT_INSTRUCTION,
-    tools=[create_chart, create_table],
+    tools=[submit_rca_structured_report],
 )
 
 rca_pipeline_agent = SequentialAgent(

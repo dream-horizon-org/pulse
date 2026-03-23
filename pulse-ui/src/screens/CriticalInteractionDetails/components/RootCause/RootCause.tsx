@@ -3,6 +3,7 @@ import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
+import { isRcaStructuredReportV1WithContent } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
@@ -63,15 +64,13 @@ export function RootCause({
   }
 
   const reportPayload = reportResponse?.data ?? null;
-  const hasReportStructure = reportPayload?.report != null;
+  const hasStructuredV1Content = isRcaStructuredReportV1WithContent(
+    reportPayload?.report?.structured,
+  );
   const reportStatus = reportResponse?.status;
   const isReportHttpOk = reportStatus === RCA_HTTP_STATUS.OK;
   const showReport =
-    isReportHttpOk &&
-    reportPayload != null &&
-    (hasReportStructure ||
-      (reportPayload?.rca_insights != null &&
-        String(reportPayload.rca_insights).trim() !== ""));
+    isReportHttpOk && reportPayload != null && hasStructuredV1Content;
 
   const isLoading = reportLoading;
 
@@ -93,16 +92,9 @@ export function RootCause({
       reportPayload.cached === true
         ? formatRcaReportCachedAt(reportPayload.cachedAt)
         : null;
-    const report = reportPayload.report ?? {
-      markdown: null,
-      charts: [],
-      tables: [],
-    };
     return (
       <RcaReportView
-        report={report}
-        rcaInsights={reportPayload.rca_insights}
-        cached={reportPayload.cached}
+        report={reportPayload.report ?? {}}
         cachedAt={cachedAtFormatted}
       />
     );

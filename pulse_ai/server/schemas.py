@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
+from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 
 
 class RcaReportRequest(BaseModel):
@@ -11,28 +13,10 @@ class RcaReportRequest(BaseModel):
     rootCausePayload: dict[str, Any] | None = None
 
 
-class ChartBlockSchema(BaseModel):
-    type: Literal["chart"] = "chart"
-    title: str
-    data: dict[str, Any]
-    description: str | None = None
-
-
-class TableBlockSchema(BaseModel):
-    type: Literal["table"] = "table"
-    title: str
-    columns: list[dict[str, Any]]
-    rows: list[dict[str, Any]]
-    description: str | None = None
-
-
 class ReportPayloadSchema(BaseModel):
-    markdown: str | None = None
-    charts: list[ChartBlockSchema] = Field(default_factory=list)
-    tables: list[TableBlockSchema] = Field(default_factory=list)
+    structured: RcaStructuredReportV1
 
 
 class RcaReportResponse(BaseModel):
     report: ReportPayloadSchema
-    rca_insights: str | None = None
     cached: bool = False

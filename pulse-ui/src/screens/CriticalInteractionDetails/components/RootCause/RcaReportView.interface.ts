@@ -2,7 +2,5 @@ import type { RcaReportPayload } from "../../../../hooks/useGetRcaReport/useGetR
 
 export interface RcaReportViewProps {
   report: RcaReportPayload;
-  rcaInsights?: string | null;
-  cached?: boolean;
   cachedAt?: string | null;
 }

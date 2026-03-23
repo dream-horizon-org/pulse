@@ -1,27 +1,42 @@
-export type RcaReportChartBlock = {
-  type: "chart";
-  title: string;
-  data: Record<string, unknown>;
-  description?: string | null;
+/** RCA structured report v1 (snake_case fields per pulse_ai / API JSON). */
+export type RcaStructuredMetricRowV1 = {
+  metric_id: string;
+  metric_label: string;
+  value_display: string;
+  baseline_display: string;
+  delta_display: string;
+  value_number: number | null;
+  baseline_number: number | null;
 };
 
-export type RcaReportTableBlock = {
-  type: "table";
+export type RcaStructuredSegmentV1 = {
+  rank: number;
   title: string;
-  columns: Array<Record<string, unknown>>;
-  rows: Array<Record<string, unknown>>;
-  description?: string | null;
+  metrics: RcaStructuredMetricRowV1[];
+  impact?: string | null;
+};
+
+export type RcaStructuredReportV1 = {
+  version: 1;
+  executive_summary: string;
+  segments: RcaStructuredSegmentV1[];
+  recommendations: string[];
 };
 
 export type RcaReportPayload = {
-  markdown?: string | null;
-  charts: RcaReportChartBlock[];
-  tables: RcaReportTableBlock[];
+  structured?: RcaStructuredReportV1 | null;
 };
 
+export const isRcaStructuredReportV1WithContent = (
+  structured: RcaStructuredReportV1 | null | undefined,
+): boolean =>
+  structured?.version === 1 &&
+  ((structured.executive_summary?.trim() ?? "") !== "" ||
+    (structured.segments?.length ?? 0) > 0 ||
+    (structured.recommendations?.length ?? 0) > 0);
+
 export type RcaReportResponse = {
-  report: RcaReportPayload;
-  rca_insights?: string | null;
+  report?: RcaReportPayload | null;
   cached?: boolean;
   /** ISO-8601 instant when served from MySQL cache (pulse-server only) */
   cachedAt?: string | null;
