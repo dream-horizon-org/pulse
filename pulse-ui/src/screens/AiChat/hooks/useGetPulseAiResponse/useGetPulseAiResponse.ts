@@ -1,14 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
-import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
+import { COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { makeStreamingRequestToServer } from "../../../../helpers/makeRequestToServer";
+import { streamAiRunSse } from "../../../../helpers/makeRequestToServer";
 import {
   StreamingCallbacks,
   UseGetPulseAiResponseReturn,
 } from "./useGetPulseAiResponse.interface";
 import { readSseStream } from "./sseParser";
-import { AI_API_PATHS, AI_CHAT_TEXTS } from "../../AiChat.constants";
+import { AI_CHAT_TEXTS } from "../../AiChat.constants";
 
 /** DOM fetch error names (e.g. when request is aborted via AbortController). */
 enum FetchErrorName {
@@ -43,15 +43,12 @@ export const useGetPulseAiResponse = (): UseGetPulseAiResponseReturn => {
       });
 
       try {
-        const response = await makeStreamingRequestToServer(
-          `${API_BASE_URL}${AI_API_PATHS.RUN_SSE}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body,
-            signal: controller.signal,
-          },
-        );
+        const response = await streamAiRunSse({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           callbacks.onError(`Server error: ${response.status}`);

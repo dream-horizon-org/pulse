@@ -1,4 +1,9 @@
-import { API_METHODS, COOKIES_KEY } from "../../constants";
+import {
+  AI_API_PATHS,
+  API_BASE_URL,
+  API_METHODS,
+  COOKIES_KEY,
+} from "../../constants";
 import { getCookies } from "../cookies";
 import { MakeRequestConfig } from "../makeRequest";
 
@@ -16,7 +21,7 @@ const getMockServer = async () => {
 
 /**
  * Builds authentication headers for API requests.
- * Used by makeRequestToServer and by makeStreamingRequestToServer for SSE/streaming calls.
+ * Used by makeRequestToServer and streamAiRunSse for SSE/streaming calls.
  * Uses the backend-generated access token stored in cookies after successful authentication.
  *
  * OpenFGA-protected routes (including all `/v1/ai/*` calls through pulse-server) require both
@@ -65,13 +70,15 @@ function buildAuthHeaders(): Record<string, string> {
 }
 
 /**
- * Performs a streaming fetch (e.g. SSE) with the same auth headers as makeRequestToServer.
- * Returns the raw Response so the caller can use response.body.getReader() for streaming.
+ * POST to the fixed AI run_sse endpoint with the same auth headers as makeRequestToServer.
+ * The request URL is not caller-controlled (only {@link API_BASE_URL} + {@link AI_API_PATHS.RUN_SSE}),
+ * which avoids SSRF findings on generic `fetch(userUrl)` patterns.
+ *
+ * @returns Raw {@link Response} for {@link Response.body} streaming (e.g. SSE).
  */
-export async function makeStreamingRequestToServer(
-  url: string,
-  init?: RequestInit,
-): Promise<Response> {
+export async function streamAiRunSse(init?: RequestInit): Promise<Response> {
+  const base = API_BASE_URL.replace(/\/$/, "");
+  const url = `${base}${AI_API_PATHS.RUN_SSE}`;
   const authHeaders = buildAuthHeaders();
   return fetch(url, {
     ...init,

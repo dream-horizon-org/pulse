@@ -38,10 +38,7 @@ export const SUGGESTED_QUERIES = [
   "Screen load time comparison: iOS vs Android",
 ];
 
-export const AI_API_PATHS = {
-  RUN_SSE: "/v1/ai/run_sse",
-  SESSIONS: "/v1/ai/sessions",
-} as const;
+export { AI_API_PATHS } from "../../constants/aiApiPaths";
 
 /** SSE line prefixes and JSON `type` / `block_type` values from the AI stream. */
 export const SSE_CONSTANTS = {
