@@ -17,12 +17,7 @@ import {
   ROUTES,
 } from "../../constants";
 import { IconFilterEdit } from "@tabler/icons-react";
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChangeEvent,
   useCallback,
@@ -56,7 +51,6 @@ import { PulseType } from "../../constants/PulseOtelSemcov";
 import dayjs from "dayjs";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { useProjectContext } from "../../contexts";
-import { useTenantContext } from "../../contexts/TenantContext";
 
 interface InteractionMetrics {
   interactionName: string;
@@ -66,13 +60,9 @@ interface InteractionMetrics {
   poorUserPercentage: number;
 }
 
-const PULSE_PROJECT_CONTEXT_KEY = "pulse_project_context";
-
 export function CriticalInteractionList() {
   const navigate = useNavigate();
-  const { projectId, setProject } = useProjectContext();
-  const { projects } = useTenantContext();
-  const paramsProjectId = useParams<{ projectId: string }>().projectId;
+  const { projectId } = useProjectContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const { trackClick } = useAnalytics("InteractionList");
   const searchFields = Object.fromEntries(searchParams.entries());
