@@ -10,7 +10,7 @@ import retrofit2.http.POST
  * Retrofit API for session replay snapshot uploads.
  */
 internal interface SessionReplayApiService {
-    @POST("s/")
+    @POST("session-capture")
     fun sendBatch(
         @Body body: RequestBody,
     ): Call<ResponseBody>
