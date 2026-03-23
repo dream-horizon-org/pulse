@@ -21,3 +21,11 @@ terraform.rc
 env.json
 
 docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+*.egg
