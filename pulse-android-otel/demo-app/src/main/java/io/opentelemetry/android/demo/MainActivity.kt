@@ -26,7 +26,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,7 +44,6 @@ import io.opentelemetry.android.demo.about.AboutActivity
 import io.opentelemetry.android.demo.fragment.FragmentActivity
 import io.opentelemetry.android.demo.theme.DemoAppTheme
 import io.opentelemetry.android.demo.shop.ui.AstronomyShopActivity
-import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<DemoViewModel>()
@@ -54,18 +52,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // Session id is often null on first frame; polling avoids crashing on error("Session ID is null").
-            LaunchedEffect(Unit) {
-                repeat(30) {
-                    val sid = OtelDemoApplication.rum.getRumSessionId()
-                    if (sid != null) {
-                        viewModel.sessionIdState.value = sid
-                        return@LaunchedEffect
-                    }
-                    delay(200L)
-                }
-                Log.w(TAG, "RUM session id still null after ~6s; keeping placeholder")
-            }
             DemoAppTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
