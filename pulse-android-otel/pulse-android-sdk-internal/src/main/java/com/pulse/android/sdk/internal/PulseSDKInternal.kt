@@ -326,6 +326,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                     config = replayConfig,
                     projectId = extractProjectID(apiKey),
                     userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
+                    isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
                 ),
             )
         }
@@ -702,7 +703,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         when (newState) {
             PulseDataCollectionConsent.PENDING -> {
-                // no-op
+                sessionReplay?.stop()
+                oldState = newState
             }
 
             PulseDataCollectionConsent.DENIED -> {
@@ -712,6 +714,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
             PulseDataCollectionConsent.ALLOWED -> {
                 OpenTelemetryRumInitializer.setupExporters()
+                sessionReplay?.start(resumeCurrent = true)
                 oldState = newState
             }
         }

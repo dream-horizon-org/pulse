@@ -75,7 +75,9 @@ public class SessionReplayInstrumentation : AndroidInstrumentation {
                 sessionIdProvider = { ctx.sessionProvider.getSessionId() },
             )
         integration.install()
-        integration.start(resumeCurrent = false)
+        if (bootstrap.isStartActive) {
+            integration.start(resumeCurrent = false)
+        }
         SessionReplayRegistry.setIntegration(integration)
     }
 
