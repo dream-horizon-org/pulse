@@ -51,34 +51,33 @@ async def query_interactions(
 
     bearer_token = tool_context.state.get("bearer_token")
     project_id = tool_context.state.get("project_id")
-    client = PulseClient(
+    async with PulseClient(
         authorization_header=bearer_token,
         project_id=project_id,
-    )
+    ) as client:
+        if scope == "list":
+            params = {"page": page, "size": size, "status": status}
+            if name:
+                params["name"] = name
+            response = await client.request("GET", "/v1/interactions", params=params)
 
-    if scope == "list":
-        params = {"page": page, "size": size, "status": status}
-        if name:
-            params["name"] = name
-        response = await client.request("GET", "/v1/interactions", params=params)
+        elif scope == "detail":
+            response = await client.request("GET", f"/v1/interactions/{interaction_name}")
 
-    elif scope == "detail":
-        response = await client.request("GET", f"/v1/interactions/{interaction_name}")
+        elif scope == "filters":
+            response = await client.request("GET", "/v1/interactions/filter-options")
 
-    elif scope == "filters":
-        response = await client.request("GET", "/v1/interactions/filter-options")
+        elif scope == "telemetry_filters":
+            response = await client.request("GET", "/v1/interactions/telemetry-filters")
 
-    elif scope == "telemetry_filters":
-        response = await client.request("GET", "/v1/interactions/telemetry-filters")
+        # Handle network errors (PulseClient returns dict on connection/timeout)
+        if isinstance(response, dict):
+            return response
 
-    # Handle network errors (PulseClient returns dict on connection/timeout)
-    if isinstance(response, dict):
-        return response
+        # Handle HTTP errors
+        if response.status_code >= 400:
+            return parse_error_response(response)
 
-    # Handle HTTP errors
-    if response.status_code >= 400:
-        return parse_error_response(response)
-
-    # Success
-    body = response.json()
-    return {"status": "success", "data": body.get("data", body)}
+        # Success
+        body = response.json()
+        return {"status": "success", "data": body.get("data", body)}

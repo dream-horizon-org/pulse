@@ -65,18 +65,15 @@ async def fetch_root_cause_payload(
     path = ROOT_CAUSE_FETCH_PATH_TEMPLATE.format(interaction=encoded_interaction)
     effective_date = _resolve_effective_date(date_value)
 
-    client = PulseClient(
+    async with PulseClient(
         authorization_header=authorization,
         project_id=project_id,
-    )
-    try:
+    ) as client:
         raw = await client.request(
             "GET",
             path,
             params={ROOT_CAUSE_FETCH_DATE_QUERY_PARAM: effective_date},
         )
-    finally:
-        await client.aclose()
 
     if isinstance(raw, dict):
         raise _fetch_error_from_pulse_client_dict(raw)

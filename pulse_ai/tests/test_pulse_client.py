@@ -28,8 +28,8 @@ async def test_client_sends_auth_and_project_headers():
         return_value=httpx.Response(200, json={"data": [], "error": None})
     )
 
-    client = PulseClient(authorization_header=_AUTH, project_id=_PROJECT)
-    await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        await client.request("GET", "/v1/interactions")
 
     assert route.called
     sent_headers = route.calls[0].request.headers
@@ -47,8 +47,8 @@ async def test_client_sends_content_type_on_post():
         return_value=httpx.Response(200, json={"data": {}, "error": None})
     )
 
-    client = PulseClient(authorization_header=_AUTH, project_id=_PROJECT)
-    await client.request("POST", "/v1/interactions/performance-metric/distribution", json={"test": True})
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        await client.request("POST", "/v1/interactions/performance-metric/distribution", json={"test": True})
 
     assert route.called
     sent_headers = route.calls[0].request.headers
@@ -64,8 +64,8 @@ async def test_client_sends_content_type_on_post():
 async def test_returns_error_when_authorization_empty():
     from pulse_ai.client.pulse_client import PulseClient
 
-    client = PulseClient(authorization_header="", project_id=_PROJECT)
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header="", project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
 
     assert response == {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_BEARER}
 
@@ -74,8 +74,8 @@ async def test_returns_error_when_authorization_empty():
 async def test_returns_error_when_project_empty():
     from pulse_ai.client.pulse_client import PulseClient
 
-    client = PulseClient(authorization_header=_AUTH, project_id="")
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id="") as client:
+        response = await client.request("GET", "/v1/interactions")
 
     assert response == {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_PROJECT}
 
@@ -94,8 +94,8 @@ async def test_client_handles_network_error():
         side_effect=httpx.ConnectError("Connection refused")
     )
 
-    client = PulseClient(authorization_header=_AUTH, project_id=_PROJECT)
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
 
     assert isinstance(response, dict)
     assert response["status"] == "error"
@@ -111,8 +111,8 @@ async def test_client_handles_timeout():
         side_effect=httpx.ReadTimeout("Read timed out")
     )
 
-    client = PulseClient(authorization_header=_AUTH, project_id=_PROJECT)
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
 
     assert isinstance(response, dict)
     assert response["status"] == "error"
@@ -129,8 +129,8 @@ async def test_client_returns_http_response_on_401():
         return_value=httpx.Response(401, json={"error": {"code": "UNAUTHORIZED"}})
     )
 
-    client = PulseClient(authorization_header=_AUTH, project_id=_PROJECT)
-    response = await client.request("GET", "/v1/interactions")
+    async with PulseClient(authorization_header=_AUTH, project_id=_PROJECT) as client:
+        response = await client.request("GET", "/v1/interactions")
 
     assert isinstance(response, httpx.Response)
     assert response.status_code == 401

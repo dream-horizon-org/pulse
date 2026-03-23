@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import httpx
 
@@ -19,6 +20,8 @@ from pulse_ai.constants import (
 class PulseClient:
     """Async HTTP client for Pulse backend API calls.
 
+    Use ``async with PulseClient(...) as client`` (or call ``aclose()``) so the
+    underlying ``httpx.AsyncClient`` is closed after use.
     """
 
     def __init__(
@@ -39,6 +42,18 @@ class PulseClient:
             base_url=base_url,
             timeout=float(BACKEND_REQUEST_TIMEOUT_SECONDS),
         )
+        self._closed = False
+
+    async def __aenter__(self) -> PulseClient:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        await self.aclose()
 
     def _build_headers(self) -> dict[str, str]:
         """Build request headers.
@@ -99,6 +114,10 @@ class PulseClient:
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
+        is_already_closed = self._closed
+        if is_already_closed:
+            return
+        self._closed = True
         await self._client.aclose()
 
     async def _do_request(

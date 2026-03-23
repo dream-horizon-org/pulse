@@ -70,21 +70,21 @@ async def query_interaction_sessions(
 
     bearer_token = tool_context.state.get("bearer_token")
     project_id = tool_context.state.get("project_id")
-    client = PulseClient(
+    async with PulseClient(
         authorization_header=bearer_token,
         project_id=project_id,
-    )
-    response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
+    ) as client:
+        response = await client.request("POST", DATA_QUERY_PATH, json=query_request)
 
-    # Handle network errors
-    if isinstance(response, dict):
-        return response
+        # Handle network errors
+        if isinstance(response, dict):
+            return response
 
-    # Handle HTTP errors
-    if response.status_code >= 400:
-        return parse_error_response(response)
+        # Handle HTTP errors
+        if response.status_code >= 400:
+            return parse_error_response(response)
 
-    # Transform columnar response
-    body = response.json()
-    data = body.get("data", {})
-    return {"status": "success", "data": transform_columnar(data)}
+        # Transform columnar response
+        body = response.json()
+        data = body.get("data", {})
+        return {"status": "success", "data": transform_columnar(data)}
