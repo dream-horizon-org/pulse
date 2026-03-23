@@ -9,7 +9,6 @@ import {
   Tooltip,
   useMantineTheme,
 } from "@mantine/core";
-import dayjs from "dayjs";
 import {
   CRITICAL_INTERACTION_DETAILS_PAGE_CONSTANTS,
   ROUTES,
@@ -20,7 +19,6 @@ import { IconArrowNarrowLeft } from "@tabler/icons-react";
 import { Manage } from "../CriticalInteractionList/components/Manage";
 import { InteractionDetailsFilters } from "./components/InteractionDetailsFilters";
 import { InteractionDetailsMainContent } from "./components/InteractionDetailsMainContent";
-import { useProjectContext } from "../../contexts";
 import { useGetInteractionDetails } from "../../hooks/useGetInteractionDetails";
 import { useFilterStore } from "../../stores/useFilterStore";
 import Analysis from "./components/InteractionDetailsMainContent/components/Analysis";
@@ -28,6 +26,7 @@ import DateTimeRangePicker from "./components/DateTimeRangePicker/DateTimeRangeP
 import ProblematicInteractions from "./components/InteractionDetailsMainContent/components/ProblematicInteractions/ProblematicInteractions";
 import { RootCause } from "./components/RootCause";
 import { GraphCardSkeleton, SkeletonLoader } from "../../components/Skeletons";
+import { getRootCauseDateFromEndTime } from "./utils/getRootCauseDateFromEndTime";
 
 const isRootCauseEnabled = process.env.REACT_APP_ROOT_CAUSE_ENABLED === "true";
 
@@ -46,10 +45,9 @@ export function CiritcalInteractionDetails() {
 
   const navigate = useNavigate();
   const params = useParams<{ projectId: string; "*": string }>();
-  const projectIdFromUrl = params.projectId;
+  const projectId = params.projectId;
   const routeParams = params["*"];
   const theme = useMantineTheme();
-  const { projectId: contextProjectId, setProject } = useProjectContext();
 
   const routeParamsArray = routeParams?.split("/") ?? [];
   const [interactionName] = routeParamsArray;
@@ -75,35 +73,12 @@ export function CiritcalInteractionDetails() {
     : "overview";
   const [activeTab, setActiveTab] = useState<string | null>(initialTab);
 
-  const rootCauseDateRaw =
-    endTime != null && endTime !== ""
-      ? dayjs(
-          typeof endTime === "string" && /^\d+$/.test(endTime)
-            ? Number(endTime)
-            : endTime,
-        ).format("YYYY-MM-DD")
-      : undefined;
-  const rootCauseDate =
-    rootCauseDateRaw && rootCauseDateRaw !== "Invalid Date"
-      ? rootCauseDateRaw
-      : undefined;
+  const rootCauseDate = getRootCauseDateFromEndTime(endTime);
 
   useEffect(() => {
     initializeFromUrlParams(searchParams);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  useEffect(() => {
-    if (projectIdFromUrl && projectIdFromUrl !== contextProjectId) {
-      setProject({
-        projectId: projectIdFromUrl,
-        projectName: "",
-        userRole: "viewer",
-        isActive: true,
-        isEventFlowStarted: false,
-      });
-    }
-  }, [projectIdFromUrl, contextProjectId, setProject]);
 
   // Show skeleton loading state while fetching interaction details
   if (fetchingInteractionDetails) {
@@ -179,7 +154,7 @@ export function CiritcalInteractionDetails() {
     navigate(
       ROUTES.PROJECT_INTERACTIONS.basePath.replace(
         ":projectId",
-        projectIdFromUrl || "",
+        projectId || "",
       ),
     );
   };
@@ -330,7 +305,7 @@ export function CiritcalInteractionDetails() {
               <RootCause
                 interactionName={interactionName ?? null}
                 date={rootCauseDate}
-                projectId={contextProjectId ?? projectIdFromUrl ?? null}
+                projectId={projectId}
               />
             ) : null}
           </Tabs.Panel>

@@ -45,6 +45,23 @@ export function RootCause({
     projectId: effectiveProjectId,
   });
 
+  const trimmedProjectId =
+    effectiveProjectId != null ? String(effectiveProjectId).trim() : "";
+  const isProjectIdMissing = trimmedProjectId === "";
+
+  if (isProjectIdMissing) {
+    return (
+      <Box className={classes.container}>
+        <Stack align="center" gap="md" className={classes.stateMessage}>
+          <ErrorAndEmptyState
+            message={ROOT_CAUSE_MESSAGES.GENERIC_ERROR}
+            classes={[classes.errorState]}
+          />
+        </Stack>
+      </Box>
+    );
+  }
+
   const reportPayload = reportResponse?.data ?? null;
   const hasReportStructure = reportPayload?.report != null;
   const reportStatus = reportResponse?.status;

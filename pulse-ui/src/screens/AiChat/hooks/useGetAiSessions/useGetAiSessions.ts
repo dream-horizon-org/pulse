@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE_URL, COOKIES_KEY } from "../../../../constants";
 import { getCookies } from "../../../../helpers/cookies";
-import { makeRequestToServer } from "../../../../helpers/makeRequestToServer";
+import { makeRequest } from "../../../../helpers/makeRequest";
 import { AiSessionListItem } from "./useGetAiSessions.interface";
 import { AI_API_PATHS, AI_CHAT_LIMITS } from "../../AiChat.constants";
 
@@ -11,15 +11,23 @@ async function fetchAiSessions(
   signal: AbortSignal | undefined,
 ): Promise<AiSessionListItem[]> {
   const url = `${API_BASE_URL}${AI_API_PATHS.SESSIONS}/${encodeURIComponent(userId)}`;
-  const response = await makeRequestToServer({
+  const result = await makeRequest<AiSessionListItem[]>({
     url,
     init: { method: "GET", signal },
     unwrapped: true,
   });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sessions: ${response.status}`);
+  const hasError = result.error != null;
+  if (hasError) {
+    const message =
+      result.error?.message ?? `Failed to fetch sessions: ${result.status}`;
+    throw new Error(message);
   }
-  return response.json();
+  const sessions = result.data;
+  const sessionsMissing = sessions == null;
+  if (sessionsMissing) {
+    throw new Error(`Failed to fetch sessions: ${result.status}`);
+  }
+  return sessions;
 }
 
 export const useGetAiSessions = () => {
