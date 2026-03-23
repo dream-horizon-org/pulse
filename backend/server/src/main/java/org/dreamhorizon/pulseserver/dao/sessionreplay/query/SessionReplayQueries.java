@@ -1,6 +1,6 @@
-package org.dreamhorizon.pulseserver.service.session.query;
+package org.dreamhorizon.pulseserver.dao.sessionreplay.query;
 
-public class SessionReplayQuery {
+public class SessionReplayQueries {
 
   public static final String GET_BLOCK_LISTING_QUERY = """
       SELECT

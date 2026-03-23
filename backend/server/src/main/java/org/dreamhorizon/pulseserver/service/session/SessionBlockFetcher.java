@@ -1,8 +1,8 @@
 package org.dreamhorizon.pulseserver.service.session;
 
-import com.github.luben.zstd.Zstd;
 import com.google.inject.Inject;
 import io.reactivex.rxjava3.core.Single;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -10,13 +10,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.session.models.BlockCoordinates;
+import org.xerial.snappy.Snappy;
 
 @Slf4j
 public class SessionBlockFetcher {
 
   private static final Pattern RANGE_PATTERN = Pattern.compile("^range=bytes=(\\d+)-(\\d+)$");
-  private static final int MAX_DECOMPRESSED_SIZE = 50 * 1024 * 1024; // 50MB safety limit
+  private static final int MAX_DECOMPRESSED_SIZE = 200 * 1024 * 1024; // 200MB safety limit
 
   private final IS3BucketClient s3BucketClient;
 
@@ -26,7 +29,7 @@ public class SessionBlockFetcher {
   }
 
   /**
-   * Fetches multiple blocks from S3 in parallel, decompresses zstd, and returns concatenated JSONL.
+   * Fetches multiple blocks from S3 in parallel, decompresses Snappy, and returns concatenated JSONL.
    *
    * @param blockUrls list of block URLs in format s3://bucket/key?range=bytes=start-end
    * @return concatenated JSONL bytes
@@ -41,7 +44,7 @@ public class SessionBlockFetcher {
 
   private Single<byte[]> fetchSingleBlock(String blockUrl) {
     BlockCoordinates coords = parseBlockUrl(blockUrl);
-    return s3BucketClient.getObjectRange(coords.bucket, coords.key, coords.startByte, coords.endByte)
+    return s3BucketClient.getObjectRange(coords.getBucket(), coords.getKey(), coords.getStartByte(), coords.getEndByte())
         .doOnError(err -> log.error("Failed to fetch block from S3: {} - {}", blockUrl, err.getMessage()));
   }
 
@@ -49,7 +52,7 @@ public class SessionBlockFetcher {
     StringBuilder jsonl = new StringBuilder();
     for (Object block : compressedBlocks) {
       byte[] compressed = (byte[]) block;
-      byte[] decompressed = decompressZstd(compressed);
+      byte[] decompressed = decompressSnappy(compressed);
       String text = new String(decompressed, StandardCharsets.UTF_8);
       jsonl.append(text);
       if (!text.endsWith("\n")) {
@@ -60,16 +63,21 @@ public class SessionBlockFetcher {
     return result.getBytes(StandardCharsets.UTF_8);
   }
 
-  private byte[] decompressZstd(byte[] compressed) {
-    @SuppressWarnings("deprecation")
-    long decompressedSize = Zstd.decompressedSize(compressed);
-    if (decompressedSize <= 0 || decompressedSize > MAX_DECOMPRESSED_SIZE) {
-      decompressedSize = Math.min(compressed.length * 10L, MAX_DECOMPRESSED_SIZE);
+  private byte[] decompressSnappy(byte[] compressed) {
+    try {
+      int decompressedSize = Snappy.uncompressedLength(compressed);
+      if (decompressedSize <= 0 || decompressedSize > MAX_DECOMPRESSED_SIZE) {
+        throw ServiceError.INTERNAL_SERVER_ERROR.getCustomException(
+            String.format("Snappy block size out of range: %d (max %d)", decompressedSize, MAX_DECOMPRESSED_SIZE));
+      }
+      return Snappy.uncompress(compressed);
+    } catch (IOException e) {
+      throw ServiceError.INTERNAL_SERVER_ERROR.getCustomException(
+          "Failed to decompress Snappy block: " + e.getMessage());
     }
-    return Zstd.decompress(compressed, (int) decompressedSize);
   }
 
-  static BlockCoordinates parseBlockUrl(String blockUrl) {
+  private BlockCoordinates parseBlockUrl(String blockUrl) {
     URI uri = URI.create(blockUrl);
     String bucket = uri.getHost();
     String key = uri.getPath().substring(1); // strip leading /
@@ -83,8 +91,11 @@ public class SessionBlockFetcher {
     long startByte = Long.parseLong(matcher.group(1));
     long endByte = Long.parseLong(matcher.group(2));
 
-    return new BlockCoordinates(bucket, key, startByte, endByte);
+    return BlockCoordinates.builder()
+        .bucket(bucket)
+        .key(key)
+        .startByte(startByte)
+        .endByte(endByte)
+        .build();
   }
-
-  record BlockCoordinates(String bucket, String key, long startByte, long endByte) {}
 }

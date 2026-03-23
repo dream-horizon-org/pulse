@@ -11,6 +11,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
@@ -181,14 +182,10 @@ public class MainModule extends VertxAbstractModule {
     ApplicationConfig config = SharedDataUtils.get(vertx, ApplicationConfig.class);
     // When session replay S3 endpoint is set (e.g. MinIO in dev), use it for the default S3 client
     // so both config uploads and session replay block reads use the same client and env config.
-    if (config != null
-        && config.getSessionReplayS3Endpoint() != null
-        && !config.getSessionReplayS3Endpoint().isEmpty()) {
-      String region = config.getSessionReplayS3Region() != null && !config.getSessionReplayS3Region().isEmpty()
-          ? config.getSessionReplayS3Region()
-          : "us-east-1";
-      String accessKey = config.getSessionReplayS3AccessKeyId() != null ? config.getSessionReplayS3AccessKeyId() : "";
-      String secretKey = config.getSessionReplayS3SecretAccessKey() != null ? config.getSessionReplayS3SecretAccessKey() : "";
+    if (config != null && StringUtils.isNotBlank(config.getSessionReplayS3Endpoint())) {
+      String region = StringUtils.defaultIfBlank(config.getSessionReplayS3Region(), "ap-south-1");
+      String accessKey = StringUtils.defaultString(config.getSessionReplayS3AccessKeyId());
+      String secretKey = StringUtils.defaultString(config.getSessionReplayS3SecretAccessKey());
       return S3AsyncClient.builder()
           .httpClientBuilder(NettyNioAsyncHttpClient.builder())
           .region(Region.of(region))

@@ -1,4 +1,4 @@
-package org.dreamhorizon.pulseserver.service.session.models;
+package org.dreamhorizon.pulseserver.dao.sessionreplay.models;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
