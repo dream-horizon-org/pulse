@@ -1,64 +1,54 @@
-"""HTTP client for the Pulse backend with auth headers and 401-retry."""
+"""HTTP client for pulse-server with forwarded user JWT and project context."""
+
+from __future__ import annotations
 
 import logging
-import os
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
 from pulse_ai.constants import (
-    DEFAULT_PULSE_BASE_URL,
-    PULSE_ACCESS_TOKEN_ENV_KEY,
-    PULSE_BASE_URL_ENV_KEY,
-    PULSE_REFRESH_TOKEN_ENV_KEY,
+    BACKEND_REQUEST_TIMEOUT_SECONDS,
+    PULSE_TOOL_SESSION_MISSING_BEARER,
+    PULSE_TOOL_SESSION_MISSING_PROJECT,
+    get_pulse_base_url,
 )
 
 
 class PulseClient:
     """Async HTTP client for Pulse backend API calls.
 
-    Reads auth tokens from env vars (dev) or can be overridden for prod.
-    Automatically retries on 401 by refreshing the access token.
     """
 
     def __init__(
         self,
-        access_token: str | None = None,
-        refresh_token: str | None = None,
-        authorization_header: str | None = None,
-        project_id: str | None = None,
-    ):
+        authorization_header: str,
+        project_id: str,
+    ) -> None:
         """Initialize the client.
 
         Args:
-            access_token: Optional access token (else from env).
-            refresh_token: Optional refresh token (else from env).
-            authorization_header: Optional full "Authorization" header from the request
-                (e.g. "Bearer <token>"). When set, this is used for all requests instead
-                of building from access_token. Used when tools receive auth via session state.
-            project_id: Optional project ID. When set, sent as X-Project-ID on all requests
-                so the backend can set ProjectContext (required for project-scoped endpoints).
+            authorization_header: Full ``Authorization`` header (e.g. ``Bearer <jwt>``).
+            project_id: Sent as ``X-Project-ID`` (required for project-scoped APIs).
         """
-        base_url = os.getenv(PULSE_BASE_URL_ENV_KEY, DEFAULT_PULSE_BASE_URL)
-        self.access_token = access_token or os.getenv(PULSE_ACCESS_TOKEN_ENV_KEY, "")
-        self.refresh_token = refresh_token or os.getenv(PULSE_REFRESH_TOKEN_ENV_KEY, "")
+        base_url = get_pulse_base_url()
         self.authorization_header = authorization_header
         self.project_id = project_id
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=30.0)
+        self._client = httpx.AsyncClient(
+            base_url=base_url,
+            timeout=float(BACKEND_REQUEST_TIMEOUT_SECONDS),
+        )
 
     def _build_headers(self) -> dict[str, str]:
-        """Build request headers. Use request auth from session state when provided.
+        """Build request headers.
 
         Only sets Authorization when the value is non-empty to avoid
         "Illegal header value b'Bearer '" from httpx.
         """
+        auth = None
         if self.authorization_header and self.authorization_header.strip():
             auth = self.authorization_header.strip()
-        elif self.access_token and self.access_token.strip():
-            auth = f"Bearer {self.access_token.strip()}"
-        else:
-            auth = None
 
         headers = {"Content-Type": "application/json"}
         if auth:
@@ -73,20 +63,29 @@ class PulseClient:
         path: str,
         **kwargs,
     ) -> httpx.Response | dict:
-        """Make an HTTP request with automatic 401-retry.
+        """Make an HTTP request.
 
         Returns httpx.Response on success/HTTP errors, or a dict on
         network/timeout errors.
         """
+        # Tools call pulse_tool_session_auth_error first; this catches direct client misuse.
+        missing_session_auth = not (
+            self.authorization_header and self.authorization_header.strip()
+        )
+        if missing_session_auth:
+            return {
+                "status": "error",
+                "message": PULSE_TOOL_SESSION_MISSING_BEARER,
+            }
+        missing_session_project = not (self.project_id and self.project_id.strip())
+        if missing_session_project:
+            return {
+                "status": "error",
+                "message": PULSE_TOOL_SESSION_MISSING_PROJECT,
+            }
+
         try:
-            response = await self._do_request(method, path, **kwargs)
-
-            if response.status_code == 401 and self.refresh_token:
-                refreshed = await self._refresh_access_token()
-                if refreshed:
-                    response = await self._do_request(method, path, **kwargs)
-
-            return response
+            return await self._do_request(method, path, **kwargs)
 
         except httpx.ConnectError as exc:
             logger.error(f"Connection error: {exc}")
@@ -98,6 +97,10 @@ class PulseClient:
             logger.error(f"HTTP error: {exc}")
             return {"status": "error", "message": f"HTTP error: {exc}"}
 
+    async def aclose(self) -> None:
+        """Close the underlying HTTP client."""
+        await self._client.aclose()
+
     async def _do_request(
         self,
         method: str,
@@ -107,25 +110,3 @@ class PulseClient:
         """Execute a single HTTP request."""
         headers = self._build_headers()
         return await self._client.request(method, path, headers=headers, **kwargs)
-
-    async def _refresh_access_token(self) -> bool:
-        """Refresh the access token using the refresh token.
-
-        Returns True if refresh succeeded, False otherwise.
-        """
-        try:
-            resp = await self._client.post(
-                "/v1/auth/token/refresh",
-                json={"refreshToken": self.refresh_token},
-                headers={"Content-Type": "application/json"},
-            )
-            if resp.status_code != 200:
-                return False
-
-            data = resp.json().get("data", {})
-            self.access_token = data.get("accessToken", self.access_token)
-            self.refresh_token = data.get("refreshToken", self.refresh_token)
-            return True
-
-        except httpx.HTTPError:
-            return False

@@ -9,7 +9,12 @@ from typing import Any
 from google.genai.types import Content
 
 from pulse_ai.agents.rca.schemas import ChartConfig, TableConfig
-from pulse_ai.constants import RCA_ANALYZER_AGENT_NAME, RCA_PIPELINE_TIMEOUT_SECONDS
+from pulse_ai.constants import (
+    HTTP_TIMEOUT_GATEWAY,
+    RCA_ANALYZER_AGENT_NAME,
+    RCA_PIPELINE_TIMEOUT_SECONDS,
+    USER_ID_RCA
+)
 from pulse_ai.schemas import RootCausePayloadSchema
 from pulse_ai.server.schemas import (
     ChartBlockSchema,
@@ -20,8 +25,6 @@ from pulse_ai.server.schemas import (
 
 logger = logging.getLogger(__name__)
 
-USER_ID_RCA = "rca_report_service"
-HTTP_TIMEOUT_GATEWAY = 504
 
 
 class RcaRunnerError(Exception):
