@@ -167,14 +167,16 @@ class PersistingReplayEmitterTest {
     @Test
     fun `flushAt limits batches per upload`() {
         val envelope = """{"event":"snapshot"}"""
-        val sent = AtomicReference<String?>(null)
+        val firstSent = AtomicReference<String?>(null)
         val latch = CountDownLatch(1)
         val emitter =
             PersistingReplayEmitter(
                 storageDir = tempDir,
                 buildEnvelope = { _, _ -> envelope },
                 realSend = { payload ->
-                    sent.set(payload)
+                    // compareAndSet captures only the first flush payload — subsequent
+                    // auto/manual flushes may also call realSend but won't overwrite.
+                    firstSent.compareAndSet(null, payload)
                     latch.countDown()
                     Result.success(Unit)
                 },
@@ -186,10 +188,9 @@ class PersistingReplayEmitterTest {
         repeat(5) {
             emitter.emit("sid", listOf(ReplayMetaEvent(800, 600, 0L, "")))
         }
-        Thread.sleep(800)
-        emitter.flush()
-        assertThat(latch.await(3, TimeUnit.SECONDS)).isTrue()
-        val payload = sent.get()
+        // Auto-flush fires once queue reaches flushAt=2; no manual flush needed.
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue()
+        val payload = firstSent.get()
         assertThat(payload).isNotNull
         val envelopeCount = payload!!.split("},{").size
         assertThat(envelopeCount).isEqualTo(2)
