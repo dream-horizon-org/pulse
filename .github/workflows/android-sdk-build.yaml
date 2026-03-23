@@ -6,12 +6,13 @@ on:
       - main
       - release/*
     paths:
-      - 'pulse-android-otel/**'
-      - '.github/workflows/android-sdk-build.yaml'
+      - "pulse-android-otel/**"
+      - ".github/workflows/android-sdk-build.yaml"
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: write 
 
 jobs:
   build:
@@ -43,6 +44,12 @@ jobs:
       - name: build demo app
         working-directory: ./pulse-android-otel/demo-app
         run: ./gradlew assemble
+      - name: Upload demo app debug APK (download from Actions run)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886de7891c7f2 # v4.6.2
+        with:
+          name: pulse-android-demo-debug-apk
+          path: pulse-android-otel/demo-app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
       # Will start publishing when we have finalized on the coordinates
       # - name: publish snapshot
       #   run: ./gradlew publishToSonatype

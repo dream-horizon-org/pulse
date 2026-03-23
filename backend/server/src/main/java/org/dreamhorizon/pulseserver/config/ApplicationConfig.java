@@ -40,6 +40,7 @@ public class ApplicationConfig {
   public String sessionReplayS3Region;
   public String sessionReplayS3AccessKeyId;
   public String sessionReplayS3SecretAccessKey;
+  public String symbolFilesS3BucketName;
   public String devModeApiKey;
   public String replayApiBaseUrl;
 

@@ -276,6 +276,11 @@ load_env() {
     export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
     export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"
     export CONFIG_REPLAY_API_BASE_URL="${CONFIG_REPLAY_API_BASE_URL:-}"
+
+    # Vector: enable when VECTOR_ENABLED=true (sets COMPOSE_PROFILES for Docker Compose)
+    if [ "${VECTOR_ENABLED:-false}" = "true" ]; then
+        export COMPOSE_PROFILES="${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}vector"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -426,6 +431,28 @@ validate_url_vars() {
     if [ "$failed" -eq 1 ]; then
         echo ""
         print_info "Set valid URLs in .env (see .env.example). Example: http://localhost:4318/v1/logs"
+        return 1
+    fi
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# validate_encryption_key -- Ensure VAULT_ENCRYPTION_MASTER_KEY is valid base64.
+#   Fails the script (returns 1) if missing or not valid base64 encoded.
+# ---------------------------------------------------------------------------
+validate_encryption_key() {
+    local val="${VAULT_ENCRYPTION_MASTER_KEY:-}"
+    if [ -z "$val" ]; then
+        print_error "Missing required variable in .env: VAULT_ENCRYPTION_MASTER_KEY"
+        echo ""
+        print_info "VAULT_ENCRYPTION_MASTER_KEY must be set and base64 encoded (e.g. generate with: openssl rand -base64 32)"
+        return 1
+    fi
+    # Base64: chars A-Za-z0-9+/ and optional = padding; length must be multiple of 4
+    if [[ ! "$val" =~ ^[A-Za-z0-9+/]+=*$ ]] || [ $(( ${#val} % 4 )) -ne 0 ]; then
+        print_error "VAULT_ENCRYPTION_MASTER_KEY must be base64 encoded (only A-Za-z0-9+/= allowed, length multiple of 4)"
+        echo ""
+        print_info "Generate a valid key with: openssl rand -base64 32"
         return 1
     fi
     return 0

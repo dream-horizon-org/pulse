@@ -17,7 +17,7 @@ alwaysApply: false
 | clickhouse | clickhouse-server:24.8 | 8123, 9000 | — |
 | clickhouse-init | clickhouse-server:24.8 | — | clickhouse |
 | otel-collector | otel-collector-contrib:0.137.0 | 4317, 4318, 8888, 13133 | clickhouse |
-| ~~vector~~ | ~~Build `../vector/`~~ | ~~8686, 14317, 14318~~ | — | *(commented out in docker-compose)* |
+| vector | Build `../vector/` | 8686, 14317, 14318 | — | *(optional: set `VECTOR_ENABLED=true` in .env)* |
 | pulse-ui | Build `pulse-ui/` | 3000 | pulse-server |
 | pulse-server | Build `backend/server/` | 8080 | mysql, clickhouse, openfga |
 | pulse-alerts-cron | Build `backend/pulse-alerts-cron/` | 4000 | mysql, pulse-server, clickhouse |
@@ -30,7 +30,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Volumes
 
-`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` volume exists but Vector service is currently disabled.)
+`mysql-data`, `clickhouse-data` — persistent. Use `./scripts/reset-databases.sh` to wipe. (`vector-data` when Vector profile is enabled.)
 
 ## Environment Variables
 
@@ -50,6 +50,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `METRIC_COLLECTOR_URL` — OTLP metrics collector endpoint (default: `http://localhost:4318/v1/metrics`)
 - `CUSTOM_EVENT_COLLECTOR_URL` — Custom event collector endpoint (default: `http://localhost:4318/v1/logs`)
 - `INTERACTION_CONFIG_URL` — Interaction config URL (default: `http://localhost:4318/v1/traces`)
+- `VECTOR_ENABLED` — Optional. Set to `true` to enable Vector service (custom events → S3/Athena). Default: `false`.
 
 **Dev Mode Configuration:**
 - `GOOGLE_OAUTH_ENABLED` — Enable/disable Google OAuth login (default: `false` for dev mode)
@@ -77,4 +78,4 @@ Credentials (defined in docker-compose, overridable via `.env`):
 
 **Required (no default in compose):** `VAULT_ENCRYPTION_MASTER_KEY`, `REACT_APP_GOOGLE_CLIENT_ID`, `REACT_APP_FIREBASE_*`, `CONFIG_SERVICE_APPLICATION_GOOGLEOAUTHCLIENTID`, `CONFIG_SERVICE_APPLICATION_GCP_PROJECT_ID`, `CONFIG_SERVICE_APPLICATION_WEBHOOKURL`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`. Must be set in `.env`. `SLACK_*` are optional (default empty; needed only for Slack API integration).
 
-**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is commented out in compose (entire `vector:` block).
+**Cursor config audit:** Service list and env rules match `deploy/docker-compose.yml`. Vector is optional; enable via `VECTOR_ENABLED=true` in .env.

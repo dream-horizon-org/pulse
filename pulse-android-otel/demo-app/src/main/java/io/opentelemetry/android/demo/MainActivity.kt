@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             DemoAppTheme {
                 // A surface container using the 'background' color from the theme
@@ -201,7 +202,7 @@ class MainActivity : ComponentActivity() {
 
                     }
                 }
-                Log.d(TAG, "Main Activity started ")
+                 Log.d(TAG, "Main Activity started ")
             }
         }
         viewModel.sessionIdState.value = OtelDemoApplication.rum?.getRumSessionId() ?: error("Session ID is null")
