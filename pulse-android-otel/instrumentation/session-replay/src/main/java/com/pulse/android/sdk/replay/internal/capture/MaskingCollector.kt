@@ -375,10 +375,6 @@ internal object MaskingCollector {
         }
     }
 
-    private val isComposeAvailable: Boolean by lazy {
-        androidComposeViewClass != null
-    }
-
     private val isComposeRoleAvailable: Boolean by lazy {
         try {
             Class.forName("androidx.compose.ui.semantics.Role")

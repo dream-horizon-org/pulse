@@ -23,7 +23,6 @@ import com.pulse.android.sdk.replay.models.PulseReplayRemovedNode
 import com.pulse.android.sdk.replay.models.PulseReplaySnapshotEvent
 import com.pulse.android.sdk.replay.models.PulseReplayStyle
 import com.pulse.android.sdk.replay.models.PulseReplayWireframe
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -31,8 +30,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
 internal object ReplayEventPayloadEncoder {
-    fun encodeToJson(events: List<ReplayEvent>): String =
-        PulseReplayJson.instance.encodeToString(toPulseReplayWireEvents(events))
+    fun encodeToJson(events: List<ReplayEvent>): String = PulseReplayJson.instance.encodeToString(toPulseReplayWireEvents(events))
 
     internal fun toPulseReplayWireEvents(events: List<ReplayEvent>): List<PulseReplaySnapshotEvent> = events.map { it.toPulseReplayWire() }
 
@@ -154,11 +152,12 @@ internal object ReplayEventPayloadEncoder {
             iconRight = iconRight,
         )
 
-    private fun Map<String, Any>.toJsonObject(): JsonObject = buildJsonObject {
-        for ((key, value) in this@toJsonObject) {
-            put(key, value.toJsonElement())
+    private fun Map<String, Any>.toJsonObject(): JsonObject =
+        buildJsonObject {
+            for ((key, value) in this@toJsonObject) {
+                put(key, value.toJsonElement())
+            }
         }
-    }
 
     private fun Any?.toJsonElement(): JsonElement =
         when (this) {

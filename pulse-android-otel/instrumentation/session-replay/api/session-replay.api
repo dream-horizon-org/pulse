@@ -121,8 +121,7 @@ public final class com/pulse/android/sdk/replay/SessionReplayInstrumentation$Com
 }
 
 public final class com/pulse/android/sdk/replay/SessionReplayIntegration : com/pulse/android/sdk/replay/SessionReplayController {
-	public fun <init> (Landroid/content/Context;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Lcom/pulse/android/sdk/replay/ReplayEventEmitter;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Landroid/os/Handler;)V
-	public synthetic fun <init> (Landroid/content/Context;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Lcom/pulse/android/sdk/replay/ReplayEventEmitter;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function1;Landroid/os/Handler;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Landroid/content/Context;Lcom/pulse/android/sdk/replay/SessionReplayConfig;Lcom/pulse/android/sdk/replay/ReplayEventEmitter;Lkotlin/jvm/functions/Function0;)V
 	public final fun flush ()V
 	public final fun install ()V
 	public fun isActive ()Z
@@ -144,6 +143,15 @@ public final class com/pulse/android/sdk/replay/TextAndInputPrivacy : java/lang/
 	public static final field MASK_SENSITIVE_INPUTS Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;
 	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;
 	public static fun values ()[Lcom/pulse/android/sdk/replay/TextAndInputPrivacy;
+}
+
+public final class com/pulse/android/sdk/replay/events/PointerType : java/lang/Enum {
+	public static final field MOUSE Lcom/pulse/android/sdk/replay/events/PointerType;
+	public static final field PEN Lcom/pulse/android/sdk/replay/events/PointerType;
+	public static final field TOUCH Lcom/pulse/android/sdk/replay/events/PointerType;
+	public final fun getValue ()I
+	public static fun valueOf (Ljava/lang/String;)Lcom/pulse/android/sdk/replay/events/PointerType;
+	public static fun values ()[Lcom/pulse/android/sdk/replay/events/PointerType;
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayCustomEvent : com/pulse/android/sdk/replay/events/ReplayEvent {
@@ -212,20 +220,20 @@ public final class com/pulse/android/sdk/replay/events/ReplayFullSnapshotEvent :
 }
 
 public final class com/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData : com/pulse/android/sdk/replay/events/ReplayEventData {
-	public fun <init> (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;ILjava/util/List;)V
-	public synthetic fun <init> (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;ILjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;)V
+	public synthetic fun <init> (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()Lcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;
 	public final fun component3 ()I
 	public final fun component4 ()I
 	public final fun component5 ()Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;
-	public final fun component6 ()I
+	public final fun component6 ()Lcom/pulse/android/sdk/replay/events/PointerType;
 	public final fun component7 ()Ljava/util/List;
-	public final fun copy (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;ILjava/util/List;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;
-	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;ILjava/util/List;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;
+	public final fun copy (ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;
+	public static synthetic fun copy$default (Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;ILcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;IILcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;Lcom/pulse/android/sdk/replay/events/PointerType;Ljava/util/List;ILjava/lang/Object;)Lcom/pulse/android/sdk/replay/events/ReplayIncrementalMouseInteractionData;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getId ()I
-	public final fun getPointerType ()I
+	public final fun getPointerType ()Lcom/pulse/android/sdk/replay/events/PointerType;
 	public final fun getPositions ()Ljava/util/List;
 	public final fun getSource ()Lcom/pulse/android/sdk/replay/events/ReplayIncrementalSource;
 	public final fun getType ()Lcom/pulse/android/sdk/replay/events/ReplayMouseInteraction;

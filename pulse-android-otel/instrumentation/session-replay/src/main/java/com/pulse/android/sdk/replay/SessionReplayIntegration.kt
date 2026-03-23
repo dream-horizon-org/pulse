@@ -7,17 +7,19 @@ import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.ScreenSizeInfo
 import com.pulse.android.sdk.replay.internal.capture.MaskRectCache
 import com.pulse.android.sdk.replay.internal.capture.ScreenshotCapture
+import com.pulse.android.sdk.replay.internal.capture.ScreenshotLayoutSnapshot
 import com.pulse.android.sdk.replay.internal.capture.WireframeCapture
+import com.pulse.android.sdk.replay.internal.capture.collectScreenshotLayout
 import com.pulse.android.sdk.replay.internal.pipeline.SnapshotPipeline
 import com.pulse.android.sdk.replay.internal.scheduling.NextDrawListener.Companion.onNextDraw
 import com.pulse.android.sdk.replay.internal.scheduling.ViewTreeSnapshotStatus
 import com.pulse.android.sdk.replay.internal.scheduling.isAliveAndAttachedToWindow
+import com.pulse.utils.PulseOtelUtils
 import curtains.Curtains
 import curtains.OnRootViewsChangedListener
 import curtains.onDecorViewReady
 import curtains.phoneWindow
 import curtains.windowAttachCount
-import com.pulse.utils.PulseOtelUtils
 import io.opentelemetry.sdk.common.Clock
 import java.lang.ref.WeakReference
 import java.util.Collections
@@ -115,6 +117,12 @@ public class SessionReplayIntegration(
                             )
                             val snapshotMasks = ArrayList(viewMaskCache.rects)
                             val isSnapshotMasksValid = viewMaskCache.isValid
+                            val screenshotLayout: ScreenshotLayoutSnapshot? =
+                                if (config.isScreenshot) {
+                                    collectScreenshotLayout(decorView, logger)
+                                } else {
+                                    null
+                                }
                             executor.submit {
                                 try {
                                     generateSnapshot(
@@ -123,6 +131,7 @@ public class SessionReplayIntegration(
                                         snapshotMasks,
                                         isSnapshotMasksValid,
                                         countAtCollection,
+                                        screenshotLayout,
                                     )
                                 } catch (e: Throwable) {
                                     PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) { "Session Replay generateSnapshot failed: $e" }
@@ -170,6 +179,7 @@ public class SessionReplayIntegration(
         preCollectedMasks: List<android.graphics.Rect>,
         masksValid: Boolean,
         drawCountAtCollection: Long,
+        screenshotLayout: ScreenshotLayoutSnapshot?,
     ) {
         val view = viewRef.get() ?: return
         if (view !in decorViews) return
@@ -178,9 +188,10 @@ public class SessionReplayIntegration(
         val timestamp = TimeUnit.NANOSECONDS.toMillis(clock.now())
 
         if (config.isScreenshot) {
+            val layout = screenshotLayout ?: return
             ScreenshotCapture.captureAsync(
                 window = window,
-                view = view,
+                layout = layout,
                 displayMetrics = displayMetrics,
                 maskRects = preCollectedMasks,
                 masksValid = masksValid,

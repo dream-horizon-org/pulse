@@ -140,7 +140,11 @@ class ReplayEventPayloadEncoderTest {
         val event = ReplayFullSnapshotEvent(wireframes = listOf(wireframe), initialOffsetTop = 0, initialOffsetLeft = 0, timestamp = 0L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
         val data =
-            Json.parseToJsonElement(result).jsonArray[0].jsonObject["data"]!!.jsonObject
+            Json
+                .parseToJsonElement(result)
+                .jsonArray[0]
+                .jsonObject["data"]!!
+                .jsonObject
         val wf = data["wireframes"]!!.jsonArray[0].jsonObject
         val styleObj = wf["style"]!!.jsonObject
         assertThat(styleObj["color"]!!.jsonPrimitive.content).isEqualTo("#333333")
@@ -155,7 +159,11 @@ class ReplayEventPayloadEncoderTest {
         val event = ReplayFullSnapshotEvent(wireframes = listOf(parent), initialOffsetTop = 0, initialOffsetLeft = 0, timestamp = 0L)
         val result = ReplayEventPayloadEncoder.encodeToJson(listOf(event))
         val data =
-            Json.parseToJsonElement(result).jsonArray[0].jsonObject["data"]!!.jsonObject
+            Json
+                .parseToJsonElement(result)
+                .jsonArray[0]
+                .jsonObject["data"]!!
+                .jsonObject
         val parentWf = data["wireframes"]!!.jsonArray[0].jsonObject
         assertThat(parentWf["id"]!!.jsonPrimitive.int).isEqualTo(1)
         val children = parentWf["childWireframes"]!!.jsonArray

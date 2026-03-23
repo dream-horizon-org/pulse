@@ -1,7 +1,6 @@
 package com.pulse.android.sdk.replay.internal
 
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.assertj.core.api.Assertions.assertThat
@@ -40,7 +39,10 @@ class ReplayEnvelopeBuilderTest {
                 userId = "",
             )
         assertThat(
-            Json.parseToJsonElement(json).jsonObject["user_id"]!!.jsonPrimitive.content,
+            Json
+                .parseToJsonElement(json)
+                .jsonObject["user_id"]!!
+                .jsonPrimitive.content,
         ).isEqualTo("anonymous")
     }
 

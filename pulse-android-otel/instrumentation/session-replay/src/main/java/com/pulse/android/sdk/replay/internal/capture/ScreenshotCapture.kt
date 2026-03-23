@@ -7,11 +7,12 @@ import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
-import android.os.Looper
 import androidx.annotation.RequiresApi
+import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
@@ -22,6 +23,45 @@ import com.pulse.android.sdk.replay.internal.util.isValid
 import com.pulse.android.sdk.replay.internal.util.webpBase64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+
+/**
+ * View dimensions and position collected on the main thread before [capture] / [captureAsync]
+ * run on a background thread (PixelCopy must not read [View] layout from a worker).
+ */
+internal data class ScreenshotLayoutSnapshot(
+    val viewId: Int,
+    val widthPx: Int,
+    val heightPx: Int,
+    val locationX: Int,
+    val locationY: Int,
+)
+
+/**
+ * Reads layout from [view] on the **main thread** only. Returns null if the view is not
+ * suitable for capture.
+ */
+@UiThread
+internal fun collectScreenshotLayout(
+    view: View,
+    logger: (String) -> Unit,
+): ScreenshotLayoutSnapshot? {
+    if (!ScreenshotCapture.isVisible(view, logger)) return null
+    if (view.width <= 0 || view.height <= 0) return null
+    val coordinates = IntArray(2)
+    if (ScreenshotCapture.isViewStateStable(view, logger)) {
+        view.getLocationOnScreen(coordinates)
+    } else {
+        coordinates[0] = 0
+        coordinates[1] = 0
+    }
+    return ScreenshotLayoutSnapshot(
+        viewId = System.identityHashCode(view),
+        widthPx = view.width,
+        heightPx = view.height,
+        locationX = coordinates[0],
+        locationY = coordinates[1],
+    )
+}
 
 /**
  * Captures a screenshot of [view] (typically decor view) via PixelCopy, applies mask rects,
@@ -72,7 +112,7 @@ internal object ScreenshotCapture {
     @WorkerThread
     fun capture(
         window: Window,
-        view: View,
+        layout: ScreenshotLayoutSnapshot,
         displayMetrics: android.util.DisplayMetrics,
         maskRects: List<android.graphics.Rect>,
         masksValid: Boolean,
@@ -86,25 +126,16 @@ internal object ScreenshotCapture {
             "capture() must not be called on the main thread"
         }
         if (isShutDown) return null
-        if (!isVisible(view, logger)) return null
-        if (view.width <= 0 || view.height <= 0) return null
 
         val screenChanged = { currentDrawCount() != drawCountAtCollection }
 
-        val viewId = System.identityHashCode(view)
-        val coordinates = IntArray(2)
-        if (isViewStateStable(view, logger)) {
-            view.getLocationOnScreen(coordinates)
-        } else {
-            coordinates[0] = 0
-            coordinates[1] = 0
-        }
-        val x = coordinates[0].densityValue(displayMetrics.density)
-        val y = coordinates[1].densityValue(displayMetrics.density)
-        val width = view.width.densityValue(displayMetrics.density)
-        val height = view.height.densityValue(displayMetrics.density)
+        val viewId = layout.viewId
+        val x = layout.locationX.densityValue(displayMetrics.density)
+        val y = layout.locationY.densityValue(displayMetrics.density)
+        val width = layout.widthPx.densityValue(displayMetrics.density)
+        val height = layout.heightPx.densityValue(displayMetrics.density)
 
-        val bitmap = createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.ARGB_8888)
         val latch = CountDownLatch(1)
         var isSuccess = true
 
@@ -254,7 +285,7 @@ internal object ScreenshotCapture {
     @WorkerThread
     fun captureAsync(
         window: Window,
-        view: View,
+        layout: ScreenshotLayoutSnapshot,
         displayMetrics: android.util.DisplayMetrics,
         maskRects: List<android.graphics.Rect>,
         masksValid: Boolean,
@@ -269,29 +300,18 @@ internal object ScreenshotCapture {
             onDone(null)
             return
         }
-        if (!isVisible(view, logger) || view.width <= 0 || view.height <= 0) {
-            onDone(null)
-            return
-        }
 
         val screenChanged = { currentDrawCount() != drawCountAtCollection }
 
-        val viewId = System.identityHashCode(view)
-        val coordinates = IntArray(2)
-        if (isViewStateStable(view, logger)) {
-            view.getLocationOnScreen(coordinates)
-        } else {
-            coordinates[0] = 0
-            coordinates[1] = 0
-        }
-        val x = coordinates[0].densityValue(displayMetrics.density)
-        val y = coordinates[1].densityValue(displayMetrics.density)
-        val width = view.width.densityValue(displayMetrics.density)
-        val height = view.height.densityValue(displayMetrics.density)
+        val viewId = layout.viewId
+        val x = layout.locationX.densityValue(displayMetrics.density)
+        val y = layout.locationY.densityValue(displayMetrics.density)
+        val width = layout.widthPx.densityValue(displayMetrics.density)
+        val height = layout.heightPx.densityValue(displayMetrics.density)
         val scale = screenshotScale.coerceIn(0.01f, 1f)
         val quality = screenshotQuality.coerceIn(0, 100)
 
-        val bitmap = createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.ARGB_8888)
         try {
             PixelCopy.request(window, bitmap, { copyResult ->
                 processPixelCopyResult(

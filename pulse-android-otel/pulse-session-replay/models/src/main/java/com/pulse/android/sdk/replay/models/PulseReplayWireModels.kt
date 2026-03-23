@@ -13,10 +13,11 @@ import kotlinx.serialization.json.JsonObject
 
 /** kotlinx.serialization Json instance for serializing [PulseReplayEnvelope] and nested wire types. */
 public object PulseReplayJson {
-    public val instance: Json = Json {
-        encodeDefaults = false
-        explicitNulls = false
-    }
+    public val instance: Json =
+        Json {
+            encodeDefaults = false
+            explicitNulls = false
+        }
 }
 
 @Serializable
@@ -32,7 +33,10 @@ public sealed class PulseReplayEventData
 internal object PulseReplayEventDataSerializer : KSerializer<PulseReplayEventData> {
     override val descriptor: SerialDescriptor = buildClassSerialDescriptor("PulseReplayEventData")
 
-    override fun serialize(encoder: Encoder, value: PulseReplayEventData) {
+    override fun serialize(
+        encoder: Encoder,
+        value: PulseReplayEventData,
+    ) {
         when (value) {
             is PulseReplayMetaData -> PulseReplayMetaData.serializer().serialize(encoder, value)
             is PulseReplayFullSnapshotData -> PulseReplayFullSnapshotData.serializer().serialize(encoder, value)
@@ -42,9 +46,8 @@ internal object PulseReplayEventDataSerializer : KSerializer<PulseReplayEventDat
         }
     }
 
-    override fun deserialize(decoder: Decoder): PulseReplayEventData {
+    override fun deserialize(decoder: Decoder): PulseReplayEventData =
         throw UnsupportedOperationException("Deserialization of PulseReplayEventData is not supported")
-    }
 }
 
 @Serializable

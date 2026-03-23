@@ -103,7 +103,8 @@ internal object SnapshotPipeline {
     }
 
     private fun View.getScreenTitle(): String =
-        context.getActivity()
+        context
+            .getActivity()
             ?.run {
                 title?.run { toString().substringAfter("/") }
             }.orEmpty()

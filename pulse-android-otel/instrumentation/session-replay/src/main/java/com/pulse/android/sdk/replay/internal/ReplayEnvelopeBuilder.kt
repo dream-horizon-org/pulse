@@ -6,14 +6,13 @@ import com.pulse.android.sdk.replay.events.ReplayEventType
 import com.pulse.android.sdk.replay.models.PulseReplayEnvelope
 import com.pulse.android.sdk.replay.models.PulseReplayEnvelopeProperties
 import com.pulse.android.sdk.replay.models.PulseReplayJson
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 internal object ReplayEnvelopeBuilder {
     private const val ANONYMOUS_USER_ID = "anonymous"
@@ -47,17 +46,17 @@ internal object ReplayEnvelopeBuilder {
             val ids =
                 envelopes
                     .mapNotNull { envelope ->
-                        envelope["properties"]
-                            ?.takeIf { it is JsonObject }
-                            ?.jsonObject
-                            ?.get("session_id")
-                            ?.jsonPrimitive
-                            ?.content
-                            ?.takeIf { it.isNotEmpty() }
+                        val props = envelope["properties"] as? JsonObject ?: return@mapNotNull null
+                        val el = props["session_id"] as? JsonPrimitive ?: return@mapNotNull null
+                        el.content.takeIf { it.isNotEmpty() }
                     }.toSet()
             when (ids.size) {
-                0 -> null
-                1 -> "session_id: ${ids.first()}"
+                0 -> {
+                    null
+                }
+                1 -> {
+                    "session_id: ${ids.first()}"
+                }
                 else -> {
                     val preview = ids.take(3).joinToString(", ")
                     val suffix = if (ids.size > 3) " (+${ids.size - 3} more)" else ""
@@ -81,16 +80,12 @@ internal object ReplayEnvelopeBuilder {
         val typeCounts = mutableMapOf<String, Int>()
         for (envelope in envelopes) {
             val snapshotData =
-                envelope["properties"]
-                    ?.takeIf { it is JsonObject }
-                    ?.jsonObject
-                    ?.get("snapshot_data")
-                    ?.takeIf { it is JsonArray }
-                    ?.jsonArray
-            if (snapshotData != null) {
-                for (element in snapshotData) {
-                    val item = element.takeIf { it is JsonObject }?.jsonObject ?: continue
-                    val name = resolveEventTypeName(item) ?: continue
+                (envelope["properties"] as? JsonObject)?.get("snapshot_data") as? JsonArray
+                    ?: continue
+            for (element in snapshotData) {
+                val item = element as? JsonObject ?: continue
+                val name = resolveEventTypeName(item)
+                if (name != null) {
                     typeCounts[name] = (typeCounts[name] ?: 0) + 1
                 }
             }
@@ -99,25 +94,33 @@ internal object ReplayEnvelopeBuilder {
     }
 
     private fun resolveEventTypeName(item: JsonObject): String? {
-        val typeInt = item["type"]?.jsonPrimitive?.int ?: return null
+        val typeEl = item["type"] as? JsonPrimitive ?: return null
+        val typeInt = typeEl.int
         if (typeInt < 0) return null
+        val dataObj = item["data"] as? JsonObject
         return when (typeInt) {
             3 -> {
-                val source = item["data"]?.takeIf { it is JsonObject }?.jsonObject?.get("source")?.jsonPrimitive?.int ?: -1
-                if (source == 2) "Touch" else "ViewMutation"
+                val sourceEl = dataObj?.get("source") as? JsonPrimitive
+                val source = sourceEl?.int ?: -1
+                if (source == 2) {
+                    "Touch"
+                } else {
+                    "ViewMutation"
+                }
             }
             5 -> {
-                val tag =
-                    item["data"]
-                        ?.takeIf { it is JsonObject }
-                        ?.jsonObject
-                        ?.get("tag")
-                        ?.jsonPrimitive
-                        ?.content
-                        ?.takeIf { it.isNotEmpty() }
-                if (tag != null) "Custom($tag)" else "Custom"
+                val tagEl = dataObj?.get("tag") as? JsonPrimitive
+                val text = tagEl?.content
+                val tag = text?.takeIf { it.isNotEmpty() }
+                if (tag != null) {
+                    "Custom($tag)"
+                } else {
+                    "Custom"
+                }
             }
-            else -> ReplayEventType.fromValue(typeInt)?.name ?: "type_$typeInt"
+            else -> {
+                ReplayEventType.fromValue(typeInt)?.name ?: "type_$typeInt"
+            }
         }
     }
 
