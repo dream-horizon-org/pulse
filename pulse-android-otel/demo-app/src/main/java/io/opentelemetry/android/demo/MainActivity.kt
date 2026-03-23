@@ -174,6 +174,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        viewModel.sessionIdState.value = OtelDemoApplication.rum?.getRumSessionId() ?: error("Session ID is null")
 
         // Request the correct phone state permission based on API level
         // This permission is needed for gathering certain network information like
