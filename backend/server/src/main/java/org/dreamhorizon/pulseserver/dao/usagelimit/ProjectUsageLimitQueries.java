@@ -77,5 +77,18 @@ public class ProjectUsageLimitQueries {
       "UPDATE usage_limit_notifications "
           + "SET thresholds_notified = ? "
           + "WHERE id = ?";
+
+  /**
+   * ClickHouse ({ otel} database) — monthly rollup per project for usage-limit notifications.
+   */
+  public static final String CLICKHOUSE_GET_CURRENT_MONTH_USAGE_BY_PROJECT = """
+      SELECT
+          project_id,
+          sum(event_count) AS events_used,
+          uniqCombined64Merge(session_count) AS sessions_used
+      FROM otel.project_monthly_usage
+      WHERE month = toStartOfMonth(now())
+      GROUP BY project_id
+      """;
 }
 

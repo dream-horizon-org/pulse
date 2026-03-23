@@ -15,6 +15,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
+import org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.errorgrouping.model.StackTraceEvent;
@@ -197,23 +198,16 @@ public class ClickhouseQueryService implements IAnalyticalStoreClient<GetRawUser
    * Returns a map of projectId -> UsageStats for easy lookup.
    */
   public Single<Map<String, UsageStats>> getCurrentMonthUsage() {
-    String query = """
-        SELECT 
-            project_id,
-            sum(event_count) as events_used,
-            uniqCombined64Merge(session_count) as sessions_used
-        FROM otel.project_monthly_usage
-        WHERE month = toStartOfMonth(now())
-        GROUP BY project_id
-        """;
-
     log.info("Fetching current month usage from ClickHouse");
 
     io.r2dbc.pool.ConnectionPool pool = clickhouseReadClient.getPool();
 
     return Single.fromPublisher(pool.create())
-        .flatMap(connection -> 
-            Flowable.fromPublisher(connection.createStatement(query).execute())
+        .flatMap(connection ->
+            Flowable.fromPublisher(
+                    connection
+                        .createStatement(ProjectUsageLimitQueries.CLICKHOUSE_GET_CURRENT_MONTH_USAGE_BY_PROJECT)
+                        .execute())
                 .flatMap(result -> 
                     result.map((row, metadata) -> {
                       String projectId = row.get("project_id", String.class);
