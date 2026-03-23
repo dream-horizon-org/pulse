@@ -23,6 +23,8 @@ import com.pulse.android.sdk.replay.internal.util.isValid
 import com.pulse.android.sdk.replay.internal.util.webpBase64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * View dimensions and position collected on the main thread before [capture] / [captureAsync]
@@ -238,28 +240,23 @@ internal object ScreenshotCapture {
         height: Int,
         logger: (String) -> Unit,
     ): ReplayWireframe? {
-        @Suppress("KotlinConstantConditions")
-        var isBitmapRecycled = false
-        try {
-            val scale = screenshotScale.coerceIn(0.01f, 1f)
-            val quality = screenshotQuality.coerceIn(0, 100)
-            val toEncode =
-                if (scale < 1f && bitmap.isValid()) {
-                    val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
-                    val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
-                    val scaled = bitmap.scale(w, h, true)
-                    if (scaled !== bitmap) {
-                        bitmap.recycle()
-                        isBitmapRecycled = true
-                    }
-                    scaled
-                } else {
-                    bitmap
-                }
+        val scale = screenshotScale.coerceIn(0.01f, 1f)
+        val quality = screenshotQuality.coerceIn(0, 100)
+        // Scale before try/catch so toEncode is always defined for cleanup in catch.
+        val toEncode: Bitmap =
+            if (scale < 1f && bitmap.isValid()) {
+                val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
+                val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
+                val scaled = bitmap.scale(w, h, true)
+                if (scaled !== bitmap) bitmap.recycle()
+                scaled
+            } else {
+                bitmap
+            }
+        return try {
             val base64 = if (isSuccess) toEncode.webpBase64(quality) else null
             if (toEncode.isValid()) toEncode.recycle()
-            isBitmapRecycled = true
-            return ReplayWireframe(
+            ReplayWireframe(
                 id = viewId,
                 x = x,
                 y = y,
@@ -270,9 +267,9 @@ internal object ScreenshotCapture {
                 style = ReplayStyle(),
             )
         } catch (e: Throwable) {
-            if (!isBitmapRecycled && bitmap.isValid()) bitmap.recycle()
+            if (toEncode.isValid()) toEncode.recycle()
             logger("Session Replay screenshot encode failed: $e")
-            return null
+            null
         }
     }
 
@@ -281,9 +278,13 @@ internal object ScreenshotCapture {
      * [onDone] with the result. Does not block the caller (replay worker thread). Use this from
      * the integration to avoid blocking the replay queue for up to 1s per capture.
      */
+    /**
+     * Captures a screenshot and returns the result. Suspends until PixelCopy completes.
+     * The PixelCopy callback is dispatched on the internal [pixelCopyHandler] thread (single-threaded),
+     * so there is no concurrent callback access.
+     */
     @RequiresApi(Build.VERSION_CODES.O)
-    @WorkerThread
-    fun captureAsync(
+    suspend fun captureAsync(
         window: Window,
         layout: ScreenshotLayoutSnapshot,
         displayMetrics: android.util.DisplayMetrics,
@@ -294,15 +295,10 @@ internal object ScreenshotCapture {
         logger: (String) -> Unit,
         screenshotScale: Float = 1f,
         screenshotQuality: Int = 30,
-        onDone: (ReplayWireframe?) -> Unit,
-    ) {
-        if (isShutDown) {
-            onDone(null)
-            return
-        }
+    ): ReplayWireframe? {
+        if (isShutDown) return null
 
         val screenChanged = { currentDrawCount() != drawCountAtCollection }
-
         val viewId = layout.viewId
         val x = layout.locationX.densityValue(displayMetrics.density)
         val y = layout.locationY.densityValue(displayMetrics.density)
@@ -312,29 +308,33 @@ internal object ScreenshotCapture {
         val quality = screenshotQuality.coerceIn(0, 100)
 
         val bitmap = createBitmap(layout.widthPx, layout.heightPx, Bitmap.Config.ARGB_8888)
-        try {
-            PixelCopy.request(window, bitmap, { copyResult ->
-                processPixelCopyResult(
-                    copyResult = copyResult,
-                    bitmap = bitmap,
-                    screenChanged = screenChanged,
-                    masksValid = masksValid,
-                    maskRects = maskRects,
-                    scale = scale,
-                    quality = quality,
-                    viewId = viewId,
-                    x = x,
-                    y = y,
-                    width = width,
-                    height = height,
-                    logger = logger,
-                    onDone = onDone,
-                )
-            }, pixelCopyHandler)
-        } catch (e: Throwable) {
-            bitmap.recycle()
-            logger("Session Replay captureAsync failed: $e")
-            onDone(null)
+        return suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation { if (bitmap.isValid()) bitmap.recycle() }
+            try {
+                PixelCopy.request(window, bitmap, { copyResult ->
+                    cont.resume(
+                        processPixelCopyResult(
+                            copyResult = copyResult,
+                            bitmap = bitmap,
+                            screenChanged = screenChanged,
+                            masksValid = masksValid,
+                            maskRects = maskRects,
+                            scale = scale,
+                            quality = quality,
+                            viewId = viewId,
+                            x = x,
+                            y = y,
+                            width = width,
+                            height = height,
+                            logger = logger,
+                        ),
+                    )
+                }, pixelCopyHandler)
+            } catch (e: Throwable) {
+                if (bitmap.isValid()) bitmap.recycle()
+                logger("Session Replay captureAsync failed: $e")
+                cont.resume(null)
+            }
         }
     }
 
@@ -353,37 +353,23 @@ internal object ScreenshotCapture {
         width: Int,
         height: Int,
         logger: (String) -> Unit,
-        onDone: (ReplayWireframe?) -> Unit,
-    ) {
-        if (isShutDown) {
+    ): ReplayWireframe? {
+        if (isShutDown || copyResult != PixelCopy.SUCCESS || screenChanged() || !masksValid) {
             bitmap.recycle()
-            onDone(null)
-            return
-        }
-        if (copyResult != PixelCopy.SUCCESS) {
-            bitmap.recycle()
-            logger("Session Replay PixelCopy failed: $copyResult")
-            onDone(null)
-            return
-        }
-        if (screenChanged() || !masksValid) {
-            bitmap.recycle()
-            onDone(null)
-            return
+            if (copyResult != PixelCopy.SUCCESS) logger("Session Replay PixelCopy failed: $copyResult")
+            return null
         }
         if (!bitmap.isValid()) {
             bitmap.recycle()
             logger("Session Replay Bitmap is invalid")
-            onDone(null)
-            return
+            return null
         }
-        try {
+        return try {
             val canvas = Canvas(bitmap)
             for (rect in maskRects) {
                 if (screenChanged()) {
                     bitmap.recycle()
-                    onDone(null)
-                    return
+                    return null
                 }
                 canvas.drawRoundRect(RectF(rect), 10f, 10f, maskPaint)
             }
@@ -399,22 +385,20 @@ internal object ScreenshotCapture {
                 }
             val base64 = toEncode.webpBase64(quality)
             if (toEncode.isValid()) toEncode.recycle()
-            onDone(
-                ReplayWireframe(
-                    id = viewId,
-                    x = x,
-                    y = y,
-                    width = width,
-                    height = height,
-                    type = WireframeType.SCREENSHOT,
-                    base64 = base64,
-                    style = ReplayStyle(),
-                ),
+            ReplayWireframe(
+                id = viewId,
+                x = x,
+                y = y,
+                width = width,
+                height = height,
+                type = WireframeType.SCREENSHOT,
+                base64 = base64,
+                style = ReplayStyle(),
             )
         } catch (e: Throwable) {
             if (bitmap.isValid()) bitmap.recycle()
             logger("Session Replay PixelCopy callback failed: $e")
-            onDone(null)
+            null
         }
     }
 

@@ -44,4 +44,6 @@ dependencies {
     testImplementation(libs.opentelemetry.sdk.testing)
     implementation(libs.kotlin.serialisation)
     testImplementation(libs.kotlin.serialisation)
+    implementation(libs.kotlin.coroutines)
+    testImplementation(libs.kotlin.coroutinesTest)
 }

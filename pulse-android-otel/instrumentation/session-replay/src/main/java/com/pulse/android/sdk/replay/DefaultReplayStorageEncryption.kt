@@ -2,7 +2,9 @@ package com.pulse.android.sdk.replay
 
 import android.content.Context
 import android.util.Base64
+import androidx.annotation.WorkerThread
 import androidx.core.content.edit
+import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -19,6 +21,18 @@ public class DefaultReplayStorageEncryption(
 ) : ReplayStorageEncryption {
     private val key: SecretKey = getOrCreateKey(context)
 
+    // Cipher.getInstance traverses all security providers on every call — cache per thread
+    // since Cipher is not thread-safe. Two caches to prevent encrypt/decrypt interleaving.
+    private val encryptCipher: ThreadLocal<Cipher> = object : ThreadLocal<Cipher>() {
+        override fun initialValue(): Cipher = Cipher.getInstance(TRANSFORMATION)
+    }
+    private val decryptCipher: ThreadLocal<Cipher> = object : ThreadLocal<Cipher>() {
+        override fun initialValue(): Cipher = Cipher.getInstance(TRANSFORMATION)
+    }
+
+    // SecureRandom() constructor also traverses providers; reuse a single instance (it is thread-safe).
+    private val secureRandom = SecureRandom()
+
     private companion object {
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_IV_LENGTH = 12
@@ -28,21 +42,23 @@ public class DefaultReplayStorageEncryption(
         private const val PREF_KEY_SECRET = "replay_key"
     }
 
+    @WorkerThread
     override fun encrypt(plaintext: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        val iv = ByteArray(GCM_IV_LENGTH).also { java.security.SecureRandom().nextBytes(it) }
+        val cipher = encryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
+        val iv = ByteArray(GCM_IV_LENGTH).also { secureRandom.nextBytes(it) }
         cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
         val ciphertext = cipher.doFinal(plaintext)
         return iv + ciphertext
     }
 
+    @WorkerThread
     override fun decrypt(ciphertext: ByteArray): ByteArray {
         if (ciphertext.size <= GCM_IV_LENGTH) {
             throw IllegalArgumentException("Ciphertext too short")
         }
         val iv = ciphertext.copyOf(GCM_IV_LENGTH)
         val data = ciphertext.copyOfRange(GCM_IV_LENGTH, ciphertext.size)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
+        val cipher = decryptCipher.get() ?: Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH, iv))
         return cipher.doFinal(data)
     }
