@@ -5,10 +5,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json yarn.lock ./
+COPY package.json yarn.lock .yarnrc.yml ./
 
-# Install dependencies using yarn
-RUN yarn install --frozen-lockfile
+# Install dependencies using Yarn 4 (Corepack + packageManager in package.json)
+RUN corepack enable && yarn install --immutable
 
 # Copy source code and configuration
 COPY . .
