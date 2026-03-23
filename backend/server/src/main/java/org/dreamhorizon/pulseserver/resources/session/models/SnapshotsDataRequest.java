@@ -8,9 +8,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request model for GET /v1/sessions/{sessionId}/snapshots-data query parameters.
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
