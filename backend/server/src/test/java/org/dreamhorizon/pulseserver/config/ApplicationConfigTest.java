@@ -92,10 +92,9 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
+        "symbolFilesS3Bucket",
         "dev-api-key",
         "replayBaseUrl"
-        "symbolFilesS3Bucket"
-        
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());
