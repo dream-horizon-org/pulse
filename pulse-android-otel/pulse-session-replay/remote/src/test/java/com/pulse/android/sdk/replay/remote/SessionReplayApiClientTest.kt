@@ -37,7 +37,7 @@ class SessionReplayApiClientTest {
         assertThat(result.isSuccess).isTrue()
         val request = mockWebServer.takeRequest()
         assertThat(request.method).isEqualTo("POST")
-        assertThat(request.path).isEqualTo("/s/")
+        assertThat(request.path).isEqualTo("/session-capture")
         assertThat(request.getHeader("Content-Type")).contains("application/json")
         assertThat(request.body.readUtf8()).isEqualTo("[$envelope]")
     }
