@@ -23,12 +23,14 @@ public class DefaultReplayStorageEncryption(
 
     // Cipher.getInstance traverses all security providers on every call — cache per thread
     // since Cipher is not thread-safe. Two caches to prevent encrypt/decrypt interleaving.
-    private val encryptCipher: ThreadLocal<Cipher> = object : ThreadLocal<Cipher>() {
-        override fun initialValue(): Cipher = Cipher.getInstance(TRANSFORMATION)
-    }
-    private val decryptCipher: ThreadLocal<Cipher> = object : ThreadLocal<Cipher>() {
-        override fun initialValue(): Cipher = Cipher.getInstance(TRANSFORMATION)
-    }
+    private val encryptCipher: ThreadLocal<Cipher> =
+        object : ThreadLocal<Cipher>() {
+            override fun initialValue(): Cipher = Cipher.getInstance(TRANSFORMATION)
+        }
+    private val decryptCipher: ThreadLocal<Cipher> =
+        object : ThreadLocal<Cipher>() {
+            override fun initialValue(): Cipher = Cipher.getInstance(TRANSFORMATION)
+        }
 
     // SecureRandom() constructor also traverses providers; reuse a single instance (it is thread-safe).
     private val secureRandom = SecureRandom()

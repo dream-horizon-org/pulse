@@ -21,10 +21,10 @@ import com.pulse.android.sdk.replay.events.ReplayWireframe
 import com.pulse.android.sdk.replay.events.WireframeType
 import com.pulse.android.sdk.replay.internal.util.isValid
 import com.pulse.android.sdk.replay.internal.util.webpBase64
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * View dimensions and position collected on the main thread before [capture] / [captureAsync]
@@ -273,11 +273,6 @@ internal object ScreenshotCapture {
         }
     }
 
-    /**
-     * Async variant of [capture]: runs PixelCopy and encoding on the capture thread and invokes
-     * [onDone] with the result. Does not block the caller (replay worker thread). Use this from
-     * the integration to avoid blocking the replay queue for up to 1s per capture.
-     */
     /**
      * Captures a screenshot and returns the result. Suspends until PixelCopy completes.
      * The PixelCopy callback is dispatched on the internal [pixelCopyHandler] thread (single-threaded),

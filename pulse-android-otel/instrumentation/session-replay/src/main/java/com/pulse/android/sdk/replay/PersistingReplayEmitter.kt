@@ -5,10 +5,6 @@ import com.pulse.android.sdk.replay.events.ReplayEvent
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMouseInteractionData
 import com.pulse.android.sdk.replay.events.ReplayIncrementalMutationData
 import com.pulse.utils.PulseOtelUtils
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,6 +15,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Wraps a [ReplayEventEmitter] with file-based persistence and a queue so that replay batches
@@ -52,6 +52,7 @@ public class PersistingReplayEmitter(
     private val logger: (String) -> Unit = {},
 ) : ReplayEventEmitter {
     /** Single-dispatcher scope for file I/O and network. Replaces two dedicated executor threads. */
+    @Suppress("InjectDispatcher")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val deque = ArrayDeque<File>()
@@ -68,12 +69,13 @@ public class PersistingReplayEmitter(
     init {
         storageDir.mkdirs()
         trimPersistedReplayFilesToStorageCap()
-        periodicFlushJob = scope.launch {
-            while (isActive) {
-                delay(flushIntervalSeconds * 1000L)
-                flushIfNeeded()
+        periodicFlushJob =
+            scope.launch {
+                while (isActive) {
+                    delay(flushIntervalSeconds * 1000L)
+                    flushIfNeeded()
+                }
             }
-        }
     }
 
     /**
@@ -98,11 +100,12 @@ public class PersistingReplayEmitter(
                 val bytes = envelope.toByteArray(StandardCharsets.UTF_8)
                 val toWrite = replayStorageEncryption.encrypt(bytes)
                 file.writeBytes(toWrite)
-                val queueSize = dequeMutex.withLock {
-                    deque.addLast(file)
-                    evictOldestBatchesWhileOverStorageCap()
-                    deque.size
-                }
+                val queueSize =
+                    dequeMutex.withLock {
+                        deque.addLast(file)
+                        evictOldestBatchesWhileOverStorageCap()
+                        deque.size
+                    }
                 logger("Replay batch persisted: ${file.name} (queue size: $queueSize) session_id: $sessionId")
                 val eventTypesSummary =
                     events
@@ -169,10 +172,11 @@ public class PersistingReplayEmitter(
         if (shutDown.get()) return
         if (!flushMutex.tryLock()) return
         try {
-            val toSend = dequeMutex.withLock {
-                val n = minOf(flushAt, deque.size)
-                List(n) { deque.removeFirst() }
-            }
+            val toSend =
+                dequeMutex.withLock {
+                    val n = minOf(flushAt, deque.size)
+                    List(n) { deque.removeFirst() }
+                }
             if (toSend.isEmpty()) return
             PulseOtelUtils.logDebug(ReplayConstants.REPLAY_LOG_TAG) {
                 "[Replay flow] Flush: taking ${toSend.size} batch(es) from queue (max per upload: $flushAt)"
@@ -210,10 +214,11 @@ public class PersistingReplayEmitter(
     }
 
     private fun listCachedReplayFiles(): List<File> =
-        storageDir.listFiles()
-            ?.filter { it.isFile && it.name.endsWith(".replay") }
-            ?.sortedBy { it.lastModified() }
-            .orEmpty()
+        storageDir
+            .listFiles()
+            ?.run {
+                filter { it.isFile && it.name.endsWith(".replay") }.sortedBy { it.lastModified() }
+            }.orEmpty()
 
     /**
      * Deletes oldest `.replay` files on disk until at most [maxBatchSize] remain (newest retained).
@@ -248,7 +253,7 @@ public class PersistingReplayEmitter(
      * Sends cached files in chunks of at most [flushAt] per request (oldest first).
      * Stops on first send failure; remaining files stay on disk for retry on next launch.
      */
-    private suspend fun sendCachedFileChunksSequentially(files: List<File>) {
+    private fun sendCachedFileChunksSequentially(files: List<File>) {
         val chunks = files.chunked(flushAt)
         for ((idx, chunk) in chunks.withIndex()) {
             if (shutDown.get()) return
@@ -307,5 +312,4 @@ public class PersistingReplayEmitter(
             }
         }
     }
-
 }

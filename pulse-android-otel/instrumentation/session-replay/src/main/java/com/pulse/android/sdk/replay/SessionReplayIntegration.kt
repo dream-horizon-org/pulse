@@ -21,17 +21,17 @@ import curtains.onDecorViewReady
 import curtains.phoneWindow
 import curtains.windowAttachCount
 import io.opentelemetry.sdk.common.Clock
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.UUID
 import java.util.WeakHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 
 /**
  * Session Replay integration: mirrors PostHog Android (Curtains, touch events, screenshot + wireframe).
@@ -53,6 +53,8 @@ public class SessionReplayIntegration(
     private val clock: Clock = Clock.getDefault()
     private val decorViews: MutableMap<View, ViewTreeSnapshotStatus> =
         Collections.synchronizedMap(WeakHashMap())
+
+    @Suppress("InjectDispatcher")
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val displayMetrics = context.resources.displayMetrics
 
