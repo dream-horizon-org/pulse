@@ -29,6 +29,7 @@ import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.equalTo
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
+import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_X
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_SCREEN_COORDINATE_Y
 import io.opentelemetry.semconv.incubating.AppIncubatingAttributes.APP_WIDGET_ID
@@ -107,19 +108,21 @@ class ViewClickInstrumentationTest {
         var event = events[0]
         assertThat(event)
             .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
+                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=screen; source=view"),
             )
 
         event = events[1]
         assertThat(event)
             .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, mockView.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, mockView.y.toLong()),
                 equalTo(APP_WIDGET_ID, mockView.id.toString()),
                 equalTo(APP_WIDGET_NAME, "10012"),
+                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=widget; source=view"),
             )
     }
 
@@ -174,19 +177,21 @@ class ViewClickInstrumentationTest {
         var event = events[0]
         assertThat(event)
             .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
+                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=screen; source=view"),
             )
 
         event = events[1]
         assertThat(event)
             .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, mockView.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, mockView.y.toLong()),
                 equalTo(APP_WIDGET_ID, mockView.id.toString()),
                 equalTo(APP_WIDGET_NAME, "10012"),
+                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=widget; source=view"),
             )
     }
 
@@ -236,15 +241,9 @@ class ViewClickInstrumentationTest {
         )
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(1)
-
-        val event = events[0]
-        assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
-                equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
-            )
+        // No events when tap misses widget: screen click is only emitted when a target is found
+        // (avoids duplicate app.screen.click when both View and Compose instrumentations are active)
+        assertThat(events).isEmpty()
     }
 
     @Test

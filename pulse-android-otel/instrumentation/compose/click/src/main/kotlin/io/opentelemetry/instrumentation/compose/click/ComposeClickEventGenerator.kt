@@ -7,9 +7,13 @@
 
 package io.opentelemetry.instrumentation.compose.click
 
+import android.util.Log
 import android.view.MotionEvent
+import android.view.View
 import android.view.Window
 import androidx.compose.ui.node.LayoutNode
+import com.pulse.semconv.PulseAttributes
+import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
@@ -36,23 +40,58 @@ internal class ComposeClickEventGenerator(
     fun generateClick(motionEvent: MotionEvent) {
         windowRef?.get()?.let { window ->
             if (motionEvent.actionMasked == MotionEvent.ACTION_UP) {
-                createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                    .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
-                    .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
-                    .emit()
-
-                composeTapTargetDetector.findTapTarget(window.decorView, motionEvent.x, motionEvent.y)?.let { layoutNode ->
-                    createEvent(VIEW_CLICK_EVENT_NAME)
-                        .setAllAttributes(createNodeAttributes(layoutNode))
+                val (windowX, windowY) = motionEventToWindowCoordinates(window.decorView, motionEvent)
+                composeTapTargetDetector.findTapTarget(window.decorView, windowX, windowY)?.let { tapTarget ->
+                    // Only emit screen click when we own this screen (Compose-based); avoids duplicate
+                    // app.screen.click when both View and Compose instrumentations are active
+                    val layoutNode = tapTarget.node
+                    val attributes = createNodeAttributes(layoutNode)
+                    val label = composeTapTargetDetector.getContextFromSemanticsTree(tapTarget.ownerView, windowX, windowY)
+                        ?: composeTapTargetDetector.getNodeContext(layoutNode)
+                    val elementHint = composeTapTargetDetector.getElementHintForNode(layoutNode)
+                    val ctx = PulseAttributes.AppClickContext
+                    val baseScreenContext = label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_COMPOSE) }
+                        ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_COMPOSE)
+                    val baseWidgetContext = label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_COMPOSE) }
+                        ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_COMPOSE)
+                    val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
+                    val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
+                    createEvent(APP_SCREEN_CLICK_EVENT_NAME)
+                        .setAttribute(APP_SCREEN_COORDINATE_X, windowX.toLong())
+                        .setAttribute(APP_SCREEN_COORDINATE_Y, windowY.toLong())
+                        .setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
                         .emit()
+                    Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY context=$screenContext")
+
+                    createEvent(VIEW_CLICK_EVENT_NAME)
+                        .setAllAttributes(attributes)
+                        .setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                        .emit()
+
+                    Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}")
                 }
             }
         }
     }
 
+    /**
+     * Converts MotionEvent coordinates to window space for hit-testing.
+     * getX/getY are view-relative; boundsInWindow uses window space. Using raw screen coords
+     * and subtracting the decor view's screen position yields consistent window coordinates.
+     */
+    private fun motionEventToWindowCoordinates(decorView: View, event: MotionEvent): Pair<Float, Float> {
+        val location = IntArray(2)
+        decorView.getLocationOnScreen(location)
+        return event.rawX - location[0] to event.rawY - location[1]
+    }
+
+    private companion object {
+        private const val CLICK_LOG_TAG = "PulseClick"
+    }
+
     fun stopTracking() {
         windowRef?.get()?.run {
-            callback = (callback as? WindowCallbackWrapper)?.unwrap()
+            callback = WindowCallbackUnwrap.fullyUnwrap(callback)
         }
         windowRef = null
     }

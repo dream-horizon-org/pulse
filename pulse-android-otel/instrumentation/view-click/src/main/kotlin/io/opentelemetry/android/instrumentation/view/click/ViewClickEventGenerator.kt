@@ -5,12 +5,18 @@
 
 package io.opentelemetry.android.instrumentation.view.click
 
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.TextView
+import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.view.click.internal.APP_SCREEN_CLICK_EVENT_NAME
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
+import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
@@ -37,15 +43,32 @@ class ViewClickEventGenerator(
     fun generateClick(motionEvent: MotionEvent) {
         windowRef?.get()?.let { window ->
             if (motionEvent.actionMasked == MotionEvent.ACTION_UP) {
-                createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                    .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
-                    .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
-                    .emit()
-
                 findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
+                    val label = getViewContextLabel(view)
+                    val elementHint = getElementHint(view)
+                    val ctx = PulseAttributes.AppClickContext
+                    val baseScreenContext = label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_VIEW) }
+                        ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_VIEW)
+                    val baseWidgetContext = label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_VIEW) }
+                        ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_VIEW)
+                    val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
+                    val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
+                    // Only emit screen click when we own this screen (View-based); avoids duplicate
+                    // app.screen.click when both View and Compose instrumentations are active
+                    val screenClickRecord = createEvent(APP_SCREEN_CLICK_EVENT_NAME)
+                        .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
+                        .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
+                        .setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
+                    screenClickRecord.emit()
+                    Log.d(CLICK_LOG_TAG, "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext")
+
+                    val attributes = createViewAttributes(view)
                     createEvent(VIEW_CLICK_EVENT_NAME)
-                        .setAllAttributes(createViewAttributes(view))
+                        .setAllAttributes(attributes)
+                        .setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
                         .emit()
+
+                    Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}")
                 }
             }
         }
@@ -53,7 +76,7 @@ class ViewClickEventGenerator(
 
     fun stopTracking() {
         windowRef?.get()?.run {
-            callback = (callback as? WindowCallbackWrapper)?.unwrap()
+            callback = WindowCallbackUnwrap.fullyUnwrap(callback)
         }
         windowRef = null
     }
@@ -79,6 +102,115 @@ class ViewClickEventGenerator(
         } catch (_: Throwable) {
             view.id.toString()
         }
+
+    /**
+     * Extracts human-readable label/context for the clicked View (button text, content description, etc.).
+     * For ViewGroups (Card, etc.): merges segments with truncation at segment boundaries.
+     * For ImageView/ImageButton: uses contentDescription only (no sibling heuristic).
+     */
+    private fun getViewContextLabel(view: View): String? =
+        try {
+            when {
+                view is ViewGroup -> getLabelFromCard(view)
+                else -> getLabelFromView(view)
+            }
+        } catch (_: Throwable) {
+            null
+        }
+
+    /**
+     * For EditText: never use text (contains typed PII/passwords). Use contentDescription or hint only.
+     * For other TextViews: use text, then contentDescription.
+     */
+    private fun getLabelFromView(view: View): String? =
+        when {
+            view is EditText -> view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+                ?: view.hint?.toString()?.takeIf { it.isNotBlank() }
+            else -> (view as? TextView)?.text?.toString()?.takeIf { it.isNotBlank() }
+                ?: view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+        }
+
+    private fun isImageViewOrImageButton(view: View): Boolean =
+        view is ImageView
+
+    /**
+     * Returns element hint (image, button, chip) when the view type can be inferred.
+     * Uses class name checks to avoid hard Material dependency.
+     */
+    private fun getElementHint(view: View): String? {
+        if (view is ImageView) return PulseAttributes.AppClickContext.ELEMENT_IMAGE
+        val className = view.javaClass.name
+        when {
+            className == "android.widget.Button" ||
+                className.startsWith("androidx.appcompat.widget.AppCompatButton") ||
+                className.startsWith("com.google.android.material.button") -> return PulseAttributes.AppClickContext.ELEMENT_BUTTON
+            className.startsWith("com.google.android.material.chip") -> return PulseAttributes.AppClickContext.ELEMENT_CHIP
+        }
+        return null
+    }
+
+    /**
+     * For cards (ViewGroups): collects and merges up to [MAX_CARD_LABEL_SEGMENTS] text segments.
+     * Truncates at segment boundaries (drops segments from end) to avoid cutting mid-word.
+     */
+    private fun getLabelFromCard(card: ViewGroup): String? {
+        val segments = mutableListOf<String>()
+        getLabelFromView(card)?.let { segments.add(it) }
+        collectLabelsFromDescendants(
+            group = card,
+            out = segments,
+            maxSegments = MAX_CARD_LABEL_SEGMENTS,
+            depth = 0,
+            maxDepth = 4,
+        )
+        return trimSegmentsToMaxLength(segments.take(MAX_CARD_LABEL_SEGMENTS), MAX_CARD_LABEL_LENGTH)
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Truncates by dropping whole segments from the end until under maxLength.
+     * Avoids cutting mid-word or mid-segment (e.g. "Match: Ayodhya... | Ayodhya Pr").
+     */
+    private fun trimSegmentsToMaxLength(segments: List<String>, maxLength: Int): String? {
+        if (segments.isEmpty()) return null
+        var result = segments.joinToString(CARD_LABEL_DELIMITER)
+        if (result.length <= maxLength) return result
+        var dropFrom = segments.size
+        while (dropFrom > 1) {
+            val trimmed = segments.take(dropFrom - 1).joinToString(CARD_LABEL_DELIMITER)
+            if (trimmed.length <= maxLength) return trimmed
+            dropFrom--
+        }
+        return segments.first().take(maxLength)
+    }
+
+    private fun collectLabelsFromDescendants(
+        group: ViewGroup,
+        out: MutableList<String>,
+        maxSegments: Int,
+        depth: Int,
+        maxDepth: Int,
+    ) {
+        if (depth >= maxDepth || out.size >= maxSegments) return
+        for (i in 0 until group.childCount) {
+            if (out.size >= maxSegments) return
+            val child = group.getChildAt(i)
+            if (isJetpackComposeView(child)) continue
+            getLabelFromView(child)?.let { label ->
+                if (label.isNotBlank() && label !in out) out.add(label)
+            }
+            (child as? ViewGroup)?.let {
+                collectLabelsFromDescendants(it, out, maxSegments, depth + 1, maxDepth)
+            }
+        }
+    }
+
+    private companion object {
+        private const val CLICK_LOG_TAG = "PulseClick"
+        private const val MAX_CARD_LABEL_SEGMENTS = 5
+        private const val MAX_CARD_LABEL_LENGTH = 200
+        private const val CARD_LABEL_DELIMITER = " | "
+    }
 
     private fun findTargetForTap(
         decorView: View,

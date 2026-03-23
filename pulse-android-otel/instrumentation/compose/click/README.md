@@ -35,6 +35,38 @@ This instrumentation produces the following telemetry:
 * See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appwidgetclick)
   for more details.
 
+### Attributes
+
+Both events include:
+- `app.screen.coordinate.x`, `app.screen.coordinate.y`
+- `app.widget.id`, `app.widget.name` (on `app.widget.click`)
+- `app.click.context` – Structured string: `label=X; type=screen|widget; source=compose` with optional `element=image|button|chip`. The `label` is present only when extractable.
+
+## Enriching click events
+
+Material3 `Button` and other composables often store text in child nodes, so labels may be empty without explicit semantics. Add `contentDescription` for reliable labels:
+
+```kotlin
+Button(
+    onClick = { ... },
+    modifier = Modifier.semantics { contentDescription = "Open Fragment activity" },
+) {
+    Text("Open Fragment activity")
+}
+```
+
+Or use the same string for both:
+
+```kotlin
+val buttonText = "Add to Cart"
+Button(
+    onClick = { ... },
+    modifier = Modifier.semantics { contentDescription = buttonText },
+) {
+    Text(buttonText)
+}
+```
+
 ## Installation
 
 ### Adding dependencies

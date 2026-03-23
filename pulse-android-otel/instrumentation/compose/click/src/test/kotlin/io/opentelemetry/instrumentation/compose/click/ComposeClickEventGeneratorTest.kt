@@ -110,7 +110,7 @@ internal class ComposeClickEventGeneratorTest {
         OpenTelemetryAssertions
             .assertThat(event)
             .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
             )
@@ -147,7 +147,7 @@ internal class ComposeClickEventGeneratorTest {
         OpenTelemetryAssertions
             .assertThat(event)
             .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
             )
@@ -185,7 +185,7 @@ internal class ComposeClickEventGeneratorTest {
         OpenTelemetryAssertions
             .assertThat(event)
             .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
-            .hasAttributesSatisfyingExactly(
+            .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
             )

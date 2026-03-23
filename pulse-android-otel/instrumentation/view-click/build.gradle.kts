@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.opentelemetry.instrumentation.apiSemconv)
     implementation(libs.opentelemetry.semconv.incubating)
     implementation(libs.opentelemetry.api.incubator)
+    implementation(projects.pulseSemconv)
 
     testImplementation(projects.testCommon)
     testImplementation(projects.session)
