@@ -2,15 +2,17 @@
 
 # ============================================================================
 # Pulse Observability - Build Script
-# Builds Docker images for pulse-ui, pulse-server, and pulse-alerts-cron.
+# Builds Docker images for pulse-ui, pulse-server, pulse-alerts-cron, and
+# pulse-ai-agent (included in default / "all" build).
 # Uses Docker Compose if available, otherwise falls back to Docker CLI.
 #
 # Usage:
-#   ./build.sh [--no-cache] [ui|server|cron|all]
+#   ./build.sh [--no-cache] [ui|server|cron|ai|all]
 #
 # Examples:
-#   ./build.sh              # Build all images
-#   ./build.sh ui           # Build pulse-ui only
+#   ./build.sh              # ui + server + cron + pulse-ai-agent
+#   ./build.sh ai           # pulse-ai-agent only
+#   ./build.sh ui           # pulse-ui only
 #   ./build.sh --no-cache   # Build all without cache
 # ============================================================================
 
@@ -92,25 +94,29 @@ while [[ $# -gt 0 ]]; do
             SERVICES+=("cron")
             shift
             ;;
+        ai|pulse-ai|pulse-ai-agent)
+            SERVICES+=("ai")
+            shift
+            ;;
         all)
             SERVICES=()
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [--no-cache] [ui|server|cron|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|ai|all]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [--no-cache] [ui|server|cron|all]"
+            echo "Usage: $0 [--no-cache] [ui|server|cron|ai|all]"
             exit 1
             ;;
     esac
 done
 
-# Default: build everything
+# Default: full application stack including pulse-ai-agent
 if [ ${#SERVICES[@]} -eq 0 ]; then
-    SERVICES=("ui" "server" "cron")
+    SERVICES=("ui" "server" "cron" "ai")
 fi
 
 # Validate encryption key when building server or cron (required at runtime)
@@ -134,6 +140,7 @@ if has_compose; then
             ui)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ui" ;;
             server) COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-server" ;;
             cron)   COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-alerts-cron" ;;
+            ai)     COMPOSE_SERVICES="$COMPOSE_SERVICES pulse-ai-agent" ;;
         esac
     done
 
@@ -192,6 +199,16 @@ build_cron() {
     print_success "pulse-alerts-cron image built -> $IMAGE_ALERTS_CRON"
 }
 
+build_ai() {
+    print_info "Building pulse-ai-agent image..."
+    docker build \
+        $NO_CACHE \
+        -t "$IMAGE_AI" \
+        -f "$ROOT_DIR/pulse_ai/Dockerfile" \
+        "$ROOT_DIR/pulse_ai"
+    print_success "pulse-ai-agent image built -> $IMAGE_AI"
+}
+
 # When building multiple images, run them in parallel with per-service log files
 BUILD_LOG_DIR=$(mktemp -d)
 PIDS=()
@@ -205,12 +222,14 @@ for svc in "${SERVICES[@]}"; do
             ui)     build_ui     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ui")     ;;
             server) build_server > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("server") ;;
             cron)   build_cron   > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("cron")   ;;
+            ai)     build_ai     > "$local_log" 2>&1 & PIDS+=($!); NAMES+=("ai")     ;;
         esac
     else
         case $svc in
             ui)     build_ui     || FAILED=1 ;;
             server) build_server || FAILED=1 ;;
             cron)   build_cron   || FAILED=1 ;;
+            ai)     build_ai     || FAILED=1 ;;
         esac
     fi
 done

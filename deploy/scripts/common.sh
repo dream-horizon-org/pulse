@@ -25,6 +25,7 @@ CONTAINER_CLICKHOUSE_INIT="pulse-clickhouse-init"
 CONTAINER_OTEL_COLLECTOR="pulse-otel-collector"
 CONTAINER_UI="pulse-ui"
 CONTAINER_SERVER="pulse-server"
+CONTAINER_AI="pulse-ai-agent"
 CONTAINER_ALERTS_CRON="pulse-alerts-cron"
 
 # Ordered list (start order)
@@ -34,6 +35,7 @@ ALL_CONTAINERS=(
     "$CONTAINER_CLICKHOUSE_INIT"
     "$CONTAINER_OTEL_COLLECTOR"
     "$CONTAINER_SERVER"
+    "$CONTAINER_AI"
     "$CONTAINER_UI"
     "$CONTAINER_ALERTS_CRON"
 )
@@ -48,6 +50,7 @@ IMAGE_OTEL_COLLECTOR="otel/opentelemetry-collector-contrib:0.137.0"
 # Custom-built images (tagged :local to avoid confusion with registry)
 IMAGE_UI="pulse-ui:local"
 IMAGE_SERVER="pulse-server:local"
+IMAGE_AI="pulse-ai-agent:local"
 IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 
 # ---------------------------------------------------------------------------

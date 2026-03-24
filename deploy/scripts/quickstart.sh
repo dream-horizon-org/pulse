@@ -15,6 +15,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/common.sh"
 
+# True if deploy/.env defines a non-empty GOOGLE_API_KEY (ignores commented lines).
+_quickstart_has_google_api_key() {
+    local env_file="$DEPLOY_DIR/.env"
+    [ -f "$env_file" ] || return 1
+    local line key val
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%%#*}"
+        line="${line%"${line##*[![:space:]]}"}"
+        [[ "$line" == *"="* ]] || continue
+        key="${line%%=*}"
+        key="${key%"${key##*[![:space:]]}"}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        [ "$key" = "GOOGLE_API_KEY" ] || continue
+        val="${line#*=}"
+        val="${val#"${val%%[![:space:]]*}"}"
+        val="${val%"${val##*[![:space:]]}"}"
+        val="${val#\"}"
+        val="${val%\"}"
+        val="${val#\'}"
+        val="${val%\'}"
+        [ -n "$val" ] && return 0
+    done < "$env_file"
+    return 1
+}
+
 # Parse flags (before banner so they can be used later)
 BUILD_NO_CACHE=""
 SKIP_ENV_CHECK=""
@@ -67,6 +92,9 @@ echo "  2. Setup environment"
 echo "  3. Build Docker images"
 echo "  4. Start all services"
 echo "  5. Verify deployment"
+if ! _quickstart_has_google_api_key; then
+    echo "  (set GOOGLE_API_KEY in .env for Gemini; AI HTTP/API may fail without it)"
+fi
 echo ""
 read -r -p "Press Enter to continue or Ctrl+C to cancel..."
 
@@ -280,6 +308,14 @@ else
     exit 1
 fi
 
+print_info "Testing Pulse AI health endpoint..."
+if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    print_success "Pulse AI is responding"
+else
+    print_error "Pulse AI health check failed (port 8000 in use? see: ./logs.sh ai)"
+    exit 1
+fi
+
 echo ""
 print_info "Verifying database initialization..."
 INIT_OK=true
@@ -316,6 +352,7 @@ echo -e "  ${BLUE}Health Check:${NC}       http://localhost:8080/healthcheck"
 echo -e "  ${BLUE}MySQL:${NC}              localhost:3307"
 echo -e "  ${BLUE}ClickHouse:${NC}         localhost:8123 (HTTP), localhost:9000 (Native)"
 echo -e "  ${BLUE}OTEL Collector:${NC}     localhost:4317 (gRPC), localhost:4318 (HTTP)"
+echo -e "  ${BLUE}Pulse AI:${NC}            http://localhost:8000"
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
 echo -e "  ${BLUE}View all logs:${NC}      ./deploy/scripts/logs.sh"

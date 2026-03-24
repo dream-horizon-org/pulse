@@ -4,6 +4,8 @@
 # Pulse Observability - Start Script
 # Starts all containers. Uses Docker Compose if available, otherwise falls
 # back to Docker CLI with dependency-ordered health-check gating.
+# OpenFGA and pulse-ai-agent require Docker Compose for full parity; use ./start.sh -d
+# (not the CLI fallback) for the integrated stack.
 #
 # Usage:
 #   ./start.sh [-d|--detach] [--build] [--no-cache] [--skip-env-check]
@@ -106,6 +108,7 @@ if has_compose; then
         echo -e "${CYAN}Access points:${NC}"
         echo -e "  UI:  ${GREEN}http://localhost:3000${NC}"
         echo -e "  API: ${GREEN}http://localhost:8080${NC}"
+        echo -e "  Pulse AI: ${GREEN}http://localhost:8000${NC} (health: ${GREEN}http://localhost:8000/health${NC})"
         echo ""
         echo -e "${CYAN}View logs:${NC}  ./logs.sh"
     fi
