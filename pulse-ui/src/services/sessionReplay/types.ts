@@ -449,7 +449,8 @@ export interface SessionDetailInteraction {
 }
 
 export interface SessionDetailNetworkRequest {
-  timestamp: number;
+  /** Absolute time as ISO-8601 (mobile backends often send string; may include sub-ms digits). */
+  timestamp: string | number;
   durationNs: number;
   method: string;
   url: string;
