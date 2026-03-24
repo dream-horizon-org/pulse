@@ -34,7 +34,8 @@ Always use `docker ps` to verify actual running services and ports.
 - `REACT_APP_*` — frontend build-time args
 - `OPENFGA_*` — OpenFGA authorization service (store ID, model ID)
 - `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI)
-- `AWS_*` — AWS credentials for Athena/S3
+- `AWS_*` — AWS credentials for Athena/S3/EMR API
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — optional EMR Serverless (`deploy/terraform/emr-serverless/`)
 
 Template: `deploy/.env.example` → copy to `deploy/.env`
 

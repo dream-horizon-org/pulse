@@ -25,6 +25,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.ConfigUtils;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
@@ -59,6 +60,13 @@ public class MainVerticle extends AbstractVerticle {
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));
           JsonObject athenaConfig = config.getJsonObject("athena", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), athenaConfig.mapTo(AthenaConfig.class));
+          JsonObject emrServerlessJson = config.getJsonObject("emrServerless", new JsonObject());
+          EmrServerlessConfig emrServerlessConfig = EmrServerlessConfig.fromJsonObject(emrServerlessJson);
+          SharedDataUtils.put(vertx.getDelegate(), emrServerlessConfig);
+          log.info(
+              "EMR Serverless config: enabled={} region={}",
+              emrServerlessConfig.isEnabled(),
+              emrServerlessConfig.getEffectiveRegion());
                     JsonObject notificationConfig =
                             config.getJsonObject("notification", new JsonObject());
                     SharedDataUtils.put(

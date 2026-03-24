@@ -13,6 +13,7 @@ import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
+import org.dreamhorizon.pulseserver.client.emr.EmrServerlessJobClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
@@ -103,6 +104,8 @@ public class MainModule extends VertxAbstractModule {
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+
+    bind(EmrServerlessJobClient.class).in(Singleton.class);
 
     // OpenFGA Authorization
     bind(OpenFgaConfig.class).toProvider(() -> {

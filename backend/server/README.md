@@ -2750,6 +2750,18 @@ The application supports AWS credentials through multiple methods:
 
 **Note:** For production deployments, it's recommended to use IAM roles (EC2 instance profiles, ECS task roles, or Lambda execution roles) rather than hardcoding credentials. For local development, use environment variables or AWS credential files.
 
+**EMR Serverless (batch job API client):**
+
+Configuration is in `src/main/resources/conf/emr-serverless-default.conf`. When `enabled` is false (default), `applicationId` and `jobRoleArn` are not required. When `enabled` is true, set:
+
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED=true`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION` (default `ap-south-1`)
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_JOB_ROLE_ARN`
+- Optional: `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
+
+The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK usage). IaC for the application and IAM roles lives under `deploy/terraform/emr-serverless/`.
+
 **Adding Support for Other Query Engines:**
 
 To add support for a new query engine (e.g., BigQuery, GCP):

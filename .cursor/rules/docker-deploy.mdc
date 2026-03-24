@@ -41,7 +41,8 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `REACT_APP_*` — frontend build-time config
 - `OPENFGA_*` — OpenFGA authorization service config
 - `SLACK_*` — Slack OAuth integration config
-- `AWS_*` — AWS credentials for Athena/S3
+- `AWS_*` — AWS credentials for Athena/S3/EMR API (default credential chain)
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — optional EMR Serverless (`enabled`, `APPLICATION_ID`, `JOB_ROLE_ARN`, etc.); see `deploy/terraform/emr-serverless/README.md`
 
 Credentials (defined in docker-compose, overridable via `.env`):
 - MySQL: `MYSQL_USER` / `MYSQL_PASSWORD` (defaults: `pulse_user` / `pulse_password`)

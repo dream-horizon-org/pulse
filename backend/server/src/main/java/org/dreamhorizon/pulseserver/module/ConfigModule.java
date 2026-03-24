@@ -5,6 +5,7 @@ import io.vertx.core.Vertx;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
@@ -23,6 +24,8 @@ public class ConfigModule extends AbstractModule {
     bind(ClickhouseConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, ClickhouseConfig.class));
     bind(AthenaConfig.class).toProvider(() -> SharedDataUtils.get(vertx, AthenaConfig.class));
+    bind(EmrServerlessConfig.class)
+        .toProvider(() -> SharedDataUtils.get(vertx, EmrServerlessConfig.class));
     bind(NotificationConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, NotificationConfig.class));
   }
