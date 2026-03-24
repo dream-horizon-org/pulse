@@ -4,46 +4,42 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
-import io.reactivex.rxjava3.core.Maybe;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpRequest.BodyPublishers;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.Optional;
 import com.google.inject.name.Named;
+import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.ext.web.client.HttpRequest;
 import io.vertx.rxjava3.ext.web.client.HttpResponse;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
-import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyUpstreamResult;
 import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
 
 /**
- * HTTP client implementation for forwarding requests to the Pulse AI service using the dedicated
- * long-timeout Vert.x {@link WebClient} ({@link Constants#WEB_CLIENT_AI_PROXY}). Maps responses to
- * {@link AiProxyUpstreamResult}; the controller maps to JAX-RS.
+ * HTTP client implementation for forwarding requests to the Pulse AI service.
+ * Returns {@link AiProxyUpstreamResult} (no JAX-RS types); the controller maps to
+ * {@link jakarta.ws.rs.core.Response}.
+ *
+ * <p>POST {@code rca/report} uses read-through MySQL cache ({@link RcaReportCacheDao}; TTL from
+ * root-cause config), body enrichment ({@code rootCausePayload} via {@link RootCauseService}), then
+ * upstream proxy.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
@@ -54,7 +50,6 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
-  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";
@@ -66,10 +61,8 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
 
   /**
-   * Upstream deadline / idle budget (ms) for AI proxy: per-request {@link HttpRequest#timeout}
-   * plus {@link org.dreamhorizon.pulseserver.verticle.MainVerticle#getAiProxyWebClientOptions}.
-   * Matches {@link org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyController} {@code
-   * @Timeout(120000)}.
+   * Per-request upstream timeout. Aligns with {@link
+   * org.dreamhorizon.pulseserver.resources.v1.ai.AiProxyController} {@code @Timeout(120000)}.
    */
   public static final long AI_PROXY_UPSTREAM_TIMEOUT_MS = 120_000L;
 
@@ -82,12 +75,13 @@ public class AiProxyServiceImpl implements AiProxyService {
 
   @Inject
   public AiProxyServiceImpl(
+      @Named(Constants.WEB_CLIENT_AI_PROXY) WebClient webClient,
       ApplicationConfig config,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao) {
     this(
-        newHttpClient(),
+        webClient,
         normalizeAiServiceUrl(config.getAiServiceUrl()),
         config.getAiServiceKey() == null ? "" : config.getAiServiceKey(),
         objectMapper,
@@ -96,43 +90,29 @@ public class AiProxyServiceImpl implements AiProxyService {
   }
 
   /**
-   * For unit tests and direct wiring with a custom {@link HttpClient}. RCA-specific path behaves
-   * like a plain proxy (no enrichment or DB cache).
+   * For unit tests and simple wiring: plain proxy only (no RCA enrichment or MySQL cache).
    */
-  public AiProxyServiceImpl(HttpClient httpClient, String aiServiceUrl) {
-    this(
-        httpClient,
-        normalizeAiServiceUrl(aiServiceUrl),
-        "",
-        null,
-        null,
-        null);
+  public AiProxyServiceImpl(WebClient webClient, String aiServiceUrl) {
+    this(webClient, normalizeAiServiceUrl(aiServiceUrl), "", null, null, null);
   }
 
   /**
-   * Package-private constructor for tests: inject mock {@link HttpClient} and RCA collaborators.
+   * Package-private constructor for tests: inject mock {@link WebClient} and RCA collaborators.
    */
   AiProxyServiceImpl(
-      HttpClient httpClient,
+      WebClient webClient,
       String aiServiceUrl,
       String serviceKey,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao) {
-    this.httpClient = httpClient;
+    this.webClient = webClient;
     this.aiServiceUrl = aiServiceUrl;
     this.serviceKey = serviceKey == null ? "" : serviceKey;
     this.objectMapper = objectMapper;
     this.rootCauseService = rootCauseService;
     this.rcaReportCacheDao = rcaReportCacheDao;
     log.info("AI proxy service initialized → {}", this.aiServiceUrl);
-  }
-
-  private static HttpClient newHttpClient() {
-    return HttpClient.newBuilder()
-        .version(HttpClient.Version.HTTP_1_1)
-        .connectTimeout(CONNECT_TIMEOUT)
-        .build();
   }
 
   private static String normalizeAiServiceUrl(String url) {
@@ -153,8 +133,8 @@ public class AiProxyServiceImpl implements AiProxyService {
     if (isRcaReportPost && isRcaPipelineReady) {
       return proxyRcaReportPost(rawQuery, body, authorization, projectId);
     }
-    HttpRequest request = buildRequest(method, path, rawQuery, body, authorization, projectId);
-    return executeProxy(request);
+    String targetUrl = buildTargetUrl(path, rawQuery);
+    return executeProxy(method, targetUrl, body, authorization, projectId);
   }
 
   private CompletionStage<AiProxyUpstreamResult> proxyRcaReportPost(
@@ -216,11 +196,8 @@ public class AiProxyServiceImpl implements AiProxyService {
       String projectId) {
     return enrichRcaBodyAsync(body, projectId)
         .thenCompose(
-            enrichedBody -> {
-              HttpRequest request =
-                  buildRequestWithUrl("POST", targetUrl, enrichedBody, authorization, projectId);
-              return executeProxy(request);
-            });
+            enrichedBody ->
+                executeProxy("POST", targetUrl, enrichedBody, authorization, projectId));
   }
 
   private void storeRcaReportInMysqlIfSuccess(
@@ -330,78 +307,6 @@ public class AiProxyServiceImpl implements AiProxyService {
     }
   }
 
-  private HttpRequest buildRequest(
-      @Named(Constants.WEB_CLIENT_AI_PROXY) WebClient webClient, ApplicationConfig config) {
-    this(webClient, resolveAiUrl(config));
-  }
-
-  /**
-   * For unit tests with a mock {@link WebClient}.
-   */
-  public AiProxyServiceImpl(WebClient webClient, String aiServiceUrl) {
-    this.webClient = webClient;
-    this.aiServiceUrl =
-        aiServiceUrl != null && !aiServiceUrl.isBlank()
-            ? aiServiceUrl
-            : DEFAULT_AI_SERVICE_URL;
-    log.info("AI proxy service initialized → {}", this.aiServiceUrl);
-  }
-
-  private static String resolveAiUrl(ApplicationConfig config) {
-    String url = config.getAiServiceUrl();
-    return url != null && !url.isBlank() ? url : DEFAULT_AI_SERVICE_URL;
-  }
-
-  @Override
-  public CompletionStage<AiProxyUpstreamResult> proxy(
-      String method,
-      String path,
-      String rawQuery,
-      String body,
-      String authorization,
-      String projectId) {
-    String targetUrl = buildTargetUrl(path, rawQuery);
-
-    HttpRequest.Builder builder =
-        HttpRequest.newBuilder()
-            .uri(URI.create(targetUrl))
-            .header(AUTHORIZATION_HEADER, authorization);
-
-    if (projectId != null && !projectId.isBlank()) {
-      builder.header(PROJECT_HEADER, projectId.trim());
-    }
-
-    boolean hasServiceKey = !serviceKey.isEmpty();
-    if (hasServiceKey) {
-      builder.header(SERVICE_KEY_HEADER, serviceKey);
-    }
-
-    applyMethodAndBody(builder, method, body);
-    return builder.build();
-  }
-
-  private HttpRequest buildRequestWithUrl(
-      String method, String targetUrl, String body, String authorization, String projectId) {
-    HttpRequest.Builder builder =
-        HttpRequest.newBuilder()
-            .uri(URI.create(targetUrl))
-            .header(AUTHORIZATION_HEADER, authorization);
-
-    if (projectId != null && !projectId.isBlank()) {
-      builder.header(PROJECT_HEADER, projectId.trim());
-    }
-
-    boolean hasServiceKey = !serviceKey.isEmpty();
-    if (hasServiceKey) {
-      builder.header(SERVICE_KEY_HEADER, serviceKey);
-    }
-
-    applyMethodAndBody(builder, method, body);
-    return builder.build();
-    HttpRequest<Buffer> request = buildRequest(method, targetUrl, body, authorization, projectId);
-    return execute(request, method, body);
-  }
-
   private String buildTargetUrl(String path, String rawQuery) {
     boolean hasQuery = rawQuery != null && !rawQuery.isEmpty();
     return hasQuery
@@ -409,99 +314,58 @@ public class AiProxyServiceImpl implements AiProxyService {
         : aiServiceUrl + "/" + path;
   }
 
-  private HttpRequest<Buffer> buildRequest(
+  private HttpRequest<Buffer> newAbsRequest(String method, String targetUrl) {
+    return switch (method) {
+      case "POST" -> webClient.postAbs(targetUrl);
+      case "PUT" -> webClient.putAbs(targetUrl);
+      case "DELETE" -> webClient.deleteAbs(targetUrl);
+      default -> webClient.getAbs(targetUrl);
+    };
+  }
+
+  private void applyCommonHeaders(
+      HttpRequest<Buffer> request, String authorization, String projectId) {
+    request.putHeader(AUTHORIZATION_HEADER, authorization);
+    if (projectId != null && !projectId.isBlank()) {
+      request.putHeader(PROJECT_HEADER, projectId.trim());
+    }
+    if (!serviceKey.isEmpty()) {
+      request.putHeader(SERVICE_KEY_HEADER, serviceKey);
+    }
+  }
+
+  private Single<HttpResponse<Buffer>> sendWithMethodAndBody(
+      HttpRequest<Buffer> request, String method, String body) {
+    boolean hasBody = body != null && !body.isEmpty();
+    if (("POST".equals(method) || "PUT".equals(method)) && hasBody) {
+      request.putHeader("Content-Type", CONTENT_TYPE_JSON);
+      return request.rxSendBuffer(Buffer.buffer(body.getBytes(StandardCharsets.UTF_8)));
+    }
+    return request.rxSend();
+  }
+
+  private CompletionStage<AiProxyUpstreamResult> executeProxy(
       String method,
       String targetUrl,
       String body,
       String authorization,
       String projectId) {
-    HttpRequest<Buffer> req =
-        switch (method) {
-          case "POST" -> webClient.postAbs(targetUrl);
-          case "PUT" -> webClient.putAbs(targetUrl);
-          case "DELETE" -> webClient.deleteAbs(targetUrl);
-          default -> webClient.getAbs(targetUrl);
-        };
-    req.putHeader(AUTHORIZATION_HEADER, authorization);
-    if (projectId != null && !projectId.isBlank()) {
-      req.putHeader(PROJECT_HEADER, projectId.trim());
-    }
-    boolean hasBody = body != null && !body.isEmpty();
-    switch (method) {
-      case "POST":
-      case "PUT":
-        if (hasBody) {
-          builder.header("Content-Type", CONTENT_TYPE_JSON);
-        }
-        HttpRequest.BodyPublisher publisher =
-            hasBody ? BodyPublishers.ofString(body) : BodyPublishers.noBody();
-        if ("POST".equals(method)) {
-          builder.POST(publisher);
-        } else {
-          builder.PUT(publisher);
-        }
-        break;
-      case "DELETE":
-        builder.DELETE();
-        break;
-      default:
-        builder.GET();
-        break;
-    }
-    req.timeout(AI_PROXY_UPSTREAM_TIMEOUT_MS);
-    return req;
-  }
-
-  private CompletionStage<AiProxyUpstreamResult> executeProxy(HttpRequest request) {
-    return httpClient
-        .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-        .thenApply(this::buildResult)
-        .exceptionally(
-            ex -> {
-              log.error("AI proxy error for {}: {}", request.uri(), ex.getMessage());
-              return AiProxyUpstreamResult.badGateway();
-            });
-  }
-
-  private AiProxyUpstreamResult buildResult(HttpResponse<InputStream> response) {
-    String contentType =
-        response.headers().firstValue("Content-Type").orElse(CONTENT_TYPE_JSON);
-
-  private CompletionStage<AiProxyUpstreamResult> execute(
-      HttpRequest<Buffer> request, String method, String body) {
-    boolean hasBody = body != null && !body.isEmpty();
-    Single<HttpResponse<Buffer>> single;
-    if (hasBody && ("POST".equals(method) || "PUT".equals(method))) {
-      single = request.rxSendBuffer(Buffer.buffer(body));
-    } else {
-      single = request.rxSend();
-    }
-    CompletableFuture<AiProxyUpstreamResult> cf = new CompletableFuture<>();
-    single.subscribe(
-        resp -> {
-          try {
-            cf.complete(buildResult(resp));
-          } catch (Exception e) {
-            log.error("AI proxy failed building result: {}", e.getMessage());
-            cf.complete(AiProxyUpstreamResult.badGateway());
-          }
-        },
-        err -> {
-          log.error("AI proxy error: {}", err.getMessage());
-          cf.complete(AiProxyUpstreamResult.badGateway());
-        });
-    return cf;
+    HttpRequest<Buffer> request = newAbsRequest(method, targetUrl);
+    applyCommonHeaders(request, authorization, projectId);
+    request.timeout(AI_PROXY_UPSTREAM_TIMEOUT_MS);
+    return sendWithMethodAndBody(request, method, body)
+        .map(this::buildResult)
+        .doOnError(ex -> log.error("AI proxy error for {}: {}", targetUrl, ex.getMessage()))
+        .onErrorReturnItem(AiProxyUpstreamResult.badGateway())
+        .toCompletionStage();
   }
 
   private AiProxyUpstreamResult buildResult(HttpResponse<Buffer> response) {
-    int statusCode = response.statusCode();
     String contentType = response.getHeader("Content-Type");
-    if (contentType == null || contentType.isEmpty()) {
+    if (contentType == null || contentType.isBlank()) {
       contentType = CONTENT_TYPE_JSON;
     }
     boolean isSse = contentType.contains(CONTENT_TYPE_SSE);
-    Buffer buf = response.body();
-    byte[] bytes = buf != null ? buf.getBytes() : new byte[0];
     if (isSse) {
       return buildStreamingResult(response, contentType);
     }
@@ -509,21 +373,19 @@ public class AiProxyServiceImpl implements AiProxyService {
   }
 
   private AiProxyUpstreamResult buildStreamingResult(
-      HttpResponse<InputStream> response, String contentType) {
-    return AiProxyUpstreamResult.streaming(response.statusCode(), contentType, response.body());
+      HttpResponse<Buffer> response, String contentType) {
+    Buffer buf = response.body();
+    byte[] bytes = buf == null ? new byte[0] : buf.getBytes();
+    return AiProxyUpstreamResult.streaming(
+        response.statusCode(), contentType, new ByteArrayInputStream(bytes));
   }
 
   private AiProxyUpstreamResult buildBufferedResult(
-      HttpResponse<InputStream> response, String contentType) {
-    try (InputStream is = response.body()) {
-      String responseBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-      return AiProxyUpstreamResult.buffered(response.statusCode(), contentType, responseBody);
-    } catch (IOException e) {
-      log.error("Failed to read AI service response: {}", e.getMessage());
-      return AiProxyUpstreamResult.badGateway();
-    }
-    return AiProxyUpstreamResult.buffered(
-        statusCode, contentType, new String(bytes, StandardCharsets.UTF_8));
+      HttpResponse<Buffer> response, String contentType) {
+    Buffer buf = response.body();
+    String responseBody =
+        buf == null ? "" : new String(buf.getBytes(), StandardCharsets.UTF_8);
+    return AiProxyUpstreamResult.buffered(response.statusCode(), contentType, responseBody);
   }
 
   private String applyCacheMetadata(String body, boolean cached, Instant cachedAt) {

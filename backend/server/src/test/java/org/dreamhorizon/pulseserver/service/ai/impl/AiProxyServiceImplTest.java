@@ -2,6 +2,8 @@ package org.dreamhorizon.pulseserver.service.ai.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -16,19 +18,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import io.vertx.rxjava3.core.buffer.Buffer;
+import io.vertx.rxjava3.ext.web.client.HttpRequest;
+import io.vertx.rxjava3.ext.web.client.HttpResponse;
+import io.vertx.rxjava3.ext.web.client.WebClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +45,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("unchecked")
 class AiProxyServiceImplTest {
 
   private static final String AI_SERVICE_URL = "http://ai-service:8000";
@@ -56,7 +53,10 @@ class AiProxyServiceImplTest {
   private static final LocalDate ANALYSIS_DATE = LocalDate.of(2025, 3, 10);
 
   @Mock
-  private HttpClient httpClient;
+  private WebClient webClient;
+
+  @Mock
+  private HttpRequest<Buffer> httpRequest;
 
   @Mock
   private RootCauseService rootCauseService;
@@ -72,28 +72,42 @@ class AiProxyServiceImplTest {
     lenient()
         .when(rcaReportCacheDao.put(any(), any(), any(), any()))
         .thenReturn(Completable.complete());
+    lenient().when(webClient.getAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.putAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+    lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
   }
 
   private AiProxyServiceImpl fullPipelineService() {
     return new AiProxyServiceImpl(
-        httpClient, AI_SERVICE_URL, "", objectMapper, rootCauseService, rcaReportCacheDao);
+        webClient, AI_SERVICE_URL, "", objectMapper, rootCauseService, rcaReportCacheDao);
   }
 
   private AiProxyServiceImpl fullPipelineServiceWithServiceKey(String key) {
     return new AiProxyServiceImpl(
-        httpClient, AI_SERVICE_URL, key, objectMapper, rootCauseService, rcaReportCacheDao);
+        webClient, AI_SERVICE_URL, key, objectMapper, rootCauseService, rcaReportCacheDao);
   }
 
-  private HttpResponse<InputStream> mockBufferedResponse(int status, String contentType, String body) {
-    HttpResponse<InputStream> response =
-        (HttpResponse<InputStream>) org.mockito.Mockito.mock(HttpResponse.class);
-    HttpHeaders headers = org.mockito.Mockito.mock(HttpHeaders.class);
-    when(headers.firstValue("Content-Type")).thenReturn(Optional.of(contentType));
-    when(response.headers()).thenReturn(headers);
+  private HttpResponse<Buffer> mockBufferedResponse(int status, String contentType, String body) {
+    HttpResponse<Buffer> response =
+        org.mockito.Mockito.mock(HttpResponse.class);
+    when(response.getHeader("Content-Type")).thenReturn(contentType);
     when(response.statusCode()).thenReturn(status);
-    when(response.body())
-        .thenReturn(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+    String payload = body == null ? "" : body;
+    when(response.body()).thenReturn(Buffer.buffer(payload.getBytes(StandardCharsets.UTF_8)));
     return response;
+  }
+
+  private void stubSendReturns(HttpResponse<Buffer> upstreamResponse) {
+    when(httpRequest.rxSend()).thenReturn(Single.just(upstreamResponse));
+    when(httpRequest.rxSendBuffer(any(Buffer.class))).thenReturn(Single.just(upstreamResponse));
+  }
+
+  private void stubSendErrors(Throwable error) {
+    when(httpRequest.rxSend()).thenReturn(Single.error(error));
+    when(httpRequest.rxSendBuffer(any(Buffer.class))).thenReturn(Single.error(error));
   }
 
   private AiProxyUpstreamResult awaitResult(CompletionStage<AiProxyUpstreamResult> stage) {
@@ -113,12 +127,11 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldTreatRcaReportAsPlainProxyWhenDepsNotInjected() {
-      AiProxyServiceImpl service = new AiProxyServiceImpl(httpClient, AI_SERVICE_URL);
+      AiProxyServiceImpl service = new AiProxyServiceImpl(webClient, AI_SERVICE_URL);
       String body = rcaRequestBody();
-      HttpResponse<InputStream> upstreamResponse =
+      HttpResponse<Buffer> upstreamResponse =
           mockBufferedResponse(200, "application/json", "{\"ok\":true}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(service.proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
@@ -128,9 +141,10 @@ class AiProxyServiceImplTest {
       verify(rootCauseService, never()).getRootCause(any(), any(), any());
       verify(rcaReportCacheDao, never()).get(any(), any(), any());
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().uri().toString()).isEqualTo(AI_SERVICE_URL + "/rca/report");
+      ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+      verify(webClient).postAbs(urlCaptor.capture());
+      assertThat(urlCaptor.getValue()).isEqualTo(AI_SERVICE_URL + "/rca/report");
+      verify(httpRequest).timeout(AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
     }
   }
 
@@ -155,7 +169,8 @@ class AiProxyServiceImplTest {
       assertThat(node.path("cached").asBoolean()).isTrue();
       assertThat(node.path("cachedAt").asText()).isEqualTo("2025-03-10T08:30:00Z");
 
-      verify(httpClient, never()).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+      verify(httpRequest, never()).rxSend();
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
       verify(rootCauseService, never()).getRootCause(any(), any(), any());
     }
 
@@ -171,16 +186,16 @@ class AiProxyServiceImplTest {
 
       assertThat(result.getStatusCode()).isEqualTo(200);
       assertThat(result.getBufferedBody()).isEqualTo("[1,2]");
-      verify(httpClient, never()).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+      verify(httpRequest, never()).rxSend();
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
     void shouldSkipMysqlAndEnrichmentWhenInteractionNameMissing() {
       String body = "{\"date\":\"2025-03-10\"}";
-      HttpResponse<InputStream> upstreamResponse =
+      HttpResponse<Buffer> upstreamResponse =
           mockBufferedResponse(200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      stubSendReturns(upstreamResponse);
 
       awaitResult(
           fullPipelineService()
@@ -202,10 +217,9 @@ class AiProxyServiceImplTest {
               .build();
       when(rootCauseService.getRootCause(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Single.just(rc));
-      HttpResponse<InputStream> upstreamResponse =
+      HttpResponse<Buffer> upstreamResponse =
           mockBufferedResponse(200, "application/json", "{\"report\":\"ai\"}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(
@@ -216,7 +230,7 @@ class AiProxyServiceImplTest {
       assertThat(result.getBufferedBody()).contains("report");
 
       verify(rootCauseService, times(1)).getRootCause(PROJECT_ID, "checkout", ANALYSIS_DATE);
-      verify(httpClient, times(1)).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+      verify(httpRequest, times(1)).rxSendBuffer(any(Buffer.class));
       verify(rcaReportCacheDao, timeout(3000))
           .put(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE), eq("{\"report\":\"ai\"}"));
     }
@@ -230,10 +244,9 @@ class AiProxyServiceImplTest {
           .thenReturn(
               Single.just(
                   RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<InputStream> upstreamResponse =
+      HttpResponse<Buffer> upstreamResponse =
           mockBufferedResponse(200, "application/json", "{\"report\":\"ai\"}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      stubSendReturns(upstreamResponse);
       when(rcaReportCacheDao.put(any(), any(), any(), any()))
           .thenThrow(new RuntimeException("put failed"));
 
@@ -256,10 +269,9 @@ class AiProxyServiceImplTest {
           .thenReturn(
               Single.just(
                   RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<InputStream> errorResponse =
+      HttpResponse<Buffer> errorResponse =
           mockBufferedResponse(500, "application/json", "{\"error\":\"x\"}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(errorResponse));
+      stubSendReturns(errorResponse);
 
       awaitResult(
           fullPipelineService()
@@ -273,9 +285,8 @@ class AiProxyServiceImplTest {
       when(rcaReportCacheDao.get(any(), any(), any())).thenReturn(Maybe.empty());
       when(rootCauseService.getRootCause(any(), any(), any()))
           .thenReturn(Single.error(new RuntimeException("clickhouse down")));
-      HttpResponse<InputStream> upstreamResponse = mockBufferedResponse(200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      HttpResponse<Buffer> upstreamResponse = mockBufferedResponse(200, "application/json", "{}");
+      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(
@@ -284,7 +295,7 @@ class AiProxyServiceImplTest {
 
       assertThat(result.getStatusCode()).isEqualTo(200);
       verify(rootCauseService, times(1)).getRootCause(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE));
-      verify(httpClient, times(1)).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+      verify(httpRequest, times(1)).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
@@ -294,10 +305,9 @@ class AiProxyServiceImplTest {
           .thenReturn(
               Single.just(
                   RootCauseResult.builder().segments(List.of()).baseline(Map.of()).build()));
-      HttpResponse<InputStream> upstreamResponse =
+      HttpResponse<Buffer> upstreamResponse =
           mockBufferedResponse(200, "application/json", "{\"once\":true}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      stubSendReturns(upstreamResponse);
 
       AiProxyServiceImpl service = fullPipelineService();
       String body = rcaRequestBody();
@@ -306,7 +316,7 @@ class AiProxyServiceImplTest {
       awaitResult(service.proxy("POST", "rca/report", null, body, AUTH, PROJECT_ID));
 
       verify(rootCauseService, times(2)).getRootCause(any(), any(), any());
-      verify(httpClient, times(2)).sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+      verify(httpRequest, times(2)).rxSendBuffer(any(Buffer.class));
       verify(rcaReportCacheDao, times(2)).get(PROJECT_ID, "checkout", ANALYSIS_DATE);
     }
   }
@@ -317,10 +327,9 @@ class AiProxyServiceImplTest {
     @Test
     void shouldUseStreamingBodyWhenContentTypeIsSse() {
       AiProxyServiceImpl service = fullPipelineService();
-      HttpResponse<InputStream> upstreamResponse =
+      HttpResponse<Buffer> upstreamResponse =
           mockBufferedResponse(200, "text/event-stream; charset=utf-8", "data: ping\n\n");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      stubSendReturns(upstreamResponse);
 
       AiProxyUpstreamResult result =
           awaitResult(service.proxy("GET", "events", null, null, AUTH, PROJECT_ID));
@@ -333,9 +342,8 @@ class AiProxyServiceImplTest {
 
     @Test
     void shouldMapSendAsyncFailureToBadGateway() {
-      AiProxyServiceImpl service = new AiProxyServiceImpl(httpClient, AI_SERVICE_URL);
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.failedFuture(new RuntimeException("network")));
+      AiProxyServiceImpl service = new AiProxyServiceImpl(webClient, AI_SERVICE_URL);
+      stubSendErrors(new RuntimeException("network"));
 
       AiProxyUpstreamResult result =
           awaitResult(service.proxy("GET", "health", null, null, AUTH, PROJECT_ID));
@@ -352,16 +360,12 @@ class AiProxyServiceImplTest {
     @Test
     void shouldSendXPulseServiceKeyOnOutboundRequest() {
       AiProxyServiceImpl service = fullPipelineServiceWithServiceKey("secret-key");
-      HttpResponse<InputStream> upstreamResponse = mockBufferedResponse(200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(upstreamResponse));
+      HttpResponse<Buffer> upstreamResponse = mockBufferedResponse(200, "application/json", "{}");
+      stubSendReturns(upstreamResponse);
 
       awaitResult(service.proxy("GET", "health", null, null, AUTH, PROJECT_ID));
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      Optional<String> keyHeader = captor.getValue().headers().firstValue("X-Pulse-Service-Key");
-      assertThat(keyHeader).hasValue("secret-key");
+      verify(httpRequest).putHeader("X-Pulse-Service-Key", "secret-key");
     }
   }
 }

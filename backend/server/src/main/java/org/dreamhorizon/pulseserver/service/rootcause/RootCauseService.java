@@ -1,5 +1,7 @@
 package org.dreamhorizon.pulseserver.service.rootcause;
 
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -160,17 +162,17 @@ public class RootCauseService {
       double threshold,
       long totalProblematic
   ) {
-    for (String dim : dimOrder) {
-      String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
-          projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
-      Single<List<Map<String, Object>>> rows = executeQuery(projectId, q);
-      List<Map<String, Object>> list = rows.blockingGet();
-      Optional<SegmentPath> picked = pickClosestToTotal(list, dim, totalProblematic, threshold);
-      if (picked.isPresent()) {
-        return Single.just(picked);
-      }
-    }
-    return Single.just(Optional.empty());
+    return Observable.fromIterable(dimOrder)
+        .concatMapSingle(dim -> {
+          String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+              projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
+          return executeQuery(projectId, q)
+              .map(rows -> pickClosestToTotal(rows, dim, totalProblematic, threshold));
+        })
+        .filter(Optional::isPresent)
+        .firstElement()
+        .switchIfEmpty(Maybe.just(Optional.<SegmentPath>empty()))
+        .toSingle();
   }
 
   private Single<List<RootCauseSegment>> buildFlatSegments(
@@ -181,25 +183,49 @@ public class RootCauseService {
       List<String> dimOrder,
       int maxSegments
   ) {
-    List<RootCauseSegment> out = new ArrayList<>();
-    for (String dim : dimOrder) {
-      if (out.size() >= maxSegments) break;
-      String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
-          projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
-      List<Map<String, Object>> rows = executeQuery(projectId, q).blockingGet();
+    return buildFlatSegmentsFromIndex(
+        projectId, interactionName, window, baseline, dimOrder, maxSegments, 0, new ArrayList<>());
+  }
+
+  private Single<List<RootCauseSegment>> buildFlatSegmentsFromIndex(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      Map<String, Object> baseline,
+      List<String> dimOrder,
+      int maxSegments,
+      int index,
+      List<RootCauseSegment> accumulated
+  ) {
+    if (accumulated.size() >= maxSegments || index >= dimOrder.size()) {
+      return Single.just(accumulated);
+    }
+    String dim = dimOrder.get(index);
+    String q = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+        projectId, interactionName, window.startInclusive, window.endExclusive, dim, null);
+    return executeQuery(projectId, q).flatMap(rows -> {
       Optional<Map.Entry<String, Long>> top = rows.stream()
           .map(r -> Map.entry(String.valueOf(r.get(dim)), toLong(r.get("problematic_count"))))
           .filter(e -> e.getValue() > 0)
           .max(Map.Entry.comparingByValue());
-      if (top.isEmpty()) continue;
+      if (top.isEmpty()) {
+        return buildFlatSegmentsFromIndex(
+            projectId, interactionName, window, baseline, dimOrder, maxSegments, index + 1, accumulated);
+      }
       String value = top.get().getKey();
       Map<String, String> filters = Map.of(dim, value);
       String label = dim + ": " + value;
-      fetchSegmentMetrics(projectId, interactionName, window, baseline, label, filters)
-          .blockingGet()
-          .ifPresent(out::add);
-    }
-    return Single.just(out);
+      return fetchSegmentMetrics(projectId, interactionName, window, baseline, label, filters)
+          .flatMap(optSeg -> {
+            List<RootCauseSegment> next = new ArrayList<>(accumulated);
+            optSeg.ifPresent(next::add);
+            if (next.size() >= maxSegments) {
+              return Single.just(next);
+            }
+            return buildFlatSegmentsFromIndex(
+                projectId, interactionName, window, baseline, dimOrder, maxSegments, index + 1, next);
+          });
+    });
   }
 
   private Single<List<RootCauseSegment>> buildHierarchyThenFlat(
@@ -230,20 +256,10 @@ public class RootCauseService {
           Optional<SegmentPath> picked = pickClosestToTotal(rows, nextDim, totalProblematic, threshold);
           if (picked.isEmpty()) {
             List<SegmentPath> flatExtras = new ArrayList<>(path);
-            for (int i = nextDimIndex; i < dimOrder.size() && flatExtras.size() < maxSegments; i++) {
-              String d = dimOrder.get(i);
-              String q2 = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
-                  projectId, interactionName, window.startInclusive, window.endExclusive, d, null);
-              List<Map<String, Object>> r2 = executeQuery(projectId, q2).blockingGet();
-              Optional<Map.Entry<String, Long>> top = r2.stream()
-                  .map(row -> Map.entry(String.valueOf(row.get(d)), toLong(row.get("problematic_count"))))
-                  .filter(e -> e.getValue() > 0)
-                  .max(Map.Entry.comparingByValue());
-              if (top.isPresent()) {
-                flatExtras.add(new SegmentPath(d, top.get().getKey()));
-              }
-            }
-            return materializeSegments(projectId, interactionName, window, baseline, flatExtras);
+            return collectFlatExtrasFromDimensionIndex(
+                projectId, interactionName, window, dimOrder, maxSegments, nextDimIndex, flatExtras)
+                .flatMap(finalPath ->
+                    materializeSegments(projectId, interactionName, window, baseline, finalPath));
           }
           List<SegmentPath> newPath = new ArrayList<>(path);
           newPath.add(picked.get());
@@ -260,19 +276,69 @@ public class RootCauseService {
       Map<String, Object> baseline,
       List<SegmentPath> path
   ) {
-    List<RootCauseSegment> segments = new ArrayList<>();
-    Map<String, String> acc = new LinkedHashMap<>();
-    for (SegmentPath p : path) {
-      acc.put(p.dimension, p.value);
-      String label = path.size() == 1
-          ? p.dimension + ": " + p.value
-          : String.join(" + ", acc.values());
-      fetchSegmentMetrics(
-              projectId, interactionName, window, baseline, label, Map.copyOf(acc))
-          .blockingGet()
-          .ifPresent(segments::add);
+    return materializeSegmentsFromIndex(
+        projectId, interactionName, window, baseline, path, 0, new LinkedHashMap<>(), new ArrayList<>());
+  }
+
+  private Single<List<SegmentPath>> collectFlatExtrasFromDimensionIndex(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      List<String> dimOrder,
+      int maxSegments,
+      int index,
+      List<SegmentPath> flatExtras
+  ) {
+    if (flatExtras.size() >= maxSegments || index >= dimOrder.size()) {
+      return Single.just(flatExtras);
     }
-    return Single.just(segments);
+    String d = dimOrder.get(index);
+    String q2 = RootCauseQueryBuilder.buildProblematicCountByDimensionQuery(
+        projectId, interactionName, window.startInclusive, window.endExclusive, d, null);
+    return executeQuery(projectId, q2).flatMap(r2 -> {
+      Optional<Map.Entry<String, Long>> top = r2.stream()
+          .map(row -> Map.entry(String.valueOf(row.get(d)), toLong(row.get("problematic_count"))))
+          .filter(e -> e.getValue() > 0)
+          .max(Map.Entry.comparingByValue());
+      List<SegmentPath> next = new ArrayList<>(flatExtras);
+      if (top.isPresent()) {
+        next.add(new SegmentPath(d, top.get().getKey()));
+      }
+      if (next.size() >= maxSegments) {
+        return Single.just(next);
+      }
+      return collectFlatExtrasFromDimensionIndex(
+          projectId, interactionName, window, dimOrder, maxSegments, index + 1, next);
+    });
+  }
+
+  private Single<List<RootCauseSegment>> materializeSegmentsFromIndex(
+      String projectId,
+      String interactionName,
+      RootCauseQueryBuilder.Window window,
+      Map<String, Object> baseline,
+      List<SegmentPath> path,
+      int index,
+      LinkedHashMap<String, String> acc,
+      List<RootCauseSegment> segments
+  ) {
+    if (index >= path.size()) {
+      return Single.just(segments);
+    }
+    SegmentPath p = path.get(index);
+    LinkedHashMap<String, String> nextAcc = new LinkedHashMap<>(acc);
+    nextAcc.put(p.dimension, p.value);
+    String label = path.size() == 1
+        ? p.dimension + ": " + p.value
+        : String.join(" + ", nextAcc.values());
+    return fetchSegmentMetrics(
+            projectId, interactionName, window, baseline, label, Map.copyOf(nextAcc))
+        .flatMap(opt -> {
+          List<RootCauseSegment> nextSegs = new ArrayList<>(segments);
+          opt.ifPresent(nextSegs::add);
+          return materializeSegmentsFromIndex(
+              projectId, interactionName, window, baseline, path, index + 1, nextAcc, nextSegs);
+        });
   }
 
   private Single<Optional<RootCauseSegment>> fetchSegmentMetrics(
