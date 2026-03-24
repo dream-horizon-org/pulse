@@ -10,9 +10,9 @@ from pulse_ai.schemas.rca_structured_v1 import RcaStructuredReportV1
 
 async def submit_rca_structured_report(
     report_json: str,
-    # ADK injects only a parameter literally named ``tool_context``; underscore
-    # name keeps this slot out of the schema and marks intent to ignore.
-    _tool_context: ToolContext | None = None,
+    # ADK injects by name; must stay ``tool_context`` and match other Pulse tools
+    # (``ToolContext = None``, not ``ToolContext | None`` — the union breaks AFC schema).
+    tool_context: ToolContext = None,
 ) -> dict:
     """Submit the versioned RCA structured report (v1) as a JSON object.
 

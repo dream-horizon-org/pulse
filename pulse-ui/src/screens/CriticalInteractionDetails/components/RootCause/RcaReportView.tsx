@@ -30,12 +30,15 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
   return (
     <Table.Tr>
       <Table.Td className={rcaClasses.metricsColMetric}>
-        <Text size="sm">{row.metric_label}</Text>
+        <Text size="sm" w="100%" ta="start">
+          {row.metric_label}
+        </Text>
       </Table.Td>
       <Table.Td className={rcaClasses.metricsColNumeric}>
         <Text
           size="sm"
-          span
+          w="100%"
+          ta="end"
           fw={600}
           c={valueDeltaColor}
           className={
@@ -46,14 +49,15 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
         </Text>
       </Table.Td>
       <Table.Td className={rcaClasses.metricsColNumeric}>
-        <Text size="sm" c="dimmed">
+        <Text size="sm" w="100%" ta="end" c="dimmed">
           {row.baseline_display}
         </Text>
       </Table.Td>
       <Table.Td className={rcaClasses.metricsColNumericNarrow}>
         <Text
           size="sm"
-          span
+          w="100%"
+          ta="end"
           fw={600}
           c={valueDeltaColor}
           className={
@@ -151,35 +155,74 @@ const RcaStructuredReportV1View = ({
                           <Table.ScrollContainer minWidth={480}>
                             <Table
                               className={rcaClasses.metricsTable}
+                              layout="fixed"
                               striped
                               highlightOnHover
                               withTableBorder
                               horizontalSpacing="sm"
                               verticalSpacing="xs"
                             >
+                              <colgroup>
+                                <col
+                                  className={rcaClasses.metricsTableColMetric}
+                                />
+                                <col
+                                  className={rcaClasses.metricsTableColNumeric}
+                                />
+                                <col
+                                  className={rcaClasses.metricsTableColNumeric}
+                                />
+                                <col
+                                  className={rcaClasses.metricsTableColDelta}
+                                />
+                              </colgroup>
                               <Table.Thead>
                                 <Table.Tr>
                                   <Table.Th
                                     className={rcaClasses.metricsColMetric}
                                   >
-                                    Metric
+                                    <span
+                                      className={
+                                        rcaClasses.metricsThLabelMetric
+                                      }
+                                    >
+                                      Metric
+                                    </span>
                                   </Table.Th>
                                   <Table.Th
                                     className={rcaClasses.metricsColNumeric}
                                   >
-                                    Value
+                                    <span
+                                      className={
+                                        rcaClasses.metricsThLabelNumeric
+                                      }
+                                    >
+                                      Value
+                                    </span>
                                   </Table.Th>
                                   <Table.Th
                                     className={rcaClasses.metricsColNumeric}
                                   >
-                                    Baseline
+                                    <span
+                                      className={
+                                        rcaClasses.metricsThLabelNumeric
+                                      }
+                                    >
+                                      Baseline
+                                    </span>
                                   </Table.Th>
                                   <Table.Th
                                     className={
                                       rcaClasses.metricsColNumericNarrow
                                     }
                                   >
-                                    Delta
+                                    <span
+                                      className={
+                                        rcaClasses.metricsThLabelNumeric
+                                      }
+                                    >
+                                      Delta
+                                    </span>
                                   </Table.Th>
                                 </Table.Tr>
                               </Table.Thead>

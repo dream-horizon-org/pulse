@@ -85,29 +85,42 @@
 
 .metricsTable {
   font-size: var(--mantine-font-size-sm);
-  /* Same column grid on every segment card (auto layout sizes per table → misaligned stacks). */
-  table-layout: fixed;
+  /* `layout="fixed"` on Mantine Table sets --table-layout; width fills card */
   width: 100%;
 }
 
-.metricsColMetric {
+/* Column widths on <col> — keeps thead/td borders aligned (Mantine default layout is auto). */
+.metricsTableColMetric {
   width: 38%;
+}
+
+.metricsTableColNumeric {
+  width: 21%;
+}
+
+.metricsTableColDelta {
+  width: 20%;
+}
+
+.metricsColMetric {
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 
 .metricsColNumeric {
-  width: 21%;
   vertical-align: top;
-  text-align: end;
   font-variant-numeric: tabular-nums;
 }
 
 .metricsColNumericNarrow {
-  width: 20%;
   vertical-align: top;
-  text-align: end;
   font-variant-numeric: tabular-nums;
+}
+
+/* Full shorthand padding beats Mantine .m_4e7aa4f3 / .m_4e7aa4ef so th/td match exactly */
+.metricsTable :global(thead tr th),
+.metricsTable :global(tbody tr td) {
+  padding: 0.5rem var(--mantine-spacing-sm);
 }
 
 .metricsTable :global(thead tr th) {
@@ -116,18 +129,25 @@
   letter-spacing: 0.02em;
   color: var(--mantine-color-gray-6);
   font-weight: 600;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
 }
 
-.metricsTable :global(tbody tr td) {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+/* Mantine th defaults to text-align: left — force numeric columns to match tbody */
+.metricsTable .metricsColNumeric,
+.metricsTable .metricsColNumericNarrow {
+  text-align: end;
 }
 
-.metricsTable :global(th:first-child),
-.metricsTable :global(td:first-child) {
-  padding-left: var(--mantine-spacing-sm);
+/* Block slot fills cell so header labels share the same box model as body Text */
+.metricsThLabelMetric {
+  display: block;
+  width: 100%;
+  text-align: start;
+}
+
+.metricsThLabelNumeric {
+  display: block;
+  width: 100%;
+  text-align: end;
 }
 
 .impactCallout {

@@ -63,7 +63,7 @@ def test_rca_structured_report_v1_rejects_bad_metric_id() -> None:
 @pytest.mark.asyncio
 async def test_submit_rca_structured_report_success() -> None:
     payload = json.dumps(_minimal_valid_structured_dict())
-    result = await submit_rca_structured_report(payload, _tool_context=None)
+    result = await submit_rca_structured_report(payload, tool_context=None)
     assert result["success"] is True
     assert result["structured"]["version"] == 1
     assert result["structured"]["segments"][0]["title"] == "Android · v4.0.0"
@@ -71,7 +71,7 @@ async def test_submit_rca_structured_report_success() -> None:
 
 @pytest.mark.asyncio
 async def test_submit_rca_structured_report_invalid_json() -> None:
-    result = await submit_rca_structured_report("{not json", _tool_context=None)
+    result = await submit_rca_structured_report("{not json", tool_context=None)
     assert result["success"] is False
     assert "error" in result
 
@@ -80,7 +80,7 @@ async def test_submit_rca_structured_report_invalid_json() -> None:
 async def test_submit_rca_structured_report_validation_errors() -> None:
     bad = _minimal_valid_structured_dict()
     bad["segments"][0]["metrics"][0]["metric_id"] = "typo_rate"
-    result = await submit_rca_structured_report(json.dumps(bad), _tool_context=None)
+    result = await submit_rca_structured_report(json.dumps(bad), tool_context=None)
     assert result["success"] is False
     assert "errors" in result
 
