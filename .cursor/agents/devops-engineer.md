@@ -28,7 +28,7 @@ Always use `docker ps` to verify actual running services and ports.
 
 ## Environment Variables
 
-- `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `CONFIG_SERVICE_APPLICATION_*` — backend app config (includes batch job endpoints, schedule time, JWT secrets)
 - `VAULT_SERVICE_*` — secrets (never commit real values)
 - `OTEL_CLICKHOUSE_*` — OTEL to ClickHouse connection
 - `REACT_APP_*` — frontend build-time args

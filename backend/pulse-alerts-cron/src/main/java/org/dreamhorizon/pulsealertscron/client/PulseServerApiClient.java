@@ -13,6 +13,7 @@ public class PulseServerApiClient {
   private final WebClient webClient;
   private final String apiBaseUrl;
   private final String serviceJwt;
+  private final ApplicationConfig config;
   
   private static final String ACTIVE_LIMITS_PATH = "/internal/v1/usage-limits/active";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
@@ -23,6 +24,7 @@ public class PulseServerApiClient {
     this.webClient = webClient;
     this.apiBaseUrl = config.getPulseServerUrl();
     this.serviceJwt = config.getServiceJwtSecret();
+    this.config = config;
   }
 
   public Single<UsageLimitsApiResponse.Response> getActiveLimits() {
@@ -89,6 +91,50 @@ public class PulseServerApiClient {
             })
             .doOnError(error -> 
                 log.error("❌ Error calling API keys API", error)
+            )
+    );
+  }
+
+  public Single<Void> triggerFunnelBatch() {
+    String endpoint = apiBaseUrl + config.getBatchFunnelsEndpoint();
+    return triggerBatchJob("FUNNELS_DAILY", endpoint);
+  }
+
+  public Single<Void> triggerJourneyBatch() {
+    String endpoint = apiBaseUrl + config.getBatchJourneysEndpoint();
+    return triggerBatchJob("JOURNEYS_DAILY", endpoint);
+  }
+
+  public Single<Void> triggerEventsBatch() {
+    String endpoint = apiBaseUrl + config.getBatchEventsEndpoint();
+    return triggerBatchJob("EVENTS_INCREMENTAL", endpoint);
+  }
+
+  private Single<Void> triggerBatchJob(String jobType, String endpoint) {
+    log.info("[triggerBatchJob] Triggering {} batch job at: {}", jobType, endpoint);
+    
+    return Single.defer(() ->
+        webClient
+            .postAbs(endpoint)
+            .putHeader("Authorization", "Bearer " + serviceJwt)
+            .putHeader("Content-Type", "application/json")
+            .timeout(REQUEST_TIMEOUT_MS)
+            .rxSend()
+            .map(response -> {
+                int statusCode = response.statusCode();
+                if (statusCode < 200 || statusCode >= 300) {
+                    String errorMsg = String.format(
+                        "Batch job %s failed with status %d: %s",
+                        jobType, statusCode, response.bodyAsString()
+                    );
+                    log.error("[triggerBatchJob] {}", errorMsg);
+                    throw new RuntimeException(errorMsg);
+                }
+                log.info("[triggerBatchJob] Successfully triggered {} batch job", jobType);
+                return null;
+            })
+            .doOnError(error ->
+                log.error("[triggerBatchJob] Error triggering {} batch job", jobType, error)
             )
     );
   }

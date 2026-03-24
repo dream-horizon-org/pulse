@@ -34,7 +34,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 
 ## Environment Variables
 
-- `CONFIG_SERVICE_APPLICATION_*` — backend app config
+- `CONFIG_SERVICE_APPLICATION_*` — backend app config (includes batch job endpoints, schedule time, JWT secrets)
 - `VAULT_SERVICE_*` — secrets (Slack, Grafana, etc.)
 - `OTEL_CLICKHOUSE_*` — OTEL collector ClickHouse connection
 - `REACT_APP_*` — frontend build-time config
