@@ -133,19 +133,7 @@ export function useSessionListData({
     } finally {
       setLoading(false);
     }
-  }, [
-    filterState.currentPage,
-    filterState.dateRange,
-    filterState.quickFilters,
-    filterState.advancedFilters,
-    filterState.drillDown,
-    filterState.pageSize,
-    filterState.searchQuery,
-    pageCursors,
-    sortBy,
-    sortDirection,
-    filterState,
-  ]);
+  }, [filterState, pageCursors, sortBy, sortDirection]);
 
   const fetchRef = useRef(fetchSessions);
   fetchRef.current = fetchSessions;

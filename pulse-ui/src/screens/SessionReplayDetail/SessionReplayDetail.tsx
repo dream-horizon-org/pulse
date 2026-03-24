@@ -1,12 +1,8 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Box, Stack, Loader, Text, Center } from "@mantine/core";
 import { DetailsSidebar } from "../SessionTimeline/components/DetailsSidebar";
-import {
-  FlameChartNode,
-  transformToFlameChart,
-} from "../SessionTimeline/utils/flameChartTransform";
+import { FlameChartNode } from "../SessionTimeline/utils/flameChartTransform";
 import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
-import type { PersonaType } from "../../contexts/PersonaContext.interface";
 import { getEmptySessionDetail } from "./adapters/sessionDetailApiToData";
 
 import { SessionHeader } from "./components/SessionHeader";
