@@ -16,9 +16,9 @@ package io.opentelemetry.android.instrumentation.click
 object ClickContextEnrichmentConfig {
     @Volatile
     @JvmField
-    var viewClickContextEnrichmentEnabled: Boolean = true
+    var isViewClickContextEnrichmentEnabled: Boolean = true
 
     @Volatile
     @JvmField
-    var composeClickContextEnrichmentEnabled: Boolean = true
+    var isComposeClickContextEnrichmentEnabled: Boolean = true
 }

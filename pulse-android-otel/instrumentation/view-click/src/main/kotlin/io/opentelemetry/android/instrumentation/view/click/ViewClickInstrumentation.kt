@@ -22,7 +22,7 @@ class ViewClickInstrumentation : AndroidInstrumentation {
                         .logsBridge
                         .loggerBuilder("io.opentelemetry.android.instrumentation.view.click")
                         .build(),
-                    contextEnrichmentEnabled = ClickContextEnrichmentConfig.viewClickContextEnrichmentEnabled,
+                    contextEnrichmentEnabled = ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled,
                 ),
             ),
         )

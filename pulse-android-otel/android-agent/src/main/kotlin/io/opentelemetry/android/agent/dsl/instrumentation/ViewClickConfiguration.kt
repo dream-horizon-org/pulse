@@ -21,6 +21,6 @@ class ViewClickConfiguration internal constructor() {
      * **app.click.context is not set** (no enrichment payload).
      */
     fun captureContext(enabled: Boolean) {
-        ClickContextEnrichmentConfig.viewClickContextEnrichmentEnabled = enabled
+        ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled = enabled
     }
 }

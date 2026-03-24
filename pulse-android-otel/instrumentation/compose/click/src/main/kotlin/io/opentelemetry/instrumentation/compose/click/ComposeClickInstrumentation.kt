@@ -22,7 +22,7 @@ class ComposeClickInstrumentation : AndroidInstrumentation {
                         .logsBridge
                         .loggerBuilder("io.opentelemetry.android.instrumentation.compose.click")
                         .build(),
-                    contextEnrichmentEnabled = ClickContextEnrichmentConfig.composeClickContextEnrichmentEnabled,
+                    contextEnrichmentEnabled = ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled,
                 ),
             ),
         )

@@ -21,6 +21,6 @@ class ComposeClickConfiguration internal constructor() {
      * **app.click.context is not set** (no enrichment payload).
      */
     fun captureContext(enabled: Boolean) {
-        ClickContextEnrichmentConfig.composeClickContextEnrichmentEnabled = enabled
+        ClickContextEnrichmentConfig.isComposeClickContextEnrichmentEnabled = enabled
     }
 }

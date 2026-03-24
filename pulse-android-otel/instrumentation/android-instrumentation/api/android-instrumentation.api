@@ -49,8 +49,8 @@ public final class io/opentelemetry/android/instrumentation/WindowCallbackUnwrap
 
 public final class io/opentelemetry/android/instrumentation/click/ClickContextEnrichmentConfig {
 	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/click/ClickContextEnrichmentConfig;
-	public static field composeClickContextEnrichmentEnabled Z
-	public static field viewClickContextEnrichmentEnabled Z
+	public static field isComposeClickContextEnrichmentEnabled Z
+	public static field isViewClickContextEnrichmentEnabled Z
 }
 
 public final class io/opentelemetry/android/instrumentation/internal/AndroidInstrumentationLoaderImpl : io/opentelemetry/android/instrumentation/AndroidInstrumentationLoader {

@@ -70,7 +70,7 @@ class ViewClickInstrumentationTest {
 
     @After
     fun tearDown() {
-        ClickContextEnrichmentConfig.viewClickContextEnrichmentEnabled = true
+        ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled = true
     }
 
     @Test
@@ -139,7 +139,7 @@ class ViewClickInstrumentationTest {
 
     @Test
     fun capture_view_click_omits_app_click_context_when_enrichment_disabled() {
-        ClickContextEnrichmentConfig.viewClickContextEnrichmentEnabled = false
+        ClickContextEnrichmentConfig.isViewClickContextEnrichmentEnabled = false
 
         val installationContext =
             InstallationContext(
