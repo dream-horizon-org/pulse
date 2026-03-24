@@ -16,6 +16,8 @@ mod sinks;
 
 #[tokio::main]
 async fn main() {
+    let _ = dotenvy::dotenv();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()

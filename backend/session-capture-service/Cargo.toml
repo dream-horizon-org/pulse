@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+dotenvy = "0.15"
 anyhow = "1"
 axum = { version = "0.7", features = ["json", "macros"] }
 async-trait = "0.1"

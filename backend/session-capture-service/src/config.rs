@@ -56,7 +56,7 @@ impl KafkaConfig {
             kafka_producer_linger_ms: env_or("KAFKA_PRODUCER_LINGER_MS", 20),
             kafka_producer_queue_mib: env_or("KAFKA_PRODUCER_QUEUE_MIB", 50),
             kafka_message_timeout_ms: env_or("KAFKA_MESSAGE_TIMEOUT_MS", 20000),
-            kafka_producer_message_max_bytes: env_or("KAFKA_PRODUCER_MESSAGE_MAX_BYTES", 26214400),
+            kafka_producer_message_max_bytes: env_or("KAFKA_PRODUCER_MESSAGE_MAX_BYTES", 1000000),
             kafka_compression_codec: std::env::var("KAFKA_COMPRESSION_CODEC")
                 .unwrap_or_else(|_| "snappy".into()),
             kafka_producer_max_retries: env_or("KAFKA_PRODUCER_MAX_RETRIES", 2),
