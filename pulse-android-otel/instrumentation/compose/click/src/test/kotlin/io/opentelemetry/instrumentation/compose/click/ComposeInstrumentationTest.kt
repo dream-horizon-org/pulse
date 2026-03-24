@@ -148,20 +148,13 @@ internal class ComposeInstrumentationTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
                 equalTo(APP_WIDGET_ID, mockLayoutNode.semanticsId.toString()),
                 equalTo(APP_WIDGET_NAME, "clickMe"),
             )

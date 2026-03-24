@@ -32,7 +32,6 @@ import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.mockkClass
-import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.equalTo
 import io.opentelemetry.sdk.testing.junit4.OpenTelemetryRule
@@ -111,21 +110,13 @@ internal class ComposeClickEventGeneratorTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        OpenTelemetryAssertions
-            .assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
                 equalTo(APP_WIDGET_ID, "2"),
                 equalTo(APP_WIDGET_NAME, "click"),
             )
@@ -150,21 +141,13 @@ internal class ComposeClickEventGeneratorTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        OpenTelemetryAssertions
-            .assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
                 equalTo(APP_WIDGET_ID, "3"),
                 equalTo(APP_WIDGET_NAME, "click"),
             )
@@ -190,21 +173,13 @@ internal class ComposeClickEventGeneratorTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        OpenTelemetryAssertions
-            .assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-            )
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
                 equalTo(APP_WIDGET_ID, "3"),
                 equalTo(APP_WIDGET_NAME, "clickMe"),
             )
@@ -244,9 +219,8 @@ internal class ComposeClickEventGeneratorTest {
         motionEvent.recycle()
 
         val events = localRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
         assertNull(events[0].attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
-        assertNull(events[1].attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
         upEvent.recycle()
     }
 

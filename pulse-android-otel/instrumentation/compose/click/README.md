@@ -32,7 +32,7 @@ PulseSDK.INSTANCE.initialize(
 }
 ```
 
-When `captureContext` is false, events still emit with tap coordinates and widget identity attributes, but **`app.click.context` is not set** (no label, element, or type/source string). This skips the semantics tree and node-context traversal that can improve performance.
+When `captureContext` is false, events still emit with tap coordinates and widget identity attributes, but **`app.click.context` is not set** (no label or element string).
 
 ## Flow
 
@@ -48,7 +48,7 @@ getContextFromSemanticsTree(...)  ← or getNodeContext (descendants/ancestors)
 getElementHintForNode(node)        ← image|button|chip from Role/modifier
     │
     ▼
-emit app.screen.click + app.widget.click
+emit app.widget.click
 ```
 
 ## Telemetry
@@ -60,64 +60,28 @@ This instrumentation produces the following telemetry:
 ### Clicks
 
 - Type: Event
-- Name: `app.screen.click`
-- Description: This event is emitted when the user taps or clicks on the screen.
-- See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appscreenclick)
-  for more details.
-
-- Type: Event
 - Name: `app.widget.click`
-- Description: This event is emitted when the user taps on a composable that is clickable.
+- Description: Emitted when the user taps a clickable composable. Tap coordinates (`app.screen.coordinate.*`) reflect the tap position.
 - See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appwidgetclick)
   for more details.
 
 ### Attributes
 
-Both events include:
+- `app.screen.coordinate.x`, `app.screen.coordinate.y` — tap position
+- `app.widget.id`, `app.widget.name` — semantics identity
+- `app.click.context` — Optional. When `captureContext` is true: `label=X` and/or `element=image|button|chip`, semicolon-separated. Omitted when nothing extractable.
 
-- `app.screen.coordinate.x`, `app.screen.coordinate.y`
-- `app.widget.id`, `app.widget.name` (on `app.widget.click`)
-- `app.click.context` – Structured string: `label=X; type=screen|widget; source=compose` with optional `element=image|button|chip`. The `label` is present only when extractable.
-
-### Sample payloads
-
-**app.screen.click** (screen-level event, emitted for every tap):
-
-```json
-{
-    "name": "app.screen.click",
-    "attributes": {
-        "app.click.context": "label=Add to Cart; type=screen; source=compose; element=button",
-        "app.screen.coordinate.x": 420,
-        "app.screen.coordinate.y": 890
-    }
-}
-```
-
-**app.widget.click** (widget-level event, includes semantics id):
+### Sample payload
 
 ```json
 {
     "name": "app.widget.click",
     "attributes": {
-        "app.click.context": "label=Add to Cart; type=widget; source=compose; element=button",
+        "app.click.context": "label=Add to Cart; element=button",
         "app.widget.name": "Add to Cart",
         "app.widget.id": "12345",
         "app.screen.coordinate.x": 420,
         "app.screen.coordinate.y": 890
-    }
-}
-```
-
-Without a label:
-
-```json
-{
-    "name": "app.screen.click",
-    "attributes": {
-        "app.click.context": "type=screen; source=compose",
-        "app.screen.coordinate.x": 100,
-        "app.screen.coordinate.y": 200
     }
 }
 ```

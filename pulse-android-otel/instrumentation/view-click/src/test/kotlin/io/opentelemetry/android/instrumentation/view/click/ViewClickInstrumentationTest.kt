@@ -27,7 +27,6 @@ import io.mockk.slot
 import io.mockk.verify
 import io.opentelemetry.android.instrumentation.InstallationContext
 import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
-import io.opentelemetry.android.instrumentation.view.click.internal.APP_SCREEN_CLICK_EVENT_NAME
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.android.session.SessionProvider
 import io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat
@@ -113,27 +112,17 @@ class ViewClickInstrumentationTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=screen; source=view"),
-            )
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
-                equalTo(APP_SCREEN_COORDINATE_X, mockView.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, mockView.y.toLong()),
                 equalTo(APP_WIDGET_ID, mockView.id.toString()),
                 equalTo(APP_WIDGET_NAME, "10012"),
-                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=widget; source=view"),
             )
+        assertNull(events[0].attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
         upEvent.recycle()
     }
 
@@ -179,27 +168,17 @@ class ViewClickInstrumentationTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-            )
-        assertNull(event.attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
-                equalTo(APP_SCREEN_COORDINATE_X, mockView.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, mockView.y.toLong()),
                 equalTo(APP_WIDGET_ID, mockView.id.toString()),
                 equalTo(APP_WIDGET_NAME, "10012"),
             )
-        assertNull(event.attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
+        assertNull(events[0].attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
         upEvent.recycle()
     }
 
@@ -248,27 +227,17 @@ class ViewClickInstrumentationTest {
         motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        assertThat(events).hasSize(2)
+        assertThat(events).hasSize(1)
 
-        var event = events[0]
-        assertThat(event)
-            .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
+        assertThat(events[0])
+            .hasEventName(VIEW_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
                 equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
                 equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
-                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=screen; source=view"),
-            )
-
-        event = events[1]
-        assertThat(event)
-            .hasEventName(VIEW_CLICK_EVENT_NAME)
-            .hasAttributesSatisfying(
-                equalTo(APP_SCREEN_COORDINATE_X, mockView.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, mockView.y.toLong()),
                 equalTo(APP_WIDGET_ID, mockView.id.toString()),
                 equalTo(APP_WIDGET_NAME, "10012"),
-                equalTo(PulseAttributes.APP_CLICK_CONTEXT, "type=widget; source=view"),
             )
+        assertNull(events[0].attributes.get(PulseAttributes.APP_CLICK_CONTEXT))
         upEvent.recycle()
     }
 
@@ -318,8 +287,7 @@ class ViewClickInstrumentationTest {
         upEvent.recycle()
 
         val events = openTelemetryRule.logRecords
-        // No events when tap misses widget: screen click is only emitted when a target is found
-        // (avoids duplicate app.screen.click when both View and Compose instrumentations are active)
+        // No events when tap misses a clickable widget
         assertThat(events).isEmpty()
     }
 

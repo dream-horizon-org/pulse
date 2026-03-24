@@ -31,18 +31,13 @@ public object PulseAttributes {
 
     /**
      * Structured context for a click/tap. Model-readable format:
-     * "label=X; type=screen|widget; source=view|compose" with optional "element=image|button|chip" when applicable.
-     * Set on app.screen.click and app.widget.click. Label present only when extractable.
+     * optional `label=X`, optional `element=image|button|chip` (semicolon-separated).
+     * Set on app.widget.click only. Omitted when nothing extractable.
      */
     @JvmField
     public val APP_CLICK_CONTEXT: AttributeKey<String> = stringKey("app.click.context")
 
     public object AppClickContext {
-        public const val TYPE_SCREEN: String = "screen"
-        public const val TYPE_WIDGET: String = "widget"
-        public const val SOURCE_VIEW: String = "view"
-        public const val SOURCE_COMPOSE: String = "compose"
-
         /** Indicates the clicked element is an image (ImageView/ImageButton, Compose Image/Icon). */
         public const val ELEMENT_IMAGE: String = "image"
 
@@ -55,27 +50,21 @@ public object PulseAttributes {
         /** Indicates the clicked element is a chip (Material Chip, FilterChip, etc.). */
         public const val ELEMENT_CHIP: String = "chip"
 
-        /** Builds structured context string when label is available. */
+        /**
+         * Builds `app.click.context` from optional label and element hint.
+         * Examples: `label=Add to Cart; element=button`, `label=Email`, `element=image`.
+         * Returns null when both are empty.
+         */
         @JvmStatic
-        public fun build(
-            label: String,
-            type: String,
-            source: String,
-        ): String = "label=$label; type=$type; source=$source"
-
-        /** Builds structured context string when label is not available (type+source only). */
-        @JvmStatic
-        public fun build(
-            type: String,
-            source: String,
-        ): String = "type=$type; source=$source"
-
-        /** Appends optional element hint (e.g. element=image) to the context string. */
-        @JvmStatic
-        public fun withElement(
-            context: String,
-            element: String,
-        ): String = "$context; element=$element"
+        public fun buildContext(
+            label: String?,
+            elementHint: String?,
+        ): String? {
+            val parts = mutableListOf<String>()
+            label?.trim()?.takeIf { it.isNotEmpty() }?.let { parts.add("label=$it") }
+            elementHint?.takeIf { it.isNotEmpty() }?.let { parts.add("element=$it") }
+            return if (parts.isEmpty()) null else parts.joinToString("; ")
+        }
     }
 
     public object PulseSdkNames {

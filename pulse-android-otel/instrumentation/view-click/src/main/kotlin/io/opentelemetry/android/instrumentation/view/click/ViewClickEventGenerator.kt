@@ -16,7 +16,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
-import io.opentelemetry.android.instrumentation.view.click.internal.APP_SCREEN_CLICK_EVENT_NAME
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
@@ -63,53 +62,32 @@ class ViewClickEventGenerator(
                 if (distanceSq > touchSlopPx * touchSlopPx) return // scroll: movement exceeds touch slop
                 windowRef?.get()?.let { window ->
                     findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
-                        val attributes = createViewAttributes(view)
-                        // Only emit screen click when we own this screen (View-based); avoids duplicate
-                        // app.screen.click when both View and Compose instrumentations are active
-                        val screenClickRecord =
-                            createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                                .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
-                                .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
+                        val tapX = motionEvent.x.toLong()
+                        val tapY = motionEvent.y.toLong()
+                        val attributes = createViewAttributes(view, tapX, tapY)
                         val widgetClickRecord =
                             createEvent(VIEW_CLICK_EVENT_NAME)
                                 .setAllAttributes(attributes)
                         if (isContextEnrichmentEnabled) {
-                            val ctx = PulseAttributes.AppClickContext
                             val label = getViewContextLabel(view)
                             val elementHint = getElementHint(view)
-                            val baseScreenContext =
-                                label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_VIEW) }
-                                    ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_VIEW)
-                            val baseWidgetContext =
-                                label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_VIEW) }
-                                    ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_VIEW)
-                            val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
-                            val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
-                            screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
-                            widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                            PulseAttributes.AppClickContext.buildContext(label, elementHint)?.let { ctxStr ->
+                                widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, ctxStr)
+                            }
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext",
-                            )
-                            Log.d(
-                                CLICK_LOG_TAG,
-                                "app.widget.click: name=$widgetNameForLog context=$widgetContext widgetId=$widgetIdForLog",
+                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog context=${label ?: ""} element=${elementHint ?: ""} widgetId=$widgetIdForLog",
                             )
                         } else {
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} (no app.click.context)",
-                            )
-                            Log.d(
-                                CLICK_LOG_TAG,
-                                "app.widget.click: name=$widgetNameForLog widgetId=$widgetIdForLog (no app.click.context)",
+                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog widgetId=$widgetIdForLog (no app.click.context)",
                             )
                         }
-                        screenClickRecord.emit()
                         widgetClickRecord.emit()
                     }
                 }
@@ -132,13 +110,16 @@ class ViewClickEventGenerator(
             .logRecordBuilder()
             .setEventName(name)
 
-    private fun createViewAttributes(view: View): Attributes {
+    private fun createViewAttributes(
+        view: View,
+        tapX: Long,
+        tapY: Long,
+    ): Attributes {
         val builder = Attributes.builder()
         builder.put(APP_WIDGET_NAME, viewToName(view))
         builder.put(APP_WIDGET_ID, view.id.toString())
-
-        builder.put(APP_SCREEN_COORDINATE_X, view.x.toLong())
-        builder.put(APP_SCREEN_COORDINATE_Y, view.y.toLong())
+        builder.put(APP_SCREEN_COORDINATE_X, tapX)
+        builder.put(APP_SCREEN_COORDINATE_Y, tapY)
         return builder.build()
     }
 

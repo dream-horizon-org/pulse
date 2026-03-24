@@ -47,7 +47,6 @@ public final class io/opentelemetry/android/instrumentation/view/click/WindowCal
 }
 
 public final class io/opentelemetry/android/instrumentation/view/click/internal/ViewUtilsKt {
-	public static final field APP_SCREEN_CLICK_EVENT_NAME Ljava/lang/String;
 	public static final field VIEW_CLICK_EVENT_NAME Ljava/lang/String;
 }
 

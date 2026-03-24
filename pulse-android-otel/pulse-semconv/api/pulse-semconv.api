@@ -14,13 +14,7 @@ public final class com/pulse/semconv/PulseAttributes$AppClickContext {
 	public static final field ELEMENT_ICON Ljava/lang/String;
 	public static final field ELEMENT_IMAGE Ljava/lang/String;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$AppClickContext;
-	public static final field SOURCE_COMPOSE Ljava/lang/String;
-	public static final field SOURCE_VIEW Ljava/lang/String;
-	public static final field TYPE_SCREEN Ljava/lang/String;
-	public static final field TYPE_WIDGET Ljava/lang/String;
-	public static final fun build (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-	public static final fun build (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-	public static final fun withElement (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun buildContext (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 }
 
 public final class com/pulse/semconv/PulseAttributes$PulseSdkNames {
