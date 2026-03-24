@@ -73,6 +73,13 @@ public class IosLlvmSymbolicator {
         dsymZipBytes == null ? 0 : dsymZipBytes.length,
         appOpt.isPresent());
     String appBinary = appOpt.orElse("");
+    String targetBinary = pickTargetBinaryFromFrames(appBinary, frames).orElse(appBinary);
+    log.info(
+        "{} target image selection process={} target={} distinctFrameImages(sample)={}",
+        LOG_PREFIX,
+        appBinary,
+        targetBinary,
+        frames.stream().map(NdkFrame::getNdkLib).distinct().limit(8).toList());
     if (appBinary.isEmpty()) {
       log.warn("{} missing Process: name; cannot match app frames", LOG_PREFIX);
     }
@@ -87,16 +94,27 @@ public class IosLlvmSymbolicator {
     Path tempRoot = null;
     try {
       tempRoot = Files.createTempDirectory("pulse-ios-dsym");
-      Path dwarfPath = extractDsymAndFindDwarf(dsymZipBytes, tempRoot);
+      Optional<String> crashUuid =
+          targetBinary.isEmpty() ? Optional.empty() : AppleCrashReportParser.parseUuidForBinary(rawReport, targetBinary);
+      Optional<Long> loadOpt =
+          targetBinary.isEmpty() ? Optional.empty() : AppleCrashReportParser.parseLoadAddressForBinary(rawReport, targetBinary);
+      log.info(
+          "{} parsed crash metadata target={} crashUuidPresent={} loadPresent={}",
+          LOG_PREFIX,
+          targetBinary,
+          crashUuid.isPresent(),
+          loadOpt.isPresent());
+
+      Path dwarfPath = extractDsymAndFindDwarf(dsymZipBytes, tempRoot, crashUuid.orElse(null));
       if (dwarfPath == null || !Files.isRegularFile(dwarfPath)) {
         log.warn("{} could not locate DWARF inside dSYM zip", LOG_PREFIX);
         return rawLines(frames);
       }
-
-      Optional<String> crashUuid =
-          appBinary.isEmpty() ? Optional.empty() : AppleCrashReportParser.parseUuidForBinary(rawReport, appBinary);
-      Optional<Long> loadOpt =
-          appBinary.isEmpty() ? Optional.empty() : AppleCrashReportParser.parseLoadAddressForBinary(rawReport, appBinary);
+      log.info(
+          "{} selected dwarf path={} for target={}",
+          LOG_PREFIX,
+          dwarfPath.getFileName(),
+          targetBinary);
 
       MachoPrivateHeaders macho = runObjdumpMachoPrivateHeaders(dwarfPath);
       String objdumpUuid = macho.uuidNormalized();
@@ -113,11 +131,11 @@ public class IosLlvmSymbolicator {
           log.info("{} dSYM UUID check OK (from private-headers)", LOG_PREFIX);
         }
       } else {
-        log.warn("{} crash report missing UUID for app binary {}; proceeding", LOG_PREFIX, appBinary);
+        log.warn("{} crash report missing UUID for app image {}; proceeding", LOG_PREFIX, targetBinary);
       }
 
       if (loadOpt.isEmpty()) {
-        log.warn("{} could not parse load address for {}; skipping LLVM", LOG_PREFIX, appBinary);
+        log.warn("{} could not parse load address for {}; skipping LLVM", LOG_PREFIX, targetBinary);
         return rawLines(frames);
       }
       long load = loadOpt.get();
@@ -132,8 +150,8 @@ public class IosLlvmSymbolicator {
       List<Long> fileAddrs = new ArrayList<>();
       for (int i = 0; i < frames.size(); i++) {
         NdkFrame f = frames.get(i);
-        if (appBinary.isEmpty()
-            || !AppleCrashReportParser.frameImageMatchesProcess(appBinary, f.getNdkLib())) {
+        if (targetBinary.isEmpty()
+            || !imageMatchesTargetBinary(targetBinary, f.getNdkLib())) {
           continue;
         }
         try {
@@ -156,10 +174,10 @@ public class IosLlvmSymbolicator {
 
       if (fileAddrs.isEmpty() && !frames.isEmpty() && !appBinary.isEmpty()) {
         log.warn(
-            "{} no frames matched app process={} for LLVM (see frameImageMatchesProcess); "
+            "{} no frames matched target image={} for LLVM (see image match); "
                 + "distinctFrameImages(sample)={}",
             LOG_PREFIX,
-            appBinary,
+            targetBinary,
             frames.stream().map(NdkFrame::getNdkLib).distinct().limit(12).toList());
       }
 
@@ -187,6 +205,48 @@ public class IosLlvmSymbolicator {
         deleteRecursively(tempRoot);
       }
     }
+  }
+
+  private static Optional<String> pickTargetBinaryFromFrames(String processName, List<NdkFrame> frames) {
+    if (processName == null || processName.isBlank() || frames == null || frames.isEmpty()) {
+      return Optional.empty();
+    }
+    for (NdkFrame f : frames) {
+      if (f == null || f.getNdkLib() == null) {
+        continue;
+      }
+      if (AppleCrashReportParser.frameImageMatchesProcess(processName, f.getNdkLib())) {
+        return Optional.of(f.getNdkLib());
+      }
+    }
+    return Optional.of(processName);
+  }
+
+  private static String normalizeImageName(String image) {
+    if (image == null) {
+      return "";
+    }
+    String n = image.trim();
+    int slash = n.lastIndexOf('/');
+    if (slash >= 0) {
+      n = n.substring(slash + 1);
+    }
+    if (n.endsWith(".debug.dylib")) {
+      n = n.substring(0, n.length() - ".debug.dylib".length());
+    } else if (n.endsWith(".dylib")) {
+      n = n.substring(0, n.length() - ".dylib".length());
+    }
+    return n;
+  }
+
+  private static boolean imageMatchesTargetBinary(String targetBinary, String frameImage) {
+    if (targetBinary == null || frameImage == null || targetBinary.isBlank() || frameImage.isBlank()) {
+      return false;
+    }
+    if (targetBinary.equals(frameImage)) {
+      return true;
+    }
+    return normalizeImageName(targetBinary).equals(normalizeImageName(frameImage));
   }
 
   /**
@@ -426,7 +486,7 @@ public class IosLlvmSymbolicator {
     return Integer.toHexString(h);
   }
 
-  static Path extractDsymAndFindDwarf(byte[] zipBytes, Path destDir) throws IOException {
+  static Path extractDsymAndFindDwarf(byte[] zipBytes, Path destDir, String preferredCrashUuid) throws IOException {
     Path zipFile = destDir.resolve("upload.zip");
     Files.write(zipFile, zipBytes);
     try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
@@ -443,24 +503,63 @@ public class IosLlvmSymbolicator {
         Files.copy(zis, out);
       }
     }
-    return findDwarfUnder(destDir);
+    return findDwarfUnder(destDir, preferredCrashUuid);
   }
 
-  static Path findDwarfUnder(Path root) throws IOException {
-    final Path[] found = {null};
+  static Path findDwarfUnder(Path root, String preferredCrashUuid) throws IOException {
+    List<Path> candidates = new ArrayList<>();
     Files.walkFileTree(root, new SimpleFileVisitor<>() {
       @Override
       public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
         String p = file.toString().replace('\\', '/');
         if (p.contains(".dSYM/Contents/Resources/DWARF/")
             && !p.endsWith("/") && attrs.isRegularFile()) {
-          found[0] = file;
-          return FileVisitResult.TERMINATE;
+          candidates.add(file);
         }
         return FileVisitResult.CONTINUE;
       }
     });
-    return found[0];
+    if (candidates.isEmpty()) {
+      log.warn("{} no DWARF candidates under {}", LOG_PREFIX, root);
+      return null;
+    }
+    log.info(
+        "{} DWARF candidates found={} preferUuidPresent={}",
+        LOG_PREFIX,
+        candidates.size(),
+        preferredCrashUuid != null && !preferredCrashUuid.isBlank());
+    if (preferredCrashUuid == null || preferredCrashUuid.isBlank()) {
+      log.info("{} no preferred UUID, choosing first candidate={}", LOG_PREFIX, candidates.get(0).getFileName());
+      return candidates.get(0);
+    }
+    String want = normalizeUuid(preferredCrashUuid);
+    for (Path c : candidates) {
+      try {
+        Process proc = new ProcessBuilder(
+            firstNonBlank(System.getenv("LLVM_OBJDUMP_PATH"), "llvm-objdump"),
+            "--macho",
+            "--private-headers",
+            c.toAbsolutePath().toString())
+            .redirectErrorStream(true)
+            .start();
+        String output = readLimited(proc.getInputStream(), 200_000);
+        proc.waitFor(20, TimeUnit.SECONDS);
+        String u = parseUuidFromObjdumpOutput(output);
+        if (u != null && u.equals(want)) {
+          log.info("{} matched preferred UUID with candidate={}", LOG_PREFIX, c.getFileName());
+          return c;
+        }
+      } catch (Exception ignored) {
+        log.debug("{} failed UUID probe for candidate={}", LOG_PREFIX, c.getFileName(), ignored);
+      }
+    }
+    log.warn("{} no candidate matched preferred UUID; fallback first candidate={}",
+        LOG_PREFIX, candidates.get(0).getFileName());
+    return candidates.get(0);
+  }
+
+  private static String firstNonBlank(String a, String b) {
+    return (a == null || a.isBlank()) ? b : a.trim();
   }
 
   static void deleteRecursively(Path root) {
