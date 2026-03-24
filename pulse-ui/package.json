@@ -84,6 +84,7 @@
     "react-querybuilder": "^8.8.1",
     "react-refresh": "^0.11.0",
     "react-router-dom": "^6.24.1",
+    "remark-gfm": "^4.0.1",
     "resolve": "^1.20.0",
     "resolve-url-loader": "^4.0.0",
     "sass-loader": "^12.3.0",
@@ -159,7 +160,12 @@
     "modulePaths": [],
     "moduleNameMapper": {
       "^react-native$": "react-native-web",
-      "^.+\\.module\\.(css|sass|scss)$": "identity-obj-proxy"
+      "^.+\\.module\\.(css|sass|scss)$": "identity-obj-proxy",
+      "^react-markdown$": "<rootDir>/src/test-utils/__mocks__/react-markdown.tsx",
+      "^remark-gfm$": "<rootDir>/src/test-utils/__mocks__/remark-gfm.ts",
+      "^echarts(.*)$": "<rootDir>/src/test-utils/__mocks__/echarts-core.ts",
+      "^echarts-for-react$": "<rootDir>/src/test-utils/__mocks__/echarts-for-react.tsx",
+      "^flame-chart-js$": "<rootDir>/src/test-utils/__mocks__/flame-chart-js.ts"
     },
     "moduleFileExtensions": [
       "web.js",

@@ -182,7 +182,7 @@ fun AddToCartButton(
                 appFreezing()
             },
             onDismiss = {
-                showCrashPopup = false
+                showANRPopup = false
             }
         )
     }
