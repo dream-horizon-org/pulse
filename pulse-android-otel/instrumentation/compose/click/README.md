@@ -13,11 +13,11 @@ input pointer events.
 When an Activity becomes active, the instrumentation begins tracking
 its window by registering a callback that receives events.
 
-**Add the dependency** to enable click events. Use configuration to control context enrichment (label/element extraction), which can impact performance.
+**Add the dependency** to enable click events. Use configuration to control context enrichment (label extraction), which can impact performance.
 
 ## Configuration
 
-Add the compose-click dependency to enable click events. Use `captureContext` to control whether labels and element hints are extracted (default: true).
+Add the compose-click dependency to enable click events. Use `captureContext` to control whether labels are extracted (default: true).
 
 ```kotlin
 PulseSDK.INSTANCE.initialize(
@@ -32,7 +32,7 @@ PulseSDK.INSTANCE.initialize(
 }
 ```
 
-When `captureContext` is false, events still emit with tap coordinates and widget identity attributes, but **`app.click.context` is not set** (no label or element string).
+When `captureContext` is false, events still emit with tap coordinates and widget identity attributes, but **`app.click.context` is not set** (no label string).
 
 ## Flow
 
@@ -45,7 +45,6 @@ findTapTarget(decorView, x, y)     ← find ComposeView → findTapTargetNode (L
     ▼
 captureContext?                   ← if false: skip app.click.context; if true:
 getContextFromSemanticsTree(...)  ← or getNodeContext (descendants/ancestors)
-getElementHintForNode(node)        ← image|button|chip from Role/modifier
     │
     ▼
 emit app.widget.click
@@ -69,7 +68,7 @@ This instrumentation produces the following telemetry:
 
 - `app.screen.coordinate.x`, `app.screen.coordinate.y` — tap position
 - `app.widget.id`, `app.widget.name` — semantics identity
-- `app.click.context` — Optional. When `captureContext` is true: `label=X` and/or `element=image|button|chip`, semicolon-separated. Omitted when nothing extractable.
+- `app.click.context` — Optional. When `captureContext` is true: `label=X` when a human-readable label was extracted. Omitted when nothing extractable.
 
 ### Sample payload
 
@@ -77,7 +76,7 @@ This instrumentation produces the following telemetry:
 {
     "name": "app.widget.click",
     "attributes": {
-        "app.click.context": "label=Add to Cart; element=button",
+        "app.click.context": "label=Add to Cart",
         "app.widget.name": "Add to Cart",
         "app.widget.id": "12345",
         "app.screen.coordinate.x": 420,

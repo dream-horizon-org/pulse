@@ -11,12 +11,12 @@ import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConf
 /**
  * Configuration for View click instrumentation context enrichment.
  * Install the view-click dependency to enable click events; use this to control
- * whether labels and element hints are extracted.
+ * whether UI labels are extracted for app.click.context.
  */
 @OpenTelemetryDslMarker
 class ViewClickConfiguration internal constructor() {
     /**
-     * Enable or disable capturing context (label, element hint in app.click.context).
+     * Enable or disable capturing context (human-readable label in app.click.context).
      * Default: true. When false, events still emit with coordinates and widget attributes, but
      * **app.click.context is not set** (no enrichment payload).
      */

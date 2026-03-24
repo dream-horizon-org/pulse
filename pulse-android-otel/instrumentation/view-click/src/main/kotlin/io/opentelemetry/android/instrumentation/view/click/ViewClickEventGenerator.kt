@@ -12,7 +12,6 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
-import android.widget.ImageView
 import android.widget.TextView
 import com.pulse.semconv.PulseAttributes
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
@@ -70,15 +69,14 @@ class ViewClickEventGenerator(
                                 .setAllAttributes(attributes)
                         if (isContextEnrichmentEnabled) {
                             val label = getViewContextLabel(view)
-                            val elementHint = getElementHint(view)
-                            PulseAttributes.AppClickContext.buildContext(label, elementHint)?.let { ctxStr ->
+                            PulseAttributes.AppClickContext.buildContext(label)?.let { ctxStr ->
                                 widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, ctxStr)
                             }
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog context=${label ?: ""} element=${elementHint ?: ""} widgetId=$widgetIdForLog",
+                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog context=${label ?: ""} widgetId=$widgetIdForLog",
                             )
                         } else {
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
@@ -162,22 +160,6 @@ class ViewClickEventGenerator(
     private fun CharSequence?.nonBlankOrNull(): String? {
         val s = this?.toString() ?: return null
         return s.takeIf { it.isNotBlank() }
-    }
-
-    /**
-     * Returns element hint (image, button, chip) when the view type can be inferred.
-     * Uses class name checks to avoid hard Material dependency.
-     */
-    private fun getElementHint(view: View): String? {
-        if (view is ImageView) return PulseAttributes.AppClickContext.ELEMENT_IMAGE
-        val className = view.javaClass.name
-        when {
-            className == "android.widget.Button" ||
-                className.startsWith("androidx.appcompat.widget.AppCompatButton") ||
-                className.startsWith("com.google.android.material.button") -> return PulseAttributes.AppClickContext.ELEMENT_BUTTON
-            className.startsWith("com.google.android.material.chip") -> return PulseAttributes.AppClickContext.ELEMENT_CHIP
-        }
-        return null
     }
 
     /**

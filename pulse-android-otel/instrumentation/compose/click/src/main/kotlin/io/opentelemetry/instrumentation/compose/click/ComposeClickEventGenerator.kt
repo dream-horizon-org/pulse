@@ -72,15 +72,14 @@ internal class ComposeClickEventGenerator(
                             val label =
                                 composeTapTargetDetector.getContextFromSemanticsTree(tapTarget.ownerView, windowX, windowY)
                                     ?: composeTapTargetDetector.getNodeContext(layoutNode)
-                            val elementHint = composeTapTargetDetector.getElementHintForNode(layoutNode)
-                            PulseAttributes.AppClickContext.buildContext(label, elementHint)?.let { ctxStr ->
+                            PulseAttributes.AppClickContext.buildContext(label)?.let { ctxStr ->
                                 widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, ctxStr)
                             }
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog context=${label ?: ""} element=${elementHint ?: ""} widgetId=$widgetIdForLog",
+                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog context=${label ?: ""} widgetId=$widgetIdForLog",
                             )
                         } else {
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()

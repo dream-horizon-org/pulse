@@ -9,12 +9,8 @@ public final class com/pulse/semconv/PulseAttributes {
 }
 
 public final class com/pulse/semconv/PulseAttributes$AppClickContext {
-	public static final field ELEMENT_BUTTON Ljava/lang/String;
-	public static final field ELEMENT_CHIP Ljava/lang/String;
-	public static final field ELEMENT_ICON Ljava/lang/String;
-	public static final field ELEMENT_IMAGE Ljava/lang/String;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$AppClickContext;
-	public static final fun buildContext (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun buildContext (Ljava/lang/String;)Ljava/lang/String;
 }
 
 public final class com/pulse/semconv/PulseAttributes$PulseSdkNames {

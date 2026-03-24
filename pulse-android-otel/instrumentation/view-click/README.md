@@ -9,11 +9,11 @@ input pointer events.
 When an Activity becomes active, the instrumentation begins tracking
 its window by registering a callback that receives events.
 
-**Add the dependency** to enable click events. Use configuration to control context enrichment (label/element extraction), which can impact performance.
+**Add the dependency** to enable click events. Use configuration to control context enrichment (label extraction), which can impact performance.
 
 ## Configuration
 
-Add the view-click dependency to enable click events. Use `captureContext` to control whether labels and element hints are extracted (default: true).
+Add the view-click dependency to enable click events. Use `captureContext` to control whether labels are extracted (default: true).
 
 ```kotlin
 PulseSDK.INSTANCE.initialize(
@@ -28,7 +28,7 @@ PulseSDK.INSTANCE.initialize(
 }
 ```
 
-When `captureContext` is false, events still emit with tap coordinates and widget identity attributes (`app.screen.coordinate.*`, `app.widget.*`), but **`app.click.context` is not set** (no label or element string).
+When `captureContext` is false, events still emit with tap coordinates and widget identity attributes (`app.screen.coordinate.*`, `app.widget.*`), but **`app.click.context` is not set** (no label string).
 
 ## Flow
 
@@ -41,7 +41,6 @@ findTargetForTap(decorView, x, y)  ← hit-test culled BFS (only path to tap)
     ▼
 captureContext?                   ← if false: skip app.click.context; if true:
 getViewContextLabel(view)          ← TextView/EditText/ViewGroup label extraction
-getElementHint(view)               ← image|button|chip
     │
     ▼
 emit app.widget.click
@@ -65,7 +64,7 @@ This instrumentation produces the following telemetry:
 
 - `app.screen.coordinate.x`, `app.screen.coordinate.y` — tap position (window coordinates)
 - `app.widget.id`, `app.widget.name`
-- `app.click.context` — Optional. When `captureContext` is true: `label=X` and/or `element=image|button|chip`, semicolon-separated (e.g. `label=Add to Cart; element=button`). Omitted when nothing extractable.
+- `app.click.context` — Optional. When `captureContext` is true: `label=X` when a human-readable label was extracted. Omitted when nothing extractable.
 
 ### Sample payload
 
@@ -73,7 +72,7 @@ This instrumentation produces the following telemetry:
 {
     "name": "app.widget.click",
     "attributes": {
-        "app.click.context": "label=Add to Cart; element=button",
+        "app.click.context": "label=Add to Cart",
         "app.widget.name": "add_btn",
         "app.widget.id": "2131234567",
         "app.screen.coordinate.x": 420,
@@ -82,7 +81,7 @@ This instrumentation produces the following telemetry:
 }
 ```
 
-Without a label (e.g. clickable view with no extractable text), `app.click.context` may be omitted or contain only `element=…` when the view type is inferred.
+Without a label (e.g. clickable view with no extractable text), `app.click.context` is omitted.
 
 ## Enriching click events
 
@@ -91,8 +90,7 @@ To get readable labels in `app.click.context`, add semantics to your views:
 1. **TextView** — Label is read from `text` automatically.
 2. **Buttons / other views** — Set `android:contentDescription` in XML or `view.contentDescription = "..."` in code.
 3. **Clickable ViewGroup (Card, FrameLayout, etc.)** — Label merges up to 5 segments from contentDescription and descendant TextViews. Truncation happens at segment boundaries (drops segments from end) to avoid cutting mid-word. Max length: 200 chars.
-4. **Clickable ImageView/ImageButton** — Uses contentDescription when present. When absent, no label but `element=image` may be set so analytics know it was an image tap.
-5. **Buttons / Chips** — `element=button` or `element=chip` is added when the view type can be inferred (Button, MaterialButton, Material Chip), to help analytics distinguish tap targets.
+4. **Clickable ImageView/ImageButton** — Uses contentDescription when present. When absent, rely on `app.widget.name` (resource name or id).
 
 Example (XML):
 

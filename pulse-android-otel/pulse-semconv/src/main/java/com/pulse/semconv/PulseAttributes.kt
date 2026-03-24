@@ -30,40 +30,21 @@ public object PulseAttributes {
     public val PROJECT_ID: AttributeKey<String> = stringKey("project.id")
 
     /**
-     * Structured context for a click/tap. Model-readable format:
-     * optional `label=X`, optional `element=image|button|chip` (semicolon-separated).
-     * Set on app.widget.click only. Omitted when nothing extractable.
+     * Structured context for a click/tap. Model-readable format: `label=X` when a human-readable
+     * label was extracted. Set on app.widget.click only. Omitted when nothing extractable.
      */
     @JvmField
     public val APP_CLICK_CONTEXT: AttributeKey<String> = stringKey("app.click.context")
 
     public object AppClickContext {
-        /** Indicates the clicked element is an image (ImageView/ImageButton, Compose Image/Icon). */
-        public const val ELEMENT_IMAGE: String = "image"
-
-        /** Indicates the clicked element is an icon (Compose Icon). Maps to image when Role.Image. */
-        public const val ELEMENT_ICON: String = "icon"
-
-        /** Indicates the clicked element is a button. */
-        public const val ELEMENT_BUTTON: String = "button"
-
-        /** Indicates the clicked element is a chip (Material Chip, FilterChip, etc.). */
-        public const val ELEMENT_CHIP: String = "chip"
-
         /**
-         * Builds `app.click.context` from optional label and element hint.
-         * Examples: `label=Add to Cart; element=button`, `label=Email`, `element=image`.
-         * Returns null when both are empty.
+         * Builds `app.click.context` from an optional UI label.
+         * Example: `label=Add to Cart`. Returns null when blank.
          */
         @JvmStatic
-        public fun buildContext(
-            label: String?,
-            elementHint: String?,
-        ): String? {
-            val parts = mutableListOf<String>()
-            label?.trim()?.takeIf { it.isNotEmpty() }?.let { parts.add("label=$it") }
-            elementHint?.takeIf { it.isNotEmpty() }?.let { parts.add("element=$it") }
-            return if (parts.isEmpty()) null else parts.joinToString("; ")
+        public fun buildContext(label: String?): String? {
+            val trimmed = label?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            return "label=$trimmed"
         }
     }
 

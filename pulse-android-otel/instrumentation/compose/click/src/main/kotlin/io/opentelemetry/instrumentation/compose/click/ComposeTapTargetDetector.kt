@@ -14,13 +14,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.node.LayoutNode
 import androidx.compose.ui.node.Owner
 import androidx.compose.ui.node.RootForTest
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsModifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
-import com.pulse.semconv.PulseAttributes
 import java.util.LinkedList
 import kotlin.sequences.generateSequence
 
@@ -38,38 +36,6 @@ internal class ComposeTapTargetDetector(
             getNodeName(node) ?: node.semanticsId.toString()
         } catch (_: Throwable) {
             node.semanticsId.toString()
-        }
-
-    /**
-     * Returns element hint (image, button, chip) when the composable type can be inferred from
-     * semantics Role or modifier class names.
-     */
-    fun getElementHintForNode(node: LayoutNode): String? =
-        try {
-            var roleHint: String? = null
-            var hasChipModifier = false
-            for (info in node.getModifierInfo()) {
-                val modifier = info.modifier
-                if (modifier is SemanticsModifier) {
-                    modifier.semanticsConfiguration.getOrNull(SemanticsProperties.Role)?.let { role ->
-                        roleHint =
-                            when (role) {
-                                Role.Image -> PulseAttributes.AppClickContext.ELEMENT_IMAGE
-                                Role.Button -> PulseAttributes.AppClickContext.ELEMENT_BUTTON
-                                else -> roleHint
-                            }
-                    }
-                }
-                val className = modifier::class.qualifiedName.orEmpty()
-                if (className.contains("Chip")) hasChipModifier = true
-            }
-            when {
-                hasChipModifier -> PulseAttributes.AppClickContext.ELEMENT_CHIP
-                roleHint != null -> roleHint
-                else -> null
-            }
-        } catch (_: Throwable) {
-            null
         }
 
     /**
