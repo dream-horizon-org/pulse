@@ -16,7 +16,8 @@ import io.opentelemetry.android.instrumentation.UnwrappableWindowCallback
 internal class WindowCallbackWrapper(
     private val callback: Callback,
     private val composeClickEventGenerator: ComposeClickEventGenerator,
-) : UnwrappableWindowCallback, Callback by callback {
+) : UnwrappableWindowCallback,
+    Callback by callback {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         composeClickEventGenerator.generateClick(event)
         return callback.dispatchTouchEvent(event)

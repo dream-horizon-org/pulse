@@ -42,28 +42,40 @@ public object PulseAttributes {
         public const val TYPE_WIDGET: String = "widget"
         public const val SOURCE_VIEW: String = "view"
         public const val SOURCE_COMPOSE: String = "compose"
+
         /** Indicates the clicked element is an image (ImageView/ImageButton, Compose Image/Icon). */
         public const val ELEMENT_IMAGE: String = "image"
+
         /** Indicates the clicked element is an icon (Compose Icon). Maps to image when Role.Image. */
         public const val ELEMENT_ICON: String = "icon"
+
         /** Indicates the clicked element is a button. */
         public const val ELEMENT_BUTTON: String = "button"
+
         /** Indicates the clicked element is a chip (Material Chip, FilterChip, etc.). */
         public const val ELEMENT_CHIP: String = "chip"
 
         /** Builds structured context string when label is available. */
         @JvmStatic
-        public fun build(label: String, type: String, source: String): String =
-            "label=$label; type=$type; source=$source"
+        public fun build(
+            label: String,
+            type: String,
+            source: String,
+        ): String = "label=$label; type=$type; source=$source"
 
         /** Builds structured context string when label is not available (type+source only). */
         @JvmStatic
-        public fun build(type: String, source: String): String = "type=$type; source=$source"
+        public fun build(
+            type: String,
+            source: String,
+        ): String = "type=$type; source=$source"
 
         /** Appends optional element hint (e.g. element=image) to the context string. */
         @JvmStatic
-        public fun withElement(context: String, element: String): String =
-            "$context; element=$element"
+        public fun withElement(
+            context: String,
+            element: String,
+        ): String = "$context; element=$element"
     }
 
     public object PulseSdkNames {

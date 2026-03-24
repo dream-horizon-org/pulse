@@ -8,7 +8,6 @@
 package io.opentelemetry.instrumentation.compose.click
 
 import android.view.View
-import com.pulse.semconv.PulseAttributes
 import android.view.ViewGroup
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -21,11 +20,15 @@ import androidx.compose.ui.semantics.SemanticsModifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
+import com.pulse.semconv.PulseAttributes
 import java.util.LinkedList
 import kotlin.sequences.generateSequence
 
 /** Result of finding a tap target, includes the LayoutNode and the Owner view for semantics lookup. */
-internal data class TapTarget(val node: LayoutNode, val ownerView: View)
+internal data class TapTarget(
+    val node: LayoutNode,
+    val ownerView: View,
+)
 
 internal class ComposeTapTargetDetector(
     private val composeLayoutNodeUtil: ComposeLayoutNodeUtil,
@@ -49,11 +52,12 @@ internal class ComposeTapTargetDetector(
                 val modifier = info.modifier
                 if (modifier is SemanticsModifier) {
                     modifier.semanticsConfiguration.getOrNull(SemanticsProperties.Role)?.let { role ->
-                        roleHint = when (role) {
-                            Role.Image -> PulseAttributes.AppClickContext.ELEMENT_IMAGE
-                            Role.Button -> PulseAttributes.AppClickContext.ELEMENT_BUTTON
-                            else -> roleHint
-                        }
+                        roleHint =
+                            when (role) {
+                                Role.Image -> PulseAttributes.AppClickContext.ELEMENT_IMAGE
+                                Role.Button -> PulseAttributes.AppClickContext.ELEMENT_BUTTON
+                                else -> roleHint
+                            }
                     }
                 }
                 val className = modifier::class.qualifiedName ?: ""
@@ -137,7 +141,11 @@ internal class ComposeTapTargetDetector(
      * The semantics tree has merged accessibility labels (e.g. Button's ContentDescription from Text child).
      * This is more reliable than LayoutNode traversal for Material3 Button/Card.
      */
-    fun getContextFromSemanticsTree(ownerView: View, x: Float, y: Float): String? {
+    fun getContextFromSemanticsTree(
+        ownerView: View,
+        x: Float,
+        y: Float,
+    ): String? {
         return try {
             val semanticsOwner = (ownerView as? RootForTest)?.semanticsOwner ?: return null
             val semanticsNodes = semanticsOwner.getAllSemanticsNodes(mergingEnabled = true)
@@ -155,11 +163,25 @@ internal class ComposeTapTargetDetector(
 
     private fun extractLabelFromSemanticsNode(node: androidx.compose.ui.semantics.SemanticsNode): String? {
         val config = node.config
-        config.getOrNull(SemanticsActions.OnClick)?.label?.takeIf { it.isNotBlank() }?.let { return it }
-        config.getOrNull(SemanticsProperties.ContentDescription)?.firstOrNull()?.toString()?.trim()
-            ?.takeIf { it.isNotBlank() }?.let { return it }
-        config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.toString()?.trim()
-            ?.takeIf { it.isNotBlank() }?.let { return it }
+        config
+            .getOrNull(SemanticsActions.OnClick)
+            ?.label
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+        config
+            .getOrNull(SemanticsProperties.ContentDescription)
+            ?.firstOrNull()
+            ?.toString()
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+        config
+            .getOrNull(SemanticsProperties.Text)
+            ?.firstOrNull()
+            ?.toString()
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
         return null
     }
 

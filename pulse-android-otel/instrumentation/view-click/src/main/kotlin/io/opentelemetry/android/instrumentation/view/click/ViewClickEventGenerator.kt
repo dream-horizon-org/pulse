@@ -15,9 +15,9 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import com.pulse.semconv.PulseAttributes
+import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.view.click.internal.APP_SCREEN_CLICK_EVENT_NAME
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
-import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
@@ -63,36 +63,56 @@ class ViewClickEventGenerator(
                 if (distanceSq > touchSlopPx * touchSlopPx) return // scroll: movement exceeds touch slop
                 windowRef?.get()?.let { window ->
                     findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
-                    val attributes = createViewAttributes(view)
-                    // Only emit screen click when we own this screen (View-based); avoids duplicate
-                    // app.screen.click when both View and Compose instrumentations are active
-                    val screenClickRecord = createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                        .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
-                        .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
-                    val widgetClickRecord = createEvent(VIEW_CLICK_EVENT_NAME)
-                        .setAllAttributes(attributes)
-                    if (contextEnrichmentEnabled) {
-                        val ctx = PulseAttributes.AppClickContext
-                        val label = getViewContextLabel(view)
-                        val elementHint = getElementHint(view)
-                        val baseScreenContext = label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_VIEW) }
-                            ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_VIEW)
-                        val baseWidgetContext = label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_VIEW) }
-                            ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_VIEW)
-                        val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
-                        val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
-                        screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
-                        widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
-                        Log.d(CLICK_LOG_TAG, "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext")
-                        Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}")
-                    } else {
-                        Log.d(CLICK_LOG_TAG, "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} (no app.click.context)")
-                        Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)")
+                        val attributes = createViewAttributes(view)
+                        // Only emit screen click when we own this screen (View-based); avoids duplicate
+                        // app.screen.click when both View and Compose instrumentations are active
+                        val screenClickRecord =
+                            createEvent(APP_SCREEN_CLICK_EVENT_NAME)
+                                .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
+                                .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
+                        val widgetClickRecord =
+                            createEvent(VIEW_CLICK_EVENT_NAME)
+                                .setAllAttributes(attributes)
+                        if (contextEnrichmentEnabled) {
+                            val ctx = PulseAttributes.AppClickContext
+                            val label = getViewContextLabel(view)
+                            val elementHint = getElementHint(view)
+                            val baseScreenContext =
+                                label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_VIEW) }
+                                    ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_VIEW)
+                            val baseWidgetContext =
+                                label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_VIEW) }
+                                    ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_VIEW)
+                            val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
+                            val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
+                            screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
+                            widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                            Log.d(
+                                CLICK_LOG_TAG,
+                                "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext",
+                            )
+                            Log.d(
+                                CLICK_LOG_TAG,
+                                "app.widget.click: name=${attributes.get(
+                                    APP_WIDGET_NAME,
+                                )} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}",
+                            )
+                        } else {
+                            Log.d(
+                                CLICK_LOG_TAG,
+                                "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} (no app.click.context)",
+                            )
+                            Log.d(
+                                CLICK_LOG_TAG,
+                                "app.widget.click: name=${attributes.get(
+                                    APP_WIDGET_NAME,
+                                )} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)",
+                            )
+                        }
+                        screenClickRecord.emit()
+                        widgetClickRecord.emit()
                     }
-                    screenClickRecord.emit()
-                    widgetClickRecord.emit()
                 }
-            }
             }
             MotionEvent.ACTION_CANCEL -> hasValidDown = false
         }
@@ -148,14 +168,15 @@ class ViewClickEventGenerator(
      */
     private fun getLabelFromView(view: View): String? =
         when {
-            view is EditText -> view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
-                ?: view.hint?.toString()?.takeIf { it.isNotBlank() }
-            else -> (view as? TextView)?.text?.toString()?.takeIf { it.isNotBlank() }
-                ?: view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+            view is EditText ->
+                view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+                    ?: view.hint?.toString()?.takeIf { it.isNotBlank() }
+            else ->
+                (view as? TextView)?.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
         }
 
-    private fun isImageViewOrImageButton(view: View): Boolean =
-        view is ImageView
+    private fun isImageViewOrImageButton(view: View): Boolean = view is ImageView
 
     /**
      * Returns element hint (image, button, chip) when the view type can be inferred.
@@ -195,7 +216,10 @@ class ViewClickEventGenerator(
      * Truncates by dropping whole segments from the end until under maxLength.
      * Avoids cutting mid-word or mid-segment (e.g. "Match: Ayodhya... | Ayodhya Pr").
      */
-    private fun trimSegmentsToMaxLength(segments: List<String>, maxLength: Int): String? {
+    private fun trimSegmentsToMaxLength(
+        segments: List<String>,
+        maxLength: Int,
+    ): String? {
         if (segments.isEmpty()) return null
         var result = segments.joinToString(CARD_LABEL_DELIMITER)
         if (result.length <= maxLength) return result

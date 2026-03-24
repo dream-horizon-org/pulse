@@ -15,7 +15,6 @@ import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConf
  */
 @OpenTelemetryDslMarker
 class ViewClickConfiguration internal constructor() {
-
     /**
      * Enable or disable capturing context (label, element hint in app.click.context).
      * Default: true. When false, events still emit with coordinates and widget attributes, but

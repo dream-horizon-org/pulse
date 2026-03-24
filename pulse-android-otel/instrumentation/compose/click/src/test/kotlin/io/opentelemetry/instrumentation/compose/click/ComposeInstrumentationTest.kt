@@ -168,7 +168,11 @@ internal class ComposeInstrumentationTest {
         upEvent.recycle()
     }
 
-    private fun dispatchDownThenUp(wrapper: WindowCallbackWrapper, x: Float, y: Float): MotionEvent {
+    private fun dispatchDownThenUp(
+        wrapper: WindowCallbackWrapper,
+        x: Float,
+        y: Float,
+    ): MotionEvent {
         val down = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0)
         val up =
             MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)

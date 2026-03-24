@@ -61,37 +61,52 @@ internal class ComposeClickEventGenerator(
                 windowRef?.get()?.let { window ->
                     val (windowX, windowY) = motionEventToWindowCoordinates(window.decorView, motionEvent)
                     composeTapTargetDetector.findTapTarget(window.decorView, windowX, windowY)?.let { tapTarget ->
-                    // Only emit screen click when we own this screen (Compose-based); avoids duplicate
-                    // app.screen.click when both View and Compose instrumentations are active
-                    val layoutNode = tapTarget.node
-                    val attributes = createNodeAttributes(layoutNode)
-                    val screenClickRecord = createEvent(APP_SCREEN_CLICK_EVENT_NAME)
-                        .setAttribute(APP_SCREEN_COORDINATE_X, windowX.toLong())
-                        .setAttribute(APP_SCREEN_COORDINATE_Y, windowY.toLong())
-                    val widgetClickRecord = createEvent(VIEW_CLICK_EVENT_NAME)
-                        .setAllAttributes(attributes)
-                    if (contextEnrichmentEnabled) {
-                        val ctx = PulseAttributes.AppClickContext
-                        val label = composeTapTargetDetector.getContextFromSemanticsTree(tapTarget.ownerView, windowX, windowY)
-                            ?: composeTapTargetDetector.getNodeContext(layoutNode)
-                        val elementHint = composeTapTargetDetector.getElementHintForNode(layoutNode)
-                        val baseScreenContext = label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_COMPOSE) }
-                            ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_COMPOSE)
-                        val baseWidgetContext = label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_COMPOSE) }
-                            ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_COMPOSE)
-                        val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
-                        val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
-                        screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
-                        widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
-                        Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY context=$screenContext")
-                        Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}")
-                    } else {
-                        Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY (no app.click.context)")
-                        Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)")
+                        // Only emit screen click when we own this screen (Compose-based); avoids duplicate
+                        // app.screen.click when both View and Compose instrumentations are active
+                        val layoutNode = tapTarget.node
+                        val attributes = createNodeAttributes(layoutNode)
+                        val screenClickRecord =
+                            createEvent(APP_SCREEN_CLICK_EVENT_NAME)
+                                .setAttribute(APP_SCREEN_COORDINATE_X, windowX.toLong())
+                                .setAttribute(APP_SCREEN_COORDINATE_Y, windowY.toLong())
+                        val widgetClickRecord =
+                            createEvent(VIEW_CLICK_EVENT_NAME)
+                                .setAllAttributes(attributes)
+                        if (contextEnrichmentEnabled) {
+                            val ctx = PulseAttributes.AppClickContext
+                            val label =
+                                composeTapTargetDetector.getContextFromSemanticsTree(tapTarget.ownerView, windowX, windowY)
+                                    ?: composeTapTargetDetector.getNodeContext(layoutNode)
+                            val elementHint = composeTapTargetDetector.getElementHintForNode(layoutNode)
+                            val baseScreenContext =
+                                label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_COMPOSE) }
+                                    ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_COMPOSE)
+                            val baseWidgetContext =
+                                label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_COMPOSE) }
+                                    ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_COMPOSE)
+                            val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
+                            val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
+                            screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
+                            widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                            Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY context=$screenContext")
+                            Log.d(
+                                CLICK_LOG_TAG,
+                                "app.widget.click: name=${attributes.get(
+                                    APP_WIDGET_NAME,
+                                )} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}",
+                            )
+                        } else {
+                            Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY (no app.click.context)")
+                            Log.d(
+                                CLICK_LOG_TAG,
+                                "app.widget.click: name=${attributes.get(
+                                    APP_WIDGET_NAME,
+                                )} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)",
+                            )
+                        }
+                        screenClickRecord.emit()
+                        widgetClickRecord.emit()
                     }
-                    screenClickRecord.emit()
-                    widgetClickRecord.emit()
-                }
                 }
             }
             MotionEvent.ACTION_CANCEL -> hasValidDown = false
@@ -103,7 +118,10 @@ internal class ComposeClickEventGenerator(
      * getX/getY are view-relative; boundsInWindow uses window space. Using raw screen coords
      * and subtracting the decor view's screen position yields consistent window coordinates.
      */
-    private fun motionEventToWindowCoordinates(decorView: View, event: MotionEvent): Pair<Float, Float> {
+    private fun motionEventToWindowCoordinates(
+        decorView: View,
+        event: MotionEvent,
+    ): Pair<Float, Float> {
         val location = IntArray(2)
         decorView.getLocationOnScreen(location)
         return event.rawX - location[0] to event.rawY - location[1]
