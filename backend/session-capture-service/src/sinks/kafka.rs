@@ -241,7 +241,5 @@ impl sinks::Event for KafkaSink {
                 }
             }
         }
-        // self.producer.send(record, Timeout::Never);
-        // Ok(())
     }
 }
