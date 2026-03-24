@@ -81,7 +81,7 @@ class InstrumentationConfiguration(
 
     /**
      * View-based click instrumentation. Add the view-click dependency to enable. Use
-     * contextEnrichmentEnabled to control label/element extraction (performance).
+     * [ViewClickConfiguration.captureContext] to control label/element extraction (performance).
      */
     fun viewClick(configure: ViewClickConfiguration.() -> Unit) {
         viewClick.configure()
@@ -89,7 +89,7 @@ class InstrumentationConfiguration(
 
     /**
      * Compose click instrumentation. Add the compose-click dependency to enable. Use
-     * contextEnrichmentEnabled to control label/element extraction (performance).
+     * [ComposeClickConfiguration.captureContext] to control label/element extraction (performance).
      */
     fun composeClick(configure: ComposeClickConfiguration.() -> Unit) {
         composeClick.configure()

@@ -60,7 +60,7 @@ internal class ComposeTapTargetDetector(
                             }
                     }
                 }
-                val className = modifier::class.qualifiedName ?: ""
+                val className = modifier::class.qualifiedName.orEmpty()
                 if (className.contains("Chip")) hasChipModifier = true
             }
             when {

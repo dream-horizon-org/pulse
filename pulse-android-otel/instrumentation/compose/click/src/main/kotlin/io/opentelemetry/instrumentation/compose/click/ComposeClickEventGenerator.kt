@@ -27,7 +27,7 @@ import kotlin.let
 
 internal class ComposeClickEventGenerator(
     private val eventLogger: Logger,
-    private val contextEnrichmentEnabled: Boolean = true,
+    private val isContextEnrichmentEnabled: Boolean = true,
     private val composeLayoutNodeUtil: ComposeLayoutNodeUtil = ComposeLayoutNodeUtil(),
     private val composeTapTargetDetector: ComposeTapTargetDetector = ComposeTapTargetDetector(composeLayoutNodeUtil),
 ) {
@@ -72,7 +72,7 @@ internal class ComposeClickEventGenerator(
                         val widgetClickRecord =
                             createEvent(VIEW_CLICK_EVENT_NAME)
                                 .setAllAttributes(attributes)
-                        if (contextEnrichmentEnabled) {
+                        if (isContextEnrichmentEnabled) {
                             val ctx = PulseAttributes.AppClickContext
                             val label =
                                 composeTapTargetDetector.getContextFromSemanticsTree(tapTarget.ownerView, windowX, windowY)
@@ -88,20 +88,20 @@ internal class ComposeClickEventGenerator(
                             val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
                             screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
                             widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
+                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY context=$screenContext")
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: name=${attributes.get(
-                                    APP_WIDGET_NAME,
-                                )} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}",
+                                "app.widget.click: name=$widgetNameForLog context=$widgetContext widgetId=$widgetIdForLog",
                             )
                         } else {
+                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
+                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(CLICK_LOG_TAG, "app.screen.click: x=$windowX y=$windowY (no app.click.context)")
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: name=${attributes.get(
-                                    APP_WIDGET_NAME,
-                                )} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)",
+                                "app.widget.click: name=$widgetNameForLog widgetId=$widgetIdForLog (no app.click.context)",
                             )
                         }
                         screenClickRecord.emit()

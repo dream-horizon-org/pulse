@@ -30,7 +30,7 @@ import java.util.LinkedList
 
 class ViewClickEventGenerator(
     private val eventLogger: Logger,
-    private val contextEnrichmentEnabled: Boolean = true,
+    private val isContextEnrichmentEnabled: Boolean = true,
 ) {
     private var windowRef: WeakReference<Window>? = null
     private var touchSlopPx: Int = 0
@@ -73,7 +73,7 @@ class ViewClickEventGenerator(
                         val widgetClickRecord =
                             createEvent(VIEW_CLICK_EVENT_NAME)
                                 .setAllAttributes(attributes)
-                        if (contextEnrichmentEnabled) {
+                        if (isContextEnrichmentEnabled) {
                             val ctx = PulseAttributes.AppClickContext
                             val label = getViewContextLabel(view)
                             val elementHint = getElementHint(view)
@@ -87,26 +87,26 @@ class ViewClickEventGenerator(
                             val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
                             screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
                             widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
+                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
                                 "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext",
                             )
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: name=${attributes.get(
-                                    APP_WIDGET_NAME,
-                                )} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}",
+                                "app.widget.click: name=$widgetNameForLog context=$widgetContext widgetId=$widgetIdForLog",
                             )
                         } else {
+                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
+                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
                                 "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} (no app.click.context)",
                             )
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: name=${attributes.get(
-                                    APP_WIDGET_NAME,
-                                )} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)",
+                                "app.widget.click: name=$widgetNameForLog widgetId=$widgetIdForLog (no app.click.context)",
                             )
                         }
                         screenClickRecord.emit()
@@ -171,14 +171,17 @@ class ViewClickEventGenerator(
      */
     private fun getLabelFromView(view: View): String? =
         if (view is EditText) {
-            view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
-                ?: view.hint?.toString()?.takeIf { it.isNotBlank() }
+            view.contentDescription.nonBlankOrNull()
+                ?: view.hint.nonBlankOrNull()
         } else {
-            (view as? TextView)?.text?.toString()?.takeIf { it.isNotBlank() }
-                ?: view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+            (view as? TextView)?.text.nonBlankOrNull()
+                ?: view.contentDescription.nonBlankOrNull()
         }
 
-    private fun isImageViewOrImageButton(view: View): Boolean = view is ImageView
+    private fun CharSequence?.nonBlankOrNull(): String? {
+        val s = this?.toString() ?: return null
+        return s.takeIf { it.isNotBlank() }
+    }
 
     /**
      * Returns element hint (image, button, chip) when the view type can be inferred.
@@ -223,7 +226,7 @@ class ViewClickEventGenerator(
         maxLength: Int,
     ): String? {
         if (segments.isEmpty()) return null
-        var result = segments.joinToString(CARD_LABEL_DELIMITER)
+        val result = segments.joinToString(CARD_LABEL_DELIMITER)
         if (result.length <= maxLength) return result
         var dropFrom = segments.size
         while (dropFrom > 1) {

@@ -81,7 +81,7 @@ internal class ComposeClickEventGeneratorTest {
                 openTelemetryRule.openTelemetry.logsBridge
                     .loggerBuilder("io.opentelemetry.android.instrumentation.compose")
                     .build(),
-                contextEnrichmentEnabled = true,
+                isContextEnrichmentEnabled = true,
                 composeLayoutNodeUtil = composeLayoutNodeUtil,
             )
 
@@ -219,7 +219,7 @@ internal class ComposeClickEventGeneratorTest {
                 localRule.openTelemetry.logsBridge
                     .loggerBuilder("io.opentelemetry.android.instrumentation.compose")
                     .build(),
-                contextEnrichmentEnabled = false,
+                isContextEnrichmentEnabled = false,
                 composeLayoutNodeUtil = composeLayoutNodeUtil,
             )
         every { window.callback } returns callback
