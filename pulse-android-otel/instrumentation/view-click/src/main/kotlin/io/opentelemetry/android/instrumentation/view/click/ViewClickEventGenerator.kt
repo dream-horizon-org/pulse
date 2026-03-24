@@ -114,7 +114,9 @@ class ViewClickEventGenerator(
                     }
                 }
             }
-            MotionEvent.ACTION_CANCEL -> hasValidDown = false
+            MotionEvent.ACTION_CANCEL -> {
+                hasValidDown = false
+            }
         }
     }
 
@@ -154,9 +156,10 @@ class ViewClickEventGenerator(
      */
     private fun getViewContextLabel(view: View): String? =
         try {
-            when {
-                view is ViewGroup -> getLabelFromCard(view)
-                else -> getLabelFromView(view)
+            if (view is ViewGroup) {
+                getLabelFromCard(view)
+            } else {
+                getLabelFromView(view)
             }
         } catch (_: Throwable) {
             null
@@ -167,13 +170,12 @@ class ViewClickEventGenerator(
      * For other TextViews: use text, then contentDescription.
      */
     private fun getLabelFromView(view: View): String? =
-        when {
-            view is EditText ->
-                view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
-                    ?: view.hint?.toString()?.takeIf { it.isNotBlank() }
-            else ->
-                (view as? TextView)?.text?.toString()?.takeIf { it.isNotBlank() }
-                    ?: view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+        if (view is EditText) {
+            view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+                ?: view.hint?.toString()?.takeIf { it.isNotBlank() }
+        } else {
+            (view as? TextView)?.text?.toString()?.takeIf { it.isNotBlank() }
+                ?: view.contentDescription?.toString()?.takeIf { it.isNotBlank() }
         }
 
     private fun isImageViewOrImageButton(view: View): Boolean = view is ImageView

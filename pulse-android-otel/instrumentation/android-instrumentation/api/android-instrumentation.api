@@ -38,6 +38,21 @@ public final class io/opentelemetry/android/instrumentation/InstallationContext 
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class io/opentelemetry/android/instrumentation/UnwrappableWindowCallback : android/view/Window$Callback {
+	public abstract fun unwrap ()Landroid/view/Window$Callback;
+}
+
+public final class io/opentelemetry/android/instrumentation/WindowCallbackUnwrap {
+	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/WindowCallbackUnwrap;
+	public static final fun fullyUnwrap (Landroid/view/Window$Callback;)Landroid/view/Window$Callback;
+}
+
+public final class io/opentelemetry/android/instrumentation/click/ClickContextEnrichmentConfig {
+	public static final field INSTANCE Lio/opentelemetry/android/instrumentation/click/ClickContextEnrichmentConfig;
+	public static field composeClickContextEnrichmentEnabled Z
+	public static field viewClickContextEnrichmentEnabled Z
+}
+
 public final class io/opentelemetry/android/instrumentation/internal/AndroidInstrumentationLoaderImpl : io/opentelemetry/android/instrumentation/AndroidInstrumentationLoader {
 	public fun <init> ()V
 	public fun getAll ()Ljava/util/Collection;

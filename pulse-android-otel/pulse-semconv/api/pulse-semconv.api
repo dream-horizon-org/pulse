@@ -1,10 +1,26 @@
 public final class com/pulse/semconv/PulseAttributes {
+	public static final field APP_CLICK_CONTEXT Lio/opentelemetry/api/common/AttributeKey;
 	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes;
 	public static final field PROJECT_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_NAME Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_SPAN_ID Lio/opentelemetry/api/common/AttributeKey;
 	public static final field PULSE_TYPE Lio/opentelemetry/api/common/AttributeKey;
 	public static final field TELEMETRY_SDK_NAME_KEY Lio/opentelemetry/api/common/AttributeKey;
+}
+
+public final class com/pulse/semconv/PulseAttributes$AppClickContext {
+	public static final field ELEMENT_BUTTON Ljava/lang/String;
+	public static final field ELEMENT_CHIP Ljava/lang/String;
+	public static final field ELEMENT_ICON Ljava/lang/String;
+	public static final field ELEMENT_IMAGE Ljava/lang/String;
+	public static final field INSTANCE Lcom/pulse/semconv/PulseAttributes$AppClickContext;
+	public static final field SOURCE_COMPOSE Ljava/lang/String;
+	public static final field SOURCE_VIEW Ljava/lang/String;
+	public static final field TYPE_SCREEN Ljava/lang/String;
+	public static final field TYPE_WIDGET Ljava/lang/String;
+	public static final fun build (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun build (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun withElement (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 }
 
 public final class com/pulse/semconv/PulseAttributes$PulseSdkNames {

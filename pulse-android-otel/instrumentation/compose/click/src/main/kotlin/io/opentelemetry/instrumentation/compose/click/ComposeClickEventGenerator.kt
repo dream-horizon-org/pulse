@@ -109,7 +109,9 @@ internal class ComposeClickEventGenerator(
                     }
                 }
             }
-            MotionEvent.ACTION_CANCEL -> hasValidDown = false
+            MotionEvent.ACTION_CANCEL -> {
+                hasValidDown = false
+            }
         }
     }
 
