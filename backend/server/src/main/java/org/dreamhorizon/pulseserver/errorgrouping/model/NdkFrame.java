@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.errorgrouping.model;
 import static org.dreamhorizon.pulseserver.errorgrouping.FramesParser.NDK_INAPP_LIBS;
 
 import lombok.Builder;
+import org.dreamhorizon.pulseserver.errorgrouping.apple.AppleCrashReportParser;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -27,7 +28,7 @@ public class NdkFrame extends Frame {
     this.lane = resolvedLane;
     this.token = String.join("#", ndkLib, ndkSymbol == null ? "addr" : ndkSymbol);
     if (resolvedLane == Lane.IOS_NATIVE && iosAppBinaryName != null) {
-      this.inApp = iosAppBinaryName.equals(ndkLib);
+      this.inApp = AppleCrashReportParser.frameImageMatchesProcess(iosAppBinaryName, ndkLib);
     } else {
       this.inApp = NDK_INAPP_LIBS.contains(ndkLib);
     }

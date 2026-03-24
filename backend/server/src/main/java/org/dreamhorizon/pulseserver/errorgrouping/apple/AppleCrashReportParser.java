@@ -73,4 +73,35 @@ public class AppleCrashReportParser {
     }
     return Long.parseUnsignedLong(s, 16);
   }
+
+  /**
+   * Whether a crashed-thread frame image matches the {@code Process:} binary name.
+   * Reports often use {@code Foo.debug.dylib} or a path in the frame column while {@code Process:} is {@code Foo}.
+   */
+  public static boolean frameImageMatchesProcess(String processName, String frameImage) {
+    if (processName == null || frameImage == null || processName.isEmpty() || frameImage.isEmpty()) {
+      return false;
+    }
+    if ("(null)".equalsIgnoreCase(frameImage.trim())) {
+      return false;
+    }
+    if (processName.equals(frameImage)) {
+      return true;
+    }
+    String img = frameImage;
+    int slash = img.lastIndexOf('/');
+    if (slash >= 0) {
+      img = img.substring(slash + 1);
+    }
+    if (processName.equals(img)) {
+      return true;
+    }
+    if (img.equals(processName + ".debug.dylib")) {
+      return true;
+    }
+    if (img.startsWith(processName + ".") && img.endsWith(".dylib")) {
+      return true;
+    }
+    return false;
+  }
 }

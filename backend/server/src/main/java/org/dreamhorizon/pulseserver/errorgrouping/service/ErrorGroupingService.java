@@ -54,6 +54,7 @@ public class ErrorGroupingService {
   private final ClickhouseQueryService clickhouseQueryService;
   private final Symbolicator symbolicator;
   private final ObjectMapper objectMapper = new ObjectMapper();
+  public static final String LOG_PREFIX = "[PULSE ERROR GROUPING SERVICE]";
 
   public static String traceIdHex(ByteString bs) {
     if (bs == null || bs.isEmpty()) {
@@ -425,6 +426,20 @@ public class ErrorGroupingService {
 
     // Choose primary lane for grouping
     Lane primary = choosePrimary(parsedFrames);
+    log.info(
+        "{} parsed primaryLane={} frameCounts js={} java={} ndk={} iosNative={} projectId={} appVersion={} "
+            + "versionCode={} platform={} bundleId={}",
+        LOG_PREFIX,
+        primary,
+        parsedFrames.getJsFrames().size(),
+        parsedFrames.getJavaFrames().size(),
+        parsedFrames.getNdkFrames().size(),
+        parsedFrames.getIosNativeFrames().size(),
+        meta.getProjectId(),
+        meta.getAppVersion(),
+        meta.getAppVersionCode(),
+        meta.getPlatform(),
+        meta.getBundleId());
     List<String> excTypes = typesForPrimary(parsedFrames, primary);
     List<Frame> primaryFrames = selectPrimaryTokens(parsedFrames, primary, TOP_N_FRAMES);
 
