@@ -840,7 +840,7 @@ CREATE TABLE IF NOT EXISTS email_suppression_list (
 
 -- ============================================================================
 -- RCA REPORT CACHE (AI-generated report per project / interaction / date)
--- TTL enforced in application (e.g. 24h); table stores latest report per key.
+-- Staleness: user-driven regenerate in app; table stores latest report per key.
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS rca_report_cache (
     project_id VARCHAR(64) NOT NULL,

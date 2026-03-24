@@ -13,7 +13,6 @@ import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 
 @Slf4j
@@ -22,17 +21,12 @@ import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 public class RcaReportCacheDao {
 
   private final MysqlClient mysqlClient;
-  private final RootCauseConfig rootCauseConfig;
 
-  /**
-   * Returns the cached report body if present and not expired. TTL matches
-   * {@link RootCauseConfig#getCacheTtlHours()} (same as ClickHouse root-cause cache).
-   */
+  /** Returns the cached report body if present for the key (no time-based expiry). */
   public Maybe<RcaReportCacheHit> get(String projectId, String interactionName, LocalDate date) {
-    int cacheTtlHours = rootCauseConfig.getCacheTtlHours();
     return mysqlClient.getReaderPool()
-        .preparedQuery(RcaReportCacheQueries.GET_VALID)
-        .rxExecute(Tuple.of(projectId, interactionName, date, cacheTtlHours))
+        .preparedQuery(RcaReportCacheQueries.GET_BY_KEY)
+        .rxExecute(Tuple.of(projectId, interactionName, date))
         .flatMapMaybe(rows -> {
           if (rows.size() == 0) {
             return Maybe.empty();

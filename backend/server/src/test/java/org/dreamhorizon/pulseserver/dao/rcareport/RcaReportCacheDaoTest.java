@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
-import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,9 +41,6 @@ class RcaReportCacheDaoTest {
   private MysqlClient mysqlClient;
 
   @Mock
-  private RootCauseConfig rootCauseConfig;
-
-  @Mock
   private MySQLPool readerPool;
 
   @Mock
@@ -60,8 +56,7 @@ class RcaReportCacheDaoTest {
 
   @BeforeEach
   void setUp() {
-    when(rootCauseConfig.getCacheTtlHours()).thenReturn(24);
-    dao = new RcaReportCacheDao(mysqlClient, rootCauseConfig);
+    dao = new RcaReportCacheDao(mysqlClient);
   }
 
   private void setupReader() {

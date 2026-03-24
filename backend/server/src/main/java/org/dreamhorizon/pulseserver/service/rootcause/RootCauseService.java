@@ -6,7 +6,6 @@ import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,23 +43,33 @@ public class RootCauseService {
   private final ObjectMapperUtil objectMapper;
 
   /**
-   * Returns root cause analysis for the interaction. Read-through cache; computes on miss/expiry.
+   * Returns root cause analysis for the interaction. Read-through persistence in ClickHouse;
+   * computes on miss. Use {@link #getRootCause(String, String, LocalDate, boolean)} with
+   * {@code forceRefresh true} to recompute and replace the stored row.
    */
   public Single<RootCauseResult> getRootCause(String projectId, String interactionName, LocalDate date) {
-    RootCauseQueryBuilder.Window window = new RootCauseQueryBuilder.Window(date, config.getLookbackDays());
-    long ttlHours = config.getCacheTtlHours();
+    return getRootCause(projectId, interactionName, date, false);
+  }
 
+  /**
+   * @param forceRefresh when true, skips reading {@code root_cause_cache} and recomputes
+   */
+  public Single<RootCauseResult> getRootCause(
+      String projectId,
+      String interactionName,
+      LocalDate date,
+      boolean forceRefresh
+  ) {
+    RootCauseQueryBuilder.Window window = new RootCauseQueryBuilder.Window(date, config.getLookbackDays());
+    if (forceRefresh) {
+      return computeAndCache(projectId, interactionName, date, window);
+    }
     return cacheDao.findByKey(projectId, interactionName, date)
         .flatMap(opt -> {
           if (opt.isEmpty()) {
             return computeAndCache(projectId, interactionName, date, window);
           }
-          RootCauseCacheRow row = opt.get();
-          Instant cachedAt = row.getCachedAt().atZone(ZoneOffset.UTC).toInstant();
-          if (ChronoUnit.HOURS.between(cachedAt, Instant.now()) >= ttlHours) {
-            return computeAndCache(projectId, interactionName, date, window);
-          }
-          return Single.just(fromCacheRow(row));
+          return Single.just(fromCacheRow(opt.get()));
         });
   }
 

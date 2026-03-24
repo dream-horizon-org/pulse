@@ -35,9 +35,9 @@ import org.dreamhorizon.pulseserver.service.rootcause.RootCauseService;
  * Returns {@link AiProxyUpstreamResult} (no JAX-RS types); the controller maps to
  * {@link jakarta.ws.rs.core.Response}.
  *
- * <p>POST {@code rca/report} uses read-through MySQL cache ({@link RcaReportCacheDao}; TTL from
- * root-cause config), body enrichment ({@code rootCausePayload} via {@link RootCauseService}), then
- * upstream proxy.
+ * <p>POST {@code rca/report} uses read-through MySQL ({@link RcaReportCacheDao}; no time TTL),
+ * optional {@code regenerate} to skip MySQL and force ClickHouse segment refresh, body enrichment
+ * ({@code rootCausePayload} via {@link RootCauseService}), then upstream proxy.
  */
 @Slf4j
 public class AiProxyServiceImpl implements AiProxyService {
@@ -50,6 +50,7 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String RCA_REPORT_PATH = "rca/report";
   private static final String INTERACTION_NAME_FIELD = "interactionName";
   private static final String DATE_FIELD = "date";
+  private static final String REGENERATE_FIELD = "regenerate";
   private static final int HTTP_INTERNAL_ERROR = 500;
   private static final String ERROR_MESSAGE_RCA_INTERNAL = "Internal error generating RCA report";
   private static final String ERROR_INTERNAL_RCA_BODY =
@@ -146,11 +147,17 @@ public class AiProxyServiceImpl implements AiProxyService {
 
     if (keyPartsOpt.isPresent()) {
       RcaCacheKeyParts keyParts = keyPartsOpt.get();
+      if (keyParts.regenerate()) {
+        return withRcaErrorLogging(
+            doEnrichAndProxyRca(targetUrl, body, authorization, projectId, true)
+                .thenApply(
+                    result -> finalizeSuccessfulRcaProxyResult(result, keyParts)));
+      }
       return withRcaErrorLogging(
           proxyRcaAfterMysqlCacheLookup(keyParts, targetUrl, body, authorization, projectId));
     }
 
-    return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, body, authorization, projectId));
+    return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, body, authorization, projectId, false));
   }
 
   private CompletionStage<AiProxyUpstreamResult> withRcaErrorLogging(
@@ -167,8 +174,9 @@ public class AiProxyServiceImpl implements AiProxyService {
       String targetUrl,
       String body,
       String authorization,
-      String projectId) {
-    return enrichRcaBodyAsync(body, projectId)
+      String projectId,
+      boolean forceRootCauseRefresh) {
+    return enrichRcaBodyAsync(body, projectId, forceRootCauseRefresh)
         .thenCompose(
             enrichedBody ->
                 executeProxy("POST", targetUrl, enrichedBody, authorization, projectId));
@@ -199,15 +207,15 @@ public class AiProxyServiceImpl implements AiProxyService {
               resultFuture.complete(rcaCacheReadFailedResult());
             },
             () ->
-                doEnrichAndProxyRca(targetUrl, body, authorization, projectId)
+                doEnrichAndProxyRca(targetUrl, body, authorization, projectId, false)
                     .whenComplete(
                         (result, ex) -> {
                           if (ex != null) {
                             resultFuture.completeExceptionally(ex);
                             return;
                           }
-                          storeRcaReportInMysqlIfSuccess(result, keyParts);
-                          resultFuture.complete(result);
+                          AiProxyUpstreamResult finalized = finalizeSuccessfulRcaProxyResult(result, keyParts);
+                          resultFuture.complete(finalized);
                         }));
     return resultFuture;
   }
@@ -232,7 +240,8 @@ public class AiProxyServiceImpl implements AiProxyService {
         .subscribe();
   }
 
-  private record RcaCacheKeyParts(String projectId, String interactionName, LocalDate date) {}
+  private record RcaCacheKeyParts(
+      String projectId, String interactionName, LocalDate date, boolean regenerate) {}
 
   private Optional<RcaCacheKeyParts> resolveRcaReportCacheKeyParts(String body, String projectId) {
     boolean isProjectIdMissing = projectId == null || projectId.isBlank();
@@ -249,14 +258,57 @@ public class AiProxyServiceImpl implements AiProxyService {
       }
       String interactionName = interactionNode.asText();
       LocalDate date = resolveDateFromNode(root.get(DATE_FIELD));
-      return Optional.of(new RcaCacheKeyParts(projectId, interactionName, date));
+      boolean regenerate = isRegenerateRequested(root.get(REGENERATE_FIELD));
+      return Optional.of(new RcaCacheKeyParts(projectId, interactionName, date, regenerate));
     } catch (Exception e) {
       log.debug("Unable to parse RCA cache key parts from body: {}", e.getMessage());
       return Optional.empty();
     }
   }
 
-  private CompletionStage<String> enrichRcaBodyAsync(String body, String projectId) {
+  private static boolean isRegenerateRequested(JsonNode regenerateNode) {
+    if (regenerateNode == null || regenerateNode.isNull()) {
+      return false;
+    }
+    if (regenerateNode.isBoolean()) {
+      return regenerateNode.booleanValue();
+    }
+    if (regenerateNode.isTextual()) {
+      return "true".equalsIgnoreCase(regenerateNode.asText().trim());
+    }
+    return false;
+  }
+
+  /**
+   * On successful buffered RCA JSON, sets {@code cached} and {@code cachedAt} (for UI), persists to
+   * MySQL, returns updated result.
+   */
+  private AiProxyUpstreamResult finalizeSuccessfulRcaProxyResult(
+      AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
+    boolean isBufferedSuccess = isSuccessfulBufferedRcaResult(result);
+    if (!isBufferedSuccess) {
+      return result;
+    }
+    String withMeta = applyCacheMetadata(result.getBufferedBody(), true, Instant.now());
+    String mediaType = result.getMediaType();
+    AiProxyUpstreamResult updated =
+        AiProxyUpstreamResult.buffered(result.getStatusCode(), mediaType, withMeta);
+    storeRcaReportInMysqlIfSuccess(updated, keyParts);
+    return updated;
+  }
+
+  private static boolean isSuccessfulBufferedRcaResult(AiProxyUpstreamResult result) {
+    boolean statusOk =
+        result != null
+            && result.getStatusCode() >= 200
+            && result.getStatusCode() < 300;
+    boolean hasBody =
+        result != null && result.isBuffered() && !result.getBufferedBody().isBlank();
+    return statusOk && hasBody;
+  }
+
+  private CompletionStage<String> enrichRcaBodyAsync(
+      String body, String projectId, boolean forceRootCauseRefresh) {
     boolean isBodyMissing = body == null || body.isBlank();
     boolean isProjectMissing = projectId == null || projectId.isBlank();
     if (isBodyMissing || isProjectMissing) {
@@ -265,6 +317,7 @@ public class AiProxyServiceImpl implements AiProxyService {
 
     try {
       ObjectNode root = (ObjectNode) objectMapper.readTree(body);
+      root.remove(REGENERATE_FIELD);
       JsonNode interactionNode = root.get(INTERACTION_NAME_FIELD);
       boolean isInteractionMissing = interactionNode == null || interactionNode.asText().isBlank();
       if (isInteractionMissing) {
@@ -276,7 +329,7 @@ public class AiProxyServiceImpl implements AiProxyService {
 
       CompletableFuture<String> future = new CompletableFuture<>();
       rootCauseService
-          .getRootCause(projectId, interactionName, date)
+          .getRootCause(projectId, interactionName, date, forceRootCauseRefresh)
           .subscribe(
               result -> {
                 try {

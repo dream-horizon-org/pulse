@@ -253,7 +253,6 @@ public class MainVerticle extends AbstractVerticle {
     RootCauseConfig from = RootCauseConfig.builder()
         .similarityThresholdPct(rootCauseJson.getInteger("similarityThresholdPct", 0))
         .lookbackDays(rootCauseJson.getInteger("lookbackDays", 0))
-        .cacheTtlHours(rootCauseJson.getInteger("cacheTtlHours", 0))
         .maxSegments(rootCauseJson.getInteger("maxSegments", 0))
         .build();
     if (rootCauseJson.getValue("dimensionOrder") != null) {

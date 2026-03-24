@@ -1,8 +1,10 @@
-import { Box, Button, Skeleton, Stack, Text } from "@mantine/core";
+import { Box, Button, Modal, Skeleton, Stack, Text } from "@mantine/core";
 import { IconRefresh } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import { useEffect, useState } from "react";
 import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaReport";
+import { useRegenerateRcaReport } from "../../../../hooks/useRegenerateRcaReport/useRegenerateRcaReport";
 import { isRcaStructuredReportV1WithContent } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
 import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
@@ -32,10 +34,14 @@ export function RootCause({
   date,
   projectId,
 }: RootCauseProps) {
+  const [userDismissedGenerationNotice, setUserDismissedGenerationNotice] =
+    useState(false);
+
   const effectiveProjectId = projectId ?? null;
   const {
     data: reportResponse,
     isLoading: reportLoading,
+    isFetching: reportFetching,
     isError: reportError,
     refetch: refetchReport,
     error: reportErrorDetail,
@@ -46,9 +52,45 @@ export function RootCause({
     projectId: effectiveProjectId,
   });
 
+  const regenerateRcaReport = useRegenerateRcaReport();
+
   const trimmedProjectId =
     effectiveProjectId != null ? String(effectiveProjectId).trim() : "";
   const isProjectIdMissing = trimmedProjectId === "";
+
+  const reportPayload = reportResponse?.data ?? null;
+  const hasStructuredV1Content = isRcaStructuredReportV1WithContent(
+    reportPayload?.report?.structured,
+  );
+  const reportStatus = reportResponse?.status;
+  const isReportHttpOk = reportStatus === RCA_HTTP_STATUS.OK;
+  const showReport =
+    isReportHttpOk && reportPayload != null && hasStructuredV1Content;
+
+  const hasNonSuccessResponse =
+    reportResponse != null &&
+    reportStatus !== undefined &&
+    reportStatus !== RCA_HTTP_STATUS.OK;
+  const shouldShowError = reportError || hasNonSuccessResponse;
+  const isRetryInFlight = reportFetching && shouldShowError;
+  const isRegenerateReportInFlight = regenerateRcaReport.isPending;
+  const showLoadingUi =
+    !isProjectIdMissing &&
+    (reportLoading || isRetryInFlight || isRegenerateReportInFlight);
+
+  useEffect(() => {
+    const loadingFinished = !showLoadingUi;
+    if (loadingFinished) {
+      setUserDismissedGenerationNotice(false);
+    }
+  }, [showLoadingUi]);
+
+  const isGenerationNoticeModalOpen =
+    showLoadingUi && !userDismissedGenerationNotice;
+
+  const handleDismissGenerationNotice = () => {
+    setUserDismissedGenerationNotice(true);
+  };
 
   if (isProjectIdMissing) {
     return (
@@ -63,39 +105,51 @@ export function RootCause({
     );
   }
 
-  const reportPayload = reportResponse?.data ?? null;
-  const hasStructuredV1Content = isRcaStructuredReportV1WithContent(
-    reportPayload?.report?.structured,
-  );
-  const reportStatus = reportResponse?.status;
-  const isReportHttpOk = reportStatus === RCA_HTTP_STATUS.OK;
-  const showReport =
-    isReportHttpOk && reportPayload != null && hasStructuredV1Content;
-
-  const isLoading = reportLoading;
-
-  if (isLoading) {
+  if (showLoadingUi) {
     return (
-      <Box className={classes.container}>
-        <div className={classes.skeletonWrapper}>
-          <Skeleton height={24} width={200} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} mb="md" />
-          <Skeleton height={120} />
-        </div>
-      </Box>
+      <>
+        <Modal
+          opened={isGenerationNoticeModalOpen}
+          onClose={handleDismissGenerationNotice}
+          title={ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_TITLE}
+          centered
+        >
+          <Stack gap="md">
+            <Text size="sm">
+              {ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_BODY}
+            </Text>
+            <Button variant="light" onClick={handleDismissGenerationNotice}>
+              {ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_GOT_IT}
+            </Button>
+          </Stack>
+        </Modal>
+        <Box className={classes.container}>
+          <div className={classes.skeletonWrapper}>
+            <Skeleton height={24} width={200} mb="md" />
+            <Skeleton height={120} mb="md" />
+            <Skeleton height={120} mb="md" />
+            <Skeleton height={120} />
+          </div>
+        </Box>
+      </>
     );
   }
 
   if (showReport && reportPayload) {
-    const cachedAtFormatted =
-      reportPayload.cached === true
-        ? formatRcaReportCachedAt(reportPayload.cachedAt)
-        : null;
+    const cachedAtFormatted = formatRcaReportCachedAt(reportPayload.cachedAt);
+    const handleRegenerate = () => {
+      if (!interactionName) return;
+      regenerateRcaReport.mutate({
+        interactionName,
+        date: date ?? null,
+        projectId: trimmedProjectId,
+      });
+    };
     return (
       <RcaReportView
         report={reportPayload.report ?? {}}
         cachedAt={cachedAtFormatted}
+        onRegenerate={handleRegenerate}
       />
     );
   }
@@ -108,11 +162,6 @@ export function RootCause({
   const isAiUpstreamError =
     reportStatus === RCA_HTTP_STATUS.BAD_GATEWAY ||
     reportStatus === RCA_HTTP_STATUS.SERVICE_UNAVAILABLE;
-  const hasNonSuccessResponse =
-    reportResponse != null &&
-    reportStatus !== undefined &&
-    reportStatus !== RCA_HTTP_STATUS.OK;
-  const shouldShowError = reportError || hasNonSuccessResponse;
 
   if (shouldShowError) {
     const message = is404

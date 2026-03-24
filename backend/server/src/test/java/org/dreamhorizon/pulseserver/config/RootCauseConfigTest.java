@@ -13,7 +13,6 @@ class RootCauseConfigTest {
 
     assertThat(config.getSimilarityThresholdPct()).isEqualTo(75);
     assertThat(config.getLookbackDays()).isEqualTo(7);
-    assertThat(config.getCacheTtlHours()).isEqualTo(24);
     assertThat(config.getMaxSegments()).isEqualTo(4);
     assertThat(config.getDimensionOrder()).contains("Platform");
   }
@@ -24,7 +23,6 @@ class RootCauseConfigTest {
         RootCauseConfig.builder()
             .similarityThresholdPct(0)
             .lookbackDays(-1)
-            .cacheTtlHours(0)
             .maxSegments(0)
             .dimensionOrder(List.of())
             .build();
@@ -33,7 +31,6 @@ class RootCauseConfigTest {
 
     assertThat(config.getSimilarityThresholdPct()).isEqualTo(75);
     assertThat(config.getLookbackDays()).isEqualTo(7);
-    assertThat(config.getCacheTtlHours()).isEqualTo(24);
     assertThat(config.getMaxSegments()).isEqualTo(4);
     assertThat(config.getDimensionOrder()).isNotEmpty();
   }

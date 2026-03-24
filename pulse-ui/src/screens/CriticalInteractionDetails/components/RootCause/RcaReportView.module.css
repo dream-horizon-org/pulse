@@ -14,10 +14,15 @@
   }
 }
 
+.reportHeaderRow {
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
 .reportCachedAt {
   font-size: var(--mantine-font-size-sm);
   color: var(--mantine-color-gray-6);
-  margin-bottom: var(--mantine-spacing-sm);
+  flex: 1;
+  min-width: min(100%, 12rem);
 }
 
 /* Padding lives on Mantine Card `padding="lg"` — only skin below */

@@ -59,7 +59,6 @@ class RootCauseServiceTest {
   @BeforeEach
   void setUp() {
     lenient().when(rootCauseConfig.getLookbackDays()).thenReturn(7);
-    lenient().when(rootCauseConfig.getCacheTtlHours()).thenReturn(24);
     lenient().when(rootCauseConfig.getSimilarityThresholdPct()).thenReturn(75);
     lenient().when(rootCauseConfig.getMaxSegments()).thenReturn(4);
     lenient()
@@ -202,10 +201,10 @@ class RootCauseServiceTest {
     }
 
     @Test
-    void shouldRecomputeWhenCacheEntryIsExpired() {
+    void shouldReturnCachedRowWithoutRecomputeRegardlessOfCachedAtAge() {
       RootCauseCacheRow stale =
           RootCauseCacheRow.builder()
-              .baseline("{}")
+              .baseline("{\"volume\":3}")
               .segments("[]")
               .mode("flat")
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC).minusHours(48))
@@ -213,6 +212,16 @@ class RootCauseServiceTest {
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(stale)));
 
+      RootCauseResult result =
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
+
+      assertThat(result.getBaseline()).containsEntry("volume", 3);
+      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
+      verify(cacheDao, never()).upsert(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRecomputeWhenForceRefreshTrue() {
       Map<String, Object> baseline = new LinkedHashMap<>();
       baseline.put(RootCauseMetricsRegistry.VOLUME, 50L);
       baseline.put("problematic_count", 0L);
@@ -228,9 +237,10 @@ class RootCauseServiceTest {
               });
 
       RootCauseResult result =
-          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
+          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE, true).blockingGet();
 
       assertThat(result.getEverythingGood()).isTrue();
+      verify(cacheDao, never()).findByKey(any(), any(), any());
       verify(cacheDao).upsert(any(), any(), any(), any(), any(), any(), any());
     }
   }

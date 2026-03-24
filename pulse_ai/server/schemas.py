@@ -11,6 +11,8 @@ class RcaReportRequest(BaseModel):
     interactionName: str
     date: str | None = None
     rootCausePayload: dict[str, Any] | None = None
+    # Set by pulse-ui via pulse-server when forcing refresh; ignored by the pipeline.
+    regenerate: bool | None = None
 
 
 class ReportPayloadSchema(BaseModel):

@@ -1,10 +1,20 @@
-import { Badge, Box, Card, Stack, Table, Text } from "@mantine/core";
-import { IconSparkles } from "@tabler/icons-react";
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  Group,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
+import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import type {
   RcaStructuredMetricRowV1,
   RcaStructuredReportV1,
 } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import type { RcaReportViewProps } from "./RcaReportView.interface";
+import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
 import { getMetricValueTone } from "./rcaMetricTone";
 import rcaClasses from "./RcaReportView.module.css";
 import rootCauseClasses from "./RootCause.module.css";
@@ -74,9 +84,11 @@ const StructuredMetricRow = ({ row }: { row: RcaStructuredMetricRowV1 }) => {
 const RcaStructuredReportV1View = ({
   structured,
   cachedAt,
+  onRegenerate,
 }: {
   structured: RcaStructuredReportV1;
   cachedAt?: string | null;
+  onRegenerate?: () => void;
 }) => {
   const executiveSummaryText = structured.executive_summary?.trim() ?? "";
   const hasExecutiveSummary = executiveSummaryText !== "";
@@ -88,13 +100,38 @@ const RcaStructuredReportV1View = ({
   );
   const hasRecommendations = recommendations.length > 0;
 
+  const hasRegenerate = typeof onRegenerate === "function";
+  const showAsOf = cachedAt != null && cachedAt !== "";
+
   return (
     <Box className={rootCauseClasses.container}>
       <Box className={rcaClasses.reportShell}>
-        {cachedAt != null && cachedAt !== "" && (
-          <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
-            Report as of {cachedAt}
-          </Text>
+        {(showAsOf || hasRegenerate) && (
+          <Group
+            className={rcaClasses.reportHeaderRow}
+            justify="space-between"
+            align="flex-start"
+            wrap="wrap"
+            gap="sm"
+          >
+            {showAsOf ? (
+              <Text className={rcaClasses.reportCachedAt} size="sm" c="dimmed">
+                Report as of {cachedAt}
+              </Text>
+            ) : (
+              <div />
+            )}
+            {hasRegenerate ? (
+              <Button
+                variant="light"
+                size="xs"
+                leftSection={<IconRefresh size={14} />}
+                onClick={onRegenerate}
+              >
+                {ROOT_CAUSE_MESSAGES.REGENERATE_REPORT}
+              </Button>
+            ) : null}
+          </Group>
         )}
         <Stack gap="lg">
           {hasExecutiveSummary && (
@@ -287,7 +324,11 @@ const RcaStructuredReportV1View = ({
   );
 };
 
-export const RcaReportView = ({ report, cachedAt }: RcaReportViewProps) => {
+export const RcaReportView = ({
+  report,
+  cachedAt,
+  onRegenerate,
+}: RcaReportViewProps) => {
   const structured = report.structured;
   const isValidStructured = structured != null && structured.version === 1;
   const executiveSummaryText = structured?.executive_summary?.trim() ?? "";
@@ -308,6 +349,10 @@ export const RcaReportView = ({ report, cachedAt }: RcaReportViewProps) => {
   }
 
   return (
-    <RcaStructuredReportV1View structured={structured} cachedAt={cachedAt} />
+    <RcaStructuredReportV1View
+      structured={structured}
+      cachedAt={cachedAt}
+      onRegenerate={onRegenerate}
+    />
   );
 };
