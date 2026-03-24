@@ -97,6 +97,7 @@ class InstrumentationConfiguration(
     fun composeClick(configure: ComposeClickConfiguration.() -> Unit) {
         composeClick.configure()
     }
+
     fun sessionReplay(configure: SessionReplayConfiguration.() -> Unit) {
         sessionReplay.markConfigured()
         sessionReplay.configure()
