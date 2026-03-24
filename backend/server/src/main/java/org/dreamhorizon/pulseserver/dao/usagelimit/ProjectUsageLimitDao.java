@@ -1,5 +1,12 @@
 package org.dreamhorizon.pulseserver.dao.usagelimit;
 
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.NOTIFICATION_CREATED_AT;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.PROJECT_ID;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.PROJECT_NAME;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.THRESHOLDS_NOTIFIED;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.ID;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.CREATED_AT;
+import static org.dreamhorizon.pulseserver.constant.ProjectUsageLimitRowConstants.UPDATED_AT;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.CHECK_ACTIVE_LIMIT_EXISTS;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ACTIVE_LIMIT_BY_PROJECT_ID;
 import static org.dreamhorizon.pulseserver.dao.usagelimit.ProjectUsageLimitQueries.GET_ALL_ACTIVE_LIMITS;
@@ -218,7 +225,7 @@ public class ProjectUsageLimitDao {
     
     // Parse notification JSON
     JsonNode thresholdsNotified = null;
-    Object thresholdsValue = row.getValue("thresholds_notified");
+    Object thresholdsValue = row.getValue(THRESHOLDS_NOTIFIED);
     if (thresholdsValue != null) {
       try {
         if (thresholdsValue instanceof io.vertx.core.json.JsonObject) {
@@ -227,13 +234,13 @@ public class ProjectUsageLimitDao {
           thresholdsNotified = objectMapper.readTree(thresholdsValue.toString());
         }
       } catch (JsonProcessingException e) {
-        log.error("Failed to parse thresholds_notified JSON", e);
+        log.error("Failed to parse {} JSON", THRESHOLDS_NOTIFIED, e);
         thresholdsNotified = objectMapper.createObjectNode();
       }
     }
     
-    String projectName = row.getColumnIndex("project_name") >= 0
-        ? row.getString("project_name") : null;
+    String projectName = row.getColumnIndex(PROJECT_NAME) >= 0
+        ? row.getString(PROJECT_NAME) : null;
 
     return ProjectUsageLimit.builder()
         .projectUsageLimitId(row.getLong("project_usage_limit_id"))
@@ -249,8 +256,9 @@ public class ProjectUsageLimitDao {
         .disabledReason(row.getString("disabled_reason"))
         .createdBy(row.getString("created_by"))
         .thresholdsNotified(thresholdsNotified)
-        .notificationCreatedAt(row.getLocalDateTime("notification_created_at") != null
-            ? row.getLocalDateTime("notification_created_at").toInstant(ZoneOffset.UTC) : null)
+        .notificationCreatedAt(row.getLocalDateTime(NOTIFICATION_CREATED_AT) != null
+            ? row.getLocalDateTime(NOTIFICATION_CREATED_AT).toInstant(ZoneOffset.UTC)
+            : null)
         .tenantId(row.getColumnIndex("tenant_id") >= 0 ? row.getString("tenant_id") : null)
         .build();
   }
@@ -278,11 +286,11 @@ public class ProjectUsageLimitDao {
   private Single<NotificationRecord> updateExistingNotification(
       MySQLPool pool, Row existingRow, List<Integer> thresholds, Instant now) {
     try {
-      Long id = existingRow.getLong("id");
-      String projectId = existingRow.getString("project_id");
+      Long id = existingRow.getLong(ID);
+      String projectId = existingRow.getString(PROJECT_ID);
       
       // Get JSON column - MySQL returns it as JsonObject, convert to String
-      Object thresholdsObj = existingRow.getValue("thresholds_notified");
+      Object thresholdsObj = existingRow.getValue(THRESHOLDS_NOTIFIED);
       String existingJson = thresholdsObj != null ? thresholdsObj.toString() : "{}";
       
       JsonNode existingNode = objectMapper.readTree(existingJson);
@@ -306,8 +314,8 @@ public class ProjectUsageLimitDao {
               .id(id)
               .projectId(projectId)
               .thresholdsNotified(updatedNode)
-              .createdAt(existingRow.getLocalDateTime("created_at") != null
-                  ? existingRow.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
+              .createdAt(existingRow.getLocalDateTime(CREATED_AT) != null
+                  ? existingRow.getLocalDateTime(CREATED_AT).toInstant(ZoneOffset.UTC) : null)
               .updatedAt(now)
               .build());
     } catch (JsonProcessingException e) {
@@ -333,13 +341,13 @@ public class ProjectUsageLimitDao {
                 .map(rows -> {
                   Row row = rows.iterator().next();
                   return NotificationRecord.builder()
-                      .id(row.getLong("id"))
+                      .id(row.getLong(ID))
                       .projectId(projectId)
                       .thresholdsNotified(notificationNode)
-                      .createdAt(row.getLocalDateTime("created_at") != null
-                          ? row.getLocalDateTime("created_at").toInstant(ZoneOffset.UTC) : null)
-                      .updatedAt(row.getLocalDateTime("updated_at") != null
-                          ? row.getLocalDateTime("updated_at").toInstant(ZoneOffset.UTC) : null)
+                      .createdAt(row.getLocalDateTime(CREATED_AT) != null
+                          ? row.getLocalDateTime(CREATED_AT).toInstant(ZoneOffset.UTC) : null)
+                      .updatedAt(row.getLocalDateTime(UPDATED_AT) != null
+                          ? row.getLocalDateTime(UPDATED_AT).toInstant(ZoneOffset.UTC) : null)
                       .build();
                 });
           });
