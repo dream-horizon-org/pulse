@@ -15,6 +15,7 @@ cd backend/server && mvn verify               # tests + checkstyle
 ## Frontend (React/TypeScript)
 
 ```bash
+corepack enable                               # First-time only (Yarn 4)
 cd pulse-ui && yarn install && yarn start     # dev server on :3000
 cd pulse-ui && yarn build                     # production build
 cd pulse-ui && yarn lint                      # ESLint
