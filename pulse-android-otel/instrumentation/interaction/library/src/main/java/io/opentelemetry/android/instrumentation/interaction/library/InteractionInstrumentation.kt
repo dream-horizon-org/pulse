@@ -120,7 +120,7 @@ class InteractionInstrumentation :
         @JvmStatic
         fun createLogProcessor(interactionManager: InteractionManager): LogRecordProcessor = InteractionLogListener(interactionManager)
 
-        private fun handleSuccessInteraction(
+        internal fun handleSuccessInteraction(
             tracer: Tracer,
             additionalAttributeExtractors: List<InteractionAttributesExtractor>,
             interactionStatus: InteractionRunningStatus.OngoingMatch,

@@ -11,6 +11,8 @@ android {
 
 dependencies {
     implementation(projects.instrumentation.interaction.interactionCore)
+    testImplementation(testFixtures(projects.instrumentation.interaction.interactionCore))
+    testImplementation(testFixtures(projects.instrumentation.interaction.interactionRemote))
     implementation(projects.pulseSemconv)
     implementation(projects.pulseUtils)
     api(projects.instrumentation.androidInstrumentation)
