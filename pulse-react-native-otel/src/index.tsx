@@ -43,5 +43,4 @@ export const Pulse = {
   withErrorBoundary,
 };
 
-// Session Replay components and hooks
 export { PulseMask, PulseUnmask };
