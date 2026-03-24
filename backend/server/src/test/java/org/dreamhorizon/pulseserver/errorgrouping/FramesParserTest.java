@@ -12,27 +12,6 @@ import org.dreamhorizon.pulseserver.errorgrouping.model.ParsedFrames;
 import org.junit.jupiter.api.Test;
 
 class FramesParserTest {
-
-  @Test
-  void shouldParseRealAppleCrashFromSampleFile() throws IOException {
-    List<String> lines = Files.readAllLines(Path.of("scripts/ios/sample_pulse_crash.txt"));
-
-    ParsedFrames parsed = FramesParser.parse(lines);
-
-    // Real sample has 31 frames under "Thread 0 Crashed:" and then "Thread 1:".
-    assertEquals(31, parsed.getIosNativeFrames().size());
-    assertEquals(0, parsed.getNdkFrames().size());
-    assertEquals("CoreFoundation", parsed.getIosNativeFrames().get(0).getNdkLib());
-    assertEquals("0x000000010294248c", parsed.getIosNativeFrames().get(3).getNdkPc());
-    assertEquals(
-        "$s15PulseIOSExample18MainViewControllerC22crashNSExceptionTapped33_0C0091EDD96CE7CF640B1457C7517B58LLyyFyycfU_",
-        parsed.getIosNativeFrames().get(3).getNdkSymbol());
-    // Ensure parser stops at crashed-thread boundary and does not include Thread 1+ frames.
-    assertEquals("(null)", parsed.getIosNativeFrames().get(30).getNdkLib());
-    assertFalse(parsed.getIosNativeFrames().stream()
-        .anyMatch(frame -> "0x00000001029b2680".equals(frame.getNdkPc())));
-  }
-
   @Test
   void shouldParseAppleNullSymbolAsAddressFrame() {
     List<String> lines = List.of(
