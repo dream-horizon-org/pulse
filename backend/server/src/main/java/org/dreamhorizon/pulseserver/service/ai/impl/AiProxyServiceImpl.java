@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.ext.web.client.HttpRequest;
@@ -25,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.dao.rcareport.RcaReportCacheDao;
-import org.dreamhorizon.pulseserver.dao.rcareport.models.RcaReportCacheHit;
 import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.rest.Error;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
@@ -57,6 +55,12 @@ public class AiProxyServiceImpl implements AiProxyService {
   private static final String ERROR_MESSAGE_RCA_INTERNAL = "Internal error generating RCA report";
   private static final String ERROR_INTERNAL_RCA_BODY =
       Error.of(ServiceError.INTERNAL_SERVER_ERROR.getErrorCode(), ERROR_MESSAGE_RCA_INTERNAL)
+          .toJsonString();
+  private static final int HTTP_DATABASE_ERROR = ServiceError.DATABASE_ERROR.getHttpStatusCode();
+  private static final String ERROR_RCA_CACHE_READ_BODY =
+      Error.of(
+              ServiceError.DATABASE_ERROR.getErrorCode(),
+              ServiceError.DATABASE_ERROR.getErrorMessage())
           .toJsonString();
   private static final String ROOT_CAUSE_PAYLOAD_FIELD = "rootCausePayload";
 
@@ -147,33 +151,8 @@ public class AiProxyServiceImpl implements AiProxyService {
 
     if (keyPartsOpt.isPresent()) {
       RcaCacheKeyParts keyParts = keyPartsOpt.get();
-      try {
-        CompletionStage<Optional<RcaReportCacheHit>> mysqlStage =
-            maybeToCompletionStage(rcaReportCacheDao.get(keyParts.projectId(), keyParts.interactionName(), keyParts.date()));
-        return withRcaErrorLogging(
-            mysqlStage.thenCompose(
-                maybeHit -> {
-                  boolean hasMysqlHit =
-                      maybeHit.isPresent() && !maybeHit.get().reportBody().isBlank();
-                  if (hasMysqlHit) {
-                    RcaReportCacheHit hit = maybeHit.get();
-                    return CompletableFuture.completedFuture(
-                        AiProxyUpstreamResult.buffered(
-                            200,
-                            CONTENT_TYPE_JSON,
-                            applyCacheMetadata(hit.reportBody(), true, hit.cachedAt())));
-                  }
-                  return doEnrichAndProxyRca(targetUrl, body, authorization, projectId)
-                      .thenApply(
-                          result -> {
-                            storeRcaReportInMysqlIfSuccess(result, keyParts);
-                            return result;
-                          });
-                }));
-      } catch (Throwable t) {
-        log.warn("RCA MySQL cache lookup failed, falling back to AI: {}", t.getMessage());
-        return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, body, authorization, projectId));
-      }
+      return withRcaErrorLogging(
+          proxyRcaAfterMysqlCacheLookup(keyParts, targetUrl, body, authorization, projectId));
     }
 
     return withRcaErrorLogging(doEnrichAndProxyRca(targetUrl, body, authorization, projectId));
@@ -200,6 +179,49 @@ public class AiProxyServiceImpl implements AiProxyService {
                 executeProxy("POST", targetUrl, enrichedBody, authorization, projectId));
   }
 
+  /**
+   * Read-through MySQL cache: on hit returns cached JSON; on miss enriches and proxies upstream; on
+   * DAO error completes with {@link ServiceError#DATABASE_ERROR} (does not call AI).
+   */
+  private CompletionStage<AiProxyUpstreamResult> proxyRcaAfterMysqlCacheLookup(
+      RcaCacheKeyParts keyParts,
+      String targetUrl,
+      String body,
+      String authorization,
+      String projectId) {
+    CompletableFuture<AiProxyUpstreamResult> resultFuture = new CompletableFuture<>();
+    rcaReportCacheDao
+        .get(keyParts.projectId(), keyParts.interactionName(), keyParts.date())
+        .subscribe(
+            hit ->
+                resultFuture.complete(
+                    AiProxyUpstreamResult.buffered(
+                        200,
+                        CONTENT_TYPE_JSON,
+                        applyCacheMetadata(hit.reportBody(), true, hit.cachedAt()))),
+            err -> {
+              log.error("RCA MySQL cache lookup failed", err);
+              resultFuture.complete(rcaCacheReadFailedResult());
+            },
+            () ->
+                doEnrichAndProxyRca(targetUrl, body, authorization, projectId)
+                    .whenComplete(
+                        (result, ex) -> {
+                          if (ex != null) {
+                            resultFuture.completeExceptionally(ex);
+                            return;
+                          }
+                          storeRcaReportInMysqlIfSuccess(result, keyParts);
+                          resultFuture.complete(result);
+                        }));
+    return resultFuture;
+  }
+
+  private static AiProxyUpstreamResult rcaCacheReadFailedResult() {
+    return AiProxyUpstreamResult.buffered(
+        HTTP_DATABASE_ERROR, CONTENT_TYPE_JSON, ERROR_RCA_CACHE_READ_BODY);
+  }
+
   private void storeRcaReportInMysqlIfSuccess(
       AiProxyUpstreamResult result, RcaCacheKeyParts keyParts) {
     boolean isSuccess = result != null && result.getStatusCode() >= 200 && result.getStatusCode() < 300;
@@ -213,15 +235,6 @@ public class AiProxyServiceImpl implements AiProxyService {
     rcaReportCacheDao
         .put(keyParts.projectId(), keyParts.interactionName(), keyParts.date(), entity)
         .subscribe();
-  }
-
-  private static <T> CompletionStage<Optional<T>> maybeToCompletionStage(Maybe<T> maybe) {
-    CompletableFuture<Optional<T>> future = new CompletableFuture<>();
-    maybe.subscribe(
-        value -> future.complete(Optional.of(value)),
-        err -> future.complete(Optional.empty()),
-        () -> future.complete(Optional.empty()));
-    return future;
   }
 
   private record RcaCacheKeyParts(String projectId, String interactionName, LocalDate date) {}

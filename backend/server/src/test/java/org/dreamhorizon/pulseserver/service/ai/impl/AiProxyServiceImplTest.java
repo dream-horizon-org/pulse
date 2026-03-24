@@ -206,6 +206,25 @@ class AiProxyServiceImplTest {
     }
 
     @Test
+    void shouldFailWithDatabaseErrorWhenMysqlGetErrors() throws Exception {
+      when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
+          .thenReturn(Maybe.error(new RuntimeException("connection refused")));
+
+      AiProxyUpstreamResult result =
+          awaitResult(
+              fullPipelineService()
+                  .proxy("POST", "rca/report", null, rcaRequestBody(), AUTH, PROJECT_ID));
+
+      assertThat(result.getStatusCode()).isEqualTo(500);
+      JsonNode envelope = objectMapper.readTree(result.getBufferedBody());
+      assertThat(envelope.path("error").path("code").asText()).isEqualTo("500");
+      assertThat(envelope.path("error").path("message").asText()).isEqualTo("Database Error");
+
+      verify(httpRequest, never()).rxSendBuffer(any(Buffer.class));
+      verify(rootCauseService, never()).getRootCause(any(), any(), any());
+    }
+
+    @Test
     void shouldCallGetRootCauseAndUpstreamWhenMysqlMisses() {
       when(rcaReportCacheDao.get(eq(PROJECT_ID), eq("checkout"), eq(ANALYSIS_DATE)))
           .thenReturn(Maybe.empty());
