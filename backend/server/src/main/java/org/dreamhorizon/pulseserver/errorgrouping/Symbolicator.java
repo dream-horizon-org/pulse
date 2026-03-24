@@ -29,14 +29,20 @@ import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class Symbolicator {
 
+  private static final String LOG_PREFIX = "[PULSE SYMBOLICATOR]";
+  private static final Duration NEGATIVE_CACHE_TTL = Duration.ofMinutes(5);
+
   private final SourceMapCache sourceMapCache;
   private final DsymCache dsymCache;
   private final IosLlvmSymbolicator iosLlvmSymbolicator;
   private final Vertx vertx;
 
-  // OPTIMIZATION: Circuit breaker - cache which versions don't have source maps to fail fast
+  /**
+   * Short negative cache: {@code false} = recent miss/error for this key (skip S3/DB for a few minutes).
+   * {@code true} = load succeeded at least once in this window (optional; invalidation on success is enough).
+   */
   private final Cache<String, Boolean> sourceMapExists = Caffeine.newBuilder()
-      .expireAfterWrite(Duration.ofMinutes(5))
+      .expireAfterWrite(NEGATIVE_CACHE_TTL)
       .maximumSize(500)
       .build();
 
@@ -70,7 +76,6 @@ public class Symbolicator {
     return (s == null || s.isBlank()) ? "<anonymous>" : s;
   }
 
-
   /**
    * JS symbolication using a Source Map (Closure Tools).
    */
@@ -78,8 +83,18 @@ public class Symbolicator {
   public Single<List<String>> symbolicateJsInPlace(List<Frame> jsFrames, EventMeta eventMeta) {
     String cacheKey = eventMeta.getPlatform() + ":" + eventMeta.getAppVersion() + ":" + SymbolFileType.JS;
 
-    // OPTIMIZATION: Fast path - check if we already know source map doesn't exist
+    log.info(
+        "{} js start frames={} projectId={} appVersion={} versionCode={} platform={} cacheKey={}",
+        LOG_PREFIX,
+        jsFrames.size(),
+        eventMeta.getProjectId(),
+        eventMeta.getAppVersion(),
+        eventMeta.getAppVersionCode(),
+        eventMeta.getPlatform(),
+        cacheKey);
+
     if (Boolean.FALSE.equals(sourceMapExists.getIfPresent(cacheKey))) {
+      log.info("{} js skip negative-cache (5m) cacheKey={}", LOG_PREFIX, cacheKey);
       return Single.just(jsFrames.stream().map(Frame::getToken).toList());
     }
 
@@ -96,12 +111,12 @@ public class Symbolicator {
           for (Frame f : jsFrames) {
             out.add(symbolicateNames((JsFrame) f, sourcemap));
           }
-          sourceMapExists.put(cacheKey, true);  // Cache success
-          log.info("JS deobfuscation successful: cacheKey={}", cacheKey);
+          sourceMapExists.put(cacheKey, Boolean.TRUE);
+          log.info("{} JS deobfuscation successful: cacheKey={} outputLines={}", LOG_PREFIX, cacheKey, out.size());
           return out;
         })
         .onErrorReturn(error -> {
-          sourceMapExists.put(cacheKey, false);
+          sourceMapExists.put(cacheKey, Boolean.FALSE);
           log.warn("JS deobfuscation failed: projectId={}, appVersion={}, versionCode={}, platform={}, frames={}, error={}",
               eventMeta.getProjectId(), eventMeta.getAppVersion(), eventMeta.getAppVersionCode(),
               eventMeta.getPlatform(), jsFrames.size(), error.getMessage());
@@ -115,8 +130,18 @@ public class Symbolicator {
   public Single<List<String>> retrace(List<Frame> javaFrames, EventMeta eventMeta) {
     String cacheKey = eventMeta.getPlatform() + ":" + eventMeta.getAppVersion() + ":" + SymbolFileType.MAPPING;
 
-    // OPTIMIZATION: Fast path - check if we already know ProGuard map doesn't exist
+    log.info(
+        "{} java start frames={} projectId={} appVersion={} versionCode={} platform={} cacheKey={}",
+        LOG_PREFIX,
+        javaFrames.size(),
+        eventMeta.getProjectId(),
+        eventMeta.getAppVersion(),
+        eventMeta.getAppVersionCode(),
+        eventMeta.getPlatform(),
+        cacheKey);
+
     if (Boolean.FALSE.equals(sourceMapExists.getIfPresent(cacheKey))) {
+      log.info("{} java retrace skip negative-cache (5m) cacheKey={}", LOG_PREFIX, cacheKey);
       return Single.just(javaFrames.stream().map(Frame::getToken).toList());
     }
 
@@ -140,12 +165,12 @@ public class Symbolicator {
                   .setVerbose(true)
                   .setRetracedStackTraceConsumer(out::addAll)
                   .build());
-          sourceMapExists.put(cacheKey, true);  // Cache success
-          log.info("Java deobfuscation successful: cacheKey={}", cacheKey);
+          sourceMapExists.put(cacheKey, Boolean.TRUE);
+          log.info("{} Java deobfuscation successful: cacheKey={}", LOG_PREFIX, cacheKey);
           return out;
         })
         .onErrorReturn(error -> {
-          sourceMapExists.put(cacheKey, false);  // Cache failure
+          sourceMapExists.put(cacheKey, Boolean.FALSE);
           log.warn("Java deobfuscation failed: projectId={}, appVersion={}, versionCode={}, platform={}, frames={}, error={}",
               eventMeta.getProjectId(), eventMeta.getAppVersion(), eventMeta.getAppVersionCode(),
               eventMeta.getPlatform(), javaFrames.size(), error.getMessage());
@@ -162,6 +187,17 @@ public class Symbolicator {
     if (frames.isEmpty()) {
       return Single.just(List.of());
     }
+    log.info(
+        "{} ios_native start frames={} projectId={} appVersion={} versionCode={} platform={} bundleId={} "
+            + "stackTraceFormat={}",
+        LOG_PREFIX,
+        frames.size(),
+        eventMeta.getProjectId(),
+        eventMeta.getAppVersion(),
+        eventMeta.getAppVersionCode(),
+        eventMeta.getPlatform(),
+        eventMeta.getBundleId(),
+        stackTraceFormat);
     List<NdkFrame> ndkFrames = new ArrayList<>(frames.size());
     for (Frame f : frames) {
       ndkFrames.add((NdkFrame) f);
@@ -177,12 +213,30 @@ public class Symbolicator {
 
     return dsymCache.getDsym(dsymKey)
         .flatMap(opt -> Single.<List<String>>create(emitter -> {
+          int dsymLen =
+              opt.filter(b -> b != null && b.length > 0).map(b -> b.length).orElse(0);
+          log.info(
+              "{} ios_native dsym cacheHit={} dsymBytes={}",
+              LOG_PREFIX,
+              opt.isPresent() && dsymLen > 0,
+              dsymLen);
           vertx.getDelegate().<List<String>>executeBlocking(
               promise -> {
                 try {
                   byte[] bytes = opt.filter(b -> b != null && b.length > 0).orElse(null);
                   List<String> lines = iosLlvmSymbolicator.symbolicateFrames(
                       ndkFrames, rawReport == null ? "" : rawReport, bytes);
+                  int llvmChanged = 0;
+                  for (int i = 0; i < lines.size() && i < ndkFrames.size(); i++) {
+                    if (!lines.get(i).equals(ndkFrames.get(i).getRawLine())) {
+                      llvmChanged++;
+                    }
+                  }
+                  log.info(
+                      "{} ios_native llvm rawLinesChanged={} totalFrames={}",
+                      LOG_PREFIX,
+                      llvmChanged,
+                      ndkFrames.size());
                   promise.complete(mapIosNativeOutput(ndkFrames, lines, stackTraceFormat));
                 } catch (Exception e) {
                   promise.fail(e);
@@ -198,8 +252,12 @@ public class Symbolicator {
               });
         }))
         .onErrorReturn(error -> {
-          log.warn("iOS native symbolication error projectId={} appVersion={} msg={}",
-              eventMeta.getProjectId(), eventMeta.getAppVersion(), error.getMessage());
+          log.warn(
+              "{} ios_native failed projectId={} appVersion={}",
+              LOG_PREFIX,
+              eventMeta.getProjectId(),
+              eventMeta.getAppVersion(),
+              error);
           return fallbackIosNative(ndkFrames, stackTraceFormat);
         });
   }
