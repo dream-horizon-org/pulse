@@ -7,6 +7,7 @@ import { useHandleSend } from "./hooks/useHandleSend";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { ChatMessageList } from "./components/ChatMessageList";
 import { ChatInput } from "./components/ChatInput";
+import { AI_CHAT_TEXTS } from "./AiChat.constants";
 import "./AiChat.vars.css";
 import classes from "./AiChat.module.css";
 
@@ -37,6 +38,14 @@ export const AiChat = () => {
     [activeSessionId, messages],
   );
 
+  const errorDisplay = useMemo(
+    () =>
+      error === AI_CHAT_TEXTS.SESSION_HISTORY_LOAD_FAILED
+        ? AI_CHAT_TEXTS.ERROR_GENERIC
+        : error,
+    [error],
+  );
+
   return (
     <Box className={classes.container}>
       <ChatSidebar
@@ -55,7 +64,7 @@ export const AiChat = () => {
           overlayProps={{ blur: 2 }}
           zIndex={50}
         />
-        {error && (
+        {errorDisplay && (
           <Alert
             icon={<IconAlertCircle size={16} />}
             color="red"
@@ -64,7 +73,7 @@ export const AiChat = () => {
             onClose={() => setError(null)}
             className={classes.errorBar}
           >
-            {error}
+            {errorDisplay}
           </Alert>
         )}
         <ChatMessageList
