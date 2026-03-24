@@ -21,6 +21,7 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
+import org.dreamhorizon.pulseserver.config.SessionReplayS3Config;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
 import org.dreamhorizon.pulseserver.dao.notification.*;
@@ -189,14 +190,15 @@ public class MainModule extends VertxAbstractModule {
     ApplicationConfig config = SharedDataUtils.get(vertx, ApplicationConfig.class);
     // When session replay S3 endpoint is set (e.g. MinIO in dev), use it for the default S3 client
     // so both config uploads and session replay block reads use the same client and env config.
-    if (config != null && StringUtils.isNotBlank(config.getSessionReplayS3Endpoint())) {
-      String region = StringUtils.defaultIfBlank(config.getSessionReplayS3Region(), "ap-south-1");
-      String accessKey = StringUtils.defaultString(config.getSessionReplayS3AccessKeyId());
-      String secretKey = StringUtils.defaultString(config.getSessionReplayS3SecretAccessKey());
+    SessionReplayS3Config sr = config != null ? config.getSessionReplayS3() : null;
+    if (sr != null && StringUtils.isNotBlank(sr.getEndpoint())) {
+      String region = StringUtils.defaultIfBlank(sr.getRegion(), "ap-south-1");
+      String accessKey = StringUtils.defaultString(sr.getAccessKeyId());
+      String secretKey = StringUtils.defaultString(sr.getSecretAccessKey());
       return S3AsyncClient.builder()
           .httpClientBuilder(NettyNioAsyncHttpClient.builder())
           .region(Region.of(region))
-          .endpointOverride(URI.create(config.getSessionReplayS3Endpoint()))
+          .endpointOverride(URI.create(sr.getEndpoint()))
           .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
           .forcePathStyle(true)
           .build();
