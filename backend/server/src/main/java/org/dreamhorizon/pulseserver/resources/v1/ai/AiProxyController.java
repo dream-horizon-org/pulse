@@ -14,7 +14,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
@@ -23,15 +22,16 @@ import java.util.concurrent.CompletionStage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.filter.RequiresPermission;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 
 /**
- * JAX-RS controller for the Pulse AI reverse proxy. Authenticates via JWT and delegates
- * upstream calls to {@link AiProxyService}. Maps upstream results to JAX-RS
- * {@link Response}, including {@link jakarta.ws.rs.core.StreamingOutput} for SSE streaming.
- * All methods require a valid JWT and {@code can_view} on the project ({@code X-Project-ID});
- * OpenFGA enforcement is handled by {@link org.dreamhorizon.pulseserver.filter.AuthorizationFilter}.
+ * JAX-RS controller for the Pulse AI reverse proxy. Delegates upstream calls to {@link
+ * AiProxyService}. Maps upstream results to JAX-RS {@link Response}, including {@link
+ * jakarta.ws.rs.core.StreamingOutput} for SSE streaming.
+ *
+ * <p>Authentication and JWT validation are enforced by {@link
+ * org.dreamhorizon.pulseserver.filter.AuthorizationFilter} ({@code @RequiresPermission("can_view")}
+ * and {@code X-Project-ID}).
  */
 @Slf4j
 @Path("/v1/ai")
@@ -40,10 +40,10 @@ import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class AiProxyController {
 
-  private static final String BEARER_PREFIX = "Bearer ";
   private static final String AUTHORIZATION_HEADER = "Authorization";
 
-  private final JwtService jwtService;
+  private static final String PROJECT_ID_HEADER = "X-Project-ID";
+
   private final AiProxyService aiProxyService;
 
   @GET
@@ -51,9 +51,8 @@ public class AiProxyController {
   public CompletionStage<Response> proxyGet(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo) {
-    validateAuth(authorization);
     return aiProxyService
         .proxy("GET", path, rawQuery(uriInfo), null, authorization, projectId)
         .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
@@ -64,10 +63,9 @@ public class AiProxyController {
   public CompletionStage<Response> proxyPost(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
-    validateAuth(authorization);
     String body = readBodyUtf8(bodyStream);
     return aiProxyService
         .proxy("POST", path, rawQuery(uriInfo), body, authorization, projectId)
@@ -79,10 +77,9 @@ public class AiProxyController {
   public CompletionStage<Response> proxyPut(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
-    validateAuth(authorization);
     String body = readBodyUtf8(bodyStream);
     return aiProxyService
         .proxy("PUT", path, rawQuery(uriInfo), body, authorization, projectId)
@@ -94,31 +91,10 @@ public class AiProxyController {
   public CompletionStage<Response> proxyDelete(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo) {
-    validateAuth(authorization);
     return aiProxyService
         .proxy("DELETE", path, rawQuery(uriInfo), null, authorization, projectId)
         .thenApply(r -> toJaxRsResponse(r, DEFAULT_STREAM_BUFFER_SIZE));
-  }
-
-  private void validateAuth(String authorization) {
-    boolean isMissingBearer = authorization == null || !authorization.startsWith(BEARER_PREFIX);
-    if (isMissingBearer) {
-      throw new WebApplicationException("Missing or invalid Authorization header", 401);
-    }
-
-    String token = authorization.substring(BEARER_PREFIX.length()).trim();
-    boolean isTokenEmpty = token.isEmpty();
-    if (isTokenEmpty) {
-      throw new WebApplicationException("Empty authorization token", 401);
-    }
-
-    try {
-      jwtService.verifyToken(token);
-    } catch (Exception e) {
-      log.debug("JWT verification failed: {}", e.getMessage());
-      throw new WebApplicationException("Invalid or expired token", 401);
-    }
   }
 }

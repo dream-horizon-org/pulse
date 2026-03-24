@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.resources.v1.ai;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriInfo;
+import java.net.URI;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -50,8 +51,16 @@ public final class AiProxyResponseSupport {
     }
   }
 
+  /** Returns the raw query string, or {@code null} if {@code uriInfo} or request URI is missing. */
   public static String rawQuery(UriInfo uriInfo) {
-    return uriInfo.getRequestUri().getRawQuery();
+    if (uriInfo == null) {
+      return null;
+    }
+    URI uri = uriInfo.getRequestUri();
+    if (uri == null) {
+      return null;
+    }
+    return uri.getRawQuery();
   }
 
   public static String readBodyUtf8(InputStream bodyStream) {

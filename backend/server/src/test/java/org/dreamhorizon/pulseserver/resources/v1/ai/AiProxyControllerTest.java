@@ -1,60 +1,65 @@
 package org.dreamhorizon.pulseserver.resources.v1.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import jakarta.ws.rs.WebApplicationException;
+import io.reactivex.rxjava3.core.Single;
+import io.vertx.rxjava3.core.buffer.Buffer;
+import io.vertx.rxjava3.ext.web.client.HttpRequest;
+import io.vertx.rxjava3.ext.web.client.HttpResponse;
+import io.vertx.rxjava3.ext.web.client.WebClient;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriInfo;
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.dreamhorizon.pulseserver.service.JwtService;
 import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
-@SuppressWarnings("unchecked")
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AiProxyControllerTest {
 
   private static final String AI_SERVICE_URL = "http://ai-service:8000";
   private static final String VALID_TOKEN = "Bearer valid-jwt-token";
 
-  @Mock
-  JwtService jwtService;
+  @Mock WebClient webClient;
 
-  @Mock
-  HttpClient httpClient;
+  @Mock HttpRequest<Buffer> httpRequest;
 
-  @Mock
-  UriInfo uriInfo;
+  @Mock UriInfo uriInfo;
 
   AiProxyController controller;
 
   @BeforeEach
   void setUp() {
-    controller = new AiProxyController(jwtService, new AiProxyServiceImpl(httpClient, AI_SERVICE_URL));
+    lenient().when(webClient.getAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.postAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.putAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(webClient.deleteAbs(anyString())).thenReturn(httpRequest);
+    lenient().when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
+    lenient().when(httpRequest.timeout(anyLong())).thenReturn(httpRequest);
+    controller = new AiProxyController(new AiProxyServiceImpl(webClient, AI_SERVICE_URL));
   }
 
   private void setupUriInfo(String path, String queryString) {
@@ -70,26 +75,21 @@ class AiProxyControllerTest {
     setupUriInfo(path, null);
   }
 
-  @SuppressWarnings("unchecked")
-  private HttpResponse<InputStream> createMockResponse(
+  private HttpResponse<Buffer> createMockResponse(
       int statusCode, String contentType, String body) {
-    HttpResponse<InputStream> response = (HttpResponse<InputStream>) org.mockito.Mockito.mock(
-        HttpResponse.class);
-    HttpHeaders headers = org.mockito.Mockito.mock(HttpHeaders.class);
-    when(headers.firstValue("Content-Type")).thenReturn(Optional.of(contentType));
-    when(response.headers()).thenReturn(headers);
+    @SuppressWarnings("unchecked")
+    HttpResponse<Buffer> response = org.mockito.Mockito.mock(HttpResponse.class);
     when(response.statusCode()).thenReturn(statusCode);
-    when(response.body()).thenReturn(
-        new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+    when(response.getHeader("Content-Type")).thenReturn(contentType);
+    when(response.body()).thenReturn(Buffer.buffer(body == null ? "" : body));
     return response;
   }
 
   private void setupSuccessfulProxy(String path, int statusCode, String contentType, String body) {
     setupUriInfo(path);
-    when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-    HttpResponse<InputStream> mockResponse = createMockResponse(statusCode, contentType, body);
-    when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-        .thenReturn(CompletableFuture.completedFuture(mockResponse));
+    HttpResponse<Buffer> mockResponse = createMockResponse(statusCode, contentType, body);
+    when(httpRequest.rxSend()).thenReturn(Single.just(mockResponse));
+    when(httpRequest.rxSendBuffer(any())).thenReturn(Single.just(mockResponse));
   }
 
   private Response awaitResponse(CompletionStage<Response> stage) {
@@ -97,53 +97,6 @@ class AiProxyControllerTest {
       return stage.toCompletableFuture().get(5, TimeUnit.SECONDS);
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  @Nested
-  class AuthValidation {
-
-    @Test
-    void shouldThrow401WhenMissingAuthHeader() {
-      assertThatThrownBy(() -> controller.proxyGet("chat", null, null, uriInfo))
-          .isInstanceOf(WebApplicationException.class)
-          .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
-              .isEqualTo(401));
-    }
-
-    @Test
-    void shouldThrow401WhenInvalidFormat() {
-      assertThatThrownBy(() -> controller.proxyGet("chat", "Basic abc123", null, uriInfo))
-          .isInstanceOf(WebApplicationException.class)
-          .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
-              .isEqualTo(401));
-    }
-
-    @Test
-    void shouldThrow401WhenEmptyToken() {
-      assertThatThrownBy(() -> controller.proxyGet("chat", "Bearer ", null, uriInfo))
-          .isInstanceOf(WebApplicationException.class)
-          .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
-              .isEqualTo(401));
-    }
-
-    @Test
-    void shouldThrow401WhenTokenIsWhitespaceOnly() {
-      assertThatThrownBy(() -> controller.proxyGet("chat", "Bearer   ", null, uriInfo))
-          .isInstanceOf(WebApplicationException.class)
-          .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
-              .isEqualTo(401));
-    }
-
-    @Test
-    void shouldThrow401WhenInvalidOrExpiredToken() {
-      when(jwtService.verifyToken("bad-token"))
-          .thenThrow(new RuntimeException("Token expired"));
-
-      assertThatThrownBy(() -> controller.proxyGet("chat", "Bearer bad-token", null, uriInfo))
-          .isInstanceOf(WebApplicationException.class)
-          .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
-              .isEqualTo(401));
     }
   }
 
@@ -159,84 +112,80 @@ class AiProxyControllerTest {
       assertThat(response.getStatus()).isEqualTo(200);
       assertThat(response.getMediaType().toString()).contains("application/json");
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().method()).isEqualTo("GET");
-      assertThat(captor.getValue().uri().toString()).isEqualTo(AI_SERVICE_URL + "/chat");
+      verify(webClient).getAbs(AI_SERVICE_URL + "/chat");
+      verify(httpRequest).timeout(AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
+      verify(httpRequest).rxSend();
     }
 
     @Test
     void shouldProxyPostRequestWithBody() {
       setupSuccessfulProxy("chat", 200, "application/json", "{\"reply\":\"ok\"}");
 
-      InputStream body = new ByteArrayInputStream(
-          "{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
-      Response response = awaitResponse(
-          controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, body));
+      InputStream body =
+          new java.io.ByteArrayInputStream(
+              "{\"message\":\"hi\"}".getBytes(StandardCharsets.UTF_8));
+      Response response =
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().method()).isEqualTo("POST");
+      verify(webClient).postAbs(AI_SERVICE_URL + "/chat");
+      verify(httpRequest).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
     void shouldProxyPostRequestWithoutBody() {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      Response response = awaitResponse(
-          controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
+      Response response =
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().method()).isEqualTo("POST");
+      verify(webClient).postAbs(AI_SERVICE_URL + "/chat");
+      verify(httpRequest).rxSend();
     }
 
     @Test
     void shouldProxyPutRequestWithBody() {
       setupSuccessfulProxy("chat/123", 200, "application/json", "{\"updated\":true}");
 
-      InputStream body = new ByteArrayInputStream(
-          "{\"data\":\"value\"}".getBytes(StandardCharsets.UTF_8));
-      Response response = awaitResponse(
-          controller.proxyPut("chat/123", VALID_TOKEN, null, uriInfo, body));
+      InputStream body =
+          new java.io.ByteArrayInputStream(
+              "{\"data\":\"value\"}".getBytes(StandardCharsets.UTF_8));
+      Response response =
+          awaitResponse(controller.proxyPut("chat/123", VALID_TOKEN, null, uriInfo, body));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().method()).isEqualTo("PUT");
+      verify(webClient).putAbs(AI_SERVICE_URL + "/chat/123");
+      verify(httpRequest).rxSendBuffer(any(Buffer.class));
     }
 
     @Test
     void shouldProxyPutRequestWithoutBody() {
       setupSuccessfulProxy("chat/123", 200, "application/json", "{}");
 
-      Response response = awaitResponse(
-          controller.proxyPut("chat/123", VALID_TOKEN, null, uriInfo, null));
+      Response response =
+          awaitResponse(controller.proxyPut("chat/123", VALID_TOKEN, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().method()).isEqualTo("PUT");
+      verify(webClient).putAbs(AI_SERVICE_URL + "/chat/123");
+      verify(httpRequest).rxSend();
     }
 
     @Test
     void shouldProxyDeleteRequest() {
       setupSuccessfulProxy("chat/123", 204, "application/json", "");
 
-      Response response = awaitResponse(
-          controller.proxyDelete("chat/123", VALID_TOKEN, null, uriInfo));
+      Response response =
+          awaitResponse(controller.proxyDelete("chat/123", VALID_TOKEN, null, uriInfo));
 
       assertThat(response.getStatus()).isEqualTo(204);
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().method()).isEqualTo("DELETE");
+      verify(webClient).deleteAbs(AI_SERVICE_URL + "/chat/123");
+      verify(httpRequest).rxSend();
     }
   }
 
@@ -249,28 +198,21 @@ class AiProxyControllerTest {
 
       awaitResponse(controller.proxyGet("chat/messages", VALID_TOKEN, null, uriInfo));
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().uri().toString())
-          .isEqualTo(AI_SERVICE_URL + "/chat/messages");
+      verify(webClient).getAbs(AI_SERVICE_URL + "/chat/messages");
     }
 
     @Test
     void shouldIncludeQueryStringInUrl() {
       setupUriInfo("chat", "limit=10&offset=0");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      HttpResponse<InputStream> mockResponse = createMockResponse(
-          200, "application/json", "{}");
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.completedFuture(mockResponse));
+      HttpResponse<Buffer> mockResponse = createMockResponse(200, "application/json", "{}");
+      when(httpRequest.rxSend()).thenReturn(Single.just(mockResponse));
 
       awaitResponse(controller.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().uri().toString())
-          .contains("limit=10")
-          .contains("offset=0");
+      verify(webClient)
+          .getAbs(
+              argThat(
+                  (String url) -> url.contains("limit=10") && url.contains("offset=0")));
     }
 
     @Test
@@ -279,9 +221,7 @@ class AiProxyControllerTest {
 
       awaitResponse(controller.proxyGet("chat", VALID_TOKEN, "proj-123", uriInfo));
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().headers().firstValue("X-Project-ID")).contains("proj-123");
+      verify(httpRequest).putHeader(eq("X-Project-ID"), eq("proj-123"));
     }
 
     @Test
@@ -290,9 +230,7 @@ class AiProxyControllerTest {
 
       awaitResponse(controller.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
-      ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
-      verify(httpClient).sendAsync(captor.capture(), any(HttpResponse.BodyHandler.class));
-      assertThat(captor.getValue().headers().firstValue("X-Project-ID")).isEmpty();
+      verify(httpRequest, never()).putHeader(eq("X-Project-ID"), anyString());
     }
   }
 
@@ -339,10 +277,7 @@ class AiProxyControllerTest {
     @Test
     void shouldReturn502WhenHttpClientThrows() {
       setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(CompletableFuture.failedFuture(
-              new RuntimeException("Connection refused")));
+      when(httpRequest.rxSend()).thenReturn(Single.error(new RuntimeException("Connection refused")));
 
       Response response = awaitResponse(controller.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
@@ -353,11 +288,8 @@ class AiProxyControllerTest {
     @Test
     void shouldReturn502WhenHttpClientTimesOut() {
       setupUriInfo("chat");
-      when(jwtService.verifyToken("valid-jwt-token")).thenReturn(null);
-      CompletableFuture<HttpResponse<InputStream>> future = new CompletableFuture<>();
-      future.completeExceptionally(new java.util.concurrent.TimeoutException("Timeout"));
-      when(httpClient.sendAsync(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-          .thenReturn(future);
+      when(httpRequest.rxSend())
+          .thenReturn(Single.error(new java.util.concurrent.TimeoutException("Timeout")));
 
       Response response = awaitResponse(controller.proxyGet("chat", VALID_TOKEN, null, uriInfo));
 
@@ -372,8 +304,8 @@ class AiProxyControllerTest {
     void shouldHandleNullBodyInPost() {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      Response response = awaitResponse(
-          controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
+      Response response =
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, null));
 
       assertThat(response.getStatus()).isEqualTo(200);
     }
@@ -382,9 +314,9 @@ class AiProxyControllerTest {
     void shouldHandleEmptyBodyInPost() {
       setupSuccessfulProxy("chat", 200, "application/json", "{}");
 
-      InputStream emptyBody = new ByteArrayInputStream(new byte[0]);
-      Response response = awaitResponse(
-          controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, emptyBody));
+      InputStream emptyBody = new java.io.ByteArrayInputStream(new byte[0]);
+      Response response =
+          awaitResponse(controller.proxyPost("chat", VALID_TOKEN, null, uriInfo, emptyBody));
 
       assertThat(response.getStatus()).isEqualTo(200);
     }

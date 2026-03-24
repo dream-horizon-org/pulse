@@ -59,4 +59,11 @@ public final class Constants {
   public static final String RESOURCE_TYPE_TENANT = "tenant";
   public static final String RESOURCE_TYPE_SYSTEM = "system";
   public static final String RESOURCE_SYSTEM_PULSE = "pulse";
+
+  /**
+   * {@link io.vertx.rxjava3.ext.web.client.WebClient} stored in {@link
+   * org.dreamhorizon.pulseserver.vertx.SharedDataUtils} and bound in Guice with {@link
+   * com.google.inject.name.Named} for long-timeout outbound calls to Pulse AI (SSE / run_sse).
+   */
+  public static final String WEB_CLIENT_AI_PROXY = "aiProxy";
 }
