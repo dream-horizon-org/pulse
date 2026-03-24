@@ -8,6 +8,7 @@ package io.opentelemetry.android.instrumentation.view.click
 import com.google.auto.service.AutoService
 import io.opentelemetry.android.instrumentation.AndroidInstrumentation
 import io.opentelemetry.android.instrumentation.InstallationContext
+import io.opentelemetry.android.instrumentation.click.ClickContextEnrichmentConfig
 
 @AutoService(AndroidInstrumentation::class)
 class ViewClickInstrumentation : AndroidInstrumentation {
@@ -21,6 +22,7 @@ class ViewClickInstrumentation : AndroidInstrumentation {
                         .logsBridge
                         .loggerBuilder("io.opentelemetry.android.instrumentation.view.click")
                         .build(),
+                    contextEnrichmentEnabled = ClickContextEnrichmentConfig.viewClickContextEnrichmentEnabled,
                 ),
             ),
         )

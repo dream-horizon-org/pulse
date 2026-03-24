@@ -9,6 +9,7 @@ package io.opentelemetry.instrumentation.compose.click
 
 import android.app.Activity
 import android.app.Application
+import android.content.Context
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.Window
@@ -30,6 +31,7 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsModifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.mockk.MockKAnnotations
 import io.mockk.every
@@ -107,6 +109,7 @@ internal class ComposeInstrumentationTest {
         val callbackCapturingSlot = slot<ComposeClickActivityCallback>()
         every { window.callback } returns callback
         every { callback.dispatchTouchEvent(any()) } returns false
+        every { window.context } returns ApplicationProvider.getApplicationContext<Context>()
 
         every { activity.window } returns window
         every { application.registerActivityLifecycleCallbacks(any()) } returns Unit
@@ -141,9 +144,8 @@ internal class ComposeInstrumentationTest {
             window.callback = capture(wrapperCapturingSlot)
         }
 
-        wrapperCapturingSlot.captured.dispatchTouchEvent(
-            motionEvent,
-        )
+        val upEvent = dispatchDownThenUp(wrapperCapturingSlot.captured, motionEvent.x, motionEvent.y)
+        motionEvent.recycle()
 
         val events = openTelemetryRule.logRecords
         assertThat(events).hasSize(2)
@@ -152,8 +154,8 @@ internal class ComposeInstrumentationTest {
         assertThat(event)
             .hasEventName(APP_SCREEN_CLICK_EVENT_NAME)
             .hasAttributesSatisfying(
-                equalTo(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong()),
-                equalTo(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong()),
+                equalTo(APP_SCREEN_COORDINATE_X, upEvent.x.toLong()),
+                equalTo(APP_SCREEN_COORDINATE_Y, upEvent.y.toLong()),
             )
 
         event = events[1]
@@ -163,6 +165,17 @@ internal class ComposeInstrumentationTest {
                 equalTo(APP_WIDGET_ID, mockLayoutNode.semanticsId.toString()),
                 equalTo(APP_WIDGET_NAME, "clickMe"),
             )
+        upEvent.recycle()
+    }
+
+    private fun dispatchDownThenUp(wrapper: WindowCallbackWrapper, x: Float, y: Float): MotionEvent {
+        val down = MotionEvent.obtain(0L, SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y, 0)
+        val up =
+            MotionEvent.obtain(0L, SystemClock.uptimeMillis() + 10, MotionEvent.ACTION_UP, x, y, 0)
+        wrapper.dispatchTouchEvent(down)
+        wrapper.dispatchTouchEvent(up)
+        down.recycle()
+        return up
     }
 
     private fun createMockLayoutNode(

@@ -43,6 +43,14 @@ class InstrumentationConfiguration(
         )
     }
 
+    private val viewClick: ViewClickConfiguration by lazy {
+        ViewClickConfiguration()
+    }
+
+    private val composeClick: ComposeClickConfiguration by lazy {
+        ComposeClickConfiguration()
+    }
+
     fun activity(configure: ActivityLifecycleConfiguration.() -> Unit) {
         activity.configure()
     }
@@ -69,5 +77,21 @@ class InstrumentationConfiguration(
 
     fun interaction(configure: InteractionConfiguration.() -> Unit) {
         interaction.configure()
+    }
+
+    /**
+     * View-based click instrumentation. Add the view-click dependency to enable. Use
+     * contextEnrichmentEnabled to control label/element extraction (performance).
+     */
+    fun viewClick(configure: ViewClickConfiguration.() -> Unit) {
+        viewClick.configure()
+    }
+
+    /**
+     * Compose click instrumentation. Add the compose-click dependency to enable. Use
+     * contextEnrichmentEnabled to control label/element extraction (performance).
+     */
+    fun composeClick(configure: ComposeClickConfiguration.() -> Unit) {
+        composeClick.configure()
     }
 }

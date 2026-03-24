@@ -8,6 +8,7 @@ package io.opentelemetry.android.instrumentation.view.click
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
@@ -29,48 +30,71 @@ import java.util.LinkedList
 
 class ViewClickEventGenerator(
     private val eventLogger: Logger,
+    private val contextEnrichmentEnabled: Boolean = true,
 ) {
     private var windowRef: WeakReference<Window>? = null
+    private var touchSlopPx: Int = 0
+    private var lastDownX: Float = 0f
+    private var lastDownY: Float = 0f
+    private var hasValidDown: Boolean = false
 
     private val viewCoordinates = IntArray(2)
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
+        touchSlopPx = ViewConfiguration.get(window.context).scaledTouchSlop
         val currentCallback: Window.Callback? = window.callback
         window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
     }
 
     fun generateClick(motionEvent: MotionEvent) {
-        windowRef?.get()?.let { window ->
-            if (motionEvent.actionMasked == MotionEvent.ACTION_UP) {
-                findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
-                    val label = getViewContextLabel(view)
-                    val elementHint = getElementHint(view)
-                    val ctx = PulseAttributes.AppClickContext
-                    val baseScreenContext = label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_VIEW) }
-                        ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_VIEW)
-                    val baseWidgetContext = label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_VIEW) }
-                        ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_VIEW)
-                    val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
-                    val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
+        when (motionEvent.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                lastDownX = motionEvent.x
+                lastDownY = motionEvent.y
+                hasValidDown = true
+            }
+            MotionEvent.ACTION_UP -> {
+                if (!hasValidDown) return
+                hasValidDown = false
+                val dx = motionEvent.x - lastDownX
+                val dy = motionEvent.y - lastDownY
+                val distanceSq = dx * dx + dy * dy
+                if (distanceSq > touchSlopPx * touchSlopPx) return // scroll: movement exceeds touch slop
+                windowRef?.get()?.let { window ->
+                    findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
+                    val attributes = createViewAttributes(view)
                     // Only emit screen click when we own this screen (View-based); avoids duplicate
                     // app.screen.click when both View and Compose instrumentations are active
                     val screenClickRecord = createEvent(APP_SCREEN_CLICK_EVENT_NAME)
                         .setAttribute(APP_SCREEN_COORDINATE_X, motionEvent.x.toLong())
                         .setAttribute(APP_SCREEN_COORDINATE_Y, motionEvent.y.toLong())
-                        .setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
-                    screenClickRecord.emit()
-                    Log.d(CLICK_LOG_TAG, "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext")
-
-                    val attributes = createViewAttributes(view)
-                    createEvent(VIEW_CLICK_EVENT_NAME)
+                    val widgetClickRecord = createEvent(VIEW_CLICK_EVENT_NAME)
                         .setAllAttributes(attributes)
-                        .setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
-                        .emit()
-
-                    Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}")
+                    if (contextEnrichmentEnabled) {
+                        val ctx = PulseAttributes.AppClickContext
+                        val label = getViewContextLabel(view)
+                        val elementHint = getElementHint(view)
+                        val baseScreenContext = label?.let { ctx.build(it, ctx.TYPE_SCREEN, ctx.SOURCE_VIEW) }
+                            ?: ctx.build(ctx.TYPE_SCREEN, ctx.SOURCE_VIEW)
+                        val baseWidgetContext = label?.let { ctx.build(it, ctx.TYPE_WIDGET, ctx.SOURCE_VIEW) }
+                            ?: ctx.build(ctx.TYPE_WIDGET, ctx.SOURCE_VIEW)
+                        val screenContext = elementHint?.let { ctx.withElement(baseScreenContext, it) } ?: baseScreenContext
+                        val widgetContext = elementHint?.let { ctx.withElement(baseWidgetContext, it) } ?: baseWidgetContext
+                        screenClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, screenContext)
+                        widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, widgetContext)
+                        Log.d(CLICK_LOG_TAG, "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} context=$screenContext")
+                        Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} context=$widgetContext widgetId=${attributes.get(APP_WIDGET_ID)}")
+                    } else {
+                        Log.d(CLICK_LOG_TAG, "app.screen.click: x=${motionEvent.x.toLong()} y=${motionEvent.y.toLong()} (no app.click.context)")
+                        Log.d(CLICK_LOG_TAG, "app.widget.click: name=${attributes.get(APP_WIDGET_NAME)} widgetId=${attributes.get(APP_WIDGET_ID)} (no app.click.context)")
+                    }
+                    screenClickRecord.emit()
+                    widgetClickRecord.emit()
                 }
             }
+            }
+            MotionEvent.ACTION_CANCEL -> hasValidDown = false
         }
     }
 

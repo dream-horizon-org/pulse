@@ -1,4 +1,3 @@
-
 # View Click Instrumentation
 
 Status: development
@@ -10,7 +9,43 @@ input pointer events.
 When an Activity becomes active, the instrumentation begins tracking
 its window by registering a callback that receives events.
 
-This instrumentation is not currently enabled by default.
+**Add the dependency** to enable click events. Use configuration to control context enrichment (label/element extraction), which can impact performance.
+
+## Configuration
+
+Add the view-click dependency to enable click events. Use `captureContext` to control whether labels and element hints are extracted (default: true).
+
+```kotlin
+PulseSDK.INSTANCE.initialize(
+    application = this,
+    endpointBaseUrl = "https://your-backend.com",
+    apiKey = "your-api-key",
+    dataCollectionState = PulseDataCollectionConsent.ALLOWED
+) {
+    viewClick {
+        captureContext(true)  // default; set to false to omit app.click.context entirely
+    }
+}
+```
+
+When `captureContext` is false, events still emit with tap coordinates and widget identity attributes (`app.screen.coordinate.*`, `app.widget.*`), but **`app.click.context` is not set** (no label, element, or type/source string). This skips the label extraction that traverses ViewGroups and can improve performance.
+
+## Flow
+
+```
+ACTION_UP (finger lift)
+    │
+    ▼
+findTargetForTap(decorView, x, y)  ← hit-test culled BFS (only path to tap)
+    │
+    ▼
+captureContext?                   ← if false: skip app.click.context; if true:
+getViewContextLabel(view)          ← TextView/EditText/ViewGroup label extraction
+getElementHint(view)               ← image|button|chip
+    │
+    ▼
+emit app.screen.click + app.widget.click
+```
 
 ## Telemetry
 
@@ -20,16 +55,16 @@ This instrumentation produces the following telemetry:
 
 ### Clicks
 
-* Type: Event
-* Name: `app.screen.click`
-* Description: This event is emitted when the user taps or clicks on the screen.
-* See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appscreenclick)
+- Type: Event
+- Name: `app.screen.click`
+- Description: This event is emitted when the user taps or clicks on the screen.
+- See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appscreenclick)
   for more details.
 
-* Type: Event
-* Name: `app.widget.click`
-* Description: This event is emitted when the user taps on a view. Jetpack compose views are not currently supported.
-* See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appwidgetclick)
+- Type: Event
+- Name: `app.widget.click`
+- Description: This event is emitted when the user taps on a view. Jetpack compose views are not currently supported.
+- See the [semantic convention definition](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/app/app-events.md#event-appwidgetclick)
   for more details.
 
 ### Attributes
@@ -39,6 +74,49 @@ Both events include:
 - `app.click.context` – Structured string: `label=X; type=screen|widget; source=view` with optional `element=image|button|chip`. The `label` is present only when extractable.
 - `app.screen.coordinate.x`, `app.screen.coordinate.y`
 - `app.widget.id`, `app.widget.name` (on `app.widget.click`)
+
+### Sample payloads
+
+**app.screen.click** (screen-level event, emitted for every tap):
+
+```json
+{
+    "name": "app.screen.click",
+    "attributes": {
+        "app.click.context": "label=Add to Cart; type=screen; source=view; element=button",
+        "app.screen.coordinate.x": 420,
+        "app.screen.coordinate.y": 890
+    }
+}
+```
+
+**app.widget.click** (widget-level event, includes widget identity):
+
+```json
+{
+    "name": "app.widget.click",
+    "attributes": {
+        "app.click.context": "label=Add to Cart; type=widget; source=view; element=button",
+        "app.widget.name": "add_btn",
+        "app.widget.id": "2131234567",
+        "app.screen.coordinate.x": 420,
+        "app.screen.coordinate.y": 890
+    }
+}
+```
+
+Without a label (e.g. clickable view with no `contentDescription`):
+
+```json
+{
+    "name": "app.screen.click",
+    "attributes": {
+        "app.click.context": "type=screen; source=view",
+        "app.screen.coordinate.x": 100,
+        "app.screen.coordinate.y": 200
+    }
+}
+```
 
 ## Enriching click events
 
