@@ -26,12 +26,16 @@ CONTAINER_OTEL_COLLECTOR="pulse-otel-collector"
 CONTAINER_UI="pulse-ui"
 CONTAINER_SERVER="pulse-server"
 CONTAINER_ALERTS_CRON="pulse-alerts-cron"
+CONTAINER_MINIO="pulse-minio"
+CONTAINER_MINIO_INIT="pulse-minio-init"
 
 # Ordered list (start order)
 ALL_CONTAINERS=(
     "$CONTAINER_MYSQL"
     "$CONTAINER_CLICKHOUSE"
+    "$CONTAINER_MINIO"
     "$CONTAINER_CLICKHOUSE_INIT"
+    "$CONTAINER_MINIO_INIT"
     "$CONTAINER_OTEL_COLLECTOR"
     "$CONTAINER_SERVER"
     "$CONTAINER_UI"
@@ -44,6 +48,8 @@ ALL_CONTAINERS=(
 IMAGE_MYSQL="mysql:8.0"
 IMAGE_CLICKHOUSE="clickhouse/clickhouse-server:24.8"
 IMAGE_OTEL_COLLECTOR="otel/opentelemetry-collector-contrib:0.137.0"
+IMAGE_MINIO="minio/minio:latest"
+IMAGE_MINIO_MC="minio/mc:latest"
 
 # Custom-built images (tagged :local to avoid confusion with registry)
 IMAGE_UI="pulse-ui:local"
@@ -56,6 +62,7 @@ IMAGE_ALERTS_CRON="pulse-alerts-cron:local"
 NETWORK_NAME="pulse-network"
 VOLUME_MYSQL="pulse-mysql-data"
 VOLUME_CLICKHOUSE="pulse-clickhouse-data"
+VOLUME_MINIO="pulse-minio-data"
 
 # ---------------------------------------------------------------------------
 # Colors
@@ -217,6 +224,11 @@ load_env() {
     export MYSQL_PASSWORD="${MYSQL_PASSWORD:-pulse_password}"
     export MYSQL_WRITER_MAX_POOL_SIZE="${MYSQL_WRITER_MAX_POOL_SIZE:-10}"
     export MYSQL_READER_MAX_POOL_SIZE="${MYSQL_READER_MAX_POOL_SIZE:-10}"
+
+    # MinIO / Session Replay
+    export MINIO_ROOT_USER="${MINIO_ROOT_USER:-pulse_minio}"
+    export MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-pulse_minio_secret}"
+    export SESSION_REPLAY_S3_BUCKET="${SESSION_REPLAY_S3_BUCKET:-session-recordings}"
 
     # ClickHouse / OTEL
     export OTEL_CLICKHOUSE_DATABASE="${OTEL_CLICKHOUSE_DATABASE:-otel}"
@@ -554,7 +566,7 @@ ensure_network() {
 # ensure_volumes -- Create named volumes if they don't exist
 # ---------------------------------------------------------------------------
 ensure_volumes() {
-    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
+    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE" "$VOLUME_MINIO"; do
         if ! docker volume inspect "$vol" > /dev/null 2>&1; then
             print_info "Creating Docker volume: $vol"
             docker volume create "$vol" > /dev/null
