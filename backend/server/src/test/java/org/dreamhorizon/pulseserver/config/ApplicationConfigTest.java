@@ -92,6 +92,7 @@ class ApplicationConfigTest {
         "interactionAsset",
         "key",
         "tncS3Bucket",
+        "http://ai:8000",
         "symbolFilesS3Bucket",
         "dev-api-key",
         "session-replay-bucket",
