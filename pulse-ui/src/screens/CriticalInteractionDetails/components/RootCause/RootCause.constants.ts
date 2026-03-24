@@ -1,3 +1,9 @@
+/** Mantine modal default z-index is 200; raise so the notice appears above shell and popovers. */
+export const RCA_GENERATION_NOTICE_MODAL_Z_INDEX = {
+  OVERLAY: 10050,
+  CONTENT: 10051,
+} as const;
+
 export const ROOT_CAUSE_MESSAGES = {
   GENERIC_ERROR: "Something went wrong.",
   REGENERATE_REPORT: "Regenerate report",

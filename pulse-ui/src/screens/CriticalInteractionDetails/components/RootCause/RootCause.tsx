@@ -7,7 +7,10 @@ import { useGetRcaReport } from "../../../../hooks/useGetRcaReport/useGetRcaRepo
 import { useRegenerateRcaReport } from "../../../../hooks/useRegenerateRcaReport/useRegenerateRcaReport";
 import { isRcaStructuredReportV1WithContent } from "../../../../hooks/useGetRcaReport/useGetRcaReport.interface";
 import { ErrorAndEmptyState } from "../../../../components/ErrorAndEmptyState";
-import { ROOT_CAUSE_MESSAGES } from "./RootCause.constants";
+import {
+  RCA_GENERATION_NOTICE_MODAL_Z_INDEX,
+  ROOT_CAUSE_MESSAGES,
+} from "./RootCause.constants";
 import type { RootCauseProps } from "./RootCause.interface";
 import { RcaReportView } from "./RcaReportView";
 import classes from "./RootCause.module.css";
@@ -58,6 +61,8 @@ export function RootCause({
     effectiveProjectId != null ? String(effectiveProjectId).trim() : "";
   const isProjectIdMissing = trimmedProjectId === "";
 
+  const isAwaitingFirstReportResponse =
+    reportFetching && reportResponse === undefined;
   const reportPayload = reportResponse?.data ?? null;
   const hasStructuredV1Content = isRcaStructuredReportV1WithContent(
     reportPayload?.report?.structured,
@@ -76,7 +81,10 @@ export function RootCause({
   const isRegenerateReportInFlight = regenerateRcaReport.isPending;
   const showLoadingUi =
     !isProjectIdMissing &&
-    (reportLoading || isRetryInFlight || isRegenerateReportInFlight);
+    (reportLoading ||
+      isAwaitingFirstReportResponse ||
+      isRetryInFlight ||
+      isRegenerateReportInFlight);
 
   useEffect(() => {
     const loadingFinished = !showLoadingUi;
@@ -113,6 +121,12 @@ export function RootCause({
           onClose={handleDismissGenerationNotice}
           title={ROOT_CAUSE_MESSAGES.REPORT_GENERATION_MODAL_TITLE}
           centered
+          zIndex={RCA_GENERATION_NOTICE_MODAL_Z_INDEX.OVERLAY}
+          styles={{
+            overlay: { zIndex: RCA_GENERATION_NOTICE_MODAL_Z_INDEX.OVERLAY },
+            inner: { zIndex: RCA_GENERATION_NOTICE_MODAL_Z_INDEX.CONTENT },
+            content: { zIndex: RCA_GENERATION_NOTICE_MODAL_Z_INDEX.CONTENT },
+          }}
         >
           <Stack gap="md">
             <Text size="sm">
