@@ -403,16 +403,13 @@ class AuthorizationFilterTest {
   }
 
   @Nested
-  class AiProxyOpenFga {
-
-    private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
+  class V1AiPaths {
 
     @Test
-    void shouldRunOpenFgaForV1AiWhenServiceKeyHeaderPresent() throws Exception {
+    void shouldRunOpenFgaForV1AiWhenJwtPresent() throws Exception {
       setupAnnotatedMethod("can_view");
       setupPath("v1/ai/sessions/stream");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(SERVICE_KEY_HEADER)).thenReturn("any-service-key");
       setupValidAuth("user1");
       when(openFgaService.checkPermission("user1", "can_view", "project", "proj_123"))
           .thenReturn(Single.just(true));
@@ -424,11 +421,10 @@ class AuthorizationFilterTest {
     }
 
     @Test
-    void shouldAbortUnauthorizedForV1AiWhenOnlyServiceKeyPresent() throws Exception {
+    void shouldAbortUnauthorizedForV1AiWhenAuthorizationMissing() throws Exception {
       setupAnnotatedMethod("can_view");
       setupPath("v1/ai/chat");
       ProjectContext.setProjectId("proj_123");
-      when(requestContext.getHeaderString(SERVICE_KEY_HEADER)).thenReturn("shared-secret");
       when(requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)).thenReturn(null);
 
       filter.filter(requestContext);

@@ -44,7 +44,6 @@ public class AiProxyServiceImpl implements AiProxyService {
 
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String PROJECT_HEADER = "X-Project-ID";
-  private static final String SERVICE_KEY_HEADER = "X-Pulse-Service-Key";
   private static final String CONTENT_TYPE_JSON = "application/json";
   private static final String CONTENT_TYPE_SSE = "text/event-stream";
   private static final String DEFAULT_AI_SERVICE_URL = "http://localhost:8000";
@@ -72,7 +71,6 @@ public class AiProxyServiceImpl implements AiProxyService {
 
   private final WebClient webClient;
   private final String aiServiceUrl;
-  private final String serviceKey;
   private final ObjectMapper objectMapper;
   private final RootCauseService rootCauseService;
   private final RcaReportCacheDao rcaReportCacheDao;
@@ -87,7 +85,6 @@ public class AiProxyServiceImpl implements AiProxyService {
     this(
         webClient,
         normalizeAiServiceUrl(config.getAiServiceUrl()),
-        config.getAiServiceKey() == null ? "" : config.getAiServiceKey(),
         objectMapper,
         rootCauseService,
         rcaReportCacheDao);
@@ -97,7 +94,7 @@ public class AiProxyServiceImpl implements AiProxyService {
    * For unit tests and simple wiring: plain proxy only (no RCA enrichment or MySQL cache).
    */
   public AiProxyServiceImpl(WebClient webClient, String aiServiceUrl) {
-    this(webClient, normalizeAiServiceUrl(aiServiceUrl), "", null, null, null);
+    this(webClient, normalizeAiServiceUrl(aiServiceUrl), null, null, null);
   }
 
   /**
@@ -106,13 +103,11 @@ public class AiProxyServiceImpl implements AiProxyService {
   AiProxyServiceImpl(
       WebClient webClient,
       String aiServiceUrl,
-      String serviceKey,
       ObjectMapper objectMapper,
       RootCauseService rootCauseService,
       RcaReportCacheDao rcaReportCacheDao) {
     this.webClient = webClient;
     this.aiServiceUrl = aiServiceUrl;
-    this.serviceKey = serviceKey == null ? "" : serviceKey;
     this.objectMapper = objectMapper;
     this.rootCauseService = rootCauseService;
     this.rcaReportCacheDao = rcaReportCacheDao;
@@ -341,9 +336,6 @@ public class AiProxyServiceImpl implements AiProxyService {
     request.putHeader(AUTHORIZATION_HEADER, authorization);
     if (projectId != null && !projectId.isBlank()) {
       request.putHeader(PROJECT_HEADER, projectId.trim());
-    }
-    if (!serviceKey.isEmpty()) {
-      request.putHeader(SERVICE_KEY_HEADER, serviceKey);
     }
   }
 

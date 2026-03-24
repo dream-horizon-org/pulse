@@ -93,7 +93,6 @@ class ApplicationConfigTest {
         "key",
         "tncS3Bucket",
         "http://ai:8000",
-        "ai-service-key",
         "symbolFilesS3Bucket",
         "dev-api-key"
     );

@@ -82,12 +82,7 @@ class AiProxyServiceImplTest {
 
   private AiProxyServiceImpl fullPipelineService() {
     return new AiProxyServiceImpl(
-        webClient, AI_SERVICE_URL, "", objectMapper, rootCauseService, rcaReportCacheDao);
-  }
-
-  private AiProxyServiceImpl fullPipelineServiceWithServiceKey(String key) {
-    return new AiProxyServiceImpl(
-        webClient, AI_SERVICE_URL, key, objectMapper, rootCauseService, rcaReportCacheDao);
+        webClient, AI_SERVICE_URL, objectMapper, rootCauseService, rcaReportCacheDao);
   }
 
   private HttpResponse<Buffer> mockBufferedResponse(int status, String contentType, String body) {
@@ -373,18 +368,4 @@ class AiProxyServiceImplTest {
     }
   }
 
-  @Nested
-  class ServiceKeyHeader {
-
-    @Test
-    void shouldSendXPulseServiceKeyOnOutboundRequest() {
-      AiProxyServiceImpl service = fullPipelineServiceWithServiceKey("secret-key");
-      HttpResponse<Buffer> upstreamResponse = mockBufferedResponse(200, "application/json", "{}");
-      stubSendReturns(upstreamResponse);
-
-      awaitResult(service.proxy("GET", "health", null, null, AUTH, PROJECT_ID));
-
-      verify(httpRequest).putHeader("X-Pulse-Service-Key", "secret-key");
-    }
-  }
 }

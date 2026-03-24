@@ -36,11 +36,6 @@ public class ApplicationConfig {
   public String encryptionMasterKey;
   public String tncS3BucketName;
   public String aiServiceUrl;
-  /**
-   * Shared secret sent as {@code X-Pulse-Service-Key} on outbound requests from the AI proxy to
-   * the Pulse AI service; optional. Not used for inbound authorization on pulse-server.
-   */
-  public String aiServiceKey;
   public String symbolFilesS3BucketName;
   public String devModeApiKey;
   
