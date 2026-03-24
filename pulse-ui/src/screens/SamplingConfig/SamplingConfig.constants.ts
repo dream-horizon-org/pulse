@@ -131,6 +131,8 @@ export const FEATURE_DISPLAY_INFO: Record<
   },
 };
 
+export const SESSION_REPLAY_FEATURE_NAME = "session_replay" as const;
+
 // ============================================================================
 // FILTER MODE OPTIONS
 // ============================================================================

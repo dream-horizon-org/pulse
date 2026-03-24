@@ -1,7 +1,5 @@
 import type { AttributeValue } from "../../types/attributes";
 
-export type PersonaType = "all" | "support" | "product" | "tech";
-
 export type SessionType =
   | "conversion_success"
   | "conversion_abandoned"

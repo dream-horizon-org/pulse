@@ -12,30 +12,19 @@
  * - All: Show everything (default, power user mode)
  */
 
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useEffect,
-} from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import type {
+  PersonaType,
+  PersonaConfig,
+  PersonaContextType,
+  PersonaProviderProps,
+} from "./PersonaContext.interface";
 
-export type PersonaType = "all" | "support" | "product" | "tech";
-
-interface PersonaConfig {
-  label: string;
-  color: string; // Mantine color for theming
-  icon: string; // Tabler icon name
-  defaultTab: string; // Which tab to show first
-  visibleTabs: string[]; // Which tabs to show
-  highlightTypes: string[]; // What to emphasize in UI
-}
-
-interface PersonaContextType {
-  activePersona: PersonaType;
-  setActivePersona: (persona: PersonaType) => void;
-  getPersonaConfig: (persona: PersonaType) => PersonaConfig;
-}
+export type {
+  PersonaType,
+  PersonaConfig,
+  PersonaContextType,
+} from "./PersonaContext.interface";
 
 /**
  * Persona Configurations
@@ -107,11 +96,6 @@ const PersonaContext = createContext<PersonaContextType | undefined>(undefined);
  *
  * Manages persona state and provides config access
  */
-interface PersonaProviderProps {
-  children: ReactNode;
-  initialPersona?: PersonaType;
-}
-
 export const PersonaProvider = ({
   children,
   initialPersona = "all",

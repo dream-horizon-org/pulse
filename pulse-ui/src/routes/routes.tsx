@@ -202,9 +202,9 @@ export const ROUTES = {
   SESSION_REPLAY_DETAIL: {
     ...ROUTE_PATHS.SESSION_REPLAY_DETAIL,
     element: SessionReplayDetail,
-    SUPPORT_QUERIES: {
-      ...ROUTE_PATHS.SUPPORT_QUERIES,
-      element: SupportQueries,
-    },
+  },
+  SUPPORT_QUERIES: {
+    ...ROUTE_PATHS.SUPPORT_QUERIES,
+    element: SupportQueries,
   },
 };

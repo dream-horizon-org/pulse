@@ -5,10 +5,8 @@ import {
   FlameChartNode,
   transformToFlameChart,
 } from "../SessionTimeline/utils/flameChartTransform";
-import {
-  getMockSessionDetail,
-  PersonaType,
-} from "../../services/sessionReplay/mockSessionDetail";
+import { getMockSessionDetail } from "../../services/sessionReplay/mockSessionDetail";
+import type { PersonaType } from "../../contexts/PersonaContext.interface";
 import { getEmptySessionDetail } from "./adapters/sessionDetailApiToData";
 
 import { SessionHeader } from "./components/SessionHeader";
