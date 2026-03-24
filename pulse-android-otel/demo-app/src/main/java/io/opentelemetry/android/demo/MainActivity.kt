@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -29,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -116,13 +118,38 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth(),
                         )
 
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LauncherButton(
+                                text = "Crash here",
+                                onClick = {
+                                    viewModel.performSomeWork()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            LauncherButton(
+                                text = "Trigger ANR",
+                                onClick = {
+                                    viewModel.triggerAnr()
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                         LauncherButton(
-                            text = "Crash here",
+                            text = "Network call",
                             onClick = {
-                                viewModel.performSomeWork()
+                                viewModel.makeNetworkCall()
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
+
+                        LaunchedEffect(Unit) {
+                            viewModel.networkMessage.collect { msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
+                        }
 
                         val locationPermissionLauncher = rememberLauncherForActivityResult(
                             contract = ActivityResultContracts.RequestPermission(),
