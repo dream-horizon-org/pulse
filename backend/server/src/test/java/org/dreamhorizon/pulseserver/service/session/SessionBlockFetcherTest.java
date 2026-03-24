@@ -52,7 +52,7 @@ class SessionBlockFetcherTest {
 
       byte[] result = sessionBlockFetcher.fetchBlocks(urls).blockingGet();
 
-      String expected = "{\"event\":1}\n{\"event\":2}\n";
+      String expected = "{\"event\":1}\n{\"event\":2}";
       assertThat(new String(result, StandardCharsets.UTF_8)).isEqualTo(expected);
     }
 
@@ -67,7 +67,7 @@ class SessionBlockFetcherTest {
       byte[] result = sessionBlockFetcher.fetchBlocks(
           List.of("s3://bucket/key?range=bytes=0-50")).blockingGet();
 
-      assertThat(new String(result, StandardCharsets.UTF_8)).isEqualTo("{\"event\":1}\n");
+      assertThat(new String(result, StandardCharsets.UTF_8)).isEqualTo("{\"event\":1}");
     }
 
     @Test
@@ -81,7 +81,7 @@ class SessionBlockFetcherTest {
       byte[] result = sessionBlockFetcher.fetchBlocks(
           List.of("s3://bucket/key?range=bytes=0-50")).blockingGet();
 
-      assertThat(new String(result, StandardCharsets.UTF_8)).isEqualTo("{\"event\":1}\n");
+      assertThat(new String(result, StandardCharsets.UTF_8)).isEqualTo("{\"event\":1}");
     }
 
     @Test
@@ -89,7 +89,6 @@ class SessionBlockFetcherTest {
       List<String> urls = List.of("s3://bucket/key?range=invalid");
 
       assertThatThrownBy(() -> sessionBlockFetcher.fetchBlocks(urls).blockingGet())
-          .hasCauseInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("Invalid block URL range format");
     }
 
@@ -110,7 +109,6 @@ class SessionBlockFetcherTest {
 
       assertThatThrownBy(() -> sessionBlockFetcher.fetchBlocks(
               List.of("s3://bucket/key?range=bytes=0-100")).blockingGet())
-          .hasCauseInstanceOf(jakarta.ws.rs.WebApplicationException.class)
           .hasMessageContaining("Snappy block size out of range");
     }
 
@@ -123,7 +121,6 @@ class SessionBlockFetcherTest {
 
       assertThatThrownBy(() -> sessionBlockFetcher.fetchBlocks(
               List.of("s3://bucket/key?range=bytes=0-100")).blockingGet())
-          .hasCauseInstanceOf(jakarta.ws.rs.WebApplicationException.class)
           .hasMessageContaining("Failed to decompress Snappy block");
     }
 

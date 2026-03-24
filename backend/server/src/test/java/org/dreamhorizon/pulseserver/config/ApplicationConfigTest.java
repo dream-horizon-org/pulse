@@ -93,7 +93,12 @@ class ApplicationConfigTest {
         "key",
         "tncS3Bucket",
         "symbolFilesS3Bucket",
-        "dev-api-key"
+        "dev-api-key",
+        "session-replay-bucket",
+        "http://minio:9000",
+        "us-east-1",
+        "access-key",
+        "secret-key"
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());

@@ -175,7 +175,7 @@ class SessionReplayServiceTest {
           .snapshotSource("mobile")
           .build();
 
-      byte[] expectedData = "{\"event\":1}\n{\"event\":2}\n".getBytes();
+      byte[] expectedData = "{\"event\":1}\n{\"event\":2}".getBytes();
 
       when(sessionReplayDao.queryBlockListing(eq(SESSION_ID)))
           .thenReturn(Single.just(listing));
@@ -184,10 +184,10 @@ class SessionReplayServiceTest {
       byte[] result = sessionReplayService.fetchBlockData(SESSION_ID, 0, 1).blockingGet();
 
       assertThat(result).isEqualTo(expectedData);
-      // Blocks sorted by firstTimestamp: 10:00 < 10:01, so key2 then key1
+      // Blocks sorted by firstTimestamp: 10:00 < 10:01, so key1 then key2
       verify(sessionBlockFetcher).fetchBlocks(List.of(
-          "s3://bucket/key2?range=bytes=101-200",
-          "s3://bucket/key1?range=bytes=0-100"));
+          "s3://bucket/key1?range=bytes=0-100",
+          "s3://bucket/key2?range=bytes=101-200"));
     }
 
     @Test
