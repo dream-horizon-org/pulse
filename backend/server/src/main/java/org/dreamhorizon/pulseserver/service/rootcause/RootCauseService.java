@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
@@ -22,6 +23,7 @@ import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseResult;
 import org.dreamhorizon.pulseserver.service.rootcause.models.RootCauseSegment;
@@ -30,6 +32,11 @@ import org.dreamhorizon.pulseserver.util.ObjectMapperUtil;
 @Slf4j
 @RequiredArgsConstructor(onConstructor = @__({@Inject}))
 public class RootCauseService {
+
+  private static final String CACHE_FIELD_BASELINE = "baseline";
+  private static final String CACHE_FIELD_SEGMENTS = "segments";
+  private static final String CACHE_PARSE_FAILED_DETAIL =
+      "ClickHouse root_cause_cache row has invalid JSON in %s";
 
   private final RootCauseConfig config;
   private final ClickhouseQueryService clickhouseQueryService;
@@ -53,7 +60,7 @@ public class RootCauseService {
           if (ChronoUnit.HOURS.between(cachedAt, Instant.now()) >= ttlHours) {
             return computeAndCache(projectId, interactionName, date, window);
           }
-          return Single.just(fromCacheRow(row, objectMapper));
+          return Single.just(fromCacheRow(row));
         });
   }
 
@@ -442,9 +449,10 @@ public class RootCauseService {
     return m;
   }
 
-  private static RootCauseResult fromCacheRow(RootCauseCacheRow row, ObjectMapperUtil objectMapper) {
-    Map<String, Object> baseline = parseJsonMap(row.getBaseline(), objectMapper);
-    List<RootCauseSegment> segments = parseJsonSegments(row.getSegments(), objectMapper);
+  private RootCauseResult fromCacheRow(RootCauseCacheRow row) {
+    Map<String, Object> baseline = parseJsonMapOrThrow(row, row.getBaseline(), CACHE_FIELD_BASELINE);
+    List<RootCauseSegment> segments =
+        parseJsonSegmentsOrThrow(row, row.getSegments(), CACHE_FIELD_SEGMENTS);
     return RootCauseResult.builder()
         .baseline(baseline)
         .segments(segments)
@@ -454,26 +462,51 @@ public class RootCauseService {
   }
 
   @SuppressWarnings("unchecked")
-  private static Map<String, Object> parseJsonMap(String json, ObjectMapperUtil objectMapper) {
-    if (json == null || json.isBlank()) return Map.of();
-    try {
-      return objectMapper.readValue(json, Map.class);
-    } catch (Exception e) {
+  private Map<String, Object> parseJsonMapOrThrow(
+      RootCauseCacheRow cacheRow, String json, String fieldName) {
+    if (json == null || json.isBlank()) {
       return Map.of();
+    }
+    try {
+      Map<String, Object> parsed = objectMapper.readValue(json, Map.class);
+      if (parsed == null) {
+        throw new IllegalStateException("parsed map is null");
+      }
+      return parsed;
+    } catch (Exception e) {
+      throw rootCauseCacheJsonInvalid(cacheRow, fieldName, e);
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private static List<RootCauseSegment> parseJsonSegments(String json, ObjectMapperUtil objectMapper) {
-    if (json == null || json.isBlank()) return List.of();
+  private List<RootCauseSegment> parseJsonSegmentsOrThrow(
+      RootCauseCacheRow cacheRow, String json, String fieldName) {
+    if (json == null || json.isBlank()) {
+      return List.of();
+    }
     try {
       List<?> list = objectMapper.readValue(json, List.class);
+      if (list == null) {
+        throw new IllegalStateException("parsed list is null");
+      }
       return list.stream()
           .map(m -> objectMapper.convertValue(m, RootCauseSegment.class))
           .toList();
     } catch (Exception e) {
-      return List.of();
+      throw rootCauseCacheJsonInvalid(cacheRow, fieldName, e);
     }
+  }
+
+  private WebApplicationException rootCauseCacheJsonInvalid(
+      RootCauseCacheRow cacheRow, String fieldName, Exception cause) {
+    log.error(
+        "Invalid root_cause_cache JSON ({}): projectId={} interactionName={} date={} — {}",
+        String.format(CACHE_PARSE_FAILED_DETAIL, fieldName),
+        cacheRow.getProjectId(),
+        cacheRow.getInteractionName(),
+        cacheRow.getDate(),
+        cause.getMessage(),
+        cause);
+    return ServiceError.ROOT_CAUSE_CACHE_INVALID.getException();
   }
 
   private static long toLong(Object o) {

@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulseserver.service.rootcause;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -19,10 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import jakarta.ws.rs.WebApplicationException;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.config.RootCauseConfig;
 import org.dreamhorizon.pulseserver.dao.rootcause.RootCauseCacheDao;
 import org.dreamhorizon.pulseserver.dao.rootcause.models.RootCauseCacheRow;
+import org.dreamhorizon.pulseserver.error.ServiceError;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
 import org.dreamhorizon.pulseserver.model.QueryConfiguration;
@@ -157,22 +160,45 @@ class RootCauseServiceTest {
     }
 
     @Test
-    void shouldTolerateInvalidJsonBaselineInCacheRow() {
+    void shouldFailWhenCacheBaselineJsonIsInvalid() {
       RootCauseCacheRow row =
           RootCauseCacheRow.builder()
               .baseline("not-valid-json")
-              .segments("also-bad")
+              .segments("[]")
               .mode("flat")
               .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
               .build();
       when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
           .thenReturn(Single.just(Optional.of(row)));
 
-      RootCauseResult result =
-          service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet();
+      assertThatThrownBy(() -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet())
+          .isInstanceOf(WebApplicationException.class)
+          .satisfies(
+              t -> {
+                WebApplicationException wae = (WebApplicationException) t;
+                assertThat(wae.getResponse().getStatus())
+                    .isEqualTo(ServiceError.ROOT_CAUSE_CACHE_INVALID.getHttpStatusCode());
+              });
 
-      assertThat(result.getBaseline()).isEmpty();
-      assertThat(result.getSegments()).isEmpty();
+      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
+    }
+
+    @Test
+    void shouldFailWhenCacheSegmentsJsonIsInvalid() {
+      RootCauseCacheRow row =
+          RootCauseCacheRow.builder()
+              .baseline("{}")
+              .segments("not-a-list")
+              .mode("flat")
+              .cachedAt(LocalDateTime.now(ZoneOffset.UTC))
+              .build();
+      when(cacheDao.findByKey(PROJECT_ID, INTERACTION, ANALYSIS_DATE))
+          .thenReturn(Single.just(Optional.of(row)));
+
+      assertThatThrownBy(() -> service.getRootCause(PROJECT_ID, INTERACTION, ANALYSIS_DATE).blockingGet())
+          .isInstanceOf(WebApplicationException.class);
+
+      verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));
     }
 
     @Test
