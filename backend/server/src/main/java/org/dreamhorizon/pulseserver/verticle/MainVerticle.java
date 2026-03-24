@@ -60,9 +60,6 @@ public class MainVerticle extends AbstractVerticle {
           this.webClient = WebClient.create(vertx, getWebClientOptions(webClientConfig));
           this.aiProxyWebClient =
               WebClient.create(vertx, getAiProxyWebClientOptions(webClientConfig));
-          log.info(
-              "AI proxy WebClient: read/write/idle timeouts {} ms (aligned with AiProxyController)",
-              AiProxyServiceImpl.AI_PROXY_UPSTREAM_TIMEOUT_MS);
           SharedDataUtils.put(vertx.getDelegate(), appConfig.mapTo(ApplicationConfig.class));
           JsonObject chConfig = config.getJsonObject("clickhouse", new JsonObject());
           SharedDataUtils.put(vertx.getDelegate(), chConfig.mapTo(ClickhouseConfig.class));

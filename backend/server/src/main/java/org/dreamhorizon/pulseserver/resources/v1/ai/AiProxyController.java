@@ -42,6 +42,8 @@ public class AiProxyController {
 
   private static final String AUTHORIZATION_HEADER = "Authorization";
 
+  private static final String PROJECT_ID_HEADER = "X-Project-ID";
+
   private final AiProxyService aiProxyService;
 
   @GET
@@ -49,7 +51,7 @@ public class AiProxyController {
   public CompletionStage<Response> proxyGet(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     return aiProxyService
         .proxy("GET", path, rawQuery(uriInfo), null, authorization, projectId)
@@ -61,7 +63,7 @@ public class AiProxyController {
   public CompletionStage<Response> proxyPost(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     String body = readBodyUtf8(bodyStream);
@@ -75,7 +77,7 @@ public class AiProxyController {
   public CompletionStage<Response> proxyPut(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo,
       InputStream bodyStream) {
     String body = readBodyUtf8(bodyStream);
@@ -89,7 +91,7 @@ public class AiProxyController {
   public CompletionStage<Response> proxyDelete(
       @PathParam("path") String path,
       @HeaderParam(AUTHORIZATION_HEADER) String authorization,
-      @HeaderParam("X-Project-ID") String projectId,
+      @HeaderParam(PROJECT_ID_HEADER) String projectId,
       @Context UriInfo uriInfo) {
     return aiProxyService
         .proxy("DELETE", path, rawQuery(uriInfo), null, authorization, projectId)
