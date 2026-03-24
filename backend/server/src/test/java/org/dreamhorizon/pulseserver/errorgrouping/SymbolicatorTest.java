@@ -334,6 +334,58 @@ class SymbolicatorTest {
       assertEquals(1, out.size());
       assertEquals("App#main", out.get(0));
     }
+
+    @Test
+    void shouldUseSymbolicatedLinesWhenStackTraceFormatTrue() {
+      NdkFrame f = NdkFrame.builder()
+          .lane(Lane.IOS_NATIVE)
+          .ndkLib("App")
+          .ndkPc("0x1")
+          .ndkSymbol("main")
+          .rawLine("0  App  0x1 main")
+          .originalPosition(0)
+          .build();
+      EventMeta meta = EventMeta.builder()
+          .platform("iOS")
+          .appVersion("1")
+          .appVersionCode("1")
+          .projectId("proj")
+          .build();
+      when(dsymCache.getDsym(any(UploadMetadata.class)))
+          .thenReturn(Single.just(Optional.of(new byte[] {1, 2, 3})));
+      when(iosLlvmSymbolicator.symbolicateFrames(any(), any(), any()))
+          .thenReturn(List.of("llvm pretty line"));
+
+      List<String> out = symbolicator.symbolicateIosNative(List.of(f), meta, "Process: App [1]\n", true)
+          .blockingGet();
+      assertEquals(1, out.size());
+      assertEquals("llvm pretty line", out.get(0));
+    }
+
+    @Test
+    void shouldFallbackToTokensWhenDsymCacheFails() {
+      NdkFrame f = NdkFrame.builder()
+          .lane(Lane.IOS_NATIVE)
+          .ndkLib("App")
+          .ndkPc("0x1")
+          .ndkSymbol("main")
+          .rawLine("0  App  0x1 main")
+          .originalPosition(0)
+          .build();
+      EventMeta meta = EventMeta.builder()
+          .platform("iOS")
+          .appVersion("1")
+          .appVersionCode("1")
+          .projectId("proj")
+          .build();
+      when(dsymCache.getDsym(any(UploadMetadata.class)))
+          .thenReturn(Single.error(new RuntimeException("cache miss")));
+
+      List<String> out = symbolicator.symbolicateIosNative(List.of(f), meta, "", false)
+          .blockingGet();
+      assertEquals(1, out.size());
+      assertEquals("App#main", out.get(0));
+    }
   }
 }
 

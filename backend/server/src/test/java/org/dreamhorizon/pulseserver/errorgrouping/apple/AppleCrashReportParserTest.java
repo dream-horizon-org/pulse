@@ -26,6 +26,30 @@ class AppleCrashReportParserTest {
   }
 
   @Test
+  void parseProcessBinaryName_emptyOrNull() {
+    assertTrue(AppleCrashReportParser.parseProcessBinaryName(null).isEmpty());
+    assertTrue(AppleCrashReportParser.parseProcessBinaryName("").isEmpty());
+  }
+
+  @Test
+  void parseLoadAddress_nullOrEmptyInputs() {
+    assertTrue(AppleCrashReportParser.parseLoadAddressForBinary(null, "x").isEmpty());
+    assertTrue(AppleCrashReportParser.parseLoadAddressForBinary("x", null).isEmpty());
+    assertTrue(AppleCrashReportParser.parseLoadAddressForBinary("x", "").isEmpty());
+  }
+
+  @Test
+  void parseUuid_nullOrEmptyInputs() {
+    assertTrue(AppleCrashReportParser.parseUuidForBinary(null, "x").isEmpty());
+    assertTrue(AppleCrashReportParser.parseUuidForBinary("x", "").isEmpty());
+  }
+
+  @Test
+  void frameImageMatchesProcess_customDylibSuffix() {
+    assertTrue(AppleCrashReportParser.frameImageMatchesProcess("Foo", "Foo.custom.dylib"));
+  }
+
+  @Test
   void parsesLoadAndUuidForAppBinary() {
     assertEquals(Optional.of(0x102938000L), AppleCrashReportParser.parseLoadAddressForBinary(SNIPPET, "PulseIOSExample"));
     assertEquals(Optional.of("b40810f870ce33faa7953d38eb812b63"),
