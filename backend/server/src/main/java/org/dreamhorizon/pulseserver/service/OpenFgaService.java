@@ -6,6 +6,7 @@ import dev.openfga.sdk.api.client.OpenFgaClient;
 import dev.openfga.sdk.api.client.model.ClientCheckRequest;
 import dev.openfga.sdk.api.client.model.ClientListObjectsRequest;
 import dev.openfga.sdk.api.client.model.ClientReadRequest;
+import dev.openfga.sdk.api.client.model.ClientReadResponse;
 import dev.openfga.sdk.api.client.model.ClientTupleKey;
 import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
 import dev.openfga.sdk.api.client.model.ClientWriteRequest;
@@ -508,8 +509,8 @@ public class OpenFgaService {
       ClientReadRequest request = new ClientReadRequest()
           .relation("admin")
           ._object(PROJECT_PREFIX + projectId);
-      var response = client.read(request).get();
-      var tuples = response.getTuples();
+      ClientReadResponse response = client.read(request).get();
+      List<Tuple> tuples = response.getTuples();
 
       if (tuples == null || tuples.isEmpty()) {
         log.debug("getProjectAdmins: project={} -> empty set", projectId);

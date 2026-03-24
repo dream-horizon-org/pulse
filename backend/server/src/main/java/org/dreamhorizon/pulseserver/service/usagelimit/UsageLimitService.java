@@ -38,6 +38,7 @@ import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitI
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ProjectUsageLimitPublicInfo;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.ResetLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.SetCustomLimitsRequest;
+import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitParameter;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitPublicValue;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotification;
@@ -48,6 +49,7 @@ import org.dreamhorizon.pulseserver.constant.NotificationConstants;
 import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -416,156 +418,10 @@ public class UsageLimitService {
         .toList()
         .flatMap(limits -> {
           log.info("Found {} active project limits", limits.size());
-          
+
           return clickhouseQueryService.getCurrentMonthUsage()
               .flatMap(usageStatsMap -> {
-                List<UsageNotification> notifications = new ArrayList<>();
-                
-                for (ProjectUsageLimitInfo limit : limits) {
-                  String projectId = limit.getProjectId();
-                  UsageStats usage = usageStatsMap.get(projectId);
-                  
-                  if (usage == null) {
-                    log.debug("No usage data found for project: {}", projectId);
-                    continue;
-                  }
-                  
-                  Set<Integer> alreadyNotified = parseNotifiedThresholds(limit.getNotificationStatus());
-                  
-                  // Calculate percentages for both metrics
-                  Long eventLimit = getEventLimit(limit);
-                  Long sessionLimit = getSessionLimit(limit);
-                  Integer eventsOverage = getEventOverage(limit);
-                  Integer sessionsOverage = getSessionOverage(limit);
-                  
-                  Integer eventsPercentage = null;
-                  Integer sessionsPercentage = null;
-                  
-                  if (eventLimit != null && eventLimit > 0) {
-                    eventsPercentage = calculatePercentage(usage.getEventsUsed(), eventLimit);
-                  }
-                  
-                  if (sessionLimit != null && sessionLimit > 0) {
-                    sessionsPercentage = calculatePercentage(usage.getSessionsUsed(), sessionLimit);
-                  }
-                  
-                  // Build thresholds to check: 50, 75, 90, 100 + overage limit (e.g. 110) when blocked
-                  int maxOverage = Math.max(eventsOverage != null ? eventsOverage : 0,
-                                           sessionsOverage != null ? sessionsOverage : 0);
-                  int overageLimit = 100 + maxOverage;
-                  List<Integer> thresholdsToCheck = new ArrayList<>(NOTIFICATION_THRESHOLDS);
-                  if (maxOverage > 0 && !thresholdsToCheck.contains(overageLimit)) {
-                    thresholdsToCheck.add(overageLimit);
-                  }
-
-                  // Check both metrics: which has the highest crossed threshold?
-                  // Highest wins; if tied, events wins (ensures blocked/reached state is notified correctly)
-                  List<Integer> eventsCrossed = new ArrayList<>();
-                  List<Integer> sessionsCrossed = new ArrayList<>();
-
-                  if (eventsPercentage != null) {
-                    for (Integer threshold : thresholdsToCheck) {
-                      if (eventsPercentage >= threshold && !alreadyNotified.contains(threshold)) {
-                        eventsCrossed.add(threshold);
-                      }
-                    }
-                  }
-                  if (sessionsPercentage != null) {
-                    for (Integer threshold : thresholdsToCheck) {
-                      if (sessionsPercentage >= threshold && !alreadyNotified.contains(threshold)) {
-                        sessionsCrossed.add(threshold);
-                      }
-                    }
-                  }
-
-                  int eventsHighest = eventsCrossed.isEmpty() ? 0 : eventsCrossed.stream().max(Integer::compareTo).orElse(0);
-                  int sessionsHighest = sessionsCrossed.isEmpty() ? 0 : sessionsCrossed.stream().max(Integer::compareTo).orElse(0);
-
-                  String notifyFor = null;
-                  int chosenThreshold = 0;
-                  List<Integer> thresholdsToMark = new ArrayList<>();
-
-                  if (eventsHighest >= sessionsHighest && eventsHighest > 0) {
-                    notifyFor = "events";
-                    chosenThreshold = eventsHighest;
-                    thresholdsToMark = new ArrayList<>(eventsCrossed);
-                  } else if (sessionsHighest > 0) {
-                    notifyFor = "sessions";
-                    chosenThreshold = sessionsHighest;
-                    thresholdsToMark = new ArrayList<>(sessionsCrossed);
-                  }
-
-                  List<Integer> thresholdsToCross = chosenThreshold > 0 ? List.of(chosenThreshold) : List.of();
-
-                  // Build notifications with both metrics details and template selection
-                  for (Integer threshold : thresholdsToCross) {
-                    // Calculate status flags (maxOverage, overageLimit computed above)
-                    boolean eventsBlocked = eventsPercentage != null && eventsPercentage >= overageLimit;
-                    boolean sessionsBlocked = sessionsPercentage != null && sessionsPercentage >= overageLimit;
-                    boolean eventsAtLimit = eventsPercentage != null && eventsPercentage >= 100 
-                                           && eventsPercentage < overageLimit && maxOverage > 0;
-                    boolean sessionsAtLimit = sessionsPercentage != null && sessionsPercentage >= 100 
-                                             && sessionsPercentage < overageLimit && maxOverage > 0;
-                    
-                    // Select template based on status
-                    String templateName;
-                    int displayEventsPercentage = eventsPercentage != null ? eventsPercentage : 0;
-                    int displaySessionsPercentage = sessionsPercentage != null ? sessionsPercentage : 0;
-                    
-                    if (eventsBlocked || sessionsBlocked) {
-                      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_BLOCKED;
-                      // Cap non-blocked metric at 100% for display
-                      if (!eventsBlocked) {
-                        displayEventsPercentage = Math.min(displayEventsPercentage, 100);
-                      }
-                      if (!sessionsBlocked) {
-                        displaySessionsPercentage = Math.min(displaySessionsPercentage, 100);
-                      }
-                    } else if (eventsAtLimit || sessionsAtLimit) {
-                      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_REACHED;
-                      // Cap both at 100% for display
-                      displayEventsPercentage = Math.min(displayEventsPercentage, 100);
-                      displaySessionsPercentage = Math.min(displaySessionsPercentage, 100);
-                    } else {
-                      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_THRESHOLD;
-                      // Show actual percentages (under 100%)
-                    }
-                    
-                    String projectName = limit.getProjectName() != null ? limit.getProjectName() : projectId;
-                    long sessionsUsedVal = usage.getSessionsUsed() != null ? usage.getSessionsUsed() : 0;
-                    long eventsUsedVal = usage.getEventsUsed() != null ? usage.getEventsUsed() : 0;
-                    UsageNotification notification = UsageNotification.builder()
-                        .projectId(projectId)
-                        .projectName(projectName)
-                        .tenantId(limit.getTenantId())
-                        .threshold(threshold)
-                        .thresholdsToMark(thresholdsToMark)
-                        .notifyFor(notifyFor)
-                        .templateName(templateName)
-                        .sessionsUsed(usage.getSessionsUsed())
-                        .sessionsLimit(sessionLimit)
-                        .sessionsPercentage(displaySessionsPercentage)
-                        .sessionsPercentageDisplay(toPercentageDisplay(sessionsUsedVal, sessionLimit, displaySessionsPercentage))
-                        .sessionsOverage(sessionsOverage)
-                        .sessionsBlocked(sessionsBlocked)
-                        .sessionsAtLimit(sessionsAtLimit)
-                        .eventsUsed(usage.getEventsUsed())
-                        .eventsLimit(eventLimit)
-                        .eventsPercentage(displayEventsPercentage)
-                        .eventsPercentageDisplay(toPercentageDisplay(eventsUsedVal, eventLimit, displayEventsPercentage))
-                        .eventsOverage(eventsOverage)
-                        .eventsBlocked(eventsBlocked)
-                        .eventsAtLimit(eventsAtLimit)
-                        .recipientEmails(null)
-                        .build();
-                    
-                    notifications.add(notification);
-                    
-                    log.info("📊 Notification due: {} - {} at {}% using template {} (events: {}%, sessions: {}%)",
-                        projectId, notifyFor, threshold, templateName, displayEventsPercentage, displaySessionsPercentage);
-                  }
-                }
-                
+                List<UsageNotification> notifications = collectDueNotifications(limits, usageStatsMap);
                 Instant endTime = Instant.now();
                 log.info("✅ Analysis complete: {} notifications due across {} projects (took {}ms)",
                     notifications.size(), limits.size(),
@@ -580,52 +436,259 @@ public class UsageLimitService {
                       .build());
                 }
 
-                Set<String> projectIds = notifications.stream()
-                    .map(UsageNotification::getProjectId)
-                    .collect(Collectors.toSet());
-                Map<String, ProjectUsageLimitInfo> limitByProject = limits.stream()
-                    .collect(Collectors.toMap(ProjectUsageLimitInfo::getProjectId, l -> l));
-
-                return Flowable.fromIterable(projectIds)
-                    .flatMapSingle(projectId ->
-                        openFgaService.getProjectAdmins(projectId)
-                            .flatMap(adminIds -> {
-                              if (adminIds == null || adminIds.isEmpty()) {
-                                ProjectUsageLimitInfo limit = limitByProject.get(projectId);
-                                String createdBy = limit != null ? limit.getCreatedBy() : null;
-                                List<String> fallback = (createdBy != null && createdBy.contains("@"))
-                                    ? List.of(createdBy) : List.of();
-                                return Single.just(new AbstractMap.SimpleEntry<>(projectId, fallback));
-                              }
-                              return userService.getUsersByIds(new ArrayList<>(adminIds))
-                                  .map(users -> users.stream()
-                                      .map(User::getEmail)
-                                      .filter(e -> e != null && e.contains("@"))
-                                      .distinct()
-                                      .toList())
-                                  .map(emails -> new AbstractMap.SimpleEntry<>(projectId, emails));
-                            }))
-                    .toList()
-                    .map(entries -> {
-                      Map<String, List<String>> projectToEmails = new HashMap<>();
-                      for (var e : entries) {
-                        projectToEmails.put(e.getKey(), e.getValue());
-                      }
-                      for (UsageNotification n : notifications) {
-                        n.setRecipientEmails(projectToEmails.getOrDefault(n.getProjectId(), List.of()));
-                      }
-                      return UsageNotificationResult.builder()
-                          .notifications(notifications)
-                          .totalProjectsChecked(limits.size())
-                          .notificationsDue(notifications.size())
-                          .checkedAt(endTime)
-                          .build();
-                    });
+                return attachRecipientsAndBuildResult(notifications, limits, endTime);
               });
         })
-        .doOnError(error -> 
+        .doOnError(error ->
             log.error("❌ Failed to analyze usage notifications", error)
         );
+  }
+
+  /**
+   * Builds the list of notifications that are due (without recipient resolution).
+   */
+  private List<UsageNotification> collectDueNotifications(
+      List<ProjectUsageLimitInfo> limits,
+      Map<String, UsageStats> usageStatsMap) {
+    List<UsageNotification> notifications = new ArrayList<>();
+    for (ProjectUsageLimitInfo limit : limits) {
+      UsageStats usage = usageStatsMap.get(limit.getProjectId());
+      UsageNotification notification = buildNotificationIfDue(limit, usage);
+      if (notification != null) {
+        notifications.add(notification);
+      }
+    }
+    return notifications;
+  }
+
+  /**
+   * When usage exists and a threshold notification is due, builds the notification; otherwise null.
+   */
+  private UsageNotification buildNotificationIfDue(ProjectUsageLimitInfo limit, UsageStats usage) {
+    String projectId = limit.getProjectId();
+    if (usage == null) {
+      log.debug("No usage data found for project: {}", projectId);
+      return null;
+    }
+
+    Set<Integer> alreadyNotified = parseNotifiedThresholds(limit.getNotificationStatus());
+
+    Long eventLimit = getEventLimit(limit);
+    Long sessionLimit = getSessionLimit(limit);
+    Integer eventsOverage = getEventOverage(limit);
+    Integer sessionsOverage = getSessionOverage(limit);
+
+    Integer eventsPercentage = null;
+    Integer sessionsPercentage = null;
+
+    if (eventLimit != null && eventLimit > 0) {
+      eventsPercentage = calculatePercentage(usage.getEventsUsed(), eventLimit);
+    }
+
+    if (sessionLimit != null && sessionLimit > 0) {
+      sessionsPercentage = calculatePercentage(usage.getSessionsUsed(), sessionLimit);
+    }
+
+    int maxOverage = Math.max(eventsOverage != null ? eventsOverage : 0,
+        sessionsOverage != null ? sessionsOverage : 0);
+    int overageLimit = 100 + maxOverage;
+    List<Integer> thresholdsToCheck = new ArrayList<>(NOTIFICATION_THRESHOLDS);
+    if (maxOverage > 0 && !thresholdsToCheck.contains(overageLimit)) {
+      thresholdsToCheck.add(overageLimit);
+    }
+
+    Optional<UsageNotificationChosenTarget> chosenOpt = chooseNotificationTarget(
+        thresholdsToCheck, alreadyNotified, eventsPercentage, sessionsPercentage);
+    if (chosenOpt.isEmpty()) {
+      return null;
+    }
+    UsageNotificationChosenTarget chosen = chosenOpt.get();
+
+    UsageLimitTemplateResolution template = resolveUsageLimitTemplate(
+        eventsPercentage, sessionsPercentage, overageLimit, maxOverage);
+
+    UsageNotification notification = buildUsageLimitNotification(
+        limit, usage, chosen, template, eventLimit, sessionLimit, eventsOverage, sessionsOverage);
+
+    log.info("📊 Notification due: {} - {} at {}% using template {} (events: {}%, sessions: {}%)",
+        projectId, chosen.notifyFor(), chosen.threshold(), template.templateName(),
+        template.displayEventsPercentage(), template.displaySessionsPercentage());
+
+    return notification;
+  }
+
+  // Picks events vs sessions by highest newly crossed threshold; empty if none due.
+  private Optional<UsageNotificationChosenTarget> chooseNotificationTarget(
+      List<Integer> thresholdsToCheck,
+      Set<Integer> alreadyNotified,
+      Integer eventsPercentage,
+      Integer sessionsPercentage) {
+    List<Integer> eventsCrossed = new ArrayList<>();
+    List<Integer> sessionsCrossed = new ArrayList<>();
+
+    if (eventsPercentage != null) {
+      for (Integer threshold : thresholdsToCheck) {
+        if (eventsPercentage >= threshold && !alreadyNotified.contains(threshold)) {
+          eventsCrossed.add(threshold);
+        }
+      }
+    }
+    if (sessionsPercentage != null) {
+      for (Integer threshold : thresholdsToCheck) {
+        if (sessionsPercentage >= threshold && !alreadyNotified.contains(threshold)) {
+          sessionsCrossed.add(threshold);
+        }
+      }
+    }
+
+    int eventsHighest = eventsCrossed.isEmpty() ? 0 : eventsCrossed.stream().max(Integer::compareTo).orElse(0);
+    int sessionsHighest = sessionsCrossed.isEmpty() ? 0 : sessionsCrossed.stream().max(Integer::compareTo).orElse(0);
+
+    if (eventsHighest >= sessionsHighest && eventsHighest > 0) {
+      return Optional.of(new UsageNotificationChosenTarget(
+          "events", eventsHighest, new ArrayList<>(eventsCrossed)));
+    }
+    if (sessionsHighest > 0) {
+      return Optional.of(new UsageNotificationChosenTarget(
+          "sessions", sessionsHighest, new ArrayList<>(sessionsCrossed)));
+    }
+    return Optional.empty();
+  }
+
+  // Selects notification template and capped display percentages from usage vs overage state.
+  private UsageLimitTemplateResolution resolveUsageLimitTemplate(
+      Integer eventsPercentage,
+      Integer sessionsPercentage,
+      int overageLimit,
+      int maxOverage) {
+    boolean eventsBlocked = eventsPercentage != null && eventsPercentage >= overageLimit;
+    boolean sessionsBlocked = sessionsPercentage != null && sessionsPercentage >= overageLimit;
+    boolean eventsAtLimit = eventsPercentage != null && eventsPercentage >= 100
+        && eventsPercentage < overageLimit && maxOverage > 0;
+    boolean sessionsAtLimit = sessionsPercentage != null && sessionsPercentage >= 100
+        && sessionsPercentage < overageLimit && maxOverage > 0;
+
+    int displayEventsPercentage = eventsPercentage != null ? eventsPercentage : 0;
+    int displaySessionsPercentage = sessionsPercentage != null ? sessionsPercentage : 0;
+    String templateName;
+
+    if (eventsBlocked || sessionsBlocked) {
+      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_BLOCKED;
+      if (!eventsBlocked) {
+        displayEventsPercentage = Math.min(displayEventsPercentage, 100);
+      }
+      if (!sessionsBlocked) {
+        displaySessionsPercentage = Math.min(displaySessionsPercentage, 100);
+      }
+    } else if (eventsAtLimit || sessionsAtLimit) {
+      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_REACHED;
+      displayEventsPercentage = Math.min(displayEventsPercentage, 100);
+      displaySessionsPercentage = Math.min(displaySessionsPercentage, 100);
+    } else {
+      templateName = NotificationConstants.Platform.EVENT_USAGE_LIMIT_THRESHOLD;
+    }
+
+    return new UsageLimitTemplateResolution(
+        templateName,
+        displayEventsPercentage,
+        displaySessionsPercentage,
+        eventsBlocked,
+        sessionsBlocked,
+        eventsAtLimit,
+        sessionsAtLimit);
+  }
+
+  // Maps chosen threshold and template resolution into a UsageNotification (recipients unset).
+  private UsageNotification buildUsageLimitNotification(
+      ProjectUsageLimitInfo limit,
+      UsageStats usage,
+      UsageNotificationChosenTarget chosen,
+      UsageLimitTemplateResolution tmpl,
+      Long eventLimit,
+      Long sessionLimit,
+      Integer eventsOverage,
+      Integer sessionsOverage) {
+    String projectId = limit.getProjectId();
+    String projectName = limit.getProjectName() != null ? limit.getProjectName() : projectId;
+    long sessionsUsedVal = usage.getSessionsUsed() != null ? usage.getSessionsUsed() : 0;
+    long eventsUsedVal = usage.getEventsUsed() != null ? usage.getEventsUsed() : 0;
+
+    return UsageNotification.builder()
+        .projectId(projectId)
+        .projectName(projectName)
+        .tenantId(limit.getTenantId())
+        .threshold(chosen.threshold())
+        .thresholdsToMark(chosen.thresholdsToMark())
+        .notifyFor(chosen.notifyFor())
+        .templateName(tmpl.templateName())
+        .sessionsUsed(usage.getSessionsUsed())
+        .sessionsLimit(sessionLimit)
+        .sessionsPercentage(tmpl.displaySessionsPercentage())
+        .sessionsPercentageDisplay(
+            toPercentageDisplay(sessionsUsedVal, sessionLimit, tmpl.displaySessionsPercentage()))
+        .sessionsOverage(sessionsOverage)
+        .sessionsBlocked(tmpl.sessionsBlocked())
+        .sessionsAtLimit(tmpl.sessionsAtLimit())
+        .eventsUsed(usage.getEventsUsed())
+        .eventsLimit(eventLimit)
+        .eventsPercentage(tmpl.displayEventsPercentage())
+        .eventsPercentageDisplay(
+            toPercentageDisplay(eventsUsedVal, eventLimit, tmpl.displayEventsPercentage()))
+        .eventsOverage(eventsOverage)
+        .eventsBlocked(tmpl.eventsBlocked())
+        .eventsAtLimit(tmpl.eventsAtLimit())
+        .recipientEmails(null)
+        .build();
+  }
+
+  /**
+   * Resolves recipient emails per project (OpenFGA admins, then creator fallback) and builds the result.
+   */
+  private Single<UsageNotificationResult> attachRecipientsAndBuildResult(
+      List<UsageNotification> notifications,
+      List<ProjectUsageLimitInfo> limits,
+      Instant endTime) {
+    Set<String> projectIds = notifications.stream()
+        .map(UsageNotification::getProjectId)
+        .collect(Collectors.toSet());
+    Map<String, ProjectUsageLimitInfo> limitByProject = limits.stream()
+        .collect(Collectors.toMap(ProjectUsageLimitInfo::getProjectId, l -> l));
+
+    return Flowable.fromIterable(projectIds)
+        .flatMapSingle(projectId ->
+            openFgaService.getProjectAdmins(projectId)
+                .flatMap(adminIds -> {
+                  if (adminIds == null || adminIds.isEmpty()) {
+                    ProjectUsageLimitInfo limit = limitByProject.get(projectId);
+                    String createdBy = limit != null ? limit.getCreatedBy() : null;
+                    List<String> fallback = (createdBy != null && createdBy.contains("@"))
+                        ? List.of(createdBy) : List.of();
+                    return Single.just(new AbstractMap.SimpleEntry<>(projectId, fallback));
+                  }
+                  return userService.getUsersByIds(new ArrayList<>(adminIds))
+                      .map(users -> users.stream()
+                          .map(User::getEmail)
+                          .filter(e -> e != null && e.contains("@"))
+                          .distinct()
+                          .toList())
+                      .map(emails -> new AbstractMap.SimpleEntry<>(projectId, emails));
+                }))
+        .toList()
+        .map(entries -> {
+          Map<String, List<String>> projectToEmails = new HashMap<>();
+          for (var e : entries) {
+            projectToEmails.put(e.getKey(), e.getValue());
+          }
+          for (UsageNotification n : notifications) {
+            n.setRecipientEmails(projectToEmails.getOrDefault(n.getProjectId(), List.of()));
+          }
+          return UsageNotificationResult.builder()
+              .notifications(notifications)
+              .totalProjectsChecked(limits.size())
+              .notificationsDue(notifications.size())
+              .checkedAt(endTime)
+              .build();
+        });
   }
 
 
@@ -678,7 +741,8 @@ public class UsageLimitService {
     if (limit.getUsageLimits() == null) {
       return null;
     }
-    UsageLimitValue sessionLimit = limit.getUsageLimits().get("max_user_sessions_per_project");
+    UsageLimitValue sessionLimit =
+        limit.getUsageLimits().get(UsageLimitParameter.MAX_USER_SESSIONS_PER_PROJECT.getKey());
     if (sessionLimit == null || sessionLimit.getValue() == null) {
       return null;
     }
@@ -692,7 +756,8 @@ public class UsageLimitService {
     if (limit.getUsageLimits() == null) {
       return null;
     }
-    UsageLimitValue eventLimit = limit.getUsageLimits().get("max_events_per_project");
+    UsageLimitValue eventLimit =
+        limit.getUsageLimits().get(UsageLimitParameter.MAX_EVENTS_PER_PROJECT.getKey());
     if (eventLimit == null || eventLimit.getValue() == null) {
       return null;
     }
@@ -706,7 +771,8 @@ public class UsageLimitService {
     if (limit.getUsageLimits() == null) {
       return 0;
     }
-    UsageLimitValue sessionLimit = limit.getUsageLimits().get("max_user_sessions_per_project");
+    UsageLimitValue sessionLimit =
+        limit.getUsageLimits().get(UsageLimitParameter.MAX_USER_SESSIONS_PER_PROJECT.getKey());
     if (sessionLimit == null || sessionLimit.getOverage() == null) {
       return 0;
     }
@@ -720,12 +786,27 @@ public class UsageLimitService {
     if (limit.getUsageLimits() == null) {
       return 0;
     }
-    UsageLimitValue eventLimit = limit.getUsageLimits().get("max_events_per_project");
+    UsageLimitValue eventLimit =
+        limit.getUsageLimits().get(UsageLimitParameter.MAX_EVENTS_PER_PROJECT.getKey());
     if (eventLimit == null || eventLimit.getOverage() == null) {
       return 0;
     }
     return eventLimit.getOverage();
   }
+
+  private record UsageNotificationChosenTarget(
+      String notifyFor,
+      int threshold,
+      List<Integer> thresholdsToMark) {}
+
+  private record UsageLimitTemplateResolution(
+      String templateName,
+      int displayEventsPercentage,
+      int displaySessionsPercentage,
+      boolean eventsBlocked,
+      boolean sessionsBlocked,
+      boolean eventsAtLimit,
+      boolean sessionsAtLimit) {}
 
   @lombok.Data
   @lombok.Builder

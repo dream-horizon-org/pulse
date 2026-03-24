@@ -3,6 +3,7 @@ package org.dreamhorizon.pulseserver.resources.usagelimits;
 import org.dreamhorizon.pulseserver.resources.tiers.models.UsageLimitPublicRestDto;
 import org.dreamhorizon.pulseserver.resources.tiers.models.UsageLimitValueRestDto;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.NotificationStatusRestDto;
+import org.dreamhorizon.pulseserver.resources.usagelimits.models.NotificationStatusRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectLimitHistoryRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitListRestResponse;
 import org.dreamhorizon.pulseserver.resources.usagelimits.models.ProjectUsageLimitPublicRestResponse;
@@ -18,6 +19,7 @@ import org.dreamhorizon.pulseserver.service.usagelimit.models.ResetLimitsRequest
 import org.dreamhorizon.pulseserver.service.usagelimit.models.SetCustomLimitsRequest;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitPublicValue;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageLimitValue;
+import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService.NotificationStatusResponse;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotification;
 import org.dreamhorizon.pulseserver.service.usagelimit.models.UsageNotificationResult;
 import org.mapstruct.Mapper;
@@ -149,6 +151,19 @@ public abstract class UsageLimitMapper {
   }
 
   // Usage notification mappings
+  public NotificationStatusRestResponse toNotificationStatusRestResponse(NotificationStatusResponse response) {
+    if (response == null) {
+      return null;
+    }
+    return NotificationStatusRestResponse.builder()
+        .projectId(response.getProjectId())
+        .month(response.getMonth())
+        .thresholdsNotified(response.getThresholdsNotified())
+        .createdAt(response.getCreatedAt())
+        .updatedAt(response.getUpdatedAt())
+        .build();
+  }
+
   public UsageNotificationRestResponse toUsageNotificationResponse(UsageNotificationResult result) {
     if (result == null) {
       return null;

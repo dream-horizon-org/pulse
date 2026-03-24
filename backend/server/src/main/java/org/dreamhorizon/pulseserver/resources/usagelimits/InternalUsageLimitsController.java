@@ -177,13 +177,7 @@ public class InternalUsageLimitsController {
       @NotNull @Valid MarkNotificationsRestRequest request
   ) {
     return usageLimitService.markThresholdsNotified(projectId, request.getThresholds())
-        .map(response -> NotificationStatusRestResponse.builder()
-            .projectId(response.getProjectId())
-            .month(response.getMonth())
-            .thresholdsNotified(response.getThresholdsNotified())
-            .createdAt(response.getCreatedAt())
-            .updatedAt(response.getUpdatedAt())
-            .build())
+        .map(mapper::toNotificationStatusRestResponse)
         .to(RestResponse.jaxrsRestHandler());
   }
 

@@ -27,6 +27,7 @@ public class PulseServerApiClient {
   private static final String MARK_NOTIFICATIONS_PATH = "/internal/v1/projects/%s/limits/notifications";
   private static final String SEND_NOTIFICATION_PATH = "/v1/notifications/send";
   private static final long REQUEST_TIMEOUT_MS = 30000;
+  private static final String DEFAULT_DASHBOARD_URL = "https://pulse-ux.com";
 
   @Inject
   public PulseServerApiClient(WebClient webClient, ApplicationConfig config) {
@@ -128,12 +129,12 @@ public class PulseServerApiClient {
                     statusCode,
                     response.bodyAsString()
                 );
-                log.error("❌ Failed to fetch usage notifications: {}", errorMsg);
+                log.error("❌ Failed to fetch usage notifications: API returned status {}: {}", statusCode, response.bodyAsString());
                 throw new RuntimeException(errorMsg);
               }
               
-              var wrappedResponse = response.bodyAsJsonObject();
-              var dataObject = wrappedResponse.getJsonObject("data");
+              JsonObject wrappedResponse = response.bodyAsJsonObject();
+              JsonObject dataObject = wrappedResponse.getJsonObject("data");
               UsageNotificationResponse result = dataObject.mapTo(UsageNotificationResponse.class);
               
               log.info("✅ Successfully fetched {} usage notifications", result.getNotificationsDue());
@@ -171,7 +172,7 @@ public class PulseServerApiClient {
                     statusCode,
                     response.bodyAsString()
                 );
-                log.error("❌ {}", errorMsg);
+                log.error("❌ Failed to mark notifications: status {}: {}",statusCode, response.bodyAsString());
                 throw new RuntimeException(errorMsg);
               }
               
@@ -181,7 +182,7 @@ public class PulseServerApiClient {
     ).ignoreElement();
   }
 
-  private static final String DEFAULT_DASHBOARD_URL = "https://pulse-ux.com";
+
 
   /**
    * Send usage limit notification via pulse-server notification API.
