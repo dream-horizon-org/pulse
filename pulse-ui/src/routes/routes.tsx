@@ -31,6 +31,12 @@ import { EventCatalog } from "../screens/EventCatalog";
 import { AiChat } from "../screens/AiChat";
 import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
+import {
+  FunnelAnalysisCreateFunnel,
+  FunnelAnalysisCreateJourney,
+} from "../screens/FunnelAnalysis";
+import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
+import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
 
 export const ROUTES = {
   // Organization-level routes
@@ -178,5 +184,21 @@ export const ROUTES = {
   SUPPORT_QUERIES: {
     ...ROUTE_PATHS.SUPPORT_QUERIES,
     element: SupportQueries,
+  },
+  FUNNEL_ANALYSIS: {
+    ...ROUTE_PATHS.FUNNEL_ANALYSIS,
+    element: FunnelsJourneysList,
+  },
+  FUNNEL_ANALYSIS_CREATE_FUNNEL: {
+    ...ROUTE_PATHS.FUNNEL_ANALYSIS_CREATE_FUNNEL,
+    element: FunnelAnalysisCreateFunnel,
+  },
+  FUNNEL_ANALYSIS_CREATE_JOURNEY: {
+    ...ROUTE_PATHS.FUNNEL_ANALYSIS_CREATE_JOURNEY,
+    element: FunnelAnalysisCreateJourney,
+  },
+  FUNNEL_JOURNEY_DETAIL: {
+    ...ROUTE_PATHS.FUNNEL_JOURNEY_DETAIL,
+    element: FunnelJourneyDetail,
   },
 };

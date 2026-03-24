@@ -175,11 +175,191 @@ const MOCK_FUNNEL_FILTER_OPTIONS: Record<string, string[]> = {
   City: ["San Francisco", "New York", "London", "Mumbai", "Berlin", "Tokyo", "São Paulo", "Toronto", "Sydney"],
 };
 
+/** Saved funnels & journeys listing (mock only; TODO: replace with real API). */
+const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
+  id: string;
+  name: string;
+  kind: "FUNNEL" | "JOURNEY";
+  status: "ACTIVE" | "STOPPED";
+  createdBy: string;
+  lastUpdatedAt: string;
+  tags: string[];
+  funnelType?: "ORDERED" | "UNORDERED";
+}> = [
+  {
+    id: "fj-1",
+    name: "Checkout conversion",
+    kind: "FUNNEL",
+    status: "ACTIVE",
+    createdBy: "alice@example.com",
+    lastUpdatedAt: "2026-03-20T14:22:00Z",
+    tags: ["checkout", "revenue"],
+    funnelType: "ORDERED",
+  },
+  {
+    id: "fj-2",
+    name: "Onboarding drop-off",
+    kind: "FUNNEL",
+    status: "ACTIVE",
+    createdBy: "bob@example.com",
+    lastUpdatedAt: "2026-03-19T09:10:00Z",
+    tags: ["onboarding"],
+    funnelType: "UNORDERED",
+  },
+  {
+    id: "fj-3",
+    name: "Search to PDP",
+    kind: "FUNNEL",
+    status: "STOPPED",
+    createdBy: "alice@example.com",
+    lastUpdatedAt: "2026-03-10T18:45:00Z",
+    tags: ["search", "product"],
+    funnelType: "ORDERED",
+  },
+  {
+    id: "fj-4",
+    name: "Post-login paths",
+    kind: "JOURNEY",
+    status: "ACTIVE",
+    createdBy: "carol@example.com",
+    lastUpdatedAt: "2026-03-21T11:30:00Z",
+    tags: ["auth", "onboarding"],
+  },
+  {
+    id: "fj-5",
+    name: "Cart abandonment",
+    kind: "JOURNEY",
+    status: "STOPPED",
+    createdBy: "bob@example.com",
+    lastUpdatedAt: "2026-02-28T08:00:00Z",
+    tags: ["checkout", "cart"],
+  },
+  {
+    id: "fj-6",
+    name: "Deep link attribution",
+    kind: "FUNNEL",
+    status: "ACTIVE",
+    createdBy: "dev@example.com",
+    lastUpdatedAt: "2026-03-22T16:05:00Z",
+    tags: ["marketing"],
+    funnelType: "ORDERED",
+  },
+];
+
+function mockFunnelsJourneysList(request: MockRequest): MockResponse {
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    url = new URL(request.url, "http://localhost");
+  }
+  const params = url.searchParams;
+  const kindParam = params.get("kind") as "FUNNEL" | "JOURNEY" | null;
+  const search = (params.get("search") || "").trim().toLowerCase();
+  const status = params.get("status") as "ACTIVE" | "STOPPED" | null;
+  const createdByRaw = params.get("createdBy");
+  const createdByFilters = createdByRaw
+    ? createdByRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const tagsRaw = params.get("tags");
+  const tagFilters = tagsRaw
+    ? tagsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const funnelType = params.get("funnelType") as "ORDERED" | "UNORDERED" | null;
+
+  let pool = [...MOCK_FUNNELS_JOURNEYS_ALL];
+  if (kindParam === "FUNNEL" || kindParam === "JOURNEY") {
+    pool = pool.filter((row) => row.kind === kindParam);
+  }
+
+  const filterOptions = {
+    creators: Array.from(new Set(pool.map((i) => i.createdBy))).sort(),
+    tags: Array.from(new Set(pool.flatMap((i) => i.tags))).sort(),
+  };
+
+  let items = [...pool];
+
+  if (search) {
+    items = items.filter((row) => row.name.toLowerCase().includes(search));
+  }
+  if (status === "ACTIVE" || status === "STOPPED") {
+    items = items.filter((row) => row.status === status);
+  }
+  if (createdByFilters.length) {
+    items = items.filter((row) => createdByFilters.includes(row.createdBy));
+  }
+  if (tagFilters.length) {
+    items = items.filter((row) =>
+      tagFilters.some((t) => row.tags.includes(t)),
+    );
+  }
+  if (funnelType === "ORDERED" || funnelType === "UNORDERED") {
+    items = items.filter(
+      (row) =>
+        row.kind === "FUNNEL" && row.funnelType === funnelType,
+    );
+  }
+
+  return {
+    data: { items, filterOptions },
+    status: 200,
+  };
+}
+
+function mockFunnelJourneyDetail(id: string): MockResponse {
+  const row = MOCK_FUNNELS_JOURNEYS_ALL.find((r) => r.id === id);
+  if (!row) {
+    return {
+      data: null,
+      status: 404,
+      error: {
+        code: "NOT_FOUND",
+        message: "Funnel or journey not found",
+        cause: `No resource with id ${id}`,
+      },
+    };
+  }
+
+  const createdAt =
+    row.kind === "FUNNEL"
+      ? "2026-01-15T10:00:00Z"
+      : "2026-02-01T12:00:00Z";
+  const description =
+    row.kind === "FUNNEL"
+      ? "Conversion funnel across key product events. Edit steps and run analysis from the builder when the full editor is connected."
+      : "Exploratory journey map for navigation paths after this anchor event. Open the journey explorer to adjust the root event and direction.";
+
+  return {
+    data: {
+      ...row,
+      description,
+      createdAt,
+    },
+    status: 200,
+  };
+}
+
 export function handleFunnelEndpoints(
   pathname: string,
   method: string,
   request: MockRequest,
 ): MockResponse {
+  if (pathname.includes("/v1/funnels-journeys") && method === "GET") {
+    const pathOnly = pathname.split("?")[0].replace(/\/$/, "");
+    if (pathOnly.endsWith("/v1/funnels-journeys")) {
+      return mockFunnelsJourneysList(request);
+    }
+    const marker = "/v1/funnels-journeys/";
+    const markerIdx = pathOnly.lastIndexOf(marker);
+    if (markerIdx >= 0) {
+      const id = pathOnly.slice(markerIdx + marker.length);
+      if (id && !id.includes("/")) {
+        return mockFunnelJourneyDetail(id);
+      }
+    }
+    return mockFunnelsJourneysList(request);
+  }
+
   if (pathname.includes("/v1/funnel/analyze") && method === "POST") {
     return { data: MOCK_FUNNEL_ANALYZE_RESPONSE, status: 200 };
   }

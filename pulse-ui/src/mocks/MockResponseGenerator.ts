@@ -350,8 +350,12 @@ export class MockResponseGenerator {
       return this.handleQueryEndpoints(pathname, method, request);
     }
 
-    // Funnel Analysis & Journey Explorer (before /events catch-all)
-    if (pathname.includes("/v1/funnel/") || pathname.includes("/v1/journey/")) {
+    // Funnel Analysis, listing, & Journey Explorer (before /events catch-all)
+    if (
+      pathname.includes("/v1/funnels-journeys") ||
+      pathname.includes("/v1/funnel/") ||
+      pathname.includes("/v1/journey/")
+    ) {
       return handleFunnelEndpoints(pathname, method, request);
     }
 

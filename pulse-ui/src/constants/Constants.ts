@@ -31,7 +31,12 @@ import {
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
 import { SupportQueries } from "../screens/SupportQueries";
-import { FunnelAnalysis } from "../screens/FunnelAnalysis";
+import {
+  FunnelAnalysisCreateFunnel,
+  FunnelAnalysisCreateJourney,
+} from "../screens/FunnelAnalysis";
+import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
+import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
 
 export const APP_NAME: string = "Pulse";
 
@@ -246,9 +251,27 @@ export const ROUTES: Routes = {
   },
   FUNNEL_ANALYSIS: {
     key: "FUNNEL_ANALYSIS",
-    basePath: "/projects/:projectId/funnel-analysis",
-    path: "/projects/:projectId/funnel-analysis",
-    element: FunnelAnalysis,
+    basePath: "/projects/:projectId/funnels-journeys",
+    path: "/projects/:projectId/funnels-journeys",
+    element: FunnelsJourneysList,
+  },
+  FUNNEL_ANALYSIS_CREATE_FUNNEL: {
+    key: "FUNNEL_ANALYSIS_CREATE_FUNNEL",
+    basePath: "/projects/:projectId/funnels-journeys/create/funnel",
+    path: "/projects/:projectId/funnels-journeys/create/funnel",
+    element: FunnelAnalysisCreateFunnel,
+  },
+  FUNNEL_ANALYSIS_CREATE_JOURNEY: {
+    key: "FUNNEL_ANALYSIS_CREATE_JOURNEY",
+    basePath: "/projects/:projectId/funnels-journeys/create/journey",
+    path: "/projects/:projectId/funnels-journeys/create/journey",
+    element: FunnelAnalysisCreateJourney,
+  },
+  FUNNEL_JOURNEY_DETAIL: {
+    key: "FUNNEL_JOURNEY_DETAIL",
+    basePath: "/projects/:projectId/funnels-journeys/:id",
+    path: "/projects/:projectId/funnels-journeys/:id",
+    element: FunnelJourneyDetail,
   },
   ...(ENABLE_AI_CHAT
     ? {
@@ -278,7 +301,7 @@ export const NAVBAR_ROUTES = {
   SCREENS: "/screens",
   NETWORK_LIST: "/network-apis",
   QUERY_BUILDER: "/query-builder",
-  FUNNEL_ANALYSIS: "/funnel-analysis",
+  FUNNEL_ANALYSIS: "/funnels-journeys",
   ALERTS: "/alerts",
   AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",

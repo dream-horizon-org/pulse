@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Box, Loader, SegmentedControl, Select, Text } from "@mantine/core";
 import { IconChartFunnel, IconRoute } from "@tabler/icons-react";
 import classes from "./FunnelAnalysis.module.css";
@@ -30,8 +30,21 @@ function toApiSteps(steps: BuilderStep[]): FunnelStep[] {
     .map((s) => ({ eventName: s.eventName, dataType: "LOGS" as const }));
 }
 
-export function FunnelAnalysis() {
-  const [activeModule, setActiveModule] = useState<"funnels" | "journeys">("funnels");
+export type FunnelAnalysisProps = {
+  /** Used by create routes so the correct tab is selected on load. */
+  initialModule?: "funnels" | "journeys";
+};
+
+export function FunnelAnalysis({
+  initialModule = "funnels",
+}: FunnelAnalysisProps) {
+  const [activeModule, setActiveModule] = useState<"funnels" | "journeys">(
+    initialModule,
+  );
+
+  useEffect(() => {
+    setActiveModule(initialModule);
+  }, [initialModule]);
   const [dateRange, setDateRange] = useState("7d");
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
 
@@ -194,4 +207,12 @@ export function FunnelAnalysis() {
       )}
     </Box>
   );
+}
+
+export function FunnelAnalysisCreateFunnel() {
+  return <FunnelAnalysis initialModule="funnels" />;
+}
+
+export function FunnelAnalysisCreateJourney() {
+  return <FunnelAnalysis initialModule="journeys" />;
 }
