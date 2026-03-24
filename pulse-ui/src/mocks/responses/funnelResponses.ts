@@ -180,7 +180,7 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED";
+  status: "ACTIVE" | "STOPPED" | "CREATING";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -244,6 +244,25 @@ const MOCK_FUNNELS_JOURNEYS_ALL: Array<{
     tags: ["marketing"],
     funnelType: "ORDERED",
   },
+  {
+    id: "fj-7",
+    name: "New feature adoption",
+    kind: "FUNNEL",
+    status: "CREATING",
+    createdBy: "dev@example.com",
+    lastUpdatedAt: "2026-03-24T10:00:00Z",
+    tags: ["feature"],
+    funnelType: "ORDERED",
+  },
+  {
+    id: "fj-8",
+    name: "Onboarding journey",
+    kind: "JOURNEY",
+    status: "CREATING",
+    createdBy: "alice@example.com",
+    lastUpdatedAt: "2026-03-24T11:00:00Z",
+    tags: ["onboarding"],
+  },
 ];
 
 function mockFunnelsJourneysList(request: MockRequest): MockResponse {
@@ -256,7 +275,7 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
   const params = url.searchParams;
   const kindParam = params.get("kind") as "FUNNEL" | "JOURNEY" | null;
   const search = (params.get("search") || "").trim().toLowerCase();
-  const status = params.get("status") as "ACTIVE" | "STOPPED" | null;
+  const status = params.get("status") as "ACTIVE" | "STOPPED" | "CREATING" | null;
   const createdByRaw = params.get("createdBy");
   const createdByFilters = createdByRaw
     ? createdByRaw.split(",").map((s) => s.trim()).filter(Boolean)
@@ -282,7 +301,7 @@ function mockFunnelsJourneysList(request: MockRequest): MockResponse {
   if (search) {
     items = items.filter((row) => row.name.toLowerCase().includes(search));
   }
-  if (status === "ACTIVE" || status === "STOPPED") {
+  if (status === "ACTIVE" || status === "STOPPED" || status === "CREATING") {
     items = items.filter((row) => row.status === status);
   }
   if (createdByFilters.length) {
@@ -344,6 +363,24 @@ export function handleFunnelEndpoints(
   method: string,
   request: MockRequest,
 ): MockResponse {
+  if (pathname.includes("/v1/funnels-journeys") && method === "POST") {
+    let body: any = {};
+    try { body = JSON.parse(request.body || "{}"); } catch { /* ignore */ }
+    const newId = `fj-${Date.now()}`;
+    const newItem = {
+      id: newId,
+      name: body.name || "Untitled",
+      kind: body.kind || "FUNNEL",
+      status: "CREATING" as const,
+      createdBy: "dev@example.com",
+      lastUpdatedAt: new Date().toISOString(),
+      tags: [],
+      funnelType: body.funnelType,
+    };
+    MOCK_FUNNELS_JOURNEYS_ALL.unshift(newItem);
+    return { data: newItem, status: 201 };
+  }
+
   if (pathname.includes("/v1/funnels-journeys") && method === "GET") {
     const pathOnly = pathname.split("?")[0].replace(/\/$/, "");
     if (pathOnly.endsWith("/v1/funnels-journeys")) {

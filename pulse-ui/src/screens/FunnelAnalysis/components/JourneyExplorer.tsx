@@ -7,6 +7,9 @@ import {
   Slider,
   Text,
   Group,
+  TextInput,
+  Textarea,
+  Button,
 } from "@mantine/core";
 import ReactECharts from "echarts-for-react";
 import { useGetJourneyData } from "../../../hooks/useGetFunnelData";
@@ -15,11 +18,26 @@ import { buildJourneySankeyOption } from "../utils/buildJourneySankeyOption";
 import classes from "../FunnelAnalysis.module.css";
 
 interface JourneyExplorerProps {
+  name: string;
+  onNameChange: (name: string) => void;
+  description: string;
+  onDescriptionChange: (desc: string) => void;
   dateRange: string;
   availableEvents: string[];
+  onCreate: (config: any) => void;
+  isCreating: boolean;
 }
 
-export function JourneyExplorer({ dateRange, availableEvents }: JourneyExplorerProps) {
+export function JourneyExplorer({
+  name,
+  onNameChange,
+  description,
+  onDescriptionChange,
+  dateRange,
+  availableEvents,
+  onCreate,
+  isCreating,
+}: JourneyExplorerProps) {
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
   const [anchorEvent, setAnchorEvent] = useState<string | null>(null);
   const [depth, setDepth] = useState(5);
@@ -47,65 +65,98 @@ export function JourneyExplorer({ dateRange, availableEvents }: JourneyExplorerP
   });
 
   const journeyData = data?.data;
+  const isValid = name.trim().length > 0 && !!anchorEvent;
+
+  const handleCreate = () => {
+    onCreate({
+      direction,
+      anchorEvent,
+      depth,
+    });
+  };
 
   return (
     <Box className={classes.journeyLayout}>
-      <Box className={classes.journeyControlPanel}>
-        <Box>
-          <Text size="xs" fw={600} c="dimmed" mb={4}>Direction</Text>
-          <SegmentedControl
-            value={direction}
-            onChange={(val) => setDirection(val as "forward" | "reverse")}
-            data={[
-              { label: "Start Point →", value: "forward" },
-              { label: "← End Point", value: "reverse" },
-            ]}
-            size="xs"
-            color="teal"
-          />
-        </Box>
+      <Box className={classes.sidebarScroll} style={{ width: 300, borderRight: "1px solid #e2e8f0", padding: 16 }}>
+        <Text size="sm" fw={700} c="dark.7" mb="sm">
+          Journey Details
+        </Text>
+        <TextInput
+          label="Name"
+          placeholder="Enter journey name"
+          value={name}
+          onChange={(e) => onNameChange(e.currentTarget.value)}
+          size="xs"
+          mb="sm"
+          required
+        />
+        <Textarea
+          label="Description"
+          placeholder="Enter journey description"
+          value={description}
+          onChange={(e) => onDescriptionChange(e.currentTarget.value)}
+          size="xs"
+          mb="xl"
+          minRows={2}
+        />
 
-        <Box style={{ minWidth: 280 }}>
-          <Select
-            label="Anchor Event"
-            data={eventOptions}
-            value={anchorEvent}
-            onChange={setAnchorEvent}
-            placeholder={availableEvents.length === 0 ? "No events available" : "Select root event..."}
-            size="xs"
-            searchable
-            disabled={availableEvents.length === 0}
-          />
-        </Box>
+        <Text size="sm" fw={700} c="dark.7" mb="sm">
+          Journey Configuration
+        </Text>
+        <Select
+          label="Anchor Event"
+          data={eventOptions}
+          value={anchorEvent}
+          onChange={setAnchorEvent}
+          placeholder={availableEvents.length === 0 ? "No events available" : "Select root event..."}
+          size="xs"
+          searchable
+          mb="sm"
+          disabled={availableEvents.length === 0}
+          required
+        />
 
-        <Box style={{ minWidth: 200 }}>
-          <Text size="xs" fw={600} c="dimmed" mb={4}>Depth: {depth} steps</Text>
-          <Slider
-            value={depth}
-            onChange={setDepth}
-            min={1}
-            max={10}
-            step={1}
-            marks={[
-              { value: 1, label: "1" },
-              { value: 5, label: "5" },
-              { value: 10, label: "10" },
-            ]}
-            size="sm"
-            color="teal"
-            style={{ marginTop: 4 }}
-          />
-        </Box>
+        <Text size="xs" fw={600} c="dark.7" mb={4}>Direction</Text>
+        <SegmentedControl
+          value={direction}
+          onChange={(val) => setDirection(val as "forward" | "reverse")}
+          data={[
+            { label: "Start Point →", value: "forward" },
+            { label: "← End Point", value: "reverse" },
+          ]}
+          size="xs"
+          color="teal"
+          fullWidth
+          mb="sm"
+        />
 
-        <Box style={{ flex: 1 }} />
+        <Text size="xs" fw={600} c="dark.7" mb={4}>Depth: {depth} steps</Text>
+        <Slider
+          value={depth}
+          onChange={setDepth}
+          min={1}
+          max={10}
+          step={1}
+          marks={[
+            { value: 1, label: "1" },
+            { value: 5, label: "5" },
+            { value: 10, label: "10" },
+          ]}
+          size="sm"
+          color="teal"
+          style={{ marginTop: 4, marginBottom: 32 }}
+        />
 
-        {journeyData && (
-          <Group gap="xs">
-            <Text size="xs" c="dimmed">
-              {journeyData.nodes.length} nodes · {journeyData.links.length} paths
-            </Text>
-          </Group>
-        )}
+        <Button
+          fullWidth
+          color="teal"
+          size="sm"
+          onClick={handleCreate}
+          disabled={!isValid || isCreating}
+          loading={isCreating}
+        >
+          Create Journey
+        </Button>
       </Box>
 
       <Box className={classes.journeyCanvas}>

@@ -7,7 +7,7 @@ export type FunnelJourneyListItem = {
   id: string;
   name: string;
   kind: "FUNNEL" | "JOURNEY";
-  status: "ACTIVE" | "STOPPED";
+  status: "ACTIVE" | "STOPPED" | "CREATING";
   createdBy: string;
   lastUpdatedAt: string;
   tags: string[];
@@ -29,7 +29,7 @@ export type FunnelsJourneysListQueryParams = {
   /** When set, only return funnels or only journeys. */
   kind?: "FUNNEL" | "JOURNEY" | null;
   search?: string | null;
-  status?: "ACTIVE" | "STOPPED" | null;
+  status?: "ACTIVE" | "STOPPED" | "CREATING" | null;
   /** Match if created by any of these users. */
   createdBy?: string[] | null;
   /** Match if item has any of these tags. */
@@ -88,6 +88,20 @@ export async function fetchFunnelJourneyById(id: string) {
     url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}/${encoded}`,
     init: {
       method: "GET",
+    },
+  });
+}
+
+/**
+ * Creates a new funnel or journey.
+ * TODO: update when backend is ready.
+ */
+export async function createFunnelJourney(payload: any) {
+  return makeRequest<FunnelJourneyDetail>({
+    url: `${API_BASE_URL}${FUNNELS_JOURNEYS_LIST_PATH}`,
+    init: {
+      method: "POST",
+      body: JSON.stringify(payload),
     },
   });
 }

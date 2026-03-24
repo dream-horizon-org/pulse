@@ -247,10 +247,20 @@ export function FunnelJourneyDetail() {
               {detail.kind === "FUNNEL" ? "Funnel" : "Journey"}
             </Badge>
             <Badge
-              color={detail.status === "ACTIVE" ? "teal" : "gray"}
+              color={
+                detail.status === "ACTIVE"
+                  ? "teal"
+                  : detail.status === "CREATING"
+                    ? "blue"
+                    : "gray"
+              }
               variant="light"
             >
-              {detail.status === "ACTIVE" ? "Active" : "Stopped"}
+              {detail.status === "ACTIVE"
+                ? "Active"
+                : detail.status === "CREATING"
+                  ? "Creating"
+                  : "Stopped"}
             </Badge>
           </Group>
           <Text size="sm" c="dimmed" mt={8}>
@@ -304,7 +314,21 @@ export function FunnelJourneyDetail() {
         </SimpleGrid>
 
         <Box mt="xl">
-          {detail.kind === "FUNNEL" ? <FunnelDetailView /> : <JourneyDetailView />}
+          {detail.status === "CREATING" ? (
+            <Box className={funnelClasses.emptyState} py={60}>
+              <Loader color="blue" size="lg" />
+              <Text size="lg" fw={700} c="dark.6" mt="md">
+                Computing {detail.kind === "FUNNEL" ? "Funnel" : "Journey"} Data
+              </Text>
+              <Text size="sm" c="dimmed" mt={4} maw={400} ta="center">
+                Your {detail.kind === "FUNNEL" ? "funnel" : "journey"} is currently being computed on the server. This might take a few moments. Please check back later.
+              </Text>
+            </Box>
+          ) : detail.kind === "FUNNEL" ? (
+            <FunnelDetailView />
+          ) : (
+            <JourneyDetailView />
+          )}
         </Box>
       </Paper>
     </Box>

@@ -1,6 +1,2 @@
-export {
-  FunnelAnalysis,
-  FunnelAnalysisCreateFunnel,
-  FunnelAnalysisCreateJourney,
-  type FunnelAnalysisProps,
-} from "./FunnelAnalysis";
+export { CreateFunnel } from "./CreateFunnel";
+export { CreateJourney } from "./CreateJourney";

@@ -32,8 +32,8 @@ import { AiChat } from "../screens/AiChat";
 import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
 import {
-  FunnelAnalysisCreateFunnel,
-  FunnelAnalysisCreateJourney,
+  CreateFunnel,
+  CreateJourney,
 } from "../screens/FunnelAnalysis";
 import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
 import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
@@ -191,11 +191,11 @@ export const ROUTES = {
   },
   FUNNEL_ANALYSIS_CREATE_FUNNEL: {
     ...ROUTE_PATHS.FUNNEL_ANALYSIS_CREATE_FUNNEL,
-    element: FunnelAnalysisCreateFunnel,
+    element: CreateFunnel,
   },
   FUNNEL_ANALYSIS_CREATE_JOURNEY: {
     ...ROUTE_PATHS.FUNNEL_ANALYSIS_CREATE_JOURNEY,
-    element: FunnelAnalysisCreateJourney,
+    element: CreateJourney,
   },
   FUNNEL_JOURNEY_DETAIL: {
     ...ROUTE_PATHS.FUNNEL_JOURNEY_DETAIL,

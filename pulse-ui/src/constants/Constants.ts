@@ -32,8 +32,8 @@ import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
 import { SupportQueries } from "../screens/SupportQueries";
 import {
-  FunnelAnalysisCreateFunnel,
-  FunnelAnalysisCreateJourney,
+  CreateFunnel,
+  CreateJourney,
 } from "../screens/FunnelAnalysis";
 import { FunnelsJourneysList } from "../screens/FunnelsJourneysList";
 import { FunnelJourneyDetail } from "../screens/FunnelJourneyDetail";
@@ -259,13 +259,13 @@ export const ROUTES: Routes = {
     key: "FUNNEL_ANALYSIS_CREATE_FUNNEL",
     basePath: "/projects/:projectId/funnels-journeys/create/funnel",
     path: "/projects/:projectId/funnels-journeys/create/funnel",
-    element: FunnelAnalysisCreateFunnel,
+    element: CreateFunnel,
   },
   FUNNEL_ANALYSIS_CREATE_JOURNEY: {
     key: "FUNNEL_ANALYSIS_CREATE_JOURNEY",
     basePath: "/projects/:projectId/funnels-journeys/create/journey",
     path: "/projects/:projectId/funnels-journeys/create/journey",
-    element: FunnelAnalysisCreateJourney,
+    element: CreateJourney,
   },
   FUNNEL_JOURNEY_DETAIL: {
     key: "FUNNEL_JOURNEY_DETAIL",

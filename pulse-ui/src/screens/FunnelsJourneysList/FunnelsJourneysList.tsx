@@ -53,7 +53,7 @@ import {
 } from "./FunnelsJourneysList.constants";
 import classes from "./FunnelsJourneysList.module.css";
 
-type StatusFilterValue = "" | "ACTIVE" | "STOPPED";
+type StatusFilterValue = "" | "ACTIVE" | "STOPPED" | "CREATING";
 type TypeFilterValue = "" | "ORDERED" | "UNORDERED";
 type ListTab = "funnels" | "journeys";
 
@@ -79,7 +79,7 @@ export function FunnelsJourneysList() {
       kind: (listTab === "funnels" ? "FUNNEL" : "JOURNEY") as "FUNNEL" | "JOURNEY",
       search: debouncedSearch.trim() || null,
       status:
-        statusFilter === "ACTIVE" || statusFilter === "STOPPED"
+        statusFilter === "ACTIVE" || statusFilter === "STOPPED" || statusFilter === "CREATING"
           ? statusFilter
           : null,
       createdBy: createdByFilter.length ? createdByFilter : null,
@@ -163,10 +163,10 @@ export function FunnelsJourneysList() {
         title: "Status",
         render: (row: FunnelJourneyListItem) => (
           <Badge
-            color={row.status === "ACTIVE" ? "teal" : "gray"}
+            color={row.status === "ACTIVE" ? "teal" : row.status === "CREATING" ? "blue" : "gray"}
             variant="light"
           >
-            {row.status === "ACTIVE" ? "Active" : "Stopped"}
+            {row.status === "ACTIVE" ? "Active" : row.status === "CREATING" ? "Creating" : "Stopped"}
           </Badge>
         ),
       },
@@ -295,6 +295,7 @@ export function FunnelsJourneysList() {
           data={[
             { value: "ACTIVE", label: "Active" },
             { value: "STOPPED", label: "Stopped" },
+            { value: "CREATING", label: "Creating" },
           ]}
           value={statusFilter || null}
           onChange={(v) => setStatusFilter((v as StatusFilterValue) || "")}
