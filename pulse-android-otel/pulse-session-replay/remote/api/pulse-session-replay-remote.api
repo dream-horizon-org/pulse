@@ -1,0 +1,5 @@
+public final class com/pulse/android/sdk/replay/remote/SessionReplayApiClient {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun sendBatch-IoAF18A (Ljava/lang/String;)Ljava/lang/Object;
+}
+

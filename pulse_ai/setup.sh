@@ -99,9 +99,10 @@ cmd_start() {
   echo ""
   log_info "Pulse AI Agent is running! 🚀"
   echo ""
-  echo -e "  ${CYAN}Web UI:${NC}  http://localhost:8000"
-  echo -e "  ${CYAN}Logs:${NC}    cd pulse_ai && ./setup.sh logs"
-  echo -e "  ${CYAN}Stop:${NC}    cd pulse_ai && ./setup.sh stop"
+  echo -e "  ${CYAN}API Server:${NC}  http://localhost:8000"
+  echo -e "  ${CYAN}Health:${NC}      http://localhost:8000/health"
+  echo -e "  ${CYAN}Logs:${NC}        cd pulse_ai && ./setup.sh logs"
+  echo -e "  ${CYAN}Stop:${NC}        cd pulse_ai && ./setup.sh stop"
   echo ""
 }
 
@@ -117,7 +118,7 @@ cmd_restart() {
   docker compose up --build -d
   log_info "Agent restarted ✓"
   echo ""
-  echo -e "  ${CYAN}Web UI:${NC}  http://localhost:8000"
+  echo -e "  ${CYAN}API Server:${NC}  http://localhost:8000"
   echo ""
 }
 

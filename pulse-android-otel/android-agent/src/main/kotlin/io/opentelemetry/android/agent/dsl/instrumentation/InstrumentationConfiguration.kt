@@ -5,6 +5,8 @@
 
 package io.opentelemetry.android.agent.dsl.instrumentation
 
+import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.SessionReplayConfiguration
 import io.opentelemetry.android.agent.dsl.OpenTelemetryDslMarker
 import io.opentelemetry.android.config.OtelRumConfig
 
@@ -50,6 +52,7 @@ class InstrumentationConfiguration(
     private val composeClick: ComposeClickConfiguration by lazy {
         ComposeClickConfiguration()
     }
+    private val sessionReplay: SessionReplayConfiguration by lazy { SessionReplayConfiguration() }
 
     fun activity(configure: ActivityLifecycleConfiguration.() -> Unit) {
         activity.configure()
@@ -94,4 +97,14 @@ class InstrumentationConfiguration(
     fun composeClick(configure: ComposeClickConfiguration.() -> Unit) {
         composeClick.configure()
     }
+    fun sessionReplay(configure: SessionReplayConfiguration.() -> Unit) {
+        sessionReplay.markConfigured()
+        sessionReplay.configure()
+    }
+
+    /**
+     * Returns the configured [SessionReplayConfig] if [sessionReplay] was invoked in the
+     * instrumentations block; null otherwise.
+     */
+    fun getSessionReplayConfig(): SessionReplayConfig? = sessionReplay.getConfigIfConfigured()
 }

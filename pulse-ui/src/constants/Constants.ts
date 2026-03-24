@@ -6,14 +6,15 @@ import {
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
+  IconDeviceDesktop,
+  IconNetwork,
+  IconUsers,
+  IconDatabaseSearch,
+  IconRobot,
   IconBell,
   IconCalendarEvent,
-  IconDatabaseSearch,
-  IconDeviceDesktop,
   IconHome,
   IconListDetails,
-  IconNetwork,
-  IconUsers
 } from "@tabler/icons-react";
 import { CriticalInteractionDetailsFilterValues, TimeFilter } from "../screens/CriticalInteractionDetails";
 import { NavbarItems, Routes, StreamverseRoutes } from "./Constants.interface";
@@ -27,6 +28,7 @@ import {
   FormSteps
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
+import { AiChat } from "../screens/AiChat";
 import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
@@ -51,6 +53,9 @@ export const NAVBAR_CONFIG: AppShellNavbarConfiguration = {
 
 export const API_BASE_URL: string =
   process.env.REACT_APP_PULSE_SERVER_URL ?? "";
+
+export const ENABLE_AI_CHAT: boolean =
+  process.env.REACT_APP_ENABLE_AI_CHAT === "true";
 
 export const PASCAL_CASE_FORM_REGEX: RegExp = /(^[A-Z])\w+[a-z]$/;
 
@@ -237,6 +242,16 @@ export const ROUTES: Routes = {
     basePath: "/settings",
     path: "/settings",
   },
+  ...(ENABLE_AI_CHAT
+    ? {
+        AI_CHAT: {
+          key: "AI_CHAT",
+          basePath: "/projects/:projectId/ai-chat",
+          path: "/projects/:projectId/ai-chat",
+          element: AiChat,
+        },
+      }
+    : {}),
   SUPPORT_QUERIES: {
     key: "SUPPORT_QUERIES",
     basePath: "/support-queries",
@@ -256,6 +271,7 @@ export const NAVBAR_ROUTES = {
   NETWORK_LIST: "/network-apis",
   QUERY_BUILDER: "/query-builder",
   ALERTS: "/alerts",
+  AI_CHAT: "/ai-chat",
   EVENT_CATALOG: "/event-catalog",
 } as const;
 
@@ -332,6 +348,17 @@ export const NAVBAR_ITEMS: NavbarItems = [
     path: NAVBAR_ROUTES.ALERTS,
     iconSize: 25,
   },
+  ...(ENABLE_AI_CHAT && ROUTES.AI_CHAT
+    ? [
+        {
+          tabName: "AI Chat",
+          icon: IconRobot,
+          routeTo: NAVBAR_ROUTES.AI_CHAT,
+          path: NAVBAR_ROUTES.AI_CHAT,
+          iconSize: 25,
+        },
+      ]
+    : []),
   {
     tabName: "Event Catalog",
     icon: IconCalendarEvent,
