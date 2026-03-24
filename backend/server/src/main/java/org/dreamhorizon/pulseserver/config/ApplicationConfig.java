@@ -38,6 +38,7 @@ public class ApplicationConfig {
   public String aiServiceUrl;
   public String symbolFilesS3BucketName;
   public String devModeApiKey;
+  public SessionReplayS3Config sessionReplayS3;
   
   /**
    * Get the dev mode API key with a sensible default.
