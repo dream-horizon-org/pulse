@@ -118,7 +118,7 @@ export function RootCause({
     const message = is404
       ? ROOT_CAUSE_MESSAGES.FEATURE_OR_NO_DATA
       : isAiUpstreamError
-        ? ROOT_CAUSE_MESSAGES.AI_SERVICE_UNAVAILABLE
+        ? ROOT_CAUSE_MESSAGES.GENERIC_ERROR
         : (reportErrorDetail?.message ??
           reportResponse?.error?.message ??
           ROOT_CAUSE_MESSAGES.GENERIC_ERROR);
