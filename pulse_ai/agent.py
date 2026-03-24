@@ -1,17 +1,17 @@
-import os
+"""Pulse AI — Root agent (SequentialAgent pipeline).
 
-from dotenv import load_dotenv
-from google.adk.agents.llm_agent import Agent
+Orchestrates:  EM Agent (data analysis) → Report Agent (visualization)
+"""
 
-from .constants import AGENT_MODEL_ENV_KEY, DEFAULT_MODEL
+from google.adk.agents.sequential_agent import SequentialAgent
 
-load_dotenv()
+from .agents import em_agent, report_agent
 
-agent_model = os.getenv(AGENT_MODEL_ENV_KEY, DEFAULT_MODEL)
-
-root_agent = Agent(
-    model=agent_model,
+root_agent = SequentialAgent(
     name='root_agent',
-    description='A helpful assistant for user questions.',
-    instruction='Answer user questions to the best of your knowledge',
+    sub_agents=[em_agent, report_agent],
+    description=(
+        'Sequential pipeline: EM Agent (data analysis) → '
+        'Report Agent (visualization with charts and tables)'
+    ),
 )

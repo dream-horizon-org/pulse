@@ -311,6 +311,8 @@ services:
       - OPENFGA_MODEL_ID=${OPENFGA_MODEL_ID:-}
       - OPENFGA_ENABLED=${OPENFGA_ENABLED:-true}
 
+      # pulse-server → pulse_ai upstream (see deploy/.env.example)
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://host.docker.internal:8000}
       # Incident Configuration
       - INCIDENT_DEFAULT_SLACK_CHANNEL_ID=${INCIDENT_DEFAULT_SLACK_CHANNEL_ID:-}
 
