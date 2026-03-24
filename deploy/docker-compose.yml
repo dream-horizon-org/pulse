@@ -278,6 +278,7 @@ services:
 
       # S3 Configuration
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-pulse-config}
+      - SYMBOL_FILES_S3_BUCKET_NAME=${SYMBOL_FILES_S3_BUCKET_NAME:-pulse-symbol-files}
       - CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH:-config/pulse-config.json}
       - INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH:-config/interaction-config.json}
 
