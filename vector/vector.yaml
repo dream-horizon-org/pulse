@@ -75,6 +75,56 @@ transforms:
         "props": encode_json(props_map)
       }
 
+  # -----------------------------------------------------------------------
+  # ADD COUNTER FIELD FOR AGGREGATION
+  # -----------------------------------------------------------------------
+  add_counter:
+    type: remap
+    inputs:
+      - to_pulse_schema
+    source: |-
+      .event_count = 1
+
+  # -----------------------------------------------------------------------
+  # AGGREGATE EVENTS PER PROJECT PER MINUTE
+  # -----------------------------------------------------------------------
+  aggregate_by_project:
+    type: reduce
+    inputs:
+      - add_counter
+    group_by:
+      - project_id
+    expire_after_ms: 1000
+    flush_period_ms: 1000
+    merge_strategies:
+      event_count: sum
+    ends_when: |
+      false
+
+  # -----------------------------------------------------------------------
+  # FORMAT AGGREGATED DATA FOR CLICKHOUSE
+  # -----------------------------------------------------------------------
+  format_for_clickhouse:
+    type: remap
+    inputs:
+      - aggregate_by_project
+    source: |-
+      # Extract project_id safely
+      project_id = string(.project_id) ?? "unknown"
+
+      # Event count from aggregation
+      event_count = to_int(.event_count) ?? 1
+
+      # Get first day of current month
+      month = format_timestamp!(now(), format: "%Y-%m-01")
+
+      . = {
+        "project_id": project_id,
+        "month": month,
+        "source": "vector",
+        "event_count": event_count
+      }
+
 # =========================================================================
 # SINKS
 # =========================================================================
@@ -89,6 +139,29 @@ sinks:
       - vector_metrics
     address: "0.0.0.0:9598"
 
+  # -----------------------------------------------------------------------
+  # CLICKHOUSE SINK (Project Monthly Events)
+  # -----------------------------------------------------------------------
+  clickhouse_project_events:
+    type: clickhouse
+    inputs:
+      - format_for_clickhouse
+
+    endpoint: "http://clickhouse:8123"
+    database: "otel"
+    table: "project_monthly_usage"
+
+    auth:
+      strategy: "basic"
+      user: "pulse_user"
+      password: "pulse_password"
+
+    skip_unknown_fields: true
+
+    batch:
+      timeout_secs: 1
+
+  
   # -------------------------------------------------------------------------
   # S3 PARQUET (PRODUCTION GRADE)
   # -------------------------------------------------------------------------

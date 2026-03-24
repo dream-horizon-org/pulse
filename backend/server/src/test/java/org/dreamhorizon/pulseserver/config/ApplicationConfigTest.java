@@ -38,6 +38,7 @@ class ApplicationConfigTest {
     config.setConfigDetailCloudFrontAssetPath("cfPath");
     config.setWebhookUrl("webhook");
     config.setTncS3BucketName("tncS3BucketName");
+    config.setSymbolFilesS3BucketName("symbolFilesS3BucketName");
     config.setInteractionDetailsS3BucketFilePath("interactionPath");
     config.setInteractionDetailCloudFrontAssetPath("interactionAsset");
 
@@ -59,6 +60,8 @@ class ApplicationConfigTest {
     assertEquals("cfId", config.getCloudFrontDistributionId());
     assertEquals("cfPath", config.getConfigDetailCloudFrontAssetPath());
     assertEquals("webhook", config.getWebhookUrl());
+    assertEquals("tncS3BucketName", config.getTncS3BucketName());
+    assertEquals("symbolFilesS3BucketName", config.getSymbolFilesS3BucketName());
     assertEquals("interactionPath", config.getInteractionDetailsS3BucketFilePath());
     assertEquals("interactionAsset", config.getInteractionDetailCloudFrontAssetPath());
   }
@@ -66,6 +69,7 @@ class ApplicationConfigTest {
   @Test
   void allArgsConstructor() {
     ApplicationConfig config = new ApplicationConfig(
+        "dev",
         "cronUrl",
         "serviceUrl",
         30,
@@ -87,9 +91,13 @@ class ApplicationConfigTest {
         "interactionPath",
         "interactionAsset",
         "key",
-        "tncS3Bucket"
+        "tncS3Bucket",
+        "http://ai:8000",
+        "symbolFilesS3Bucket",
+        "dev-api-key"
     );
     assertNotNull(config);
+    assertEquals("dev", config.getAppEnvironment());
     assertEquals("cronUrl", config.getCronManagerBaseUrl());
     assertEquals("proj1", config.getFirebaseProjectId());
     assertEquals("interactionAsset", config.getInteractionDetailCloudFrontAssetPath());

@@ -6,7 +6,7 @@
 # back to Docker CLI with dependency-ordered health-check gating.
 #
 # Usage:
-#   ./start.sh [-d|--detach] [--build]
+#   ./start.sh [-d|--detach] [--build] [--no-cache] [--skip-env-check]
 # ============================================================================
 
 # Source common library
@@ -21,34 +21,63 @@ echo ""
 
 # ── Pre-flight ─────────────────────────────────────────────────────────────
 check_docker
+ensure_compose
 load_env
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 DETACHED=""
 BUILD_FIRST=""
+BUILD_NO_CACHE=""
+SKIP_ENV_CHECK=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -d|--detach)  DETACHED="true"; shift ;;
-        --build)      BUILD_FIRST="true"; shift ;;
+        -d|--detach)     DETACHED="true"; shift ;;
+        --build)        BUILD_FIRST="true"; shift ;;
+        --no-cache)     BUILD_NO_CACHE="true"; shift ;;
+        --skip-env-check) SKIP_ENV_CHECK="true"; shift ;;
         -h|--help)
-            echo "Usage: $0 [-d|--detach] [--build]"
+            echo "Usage: $0 [-d|--detach] [--build] [--no-cache] [--skip-env-check]"
+            echo "  --no-cache       With --build: build images without cache"
+            echo "  --skip-env-check Skip .env and URL validation"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [-d|--detach] [--build]"
+            echo "Usage: $0 [-d|--detach] [--build] [--no-cache] [--skip-env-check]"
             exit 1
             ;;
     esac
 done
 
+# ── Validate .env and URLs (unless skipped) ─────────────────────────────────
+if [ "$SKIP_ENV_CHECK" != "true" ]; then
+    if ! validate_env_against_example_and_compose; then
+        print_error "Env validation failed. Fix .env or run with --skip-env-check to skip."
+        exit 1
+    fi
+    if ! validate_url_vars; then
+        print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
+        exit 1
+    fi
+    if ! validate_encryption_key; then
+        print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+        exit 1
+    fi
+fi
+
 # ── Compose path ──────────────────────────────────────────────────────────
 if has_compose; then
     cd "$DEPLOY_DIR"
+    # If --no-cache and --build: build without cache first, then up without --build
+    if [ "$BUILD_NO_CACHE" = "true" ] && [ "$BUILD_FIRST" = "true" ]; then
+        print_info "Building images without cache..."
+        run_compose build --no-cache
+    fi
     COMPOSE_ARGS=""
-    # Let Compose handle --build natively (avoids building twice)
-    [ "$BUILD_FIRST" = "true" ] && COMPOSE_ARGS="$COMPOSE_ARGS --build"
+    if [ "$BUILD_FIRST" = "true" ] && [ "$BUILD_NO_CACHE" != "true" ]; then
+        COMPOSE_ARGS="$COMPOSE_ARGS --build"
+    fi
     [ "$DETACHED" = "true" ] && COMPOSE_ARGS="$COMPOSE_ARGS -d"
 
     print_info "Starting services via Docker Compose..."
@@ -86,7 +115,11 @@ fi
 # ── Optional build step (CLI mode only -- Compose handles --build natively)
 if [ "$BUILD_FIRST" = "true" ]; then
     print_section "Building Docker images"
-    "$SCRIPT_DIR/build.sh"
+    if [ "$BUILD_NO_CACHE" = "true" ]; then
+        "$SCRIPT_DIR/build.sh" --no-cache
+    else
+        "$SCRIPT_DIR/build.sh"
+    fi
 fi
 
 # ── Docker CLI path ──────────────────────────────────────────────────────
@@ -137,6 +170,7 @@ docker run -d \
     -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
     -v "${VOLUME_CLICKHOUSE}:/var/lib/clickhouse" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/02-session-summary-mv.sql:ro" \
     --health-cmd 'clickhouse-client --query "SELECT 1"' \
     --health-interval 10s \
     --health-timeout 5s \
@@ -170,6 +204,7 @@ docker run --rm \
     -e "CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE}" \
     -v "${SCRIPT_DIR}/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro" \
     "$IMAGE_CLICKHOUSE" \
     /bin/bash /scripts/init-clickhouse.sh
 

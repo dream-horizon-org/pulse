@@ -45,6 +45,7 @@ class RestModelCoverageTest {
           .name("Test User")
           .tenantId("tenant-1")
           .tenantName("Test Tenant")
+          .tenantRole("admin")
           .tier("free")
           .projectId("proj-1")
           .projectName("Test Project")
@@ -61,6 +62,7 @@ class RestModelCoverageTest {
       assertThat(model.getName()).isEqualTo("Test User");
       assertThat(model.getTenantId()).isEqualTo("tenant-1");
       assertThat(model.getTenantName()).isEqualTo("Test Tenant");
+      assertThat(model.getTenantRole()).isEqualTo("admin");
       assertThat(model.getTier()).isEqualTo("free");
       assertThat(model.getProjectId()).isEqualTo("proj-1");
       assertThat(model.getProjectName()).isEqualTo("Test Project");
@@ -304,11 +306,11 @@ class RestModelCoverageTest {
     @Test
     void shouldBuildAndAssertAllFields() {
       AddMemberRequest model = AddMemberRequest.builder()
-          .email("user@test.com")
+          .emails(List.of("user@test.com"))
           .role("member")
           .build();
 
-      assertThat(model.getEmail()).isEqualTo("user@test.com");
+      assertThat(model.getEmails()).containsExactly("user@test.com");
       assertThat(model.getRole()).isEqualTo("member");
     }
   }

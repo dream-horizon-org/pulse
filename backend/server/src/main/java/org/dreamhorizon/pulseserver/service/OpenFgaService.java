@@ -62,6 +62,11 @@ public class OpenFgaService {
     }
   }
 
+  /** Whether OpenFGA is configured and active (listing and checks use FGA when true). */
+  public boolean isEnabled() {
+    return enabled;
+  }
+
   /**
    * Check if a user has a specific permission on a resource.
    *
@@ -262,6 +267,25 @@ public class OpenFgaService {
     return Single.fromCallable(() -> {
       String role = findUserRoleOnObject(USER_PREFIX + userId, TENANT_PREFIX + tenantId, TENANT_ROLES);
       log.debug("User role in tenant: user={}, tenant={} -> {}", userId, tenantId, role);
+      return Optional.ofNullable(role);
+    });
+  }
+
+  /**
+   * Get a user's role on a project (if any).
+   *
+   * @param userId    User ID
+   * @param projectId Project ID
+   * @return Single emitting the role if assigned, empty otherwise
+   */
+  public Single<Optional<String>> getUserProjectRole(String userId, String projectId) {
+    if (!enabled) {
+      log.debug("[DISABLED] getUserProjectRole: user={}, project={}", userId, projectId);
+      return Single.just(Optional.empty());
+    }
+    return Single.fromCallable(() -> {
+      String role = findUserRoleOnObject(USER_PREFIX + userId, PROJECT_PREFIX + projectId, PROJECT_ROLES);
+      log.debug("User role in project: user={}, project={} -> {}", userId, projectId, role);
       return Optional.ofNullable(role);
     });
   }

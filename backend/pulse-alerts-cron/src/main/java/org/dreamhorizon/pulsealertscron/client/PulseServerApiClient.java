@@ -14,7 +14,7 @@ public class PulseServerApiClient {
   private final String apiBaseUrl;
   private final String serviceJwt;
   
-  private static final String ACTIVE_LIMITS_PATH = "/internal/v1/usage-limits/active";
+  private static final String ACTIVE_LIMITS_PATH = "/internal/v1/projects/limits";
   private static final String VALID_API_KEYS_PATH = "/internal/v1/api-keys/valid";
   private static final long REQUEST_TIMEOUT_MS = 30000;
 
@@ -47,10 +47,12 @@ public class PulseServerApiClient {
                 throw new RuntimeException(errorMsg);
               }
               
-              UsageLimitsApiResponse.Response result = response.bodyAsJsonObject()
-                  .mapTo(UsageLimitsApiResponse.Response.class);
+              var wrappedResponse = response.bodyAsJsonObject();
               
-              log.info("✅ Successfully fetched {} active usage limits", result.getCount());
+              var dataObject = wrappedResponse.getJsonObject("data");
+              UsageLimitsApiResponse.Response result = dataObject.mapTo(UsageLimitsApiResponse.Response.class);
+              
+              log.info("✅ Successfully fetched {} active usage limits", result.getTotalCount());
               return result;
             })
             .doOnError(error -> 
@@ -81,8 +83,9 @@ public class PulseServerApiClient {
                 throw new RuntimeException(errorMsg);
               }
               
-              ApiKeysResponse.Response result = response.bodyAsJsonObject()
-                  .mapTo(ApiKeysResponse.Response.class);
+              var wrappedResponse = response.bodyAsJsonObject();
+              var dataObject = wrappedResponse.getJsonObject("data");
+              ApiKeysResponse.Response result = dataObject.mapTo(ApiKeysResponse.Response.class);
               
               log.info("✅ Successfully fetched {} valid API keys", result.getCount());
               return result;

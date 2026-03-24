@@ -10,13 +10,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UsageStats {
-  private String tenant;
+  private String project_id;
   private Long eventsUsed;
   private Long sessionsUsed;
   
   @Override
   public String toString() {
-    return String.format("UsageStats{tenant='%s', events=%d, sessions=%d}", 
-        tenant, eventsUsed, sessionsUsed);
+    return String.format("UsageStats{project_id='%s', events=%d, sessions=%d}", 
+        project_id, eventsUsed, sessionsUsed);
   }
 }

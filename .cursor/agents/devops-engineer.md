@@ -17,7 +17,7 @@ Services on `pulse-network` bridge:
 
 **Infrastructure**: mysql (3307), clickhouse (8123/9000), openfga (8180/8181/3001)
 **Init Containers**: openfga-migrate, openfga-init, clickhouse-init (run-once)
-**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Vector (14317/14318 → S3) is currently disabled in docker-compose.
+**Data Pipeline**: otel-collector (4317/4318 → ClickHouse). Vector (14317/14318 → S3) is optional; enable via `VECTOR_ENABLED=true` in .env.
 **Application**: pulse-server (8080), pulse-ui (3000), pulse-alerts-cron (4000)
 
 **Note:** pulse-ai runs via its own `docker-compose.yml` in `pulse_ai/` (port 8000). Manage with `cd pulse_ai && ./setup.sh [start|stop|restart|logs|clean]`.
@@ -33,7 +33,7 @@ Always use `docker ps` to verify actual running services and ports.
 - `OTEL_CLICKHOUSE_*` — OTEL to ClickHouse connection
 - `REACT_APP_*` — frontend build-time args
 - `OPENFGA_*` — OpenFGA authorization service (store ID, model ID)
-- `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI)
+- `SLACK_*` — Slack OAuth integration (client ID, secret, scopes, redirect URI, UI redirect URL)
 - `AWS_*` — AWS credentials for Athena/S3
 
 Template: `deploy/.env.example` → copy to `deploy/.env`
