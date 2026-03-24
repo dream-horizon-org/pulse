@@ -43,7 +43,10 @@ public object PulseAttributes {
          */
         @JvmStatic
         public fun buildContext(label: String?): String? {
-            val trimmed = label?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val trimmed =
+                label?.run {
+                    trim().takeIf { it.isNotEmpty() }
+                } ?: return null
             return "label=$trimmed"
         }
     }
