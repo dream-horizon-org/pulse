@@ -117,7 +117,8 @@ public class MainVerticle extends AbstractVerticle {
           // Validate startup configuration after all configs are loaded
           ApplicationConfig loadedAppConfig = SharedDataUtils.get(vertx.getDelegate(), ApplicationConfig.class);
           ClickhouseConfig loadedChConfig = SharedDataUtils.get(vertx.getDelegate(), ClickhouseConfig.class);
-          StartupConfigValidator.validate(loadedAppConfig, loadedChConfig);
+          StartupConfigValidator.validate(
+              loadedAppConfig, loadedChConfig, emrServerlessConfig);
 
           return config;
         })

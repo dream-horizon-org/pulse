@@ -2752,13 +2752,17 @@ The application supports AWS credentials through multiple methods:
 
 **EMR Serverless (batch job API client):**
 
-Configuration is in `src/main/resources/conf/emr-serverless-default.conf`. When `enabled` is false (default), `applicationId` and `jobRoleArn` are not required. When `enabled` is true, set:
+Configuration is in `src/main/resources/conf/emr-serverless-default.conf`. All keys are read from environment variables (same pattern as ClickHouse). Set them in `deploy/.env` / your orchestrator; local Docker supplies defaults via `deploy/docker-compose.yml`.
 
-- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED=true`
-- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION` (default `ap-south-1`)
+When `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED` is `false`, leave ARNs and `applicationId` empty. When `enabled` is `true`, all of the following must be non-blank:
+
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION`
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID`
 - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_JOB_ROLE_ARN`
-- Optional: `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN`
+
+When `APP_ENVIRONMENT` is `prod`, startup validation additionally requires EMR to be **enabled** and every value above to be set (`StartupConfigValidator`).
 
 The server uses `software.amazon.awssdk:emrserverless` with `DefaultCredentialsProvider` (same chain as other AWS SDK usage). IaC for the application and IAM roles lives under `deploy/terraform/emr-serverless/`.
 

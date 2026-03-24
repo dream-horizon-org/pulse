@@ -13,7 +13,7 @@ output "job_role_arn" {
 }
 
 output "execution_role_arn" {
-  description = "Optional CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN if overriding per run"
+  description = "Pass to pulse-server CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN when EMR is enabled"
   value       = aws_iam_role.emr_execution.arn
 }
 

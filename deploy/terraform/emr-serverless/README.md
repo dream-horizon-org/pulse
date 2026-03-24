@@ -30,12 +30,13 @@ module "emr_analytics" {
 
 ## After apply
 
-1. Set pulse-server env (or secrets):
+1. Set pulse-server env (or secrets); all are required when EMR is enabled, and **production** (`APP_ENVIRONMENT=prod`) requires `enabled=true` plus non-blank values for every variable below:
 
    - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_ENABLED=true`
+   - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_REGION` (AWS region of the application)
    - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_APPLICATION_ID` = `application_id` output
    - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_JOB_ROLE_ARN` = `job_role_arn` output
-   - Optional: `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN` = `execution_role_arn` output
+   - `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_EXECUTION_ROLE_ARN` = `execution_role_arn` output
 
 2. Attach the JSON from output `pulse_server_policy_snippet` to the **pulse-server** IAM role (ECS task role or EC2 instance profile), or merge equivalent statements into your existing policy.
 

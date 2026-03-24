@@ -42,7 +42,7 @@ All services on `pulse-network` (bridge). Internal references use container name
 - `OPENFGA_*` — OpenFGA authorization service config
 - `SLACK_*` — Slack OAuth integration config
 - `AWS_*` — AWS credentials for Athena/S3/EMR API (default credential chain)
-- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — optional EMR Serverless (`enabled`, `APPLICATION_ID`, `JOB_ROLE_ARN`, etc.); see `deploy/terraform/emr-serverless/README.md`
+- `CONFIG_SERVICE_APPLICATION_EMR_SERVERLESS_*` — **All five keys are required** by pulse-server HOCON (`emr-serverless-default.conf`): `ENABLED`, `REGION`, `APPLICATION_ID`, `JOB_ROLE_ARN`, `EXECUTION_ROLE_ARN`. `deploy/docker-compose.yml` and `deploy/scripts/common.sh` supply local defaults (`enabled=false`, empty ARNs, region default). When `APP_ENVIRONMENT=prod`, startup validation requires `enabled=true` and non-blank values. See `deploy/terraform/emr-serverless/README.md` and `backend/server/README.md` (EMR Serverless section).
 
 Credentials (defined in docker-compose, overridable via `.env`):
 - MySQL: `MYSQL_USER` / `MYSQL_PASSWORD` (defaults: `pulse_user` / `pulse_password`)
