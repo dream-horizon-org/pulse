@@ -42,11 +42,12 @@ describe("eventConverter", () => {
       type: "session_start",
       description: "Session Started",
       color: "#6b7280",
+      categoryLabel: "Session",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.id).toBe("raw_event_1000_session_start");
-    expect(result.traceId).toBe("trace_1000");
-    expect(result.spanId).toBe("span_1000");
+    expect(result.traceId).toBe("1000");
+    expect(result.spanId).toBe("1000");
     expect(result.name).toBe("Session Started");
     expect(result.start).toBe(1000);
     expect(result.duration).toBe(0);
@@ -58,7 +59,21 @@ describe("eventConverter", () => {
   });
 
   it("maps event types to FlameChartNode types correctly", () => {
-    const types: Array<{ type: UnifiedEvent["type"]; expected: "span" | "log" }> = [
+    const categoryByType: Record<UnifiedEvent["type"], string> = {
+      session_start: "Session",
+      app_lifecycle: "Event",
+      screen_load: "Event",
+      critical_interaction: "Interaction",
+      api_call: "Network",
+      interaction_tap: "Interaction",
+      db_query: "Event",
+      network_performance: "Performance",
+      console_log: "Console",
+    };
+    const types: Array<{
+      type: UnifiedEvent["type"];
+      expected: "span" | "log";
+    }> = [
       { type: "screen_load", expected: "span" },
       { type: "critical_interaction", expected: "span" },
       { type: "api_call", expected: "span" },
@@ -71,6 +86,7 @@ describe("eventConverter", () => {
         type,
         description: "Test",
         color: "#000",
+        categoryLabel: categoryByType[type],
       };
       const result = convertEventToFlameChartNode(event, baseSessionData);
       expect(result.type).toBe(expected);
@@ -83,6 +99,7 @@ describe("eventConverter", () => {
       type: "api_call",
       description: "GET https://api.example.com/users",
       color: "#10b981",
+      categoryLabel: "Network",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.duration).toBe(120);
@@ -99,6 +116,7 @@ describe("eventConverter", () => {
       type: "critical_interaction",
       description: "Checkout",
       color: "#8b5cf6",
+      categoryLabel: "Interaction",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.duration).toBe(80);
@@ -116,6 +134,7 @@ describe("eventConverter", () => {
       type: "console_log",
       description: "Log message",
       color: "#ef4444",
+      categoryLabel: "Console",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     expect(result.metadata).toBeDefined();
@@ -130,6 +149,7 @@ describe("eventConverter", () => {
       type: "session_start",
       description: "Session Started",
       color: "#6b7280",
+      categoryLabel: "Session",
     };
     const result = convertEventToFlameChartNode(event, baseSessionData);
     const expectedTs = new Date(baseSessionData.startTime).getTime() + 100;
