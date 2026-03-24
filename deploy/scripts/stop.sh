@@ -63,13 +63,17 @@ while [[ $# -gt 0 ]]; do
             SERVICES+=("$CONTAINER_OTEL_COLLECTOR")
             shift
             ;;
+         minio)
+            SERVICES+=("$CONTAINER_MINIO")
+            shift
+            ;;    
         -h|--help)
-            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|ai|mysql|clickhouse|otel]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|minio|ai]"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|ai|mysql|clickhouse|otel]"
+            echo "Usage: $0 [-v|--volumes] [--all] [ui|server|cron|mysql|clickhouse|otel|minio|ai]"
             exit 1
             ;;
     esac
@@ -105,6 +109,8 @@ if [ ${#SERVICES[@]} -eq 0 ]; then
         "$CONTAINER_UI"
         "$CONTAINER_AI"
         "$CONTAINER_SERVER"
+        "$CONTAINER_MINIO_INIT"
+        "$CONTAINER_MINIO"
         "$CONTAINER_OTEL_COLLECTOR"
         "$CONTAINER_CLICKHOUSE_INIT"
         "$CONTAINER_CLICKHOUSE"
@@ -132,7 +138,7 @@ print_success "Containers stopped"
 if [ "$REMOVE_VOLUMES" = "true" ]; then
     echo ""
     print_info "Removing data volumes..."
-    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE"; do
+    for vol in "$VOLUME_MYSQL" "$VOLUME_CLICKHOUSE" "$VOLUME_MINIO"; do
         if docker volume inspect "$vol" > /dev/null 2>&1; then
             docker volume rm "$vol" > /dev/null
             print_success "Removed volume $vol"
