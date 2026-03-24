@@ -95,7 +95,7 @@ class ApplicationConfigTest {
         "http://ai:8000",
         "symbolFilesS3Bucket",
         "dev-api-key",
-            "replayBaseUrl"
+        "replayBaseUrl"
     );
     assertNotNull(config);
     assertEquals("dev", config.getAppEnvironment());

@@ -104,60 +104,61 @@ public class ConfigController {
     }
   }
 
-    private void applyFeatureConfigDefaults(PulseConfig config) {
-        if (config.getFeatures() == null) {
-            return;
-        }
-
-        config.getFeatures().forEach(feature -> {
-            if (feature.getFeatureName() == Features.session_replay) {
-                feature.setConfig(applySessionReplayDefaults(feature.getConfig()));
-            }
-        });
+  private void applyFeatureConfigDefaults(PulseConfig config) {
+    if (config.getFeatures() == null) {
+      return;
     }
 
-    private SessionReplayFeatureConfig applySessionReplayDefaults(FeatureConfigProperties config) {
-        SessionReplayFeatureConfig sessionReplayConfig = config != null
-                ? (SessionReplayFeatureConfig) config
-                : SessionReplayFeatureConfig.builder().build();
+    config.getFeatures().forEach(feature -> {
+      if (feature.getFeatureName() == Features.session_replay) {
+        feature.setConfig(applySessionReplayDefaults(feature.getConfig()));
+      }
+    });
+  }
 
-        if (sessionReplayConfig.getTextAndInputPrivacy() == null) {
-            sessionReplayConfig.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
-        }
+  private SessionReplayFeatureConfig applySessionReplayDefaults(FeatureConfigProperties config) {
+    SessionReplayFeatureConfig sessionReplayConfig = config != null
+        ? (SessionReplayFeatureConfig) config
+        : SessionReplayFeatureConfig.builder().build();
 
-        if (sessionReplayConfig.getImagePrivacy() == null) {
-            sessionReplayConfig.setImagePrivacy(ImagePrivacy.MASK_ALL);
-        }
-
-        if (sessionReplayConfig.getThrottleDelayMs() == null) {
-            sessionReplayConfig.setThrottleDelayMs(1000L);
-        }
-
-        if (sessionReplayConfig.getScreenshotScale() == null) {
-            sessionReplayConfig.setScreenshotScale(1.0f);
-        }
-
-        if (sessionReplayConfig.getScreenshotQuality() == null) {
-            sessionReplayConfig.setScreenshotQuality(30);
-        }
-
-        if (sessionReplayConfig.getFlushIntervalSeconds() == null) {
-            sessionReplayConfig.setFlushIntervalSeconds(60);
-        }
-
-        if (sessionReplayConfig.getFlushAt() == null) {
-            sessionReplayConfig.setFlushAt(10);
-        }
-
-        if (sessionReplayConfig.getMaxBatchSize() == null) {
-            sessionReplayConfig.setMaxBatchSize(50);
-        }
-
-        if (sessionReplayConfig.getReplayApiBaseUrl() == null || sessionReplayConfig.getReplayApiBaseUrl().isBlank()) {
-            sessionReplayConfig.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
-        }
-        return sessionReplayConfig;
+    if (sessionReplayConfig.getTextAndInputPrivacy() == null) {
+      sessionReplayConfig.setTextAndInputPrivacy(TextAndInputPrivacy.MASK_ALL);
     }
+
+    if (sessionReplayConfig.getImagePrivacy() == null) {
+      sessionReplayConfig.setImagePrivacy(ImagePrivacy.MASK_ALL);
+    }
+
+    if (sessionReplayConfig.getThrottleDelayMs() == null) {
+      sessionReplayConfig.setThrottleDelayMs(1000L);
+    }
+
+    if (sessionReplayConfig.getScreenshotScale() == null) {
+      sessionReplayConfig.setScreenshotScale(1.0f);
+    }
+
+    if (sessionReplayConfig.getScreenshotQuality() == null) {
+      sessionReplayConfig.setScreenshotQuality(30);
+    }
+
+    if (sessionReplayConfig.getFlushIntervalSeconds() == null) {
+      sessionReplayConfig.setFlushIntervalSeconds(60);
+    }
+
+    if (sessionReplayConfig.getFlushAt() == null) {
+      sessionReplayConfig.setFlushAt(10);
+    }
+
+    if (sessionReplayConfig.getMaxBatchSize() == null) {
+      sessionReplayConfig.setMaxBatchSize(50);
+    }
+
+    if (sessionReplayConfig.getReplayApiBaseUrl() == null
+        || sessionReplayConfig.getReplayApiBaseUrl().isBlank()) {
+      sessionReplayConfig.setReplayApiBaseUrl(applicationConfig.getReplayApiBaseUrl());
+    }
+    return sessionReplayConfig;
+  }
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)

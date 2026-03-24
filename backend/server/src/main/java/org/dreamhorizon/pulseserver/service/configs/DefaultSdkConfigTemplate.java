@@ -11,7 +11,7 @@ import java.util.List;
  * This configuration is automatically created for each new project.
  */
 public class DefaultSdkConfigTemplate {
-    
+
     /**
      * Creates a default SDK configuration for a new project.
      * 
@@ -20,12 +20,12 @@ public class DefaultSdkConfigTemplate {
      */
     public static ConfigData createDefaultConfig(String createdBy) {
         List<Sdk> allSdks = Arrays.asList(
-            Sdk.pulse_android_java, 
-            Sdk.pulse_android_rn, 
-            Sdk.pulse_ios_swift, 
+            Sdk.pulse_android_java,
+            Sdk.pulse_android_rn,
+            Sdk.pulse_ios_swift,
             Sdk.pulse_ios_rn
         );
-        
+
         // Sampling configuration
         SamplingConfig sampling = SamplingConfig.builder()
             .defaultSampling(DefaultSampling.builder()
@@ -39,7 +39,7 @@ public class DefaultSdkConfigTemplate {
                 .alwaysSend(new ArrayList<>())
                 .build())
             .build();
-        
+
         // Signals configuration
         SignalsConfig signals = SignalsConfig.builder()
             .filters(FilterConfig.builder()
@@ -54,14 +54,14 @@ public class DefaultSdkConfigTemplate {
             .attributesToDrop(new ArrayList<>())
             .attributesToAdd(new ArrayList<>())
             .build();
-        
+
         // Interaction configuration
         InteractionConfig interaction = InteractionConfig.builder()
             .collectorUrl(System.getenv().getOrDefault("INTERACTION_COLLECTOR_URL", "http://localhost:4318/v1/traces/v1/interactions"))
             .configUrl(System.getenv().getOrDefault("INTERACTION_CONFIG_URL", "http://localhost:8080/v1/interaction-configs/"))
             .beforeInitQueueSize(100)
             .build();
-        
+
         // Feature configurations - enable all features with full sampling (except network_instrumentation)
         List<FeatureConfig> features = new ArrayList<>();
         features.add(createFeature(Features.interaction, 1.0, allSdks));
@@ -75,7 +75,7 @@ public class DefaultSdkConfigTemplate {
         features.add(createFeature(Features.rn_screen_load, 1.0, allSdks));
         features.add(createFeature(Features.rn_screen_interactive, 1.0, allSdks));
         features.add(createSessionReplayFeature(1.0, allSdks));
-        
+
         // Create ConfigData
         return ConfigData.builder()
             .description("Default initial configuration")
@@ -86,7 +86,7 @@ public class DefaultSdkConfigTemplate {
             .user(createdBy)
             .build();
     }
-    
+
     private static FeatureConfig createFeature(Features name, Double sampleRate, List<Sdk> sdks) {
         return FeatureConfig.builder()
             .featureName(name)
@@ -97,23 +97,23 @@ public class DefaultSdkConfigTemplate {
 
     private static FeatureConfig createSessionReplayFeature(Double sampleRate, List<Sdk> sdks) {
         SessionReplayFeatureConfig config = SessionReplayFeatureConfig.builder()
-                .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
-                .imagePrivacy(ImagePrivacy.MASK_ALL)
-                .throttleDelayMs(1000L)
-                .screenshotScale(1.0f)
-                .screenshotQuality(30)
-                .flushIntervalSeconds(60)
-                .flushAt(10)
-                .maxBatchSize(50)
-                .replayApiBaseUrl(
-                        System.getenv().getOrDefault("CONFIG_REPLAY_API_BASE_URL", "http://localhost:3400"))
-                .build();
+            .textAndInputPrivacy(TextAndInputPrivacy.MASK_ALL)
+            .imagePrivacy(ImagePrivacy.MASK_ALL)
+            .throttleDelayMs(1000L)
+            .screenshotScale(1.0f)
+            .screenshotQuality(30)
+            .flushIntervalSeconds(60)
+            .flushAt(10)
+            .maxBatchSize(50)
+            .replayApiBaseUrl(
+                System.getenv().getOrDefault("CONFIG_REPLAY_API_BASE_URL", "http://localhost:3400"))
+            .build();
 
         return FeatureConfig.builder()
-                .featureName(Features.session_replay)
-                .sessionSampleRate(sampleRate)
-                .sdks(sdks)
-                .config((FeatureConfigProperties) config)
-                .build();
+            .featureName(Features.session_replay)
+            .sessionSampleRate(sampleRate)
+            .sdks(sdks)
+            .config((FeatureConfigProperties) config)
+            .build();
     }
 }

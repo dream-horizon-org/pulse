@@ -19,29 +19,32 @@ import lombok.experimental.SuperBuilder;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SessionReplayFeatureConfig extends FeatureConfigProperties {
 
-    // Privacy / PII
-    @JsonProperty("textAndInputPrivacy")
-    private TextAndInputPrivacy textAndInputPrivacy;
+  // Privacy / PII
+  @JsonProperty("textAndInputPrivacy")
+  private TextAndInputPrivacy textAndInputPrivacy;
 
-    @JsonProperty("imagePrivacy")
-    private ImagePrivacy imagePrivacy;
+  @JsonProperty("imagePrivacy")
+  private ImagePrivacy imagePrivacy;
 
-    // Batching
-    @JsonProperty("flushIntervalSeconds")
-    private Integer flushIntervalSeconds;
+  // Batching
+  @JsonProperty("maxBatchSize")
+  private Integer maxBatchSize;
 
-    @JsonProperty("flushAt")
-    private Integer flushAt;
+  @JsonProperty("flushIntervalSeconds")
+  private Integer flushIntervalSeconds;
 
-    @JsonProperty("throttleDelayMs")
-    private Long throttleDelayMs;
+  @JsonProperty("flushAt")
+  private Integer flushAt;
 
-    @JsonProperty("screenshotScale")
-    private Float screenshotScale;
+  @JsonProperty("throttleDelayMs")
+  private Long throttleDelayMs;
 
-    @JsonProperty("screenshotQuality")
-    private Integer screenshotQuality;
+  @JsonProperty("screenshotScale")
+  private Float screenshotScale;
 
-    @JsonProperty("replayApiBaseUrl")
-    private String replayApiBaseUrl;
+  @JsonProperty("screenshotQuality")
+  private Integer screenshotQuality;
+
+  @JsonProperty("replayApiBaseUrl")
+  private String replayApiBaseUrl;
 }

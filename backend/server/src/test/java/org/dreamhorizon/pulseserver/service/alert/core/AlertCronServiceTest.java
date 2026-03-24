@@ -431,7 +431,7 @@ class AlertCronServiceTest {
           "http://ai:8000",
           "symbol-files-bucket",
           "dev-api-key",
-              "replayUrl"
+          "replayUrl"
       );
 
       assertEquals("dev", config.getAppEnvironment());
@@ -534,7 +534,7 @@ class AlertCronServiceTest {
           "http://ai:8000",
           "symbol-files-bucket",
           "dev-api-key",
-              "replayUrl"
+          "replayUrl"
       );
       String toString = config.toString();
 
