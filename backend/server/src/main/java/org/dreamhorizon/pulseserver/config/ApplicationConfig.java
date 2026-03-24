@@ -37,6 +37,11 @@ public class ApplicationConfig {
   public String tncS3BucketName;
   public String symbolFilesS3BucketName;
   public String devModeApiKey;
+  public String sessionReplayS3Bucket;
+  public String sessionReplayS3Endpoint;
+  public String sessionReplayS3Region;
+  public String sessionReplayS3AccessKeyId;
+  public String sessionReplayS3SecretAccessKey;
   
   /**
    * Get the dev mode API key with a sensible default.

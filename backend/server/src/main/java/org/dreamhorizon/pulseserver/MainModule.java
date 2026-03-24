@@ -11,11 +11,13 @@ import com.google.inject.multibindings.Multibinder;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
+import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
@@ -44,14 +46,19 @@ import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetry
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
 import org.dreamhorizon.pulseserver.service.notification.queue.SqsNotificationQueue;
 import org.dreamhorizon.pulseserver.service.notification.webhook.SesWebhookHandler;
+import org.dreamhorizon.pulseserver.service.session.SessionBlockFetcher;
+import org.dreamhorizon.pulseserver.service.session.SessionReplayService;
 import org.dreamhorizon.pulseserver.util.ApiKeyGenerator;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import java.net.URI;
 
 @Slf4j
 public class MainModule extends VertxAbstractModule {
@@ -98,6 +105,8 @@ public class MainModule extends VertxAbstractModule {
     bind(CloudFrontAsyncClient.class).toProvider(this::loadCloudFrontClient).in(Singleton.class);
     bind(ICloudFrontClient.class).to(CloudFrontClient.class).in(Singleton.class);
     bind(IS3BucketClient.class).to(S3BucketClient.class).in(Singleton.class);
+    bind(SessionBlockFetcher.class).in(Singleton.class);
+    bind(SessionReplayService.class).in(Singleton.class);
 
     // OpenFGA Authorization
     bind(OpenFgaConfig.class).toProvider(() -> {
@@ -170,6 +179,21 @@ public class MainModule extends VertxAbstractModule {
   }
 
   private S3AsyncClient loadS3Client() {
+    ApplicationConfig config = SharedDataUtils.get(vertx, ApplicationConfig.class);
+    // When session replay S3 endpoint is set (e.g. MinIO in dev), use it for the default S3 client
+    // so both config uploads and session replay block reads use the same client and env config.
+    if (config != null && StringUtils.isNotBlank(config.getSessionReplayS3Endpoint())) {
+      String region = StringUtils.defaultIfBlank(config.getSessionReplayS3Region(), "ap-south-1");
+      String accessKey = StringUtils.defaultString(config.getSessionReplayS3AccessKeyId());
+      String secretKey = StringUtils.defaultString(config.getSessionReplayS3SecretAccessKey());
+      return S3AsyncClient.builder()
+          .httpClientBuilder(NettyNioAsyncHttpClient.builder())
+          .region(Region.of(region))
+          .endpointOverride(URI.create(config.getSessionReplayS3Endpoint()))
+          .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
+          .forcePathStyle(true)
+          .build();
+    }
     return S3AsyncClient.builder()
         .httpClientBuilder(NettyNioAsyncHttpClient.builder())
         .region(Region.AP_SOUTH_1)
