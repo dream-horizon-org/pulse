@@ -19,6 +19,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -204,13 +205,29 @@ public class InteractionController {
       @QueryParam("date") String dateParam
   ) {
     String projectId = ProjectContext.requireProjectId();
-    LocalDate date = dateParam != null && !dateParam.isBlank()
-        ? LocalDate.parse(dateParam)
-        : LocalDate.now(ZoneOffset.UTC);
+    final LocalDate date;
+    try {
+      date = parseRootCauseQueryDate(dateParam);
+    } catch (WebApplicationException e) {
+      return CompletableFuture.failedFuture(e);
+    }
 
     return rootCauseService.getRootCause(projectId, name, date)
         .map(this::toRootCauseRestResponse)
         .to(RestResponse.jaxrsRestHandler());
+  }
+
+  private static LocalDate parseRootCauseQueryDate(String dateParam) {
+    if (dateParam == null || dateParam.isBlank()) {
+      return LocalDate.now(ZoneOffset.UTC);
+    }
+    try {
+      return LocalDate.parse(dateParam);
+    } catch (DateTimeParseException e) {
+      throw ServiceError.INCORRECT_OR_MISSING_QUERY_PARAMETERS.getCustomException(
+          "Query parameter 'date' must be a valid ISO-8601 date (yyyy-MM-dd).",
+          e.getMessage());
+    }
   }
 
   private RootCauseRestResponse toRootCauseRestResponse(RootCauseResult result) {
