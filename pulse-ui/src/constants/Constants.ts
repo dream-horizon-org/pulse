@@ -33,7 +33,6 @@ import {
 } from "../screens/CriticalInteractionForm";
 import { OperatorType } from "../screens/AlertForm/AlertForm.interface";
 import { AiChat } from "../screens/AiChat";
-import { SupportQueries } from "../screens/SupportQueries";
 
 export const APP_NAME: string = "Pulse";
 

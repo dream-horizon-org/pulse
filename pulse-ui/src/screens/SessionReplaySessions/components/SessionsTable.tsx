@@ -1,4 +1,4 @@
-import { Table, Group } from "@mantine/core";
+import { Table } from "@mantine/core";
 import {
   IconArrowUp,
   IconArrowDown,
@@ -11,7 +11,6 @@ import {
   ACTIONS_COLUMN_WIDTH,
 } from "../constants/sessionList.constants";
 import { SessionTableRow } from "./SessionTableRow";
-import classes from "../SessionReplaySessions.module.css";
 
 export interface SessionsTableProps {
   sortBy: SortField;

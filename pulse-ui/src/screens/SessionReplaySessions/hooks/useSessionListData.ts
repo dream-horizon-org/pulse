@@ -144,6 +144,7 @@ export function useSessionListData({
     pageCursors,
     sortBy,
     sortDirection,
+    filterState,
   ]);
 
   const fetchRef = useRef(fetchSessions);

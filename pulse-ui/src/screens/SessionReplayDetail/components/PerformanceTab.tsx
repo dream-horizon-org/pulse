@@ -1,13 +1,4 @@
-import {
-  Stack,
-  Text,
-  Paper,
-  Title,
-  Badge,
-  Accordion,
-  Code,
-  Box,
-} from "@mantine/core";
+import { Stack, Text, Title, Badge, Accordion, Code, Box } from "@mantine/core";
 import type { SessionDetailData } from "../../../services/sessionReplay/mockSessionDetail";
 import { TabPanelScrollArea } from "./TabPanelScrollArea";
 

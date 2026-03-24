@@ -660,8 +660,6 @@ export function getMockSessionDetailApiResponse(
 
 /** Base timestamp for mock snapshot events; use as session start when mock replay is enabled so image timestamps align with currentTime. */
 export const MOCK_SNAPSHOT_BASE_TS = 1773404248354;
-const TINY_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 export function getMockSnapshotsData(
   startBlobKey = "0",

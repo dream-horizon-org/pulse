@@ -13,7 +13,6 @@ import { SessionHeader } from "./components/SessionHeader";
 import { SessionSummary } from "./components/SessionSummary";
 import { SessionTabs } from "./components/SessionTabs";
 import { SessionPlayerSection } from "./components/SessionPlayerSection";
-import { SessionTimelineSection } from "./components/SessionTimelineSection";
 import { DEFAULTS } from "./constants/strings";
 import { useSessionDetail } from "./hooks/useSessionDetail";
 import { useSessionReplaySnapshots } from "./hooks/useSessionReplaySnapshots";
@@ -35,17 +34,11 @@ export const SessionReplayDetail: React.FC = () => {
     "text",
   );
 
-  const [activePersona, setActivePersona] = useState<PersonaType>("all");
-
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-  const {
-    data: apiSessionData,
-    isLoading: sessionLoading,
-    isError: sessionError,
-  } = useSessionDetail({
+  const { data: apiSessionData, isLoading: sessionLoading } = useSessionDetail({
     sessionId: sessionId ?? undefined,
     includeEvents: true,
     enabled: !!sessionId,
@@ -63,7 +56,6 @@ export const SessionReplayDetail: React.FC = () => {
   const {
     images: snapshotImages,
     loading: snapshotLoading,
-    error: snapshotError,
     snapshotDurationMs,
   } = useSessionReplaySnapshots({
     sessionId: sessionId ?? undefined,
@@ -76,15 +68,6 @@ export const SessionReplayDetail: React.FC = () => {
 
   const effectiveDuration =
     snapshotDurationMs > 0 ? snapshotDurationMs : sessionData.duration;
-
-  const { flameChartData, sessionDuration, sessionStartTime, totalDepth } =
-    useMemo(() => {
-      return transformToFlameChart(
-        sessionData.traces,
-        sessionData.logs,
-        sessionData.exceptions,
-      );
-    }, [sessionData]);
 
   const handleBack = () => {
     const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
@@ -164,47 +147,44 @@ export const SessionReplayDetail: React.FC = () => {
   return (
     <Box className={classes.container}>
       <SessionHeader onBack={handleBack} />
-
-      {activePersona === "all" && (
-        <>
-          <Box className={classes.summarySection}>
-            <SessionSummary sessionData={sessionData} />
+      <>
+        <Box className={classes.summarySection}>
+          <SessionSummary sessionData={sessionData} />
+        </Box>
+        <Box className={classes.playerSectionSplit}>
+          <Box className={classes.playerSectionLeft}>
+            <SessionPlayerSection
+              sessionData={sessionData}
+              images={replayImages}
+              imagesLoading={imagesLoading}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              playbackSpeed={playbackSpeed}
+              selectedSpan={selectedSpan}
+              compact
+              duration={effectiveDuration}
+              onTimeUpdate={handleTimeUpdate}
+              onTimelineChange={handleTimelineChange}
+              onPlayPause={handlePlayPause}
+              onSpeedChange={handleSpeedChange}
+            />
           </Box>
-          <Box className={classes.playerSectionSplit}>
-            <Box className={classes.playerSectionLeft}>
-              <SessionPlayerSection
-                sessionData={sessionData}
-                images={replayImages}
-                imagesLoading={imagesLoading}
-                currentTime={currentTime}
-                isPlaying={isPlaying}
-                playbackSpeed={playbackSpeed}
-                selectedSpan={selectedSpan}
-                compact
-                duration={effectiveDuration}
-                onTimeUpdate={handleTimeUpdate}
-                onTimelineChange={handleTimelineChange}
-                onPlayPause={handlePlayPause}
-                onSpeedChange={handleSpeedChange}
-              />
-            </Box>
-            <Box className={classes.playerSectionRight}>
-              <SessionTabs
-                activeTab={activeTab}
-                sessionData={sessionData}
-                currentTime={currentTime}
-                scrollToTimestamp={scrollToTimestamp}
-                onEventClick={handleSpanClick}
-                networkViewMode={networkViewMode}
-                onTabChange={setActiveTab}
-                onCriticalInteractionClick={handleCriticalInteractionClick}
-                onNetworkViewModeChange={setNetworkViewMode}
-              />
-            </Box>
+          <Box className={classes.playerSectionRight}>
+            <SessionTabs
+              activeTab={activeTab}
+              sessionData={sessionData}
+              currentTime={currentTime}
+              scrollToTimestamp={scrollToTimestamp}
+              onEventClick={handleSpanClick}
+              networkViewMode={networkViewMode}
+              onTabChange={setActiveTab}
+              onCriticalInteractionClick={handleCriticalInteractionClick}
+              onNetworkViewModeChange={setNetworkViewMode}
+            />
           </Box>
-        </>
-      )}
-
+        </Box>
+      </>
+      )
       {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}

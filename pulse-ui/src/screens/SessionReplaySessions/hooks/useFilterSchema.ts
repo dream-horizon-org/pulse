@@ -1,9 +1,9 @@
 // Session Replay - Dynamic Filter Schema Hook
 // Fetches filter configuration from API based on platform
 
-import { useState, useEffect } from 'react';
-import { sessionReplayService } from '../../../services/sessionReplay/SessionReplayService';
-import { GetFilterSchemaResponse } from '../../../services/sessionReplay/types';
+import { useState, useEffect } from "react";
+import { sessionReplayService } from "../../../services/sessionReplay/SessionReplayService";
+import { GetFilterSchemaResponse } from "../../../services/sessionReplay/types";
 
 interface UseFilterSchemaResult {
   schema: GetFilterSchemaResponse | null;
@@ -23,7 +23,7 @@ export function useFilterSchema(
   const options: UseFilterSchemaOptions =
     typeof projectIdOrOptions === "string"
       ? { projectId: projectIdOrOptions }
-      : projectIdOrOptions ?? {};
+      : (projectIdOrOptions ?? {});
   const { projectId, skip = false } = options;
 
   const [schema, setSchema] = useState<GetFilterSchemaResponse | null>(null);
@@ -35,7 +35,9 @@ export function useFilterSchema(
     try {
       setLoading(true);
       setError(null);
-      const response = await sessionReplayService.getFilterSchema({ projectId });
+      const response = await sessionReplayService.getFilterSchema({
+        projectId,
+      });
       setSchema(response);
     } catch (err) {
       setError(err as Error);
@@ -51,7 +53,7 @@ export function useFilterSchema(
       return;
     }
     fetchSchema();
-  }, [projectId, skip]);
+  }, [projectId, skip, fetchSchema]);
 
   return {
     schema,

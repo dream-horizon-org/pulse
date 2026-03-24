@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { UnifiedEvent } from "../utils/unifiedEvents";
 
 interface UseEventScrollProps {
