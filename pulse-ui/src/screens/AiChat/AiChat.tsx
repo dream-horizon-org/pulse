@@ -7,7 +7,7 @@ import { useHandleSend } from "./hooks/useHandleSend";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { ChatMessageList } from "./components/ChatMessageList";
 import { ChatInput } from "./components/ChatInput";
-import { AI_CHAT_TEXTS } from "./AiChat.constants";
+import { sanitizeChatErrorForDisplay } from "./AiChat.utils";
 import "./AiChat.vars.css";
 import classes from "./AiChat.module.css";
 
@@ -39,10 +39,7 @@ export const AiChat = () => {
   );
 
   const errorDisplay = useMemo(
-    () =>
-      error === AI_CHAT_TEXTS.SESSION_HISTORY_LOAD_FAILED
-        ? AI_CHAT_TEXTS.ERROR_GENERIC
-        : error,
+    () => sanitizeChatErrorForDisplay(error),
     [error],
   );
 
