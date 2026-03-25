@@ -79,14 +79,16 @@ internal class ComposeClickEventGenerator(
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog context=${label ?: ""} widgetId=$widgetIdForLog",
+                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog " +
+                                    "context=${label.orEmpty()} widgetId=$widgetIdForLog",
                             )
                         } else {
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog widgetId=$widgetIdForLog (no app.click.context)",
+                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog " +
+                                    "widgetId=$widgetIdForLog (no app.click.context)",
                             )
                         }
                         widgetClickRecord.emit()

@@ -76,7 +76,8 @@ class ViewClickEventGenerator(
                             val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
                             Log.d(
                                 CLICK_LOG_TAG,
-                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog context=${label ?: ""} widgetId=$widgetIdForLog",
+                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog " +
+                                    "context=${label.orEmpty()} widgetId=$widgetIdForLog",
                             )
                         } else {
                             val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
