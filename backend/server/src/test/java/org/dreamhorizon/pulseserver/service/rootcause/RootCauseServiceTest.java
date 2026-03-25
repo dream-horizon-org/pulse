@@ -176,7 +176,7 @@ class RootCauseServiceTest {
               t -> {
                 WebApplicationException wae = (WebApplicationException) t;
                 assertThat(wae.getResponse().getStatus())
-                    .isEqualTo(ServiceError.ROOT_CAUSE_CACHE_INVALID.getHttpStatusCode());
+                    .isEqualTo(ServiceError.INTERNAL_SERVER_ERROR.getHttpStatusCode());
               });
 
       verify(clickhouseQueryService, never()).executeQueryOrCreateJob(any(QueryConfiguration.class));

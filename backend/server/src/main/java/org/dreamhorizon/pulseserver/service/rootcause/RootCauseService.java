@@ -515,7 +515,7 @@ public class RootCauseService {
         cacheRow.getDate(),
         cause.getMessage(),
         cause);
-    return ServiceError.ROOT_CAUSE_CACHE_INVALID.getException();
+    return ServiceError.INTERNAL_SERVER_ERROR.getException();
   }
 
   private static long toLong(Object o) {
