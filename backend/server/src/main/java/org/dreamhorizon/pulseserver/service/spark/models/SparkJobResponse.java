@@ -5,10 +5,6 @@ import lombok.Getter;
 
 import java.time.LocalDateTime;
 
-/**
- * Response model for Spark job submission.
- * Mirrors EMR StartJobRunResponse with additional metadata for convenience.
- */
 @Getter
 @Builder
 public class SparkJobResponse {

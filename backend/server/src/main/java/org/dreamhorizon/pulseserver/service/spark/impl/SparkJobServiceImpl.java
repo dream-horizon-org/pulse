@@ -18,10 +18,6 @@ import software.amazon.awssdk.services.emrserverless.model.StartJobRunResponse;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * Implementation of SparkJobService that provides a Spark-focused abstraction over EMR Serverless.
- * Handles EMR request building, clientToken generation, and returns EMR responses directly.
- */
 @Slf4j
 @Singleton
 public class SparkJobServiceImpl implements SparkJobService {
