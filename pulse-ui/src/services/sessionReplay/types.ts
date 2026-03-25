@@ -449,7 +449,7 @@ export interface SessionDetailInteraction {
 }
 
 export interface SessionDetailNetworkRequest {
-  timestamp: number;
+  timestamp: string | number;
   durationNs: number;
   method: string;
   url: string;
