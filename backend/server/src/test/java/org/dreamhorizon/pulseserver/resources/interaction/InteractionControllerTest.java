@@ -73,6 +73,7 @@ class InteractionControllerTest {
     @Test
     void shouldCompleteExceptionallyWith400WhenDateQueryParamIsInvalid(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test-project");
         CompletionStage<Response<RootCauseRestResponse>> result =
             interactionController.getRootCause("my-interaction", "not-a-date");
 
@@ -93,6 +94,7 @@ class InteractionControllerTest {
     @Test
     void shouldCallRootCauseServiceWhenDateIsValidIso(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test-project");
         LocalDate expectedDate = LocalDate.of(2024, 6, 15);
         RootCauseResult serviceResult = RootCauseResult.builder().mode("flat").build();
         when(rootCauseService.getRootCause("test-project", "my-interaction", expectedDate))
@@ -117,6 +119,7 @@ class InteractionControllerTest {
     @Test
     void shouldDefaultDateToUtcTodayWhenDateParamIsNull(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test-project");
         LocalDate expectedToday = LocalDate.now(ZoneOffset.UTC);
         RootCauseResult serviceResult = RootCauseResult.builder().build();
         when(rootCauseService.getRootCause(eq("test-project"), eq("my-interaction"), any(LocalDate.class)))
@@ -141,6 +144,7 @@ class InteractionControllerTest {
     @Test
     void shouldDefaultDateToUtcTodayWhenDateParamIsBlank(Vertx vertx, VertxTestContext testContext) {
       vertx.runOnContext(v -> {
+        ProjectContext.setProjectId("test-project");
         LocalDate expectedToday = LocalDate.now(ZoneOffset.UTC);
         RootCauseResult serviceResult = RootCauseResult.builder().build();
         when(rootCauseService.getRootCause(eq("test-project"), eq("my-interaction"), any(LocalDate.class)))
