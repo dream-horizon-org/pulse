@@ -95,6 +95,12 @@ class ApplicationConfigTest {
         "http://ai:8000",
         "symbolFilesS3Bucket",
         "dev-api-key",
+        new SessionReplayS3Config(
+            "session-replay-bucket",
+            "http://minio:9000",
+            "us-east-1",
+            "access-key",
+            "secret-key"),
         "replayBaseUrl"
     );
     assertNotNull(config);

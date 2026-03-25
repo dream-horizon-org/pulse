@@ -38,6 +38,7 @@ public class ApplicationConfig {
   public String aiServiceUrl;
   public String symbolFilesS3BucketName;
   public String devModeApiKey;
+  public SessionReplayS3Config sessionReplayS3;
   public String replayApiBaseUrl;
 
   /**
@@ -45,8 +46,8 @@ public class ApplicationConfig {
    * This key is used when GOOGLE_OAUTH_ENABLED=false.
    */
   public String getDevModeApiKey() {
-    return devModeApiKey != null && !devModeApiKey.isBlank()
-        ? devModeApiKey
+    return devModeApiKey != null && !devModeApiKey.isBlank() 
+        ? devModeApiKey 
         : "default-project_devkey01";
   }
 }

@@ -189,8 +189,48 @@ if ! verify_mysql_init; then
     exit 1
 fi
 
-# ── Phase 2: ClickHouse init + OTEL Collector ────────────────────────────
-print_section "Phase 2: Initialising ClickHouse tables & OTEL Collector"
+# ── Phase 2: MinIO ────────────────────────────────────────────────
+print_section "Phase 2: MinIO"
+
+remove_container "$CONTAINER_MINIO"
+print_info "Starting $CONTAINER_MINIO ..."
+
+docker run -d \
+    --name "$CONTAINER_MINIO" \
+    --network "$NETWORK_NAME" \
+    --network-alias minio \
+    --restart unless-stopped \
+    -p 9100:9000 \
+    -p 9101:9001 \
+    -e "MINIO_ROOT_USER=${MINIO_ROOT_USER}" \
+    -e "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}" \
+    -v "${VOLUME_MINIO}:/data" \
+    --health-cmd "mc ready local" \
+    --health-interval 5s \
+    --health-timeout 5s \
+    --health-retries 5 \
+    --health-start-period 10s \
+    "$IMAGE_MINIO" \
+    server /data --console-address ":9001" > /dev/null
+
+print_success "$CONTAINER_MINIO container started"
+
+print_info "Waiting for MinIO..."
+wait_for_healthy "$CONTAINER_MINIO" 60
+
+# Create MinIO bucket
+remove_container "$CONTAINER_MINIO_INIT"
+print_info "Creating MinIO bucket..."
+docker run --rm \
+    --name "$CONTAINER_MINIO_INIT" \
+    --network "$NETWORK_NAME" \
+    "$IMAGE_MINIO_MC" \
+    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET}" > /dev/null 2>&1
+
+print_success "MinIO bucket '${SESSION_REPLAY_S3_BUCKET}' ready"
+
+# ── Phase 3: ClickHouse init + OTEL Collector ────────────────────────────
+print_section "Phase 3: Initialising ClickHouse tables & OTEL Collector"
 
 remove_container "$CONTAINER_CLICKHOUSE_INIT"
 print_info "Running $CONTAINER_CLICKHOUSE_INIT (one-shot) ..."
@@ -277,6 +317,12 @@ docker run -d \
     -e "S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME}" \
     -e "CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH}" \
     -e "INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH}" \
+    \
+    -e "SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET}" \
+    -e "SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}" \
+    -e "SESSION_REPLAY_S3_ACCESS_KEY_ID=${SESSION_REPLAY_S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER}}" \
+    -e "SESSION_REPLAY_S3_SECRET_ACCESS_KEY=${SESSION_REPLAY_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}" \
+    -e "SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-south-1}" \
     \
     -e "CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID}" \
     -e "CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH}" \
@@ -371,6 +417,7 @@ if [ "$DETACHED" = "true" ]; then
     echo -e "  Backend API:        ${GREEN}http://localhost:8080${NC}"
     echo -e "  MySQL:              ${GREEN}localhost:3307${NC}"
     echo -e "  ClickHouse HTTP:    ${GREEN}http://localhost:8123${NC}"
+    echo -e "  MinIO Console:      ${GREEN}http://localhost:9101${NC}"
     echo -e "  OTEL gRPC:          ${GREEN}localhost:4317${NC}"
     echo ""
     echo -e "${CYAN}View logs:${NC}  ./logs.sh"
