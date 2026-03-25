@@ -20,8 +20,19 @@ Key columns: `TraceId`, `SpanId`, `ParentSpanId`, `SpanName`, `SpanKind`, `Servi
 ### `otel_logs` — log records
 Key columns: `TraceId`, `Body`, `SeverityText`, `SeverityNumber`, `Timestamp`, `EventName`, `LogAttributes` (Map), `ResourceAttributes` (Map)
 
-### `otel_metrics_gauge` — gauge metrics
-Key columns: `MetricName`, `Value`, `TimeUnix`, `Attributes` (Map), `ResourceAttributes` (Map)
+### OTLP metrics (physical tables — collector `INSERT` targets)
+
+All share materialized `ProjectId`, `SessionId`, RUM dimensions (same pattern as below), and `ORDER BY (ProjectId, ServiceName, MetricName, Attributes, toUnixTimestamp64Nano(TimeUnix))`.
+
+- **`otel_metrics_gauge`** — `MetricName`, `Value`, `TimeUnix`, `Flags`, exemplar arrays (`Exemplars.*`), `Attributes`, `ResourceAttributes`
+- **`otel_metrics_sum`** — like gauge plus `AggregationTemporality`, `IsMonotonic` (counters / sums)
+- **`otel_metrics_summary`** — `Count`, `Sum`, `ValueAtQuantiles.Quantile` / `ValueAtQuantiles.Value` (arrays), `Flags`
+- **`otel_metrics_histogram`** — `Count`, `Sum`, `BucketCounts`, `ExplicitBounds`, `Min`, `Max`, `AggregationTemporality`, exemplars
+- **`otel_metrics_exp_histogram`** — exponential histogram fields (`Scale`, `ZeroCount`, `PositiveOffset`, `PositiveBucketCounts`, `NegativeOffset`, `NegativeBucketCounts`), `Min`, `Max`, `AggregationTemporality`, exemplars
+
+### `otel_metrics` — unified view (read/query)
+
+`VIEW` over all five physical metric tables: normalized columns `Timestamp` (= `TimeUnix`), `ServiceName`, `MetricName`, `Value` (gauge/sum use `Value`; others use `Sum`), nullable `Count`/`Sum`, `Attributes`, `ResourceAttributes`, `ProjectId`, `Flags`, `MetricSource` (`gauge` | `sum` | `summary` | `histogram` | `exp_histogram`). Use for cross-type queries (e.g. performance API `METRICS` dataType).
 
 ### `stack_trace_events` — symbolicated crashes/ANRs
 Key columns: `ExceptionType`, `ExceptionMessage`, `ExceptionStackTrace`, `Title`, `GroupId`, `Fingerprint`, `ScreenName`, `Interactions`, `Platform`, `AppVersion`, `OsVersion`, `DeviceModel`
