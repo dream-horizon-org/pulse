@@ -1,6 +1,7 @@
 package org.dreamhorizon.pulsealertscron.client;
 
 import com.google.inject.Inject;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
@@ -98,22 +99,22 @@ public class PulseServerApiClient {
     );
   }
 
-  public Single<Void> triggerFunnelBatch() {
+  public Completable triggerFunnelBatch() {
     String endpoint = apiBaseUrl + config.getBatchFunnelsEndpoint();
     return triggerBatchJob("FUNNELS_DAILY", endpoint);
   }
 
-  public Single<Void> triggerJourneyBatch() {
+  public Completable triggerJourneyBatch() {
     String endpoint = apiBaseUrl + config.getBatchJourneysEndpoint();
     return triggerBatchJob("JOURNEYS_DAILY", endpoint);
   }
 
-  public Single<Void> triggerEventsBatch() {
+  public Completable triggerEventsBatch() {
     String endpoint = apiBaseUrl + config.getBatchEventsEndpoint();
     return triggerBatchJob("EVENTS_INCREMENTAL", endpoint);
   }
 
-  private Single<Void> triggerBatchJob(String jobType, String endpoint) {
+  private Completable triggerBatchJob(String jobType, String endpoint) {
     log.info("[triggerBatchJob] Triggering {} batch job at: {}", jobType, endpoint);
     
     return Single.defer(() ->
@@ -134,11 +135,11 @@ public class PulseServerApiClient {
                     throw new RuntimeException(errorMsg);
                 }
                 log.info("[triggerBatchJob] Successfully triggered {} batch job", jobType);
-                return null;
+                return response;
             })
             .doOnError(error ->
                 log.error("[triggerBatchJob] Error triggering {} batch job", jobType, error)
             )
-    );
+    ).ignoreElement();
   }
 }
