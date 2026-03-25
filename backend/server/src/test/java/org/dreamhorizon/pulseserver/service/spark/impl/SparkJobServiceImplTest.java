@@ -59,13 +59,15 @@ class SparkJobServiceImplTest {
                 .arn("arn:aws:emr-serverless:us-east-1:123456789012:applications/app-123/jobruns/job-456")
                 .build();
 
+        StartJobRunRequest mockRequest = StartJobRunRequest.builder().build();
+        
         when(emrClient.startJobRunRequestBuilder()).thenReturn(requestBuilder);
         when(requestBuilder.clientToken(any(String.class))).thenReturn(requestBuilder);
         when(requestBuilder.name(any(String.class))).thenReturn(requestBuilder);
         when(requestBuilder.executionTimeoutMinutes(any(Long.class))).thenReturn(requestBuilder);
         when(requestBuilder.jobDriver(any(software.amazon.awssdk.services.emrserverless.model.JobDriver.class))).thenReturn(requestBuilder);
         when(requestBuilder.tags(any())).thenReturn(requestBuilder);
-        when(requestBuilder.build()).thenReturn(any(StartJobRunRequest.class));
+        when(requestBuilder.build()).thenReturn(mockRequest);
         when(emrClient.startJobRun(any(StartJobRunRequest.class))).thenReturn(emrResponse);
 
         // When
@@ -103,13 +105,15 @@ class SparkJobServiceImplTest {
                 .arn("arn:aws:emr-serverless:us-east-1:123456789012:applications/app-123/jobruns/job-456")
                 .build();
 
+        StartJobRunRequest mockRequest = StartJobRunRequest.builder().build();
+        
         when(emrClient.startJobRunRequestBuilder()).thenReturn(requestBuilder);
         when(requestBuilder.clientToken(any(String.class))).thenReturn(requestBuilder);
         when(requestBuilder.name(any(String.class))).thenReturn(requestBuilder);
-        when(requestBuilder.executionTimeoutMinutes(any(Long.class))).thenReturn(requestBuilder);
+        when(requestBuilder.executionTimeoutMinutes(any())).thenReturn(requestBuilder);
         when(requestBuilder.jobDriver(any(software.amazon.awssdk.services.emrserverless.model.JobDriver.class))).thenReturn(requestBuilder);
         when(requestBuilder.tags(any())).thenReturn(requestBuilder);
-        when(requestBuilder.build()).thenReturn(any(StartJobRunRequest.class));
+        when(requestBuilder.build()).thenReturn(mockRequest);
         when(emrClient.startJobRun(any(StartJobRunRequest.class))).thenReturn(emrResponse);
 
         // When

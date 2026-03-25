@@ -184,7 +184,6 @@ class StartupConfigValidatorTest {
     @Test
     void nonProd_returnsEmpty() {
       when(appConfig.getAppEnvironment()).thenReturn("dev");
-      when(emrServerlessConfig.isEnabled()).thenReturn(false);
 
       StartupConfigValidator validator =
           new StartupConfigValidator(appConfig, clickhouseConfig, emrServerlessConfig);
