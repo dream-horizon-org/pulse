@@ -7,4 +7,4 @@ Run a ClickHouse query against the local OTEL database.
 5. Format and display results
 6. If the query fails, explain the error and suggest corrections
 
-Useful reference tables: `otel.otel_traces`, `otel.otel_logs`, `otel.otel_metrics_gauge`, `otel.stack_trace_events`
+Useful reference tables: `otel.otel_traces`, `otel.otel_logs`, `otel.otel_metrics` (view over all OTLP metric types), physical metric tables `otel.otel_metrics_gauge`, `otel.otel_metrics_sum`, `otel.otel_metrics_summary`, `otel.otel_metrics_histogram`, `otel.otel_metrics_exp_histogram`, `otel.stack_trace_events`

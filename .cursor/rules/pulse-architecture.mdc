@@ -34,7 +34,7 @@ Custom Events → Vector (14317/14318) → S3 (Parquet) → Athena / BigQuery  [
 ## Databases
 
 - **MySQL 8** (`pulse_db`): metadata — interactions, alerts, configs, symbol files, athena jobs
-- **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, `otel_metrics_gauge`, `stack_trace_events`, `project_monthly_usage` (+ MVs), `root_cause_cache` (RCA cache; column `ProjectId`)
+- **ClickHouse 24.8** (`otel`): analytics — `otel_traces`, `otel_logs`, OTLP metrics (`otel_metrics_gauge`, `otel_metrics_sum`, `otel_metrics_summary`, `otel_metrics_histogram`, `otel_metrics_exp_histogram`, unified read view `otel_metrics`), `stack_trace_events`, `project_monthly_usage` (+ MVs), `root_cause_cache` (RCA cache; column `ProjectId`)
 
 ## Auth
 
