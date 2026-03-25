@@ -37,6 +37,8 @@ import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
 import org.dreamhorizon.pulseserver.service.incident.IncidentService;
 import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
+import org.dreamhorizon.pulseserver.service.spark.SparkJobService;
+import org.dreamhorizon.pulseserver.service.spark.impl.SparkJobServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
@@ -134,6 +136,9 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
+    // Spark Job Service
+    bind(SparkJobService.class).to(SparkJobServiceImpl.class).in(Singleton.class);
 
     bindNotificationFeature();
   }
