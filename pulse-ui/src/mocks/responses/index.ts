@@ -13,4 +13,5 @@ export * from "./queryResponses";
 export * from "./eventResponses";
 export * from "./eventDefinitionResponses";
 export * from "./breadcrumbResponses";
+export * from "./sessionReplayResponses";
 export * from "./funnelResponses";

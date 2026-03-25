@@ -1,0 +1,47 @@
+.summary {
+  border-radius: var(--mantine-radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  flex-wrap: wrap;
+  padding: 12px var(--mantine-spacing-lg);
+  border-bottom: 1px solid var(--mantine-color-gray-1);
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mantine-color-gray-3);
+  flex-shrink: 0;
+}
+
+.journeyBlock {
+  padding: 8px var(--mantine-spacing-md) 10px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.journeyBlock > * {
+  width: 100%;
+}
+
+/* Dark mode */
+[data-mantine-color-scheme="dark"] .infoRow {
+  border-bottom-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .dot {
+  background: var(--mantine-color-dark-3);
+}
