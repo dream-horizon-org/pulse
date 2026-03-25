@@ -2910,8 +2910,8 @@ __metadata:
   linkType: hard
 
 "@octokit/request@npm:^10.0.6":
-  version: 10.0.7
-  resolution: "@octokit/request@npm:10.0.7"
+  version: 10.0.20
+  resolution: "@octokit/request@npm:10.0.20"
   dependencies:
     "@octokit/endpoint": ^11.0.2
     "@octokit/request-error": ^7.0.2
