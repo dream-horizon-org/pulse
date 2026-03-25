@@ -287,6 +287,4 @@ The Executor receives a `playbook_key` from the Router and follows flow-specific
 - [Agent Red: How It Works](https://agentredcx.com/docs/getting-started/how-it-works) — Six-agent pipeline
 - [PostHog AI Architecture](https://posthog.com/handbook/engineering/ai/architecture) — Single-loop with modes
 - [RudderStack Multi-Agent Analytics Spec](https://www.rudderstack.com/blog/multi-agent-ai-analytics-spec/) — Event schema for observability
-- [Routing User Queries into Agentic AI Workflows](https://medium.com/@rishabh.b1910/routing-user-queries-into-agentic-ai-workflows-using-intent-detection-c68711b2d64a) — Intent as first-class node
-- [Intent Routing for AI Agents](https://blog.gopenai.com/intent-routing-for-ai-agents-e075d64da6c9) — Middleware-driven phases
 - [Redis AI Agent Architecture Patterns](https://redis.io/blog/ai-agent-architecture-patterns/) — Single vs multi-agent

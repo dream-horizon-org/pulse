@@ -19,7 +19,6 @@ Enable the Pulse AI chat to render **interactive charts** inline in conversation
 | Inline JSON in LLM text + regex parsing | Fragile — LLM produces malformed JSON ~30% of the time |
 
 **References:**
-- [ADK Artifacts + ECharts — Davide Consonni, Jan 2026](https://medium.com/@dconsonni/drawing-charts-in-your-ai-agent-frontend-with-google-adk-9c74a4a98931)
 - [Google ADK Artifacts docs](https://irbox.github.io/adk-docs/artifacts/)
 - [Google Conversational Analytics API uses Vega-Lite — validates structured config pattern](https://docs.cloud.google.com/gemini/docs/conversational-analytics-api/render-visualization)
 

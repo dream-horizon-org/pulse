@@ -831,13 +831,3 @@ Plugins are for cross-cutting concerns (auth, logging, rate limiting). Callbacks
 | Routing decisions | `description` field | LLM at runtime |
 
 ---
-
-## Related Documents
-
-- [Sequential Pipeline Pattern](./sequential-pipeline-pattern.md)
-- [Coordinator / Dispatcher Pattern](./coordinator-dispatcher-pattern.md)
-- [Parallel Fan-Out Pattern](./parallel-fan-out-pattern.md)
-- [Callback Conditional Skipping](./callback-conditional-skipping.md)
-- [Custom Agent Pattern](./custom-agent-pattern.md)
-- [Cost & Latency Analysis](./cost-latency-analysis.md)
-- [Pulse AI Recommendations](./pulse-ai-recommendations.md)
