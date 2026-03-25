@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS otel.root_cause_cache
 (
     `project_id`       LowCardinality(String) CODEC(ZSTD(1)),
     `interaction_name` LowCardinality(String) CODEC(ZSTD(1)),
-    `date`             Date CODEC(ZSTD(1)),
+    `date`             Date,
     `mode`             LowCardinality(String) COMMENT 'hierarchical | flat' CODEC(ZSTD(1)),
     `baseline`         String COMMENT 'JSON' CODEC(ZSTD(1)),
     `segments`         String COMMENT 'JSON' CODEC(ZSTD(1)),
