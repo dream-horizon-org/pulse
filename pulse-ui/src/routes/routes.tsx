@@ -31,6 +31,10 @@ import { EventCatalog } from "../screens/EventCatalog";
 import { AiChat } from "../screens/AiChat";
 import { SupportQueries } from "../screens/SupportQueries";
 import { ROUTES as ROUTE_PATHS } from "../constants";
+import { SessionReplay } from "../screens/SessionReplay";
+import { SessionReplayInsights } from "../screens/SessionReplayInsights";
+import { SessionReplaySessions } from "../screens/SessionReplaySessions";
+import { SessionReplayDetail } from "../screens/SessionReplayDetail";
 
 export const ROUTES = {
   // Organization-level routes
@@ -169,6 +173,36 @@ export const ROUTES = {
   PROJECT_EVENT_CATALOG: {
     ...ROUTE_PATHS.PROJECT_EVENT_CATALOG,
     element: EventCatalog,
+  },
+
+  PROJECT_SESSION_REPLAY_SESSIONS: {
+    ...ROUTE_PATHS.PROJECT_SESSION_REPLAY_SESSIONS,
+    element: SessionReplaySessions,
+  },
+  PROJECT_SESSION_REPLAY_DETAIL: {
+    ...ROUTE_PATHS.PROJECT_SESSION_REPLAY_DETAIL,
+    element: SessionReplayDetail,
+  },
+  PROJECT_SESSION_REPLAY: {
+    ...ROUTE_PATHS.PROJECT_SESSION_REPLAY,
+    element: SessionReplay,
+  },
+
+  SESSION_REPLAY: {
+    ...ROUTE_PATHS.SESSION_REPLAY,
+    element: SessionReplay,
+  },
+  SESSION_REPLAY_INSIGHTS: {
+    ...ROUTE_PATHS.SESSION_REPLAY_INSIGHTS,
+    element: SessionReplayInsights,
+  },
+  SESSION_REPLAY_SESSIONS: {
+    ...ROUTE_PATHS.SESSION_REPLAY_SESSIONS,
+    element: SessionReplaySessions,
+  },
+  SESSION_REPLAY_DETAIL: {
+    ...ROUTE_PATHS.SESSION_REPLAY_DETAIL,
+    element: SessionReplayDetail,
   },
 
   // AI Chat (only when REACT_APP_ENABLE_AI_CHAT=true)
