@@ -29,7 +29,7 @@ type DemoConfig = {
 };
 
 const DEMO_CONFIGS: DemoConfig[] = [
-    {
+  {
     id: 'sessionReplayMask',
     label: '🔐 Session Replay Masking',
     title: 'Session Replay Privacy Masking',
