@@ -7,6 +7,7 @@ import { setGlobalAttribute } from './globalAttributes';
 import { setUserId, setUserProperty, setUserProperties } from './user';
 import { ErrorBoundary, withErrorBoundary } from './errorBoundary';
 import { useNavigationTracking, markContentReady } from './navigation';
+import { PulseMask, PulseUnmask } from './sessionReplay';
 
 export type { Span } from './trace';
 export type { PulseConfig } from './config';
@@ -41,3 +42,5 @@ export const Pulse = {
   ErrorBoundary,
   withErrorBoundary,
 };
+
+export { PulseMask, PulseUnmask };
