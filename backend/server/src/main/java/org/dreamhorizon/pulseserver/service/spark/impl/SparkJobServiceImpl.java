@@ -48,7 +48,6 @@ public class SparkJobServiceImpl implements SparkJobService {
                         .build())
                     .build())
                 .tags(request.getTags())
-                .mode(request.getMode())
                 .build();
                 
             // 2. Submit to EMR

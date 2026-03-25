@@ -26,9 +26,8 @@
 | `mainClass` | `String` | Yes | Spark entry point class |
 | `arguments` | `List<String>` | No | Job arguments |
 | `sparkConfig` | `String` | No | Spark configuration |
-| `timeoutMinutes` | `Integer` | No | Execution timeout |
+| `timeoutMinutes` | `Long` | No | Execution timeout |
 | `tags` | `Map<String, String>` | No | Job tags |
-| `mode` | `String` | No | "BATCH" or "STREAMING" |
 
 ## Response Model: SparkJobResponse
 

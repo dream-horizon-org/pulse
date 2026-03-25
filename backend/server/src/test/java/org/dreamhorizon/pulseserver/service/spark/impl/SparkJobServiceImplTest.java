@@ -42,16 +42,15 @@ class SparkJobServiceImplTest {
     }
 
     @Test
-    void submitJob_shouldReturnSparkJobResponse() {
+    void submitJob_shouldReturnSparkJobResponse() throws InterruptedException {
         // Given
         SparkJobRequest request = SparkJobRequest.builder()
                 .jobName("Test Job")
                 .mainClass("com.example.TestJob")
                 .arguments(List.of("--input", "/data/input"))
                 .sparkConfig("--conf spark.sql.adaptive.enabled=true")
-                .timeoutMinutes(60)
+                .timeoutMinutes(60L)
                 .tags(Map.of("env", "test"))
-                .mode("BATCH")
                 .build();
 
         StartJobRunResponse emrResponse = StartJobRunResponse.builder()
@@ -63,10 +62,9 @@ class SparkJobServiceImplTest {
         when(emrClient.startJobRunRequestBuilder()).thenReturn(requestBuilder);
         when(requestBuilder.clientToken(any(String.class))).thenReturn(requestBuilder);
         when(requestBuilder.name(any(String.class))).thenReturn(requestBuilder);
-        when(requestBuilder.executionTimeoutMinutes(any(Integer.class))).thenReturn(requestBuilder);
-        when(requestBuilder.jobDriver(any())).thenReturn(requestBuilder);
+        when(requestBuilder.executionTimeoutMinutes(any(Long.class))).thenReturn(requestBuilder);
+        when(requestBuilder.jobDriver(any(software.amazon.awssdk.services.emrserverless.model.JobDriver.class))).thenReturn(requestBuilder);
         when(requestBuilder.tags(any())).thenReturn(requestBuilder);
-        when(requestBuilder.mode(any(String.class))).thenReturn(requestBuilder);
         when(requestBuilder.build()).thenReturn(any(StartJobRunRequest.class));
         when(emrClient.startJobRun(any(StartJobRunRequest.class))).thenReturn(emrResponse);
 
@@ -74,7 +72,7 @@ class SparkJobServiceImplTest {
         TestObserver<SparkJobResponse> testObserver = sparkJobService.submitJob(request).test();
 
         // Then
-        testObserver.awaitTerminalEvent();
+        testObserver.await();
         testObserver.assertComplete();
         testObserver.assertNoErrors();
 
@@ -92,7 +90,7 @@ class SparkJobServiceImplTest {
     }
 
     @Test
-    void submitJob_shouldGenerateClientToken() {
+    void submitJob_shouldGenerateClientToken() throws InterruptedException {
         // Given
         SparkJobRequest request = SparkJobRequest.builder()
                 .jobName("Test Job")
@@ -108,10 +106,9 @@ class SparkJobServiceImplTest {
         when(emrClient.startJobRunRequestBuilder()).thenReturn(requestBuilder);
         when(requestBuilder.clientToken(any(String.class))).thenReturn(requestBuilder);
         when(requestBuilder.name(any(String.class))).thenReturn(requestBuilder);
-        when(requestBuilder.executionTimeoutMinutes(any())).thenReturn(requestBuilder);
-        when(requestBuilder.jobDriver(any())).thenReturn(requestBuilder);
+        when(requestBuilder.executionTimeoutMinutes(any(Long.class))).thenReturn(requestBuilder);
+        when(requestBuilder.jobDriver(any(software.amazon.awssdk.services.emrserverless.model.JobDriver.class))).thenReturn(requestBuilder);
         when(requestBuilder.tags(any())).thenReturn(requestBuilder);
-        when(requestBuilder.mode(any())).thenReturn(requestBuilder);
         when(requestBuilder.build()).thenReturn(any(StartJobRunRequest.class));
         when(emrClient.startJobRun(any(StartJobRunRequest.class))).thenReturn(emrResponse);
 
@@ -119,7 +116,7 @@ class SparkJobServiceImplTest {
         TestObserver<SparkJobResponse> testObserver = sparkJobService.submitJob(request).test();
 
         // Then
-        testObserver.awaitTerminalEvent();
+        testObserver.await();
         testObserver.assertComplete();
 
         // Verify clientToken was generated (UUID format)
@@ -133,7 +130,7 @@ class SparkJobServiceImplTest {
     }
 
     @Test
-    void getJobStatus_shouldReturnEmrResponse() {
+    void getJobStatus_shouldReturnEmrResponse() throws InterruptedException {
         // Given
         String jobRunId = "job-456";
         String applicationId = "app-123";
@@ -153,7 +150,7 @@ class SparkJobServiceImplTest {
         TestObserver<GetJobRunResponse> testObserver = sparkJobService.getJobStatus(jobRunId).test();
 
         // Then
-        testObserver.awaitTerminalEvent();
+        testObserver.await();
         testObserver.assertComplete();
         testObserver.assertNoErrors();
 

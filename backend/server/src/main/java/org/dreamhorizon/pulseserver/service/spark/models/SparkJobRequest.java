@@ -16,7 +16,6 @@ public class SparkJobRequest {
     
     private List<String> arguments;     // Job arguments
     private String sparkConfig;         // Spark parameters
-    private Integer timeoutMinutes;
+    private Long timeoutMinutes;
     private Map<String, String> tags;
-    private String mode;                // "BATCH" or "STREAMING"
 }
