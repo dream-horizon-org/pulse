@@ -437,7 +437,8 @@ class AlertCronServiceTest {
               "http://minio:9000",
               "us-east-1",
               "access-key",
-              "secret-key")
+              "secret-key"),
+              "replayUrl"
       );
 
       assertEquals("dev", config.getAppEnvironment());
@@ -545,7 +546,8 @@ class AlertCronServiceTest {
               "http://minio:9000",
               "us-east-1",
               "access-key",
-              "secret-key")
+              "secret-key"),
+              "replayUrl"
       );
       String toString = config.toString();
 
@@ -562,7 +564,7 @@ class AlertCronServiceTest {
           "interaction-path.json", "/interaction-path.json",
           "key", "tnc-bucket", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
           new SessionReplayS3Config(
-              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key")
+              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl"
       );
       ApplicationConfig config2 = new ApplicationConfig(
           "dev", "http://cron.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
@@ -571,7 +573,7 @@ class AlertCronServiceTest {
           "interaction-path.json", "/interaction-path.json",
           "key", "tnc-bucket", "http://ai:8000","symbol-files-bucket", "dev-api-key",
           new SessionReplayS3Config(
-              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key")
+              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl"
       );
       ApplicationConfig config3 = new ApplicationConfig(
           "dev", "http://different.url", "http://service.url", 30, "client-id", true, "project-id", "secret",
@@ -580,7 +582,7 @@ class AlertCronServiceTest {
           "interaction-path.json", "/interaction-path.json",
           "key", "tnc-bucket", "http://ai:8000", "symbol-files-bucket", "dev-api-key",
           new SessionReplayS3Config(
-              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key")
+              "session-replay-bucket", "http://minio:9000", "us-east-1", "access-key", "secret-key"), "replayUrl"
       );
 
       assertEquals(config1, config2);
