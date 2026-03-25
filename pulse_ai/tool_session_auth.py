@@ -25,8 +25,13 @@ def pulse_tool_session_auth_error(tool_context: Any) -> dict | None:
     if state_missing:
         return {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_CONTEXT}
 
-    bearer_token = state.get("bearer_token") if isinstance(state, dict) else None
-    project_id = state.get("project_id") if isinstance(state, dict) else None
+    state_get = getattr(state, "get", None)
+    is_readable_state = callable(state_get)
+    if not is_readable_state:
+        return {"status": "error", "message": PULSE_TOOL_SESSION_MISSING_CONTEXT}
+
+    bearer_token = state_get("bearer_token")
+    project_id = state_get("project_id")
 
     bearer_value = bearer_token if isinstance(bearer_token, str) else ""
     has_bearer = bool(bearer_value.strip())
