@@ -7,13 +7,13 @@
 
 package io.opentelemetry.instrumentation.compose.click
 
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.Window
 import androidx.compose.ui.node.LayoutNode
-import com.pulse.semconv.PulseAttributes
+import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
+import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
@@ -32,14 +32,11 @@ internal class ComposeClickEventGenerator(
     private val composeTapTargetDetector: ComposeTapTargetDetector = ComposeTapTargetDetector(composeLayoutNodeUtil),
 ) {
     private var windowRef: WeakReference<Window>? = null
-    private var touchSlopPx: Int = 0
-    private var lastDownX: Float = 0f
-    private var lastDownY: Float = 0f
-    private var hasValidDown: Boolean = false
+    private val gestureTracker = PulseClickGestureTracker()
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
-        touchSlopPx = ViewConfiguration.get(window.context).scaledTouchSlop
+        gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
         val currentCallback: Window.Callback? = window.callback
         window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
     }
@@ -47,17 +44,10 @@ internal class ComposeClickEventGenerator(
     fun generateClick(motionEvent: MotionEvent) {
         when (motionEvent.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                lastDownX = motionEvent.x
-                lastDownY = motionEvent.y
-                hasValidDown = true
+                gestureTracker.onActionDown(motionEvent)
             }
             MotionEvent.ACTION_UP -> {
-                if (!hasValidDown) return
-                hasValidDown = false
-                val dx = motionEvent.x - lastDownX
-                val dy = motionEvent.y - lastDownY
-                val distanceSq = dx * dx + dy * dy
-                if (distanceSq > touchSlopPx * touchSlopPx) return // scroll: movement exceeds touch slop
+                if (!gestureTracker.onActionUp(motionEvent)) return
                 windowRef?.get()?.let { window ->
                     val (windowX, windowY) = motionEventToWindowCoordinates(window.decorView, motionEvent)
                     composeTapTargetDetector.findTapTarget(window.decorView, windowX, windowY)?.let { tapTarget ->
@@ -68,35 +58,31 @@ internal class ComposeClickEventGenerator(
                         val widgetClickRecord =
                             createEvent(VIEW_CLICK_EVENT_NAME)
                                 .setAllAttributes(attributes)
-                        if (isContextEnrichmentEnabled) {
-                            val label =
-                                composeTapTargetDetector.getContextFromSemanticsTree(tapTarget.ownerView, windowX, windowY)
-                                    ?: composeTapTargetDetector.getNodeContext(layoutNode)
-                            PulseAttributes.AppClickContext.buildContext(label)?.let { ctxStr ->
-                                widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, ctxStr)
+                        val label =
+                            if (isContextEnrichmentEnabled) {
+                                composeTapTargetDetector.getContextFromSemanticsTree(
+                                    tapTarget.ownerView,
+                                    windowX,
+                                    windowY,
+                                ) ?: composeTapTargetDetector.getNodeContext(layoutNode)
+                            } else {
+                                null
                             }
-                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
-                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
-                            Log.d(
-                                CLICK_LOG_TAG,
-                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog " +
-                                    "context=${label.orEmpty()} widgetId=$widgetIdForLog",
-                            )
-                        } else {
-                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
-                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
-                            Log.d(
-                                CLICK_LOG_TAG,
-                                "app.widget.click: x=$windowX y=$windowY name=$widgetNameForLog " +
-                                    "widgetId=$widgetIdForLog (no app.click.context)",
-                            )
-                        }
+                        PulseWidgetClickLogHelper.applyContextAndLogDebug(
+                            record = widgetClickRecord,
+                            attributes = attributes,
+                            logCoordX = windowX.toString(),
+                            logCoordY = windowY.toString(),
+                            isContextEnrichmentEnabled = isContextEnrichmentEnabled,
+                            label = label,
+                            logTag = CLICK_LOG_TAG,
+                        )
                         widgetClickRecord.emit()
                     }
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
-                hasValidDown = false
+                gestureTracker.onActionCancel()
             }
         }
     }

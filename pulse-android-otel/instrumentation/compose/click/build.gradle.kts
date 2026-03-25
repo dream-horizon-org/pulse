@@ -18,6 +18,7 @@ dependencies {
     api(libs.opentelemetry.api)
     api(platform(libs.opentelemetry.platform.alpha))
     api(projects.instrumentation.androidInstrumentation)
+    implementation(projects.instrumentation.clickCommon)
 
     compileOnly(libs.compose)
     implementation(libs.opentelemetry.api.incubator)

@@ -15,6 +15,7 @@ import androidx.compose.ui.node.LayoutNode
 import androidx.compose.ui.node.Owner
 import androidx.compose.ui.node.RootForTest
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsModifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
@@ -127,28 +128,19 @@ internal class ComposeTapTargetDetector(
 
     private fun Rect.area(): Float = width * height
 
-    private fun extractLabelFromSemanticsNode(node: androidx.compose.ui.semantics.SemanticsNode): String? {
-        val config = node.config
-        config
-            .getOrNull(SemanticsActions.OnClick)
-            ?.label
-            ?.takeIf { it.isNotBlank() }
-            ?.let { return it }
-        config
-            .getOrNull(SemanticsProperties.ContentDescription)
-            ?.firstOrNull()
-            ?.toString()
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { return it }
-        config
-            .getOrNull(SemanticsProperties.Text)
-            ?.firstOrNull()
-            ?.toString()
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { return it }
-        return null
+    private fun extractLabelFromSemanticsNode(node: androidx.compose.ui.semantics.SemanticsNode): String? =
+        node.config.prioritizedClickLabel()
+
+    private fun SemanticsConfiguration.prioritizedClickLabel(): String? =
+        listOf(
+            getOrNull(SemanticsActions.OnClick)?.label?.takeIf { it.isNotBlank() },
+            firstNonBlankListString(getOrNull(SemanticsProperties.ContentDescription)),
+            firstNonBlankListString(getOrNull(SemanticsProperties.Text)),
+        ).firstOrNull { it != null }
+
+    private fun firstNonBlankListString(list: List<*>?): String? {
+        val first = list?.firstOrNull() ?: return null
+        return first.toString().trim().takeIf { it.isNotBlank() }
     }
 
     private fun isValidClickTarget(node: LayoutNode): Boolean {
@@ -211,22 +203,7 @@ internal class ComposeTapTargetDetector(
         for (info in node.getModifierInfo()) {
             val modifier = info.modifier
             if (modifier is SemanticsModifier) {
-                with(modifier.semanticsConfiguration) {
-                    val onClickLabel = getOrNull(SemanticsActions.OnClick)?.label
-                    if (!onClickLabel.isNullOrBlank()) return onClickLabel
-
-                    val contentDesc = getOrNull(SemanticsProperties.ContentDescription)?.getOrNull(0)
-                    if (contentDesc != null) {
-                        val contentStr = contentDesc.toString().trim()
-                        if (contentStr.isNotBlank()) return contentStr
-                    }
-
-                    val textList = getOrNull(SemanticsProperties.Text)
-                    if (!textList.isNullOrEmpty()) {
-                        val firstStr = textList.first().toString().trim()
-                        if (firstStr.isNotBlank()) return firstStr
-                    }
-                }
+                modifier.semanticsConfiguration.prioritizedClickLabel()?.let { return it }
             }
         }
         return null

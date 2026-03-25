@@ -5,7 +5,6 @@
 
 package io.opentelemetry.android.instrumentation.view.click
 
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -13,7 +12,8 @@ import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
 import android.widget.TextView
-import com.pulse.semconv.PulseAttributes
+import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
+import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
 import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.view.click.internal.VIEW_CLICK_EVENT_NAME
 import io.opentelemetry.api.common.Attributes
@@ -31,16 +31,13 @@ class ViewClickEventGenerator(
     private val isContextEnrichmentEnabled: Boolean = true,
 ) {
     private var windowRef: WeakReference<Window>? = null
-    private var touchSlopPx: Int = 0
-    private var lastDownX: Float = 0f
-    private var lastDownY: Float = 0f
-    private var hasValidDown: Boolean = false
+    private val gestureTracker = PulseClickGestureTracker()
 
     private val viewCoordinates = IntArray(2)
 
     fun startTracking(window: Window) {
         windowRef = WeakReference(window)
-        touchSlopPx = ViewConfiguration.get(window.context).scaledTouchSlop
+        gestureTracker.setTouchSlopPixels(ViewConfiguration.get(window.context).scaledTouchSlop)
         val currentCallback: Window.Callback? = window.callback
         window.callback = currentCallback?.let { WindowCallbackWrapper(currentCallback, this) }
     }
@@ -48,17 +45,10 @@ class ViewClickEventGenerator(
     fun generateClick(motionEvent: MotionEvent) {
         when (motionEvent.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                lastDownX = motionEvent.x
-                lastDownY = motionEvent.y
-                hasValidDown = true
+                gestureTracker.onActionDown(motionEvent)
             }
             MotionEvent.ACTION_UP -> {
-                if (!hasValidDown) return
-                hasValidDown = false
-                val dx = motionEvent.x - lastDownX
-                val dy = motionEvent.y - lastDownY
-                val distanceSq = dx * dx + dy * dy
-                if (distanceSq > touchSlopPx * touchSlopPx) return // scroll: movement exceeds touch slop
+                if (!gestureTracker.onActionUp(motionEvent)) return
                 windowRef?.get()?.let { window ->
                     findTargetForTap(window.decorView, motionEvent.x, motionEvent.y)?.let { view ->
                         val tapX = motionEvent.x.toLong()
@@ -67,32 +57,27 @@ class ViewClickEventGenerator(
                         val widgetClickRecord =
                             createEvent(VIEW_CLICK_EVENT_NAME)
                                 .setAllAttributes(attributes)
-                        if (isContextEnrichmentEnabled) {
-                            val label = getViewContextLabel(view)
-                            PulseAttributes.AppClickContext.buildContext(label)?.let { ctxStr ->
-                                widgetClickRecord.setAttribute(PulseAttributes.APP_CLICK_CONTEXT, ctxStr)
+                        val label =
+                            if (isContextEnrichmentEnabled) {
+                                getViewContextLabel(view)
+                            } else {
+                                null
                             }
-                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
-                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
-                            Log.d(
-                                CLICK_LOG_TAG,
-                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog " +
-                                    "context=${label.orEmpty()} widgetId=$widgetIdForLog",
-                            )
-                        } else {
-                            val widgetNameForLog = attributes.get(APP_WIDGET_NAME).orEmpty()
-                            val widgetIdForLog = attributes.get(APP_WIDGET_ID).orEmpty()
-                            Log.d(
-                                CLICK_LOG_TAG,
-                                "app.widget.click: x=$tapX y=$tapY name=$widgetNameForLog widgetId=$widgetIdForLog (no app.click.context)",
-                            )
-                        }
+                        PulseWidgetClickLogHelper.applyContextAndLogDebug(
+                            record = widgetClickRecord,
+                            attributes = attributes,
+                            logCoordX = tapX.toString(),
+                            logCoordY = tapY.toString(),
+                            isContextEnrichmentEnabled = isContextEnrichmentEnabled,
+                            label = label,
+                            logTag = CLICK_LOG_TAG,
+                        )
                         widgetClickRecord.emit()
                     }
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
-                hasValidDown = false
+                gestureTracker.onActionCancel()
             }
         }
     }
@@ -177,7 +162,7 @@ class ViewClickEventGenerator(
             depth = 0,
             maxDepth = 4,
         )
-        return trimSegmentsToMaxLength(segments.take(MAX_CARD_LABEL_SEGMENTS), MAX_CARD_LABEL_LENGTH)
+        return trimSegmentsToMaxLength(segments.take(MAX_CARD_LABEL_SEGMENTS), MAX_CARD_LABEL_CHAR_LENGTH)
             ?.takeIf { it.isNotBlank() }
     }
 
@@ -212,7 +197,7 @@ class ViewClickEventGenerator(
         for (i in 0 until group.childCount) {
             if (out.size >= maxSegments) return
             val child = group.getChildAt(i)
-            if (isJetpackComposeView(child)) continue
+            if (isJetpackComposeView(child) || !isViewActiveInHierarchyForLabel(child)) continue
             getLabelFromView(child)?.let { label ->
                 if (label.isNotBlank() && label !in out) out.add(label)
             }
@@ -222,10 +207,17 @@ class ViewClickEventGenerator(
         }
     }
 
+    private fun isViewActiveInHierarchyForLabel(view: View): Boolean =
+        view.isAttachedToWindow &&
+            view.isShown &&
+            view.isLaidOut &&
+            view.width > 0 &&
+            view.height > 0
+
     private companion object {
         private const val CLICK_LOG_TAG = "PulseClick"
         private const val MAX_CARD_LABEL_SEGMENTS = 5
-        private const val MAX_CARD_LABEL_LENGTH = 200
+        private const val MAX_CARD_LABEL_CHAR_LENGTH = 200
         private const val CARD_LABEL_DELIMITER = " | "
     }
 
