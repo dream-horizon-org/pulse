@@ -50,8 +50,7 @@ export default function SessionReplayExample() {
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Masked Image + View</Text>
         <Text style={styles.sectionDesc}>
-          This entire block is wrapped in PulseMask, including the image and
-          the summary card below it.
+          This entire block is wrapped in PulseMask, including the image.
         </Text>
         <PulseMask>
           <Image
