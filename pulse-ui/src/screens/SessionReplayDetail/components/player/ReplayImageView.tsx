@@ -25,11 +25,15 @@ export function ReplayImageView({
   loadedImages,
   onImageLoad,
 }: ReplayImageViewProps) {
+  const frameLabelMs = Number.isFinite(imageToShow.timestamp)
+    ? Math.round(imageToShow.timestamp)
+    : 0;
+
   return (
     <Box className={classes.imageViewport}>
       <img
         src={imageToShow.imageUrl}
-        alt={`Frame at ${imageToShow.timestamp}ms`}
+        alt={`Frame at ${frameLabelMs}ms`}
         className={classes.currentImage}
         style={{
           opacity: transitionOpacity,

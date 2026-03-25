@@ -65,10 +65,30 @@ function toSafeISOString(ms: number): string {
   return d.toISOString();
 }
 
+function normalizeIsoTimestampForParse(iso: string): string {
+  const trimmed = iso.trim();
+  const m = trimmed.match(
+    /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:?\d{2})$/i,
+  );
+  if (!m) return trimmed;
+  const [, dateTime, frac, zone] = m;
+  if (!frac || frac.length <= 4) return trimmed;
+  return `${dateTime}${frac.slice(0, 4)}${zone}`;
+}
+
 /** Parse event timestamp (ISO string or relative ms number) to relative ms from session start. */
-function parseEventTimestampMs(timestamp: string, baseMs: number): number {
-  if (typeof timestamp !== "string" || !timestamp) return 0;
-  const parsed = Date.parse(timestamp);
+function parseEventTimestampMs(
+  timestamp: string | number | undefined,
+  baseMs: number,
+): number {
+  if (timestamp == null) return 0;
+  if (typeof timestamp === "number") {
+    if (!Number.isFinite(timestamp)) return 0;
+    return timestamp >= 1e12 ? timestamp - baseMs : timestamp;
+  }
+  if (typeof timestamp !== "string" || !timestamp.trim()) return 0;
+  const normalized = normalizeIsoTimestampForParse(timestamp.trim());
+  const parsed = Date.parse(normalized);
   if (Number.isFinite(parsed)) return parsed - baseMs;
   const rel = Number(timestamp);
   return Number.isFinite(rel) ? rel : 0;
@@ -96,7 +116,7 @@ export function sessionDetailApiToData(
 ): SessionDetailData {
   const startTimeMs =
     typeof api.startTime === "string" && api.startTime
-      ? new Date(api.startTime).getTime()
+      ? new Date(normalizeIsoTimestampForParse(api.startTime)).getTime()
       : Date.now();
   const baseMs = Number.isFinite(startTimeMs) ? startTimeMs : Date.now();
 
@@ -127,7 +147,7 @@ export function sessionDetailApiToData(
 
   const networkRequests: NetworkRequest[] = (api.networkRequests ?? []).map(
     (n) => ({
-      timestamp: n.timestamp,
+      timestamp: parseEventTimestampMs(n.timestamp, baseMs),
       method: n.method,
       url: n.url,
       status: parseStatusToNumber(n.status),
@@ -220,7 +240,7 @@ function buildExceptionsFromApi(
     const rawTs = e.timestamp;
     const absMs =
       typeof rawTs === "string"
-        ? new Date(rawTs).getTime()
+        ? new Date(normalizeIsoTimestampForParse(rawTs)).getTime()
         : typeof rawTs === "number" && Number.isFinite(rawTs)
           ? rawTs >= 1e12
             ? rawTs
