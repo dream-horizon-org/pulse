@@ -180,7 +180,7 @@ export const SessionReplayDetail: React.FC = () => {
           </Box>
         </Box>
       </>
-      )
+
       {/* Session Timeline section commented out
       <SessionTimelineSection
         flameChartData={flameChartData}
