@@ -64,7 +64,15 @@ public class PulseSdkConfigRestProvider(
                 PulseOtelUtils.logDebug(TAG) { "onFailure in runCatching, url = $url error msg = ${throwable.message ?: "no-err-msg"}" }
             }
         return if (restResponseResult.isSuccess) {
-            restResponseResult.getOrThrow()
+            val config = restResponseResult.getOrThrow()
+            if (config.version >= 0) {
+                config
+            } else {
+                // config is negative version which means default value is being used
+                val urlIterator = finalOkHttpClient.cache?.urls()
+                urlIterator?.forEach { if (it == url) urlIterator.remove() }
+                null
+            }
         } else {
             PulseOtelUtils.logDebug(TAG) {
                 "Failed to fetch sdk config: ${

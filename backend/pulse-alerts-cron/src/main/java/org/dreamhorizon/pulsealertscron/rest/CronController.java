@@ -30,7 +30,7 @@ public class CronController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CronManagerDto>> addCron(AddCronDto cronDto) {
-    return cronManager.addCronTask(cronDto.getId(), cronDto.getUrl(), cronDto.getInterval(), cronDto.getTenantId())
+    return cronManager.addCronTask(cronDto.getId(), cronDto.getUrl(), cronDto.getInterval(), cronDto.getProjectId())
         .to(RestResponse.jaxrsRestHandler());
   }
 
@@ -38,7 +38,7 @@ public class CronController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletionStage<Response<CronManagerDto>> modifyCron(UpdateCronDto cronDto) {
-    cronManager.modifyCronTask(cronDto.getId(), cronDto.getTenantId(), cronDto.getUrl(),
+    cronManager.modifyCronTask(cronDto.getId(), cronDto.getProjectId(), cronDto.getUrl(),
         cronDto.getNewInterval(), cronDto.getOldInterval());
     return Single.just(CronManagerDto.builder().status("success").build())
         .to(RestResponse.jaxrsRestHandler());

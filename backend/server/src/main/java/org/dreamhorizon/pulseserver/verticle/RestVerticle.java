@@ -9,14 +9,16 @@ import io.vertx.rxjava3.ext.web.handler.BodyHandler;
 import io.vertx.rxjava3.ext.web.handler.CorsHandler;
 import io.vertx.rxjava3.ext.web.handler.ResponseContentTypeHandler;
 import io.vertx.rxjava3.ext.web.handler.StaticHandler;
+import com.dream11.rest.filter.RequestResponseFilter;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import org.dreamhorizon.pulseserver.filter.StreamingSafeLoggerFilter;
 import org.dreamhorizon.pulseserver.guice.GuiceInjector;
 import org.dreamhorizon.pulseserver.service.alert.core.AlertEvaluationService;
 
 public class RestVerticle extends AbstractRestVerticle {
   private static final String PACKAGE_NAME = "org.dreamhorizon.pulseserver";
-
 
   protected RestVerticle(HttpServerOptions httpServerOptions) {
     super(PACKAGE_NAME, httpServerOptions);
@@ -25,6 +27,19 @@ public class RestVerticle extends AbstractRestVerticle {
   @Override
   protected ClassInjector getInjector() {
     return GuiceInjector.getGuiceInjector();
+  }
+
+  @Override
+  protected RequestResponseFilter getReqResFilter() {
+    return new StreamingSafeLoggerFilter();
+  }
+
+  @Override
+  protected List<Class<?>> getProviders() {
+    List<Class<?>> providers = super.getProviders();
+    providers.removeIf(clazz -> RequestResponseFilter.class.isAssignableFrom(clazz));
+    providers.add(StreamingSafeLoggerFilter.class);
+    return providers;
   }
 
   @Override
@@ -49,8 +64,9 @@ public class RestVerticle extends AbstractRestVerticle {
     allowedHeaders.add("accept");
     allowedHeaders.add("X-PINGARUNER");
     allowedHeaders.add("Authorization");
-    allowedHeaders.add("X-Tenant-ID");  // Multi-tenancy support
+    allowedHeaders.add("user-email");   // User email header for audit trails
     allowedHeaders.add("X-API-KEY");  // API key for authentication
+    allowedHeaders.add("X-Project-ID"); // Project-level isolation support
 
     final Set<HttpMethod> allowedMethods = new HashSet<>();
     allowedMethods.add(HttpMethod.GET);

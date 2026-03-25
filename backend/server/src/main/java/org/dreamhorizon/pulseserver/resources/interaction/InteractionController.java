@@ -33,6 +33,7 @@ import org.dreamhorizon.pulseserver.resources.interaction.models.TelemetryFilter
 import org.dreamhorizon.pulseserver.resources.interaction.models.UpdateInteractionRestResponse;
 import org.dreamhorizon.pulseserver.resources.interaction.validators.CreateInteractionValidations;
 import org.dreamhorizon.pulseserver.resources.interaction.validators.UpdateInteractionValidations;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.Response;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.interaction.InteractionService;
@@ -69,6 +70,7 @@ public class InteractionController {
   @GET
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<GetInteractionsRestResponse>> getInteractions(
       @BeanParam GetInteractionsRestRequest request
   ) {
@@ -80,6 +82,7 @@ public class InteractionController {
 
   @POST
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<RestInteractionDetail>> createInteraction(
       @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull RestInteractionDetail restRequest
@@ -104,6 +107,7 @@ public class InteractionController {
   @Path("/{name}")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<DeleteInteractionRestResponse>> deleteInteraction(
       @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull @PathParam("name") String name
@@ -125,6 +129,7 @@ public class InteractionController {
   @Path("/{name}")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_edit")
   public CompletionStage<Response<UpdateInteractionRestResponse>> updateInteraction(
       @NotNull @HeaderParam("user-email") String userEmail,
       @NotNull @PathParam("name") String name,
@@ -148,6 +153,7 @@ public class InteractionController {
   @Path("/{name}")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<RestInteractionDetail>> getInteractionDetails(
       @PathParam("name") String name
   ) {
@@ -161,6 +167,7 @@ public class InteractionController {
   @Path("/filter-options")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<InteractionFilterOptionsResponse>> getInteractionFilterOptions() {
     return interactionService.getInteractionFilterOptions()
         .to(RestResponse.jaxrsRestHandler());
@@ -170,6 +177,7 @@ public class InteractionController {
   @Path("/telemetry-filters")
   @Consumes(MediaType.WILDCARD)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<TelemetryFilterOptionsResponse>> getTelemetryFilterOptions() {
     return interactionService.getTelemetryFilterOptions()
         .to(RestResponse.jaxrsRestHandler());

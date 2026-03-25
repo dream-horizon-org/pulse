@@ -5,6 +5,7 @@ import { makeRequestToServer } from "../makeRequestToServer";
 import { getAndSetAccessTokenFromRefreshToken } from "../getAccessTokenFromRefreshToken";
 import { processServerResponse } from "./processServerResponse";
 import { removeAllCookies } from "../cookies";
+import { dispatchLogoutEvent } from "../logout";
 
 export const makeRequest = async <D>(
   requestConfig: MakeRequestConfig,
@@ -16,7 +17,14 @@ export const makeRequest = async <D>(
       if (response.status === 401) {
         const isTokenUpdated = await getAndSetAccessTokenFromRefreshToken();
         if (!isTokenUpdated) {
+          // Clear all authentication data
           removeAllCookies();
+          sessionStorage.clear();
+          
+          // Dispatch logout event to clear contexts
+          dispatchLogoutEvent();
+          
+          // Redirect to login
           window.location.href = ROUTES.LOGIN.basePath;
           return {
             data: null,

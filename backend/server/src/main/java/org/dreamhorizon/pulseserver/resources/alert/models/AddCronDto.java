@@ -23,6 +23,6 @@ public class AddCronDto {
   String url;
 
   @NotNull
-  @JsonProperty(value = "tenantId")
-  private String tenantId;
+  @JsonProperty(value = "projectId")
+  private String projectId;
 }

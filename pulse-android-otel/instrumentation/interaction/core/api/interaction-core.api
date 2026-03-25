@@ -67,7 +67,7 @@ public final class com/pulse/android/core/InteractionRunningStatus$OngoingMatch 
 public final class com/pulse/android/core/InteractionUtilKt {
 	public static final fun getEvents (Lcom/pulse/android/core/Interaction;)Ljava/util/List;
 	public static final fun getMarkerEvents (Lcom/pulse/android/core/Interaction;)Ljava/util/List;
-	public static final fun getTimeSpanInNanos (Lcom/pulse/android/core/Interaction;)Lkotlin/Pair;
+	public static final fun getTimeSpanInNanos (Lcom/pulse/android/core/Interaction;Lcom/pulse/android/core/InteractionRunningStatus$OngoingMatch;)Lkotlin/Pair;
 	public static final fun isErrored (Lcom/pulse/android/core/Interaction;)Z
 }
 

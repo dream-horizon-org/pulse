@@ -84,6 +84,7 @@ curl http://localhost:8080/healthcheck
 
 ```bash
 cd pulse-ui
+corepack enable      # First-time only (required for Yarn 4)
 yarn install
 yarn start           # Start dev server (http://localhost:3000)
 ```

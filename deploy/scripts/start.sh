@@ -6,7 +6,7 @@
 # back to Docker CLI with dependency-ordered health-check gating.
 #
 # Usage:
-#   ./start.sh [-d|--detach] [--build]
+#   ./start.sh [-d|--detach] [--build] [--no-cache] [--skip-env-check]
 # ============================================================================
 
 # Source common library
@@ -21,34 +21,63 @@ echo ""
 
 # ── Pre-flight ─────────────────────────────────────────────────────────────
 check_docker
+ensure_compose
 load_env
 
 # ── Parse arguments ────────────────────────────────────────────────────────
 DETACHED=""
 BUILD_FIRST=""
+BUILD_NO_CACHE=""
+SKIP_ENV_CHECK=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -d|--detach)  DETACHED="true"; shift ;;
-        --build)      BUILD_FIRST="true"; shift ;;
+        -d|--detach)     DETACHED="true"; shift ;;
+        --build)        BUILD_FIRST="true"; shift ;;
+        --no-cache)     BUILD_NO_CACHE="true"; shift ;;
+        --skip-env-check) SKIP_ENV_CHECK="true"; shift ;;
         -h|--help)
-            echo "Usage: $0 [-d|--detach] [--build]"
+            echo "Usage: $0 [-d|--detach] [--build] [--no-cache] [--skip-env-check]"
+            echo "  --no-cache       With --build: build images without cache"
+            echo "  --skip-env-check Skip .env and URL validation"
             exit 0
             ;;
         *)
             print_error "Unknown option: $1"
-            echo "Usage: $0 [-d|--detach] [--build]"
+            echo "Usage: $0 [-d|--detach] [--build] [--no-cache] [--skip-env-check]"
             exit 1
             ;;
     esac
 done
 
+# ── Validate .env and URLs (unless skipped) ─────────────────────────────────
+if [ "$SKIP_ENV_CHECK" != "true" ]; then
+    if ! validate_env_against_example_and_compose; then
+        print_error "Env validation failed. Fix .env or run with --skip-env-check to skip."
+        exit 1
+    fi
+    if ! validate_url_vars; then
+        print_error "URL validation failed. Set valid URLs in .env (see .env.example)."
+        exit 1
+    fi
+    if ! validate_encryption_key; then
+        print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+        exit 1
+    fi
+fi
+
 # ── Compose path ──────────────────────────────────────────────────────────
 if has_compose; then
     cd "$DEPLOY_DIR"
+    # If --no-cache and --build: build without cache first, then up without --build
+    if [ "$BUILD_NO_CACHE" = "true" ] && [ "$BUILD_FIRST" = "true" ]; then
+        print_info "Building images without cache..."
+        run_compose build --no-cache
+    fi
     COMPOSE_ARGS=""
-    # Let Compose handle --build natively (avoids building twice)
-    [ "$BUILD_FIRST" = "true" ] && COMPOSE_ARGS="$COMPOSE_ARGS --build"
+    if [ "$BUILD_FIRST" = "true" ] && [ "$BUILD_NO_CACHE" != "true" ]; then
+        COMPOSE_ARGS="$COMPOSE_ARGS --build"
+    fi
     [ "$DETACHED" = "true" ] && COMPOSE_ARGS="$COMPOSE_ARGS -d"
 
     print_info "Starting services via Docker Compose..."
@@ -86,7 +115,11 @@ fi
 # ── Optional build step (CLI mode only -- Compose handles --build natively)
 if [ "$BUILD_FIRST" = "true" ]; then
     print_section "Building Docker images"
-    "$SCRIPT_DIR/build.sh"
+    if [ "$BUILD_NO_CACHE" = "true" ]; then
+        "$SCRIPT_DIR/build.sh" --no-cache
+    else
+        "$SCRIPT_DIR/build.sh"
+    fi
 fi
 
 # ── Docker CLI path ──────────────────────────────────────────────────────
@@ -137,6 +170,7 @@ docker run -d \
     -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
     -v "${VOLUME_CLICKHOUSE}:/var/lib/clickhouse" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/docker-entrypoint-initdb.d/init.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/docker-entrypoint-initdb.d/02-session-summary-mv.sql:ro" \
     --health-cmd 'clickhouse-client --query "SELECT 1"' \
     --health-interval 10s \
     --health-timeout 5s \
@@ -155,8 +189,48 @@ if ! verify_mysql_init; then
     exit 1
 fi
 
-# ── Phase 2: ClickHouse init + OTEL Collector ────────────────────────────
-print_section "Phase 2: Initialising ClickHouse tables & OTEL Collector"
+# ── Phase 2: MinIO ────────────────────────────────────────────────
+print_section "Phase 2: MinIO"
+
+remove_container "$CONTAINER_MINIO"
+print_info "Starting $CONTAINER_MINIO ..."
+
+docker run -d \
+    --name "$CONTAINER_MINIO" \
+    --network "$NETWORK_NAME" \
+    --network-alias minio \
+    --restart unless-stopped \
+    -p 9100:9000 \
+    -p 9101:9001 \
+    -e "MINIO_ROOT_USER=${MINIO_ROOT_USER}" \
+    -e "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}" \
+    -v "${VOLUME_MINIO}:/data" \
+    --health-cmd "mc ready local" \
+    --health-interval 5s \
+    --health-timeout 5s \
+    --health-retries 5 \
+    --health-start-period 10s \
+    "$IMAGE_MINIO" \
+    server /data --console-address ":9001" > /dev/null
+
+print_success "$CONTAINER_MINIO container started"
+
+print_info "Waiting for MinIO..."
+wait_for_healthy "$CONTAINER_MINIO" 60
+
+# Create MinIO bucket
+remove_container "$CONTAINER_MINIO_INIT"
+print_info "Creating MinIO bucket..."
+docker run --rm \
+    --name "$CONTAINER_MINIO_INIT" \
+    --network "$NETWORK_NAME" \
+    "$IMAGE_MINIO_MC" \
+    /bin/sh -c "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing local/${SESSION_REPLAY_S3_BUCKET}" > /dev/null 2>&1
+
+print_success "MinIO bucket '${SESSION_REPLAY_S3_BUCKET}' ready"
+
+# ── Phase 3: ClickHouse init + OTEL Collector ────────────────────────────
+print_section "Phase 3: Initialising ClickHouse tables & OTEL Collector"
 
 remove_container "$CONTAINER_CLICKHOUSE_INIT"
 print_info "Running $CONTAINER_CLICKHOUSE_INIT (one-shot) ..."
@@ -170,6 +244,7 @@ docker run --rm \
     -e "CLICKHOUSE_DB=${OTEL_CLICKHOUSE_DATABASE}" \
     -v "${SCRIPT_DIR}/init-clickhouse.sh:/scripts/init-clickhouse.sh:ro" \
     -v "${ROOT_DIR}/backend/ingestion/clickhouse-otel-schema.sql:/init/clickhouse-otel-schema.sql:ro" \
+    -v "${ROOT_DIR}/backend/ingestion/session-summary-mv.sql:/init/session-summary-mv.sql:ro" \
     "$IMAGE_CLICKHOUSE" \
     /bin/bash /scripts/init-clickhouse.sh
 
@@ -242,6 +317,12 @@ docker run -d \
     -e "S3_BUCKET_NAME=${CONFIG_S3_BUCKET_NAME}" \
     -e "CONFIG_DETAILS_S3_FILE_PATH=${CONFIG_DETAILS_S3_FILE_PATH}" \
     -e "INTERACTION_DETAILS_S3_FILE_PATH=${INTERACTION_DETAILS_S3_FILE_PATH}" \
+    \
+    -e "SESSION_REPLAY_S3_BUCKET=${SESSION_REPLAY_S3_BUCKET}" \
+    -e "SESSION_REPLAY_S3_ENDPOINT=${SESSION_REPLAY_S3_ENDPOINT:-http://minio:9000}" \
+    -e "SESSION_REPLAY_S3_ACCESS_KEY_ID=${SESSION_REPLAY_S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER}}" \
+    -e "SESSION_REPLAY_S3_SECRET_ACCESS_KEY=${SESSION_REPLAY_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD}}" \
+    -e "SESSION_REPLAY_S3_REGION=${SESSION_REPLAY_S3_REGION:-us-south-1}" \
     \
     -e "CLOUDFRONT_DISTRIBUTION_ID=${CONFIG_CLOUDFRONT_DISTRIBUTION_ID}" \
     -e "CONFIG_CLOUDFRONT_ASSET_PATH=${CONFIG_CLOUDFRONT_ASSET_PATH}" \
@@ -335,6 +416,7 @@ if [ "$DETACHED" = "true" ]; then
     echo -e "  Backend API:        ${GREEN}http://localhost:8080${NC}"
     echo -e "  MySQL:              ${GREEN}localhost:3307${NC}"
     echo -e "  ClickHouse HTTP:    ${GREEN}http://localhost:8123${NC}"
+    echo -e "  MinIO Console:      ${GREEN}http://localhost:9101${NC}"
     echo -e "  OTEL gRPC:          ${GREEN}localhost:4317${NC}"
     echo ""
     echo -e "${CYAN}View logs:${NC}  ./logs.sh"

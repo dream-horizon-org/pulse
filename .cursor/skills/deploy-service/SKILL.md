@@ -19,16 +19,15 @@ cp .env.example .env    # first time only, then edit values
 cd deploy
 ./scripts/build.sh ui         # pulse-ui only
 ./scripts/build.sh server     # pulse-server only
-./scripts/build.sh alerting   # pulse-alerts-cron only
+./scripts/build.sh cron       # pulse-alerts-cron only
 ./scripts/build.sh all        # everything
 ```
 
 ## Start/Stop
 
 ```bash
-./scripts/start.sh -d ui        # start detached
-./scripts/start.sh -d server
-./scripts/start.sh -d alerting
+./scripts/start.sh -d           # start all detached
+./scripts/start.sh -d --build   # build + start detached
 ./scripts/stop.sh                # stop all
 ./scripts/stop.sh -v             # stop + remove volumes
 ```
@@ -63,6 +62,7 @@ Run `docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"` to discover
 | pulse-server | `curl http://localhost:<port>/healthcheck` | 8080 |
 | pulse-ui | `curl http://localhost:<port>/healthcheck.txt` | 3000 |
 | pulse-alerts-cron | `curl http://localhost:<port>/healthcheck` | 4000 |
+| OpenFGA | `curl http://localhost:8180/healthz` | 8180 |
 | OTEL Collector | `curl http://localhost:<port>/` | 13133 |
 | pulse-ai (own compose) | `curl http://localhost:8000` | 8000 |
 

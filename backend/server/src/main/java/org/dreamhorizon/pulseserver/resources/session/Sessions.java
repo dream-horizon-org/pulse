@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.resources.session.models.GetSessionRequest;
 import org.dreamhorizon.pulseserver.resources.session.models.GetSessionResponse;
 import org.dreamhorizon.pulseserver.rest.io.Response;
+import org.dreamhorizon.pulseserver.filter.RequiresPermission;
 import org.dreamhorizon.pulseserver.rest.io.RestResponse;
 import org.dreamhorizon.pulseserver.service.session.SessionService;
 
@@ -25,6 +26,7 @@ public class Sessions {
   @Path("/sessions")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresPermission("can_view")
   public CompletionStage<Response<GetSessionResponse>> getSessions(GetSessionRequest request) {
     return sessionService.getSessions(request)
         .to(RestResponse.jaxrsRestHandler());

@@ -5,6 +5,7 @@ import {
   DataQueryResponse,
 } from "./useGetDataQuery.interface";
 import { makeRequest } from "../../helpers/makeRequest";
+import { useProjectQueryEnabled } from "../useProjectQueryEnabled";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -16,6 +17,7 @@ export const useGetDataQuery = ({
   refetchInterval = false,
 }: GetDataQueryParams) => {
   const dataQuery = API_ROUTES.DATA_QUERY;
+  const isProjectReady = useProjectQueryEnabled(enabled);
 
   // Format times to ISO string
   // If the time is already in ISO format (contains 'T' or 'Z'), parse it directly
@@ -61,7 +63,7 @@ export const useGetDataQuery = ({
     },
     refetchOnWindowFocus: false,
     refetchInterval,
-    enabled: enabled,
+    enabled: isProjectReady,
     staleTime: 10000,
     placeholderData: undefined,
   });

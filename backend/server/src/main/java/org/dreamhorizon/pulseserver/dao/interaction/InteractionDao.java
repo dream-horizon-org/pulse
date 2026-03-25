@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseQueryService;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
+import org.dreamhorizon.pulseserver.context.ProjectContext;
 import org.dreamhorizon.pulseserver.dao.interaction.models.InteractionDetailRow;
 import org.dreamhorizon.pulseserver.dto.response.GetRawUserEventsResponseDto;
 import org.dreamhorizon.pulseserver.dto.response.universalquerying.GetQueryDataResponseDto;
@@ -58,10 +59,10 @@ public class InteractionDao {
   private final BaseInteractionDao baseInteractionDao;
 
   /**
-   * Gets the current tenant ID from the TenantContext.
+   * Gets the current project ID from the ProjectContext.
    */
-  private String getTenantId() {
-    return TenantContext.requireTenantId();
+  private String getProjectId() {
+    return ProjectContext.getProjectId();
   }
 
   private static InteractionDetailUploadMetadata buildUploadMetadata(Long interactionId) {
@@ -85,7 +86,7 @@ public class InteractionDao {
     String interactionDetailRowStr = objectMapper.writeValueAsString(interactionDetailRow);
 
     Tuple tuple = Tuple.tuple()
-        .addString(getTenantId())
+        .addString(getProjectId())
         .addString(interaction.getName())
         .addString(interaction.getStatus().toString())
         .addString(interactionDetailRowStr)
@@ -140,7 +141,7 @@ public class InteractionDao {
     return d11MysqlClient
         .getWriterPool()
         .preparedQuery(GET_INTERACTION_DETAILS)
-        .rxExecute(Tuple.of(getTenantId(), useCaseId))
+        .rxExecute(Tuple.of(getProjectId(), useCaseId))
         .flatMap(rowSet -> mapRowToInteractionDetails(useCaseId, rowSet));
   }
 
@@ -159,7 +160,7 @@ public class InteractionDao {
     return InteractionDetails
         .builder()
         .id(row.getLong("interaction_id"))
-        .tenantId(row.getString("tenant_id"))
+        .projectId(row.getString("project_id"))
         .name(row.getString("name"))
         .description(details.getDescription())
         .status(InteractionStatus.fromString(row.getString("status")))
@@ -200,10 +201,17 @@ public class InteractionDao {
         }).doOnError(error -> log.error("error in querying jobs : ", error));
   }
 
-  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions(String tenant) {
+  /**
+   * Gets all active and running interactions for the current project.
+   * Uses ProjectContext.getProjectId() internally.
+   * 
+   * @param projectId The project ID (kept for API compatibility, but internally uses ProjectContext)
+   * @return Single emitting list of active and running interaction details
+   */
+  public Single<List<InteractionDetails>> getAllActiveAndRunningInteractions(String projectId) {
     return d11MysqlClient.getWriterPool()
         .preparedQuery(GET_ALL_ACTIVE_AND_RUNNING_INTERACTIONS)
-        .rxExecute(Tuple.of(tenant))
+        .rxExecute(Tuple.of(projectId))
         .flatMap(rows -> {
           List<InteractionDetails> interactionDetails = new ArrayList<>();
           rows.forEach(row -> interactionDetails.add(mapInteractionRowToInteractionDetails(row)));
@@ -212,8 +220,8 @@ public class InteractionDao {
   }
 
   private String buildPaginatedGetInteractionsQuery(GetInteractionsRequest request) {
-    // Replace the tenant_id placeholder with the actual tenant_id
-    String query = GET_INTERACTIONS.replace("tenant_id = ?", "tenant_id = '" + getTenantId() + "'");
+    // Replace the project_id placeholder with the actual project_id
+    String query = GET_INTERACTIONS.replace("project_id = ?", "project_id = '" + getProjectId() + "'");
     if (StringUtils.isNotBlank(request.getUserEmail())) {
       query += " AND created_by = '" + request.getUserEmail() + "'";
     }
@@ -246,7 +254,7 @@ public class InteractionDao {
   public Single<InteractionFilterOptionsResponse> getInteractionFilterOptions() {
     return d11MysqlClient.getReaderPool()
         .preparedQuery(GET_INTERACTION_FILTER_OPTIONS)
-        .rxExecute(Tuple.of(getTenantId()))
+        .rxExecute(Tuple.of(getProjectId()))
         .flatMap(rows -> {
           Set<String> statuses = new HashSet<>();
           Set<String> createdByUsers = new HashSet<>();
@@ -275,7 +283,7 @@ public class InteractionDao {
 
   public Single<TelemetryFilterOptionsResponse> getTelemetryFilterOptions() {
     QueryConfiguration configuration = QueryConfiguration.newQuery(GET_TELEMETRY_FILTER_VALUES)
-        .tenantId(TenantContext.requireTenantId())
+        .projectId(getProjectId())
         .build();
 
     return clickhouseQueryService.executeQueryOrCreateJob(configuration)

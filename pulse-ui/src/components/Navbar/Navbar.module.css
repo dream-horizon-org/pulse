@@ -10,6 +10,7 @@
   justify-content: space-between;
   background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
   border-right: 1px solid rgba(14, 201, 194, 0.12);
+  flex-direction: column-reverse;
 }
 
 .navbarItem {
@@ -99,7 +100,7 @@
 
 /* Header Section */
 .navbarHeader {
-  padding-bottom: var(--mantine-spacing-sm);
+  /* Removed padding-bottom to align with header height */
 }
 
 .logoSection {
@@ -115,7 +116,7 @@
   gap: var(--mantine-spacing-sm);
   cursor: pointer;
   flex: 1;
-  padding: 8px;
+  padding: 0;
   border-radius: var(--mantine-radius-md);
   transition: background 0.2s ease;
 }

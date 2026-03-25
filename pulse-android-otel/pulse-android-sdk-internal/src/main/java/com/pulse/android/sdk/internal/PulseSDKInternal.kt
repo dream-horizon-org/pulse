@@ -5,15 +5,19 @@ package com.pulse.android.sdk.internal
 
 import android.app.Application
 import android.content.Context
-import androidx.core.content.edit
 import com.pulse.android.api.otel.PulseBeforeSendData
 import com.pulse.android.api.otel.PulseDataCollectionConsent
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendLogExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendMetricExporter
 import com.pulse.android.sdk.internal.beforesend.PulseBeforeSendSpanExporter
+import com.pulse.android.sdk.replay.ImagePrivacy
+import com.pulse.android.sdk.replay.SessionReplayBootstrap
+import com.pulse.android.sdk.replay.SessionReplayConfig
+import com.pulse.android.sdk.replay.SessionReplayRegistry
+import com.pulse.android.sdk.replay.TextAndInputPrivacy
 import com.pulse.sampling.core.exporters.PulseSamplingSignalProcessors
 import com.pulse.sampling.core.exporters.PulseSignalSelectExporter
-import com.pulse.sampling.core.providers.PulseSdkConfigRestProvider
+import com.pulse.sampling.models.PulseFeatureConfigData
 import com.pulse.sampling.models.PulseFeatureName
 import com.pulse.sampling.models.PulseProp
 import com.pulse.sampling.models.PulseSdkConfig
@@ -23,9 +27,7 @@ import com.pulse.sampling.models.matchers.PulseSignalMatchCondition
 import com.pulse.semconv.PulseAttributes
 import com.pulse.semconv.PulseSessionAttributes
 import com.pulse.semconv.PulseUserAttributes
-import com.pulse.utils.PulseNetworkingUtils
 import com.pulse.utils.PulseOtelUtils
-import com.pulse.utils.PulseSerialisationUtils
 import com.pulse.utils.putAttributesFrom
 import com.pulse.utils.toAttributes
 import io.opentelemetry.android.AndroidResource
@@ -33,7 +35,6 @@ import io.opentelemetry.android.Incubating
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.agent.OpenTelemetryRumInitializer
 import io.opentelemetry.android.agent.connectivity.EndpointConnectivity
-import io.opentelemetry.android.agent.connectivity.HttpEndpointConnectivity
 import io.opentelemetry.android.agent.dsl.DiskBufferingConfigurationSpec
 import io.opentelemetry.android.agent.dsl.instrumentation.InstrumentationConfiguration
 import io.opentelemetry.android.agent.session.SessionConfig
@@ -66,7 +67,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.function.BiFunction
@@ -90,7 +90,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     public fun initialize(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         endpointHeaders: Map<String, String>,
         spanEndpointConnectivity: EndpointConnectivity,
@@ -121,7 +121,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             initializeInternal(
                 application = application,
                 endpointBaseUrl = endpointBaseUrl,
-                projectId = projectId,
+                apiKey = apiKey,
                 dataCollectionState = dataCollectionState,
                 tracerProviderCustomizer = tracerProviderCustomizer,
                 loggerProviderCustomizer = loggerProviderCustomizer,
@@ -149,7 +149,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private fun initializeInternal(
         application: Application,
         endpointBaseUrl: String,
-        projectId: String,
+        apiKey: String,
         dataCollectionState: PulseDataCollectionConsent,
         tracerProviderCustomizer: BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder>?,
         loggerProviderCustomizer: BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder>?,
@@ -159,13 +159,13 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         customEventConnectivity: EndpointConnectivity,
         configEndpointUrl: String?,
         resource: (ResourceBuilder.() -> Unit)?,
-        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
         endpointHeaders: Map<String, String>,
         sessionConfig: SessionConfig,
         globalAttributes: (() -> Attributes)?,
         beforeSendData: PulseBeforeSendData? = null,
         diskBuffering: (DiskBufferingConfigurationSpec.() -> Unit)?,
         ioDispatcher: CoroutineDispatcher,
+        instrumentations: (InstrumentationConfiguration.() -> Unit)?,
     ) {
         if (dataCollectionState == PulseDataCollectionConsent.DENIED) {
             oldState = PulseDataCollectionConsent.DENIED
@@ -178,43 +178,19 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 Context.MODE_PRIVATE,
             )
 
+        val apiKeyHeader = createApiKeyHeader(apiKey)
+        val endpointHeadersWithProject = endpointHeaders + apiKeyHeader
+
         val currentSdkConfig =
-            sharedPrefs.getString(PrefsName.PULSE_SDK_CONFIG_KEY, null)?.let {
-                PulseSerialisationUtils.jsonConfigForSerialisation.decodeFromString<PulseSdkConfig>(it)
-            }
-
-        PulseOtelUtils.logDebug(TAG) { "currentSdkConfig config version = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}" }
-
-        val projectIdHeader = createProjectIdHeader(projectId)
-        val endpointHeadersWithProject = endpointHeaders + projectIdHeader
-
-        launch(ioDispatcher) {
-            val apiCache = File(application.cacheDir, "pulse${File.separatorChar}apiCache")
-            apiCache.mkdirs()
-            val newConfig =
-                PulseSdkConfigRestProvider(
-                    cacheDir = apiCache,
-                    okHttpClient = PulseNetworkingUtils.okHttpClient,
-                    headers = endpointHeadersWithProject,
-                ) {
-                    configEndpointUrl
-                        ?: "${PulseNetworkingUtils.endWithSlash(endpointBaseUrl.replace(":4318", ":8080"))}v1/configs/active/"
-                }.provide()
-            val isDifferentVersion = newConfig != null && newConfig.version != currentSdkConfig?.version
-            PulseOtelUtils.logDebug(TAG) {
-                "newConfigVersion = ${newConfig?.version ?: "newConfig is null"}, " +
-                    "oldConfigVersion = ${currentSdkConfig?.version ?: "currentSdkConfig is null"}, " +
-                    "shouldUpdate = $isDifferentVersion"
-            }
-            if (isDifferentVersion) {
-                sharedPrefs.edit(commit = true) {
-                    putString(
-                        PrefsName.PULSE_SDK_CONFIG_KEY,
-                        PulseSerialisationUtils.jsonConfigForSerialisation.encodeToString(newConfig),
-                    )
-                }
-            }
-        }
+            PulseSdkConfigRefresher.loadAndRefresh(
+                cacheDir = application.cacheDir,
+                configUrl = PulseSdkConfigRefresher.resolveConfigUrl(configEndpointUrl, endpointBaseUrl),
+                headers = endpointHeadersWithProject,
+                sharedPrefs = sharedPrefs,
+                prefsKey = PrefsName.PULSE_SDK_CONFIG_KEY,
+                scope = this,
+                ioDispatcher = ioDispatcher,
+            )
 
         val resourceBuilder = AndroidResource.createDefault(application).toBuilder()
         resourceBuilder.put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
@@ -227,7 +203,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         val androidJavaResource: (ResourceBuilder.() -> Unit) = {
             put(PulseAttributes.TELEMETRY_SDK_NAME_KEY, PulseAttributes.PulseSdkNames.ANDROID_JAVA)
-            put(PulseAttributes.PROJECT_ID, extractProjectID(projectId))
+            put(PulseAttributes.PROJECT_ID, extractProjectID(apiKey))
             resource?.invoke(this)
         }
 
@@ -245,55 +221,35 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val meteringSessionHeader = createMeteringSessionHeader(meteredSessionManager.getSessionId())
         val (internalTracerProviderCustomizer, internalLoggerProviderCustomizer) = createSignalsProcessors(config)
         val mergedTracerProviderCustomizer =
-            if (tracerProviderCustomizer != null) {
-                BiFunction<SdkTracerProviderBuilder, Application, SdkTracerProviderBuilder> { tracerProviderBuilder, app ->
-                    val builderWithInternal = internalTracerProviderCustomizer.apply(tracerProviderBuilder, app)
-                    tracerProviderCustomizer.apply(builderWithInternal, app)
-                }
-            } else {
-                internalTracerProviderCustomizer
-            }
-
+            PulseCustomizerUtils.mergeTracerCustomizers(
+                internal = internalTracerProviderCustomizer,
+                external = tracerProviderCustomizer,
+            )
         val mergedLoggerProviderCustomizer =
-            if (loggerProviderCustomizer != null) {
-                BiFunction<SdkLoggerProviderBuilder, Application, SdkLoggerProviderBuilder> { loggerProviderBuilder, app ->
-                    val builderWithInternal = internalLoggerProviderCustomizer.apply(loggerProviderBuilder, app)
-                    loggerProviderCustomizer.apply(builderWithInternal, app)
-                }
-            } else {
-                internalLoggerProviderCustomizer
-            }
+            PulseCustomizerUtils.mergeLoggerCustomizers(
+                internal = internalLoggerProviderCustomizer,
+                external = loggerProviderCustomizer,
+            )
 
-        val finalSpanEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.spanCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "spanCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: spanEndpointConnectivity
-        val finalLogEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.logsCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "logsCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: logEndpointConnectivity
-        val finalMetricEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.metricCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "metricCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: metricEndpointConnectivity
-        val finalCustomEventEndpointConnectivity =
-            currentSdkConfig?.let {
-                val url = it.signals.customEventCollectorUrl
-                PulseOtelUtils.logDebug(TAG) { "customEventCollectorUrl = $url" }
-                HttpEndpointConnectivity(url = url, headers = endpointHeadersWithProject)
-            } ?: customEventConnectivity
+        val resolvedEndpoints =
+            PulseEndpointUtils.resolve(
+                sdkConfig = currentSdkConfig,
+                headers = endpointHeadersWithProject,
+                fallbackSpan = spanEndpointConnectivity,
+                fallbackLog = logEndpointConnectivity,
+                fallbackMetric = metricEndpointConnectivity,
+                fallbackCustomEvent = customEventConnectivity,
+            )
+        val finalSpanEndpointConnectivity = resolvedEndpoints.span
+        val finalLogEndpointConnectivity = resolvedEndpoints.log
+        val finalMetricEndpointConnectivity = resolvedEndpoints.metric
+        val finalCustomEventEndpointConnectivity = resolvedEndpoints.customEvent
 
         val otlpSpanExporter: SpanExporter =
             OtlpHttpSpanExporter
                 .builder()
                 .setEndpoint(finalSpanEndpointConnectivity.getUrl())
-                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                .setHeaders { finalSpanEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                 .build()
 
         val attrRejects = mutableMapOf<AttributeKey<*>, Predicate<*>>()
@@ -311,7 +267,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalLogEndpointConnectivity.getUrl())
-                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                            .setHeaders { finalLogEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                             .build(),
                     PulseSignalMatchCondition(
                         name = ".*",
@@ -325,7 +281,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                         OtlpHttpLogRecordExporter
                             .builder()
                             .setEndpoint(finalCustomEventEndpointConnectivity.getUrl())
-                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                            .setHeaders { finalCustomEventEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                             .build(),
                 ),
             )
@@ -334,7 +290,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             OtlpHttpMetricExporter
                 .builder()
                 .setEndpoint(finalMetricEndpointConnectivity.getUrl())
-                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + projectIdHeader + meteringSessionHeader }
+                .setHeaders { finalMetricEndpointConnectivity.getHeaders() + apiKeyHeader + meteringSessionHeader }
                 .build()
 
         val baseSpanExporter: SpanExporter = pulseSamplingProcessors?.SampledSpanExporter(filteredSpanExporter) ?: filteredSpanExporter
@@ -348,74 +304,33 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         val metricExporter: MetricExporter =
             beforeSendData?.let { PulseBeforeSendMetricExporter(it, baseMetricExporter) } ?: baseMetricExporter
 
+        var sessionReplayConfig: SessionReplayConfig? = null
         instrumentations?.let { configure ->
             val instrumentationConfig = InstrumentationConfiguration(config, endpointHeadersWithProject)
             instrumentationConfig.configure()
-            if (currentSdkConfig != null) {
-                instrumentationConfig.interaction { setConfigUrl { currentSdkConfig.interaction.configUrl } }
+            currentSdkConfig?.interaction?.configUrl?.let { interactionConfigUrl ->
+                instrumentationConfig.interaction { setConfigUrl { interactionConfigUrl } }
             }
+            val localReplayConfig = instrumentationConfig.getSessionReplayConfig()
+            sessionReplayConfig = resolveSessionReplayConfig(currentSdkConfig, localReplayConfig, endpointBaseUrl)
             pulseSamplingProcessors?.run {
-                val enabledFeatures = getEnabledFeatures()
-                enumValues<PulseFeatureName>().forEach { feature ->
-                    if (feature !in enabledFeatures) {
-                        PulseOtelUtils.logDebug(TAG) { "Disabling feature = $feature" }
-                        when (feature) {
-                            PulseFeatureName.JAVA_CRASH -> {
-                                config.suppressInstrumentation("crash")
-                            }
-
-                            PulseFeatureName.JS_CRASH -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.NETWORK_CHANGE -> {
-                                config.disableNetworkAttributes()
-                            }
-
-                            PulseFeatureName.JAVA_ANR -> {
-                                config.suppressInstrumentation("anr")
-                            }
-
-                            PulseFeatureName.INTERACTION -> {
-                                config.suppressInstrumentation(InteractionInstrumentation.INSTRUMENTATION_NAME)
-                            }
-
-                            PulseFeatureName.CPP_CRASH -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.CPP_ANR -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.NETWORK_INSTRUMENTATION -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.SCREEN_SESSION -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.CUSTOM_EVENTS -> {
-                                isCustomEventEnabled = false
-                            }
-
-                            PulseFeatureName.RN_SCREEN_LOAD -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.RN_SCREEN_INTERACTIVE -> {
-                                // no-op
-                            }
-
-                            PulseFeatureName.UNKNOWN -> {
-                                // no-op
-                            }
-                        }
-                    }
-                }
+                PulseOtelUtils.logDebug(TAG) { "Applying feature flags" }
+                val flagResult = PulseFeatureFlagUtils.apply(config, this)
+                isCustomEventEnabled = flagResult.isCustomEventEnabled
             }
         }
+
+        sessionReplayConfig?.let { replayConfig ->
+            SessionReplayRegistry.set(
+                SessionReplayBootstrap(
+                    config = replayConfig,
+                    projectId = extractProjectID(apiKey),
+                    userIdProvider = { userSessionEmitter.userId?.takeIf { it.isNotEmpty() } ?: "anonymous" },
+                    isStartActive = dataCollectionState == PulseDataCollectionConsent.ALLOWED,
+                ),
+            )
+        }
+
         otelInstance =
             OpenTelemetryRumInitializer.initialize(
                 application = application,
@@ -460,6 +375,86 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 logRecordExporter = logExporter,
                 metricExporter = metricExporter,
             )
+
+        // SessionReplayInstrumentation installs from registry during RUM build; get reference for shutdown
+        sessionReplay = SessionReplayRegistry.getIntegration()
+    }
+
+    /**
+     * Resolves session replay config. Backend is the sole gatekeeper:
+     * - No backend config fetched → disabled
+     * - Backend config exists but `session_replay` absent from features → disabled
+     * - `session_replay` present with `sessionSampleRate <= 0` → disabled
+     * - `session_replay` present with `sessionSampleRate > 0` → enabled, merging local DSL defaults + backend overrides
+     *
+     * The local DSL (`instrumentations { sessionReplay { ... } }`) only provides code-level
+     * integrations (drawableConverter, mask/unmask view classes). All other config is backend-controlled.
+     */
+    private fun resolveSessionReplayConfig(
+        sdkConfig: PulseSdkConfig?,
+        localConfig: SessionReplayConfig?,
+        endpointBaseUrl: String,
+    ): SessionReplayConfig? {
+        if (sdkConfig == null) {
+            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: no backend config fetched yet" }
+            return null
+        }
+
+        val backendFeature =
+            sdkConfig.features
+                .firstOrNull { it.featureName == PulseFeatureName.SESSION_REPLAY }
+
+        if (backendFeature == null) {
+            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: feature absent from backend config" }
+            return null
+        }
+
+        if (backendFeature.sessionSampleRate <= 0F) {
+            PulseOtelUtils.logDebug(TAG) { "Session replay disabled: sessionSampleRate=${backendFeature.sessionSampleRate}" }
+            return null
+        }
+
+        PulseOtelUtils.logDebug(TAG) { "Session replay enabled by backend (rate=${backendFeature.sessionSampleRate})" }
+
+        val base = localConfig ?: SessionReplayConfig()
+
+        val featureConfig = backendFeature.config as? PulseFeatureConfigData.SessionReplay
+        if (featureConfig == null) {
+            val configType = backendFeature.config?.run { javaClass.simpleName } ?: "null"
+            PulseOtelUtils.logDebug(TAG) {
+                "Session replay config missing or failed to parse (config type=$configType), " +
+                    "using base with endpointBaseUrl fallback"
+            }
+            return base.copy(replayApiBaseUrl = base.replayApiBaseUrl ?: endpointBaseUrl)
+        }
+
+        val replayUrl = featureConfig.replayApiBaseUrl ?: "null"
+        PulseOtelUtils.logDebug(TAG) { "Applying backend session replay config (replayApiBaseUrl=$replayUrl)" }
+
+        val resolvedTextPrivacy =
+            featureConfig.textAndInputPrivacy?.let { value ->
+                runCatching { TextAndInputPrivacy.valueOf(value) }
+                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown textAndInputPrivacy: $value" } }
+                    .getOrNull()
+            }
+        val resolvedImagePrivacy =
+            featureConfig.imagePrivacy?.let { value ->
+                runCatching { ImagePrivacy.valueOf(value) }
+                    .onFailure { PulseOtelUtils.logDebug(TAG) { "Unknown imagePrivacy: $value" } }
+                    .getOrNull()
+            }
+
+        return base.copy(
+            textAndInputPrivacy = resolvedTextPrivacy ?: base.textAndInputPrivacy,
+            imagePrivacy = resolvedImagePrivacy ?: base.imagePrivacy,
+            throttleDelayMs = featureConfig.throttleDelayMs ?: base.throttleDelayMs,
+            screenshotScale = featureConfig.screenshotScale ?: base.screenshotScale,
+            screenshotQuality = featureConfig.screenshotQuality ?: base.screenshotQuality,
+            flushIntervalSeconds = featureConfig.flushIntervalSeconds ?: base.flushIntervalSeconds,
+            flushAt = featureConfig.flushAt ?: base.flushAt,
+            maxBatchSize = featureConfig.maxBatchSize ?: base.maxBatchSize,
+            replayApiBaseUrl = featureConfig.replayApiBaseUrl ?: base.replayApiBaseUrl ?: endpointBaseUrl,
+        )
     }
 
     private fun createSignalsProcessors(
@@ -678,6 +673,10 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
                 PulseOtelUtils.logDebug(TAG) { "Shutdown skipped: already shut down in main thread" }
                 return@launch
             }
+            sessionReplay?.flush()
+            sessionReplay?.uninstall()
+            sessionReplay = null
+            SessionReplayRegistry.clearIntegration()
             OpenTelemetryRumInitializer.disposeExporters()
             otelInstance?.shutdown()
             otelInstance = null
@@ -704,7 +703,8 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
         when (newState) {
             PulseDataCollectionConsent.PENDING -> {
-                // no-op
+                sessionReplay?.stop()
+                oldState = newState
             }
 
             PulseDataCollectionConsent.DENIED -> {
@@ -714,6 +714,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
 
             PulseDataCollectionConsent.ALLOWED -> {
                 OpenTelemetryRumInitializer.setupExporters()
+                sessionReplay?.start(resumeCurrent = true)
                 oldState = newState
             }
         }
@@ -775,6 +776,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
     private var pulseSamplingProcessors: PulseSamplingSignalProcessors? = null
     private var isCustomEventEnabled = true
     private var otelInstance: OpenTelemetryRum? = null
+    private var sessionReplay: com.pulse.android.sdk.replay.SessionReplayIntegration? = null
 
     private val userProps = ConcurrentHashMap<String, Any>()
     private var application: Application? = null
@@ -785,7 +787,7 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
         private const val CUSTOM_EVENT_NAME = "pulse.custom_event"
         internal const val CUSTOM_NON_FATAL_EVENT_NAME = "pulse.custom_non_fatal"
         private const val TAG = "AndroidSDK"
-        private const val PROJECT_ID_HEADER_KEY = "X-API-KEY"
+        private const val API_KEY_HEADER = "X-API-KEY"
         private const val METERING_SESSION_HEADER_KEY = "X-Pulse-Metering-Session-ID"
 
         internal object PrefsName {
@@ -793,16 +795,16 @@ public class PulseSDKInternal : CoroutineScope by MainScope() {
             internal const val PULSE_SDK_CONFIG_KEY = "sdk_config"
         }
 
-        internal fun extractProjectID(projectId: String): String {
-            val lastUnderscoreIndex = projectId.lastIndexOf('_')
+        internal fun extractProjectID(apiKey: String): String {
+            val lastUnderscoreIndex = apiKey.lastIndexOf('_')
             return if (lastUnderscoreIndex > 0) {
-                projectId.substring(0, lastUnderscoreIndex)
+                apiKey.take(lastUnderscoreIndex)
             } else {
-                projectId
+                apiKey
             }
         }
 
-        private fun createProjectIdHeader(projectId: String): Map<String, String> = mapOf(PROJECT_ID_HEADER_KEY to projectId)
+        private fun createApiKeyHeader(apiKey: String): Map<String, String> = mapOf(API_KEY_HEADER to apiKey)
 
         private fun createMeteringSessionHeader(meteringSessionId: String): Map<String, String> =
             mapOf(METERING_SESSION_HEADER_KEY to meteringSessionId)
