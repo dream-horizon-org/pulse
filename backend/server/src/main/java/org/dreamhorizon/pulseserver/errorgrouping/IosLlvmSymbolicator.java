@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -98,12 +99,18 @@ public class IosLlvmSymbolicator {
           targetBinary.isEmpty() ? Optional.empty() : AppleCrashReportParser.parseUuidForBinary(rawReport, targetBinary);
       Optional<Long> loadOpt =
           targetBinary.isEmpty() ? Optional.empty() : AppleCrashReportParser.parseLoadAddressForBinary(rawReport, targetBinary);
+      String llvmCpu =
+          targetBinary.isEmpty()
+              ? config.getDefaultArch()
+              : AppleCrashReportParser.parseCpuTypeForBinary(rawReport, targetBinary)
+                  .orElse(config.getDefaultArch());
       log.info(
-          "{} parsed crash metadata target={} crashUuidPresent={} loadPresent={}",
+          "{} parsed crash metadata target={} crashUuidPresent={} loadPresent={} llvmCpu={}",
           LOG_PREFIX,
           targetBinary,
           crashUuid.isPresent(),
-          loadOpt.isPresent());
+          loadOpt.isPresent(),
+          llvmCpu);
 
       Path dwarfPath = extractDsymAndFindDwarf(dsymZipBytes, tempRoot, crashUuid.orElse(null));
       if (dwarfPath == null || !Files.isRegularFile(dwarfPath)) {
@@ -116,16 +123,19 @@ public class IosLlvmSymbolicator {
           dwarfPath.getFileName(),
           targetBinary);
 
-      MachoPrivateHeaders macho = runObjdumpMachoPrivateHeaders(dwarfPath);
-      String objdumpUuid = macho.uuidNormalized();
+      MachoPrivateHeaders macho = runObjdumpMachoPrivateHeaders(dwarfPath, llvmCpu);
+      List<String> dwarfUuids = macho.normalizedUuids();
       String crashUuidNorm = crashUuid.map(IosLlvmSymbolicator::normalizeUuid).orElse("");
       if (crashUuid.isPresent()) {
-        if (objdumpUuid == null || objdumpUuid.isEmpty()) {
+        if (dwarfUuids.isEmpty()) {
           log.warn("{} could not parse dSYM UUID from llvm-objdump --private-headers; proceeding without UUID check",
               LOG_PREFIX);
-        } else if (!crashUuidNorm.equals(objdumpUuid)) {
-          log.error("{} dSYM UUID mismatch crash={} dwarf={} — skipping LLVM symbolication",
-              LOG_PREFIX, shortHash(crashUuidNorm), shortHash(objdumpUuid));
+        } else if (!dwarfUuids.contains(crashUuidNorm)) {
+          log.error(
+              "{} dSYM UUID mismatch crash={} dwarfSliceUuids(count={}) — skipping LLVM symbolication",
+              LOG_PREFIX,
+              shortHash(crashUuidNorm),
+              dwarfUuids.size());
           return rawLines(frames);
         } else {
           log.info("{} dSYM UUID check OK (from private-headers)", LOG_PREFIX);
@@ -280,24 +290,28 @@ public class IosLlvmSymbolicator {
   }
 
   /**
-   * One {@code llvm-objdump --macho --private-headers} call: vmaddr for __TEXT and UUID from LC_UUID.
+   * One {@code llvm-objdump --macho [--arch=CPU] --private-headers} call: vmaddr for {@code __TEXT} and UUID(s).
+   * Universal simulator dSYMs need {@code --arch} so vmaddr/LC_UUID match the slice in the crash report.
    */
-  private record MachoPrivateHeaders(Long vmaddr, String uuidNormalized) {}
+  private record MachoPrivateHeaders(Long vmaddr, List<String> normalizedUuids) {}
 
-  private MachoPrivateHeaders runObjdumpMachoPrivateHeaders(Path dwarfPath) throws IOException, InterruptedException {
-    Process proc = new ProcessBuilder(
-        config.getLlvmObjdumpPath(),
-        "--macho",
-        "--private-headers",
-        dwarfPath.toAbsolutePath().toString())
-        .redirectErrorStream(true)
-        .start();
+  private MachoPrivateHeaders runObjdumpMachoPrivateHeaders(Path dwarfPath, String llvmCpu)
+      throws IOException, InterruptedException {
+    List<String> cmd = new ArrayList<>();
+    cmd.add(config.getLlvmObjdumpPath());
+    cmd.add("--macho");
+    if (llvmCpu != null && !llvmCpu.isBlank()) {
+      cmd.add("--arch=" + llvmCpu.trim());
+    }
+    cmd.add("--private-headers");
+    cmd.add(dwarfPath.toAbsolutePath().toString());
+    Process proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
     String output = readLimited(proc.getInputStream(), config.getMaxCaptureChars());
     boolean finished = proc.waitFor(config.getTimeoutSeconds(), TimeUnit.SECONDS);
     if (!finished) {
       proc.destroyForcibly();
       log.warn("{} llvm-objdump --macho --private-headers timed out", LOG_PREFIX);
-      return new MachoPrivateHeaders(null, null);
+      return new MachoPrivateHeaders(null, List.of());
     }
     int ev = proc.exitValue();
     if (ev != 0) {
@@ -305,8 +319,8 @@ public class IosLlvmSymbolicator {
           LOG_PREFIX, ev, oneLinePreview(output, 400));
     }
     Long vmaddr = parseVmaddrAfterTextSegment(output);
-    String uuid = parseUuidFromObjdumpOutput(output);
-    return new MachoPrivateHeaders(vmaddr, uuid);
+    List<String> uuids = parseAllNormalizedUuidsFromObjdumpOutput(output);
+    return new MachoPrivateHeaders(vmaddr, uuids);
   }
 
   /**
@@ -352,37 +366,46 @@ public class IosLlvmSymbolicator {
     return null;
   }
 
-  /** Tries several shapes from llvm-objdump Mach-O output (private-headers, load commands, or --uuid). */
-  public static String parseUuidFromObjdumpOutput(String output) {
+  /**
+   * Every LC_UUID / {@code UUID:} style token in llvm-objdump output (universal binaries list one per slice).
+   */
+  public static List<String> parseAllNormalizedUuidsFromObjdumpOutput(String output) {
     if (output == null || output.isBlank()) {
-      return null;
+      return List.of();
     }
+    LinkedHashSet<String> set = new LinkedHashSet<>();
     Matcher lc = UUID_AFTER_LC_UUID.matcher(output);
-    if (lc.find()) {
-      return normalizeUuid(lc.group(1));
+    while (lc.find()) {
+      set.add(normalizeUuid(lc.group(1)));
     }
     Matcher m = UUID_LINE.matcher(output);
-    if (m.find()) {
-      return normalizeUuid(m.group(1));
+    while (m.find()) {
+      set.add(normalizeUuid(m.group(1)));
     }
     m = UUID_ANGLE.matcher(output);
-    if (m.find()) {
-      return normalizeUuid(m.group(1));
+    while (m.find()) {
+      set.add(normalizeUuid(m.group(1)));
     }
     m = UUID_LOOSE.matcher(output);
-    if (m.find()) {
-      return normalizeUuid(m.group(1));
+    while (m.find()) {
+      set.add(normalizeUuid(m.group(1)));
     }
     for (String ln : output.split("\\R")) {
       if (!ln.toLowerCase(Locale.ROOT).contains("uuid")) {
         continue;
       }
       Matcher hm = UUID_32_HEX.matcher(ln);
-      if (hm.find()) {
-        return normalizeUuid(hm.group(1));
+      while (hm.find()) {
+        set.add(normalizeUuid(hm.group(1)));
       }
     }
-    return null;
+    return List.copyOf(set);
+  }
+
+  /** First UUID from {@link #parseAllNormalizedUuidsFromObjdumpOutput} (single-slice / backward compatible). */
+  public static String parseUuidFromObjdumpOutput(String output) {
+    List<String> all = parseAllNormalizedUuidsFromObjdumpOutput(output);
+    return all.isEmpty() ? null : all.get(0);
   }
 
   private static String oneLinePreview(String s, int max) {
@@ -544,10 +567,11 @@ public class IosLlvmSymbolicator {
             .start();
         String output = readLimited(proc.getInputStream(), 200_000);
         proc.waitFor(20, TimeUnit.SECONDS);
-        String u = parseUuidFromObjdumpOutput(output);
-        if (u != null && u.equals(want)) {
-          log.info("{} matched preferred UUID with candidate={}", LOG_PREFIX, c.getFileName());
-          return c;
+        for (String u : parseAllNormalizedUuidsFromObjdumpOutput(output)) {
+          if (u.equals(want)) {
+            log.info("{} matched preferred UUID with candidate={}", LOG_PREFIX, c.getFileName());
+            return c;
+          }
         }
       } catch (Exception ignored) {
         log.debug("{} failed UUID probe for candidate={}", LOG_PREFIX, c.getFileName(), ignored);

@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.dreamhorizon.pulseserver.errorgrouping.model.NdkFrame;
@@ -144,6 +145,21 @@ class IosLlvmSymbolicatorTest {
     assertEquals(
         "deadbeef0123456789abcdef01234567",
         IosLlvmSymbolicator.parseUuidFromObjdumpOutput(s));
+  }
+
+  @Test
+  void parseAllNormalizedUuidsFromObjdumpOutput_collectsEverySlice() {
+    String fat = """
+        cmd LC_UUID
+           uuid AA010995-D9C5-3E30-A944-0DD6AFF667D1
+        cmd LC_UUID
+           uuid C44807DF-CD6F-31C4-BF55-09A7B9C0884B
+        """;
+    List<String> u = IosLlvmSymbolicator.parseAllNormalizedUuidsFromObjdumpOutput(fat);
+    assertEquals(2, u.size());
+    assertEquals(
+        Set.of("aa010995d9c53e30a9440dd6aff667d1", "c44807dfcd6f31c4bf5509a7b9c0884b"),
+        Set.copyOf(u));
   }
 
   @Test

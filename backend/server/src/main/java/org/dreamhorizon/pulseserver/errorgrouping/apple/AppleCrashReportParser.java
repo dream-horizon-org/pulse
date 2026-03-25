@@ -23,6 +23,11 @@ public class AppleCrashReportParser {
       Pattern.compile(
           "(?m)^0x([0-9a-fA-F]+)\\s+-\\s+0x[0-9a-fA-F]+\\s+(\\S+)\\s+\\S+\\s+<([0-9a-fA-F]+)>\\s+");
 
+  /** Same layout as {@link #BINARY_IMAGE} but captures CPU type for {@code llvm-objdump --arch=…}. */
+  private static final Pattern BINARY_IMAGE_WITH_CPU =
+      Pattern.compile(
+          "(?m)^0x[0-9a-fA-F]+\\s+-\\s+0x[0-9a-fA-F]+\\s+(\\S+)\\s+(\\S+)\\s+<([0-9a-fA-F]+)>\\s+");
+
   public static Optional<String> parseProcessBinaryName(String rawReport) {
     if (rawReport == null || rawReport.isEmpty()) {
       return Optional.empty();
@@ -64,6 +69,40 @@ public class AppleCrashReportParser {
       }
     }
     return Optional.empty();
+  }
+
+  /**
+   * CPU type from Binary Images for the app (e.g. {@code arm64}, {@code x86_64}) for universal simulator
+   * dSYMs: pass to {@code llvm-objdump --arch=} so {@code __TEXT} vmaddr / LC_UUID match the crashed slice.
+   */
+  public static Optional<String> parseCpuTypeForBinary(String rawReport, String binaryName) {
+    if (rawReport == null || binaryName == null || binaryName.isEmpty()) {
+      return Optional.empty();
+    }
+    Matcher m = BINARY_IMAGE_WITH_CPU.matcher(rawReport);
+    while (m.find()) {
+      if (binaryName.equals(m.group(1))) {
+        return Optional.of(normalizeCpuTypeForLlvm(m.group(2)));
+      }
+    }
+    return Optional.empty();
+  }
+
+  static String normalizeCpuTypeForLlvm(String cpu) {
+    if (cpu == null || cpu.isEmpty()) {
+      return "";
+    }
+    String t = cpu.trim().toLowerCase(Locale.ROOT);
+    if (t.contains("arm-64") || "arm64".equals(t) || "aarch64".equals(t)) {
+      return "arm64";
+    }
+    if (t.contains("x86-64") || "x86_64".equals(t) || "amd64".equals(t)) {
+      return "x86_64";
+    }
+    if ("i386".equals(t) || "i686".equals(t)) {
+      return "i386";
+    }
+    return cpu.trim();
   }
 
   public static long parseHexLong(String hex) {

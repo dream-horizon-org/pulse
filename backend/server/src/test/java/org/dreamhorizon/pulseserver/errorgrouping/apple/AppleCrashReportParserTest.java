@@ -57,6 +57,11 @@ class AppleCrashReportParserTest {
   }
 
   @Test
+  void parsesCpuTypeForLlvmArchFromBinaryImages() {
+    assertEquals(Optional.of("arm64"), AppleCrashReportParser.parseCpuTypeForBinary(SNIPPET, "PulseIOSExample"));
+  }
+
+  @Test
   void fileAddressMatchesVmaddrPlusPcMinusLoad() {
     long load = 0x102938000L;
     long pc = 0x102944318L;
