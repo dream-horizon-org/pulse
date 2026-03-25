@@ -12,9 +12,9 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.Window
 import androidx.compose.ui.node.LayoutNode
+import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.android.instrumentation.click.common.PulseClickGestureTracker
 import io.opentelemetry.android.instrumentation.click.common.PulseWidgetClickLogHelper
-import io.opentelemetry.android.instrumentation.WindowCallbackUnwrap
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.logs.LogRecordBuilder
 import io.opentelemetry.api.logs.Logger
