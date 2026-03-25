@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mysqlclient.MySQLException;
@@ -67,11 +68,13 @@ class ProjectUsageLimitDaoTest {
   @Mock
   Row row;
 
+  ObjectMapper objectMapper;
   ProjectUsageLimitDao projectUsageLimitDao;
 
   @BeforeEach
   void setup() {
-    projectUsageLimitDao = new ProjectUsageLimitDao(mysqlClient);
+    objectMapper = new ObjectMapper();
+    projectUsageLimitDao = new ProjectUsageLimitDao(mysqlClient, objectMapper);
   }
 
   private void setupWriterPool() {
@@ -136,6 +139,17 @@ class ProjectUsageLimitDaoTest {
     when(mockRow.getString("disabled_by")).thenReturn(null);
     when(mockRow.getString("disabled_reason")).thenReturn(null);
     when(mockRow.getValue("usage_limits")).thenReturn("plain-string");
+    return mockRow;
+  }
+
+  private Row createMockUsageLimitRowWithTenantId() {
+    Row mockRow = createMockUsageLimitRow();
+    when(mockRow.getColumnIndex("project_name")).thenReturn(0);
+    when(mockRow.getString("project_name")).thenReturn("Test Project");
+    when(mockRow.getColumnIndex("tenant_id")).thenReturn(0);
+    when(mockRow.getString("tenant_id")).thenReturn("tenant-1");
+    when(mockRow.getValue("thresholds_notified")).thenReturn(new JsonObject("{}"));
+    when(mockRow.getLocalDateTime("notification_created_at")).thenReturn(null);
     return mockRow;
   }
 
@@ -481,7 +495,7 @@ class ProjectUsageLimitDaoTest {
       setupReaderPool();
       when(readerPool.query(anyString())).thenReturn(query);
 
-      Row limitRow = createMockUsageLimitRow();
+      Row limitRow = createMockUsageLimitRowWithTenantId();
       RowIterator<Row> iterator = createMockRowIterator(Collections.singletonList(limitRow));
       when(rowSet.iterator()).thenReturn(iterator);
       when(query.rxExecute()).thenReturn(Single.just(rowSet));
@@ -490,6 +504,8 @@ class ProjectUsageLimitDaoTest {
 
       assertNotNull(result);
       assertEquals(1, result.size());
+      assertEquals("tenant-1", result.get(0).getTenantId());
+      assertEquals("Test Project", result.get(0).getProjectName());
     }
 
     @Test

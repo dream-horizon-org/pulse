@@ -17,7 +17,6 @@ export * from "./useCachedErrorRate";
 export * from "./useCancelQuery";
 export { useCreateAlert } from "./useCreateAlert";
 export * from "./useCreateNotificationChannel";
-export * from "./useCreateUserAiSession";
 export { useAlertDelete } from "./useDeleteAlert";
 export { useDeleteInteraction } from "./useDeleteInteraction";
 export * from "./useDeleteNotificationChannel";

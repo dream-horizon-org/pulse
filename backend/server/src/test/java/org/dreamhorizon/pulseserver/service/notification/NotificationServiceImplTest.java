@@ -491,8 +491,8 @@ class NotificationServiceImplTest {
       List<ChannelEventMappingDto> result =
           service.createDefaultPlatformMappings(PROJECT_ID).blockingGet();
 
-      assertThat(result).hasSize(4);
-      verify(mappingDao, org.mockito.Mockito.times(4)).createMapping(any(ChannelEventMapping.class));
+      assertThat(result).hasSize(NotificationConstants.Platform.DEFAULT_MAPPINGS.size());
+      verify(mappingDao, org.mockito.Mockito.times(NotificationConstants.Platform.DEFAULT_MAPPINGS.size())).createMapping(any(ChannelEventMapping.class));
     }
   }
 
