@@ -68,8 +68,8 @@ public class RedisService {
       
       List<String> args = List.of(
           key,
-          "remaining_session_credit", String.valueOf(result.getSessionsRemaining()),
-          "remaining_event_credit", String.valueOf(result.getEventsRemaining())
+          "session_credit", String.valueOf(result.getSessionsRemaining()),
+          "event_credit", String.valueOf(result.getEventsRemaining())
       );
       
       Future<Void> future = redisAPI.hset(args)

@@ -1,1 +1,2 @@
-export { FunnelAnalysis } from "./FunnelAnalysis";
+export { CreateFunnel } from "./CreateFunnel";
+export { CreateJourney } from "./CreateJourney";

@@ -1,4 +1,9 @@
-import { API_METHODS, COOKIES_KEY } from "../../constants";
+import {
+  AI_API_PATHS,
+  API_BASE_URL,
+  API_METHODS,
+  COOKIES_KEY,
+} from "../../constants";
 import { getCookies } from "../cookies";
 import { MakeRequestConfig } from "../makeRequest";
 
@@ -16,11 +21,12 @@ const getMockServer = async () => {
 
 /**
  * Builds authentication headers for API requests.
+ * Used by makeRequestToServer and streamAiRunSse for SSE/streaming calls.
  * Uses the backend-generated access token stored in cookies after successful authentication.
  */
 function buildAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  
+
   // Only add Authorization header if access token exists (user is logged in)
   const accessToken = getCookies(COOKIES_KEY.ACCESS_TOKEN);
   if (accessToken && accessToken !== "undefined") {
@@ -38,10 +44,10 @@ function buildAuthHeaders(): Record<string, string> {
   // Priority: 1) React Context (sessionStorage) - single source of truth
   // NOTE: Never extract projectId from URL to avoid parsing issues
   let projectId: string | undefined;
-  
+
   // Try sessionStorage (ProjectContext - single source of truth)
   try {
-    const stored = sessionStorage.getItem('pulse_project_context');
+    const stored = sessionStorage.getItem("pulse_project_context");
     if (stored) {
       const data = JSON.parse(stored);
       if (data.projectId && data.projectId !== "undefined") {
@@ -51,13 +57,30 @@ function buildAuthHeaders(): Record<string, string> {
   } catch (error) {
     // Silently ignore parsing errors
   }
-  
+
   // Only set header if we have a valid projectId from context
   if (projectId) {
     headers["X-Project-ID"] = projectId;
   }
 
   return headers;
+}
+
+/**
+ * POST to the fixed AI run_sse endpoint with the same auth headers as makeRequestToServer.
+ * The request URL is not caller-controlled (only {@link API_BASE_URL} + {@link AI_API_PATHS.RUN_SSE}),
+ * which avoids SSRF findings on generic `fetch(userUrl)` patterns.
+ *
+ * @returns Raw {@link Response} for {@link Response.body} streaming (e.g. SSE).
+ */
+export async function streamAiRunSse(init?: RequestInit): Promise<Response> {
+  const base = API_BASE_URL.replace(/\/$/, "");
+  const url = `${base}${AI_API_PATHS.RUN_SSE}`;
+  const authHeaders = buildAuthHeaders();
+  return fetch(url, {
+    ...init,
+    headers: { ...init?.headers, ...authHeaders },
+  });
 }
 
 export const makeRequestToServer = async (
@@ -87,6 +110,7 @@ export const makeRequestToServer = async (
   const authHeaders = buildAuthHeaders();
   const isFormData = body instanceof FormData;
 
+  // `signal`, `credentials`, `cache`, etc. are left in `rest` and forwarded to fetch.
   return await fetch(url, {
     method: method ?? API_METHODS.GET,
     headers: {

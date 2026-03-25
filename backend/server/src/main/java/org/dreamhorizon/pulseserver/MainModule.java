@@ -8,11 +8,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.name.Names;
 import io.vertx.core.Vertx;
 import io.vertx.rxjava3.ext.web.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
 import org.dreamhorizon.pulseserver.client.CloudFrontClient;
 import org.dreamhorizon.pulseserver.client.S3BucketClient;
+import org.dreamhorizon.pulseserver.constant.Constants;
 import org.dreamhorizon.pulseserver.client.emr.EmrServerlessJobClient;
 import org.dreamhorizon.pulseserver.client.chclient.ClickhouseProjectConnectionPoolManager;
 import org.dreamhorizon.pulseserver.client.mysql.MysqlClient;
@@ -20,32 +22,26 @@ import org.dreamhorizon.pulseserver.client.mysql.MysqlClientImpl;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.OpenFgaConfig;
 import org.dreamhorizon.pulseserver.dao.clickhouseprojectcredentials.ClickhouseProjectCredentialsDao;
-import org.dreamhorizon.pulseserver.dao.notification.ChannelEventMappingDao;
-import org.dreamhorizon.pulseserver.dao.notification.EmailSuppressionDao;
-import org.dreamhorizon.pulseserver.dao.notification.NotificationChannelDao;
-import org.dreamhorizon.pulseserver.dao.notification.NotificationLogDao;
-import org.dreamhorizon.pulseserver.dao.notification.NotificationTemplateDao;
+import org.dreamhorizon.pulseserver.dao.notification.*;
 import org.dreamhorizon.pulseserver.dao.project.ProjectDao;
 import org.dreamhorizon.pulseserver.dao.user.UserDao;
 import org.dreamhorizon.pulseserver.errorgrouping.Symbolicator;
 import org.dreamhorizon.pulseserver.errorgrouping.service.ErrorGroupingService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.MysqlSymbolFileService;
+import org.dreamhorizon.pulseserver.errorgrouping.service.S3SymbolFileService;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SourceMapCache;
 import org.dreamhorizon.pulseserver.errorgrouping.service.SymbolFileService;
 import org.dreamhorizon.pulseserver.module.VertxAbstractModule;
 import org.dreamhorizon.pulseserver.service.OpenFgaService;
 import org.dreamhorizon.pulseserver.service.configs.ICloudFrontClient;
 import org.dreamhorizon.pulseserver.service.configs.IS3BucketClient;
+import org.dreamhorizon.pulseserver.service.incident.IncidentService;
+import org.dreamhorizon.pulseserver.service.incident.IncidentServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationServiceImpl;
 import org.dreamhorizon.pulseserver.service.notification.TemplateService;
 import org.dreamhorizon.pulseserver.service.notification.oauth.SlackOAuthService;
-import org.dreamhorizon.pulseserver.service.notification.provider.EmailNotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.NotificationProviderFactory;
-import org.dreamhorizon.pulseserver.service.notification.provider.SlackNotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.SlackWebhookNotificationProvider;
-import org.dreamhorizon.pulseserver.service.notification.provider.TeamsNotificationProvider;
+import org.dreamhorizon.pulseserver.service.notification.provider.*;
 import org.dreamhorizon.pulseserver.service.notification.queue.DlqHandler;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationRetryPolicy;
 import org.dreamhorizon.pulseserver.service.notification.queue.NotificationWorker;
@@ -78,6 +74,11 @@ public class MainModule extends VertxAbstractModule {
         .toInstance(io.vertx.rxjava3.core.Vertx.newInstance(vertx));
     bind(ObjectMapper.class).toInstance(getObjectMapper());
     bind(WebClient.class).toProvider(() -> SharedDataUtils.get(vertx, WebClient.class));
+    bind(WebClient.class)
+        .annotatedWith(Names.named(Constants.WEB_CLIENT_AI_PROXY))
+        .toProvider(
+            () -> SharedDataUtils.get(vertx, WebClient.class, Constants.WEB_CLIENT_AI_PROXY))
+        .in(Singleton.class);
     bind(MysqlClient.class).toProvider(() -> SharedDataUtils.get(vertx, MysqlClientImpl.class));
 
     // === NEW: Multi-tenancy & RBAC Services ===
@@ -95,6 +96,7 @@ public class MainModule extends VertxAbstractModule {
       return new ClickhouseProjectConnectionPoolManager(config);
     }).in(Singleton.class);
 
+    bind(S3SymbolFileService.class).in(Singleton.class);
     bind(SymbolFileService.class).to(MysqlSymbolFileService.class).in(Singleton.class);
     bind(SourceMapCache.class).in(Singleton.class);
     bind(ErrorGroupingService.class).in(Singleton.class);
@@ -119,17 +121,20 @@ public class MainModule extends VertxAbstractModule {
     }).in(Singleton.class);
 
     bind(OpenFgaService.class).toProvider(() -> {
-      OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
-      if (config != null && config.isEnabled()) {
-        try {
-          return new OpenFgaService(config);
-        } catch (Exception e) {
-          log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
-          return null;
+        OpenFgaConfig config = SharedDataUtils.get(vertx, OpenFgaConfig.class);
+        if (config != null && config.isEnabled()) {
+            try {
+                return new OpenFgaService(config);
+            } catch (Exception e) {
+                log.error("Failed to initialize OpenFgaService: {}", e.getMessage());
+                return null;
+            }
         }
-      }
-      return null;
+          return null;
     }).in(Singleton.class);
+
+    bind(IncidentService.class).to(IncidentServiceImpl.class).in(Singleton.class);
+
     bindNotificationFeature();
   }
 

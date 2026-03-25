@@ -26,6 +26,7 @@ echo ""
 
 # ── Pre-flight checks ──────────────────────────────────────────────────────
 check_docker
+ensure_compose
 load_env
 
 # ── Ensure BuildKit + buildx are available ─────────────────────────────────
@@ -110,6 +111,16 @@ done
 # Default: build everything
 if [ ${#SERVICES[@]} -eq 0 ]; then
     SERVICES=("ui" "server" "cron")
+fi
+
+# Validate encryption key when building server or cron (required at runtime)
+_needs_encryption_key=false
+for svc in "${SERVICES[@]}"; do
+    [ "$svc" = "server" ] || [ "$svc" = "cron" ] && _needs_encryption_key=true && break
+done
+if [ "$_needs_encryption_key" = true ] && ! validate_encryption_key; then
+    print_error "Encryption key validation failed. Fix VAULT_ENCRYPTION_MASTER_KEY in .env."
+    exit 1
 fi
 
 # ── Compose path (simple) ────────────────────────────────────────────────

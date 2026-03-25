@@ -1,9 +1,8 @@
 package org.dreamhorizon.pulseserver.errorgrouping.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.reactivex.rxjava3.core.Single;
@@ -51,11 +50,14 @@ class SymbolFileServiceTest {
   @Mock
   PreparedQuery<RowSet<Row>> readerPreparedQuery;
 
+  @Mock
+  S3SymbolFileService s3SymbolFileService;
+
   MysqlSymbolFileService symbolFileService;
 
   @BeforeEach
   void setUp() {
-    symbolFileService = new MysqlSymbolFileService(mysqlClient);
+    symbolFileService = new MysqlSymbolFileService(mysqlClient, s3SymbolFileService);
     when(mysqlClient.getWriterPool()).thenReturn(writerPool);
     when(mysqlClient.getReaderPool()).thenReturn(readerPool);
     when(writerPool.preparedQuery(any(String.class))).thenReturn(writerPreparedQuery);
@@ -66,21 +68,19 @@ class SymbolFileServiceTest {
   class UploadFilesFromSymbolFileService {
 
     @Test
-    void shouldReturnFalseWhenFilePartsNull() {
+    void shouldThrowErrorWhenFilePartsNull() {
       ConcreteSymbolFileService service = new ConcreteSymbolFileService();
 
-      Boolean result = service.uploadFiles("proj-1", null, List.of()).blockingGet();
-
-      assertThat(result).isFalse();
+      assertThrows(IllegalArgumentException.class,
+          () -> service.uploadFiles("proj-1", null, List.of()).blockingGet());
     }
 
     @Test
-    void shouldReturnFalseWhenFilePartsEmpty() {
+    void shouldThrowErrorWhenFilePartsEmpty() {
       ConcreteSymbolFileService service = new ConcreteSymbolFileService();
 
-      Boolean result = service.uploadFiles("proj-1", List.of(), List.of()).blockingGet();
-
-      assertThat(result).isFalse();
+      assertThrows(IllegalArgumentException.class,
+          () -> service.uploadFiles("proj-1", List.of(), List.of()).blockingGet());
     }
 
     @Test
@@ -118,6 +118,7 @@ class SymbolFileServiceTest {
     @Test
     void shouldUploadFileSuccessfully() {
       RowSet<Row> rowSet = org.mockito.Mockito.mock(RowSet.class);
+      when(s3SymbolFileService.uploadFile(any(), any())).thenReturn(Single.just("symbols/test-key"));
       when(writerPreparedQuery.execute(any(Tuple.class))).thenReturn(Single.just(rowSet));
 
       UploadMetadata metadata = UploadMetadata.builder()
@@ -133,13 +134,12 @@ class SymbolFileServiceTest {
       Boolean result = symbolFileService.uploadFile("mapping.txt", input, metadata).blockingGet();
 
       assertThat(result).isTrue();
-      verify(mysqlClient).getWriterPool();
     }
 
     @Test
-    void shouldReturnFalseWhenUploadFails() {
-      when(writerPreparedQuery.execute(any(Tuple.class)))
-          .thenReturn(Single.error(new RuntimeException("DB error")));
+    void shouldPropagateErrorWhenUploadFails() {
+      when(s3SymbolFileService.uploadFile(any(), any()))
+          .thenReturn(Single.error(new RuntimeException("S3 error")));
 
       UploadMetadata metadata = UploadMetadata.builder()
           .projectId("proj-1")
@@ -151,9 +151,8 @@ class SymbolFileServiceTest {
           .build();
       InputStream input = new ByteArrayInputStream("data".getBytes(StandardCharsets.UTF_8));
 
-      Boolean result = symbolFileService.uploadFile("file.txt", input, metadata).blockingGet();
-
-      assertThat(result).isFalse();
+      assertThrows(RuntimeException.class,
+          () -> symbolFileService.uploadFile("file.txt", input, metadata).blockingGet());
     }
   }
 
@@ -162,16 +161,19 @@ class SymbolFileServiceTest {
 
     @Test
     void shouldReadFileAsString() {
+      String content = "file content";
+      String s3Key = "symbols/test-key";
+
       Row row = org.mockito.Mockito.mock(Row.class);
-      when(row.getBuffer(0)).thenReturn(Buffer.buffer("file content"));
+      when(row.getString(0)).thenReturn(s3Key);
       RowSet<Row> rowSet = org.mockito.Mockito.mock(RowSet.class);
       RowIterator<Row> iterator = org.mockito.Mockito.mock(RowIterator.class);
       when(rowSet.iterator()).thenReturn(iterator);
       when(iterator.hasNext()).thenReturn(true).thenReturn(false);
       when(iterator.next()).thenReturn(row);
-
-      when(readerPreparedQuery.execute(any(Tuple.class)))
-          .thenReturn(Single.just(rowSet));
+      when(readerPreparedQuery.execute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(s3SymbolFileService.downloadFileAsBytes(s3Key))
+          .thenReturn(Single.just(content.getBytes(StandardCharsets.UTF_8)));
 
       UploadMetadata metadata = UploadMetadata.builder()
           .projectId("proj-1")
@@ -183,23 +185,23 @@ class SymbolFileServiceTest {
 
       String result = symbolFileService.readFileAsString(metadata).blockingGet();
 
-      assertThat(result).isEqualTo("file content");
-      verify(mysqlClient).getReaderPool();
+      assertThat(result).isEqualTo(content);
     }
 
     @Test
     void shouldReadFileAsBytes() {
       byte[] bytes = "binary content".getBytes(StandardCharsets.UTF_8);
+      String s3Key = "symbols/test-key";
+
       Row row = org.mockito.Mockito.mock(Row.class);
-      when(row.getBuffer(0)).thenReturn(Buffer.buffer(bytes));
+      when(row.getString(0)).thenReturn(s3Key);
       RowSet<Row> rowSet = org.mockito.Mockito.mock(RowSet.class);
       RowIterator<Row> iterator = org.mockito.Mockito.mock(RowIterator.class);
       when(rowSet.iterator()).thenReturn(iterator);
       when(iterator.hasNext()).thenReturn(true).thenReturn(false);
       when(iterator.next()).thenReturn(row);
-
-      when(readerPreparedQuery.execute(any(Tuple.class)))
-          .thenReturn(Single.just(rowSet));
+      when(readerPreparedQuery.execute(any(Tuple.class))).thenReturn(Single.just(rowSet));
+      when(s3SymbolFileService.downloadFileAsBytes(s3Key)).thenReturn(Single.just(bytes));
 
       UploadMetadata metadata = UploadMetadata.builder()
           .projectId("proj-1")
@@ -212,20 +214,6 @@ class SymbolFileServiceTest {
       byte[] result = symbolFileService.readFileAsBytes(metadata).blockingGet();
 
       assertThat(result).isEqualTo(bytes);
-    }
-  }
-
-  @Nested
-  class ToBuffer {
-
-    @Test
-    void shouldConvertInputStreamToBuffer() {
-      byte[] data = "test data".getBytes(StandardCharsets.UTF_8);
-      InputStream input = new ByteArrayInputStream(data);
-
-      Buffer buffer = MysqlSymbolFileService.toBuffer(input);
-
-      assertThat(buffer.getBytes()).isEqualTo(data);
     }
   }
 

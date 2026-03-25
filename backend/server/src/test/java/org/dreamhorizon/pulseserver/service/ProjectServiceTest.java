@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import reactor.core.publisher.Mono;
+import static org.mockito.Mockito.doReturn;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
@@ -33,6 +35,7 @@ import org.dreamhorizon.pulseserver.service.configs.UploadConfigDetailService;
 import org.dreamhorizon.pulseserver.service.notification.NotificationService;
 import org.dreamhorizon.pulseserver.dao.usagelimit.models.ProjectUsageLimit;
 import org.dreamhorizon.pulseserver.service.usagelimit.UsageLimitService;
+import org.dreamhorizon.pulseserver.client.chclient.ClickhouseReadClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,7 +61,7 @@ class ProjectServiceTest {
   @Mock UsageLimitService usageLimitService;
   @Mock UploadConfigDetailService uploadConfigDetailService;
   @Mock NotificationService notificationService;
-
+  @Mock ClickhouseReadClient clickhouseReadClient;
   ProjectService projectService;
 
   @BeforeEach
@@ -73,7 +76,8 @@ class ProjectServiceTest {
             configService,
             usageLimitService,
             uploadConfigDetailService,
-            notificationService);
+            notificationService,
+            clickhouseReadClient);
   }
 
   @Nested
@@ -137,12 +141,15 @@ class ProjectServiceTest {
       when(openFgaService.linkProjectToTenant(anyString(), eq("tenant-1")))
           .thenReturn(Completable.complete());
 
+      when(notificationService.createDefaultPlatformMappings(anyString()))
+          .thenReturn(Single.just(Collections.emptyList()));
+
       when(clickhouseProjectService.createClickhouseUserAndPolicies(
               anyString(), anyString(), anyString()))
           .thenReturn(Completable.complete());
       when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(anyString()))
           .thenReturn(Single.just(new org.dreamhorizon.pulseserver.dto.response.EmptyResponse()));
-      when(notificationService.sendNotification(anyString(), any()))
+      when(notificationService.sendNotificationAsync(anyString(), any()))
           .thenReturn(Single.just(
               org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto
                   .builder()
@@ -164,6 +171,91 @@ class ProjectServiceTest {
       verify(projectDao).createProject(any(SqlConnection.class), any(Project.class));
       verify(openFgaService).assignProjectRole(eq("user-1"), anyString(), eq("admin"));
       verify(openFgaService).linkProjectToTenant(anyString(), eq("tenant-1"));
+      verify(notificationService).createDefaultPlatformMappings(anyString());
+    }
+
+    @Test
+    void shouldContinueProjectCreationWhenDefaultMappingsFail() {
+      ReqUserInfo userInfo =
+          ReqUserInfo.builder()
+              .userId("user-1")
+              .email("user@example.com")
+              .name("Test User")
+              .build();
+
+      Project createdProject =
+          Project.builder()
+              .id(1)
+              .projectId("my-project-abc12345")
+              .tenantId("tenant-1")
+              .name("my-project")
+              .description("desc")
+              .isActive(true)
+              .createdBy("user@example.com")
+              .build();
+
+      var credentialsResult =
+          new ClickhouseProjectService.CredentialsResult(
+              "my-project-abc12345", "project_my_project_abc12345", "secret");
+
+      ApiKeyInfo apiKeyInfo =
+          ApiKeyInfo.builder()
+              .projectId("my-project-abc12345")
+              .rawApiKey("raw-api-key-123")
+              .displayName("Default")
+              .build();
+
+      ProjectUsageLimit usageLimit = ProjectUsageLimit.builder().build();
+      PulseConfig pulseConfig = mock(PulseConfig.class);
+
+      when(mysqlClient.getWriterPool()).thenReturn(writerPool);
+      when(writerPool.rxGetConnection()).thenReturn(Single.just(sqlConnection));
+      when(sqlConnection.rxBegin()).thenReturn(Single.just(transaction));
+      when(transaction.rxCommit()).thenReturn(Completable.complete());
+
+      when(projectDao.createProject(any(SqlConnection.class), any(Project.class)))
+          .thenReturn(Single.just(createdProject));
+      when(clickhouseProjectService.saveCredentials(any(SqlConnection.class), anyString()))
+          .thenReturn(Single.just(credentialsResult));
+      when(projectApiKeyService.createDefaultApiKey(
+              any(SqlConnection.class), anyString(), eq("user@example.com")))
+          .thenReturn(Single.just(apiKeyInfo));
+      when(usageLimitService.createInitialLimits(
+              any(SqlConnection.class), anyString(), eq("system")))
+          .thenReturn(Single.just(usageLimit));
+      when(configService.createInitialConfig(
+              any(SqlConnection.class), anyString(), eq("user@example.com")))
+          .thenReturn(Single.just(pulseConfig));
+
+      when(openFgaService.assignProjectRole(eq("user-1"), anyString(), eq("admin")))
+          .thenReturn(Completable.complete());
+      when(openFgaService.linkProjectToTenant(anyString(), eq("tenant-1")))
+          .thenReturn(Completable.complete());
+
+      when(notificationService.createDefaultPlatformMappings(anyString()))
+          .thenReturn(Single.error(new RuntimeException("Mapping creation failed")));
+
+      when(clickhouseProjectService.createClickhouseUserAndPolicies(
+              anyString(), anyString(), anyString()))
+          .thenReturn(Completable.complete());
+      when(uploadConfigDetailService.pushInteractionDetailsToObjectStore(anyString()))
+          .thenReturn(Single.just(new org.dreamhorizon.pulseserver.dto.response.EmptyResponse()));
+      when(notificationService.sendNotificationAsync(anyString(), any()))
+          .thenReturn(Single.just(
+              org.dreamhorizon.pulseserver.resources.notification.models.NotificationBatchResponseDto
+                  .builder()
+                  .idempotencyKey("batch-1")
+                  .build()));
+
+      ProjectCreationResult result =
+          projectService
+              .createProject("tenant-1", "my-project", "desc", userInfo)
+              .blockingGet();
+
+      assertThat(result).isNotNull();
+      assertThat(result.getProject()).isNotNull();
+      assertThat(result.getProject().getName()).isEqualTo("my-project");
+      verify(notificationService).createDefaultPlatformMappings(anyString());
     }
 
     @Test
@@ -441,6 +533,102 @@ class ProjectServiceTest {
       Integer count = projectService.getActiveProjectCount("tenant-1").blockingGet();
 
       assertThat(count).isEqualTo(0);
+    }
+  }
+
+  @Nested
+  class HasEventFlowStarted {
+
+    private io.r2dbc.pool.ConnectionPool pool;
+    private io.r2dbc.spi.Connection conn;
+    private io.r2dbc.spi.Statement stmt;
+    private io.r2dbc.spi.Result result;
+    private io.r2dbc.spi.Row row;
+    private io.r2dbc.spi.RowMetadata metadata;
+
+    @BeforeEach
+    void setUpMocks() {
+      pool = mock(io.r2dbc.pool.ConnectionPool.class);
+      conn = mock(io.r2dbc.spi.Connection.class);
+      stmt = mock(io.r2dbc.spi.Statement.class);
+      result = mock(io.r2dbc.spi.Result.class);
+      row = mock(io.r2dbc.spi.Row.class);
+      metadata = mock(io.r2dbc.spi.RowMetadata.class);
+    }
+
+    private void mockClickhouseResult(Object hasEventsValue) {
+      when(clickhouseReadClient.getPool()).thenReturn(pool);
+      when(pool.create()).thenReturn(Mono.just(conn));
+      when(conn.createStatement(anyString())).thenReturn(stmt);
+      when(stmt.bind(eq("projectId"), anyString())).thenReturn(stmt);
+      
+      doReturn(reactor.core.publisher.Flux.just(result)).when(stmt).execute();
+
+      when(result.map(org.mockito.ArgumentMatchers.<java.util.function.BiFunction<io.r2dbc.spi.Row, io.r2dbc.spi.RowMetadata, Boolean>>any()))
+          .thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            java.util.function.BiFunction<io.r2dbc.spi.Row, io.r2dbc.spi.RowMetadata, Boolean> mapper = 
+                invocation.getArgument(0);
+            return reactor.core.publisher.Flux.just(mapper.apply(row, metadata));
+          });
+
+      when(row.get(eq("has_events"))).thenReturn(hasEventsValue);
+      when(conn.close()).thenReturn(Mono.empty());
+    }
+
+    private void mockEmptyQueryResult() {
+      when(clickhouseReadClient.getPool()).thenReturn(pool);
+      when(pool.create()).thenReturn(Mono.just(conn));
+      when(conn.createStatement(anyString())).thenReturn(stmt);
+      when(stmt.bind(eq("projectId"), anyString())).thenReturn(stmt);
+      
+      doReturn(reactor.core.publisher.Flux.just(result)).when(stmt).execute();
+
+      when(result.map(org.mockito.ArgumentMatchers.<java.util.function.BiFunction<io.r2dbc.spi.Row, io.r2dbc.spi.RowMetadata, Boolean>>any()))
+          .thenReturn(reactor.core.publisher.Flux.empty());
+
+      when(conn.close()).thenReturn(Mono.empty());
+    }
+
+    @Test
+    void shouldReturnTrueWhenEventsExistInClickhouse() {
+      mockClickhouseResult(Integer.valueOf(1));
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isTrue();
+      verify(conn).createStatement(anyString());
+      verify(stmt).bind(eq("projectId"), eq("proj-1"));
+      verify(stmt).execute();
+    }
+
+    @Test
+    void shouldReturnFalseWhenNoEventsInClickhouse() {
+      mockClickhouseResult(Integer.valueOf(0));
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isFalse();
+      verify(stmt).execute();
+    }
+
+    @Test
+    void shouldReturnFalseWhenQueryReturnsEmpty() {
+      mockEmptyQueryResult();
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isFalse();
+    }
+
+    @Test
+    void shouldReturnFalseWhenClickhouseIsDown() {
+      when(clickhouseReadClient.getPool()).thenReturn(pool);
+      when(pool.create()).thenReturn(Mono.error(new RuntimeException("ClickHouse unavailable")));
+
+      Boolean result = projectService.hasEventFlowStarted("proj-1").blockingGet();
+
+      assertThat(result).isFalse();
     }
   }
 }

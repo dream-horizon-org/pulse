@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Box, Select, Text, Button, ActionIcon, SegmentedControl, Tooltip } from "@mantine/core";
+import { Box, Select, Text, Button, ActionIcon, SegmentedControl, Tooltip, TextInput, Textarea } from "@mantine/core";
 import { IconPlus, IconTrash, IconGripVertical } from "@tabler/icons-react";
 import { CONVERSION_WINDOW_OPTIONS } from "../mockData";
 import classes from "../FunnelAnalysis.module.css";
@@ -10,6 +10,10 @@ export interface BuilderStep {
 }
 
 interface FunnelBuilderProps {
+  name: string;
+  onNameChange: (name: string) => void;
+  description: string;
+  onDescriptionChange: (desc: string) => void;
   steps: BuilderStep[];
   onStepsChange: (steps: BuilderStep[]) => void;
   funnelMode: "ordered" | "unordered";
@@ -17,10 +21,15 @@ interface FunnelBuilderProps {
   conversionWindow: string;
   onConversionWindowChange: (value: string) => void;
   onAnalyze: () => void;
+  isCreating: boolean;
   availableEvents: string[];
 }
 
 export function FunnelBuilder({
+  name,
+  onNameChange,
+  description,
+  onDescriptionChange,
   steps,
   onStepsChange,
   funnelMode,
@@ -28,6 +37,7 @@ export function FunnelBuilder({
   conversionWindow,
   onConversionWindowChange,
   onAnalyze,
+  isCreating,
   availableEvents,
 }: FunnelBuilderProps) {
   const eventOptions = useMemo(
@@ -54,9 +64,32 @@ export function FunnelBuilder({
   };
 
   const hasValidSteps = steps.length >= 2 && steps.every((s) => s.eventName);
+  const isValid = hasValidSteps && name.trim().length > 0;
 
   return (
     <Box className={classes.sidebarScroll}>
+      <Text size="sm" fw={700} c="dark.7" mb="sm">
+        Funnel Details
+      </Text>
+      <TextInput
+        label="Name"
+        placeholder="Enter funnel name"
+        value={name}
+        onChange={(e) => onNameChange(e.currentTarget.value)}
+        size="xs"
+        mb="sm"
+        required
+      />
+      <Textarea
+        label="Description"
+        placeholder="Enter funnel description"
+        value={description}
+        onChange={(e) => onDescriptionChange(e.currentTarget.value)}
+        size="xs"
+        mb="md"
+        minRows={2}
+      />
+
       <Text size="sm" fw={700} c="dark.7" mb="sm">
         Funnel Builder
       </Text>
@@ -142,9 +175,10 @@ export function FunnelBuilder({
           color="teal"
           size="sm"
           onClick={onAnalyze}
-          disabled={!hasValidSteps}
+          disabled={!isValid || isCreating}
+          loading={isCreating}
         >
-          Analyze Funnel
+          Create Funnel
         </Button>
       </Box>
     </Box>

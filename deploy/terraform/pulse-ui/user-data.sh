@@ -18,7 +18,7 @@ nvm install 20
 nvm use 20
 npm install -g pm2
 which pm2
-npm install -g yarn
+corepack enable
 which yarn
 
 # 3. Download code artifact

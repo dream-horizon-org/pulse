@@ -2,11 +2,14 @@ package org.dreamhorizon.pulseserver.module;
 
 import com.google.inject.AbstractModule;
 import io.vertx.core.Vertx;
+import com.google.inject.Singleton;
 import org.dreamhorizon.pulseserver.config.ApplicationConfig;
 import org.dreamhorizon.pulseserver.config.AthenaConfig;
 import org.dreamhorizon.pulseserver.config.ClickhouseConfig;
 import org.dreamhorizon.pulseserver.config.EmrServerlessConfig;
 import org.dreamhorizon.pulseserver.config.NotificationConfig;
+import org.dreamhorizon.pulseserver.service.ai.AiProxyService;
+import org.dreamhorizon.pulseserver.service.ai.impl.AiProxyServiceImpl;
 import org.dreamhorizon.pulseserver.vertx.SharedDataUtils;
 
 public class ConfigModule extends AbstractModule {
@@ -28,5 +31,6 @@ public class ConfigModule extends AbstractModule {
         .toProvider(() -> SharedDataUtils.get(vertx, EmrServerlessConfig.class));
     bind(NotificationConfig.class)
         .toProvider(() -> SharedDataUtils.get(vertx, NotificationConfig.class));
+    bind(AiProxyService.class).to(AiProxyServiceImpl.class).in(Singleton.class);
   }
 }

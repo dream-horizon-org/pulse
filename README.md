@@ -6,29 +6,47 @@ Open-source observability platform for mobile and web applications.
 
 ## 📚 Documentation
 
-**All documentation has been moved to the [`docs/`](docs/) folder.**
+Component-specific documentation is available in each service directory:
 
-### 🚀 Quick Start
-
-TBA
-
-### 📖 Full Documentation Index
-
-See TBA
+- **Backend Server:** [`backend/server/README.md`](backend/server/README.md)
+- **Alerts Cron:** [`backend/pulse-alerts-cron/README.md`](backend/pulse-alerts-cron/README.md)
+- **Frontend UI:** [`pulse-ui/README.md`](pulse-ui/README.md)
+- **Android SDK:** [`pulse-android-otel/README.md`](pulse-android-otel/README.md)
+- **React Native SDK:** [`pulse-react-native-otel/README.md`](pulse-react-native-otel/README.md)
+- **Deployment:** [`deploy/README.md`](deploy/README.md)
 
 ---
 
-## 🎯 Recent Updates
+## 🎯 Key Features
 
-### Multi-Tenancy & RBAC Implementation (Feb 2026)
 - ✅ Complete authentication system with Google OAuth
-- ✅ Tenant & project hierarchy
-- ✅ OpenFGA authorization
+- ✅ Multi-tenant architecture with project hierarchy
+- ✅ OpenFGA-based authorization (RBAC)
 - ✅ Per-project ClickHouse data isolation
+- ✅ Real-time observability dashboards
+- ✅ Mobile SDK instrumentation (Android & React Native)
 - ✅ 7 new REST API endpoints
 - ✅ Comprehensive documentation
 
 **Status:** 100% Complete - Ready for Deployment
+
+---
+
+## 🏗️ Project Structure
+
+```
+pulse/
+├── backend/
+│   ├── server/              # Java/Vert.x REST API
+│   ├── pulse-alerts-cron/   # Alert evaluation service
+│   └── ingestion/           # OTEL collector & ClickHouse schema
+├── pulse-ui/                # React dashboard
+├── pulse-android-otel/      # Android SDK
+├── pulse-react-native-otel/ # React Native SDK
+├── pulse_ai/                # AI agent (Google ADK)
+├── deploy/                  # Docker Compose & scripts
+└── README.md                # This file
+```
 
 ---
 
@@ -63,19 +81,12 @@ docker run -d --name openfga -p 8080:8080 openfga/openfga:latest run
 
 ---
 
-## 🔗 Links
-
-- **Documentation:** [`docs/`](docs/)
-
----
-
 ## 📞 Support
 
-For integration questions or issues, refer to:
-TBA
+For questions or issues, refer to the component-specific README files listed above.
 
 ---
 
-## ✅ Implementation Status
+## 📄 License
 
-**Multi-Tenancy & RBAC:** ✅ 100% Complete
+Apache 2.0 - See [LICENSE](LICENSE) for details.
